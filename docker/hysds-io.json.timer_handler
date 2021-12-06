@@ -1,0 +1,23 @@
+{
+  "label": "Check for Expired State Config Datasets",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "dataset_type",
+      "from": "submitter",
+      "type": "enum",
+      "enumerables": ["ldf-state-config", "datatake-state-config", "datatake-urgent_response_state-config", "track_frame-state-config"]
+    },
+    {
+      "name": "creation_time",
+      "from": "submitter",
+      "placeholder": "YYYY-MM-DDThh:mm:ss.ffffffZ"
+    },
+    {
+      "name": "notify_arn",
+      "from": "submitter",
+      "placeholder": "SNS ARN to notify operator"
+    }
+  ]
+}

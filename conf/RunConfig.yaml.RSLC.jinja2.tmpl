@@ -1,0 +1,123 @@
+runconfig:
+  name: NISAR_L1-L-RSLC_RUNCONFIG
+  groups:
+    PGENameGroup:
+      PGEName: {{ data.PGENameGroup.PGEName }}
+    InputFileGroup:
+      # REQUIRED List of NISAR raw data products in L0B format.
+      InputFilePath:
+        {%- for type in data.InputFilePath.keys() %}
+          {%- for input in data.InputFilePath[type] %}
+          - {{ input }}
+          {%- endfor %}
+        {%- endfor %}
+    DynamicAncillaryFileGroup:
+      {%- for type in data.DynamicAncillaryFileGroup.keys() %}
+       {%- if data.DynamicAncillaryFileGroup[type] is not none %}
+        {{ type }}: {{ data.DynamicAncillaryFileGroup[type] }}
+       {%- else %}
+        {{ type }}:
+       {%- endif %}
+      {%- endfor %}
+    ProductPathGroup:
+      {%- for type in data.ProductPathGroup.keys() %}
+        {{ type }}: {{ data.ProductPathGroup[type] }}
+      {%- endfor %}
+    PrimaryExecutable:
+      {%- for type in data.PrimaryExecutable.keys() %}
+        {{ type }}: {{ data.PrimaryExecutable[type] }}
+      {%- endfor %}
+    Geometry:
+      {%- for type in data.Geometry.keys() %}
+       {%- if type == 'TrackFramePolygon' %}
+        {{ type }}: '{{ data.Geometry[type] }}'
+       {%- else %}
+        {{ type }}: {{ data.Geometry[type] }}
+       {%- endif %}
+      {%- endfor %}
+    DebugLevelGroup:
+      DebugSwitch: {{ data.DebugLevelGroup.DebugSwitch }}
+    worker:
+      gpu_enabled: {{ data.worker.gpu_enabled }}
+    processing:
+      output_grid:
+        {%- for type in data.processing.output_grid.keys() %}
+          {%- if data.processing.output_grid[type] is not none %}
+            {{ type }}: {{ data.processing.output_grid[type] }}
+          {%- else %}
+            {{ type }}:
+          {%- endif %}
+        {%- endfor %}
+      range_window:
+        {%- for type in data.processing.range_window.keys() %}
+          {{ type }}: {{ data.processing.range_window[type] }}
+        {%- endfor %}
+      azimuth_window:
+        {%- for type in data.processing.azimuth_window.keys() %}
+             {{ type }}: {{ data.processing.azimuth_window[type] }}
+        {%- endfor %}
+      range_common_band_filter:
+        {%- for type in data.processing.range_common_band_filter.keys() %}
+          {{ type }}: {{ data.processing.range_common_band_filter[type] }}
+        {%- endfor %}
+      doppler:
+        azimuth_boresight_deg: {{ data.processing.doppler.azimuth_boresight_deg }}
+        interp_method: {{ data.processing.doppler.interp_method }}
+        spacing:
+          {%- for type in data.processing.doppler.spacing.keys() %}
+            {{ type }}: {{ data.processing.doppler.spacing[type] }}
+          {%- endfor %}
+        rdr2geo:
+          {%- for type in data.processing.doppler.rdr2geo.keys() %}
+            {%- if type == 'threshold' %}
+              {{ type }}: {{ "%.8f" | format(data.processing.doppler.rdr2geo[type]|float) }}
+            {%- else %}
+              {{ type }}: {{ data.processing.doppler.rdr2geo[type] }}
+            {%- endif %}
+          {%- endfor %}
+      rangecomp:
+        mode: {{ data.processing.rangecomp.mode }}
+        block_size:
+          range: {{ data.processing.rangecomp.block_size.range }}
+          azimuth: {{ data.processing.rangecomp.block_size.azimuth }}
+      azcomp:
+        block_size:
+          range: {{ data.processing.azcomp.block_size.range }}
+          azimuth: {{ data.processing.azcomp.block_size.azimuth }}
+        azimuth_resolution: {{ data.processing.azcomp.azimuth_resolution }}
+        kernel:
+          {%- for type in data.processing.azcomp.kernel.keys() %}
+            {{ type }}: {{ data.processing.azcomp.kernel[type] }}
+          {%- endfor %}
+        rdr2geo:
+          {%- for type in data.processing.azcomp.rdr2geo.keys() %}
+            {%- if type == 'threshold' %}
+              {{ type }}: {{ "%.8f" | format(data.processing.azcomp.rdr2geo[type]|float) }}
+            {%- else %}
+              {{ type }}: {{ data.processing.azcomp.rdr2geo[type] }}
+            {%- endif %}
+          {%- endfor %}
+        geo2rdr:
+          {%- for type in data.processing.azcomp.geo2rdr.keys() %}
+            {%- if type == 'threshold' %}
+              {{ type }}: {{ "%.8f" | format(data.processing.azcomp.geo2rdr[type]|float) }}
+            {%- else %}
+              {{ type }}: {{ data.processing.azcomp.geo2rdr[type] }}
+            {%- endif %}
+          {%- endfor %}
+      dry_troposphere_model: {{ data.processing.dry_troposphere_model }}
+      dem:
+        reference_height: {{ data.processing.dem.reference_height }}
+        interp_method: {{ data.processing.dem.interp_method }}
+      nominal_antenna_size:
+        {%- for type in data.processing.nominal_antenna_size.keys() %}
+          {{ type }}: {{ data.processing.nominal_antenna_size[type] }}
+        {%- endfor %}
+      encoding_scale_factor: {{ data.processing.encoding_scale_factor }}
+      is_enabled:
+        {%- for type in data.processing.is_enabled.keys() %}
+          {{ type }}: {{ data.processing.is_enabled[type] }}
+        {%- endfor %}
+    QA:
+      validate: {{ data.QA.validate }}
+      quality: {{ data.QA.quality }}

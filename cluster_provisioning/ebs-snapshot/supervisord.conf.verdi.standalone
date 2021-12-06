@@ -1,0 +1,48 @@
+[unix_http_server]
+file=%(here)s/../run/supervisor.sock
+
+[inet_http_server]
+port = 0.0.0.0:9001
+username = ops
+password = ops
+
+[supervisord]
+pidfile=%(here)s/../run/supervisord.pid
+logfile=%(here)s/../log/supervisord.log
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+nodaemon=false
+minfds=1024
+minprocs=200
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://%(here)s/../run/supervisor.sock
+
+[program:httpd]
+command=sudo /usr/sbin/apachectl -DFOREGROUND
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:instance_stats]
+directory=/home/ops/verdi/ops/hysds/scripts
+command=/home/ops/verdi/ops/hysds/scripts/log_instance_stats.py --interval 600
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10

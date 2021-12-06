@@ -1,0 +1,18 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/purge_ISL/purge_isl.sh",
+  "disk_usage":"10GB",
+  "soft_time_limit": 1800,
+  "time_limit": 1860,
+  "imported_worker_files": {
+    "$HOME/.netrc": "/home/ops/.netrc",
+    "$HOME/.aws": "/home/ops/.aws",
+    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "factotum-job_worker-small" ],
+  "params": [
+    {   
+      "name": "isl_urls",
+      "destination": "context"
+    }
+  ]
+}

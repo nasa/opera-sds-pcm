@@ -1,0 +1,173 @@
+{
+  "grq": [],
+  "mozart": [
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"short_error.keyword\":\"Failed to load image.....on device\\n\"}},{\"term\":{\"resource\":\"job\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-image-load-fail",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-image-load-fail"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"short_error.keyword\":\"\\n-------------------.....'result'\\n\\n\"}},{\"term\":{\"resource\":\"job\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-notebook-pge-key_error_result",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-notebook-pge-key_error_result"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"short_error.keyword\":\"Kernel died before r.....rnel_info\\n\"}},{\"term\":{\"resource\":\"job\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-notebook-pge-kernel_died",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-notebook-pge-kernel_died"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"short_error.keyword\":\"Failed to download i.....navailable\"}},{\"term\":{\"resource\":\"job\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-dem-resource_temp_unavail",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-dem-resource_temp_unavail"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"short_error.keyword\":\"\\n-------------------.....riptable\\n\\n\"}},{\"term\":{\"resource\":\"job\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-notebook-pge-unsubscriptable",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-notebook-pge-unsubscriptable"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"resource\":\"job\"}},{\"query_string\":{\"query\":\"wrapper_GDALWarpDestName\",\"default_operator\":\"OR\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-dem-gdal_warp",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-dem-gdal_warp"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\n  \"bool\": {\n    \"must\": [\n      {\n        \"bool\": {\n          \"must\": [\n            {\n              \"term\": {\n                \"status\": \"job-failed\"\n              }\n            },\n            {\n              \"term\": {\n                \"resource\": \"job\"\n              }\n            },\n            {\n              \"query_string\": {\n                \"query\": \"credentials\",\n                \"default_operator\": \"OR\"\n              }\n            }\n          ]\n        }\n      }\n    ]\n  }\n}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-creds",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-creds"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    },
+    {
+      "disk_usage": "3GB",
+      "enable_dedup": false,
+      "enabled": true,
+      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
+      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
+      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"resource\":\"job\"}},{\"query_string\":{\"query\":\"\\\"Please reduce your request rate\\\"\",\"default_operator\":\"OR\"}}]}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "retry-s3_throttled",
+      "soft_time_limit": 86400,
+      "tags": [
+        "retry-s3_throttled"
+      ],
+      "time_limit": 86700,
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
+    }
+  ]
+}

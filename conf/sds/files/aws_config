@@ -1,0 +1,2 @@
+[default]
+region = {{ AWS_REGION }}

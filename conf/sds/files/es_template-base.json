@@ -1,0 +1,7 @@
+{
+  "order" : 0,
+  "index_patterns": ["*"],
+  "settings": {
+    "number_of_shards": 8
+  }
+}

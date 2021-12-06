@@ -1,0 +1,11 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/hello_world/run_hello_world-gpu.sh",
+  "recommended-queues": [ "opera-job_worker-gpu" ],
+  "params": [],
+  "disk_usage": "100KB",
+  "soft_time_limit": 900,
+  "time_limit": 960,
+  "runtime_options": {
+    "gpus": "all"
+  }
+}

@@ -1,0 +1,104 @@
+[unix_http_server]
+file=%(here)s/../run/supervisor.sock
+
+[inet_http_server]
+port = 0.0.0.0:9001
+username = ops
+password = ops
+
+[supervisord]
+pidfile=%(here)s/../run/supervisord.pid
+logfile=%(here)s/../log/supervisord.log
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+nodaemon=false
+minfds=1024
+minprocs=200
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://%(here)s/../run/supervisor.sock
+
+[program:instance_stats]
+directory={{ OPS_HOME }}/metrics/ops/hysds/scripts
+command={{ OPS_HOME }}/metrics/ops/hysds/scripts/log_instance_stats.py --interval 600
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:kibana]
+directory={{ OPS_HOME }}/kibana
+command={{ OPS_HOME }}/kibana/bin/kibana
+process_name=%(program_name)s
+priority=2
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:logstash_indexer]
+directory={{ OPS_HOME }}/logstash/bin
+command={{ OPS_HOME }}/logstash/bin/logstash -f {{ OPS_HOME }}/metrics/etc/indexer.conf
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:sdswatch_client]
+directory={{ OPS_HOME }}/logstash/bin
+environment=HOST=metrics
+command={{ OPS_HOME }}/logstash/bin/logstash -f {{ OPS_HOME }}/metrics/etc/sdswatch_client.conf --path.data {{ OPS_HOME }}/logstash/data.sdswatch
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_supervisord_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/metrics/bin/watch_supervisord_services.py --host metrics
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_systemd_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py --host metrics -s elasticsearch redis
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10

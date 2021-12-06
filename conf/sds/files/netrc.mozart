@@ -1,0 +1,3 @@
+machine {{ MOZART_RABBIT_PVT_IP }} login {{ MOZART_RABBIT_USER }} password {{ MOZART_RABBIT_PASSWORD }}
+macdef init
+ 

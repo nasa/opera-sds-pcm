@@ -1,0 +1,65 @@
+<radarPointing>
+    <productInformation>
+        <productName>NISAR_ANC_L_PR_NRP_20190901145015_20180602125944_20180602174942</productName>
+        <mission>NISAR</mission>
+        <validityStartDateTime>2018-06-02T12:59:44.623</validityStartDateTime>
+        <validityEndDateTime>2018-06-02T17:49:42.654</validityEndDateTime>
+        <productClass>TEST</productClass>
+        <productType>FOE</productType>
+        <productVersion>V1</productVersion>
+        <creator>JPL</creator>
+        <creationDateTime>2019-09-01T14:50:15.562</creationDateTime>
+    </productInformation>
+    <LSAR>
+       <radarPointingStateVectorList count=”3”>
+       <radarPointingStateVector index=”1”>
+            <utc>2018-06-02T12:59:44.623</utc>
+            <yaw>1.2</yaw>
+            <pitch>5.31</pitch>
+            <roll>7.12</roll>
+            <q0>14.32</q0>
+            <q1>21.34</q1>
+            <q2>2.33</q2>
+            <q3>4.11</q3>
+            <quality>NOMINAL</quality>
+            <covariance>
+                <row name=”yaw”>4.12 12.34 15.12</row>
+                <row name=”pitch”>3.32 5.42 7.23</row>
+                <row name=”roll”>1.32 5.23 7.98</row>
+            </covariance>
+        </radarPointingStateVector>
+        <radarPointingStateVector index=”2”>
+            <utc>2018-06-02T13:59:44.623</utc>
+            <yaw>4.45</yaw>
+            <pitch>9.44</pitch>
+            <roll>2.65</roll>
+            <q0>6.33</q0>
+            <q1>9.44</q1>
+            <q2>4.55</q2>
+            <q3>7.34</q3>
+            <quality>NOMINAL</quality>
+            <covariance>
+                <row name=”yaw”>6.45 4.33 5.34</row>
+                <row name=”pitch”>15.21 3.33 2.65</row>
+                <row name=”roll”>9.44 3.45 8.24</row>
+            </covariance>
+        </radarPointingStateVector>
+        <radarPointingStateVector index=”3”>
+            <utc>2018-06-02T14:59:44.623</utc>
+            <yaw>4.45</yaw>
+            <pitch>9.44</pitch>
+            <roll>2.65</roll>
+            <q0>6.33</q0>
+            <q1>9.44</q1>
+            <q2>4.55</q2>
+            <q3>7.34</q3>
+            <quality>NOMINAL</quality>
+            <covariance>
+                <row name=”yaw”>3.45 4.33 5.34</row>
+                <row name=”pitch”>15.21 2.33 2.65</row>
+                <row name=”roll”>7.44 6.45 8.24</row>
+            </covariance>
+        </radarPointingStateVector>
+      </radarPointingStateVectorList>
+    </LSAR>
+</radarPointing>

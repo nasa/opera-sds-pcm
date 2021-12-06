@@ -1,0 +1,22 @@
+runconfig:
+  name: NISAR_L0A_RUNCONFIG
+  groups:
+    PGENameGroup:
+      PGEName: {{ data.PGEName }}
+      PGEType: {{ data.PGEType }}
+    InputFileGroup:
+      InputFilePath:
+      {%- for type in data.InputFilePath.keys() %}
+        {%- for input in data.InputFilePath[type] %}
+        - {{ input }}
+        {%- endfor %}
+      {%- endfor %}
+    ProductPathGroup:
+      ProductPath: {{ data.ProductPath }}
+      ProductCounter: {{ data.ProductCounter }}
+    PrimaryExecutable:
+      CompositeReleaseID: {{ data.CompositeReleaseID }}
+      FileSizeLimit: {{ data.FileSizeLimit }}
+      NumberOfThreads: {{ data.NumberOfThreads }}
+    DebugLevelGroup:
+      DebugSwitch: {{ data.DebugSwitch }}

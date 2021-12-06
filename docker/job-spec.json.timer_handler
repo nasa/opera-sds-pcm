@@ -1,0 +1,22 @@
+{
+  "command":"/home/ops/verdi/ops/opera-pcm/timer/timer_handler.sh",
+  "disk_usage":"1GB",
+  "soft_time_limit": 600,
+  "time_limit": 660,
+  "recommended-queues": [ "opera-job_worker-timer" ],
+  "post": [ "hysds.utils.triage" ],
+  "params" : [
+    {
+      "name": "dataset_type",
+      "destination": "context"
+    },
+    {
+      "name": "creation_time",
+      "destination": "context"
+    },
+    {
+      "name": "notify_arn",
+      "destination": "context"
+    }
+  ]
+}

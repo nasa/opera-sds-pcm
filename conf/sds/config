@@ -1,0 +1,161 @@
+# HySDS config
+TYPE: hysds
+
+# mozart
+MOZART_PVT_IP:
+MOZART_PUB_IP:
+MOZART_FQDN:
+
+# mozart rabbitmq
+MOZART_RABBIT_PVT_IP:
+MOZART_RABBIT_PUB_IP:
+MOZART_RABBIT_FQDN:
+MOZART_RABBIT_USER:
+MOZART_RABBIT_PASSWORD:
+
+# mozart redis
+MOZART_REDIS_PVT_IP:
+MOZART_REDIS_PUB_IP:
+MOZART_REDIS_FQDN:
+MOZART_REDIS_PASSWORD:
+
+# mozart ES
+MOZART_ES_PVT_IP:
+MOZART_ES_PUB_IP:
+MOZART_ES_FQDN:
+
+OPS_USER: hysdsops
+OPS_HOME: /export/home/hysdsops
+OPS_PASSWORD_HASH:
+LDAP_GROUPS: opera-pcm-dev
+KEY_FILENAME: /export/home/hysdsops/.ssh/pcmdev.pem
+JENKINS_USER: jenkins
+JENKINS_DIR: /var/lib/jenkins
+
+# metrics
+METRICS_PVT_IP:
+METRICS_PUB_IP:
+METRICS_FQDN:
+
+# metrics redis
+METRICS_REDIS_PVT_IP:
+METRICS_REDIS_PUB_IP:
+METRICS_REDIS_FQDN:
+METRICS_REDIS_PASSWORD: 
+
+# metrics ES
+METRICS_ES_PVT_IP:
+METRICS_ES_PUB_IP:
+METRICS_ES_FQDN:
+
+# grq
+GRQ_PVT_IP:
+GRQ_PUB_IP:
+GRQ_FQDN:
+GRQ_PORT: 8878
+
+# grq ES
+GRQ_ES_PVT_IP:
+GRQ_ES_PUB_IP:
+GRQ_ES_FQDN:
+
+# factotum
+FACTOTUM_PVT_IP:
+FACTOTUM_PUB_IP:
+FACTOTUM_FQDN:
+
+# continuous integration server
+CI_PVT_IP:
+CI_PUB_IP:
+CI_FQDN:
+JENKINS_API_USER:
+JENKINS_API_KEY:
+
+# verdi build
+VERDI_PVT_IP:
+VERDI_PUB_IP:
+VERDI_FQDN:
+
+# other non-autoscale verdi hosts (optional)
+OTHER_VERDI_HOSTS:
+  - VERDI_PVT_IP:
+    VERDI_PUB_IP:
+    VERDI_FQDN:
+
+# WebDAV product server
+DAV_SERVER: 
+DAV_USER: 
+DAV_PASSWORD: 
+
+# AWS settings for product bucket
+DATASET_AWS_ACCESS_KEY:
+DATASET_AWS_SECRET_KEY:
+DATASET_AWS_REGION: us-west-2
+DATASET_S3_ENDPOINT: s3-us-west-2.amazonaws.com
+DATASET_S3_WEBSITE_ENDPOINT: s3-website-us-west-2.amazonaws.com
+DATASET_BUCKET:
+TRIAGE_BUCKET:
+LTS_BUCKET:
+OSL_BUCKET:
+
+# AWS settings for autoscale workers
+AWS_ACCESS_KEY:
+AWS_SECRET_KEY:
+AWS_REGION: us-west-2
+S3_ENDPOINT: s3-us-west-2.amazonaws.com
+CODE_BUCKET:
+VERDI_PRIMER_IMAGE:
+VERDI_TAG: latest
+VERDI_UID: 1001
+VERDI_GID: 1001
+QUEUES: opera-job_worker-small opera-job_worker-large
+INSTANCE_TYPES: c3.xlarge c3.xlarge
+INSTANCE_BIDS: 0.21 0.21
+VENUE:
+
+ASG:
+  AMI:
+  KEYPAIR:
+  USE_ROLE:
+  ROLE:
+  SECURITY_GROUPS:
+    -
+    -
+  VPC:
+
+# AWS settings for staging area
+STAGING_AREA:
+  LAMBDA_SECURITY_GROUPS:
+    -
+  LAMBDA_VPC:
+  LAMBDA_ROLE:
+  JOB_TYPE:
+  JOB_RELEASE:
+  JOB_QUEUE:
+
+# git oauth token
+GIT_OAUTH_TOKEN:
+
+# Container Registry
+CONTAINER_REGISTRY:
+
+# S3 bucket name that will contain the container registry contents
+CONTAINER_REGISTRY_BUCKET:
+
+# settings for harikiri
+INACTIVITY_THRESHOLD = 600
+
+# DO NOT EDIT ANYTHING BELOW THIS
+
+# user_rules_dataset
+PROVES_URL: https://prov-es.jpl.nasa.gov/beta
+PROVES_IMPORT_URL: https://prov-es.jpl.nasa.gov/beta/api/v0.1/prov_es/import/json
+DATASETS_CFG: /export/home/hysdsops/verdi/etc/datasets.json
+
+# system jobs queue
+SYSTEM_JOBS_QUEUE: system-jobs-queue
+
+MOZART_ES_CLUSTER: resource_cluster
+METRICS_ES_CLUSTER: metrics_cluster
+DATASET_QUERY_INDEX: grq
+USER_RULES_DATASET_INDEX: user_rules

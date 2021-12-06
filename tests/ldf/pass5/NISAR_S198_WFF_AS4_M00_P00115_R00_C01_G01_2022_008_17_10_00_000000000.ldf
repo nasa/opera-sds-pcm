@@ -1,0 +1,5 @@
+{"mission":"nisar","scid":198,"station":"wff","antenna":"as4","pass":115,"mode":0,"receiver":0,"channel":1,"group":1,"numFiles":2,"files":{
+    "NISAR_S198_WFF_AS4_M00_P00115_R00_C01_G01_2022_008_17_11_56_000000000.vc35":{"name":"NISAR_S198_WFF_AS4_M00_P00115_R00_C01_G01_2022_008_17_11_56_000000000.vc35","md5":"TOUdJfmJTuLylPg7qKf0vw==","size":207400000,"status":"success"},
+    "NISAR_S198_WFF_AS4_M00_P00115_R00_C01_G01_2022_008_17_13_20_000000000.vc35":{"name":"NISAR_S198_WFF_AS4_M00_P00115_R00_C01_G01_2022_008_17_13_20_000000000.vc35","md5":"TOUdJfmJTuLylPg7qKf0vw==","size":207400000,"status":"success"}
+    }
+}

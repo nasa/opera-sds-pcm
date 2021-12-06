@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<NISAR_TABLE_TYPE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" type="0" version="1" xsi:noNamespaceSchemaLocation="radar-observation-sequence_schema_v1.xsd">
+  <NISAR_TABLE_METADATA>
+    <TABLET_VERSION>v2.3.3</TABLET_VERSION>
+  </NISAR_TABLE_METADATA>
+  <NISAR_TABLE_KIND kind="44">
+    <NISAR_TABLE_VARIANT variant="0" set="255">
+      <TABLE_RECORD index="0" description="">
+        <START_TIME>0</START_TIME>
+        <OPCODE>4609</OPCODE>
+        <COMMAND_LENGTH>96</COMMAND_LENGTH>
+        <CYCLE_TIME_ZERO>1275695231267500</CYCLE_TIME_ZERO>
+      </TABLE_RECORD>
+      <TABLE_RECORD index="1" description="">
+        <START_TIME>0</START_TIME>
+        <OPCODE>4608</OPCODE>
+        <COMMAND_LENGTH>96</COMMAND_LENGTH>
+        <SEQUENCE_ID>140</SEQUENCE_ID>
+      </TABLE_RECORD>
+    </NISAR_TABLE_VARIANT>
+  </NISAR_TABLE_KIND>
+</NISAR_TABLE_TYPE>

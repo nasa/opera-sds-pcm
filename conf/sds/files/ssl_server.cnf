@@ -1,0 +1,21 @@
+[ req ]
+prompt                  = no
+distinguished_name      = server_distinguished_name
+req_extensions          = v3_req
+
+[ server_distinguished_name ]
+commonName              = {{ commonName }}
+localityName            = Pasadena
+stateOrProvinceName     = California
+countryName             = US
+emailAddress            = sec.sslcert-provisioning@jpl.nasa.gov
+organizationName        = NASA Jet Propulsion Laboratory
+organizationalUnitName  = OCIO
+
+[ v3_req ]
+basicConstraints        = CA:FALSE
+keyUsage                = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName          = @alt_names
+
+[ alt_names ]
+DNS.0                   = {{ commonName }}

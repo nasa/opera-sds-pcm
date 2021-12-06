@@ -1,0 +1,27 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/Track_Frame_Accountability/eval_track_frame.sh",
+  "disk_usage":"20GB",
+  "soft_time_limit": 1080,
+  "time_limit": 1200,
+  "imported_worker_files": {
+    "$HOME/.netrc": "/home/ops/.netrc",
+    "$HOME/.aws": "/home/ops/.aws",
+    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "opera-job_worker-track-frame-acct" ],
+  "post": [ "hysds.utils.triage" ],
+  "params": [
+    {
+      "name": "product_paths",
+      "destination": "context"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
+    },
+    {
+      "name": "dataset_type",
+      "destination": "context"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "/science/LSAR/identification/frameNumber":{"ignore":true},
+  "/science/LSAR/identification/trackNumber":{"ignore":true},
+  "/science/LSAR/identification/isUrgentObservation":{"ignore":true},
+  "/science/LSAR/RRSD/metadata/processingInformation/inputs/l0aGranules":{"ignore":true},
+  "/science/LSAR/identification/plannedDatatakeId":{"ignore":true},
+  "/science/LSAR/identification/absoluteOrbitNumber":{"ignore":true},
+  "/science/LSAR/identification/plannedObservationId":{"ignore":true},
+  "/science/LSAR/GCOV/metadata/processingInformation/inputs/l1SlcGranules":{"ignore":true},
+  "/science/LSAR/RIFG/metadata/processingInformation/inputs/l1SlcGranules":{"ignore":true},
+  "/science/LSAR/GSLC/metadata/processingInformation/inputs/l1SlcGranules":{"ignore":true},
+  "/science/LSAR/GUNW/metadata/processingInformation/inputs/l1SlcGranules":{"ignore":true},
+  "/science/LSAR/RUNW/metadata/processingInformation/inputs/l1SlcGranules":{"ignore":true},
+  "/science/LSAR/RSLC/swaths/frequencyA/HH":{"ignore":true}
+}

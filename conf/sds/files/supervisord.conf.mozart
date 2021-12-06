@@ -1,0 +1,248 @@
+[unix_http_server]
+file=%(here)s/../run/supervisor.sock
+
+[inet_http_server]
+port = 0.0.0.0:9001
+username = ops
+password = ops
+
+[supervisord]
+pidfile=%(here)s/../run/supervisord.pid
+logfile=%(here)s/../log/supervisord.log
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+nodaemon=false
+minfds=1024
+minprocs=200
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://%(here)s/../run/supervisor.sock
+
+[program:instance_stats]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/log_instance_stats.py --interval 600
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:docker_registry]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/mozart/bin/run_docker_registry.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:sdswatch_client]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/mozart/bin/run_sdswatch_client.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_supervisord_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/mozart/bin/watch_supervisord_services.py --host mozart
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_systemd_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/mozart/bin/watch_systemd_services.py --host mozart -s elasticsearch redis rabbitmq-server httpd
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:process_events]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/process_events.py
+process_name=%(program_name)s
+priority=1
+numprocs=1
+autorestart=true
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:process_events_tasks]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q process_events_tasks -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:orchestrator_datasets]
+directory={{ OPS_HOME }}/mozart/ops/hysds
+environment=HYSDS_ORCHESTRATOR_CFG="{{ OPS_HOME }}/mozart/etc/orchestrator_datasets.json",
+            HYSDS_JOB_CREATORS_DIR="{{ OPS_HOME }}/mozart/etc/job_creators"
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q dataset_processed -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=32
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:orchestrator_jobs]
+directory={{ OPS_HOME }}/mozart/ops/hysds
+environment=HYSDS_ORCHESTRATOR_CFG="{{ OPS_HOME }}/mozart/etc/orchestrator_jobs.json",
+            HYSDS_JOB_CREATORS_DIR="{{ OPS_HOME }}/mozart/etc/job_creators"
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q jobs_processed -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=32
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+# TODO: uncomment the following service once this issue has been resolved: https://github.com/mher/flower/issues/1029
+#[program:flower]
+#directory={{ OPS_HOME }}/mozart/ops/hysds
+#command=celery flower --broker=amqp://{{ MOZART_RABBIT_USER }}:{{ MOZART_RABBIT_PASSWORD }}@{{ MOZART_RABBIT_PVT_IP }}:5672//
+#process_name=%(program_name)s
+#priority=1
+#numprocs=1
+#numprocs_start=0
+#redirect_stderr=true
+#stdout_logfile=%(here)s/../log/%(program_name)s.log
+#stdout_logfile_maxbytes=100MB
+#stdout_logfile_backups=10
+#startsecs=10
+
+[program:logstash_indexer]
+directory={{ OPS_HOME }}/logstash/bin
+command={{ OPS_HOME }}/logstash/bin/logstash -f {{ OPS_HOME }}/mozart/etc/indexer.conf
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:mozart_job_management]
+directory={{ OPS_HOME }}/mozart/ops/mozart
+environment=PYTHONHTTPSVERIFY=0                                                                                   
+command=gunicorn -w4 -b 0.0.0.0:8888 -k gevent --timeout=3600
+        --graceful-timeout=3600 --log-level=debug
+        --limit-request-line=0 mozart:app
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watchdog_job_timeouts]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/watchdog_job_timeouts.py -t 300 -i 60
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watchdog_task_timeouts]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/watchdog_task_timeouts.py
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watchdog_worker_timeouts]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/watchdog_worker_timeouts.py -t 120
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+# target tracking metrics
+{% for q in QUEUES %}
+{% set queue = q['QUEUE_NAME'] | trim -%}
+[program:sync_ec2_target_tracking_metric-{{ queue }}]
+directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/sync_ec2_target_tracking_metric.py --interval 60 -u {{ MOZART_RABBIT_USER }} -p {{ MOZART_RABBIT_PASSWORD }} {{ queue }} {{ VENUE }}-{{ queue }}
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+{% endfor %}

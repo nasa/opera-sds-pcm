@@ -1,0 +1,55 @@
+# This file defines the outputs that are expected to be produced by the
+# different PGEs within the PCM.
+# 
+# Outputs - This area defines the different file name patterns for the
+# expected outputs:
+# 
+# Primary - Refers to the primary output product, which is usually the *.nc
+# files. Any product found here will be converted to a HySDS style
+# dataset.
+#
+# Secondary - Refers to the other output product types like *.log, *.qa, etc.
+# Any product found here will be copied into the dataset directories produced
+# from the Primary section.
+# 
+# Optional - Refers to other outputs that may/may not be produced from the
+# PGE. If a product cannot be found with the regex patterns given here, PCM
+# will still continue with processing.
+# 
+# Missing_Metadata - Defines a list of metadata to fill in the .met.json.
+L0A_L_PGE:
+  Outputs:
+    Primary:
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+        verify: true
+        hash: md5
+    Secondary:
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
+    Optional: []
+  Missing_Metadata: {}
+
+L0A_Time_Extractor_PGE:
+  Outputs:
+    Primary:
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+        verify: true
+        hash: sha256
+    Secondary:
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
+        verify: false
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
+    Optional: []
+  Missing_Metadata: {}
+
+L0B_L_PGE:
+  Outputs:
+    Primary:
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_[P|N|U]R_RRSD_\d{3}_\d{3}_\w_\w{3}\w_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_\d{3}\.h5$'
+        verify: true
+        hash: sha512a
+    Secondary:
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_[P|N|U]R_RRSD_\d{3}_\d{3}_\w_\w{3}\w_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_\d{3}\.h5\.log$'
+      - regex: !!python/regexp '^NISAR_[L|S|J]0_[P|N|U]R_RRSD_\d{3}_\d{3}_\w_\w{3}\w_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_\d{3}\.h5\.met$'
+    Optional: []
+  Missing_Metadata: {}

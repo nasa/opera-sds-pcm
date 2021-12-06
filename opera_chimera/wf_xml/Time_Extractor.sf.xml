@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<sf:sciflo xmlns:sf="http://sciflo.jpl.nasa.gov/2006v1/sf"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        xmlns:py="http://sciflo.jpl.nasa.gov/2006v1/py">
+  <sf:flow id="PGE_Time_Extractor">
+    <sf:title>PGE_Time_Extractor</sf:title>
+    <sf:icon>http://sciflo.jpl.nasa.gov/smap_sciflo/web/thumbnails/merged_data.png</sf:icon>
+    <sf:description>Run PGE_Time_Extractor.</sf:description>
+    <!--Make sure to change input to _context.json in fully operational HySDS env-->
+    <sf:inputs>
+        <sf_context>_context.json</sf_context>
+    </sf:inputs>
+    <sf:outputs>
+      <job_id_PGE_Time_Extractor from="@#PGE_Time_Extractor"/>
+    </sf:outputs>
+    <sf:processes>
+      <sf:process id="input_pp_Time_Extractor">
+        <sf:inputs>
+          <sf_context/>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_Time_Extractor.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+        </sf:inputs>
+        <sf:outputs>
+          <PGE_Time_Extractor_job_params/>
+        </sf:outputs>
+        <sf:operator>
+          <sf:description>Pre processing step for PGE Time_Extractor</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/input_preprocessor.py?input_preprocessor.process</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+
+      <sf:process id="PGE_Time_Extractor">
+        <sf:inputs>
+          <sf_context/>
+          <PGE_Time_Extractor_job_params from="@#previous"/>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_Time_Extractor.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+        </sf:inputs>
+        <sf:outputs>
+          <job_id_PGE_Time_Extractor_Prime/>
+        </sf:outputs>
+        <sf:operator>
+          <sf:description>Run PGE_Time_Extractor on AWS worker</sf:description>
+          <sf:op>
+            <!-- Simulates PGE execution. -->
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/run_pge_docker.py?run_pge_docker.submit_pge_job</sf:binding>
+            <!--<sf:binding job_queue="jobs_processed" async="false">parallel:python:?run_pge_docker.submit_pge_job</sf:binding>-->
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+
+      <sf:process id="post_Time_Extractor">
+        <sf:inputs>
+          <sf_context/>
+          <job_id_PGE_Time_Extractor_Prime from="@#previous"/>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_Time_Extractor.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+        </sf:inputs>
+        <sf:outputs/>
+        <sf:operator>
+          <sf:description>Postprocessing step for PGE Time Extractor</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/post_processor.py?post_processor.post_process</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+
+    </sf:processes>
+  </sf:flow>
+</sf:sciflo>

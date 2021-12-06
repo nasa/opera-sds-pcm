@@ -1,0 +1,21 @@
+{
+  "label": "Track Frame Accountability Evaluation",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    { "name": "product_paths",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]"
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
+    },
+    {
+      "name":"dataset_type",
+      "type":"text",
+      "from":"dataset_jpath:_source.dataset"
+    }
+  ]
+}

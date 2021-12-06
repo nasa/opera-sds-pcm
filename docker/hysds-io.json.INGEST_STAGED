@@ -1,0 +1,31 @@
+{
+  "label": "INGEST_STAGED",
+  "submission_type": "individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {   
+      "name": "id",
+      "from": "submitter"
+    },
+    {   
+      "name": "data_url",
+      "from": "submitter"
+    },
+    {   
+      "name": "data_file",
+      "from": "submitter"
+    },
+    {   
+      "name": "prod_met",
+      "from": "submitter"
+    },
+    {
+      "name": "checksum",
+      "from": "submitter"
+    },
+    {
+      "name": "checksum_type",
+      "from": "submitter"
+    }
+  ]
+}

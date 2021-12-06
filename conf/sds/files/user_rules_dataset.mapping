@@ -1,0 +1,64 @@
+{
+  "mappings": {
+    "properties": {
+      "creation_time": {
+        "type": "date"
+      },
+      "enabled": {
+        "type": "boolean",
+        "null_value": true
+      },
+      "job_type": {
+        "type": "keyword"
+      },
+      "kwargs": {
+        "type": "keyword"
+      },
+      "modification_time": {
+        "type": "date"
+      },
+      "modified_time": {
+        "type": "date"
+      },
+      "passthru_query": {
+        "type": "boolean"
+      },
+      "priority": {
+        "type": "long"
+      },
+      "query_all": {
+        "type": "boolean"
+      },
+      "query_string": {
+        "type": "text"
+      },
+      "queue": {
+        "type": "text"
+      },
+      "rule_name": {
+        "type": "keyword"
+      },
+      "username": {
+        "type": "keyword"
+      },
+      "workflow": {
+        "type": "keyword"
+      },
+      "job_spec": {
+        "type": "keyword"
+      },
+      "tags": {
+        "type": "keyword"
+      },
+      "soft_time_limit": {
+        "type": "long"
+      },
+      "time_limit": {
+        "type": "long"
+      },
+      "disk_usage": {
+        "type": "keyword"
+      }
+    }
+  }
+}

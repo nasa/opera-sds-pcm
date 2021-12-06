@@ -1,0 +1,29 @@
+{
+  "priority": 8,
+  "query": {
+     "apihub": {
+       "label": "API Hub OpenData",
+       "products": ["S1_IW_SLC"],
+       "priority": 2,
+       "tags": ["sacramento_valley"],
+       "starttime": "now - 1 days" 
+     },
+     "scihub": {
+        "label": "SciHub DHUS",
+        "products": ["S1_IW_SLC"],
+        "priority": 2,
+        "tags": ["sacramento_valley"],
+        "starttime": "now - 36 days"
+      },
+     "asf": {
+        "label": "ASF",
+        "products": ["S1_IW_SLC"],
+        "priority": 6,
+        "tags": ["sacramento_valley"]
+      }
+   },
+  "event": {
+     "type": "time-series",
+     "time": "2017-06-05T00:00:00"
+   }
+}

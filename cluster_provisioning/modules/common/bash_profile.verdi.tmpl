@@ -1,0 +1,17 @@
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+fi
+
+# User specific environment and startup programs
+export LD_LIBRARY_PATH=$HOME/conda/lib:/usr/lib:/usr/lib64:/usr/local/lib:$LD_LIBRARY_PATH
+#PATH=$PATH:$HOME/.local/bin:$HOME/bin
+PATH=$HOME/conda/bin:$PATH:$HOME/.local/bin:$HOME/bin
+
+export PATH
+
+# source verdi
+export VERDI_DIR=$HOME/verdi
+source $VERDI_DIR/bin/activate

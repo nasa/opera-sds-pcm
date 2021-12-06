@@ -1,0 +1,12 @@
+{
+  "label": "Purge ISL",
+  "submission_type": "iteration",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    { "name": "isl_urls",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['metadata']['ISL_urls'])) if 'ISL_urls' in ds['metadata'] else ''"
+    }
+  ]
+}

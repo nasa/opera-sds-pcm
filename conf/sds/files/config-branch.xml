@@ -1,0 +1,168 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>14</daysToKeep>
+        <numToKeep>14</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.18.2">
+      <projectUrl>{{ PROJECT_URL }}</projectUrl>
+      <displayName></displayName>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>PCM_COMMONS_BRANCH</name>
+          <description>The pcm_commons branch to use</description>
+          <defaultValue>{{ PCM_COMMONS_BRANCH }}</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>NISAR_MIXED_MODES_BRANCH</name>
+          <description>The opera-mixed-modes branch to use</description>
+          <defaultValue>{{ NISAR_MIXED_MODES_BRANCH }}</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.4.4">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>{{ PROJECT_URL }}</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>**/{{ BRANCH }}</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <submoduleCfg class="list"/>
+    <extensions/>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <com.cloudbees.jenkins.GitHubPushTrigger plugin="github@1.18.2">
+      <spec></spec>
+    </com.cloudbees.jenkins.GitHubPushTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+source {{ OPS_HOME }}/verdi/bin/activate
+#Get the tag from the end of the GIT_BRANCH
+TAG=&quot;${GIT_BRANCH##*/}&quot;
+#Get repo path by removing http://*/ and .git from GIT_URL
+REPO=&quot;${GIT_URL#*://*/}&quot;
+REPO=&quot;${REPO%.git}&quot;
+REPO=&quot;${REPO//\//_}&quot;
+STORAGE=&quot;{{ STORAGE_URL }}&quot;
+export GIT_OAUTH_TOKEN=&quot;{{ GIT_OAUTH_TOKEN }}&quot;
+export MOZART_REST_URL=&quot;http://{{ MOZART_PVT_IP }}:8888/api/v0.1&quot;
+export GRQ_REST_URL=&quot;http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1&quot;
+export CONTAINER_REGISTRY=&quot;{{ CONTAINER_REGISTRY }}&quot;
+export CONTAINER_REGISTRY_BUCKET=&quot;{{ CONTAINER_REGISTRY_BUCKET }}&quot;
+export SKIP_PUBLISH=&quot;{{ SKIP_PUBLISH }}&quot;
+
+if [ -z "$SKIP_PUBLISH" ]
+then 
+  export SKIP_PUBLISH=&quot;noskip&quot;
+fi
+
+# exit on any error
+set -ex
+
+# build image
+if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]
+then
+  {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
+  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} --build-arg NISAR_MIXED_MODES_BRANCH=${NISAR_MIXED_MODES_BRANCH}
+else
+  {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
+  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} --build-arg NISAR_MIXED_MODES_BRANCH=${NISAR_MIXED_MODES_BRANCH}
+fi
+
+if [ -f "./docker/extract_artifacts.sh" ]; then
+  # extract artifacts
+  IMAGE=&quot;container-${REPO,,}&quot;
+  ./docker/extract_artifacts.sh ${IMAGE}:${TAG,,}
+fi
+      </command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.68">
+      <healthy></healthy>
+      <unHealthy></unHealthy>
+      <thresholdLimit>low</thresholdLimit>
+      <pluginName>[WARNINGS] </pluginName>
+      <defaultEncoding></defaultEncoding>
+      <canRunOnFailed>false</canRunOnFailed>
+      <usePreviousBuildAsReference>false</usePreviousBuildAsReference>
+      <useStableBuildAsReference>false</useStableBuildAsReference>
+      <useDeltaValues>false</useDeltaValues>
+      <thresholds plugin="analysis-core@1.95">
+        <unstableTotalAll></unstableTotalAll>
+        <unstableTotalHigh></unstableTotalHigh>
+        <unstableTotalNormal></unstableTotalNormal>
+        <unstableTotalLow></unstableTotalLow>
+        <unstableNewAll></unstableNewAll>
+        <unstableNewHigh></unstableNewHigh>
+        <unstableNewNormal></unstableNewNormal>
+        <unstableNewLow></unstableNewLow>
+        <failedTotalAll></failedTotalAll>
+        <failedTotalHigh></failedTotalHigh>
+        <failedTotalNormal></failedTotalNormal>
+        <failedTotalLow></failedTotalLow>
+        <failedNewAll></failedNewAll>
+        <failedNewHigh></failedNewHigh>
+        <failedNewNormal></failedNewNormal>
+        <failedNewLow></failedNewLow>
+      </thresholds>
+      <shouldDetectModules>false</shouldDetectModules>
+      <dontComputeNew>true</dontComputeNew>
+      <doNotResolveRelativePaths>true</doNotResolveRelativePaths>
+      <includePattern></includePattern>
+      <excludePattern></excludePattern>
+      <messagesPattern></messagesPattern>
+      <categoriesPattern></categoriesPattern>
+      <parserConfigurations>
+        <hudson.plugins.warnings.ParserConfiguration>
+          <pattern>flake8.log</pattern>
+          <parserName>Pep8</parserName>
+        </hudson.plugins.warnings.ParserConfiguration>
+      </parserConfigurations>
+      <consoleParsers/>
+    </hudson.plugins.warnings.WarningsPublisher>
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.26.1">
+      <testResults>pytest_unit.xml</testResults>
+      <keepLongStdio>true</keepLongStdio>
+      <healthScaleFactor>1.0</healthScaleFactor>
+      <allowEmptyResults>true</allowEmptyResults>
+    </hudson.tasks.junit.JUnitResultArchiver>
+    <jenkins.plugins.shiningpanda.publishers.CoveragePublisher plugin="shiningpanda@0.24">
+      <htmlDir>**/</htmlDir>
+    </jenkins.plugins.shiningpanda.publishers.CoveragePublisher>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.ws__cleanup.PreBuildCleanup plugin="ws-cleanup@0.36">
+      <deleteDirs>false</deleteDirs>
+      <cleanupParameter></cleanupParameter>
+      <externalDelete></externalDelete>
+      <disableDeferredWipeout>false</disableDeferredWipeout>
+    </hudson.plugins.ws__cleanup.PreBuildCleanup>
+  </buildWrappers>
+</project>

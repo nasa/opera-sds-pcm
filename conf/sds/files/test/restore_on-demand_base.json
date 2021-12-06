@@ -1,0 +1,7 @@
+{
+    "MixedInstancesPolicy": {
+        "InstancesDistribution": {
+            "OnDemandPercentageAboveBaseCapacity": 0
+        }
+    }
+}

@@ -1,0 +1,8 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/hello_world/run_hello_world.sh",
+  "recommended-queues": [ "opera-job_worker-small" ],
+  "params": [],
+  "disk_usage": "100KB",
+  "soft_time_limit": 900,
+  "time_limit": 960
+}

@@ -1,0 +1,118 @@
+{
+    "datasets": {
+        "1": [
+            {
+                "dataset": "CHIRP_PARAM",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "area_of_interest",
+                "system_version": "2.0",
+                "count": 1
+            },
+            {
+                "dataset": "hello_world",
+                "system_version": "v1.0",
+                "count": 2
+            },
+            {
+                "dataset": "RADAR_CFG",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "WAVEFORM",
+                "system_version": "1",
+                "count": 1
+            }
+        ],
+        "2": [
+            {
+                "dataset": "FRP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "NRP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "PRP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "FOE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "MOE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "POE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "NOE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "COP",
+                "system_version": "1",
+                "count": 2
+            },
+            {
+                "dataset": "COP",
+                "system_version": "2",
+                "count": 1
+            },
+            {
+                "dataset": "TIURDROP",
+                "system_version": "0",
+                "count": 1
+            },
+            {
+                "dataset": "OROST",
+                "system_version": "1",
+                "count": 18
+            },
+            {
+                "dataset": "SCLKSCET",
+                "system_version": "4",
+                "count": 1
+            },
+            {
+                "dataset": "STUF",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "NEN_L_RRST",
+                "system_version": "1",
+                "count": 1488
+            },
+            {
+                "dataset": "LDF",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "ldf-state-config",
+                "system_version": "1",
+                "count": 28
+            },
+            {
+                "dataset": "L0A_L_RRST_PP",
+                "system_version": "CRID_VAL",
+                "count": 14
+            }
+        ]
+    }
+}

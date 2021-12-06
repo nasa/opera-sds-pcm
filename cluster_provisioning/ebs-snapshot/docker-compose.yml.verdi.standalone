@@ -1,0 +1,15 @@
+version: '2.2'
+services:
+  verdi:
+    hostname: verdi
+    container_name: verdi
+    image: hysds/verdi
+    init: true
+    user: "$${HOST_UID}:$${HOST_GID}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8085:8085"
+      - "9001:9001"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"

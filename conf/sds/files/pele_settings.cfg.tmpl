@@ -1,0 +1,46 @@
+# ElasticSearch URL
+ES_URL = "http://{{ GRQ_ES_PVT_IP }}:9200"
+ES_EXTERNAL_URL = "http://{{ GRQ_FQDN }}:9200"
+
+# elastic search index to query
+ES_INDEX = "grq"
+
+#LDAP
+LDAP_HOST = 'ldap.test.com'
+LDAP_BASEDN = 'ou=personnel,dc=dir,dc=test,dc=com'
+LDAP_GROUPS = {{ LDAP_GROUPS }}
+
+# secret key
+SECRET_KEY = 'testkey'
+
+# ops account
+OPS_USER = '{{ OPS_USER }}'
+OPS_PASSWORD_HASH = '{{ OPS_PASSWORD_HASH }}'
+
+# api token expiration time
+TOKEN_EXPIRATION_SECS = 86400
+
+# pele template vars
+PELE_TITLE = "REST API for HySDS Datasets"
+PELE_SUBTITLE = "PELE"
+PELE_TITLE_BADGE = "BETA"
+SHOW_BADGE = False
+
+# disable sqlachemy modification tracking
+SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+# disable field mask
+RESTPLUS_MASK_SWAGGER = False
+
+# rate limiter settings
+RATELIMIT_ENABLED = True
+RATELIMIT_STRATEGY = 'moving-window'
+RATELIMIT_STORAGE_URL = 'memory://'
+RATELIMIT_HEADERS_ENABLED = True
+
+# mail settings
+MAIL_DEFAULT_SENDER = "pele-api@jpl.nasa.gov"
+
+# set default and max page size
+DEFAULT_PAGE_SIZE = 10
+MAX_PAGE_SIZE = 100

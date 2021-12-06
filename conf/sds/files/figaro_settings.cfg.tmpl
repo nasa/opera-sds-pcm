@@ -1,0 +1,61 @@
+# secret key
+SECRET_KEY = 'This is a test secret key'
+
+# ops account
+OPS_USER = '{{ OPS_USER }}'
+OPS_PASSWORD_HASH = '{{ OPS_PASSWORD_HASH }}'
+
+#LDAP
+LDAP_HOST = 'ldap.test.com'
+LDAP_BASEDN = 'ou=personnel,dc=dir,dc=test,dc=com'
+LDAP_GROUPS = {{ LDAP_GROUPS }}
+
+# PORT
+PORT = 8888
+
+# GRQ SERVER
+GRQ_HOST = "{{ GRQ_FQDN }}"
+GRQ_PORT = 80
+TOSCA_URL = "https://{{ GRQ_FQDN }}/search/"
+
+# ElasticSearch URL
+ES_URL = "http://{{ MOZART_ES_PVT_IP }}:9200"
+JOB_STATUS_INDEX = "job_status"
+USER_RULES_INDEX = "user_rules"
+
+# key file for fabric
+KEY_FILENAME = "{{ KEY_FILENAME }}"
+
+# execute node user
+EXECUTE_NODE_USER = "{{ OPS_USER }}"
+
+# puccini host
+PUCCINI_HOST = "{{ PUCCINI_FQDN }}"
+PUCCINI_USER = "{{ OPS_USER }}"
+
+# Mozart URL
+MOZART_URL = "https://{{ MOZART_FQDN }}/mozart"
+
+# Mozart REST API
+MOZART_REST_API = "https://{{ MOZART_PVT_IP }}/mozart/"
+
+# Kibana URL
+KIBANA_JOB_METRICS_URL = "https://{{ METRICS_FQDN }}/metrics/app/kibana#/dashboard/cb40a460-5ad3-11e7-8e6a-cbf606444333"
+KIBANA_PROV_METRICS_URL = "http://{{ METRICS_FQDN }}/metrics/#/dashboard/elasticsearch/Provenance%20Metrics"
+KIBANA_INSTANCE_STATS_URL = "https://{{ METRICS_FQDN }}/metrics/app/kibana#/dashboard/5e0abbd0-5abd-11e7-a451-0fe7e85b0f7a"
+
+# Flower URL
+FLOWER_URL = "http://{{ MOZART_FQDN }}/flower/"
+
+# RabbitMQ Admin URL
+RABBITMQ_ADMIN_URL = "https://{{ MOZART_RABBIT_FQDN }}:15673"
+
+# System protected queue
+PROTECTED_QUEUES = ["system-jobs-queue"]
+
+JOB_SUBMISSION_JOB_SPEC = "{{ LIGHTWEIGHT_JOBS_SPEC }}"
+JOB_SUBMISSION_QUEUE = "{{ SYSTEM_JOBS_QUEUE }}"
+
+# ES plugins
+ES_HEAD_URL = "http://{{ MOZART_ES_FQDN }}/es/_plugin/head/"
+ES_KOPF_URL = "http://{{ MOZART_ES_FQDN }}/es/_plugin/kopf/"

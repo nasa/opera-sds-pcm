@@ -1,0 +1,65 @@
+products:
+  L0A_L_RRST:
+  # Optionally can specify a list of dictionaries to compare specific products to each other
+  # ataset_id refers to the PCM generated product. The tool queries ES for this ID and will key off of the "FileName"
+  # metadata to get the product to download.
+  # expected_product should be the full path to the expected product
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T232246_20201029T232257_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T232246_20201029T232257_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T232052_20201029T232246_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T232052_20201029T232246_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T232003_20201029T232052_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T232003_20201029T232052_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T231852_20201029T231913_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T231852_20201029T231913_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T231657_20201029T231852_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T231657_20201029T231852_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T231459_20201029T231657_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T231459_20201029T231657_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T231426_20201029T231459_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T231426_20201029T231459_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T231234_20201029T231426_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T231234_20201029T231426_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T231037_20201029T231234_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T231037_20201029T231234_D00200_001.bin
+  - dataset_id: NISAR_L0_RRST_VC29_20201029T230839_20201029T231037_D00200_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0a_multi_003/expected/NISAR_L0_RRST_VC29_20201029T230839_20201029T231037_D00200_001.bin
+
+  L0B_L_RRSD:
+  # Optionally can specify a list of dictionaries to compare specific products to each other
+  # dataset_id refers to the PCM generated product. The tool queries ES for this ID and will key off of the "FileName"
+  # metadata to get the product to download.
+  # expected_product should be the full path to the expected product
+  - dataset_id: NISAR_L0_PR_RRSD_001_001_D_128S_20210707T015515_20210707T015607_D00200_T_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0b_lsar_only_001/expected/NISAR_L0_PR_RRSD_001_001_D_128S_20210707T015515_20210707T015607_D00200_T_001.h5
+  - dataset_id: NISAR_L0_PR_RRSD_001_001_D_129S_20210707T015607_20210707T015659_D00200_T_001
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0b_lsar_only_001/expected/NISAR_L0_PR_RRSD_001_001_D_129S_20210707T015607_20210707T015659_D00200_T_001.h5
+
+  L0B_L_CRSD:
+    # When no "dataset_id" is given in the config, the tool will query for any dataset of this particular type with the tag "PGE"
+    # and the given CRID (passed through CLI) and return the first result back. It will use this as the product to compare against
+    # the given expected product. This kind of configuration can be used if you're expected to only ever generate 1 product
+    # in the smoke test.
+    expected_product: /export/home/hysdsops/.sds/files/test/pge/l0b_lsar_only_001/expected/NISAR_L0_PR_CRSD_001_001_D_20210707T015513_20210707T015659_D00200_001.h5
+
+  L1_L_RSLC:
+    - dataset_id: NISAR_L1_PR_RSLC_001_073_D_051_2800_HH_20080218T062000_20080218T062016_D00200_P_F_001
+      expected_product: /export/home/hysdsops/.sds/files/test/pge/end2end_ALPSRP_Rosamond_001/expected/NISAR_L1_PR_RSLC_001_001_A_001_2800_HH_20080218T062000_20080218T062016_D00200_P_P_001.h5
+    - dataset_id: NISAR_L1_PR_RSLC_005_073_D_051_2800_HH_20080404T061917_20080404T061933_D00200_P_F_001
+      expected_product: /export/home/hysdsops/.sds/files/test/pge/end2end_ALPSRP_Rosamond_001/expected/NISAR_L1_PR_RSLC_001_001_A_001_2800_HH_20080404T061917_20080404T061933_D00200_P_P_001.h5
+
+#TODO: To handle in R3
+#  L2_L_GSLC:
+#    expected_product: /export/home/hysdsops/.sds/files/test/pge/test_UAVSAR_SanAnd_002/expected/NISAR_L2_PR_GSLC_001_001_D_150_2005_QP_20180730T161547_20180730T161639_D00101_P_P_001.h5
+
+#  L2_L_GCOV:
+#    expected_product: /export/home/hysdsops/.sds/files/test/pge/test_UAVSAR_SanAnd_002/expected/NISAR_L2_PR_GCOV_001_001_D_001_2005_QP_20180730T161547_20180730T161639_D00101_P_P_001.h5
+
+#  L1_L_RIFG:
+#    expected_product: /export/home/hysdsops/.sds/files/test/pge/test_UAVSAR_SanAnd_002/expected/NISAR_L1_PR_RIFG_001_001_D_001_068_2020_QP_20120419T163723_20120419T164821_D00101_P_F_001.h5
+
+#  L1_L_RUNW:
+#    expected_product: /export/home/hysdsops/.sds/files/test/pge/test_UAVSAR_SanAnd_002/expected/NISAR_L1_PR_RUNW_001_001_D_001_068_2020_QP_20120419T163723_20120419T164821_D00101_P_F_001.h5
+
+#  L2_L_GUNW:
+#    expected_product: /export/home/hysdsops/.sds/files/test/pge/test_UAVSAR_SanAnd_002/expected/NISAR_L2_PR_GUNW_001_001_D_001_068_2020_QP_20120419T163723_20120419T164821_D00101_P_F_001.h5

@@ -1,0 +1,21 @@
+{
+  "grq": [
+    {
+      "creation_time": "2019-09-18T16:05:02Z",
+      "enabled": true,
+      "job_type": "hysds-io-send_notify_msg:__TAG__",
+      "kwargs": "{\"provider_name\":\"JPL-NISAR\",\"checksum_type\":\"md5\",\"publisher_arn\":\"<DAAC-PROXY>\",\"kinesis_role_arn\":\"\",\"staged_data_types\":{\"data\":[\"*.TIF\",\"*.png\"],\"metadata\":[\"*.context.json\",\"*.met.json\",\"*.dataset.json\"]}}",
+      "modified_time": "2019-09-18T16:05:02Z",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\n \"bool\": {\n \"must\": [ \n { \n \"term\": { \n \"dataset_type.keyword\": \"dumby_landsat\" \n } \n } \n ] \n } \n}",
+      "queue": "opera-job_worker-send_cnm_notify",
+      "rule_name": "trigger-send_cnm_notify_msg",
+      "username": "hysdsops",
+      "workflow": "hysds-io-send_notify_msg:__TAG__",
+      "job_spec": "job-send_notify_msg:__TAG__"
+    }
+  ],
+  "mozart": []
+}

@@ -1,0 +1,66 @@
+{
+  "properties": {
+    "l0a_l_rrst_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0b_l_rrsd_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0b_l_rrsd_status": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0b_l_crsd_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0b_l_crsd_status": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0b_l_hst_drt_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0b_l_hst_drt_status": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "datatake_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l1_l_rslc_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l1_l_rslc_status": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l2_l_gslc_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l2_l_gslc_status": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l2_l_gcov_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l2_l_gcov_status": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "last_modified": {
+      "type": "date"
+    },
+    "text_fields": {
+      "type": "text"
+    }
+  }
+}

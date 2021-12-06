@@ -1,0 +1,342 @@
+{
+    "datasets": {
+        "1": [
+            {
+                "dataset": "CHIRP_PARAM",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "area_of_interest",
+                "system_version": "2.0",
+                "count": 1
+            },
+            {
+                "dataset": "hello_world",
+                "system_version": "v1.0",
+                "count": 2
+            },
+            {
+                "dataset": "RADAR_CFG",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "WAVEFORM",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "SROST",
+                "system_version": "1",
+                "count": 4
+            },
+            {
+                "dataset": "SCLKSCET",
+                "system_version": "4",
+                "count": 1
+            },
+            {
+                "dataset": "OFS",
+                "system_version": "1",
+                "count": 4
+            }
+        ],
+        "2": [
+            {
+                "dataset": "FRP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "NRP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "PRP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "FOE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "MOE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "POE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "NOE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "COP",
+                "system_version": "1",
+                "count": 2
+            },
+            {
+                "dataset": "COP",
+                "system_version": "2",
+                "count": 1
+            },
+            {
+                "dataset": "TIURDROP",
+                "system_version": "0",
+                "count": 1
+            },
+            {
+                "dataset": "OROST",
+                "system_version": "1",
+                "count": 4
+            },
+            {
+                "dataset": "STUF",
+                "system_version": "1",
+                "count": 1
+            }
+        ],
+        "3": [
+            {
+                "dataset": "NEN_L_RRST",
+                "system_version": "1",
+                "count": 43
+            },
+            {
+                "dataset": "LDF",
+                "system_version": "1",
+                "count": 12
+            },
+            {
+                "dataset": "ARP",
+                "system_version": "1",
+                "count": 5
+            }
+        ],
+        "4": [
+            {
+                "dataset": "ldf-state-config",
+                "system_version": "1",
+                "count": 12
+            },
+            {
+                "dataset": "L0A_L_RRST",
+                "system_version": "d00101",
+                "count": 1
+            }
+        ],
+        "5": [
+            {
+                "dataset": "datatake-state-config",
+                "system_version": "1",
+                "count": 12
+            },
+           {
+                "dataset": "datatake-urgent_response_state-config",
+                "system_version": "1",
+                "count": 7
+            }
+        ],
+        "L0B_REPROC": [
+            {
+                "dataset": "L0B_L_CRSD",
+                "system_version": "CRID_VAL",
+                "count": 16
+            },
+            {
+                "dataset": "L0B_L_HST_DRT",
+                "system_version": "CRID_VAL",
+                "count": 16
+            },
+            {
+                "dataset": "L0B_L_RRSD",
+                "system_version": "CRID_VAL",
+                "count": 29
+            }
+        ],
+        "L0B_FWD": [
+            {
+                "dataset": "L0B_L_CRSD",
+                "system_version": "CRID_VAL",
+                "count": 19
+            },
+            {
+                "dataset": "L0B_L_HST_DRT",
+                "system_version": "CRID_VAL",
+                "count": 19
+            },
+            {
+                "dataset": "L0B_L_RRSD",
+                "system_version": "CRID_VAL",
+                "count": 36
+            }
+        ],
+        "L1_L2_REPROC": [
+            {
+                "dataset": "track_frame-state-config",
+                "system_version": "1",
+                "count": 158
+            },
+            {
+                "dataset": "L1_L_RSLC",
+                "system_version": "CRID_VAL",
+                "count": 141
+            },
+            {
+                "dataset": "L2_L_GSLC",
+                "system_version": "CRID_VAL",
+                "count": 141
+            },
+            {
+                "dataset": "L2_L_GCOV",
+                "system_version": "CRID_VAL",
+                "count": 141
+            },
+            {
+                "dataset": "network_pair-state-config",
+                "system_version": "1",
+                "count": 131
+            }
+        ],
+        "L1_L2_FWD": [
+            {
+                "dataset": "track_frame-state-config",
+                "system_version": "1",
+                "count": 181
+            },
+            {
+                "dataset": "L1_L_RSLC",
+                "system_version": "CRID_VAL",
+                "count": 181
+            },
+            {
+                "dataset": "L2_L_GSLC",
+                "system_version": "CRID_VAL",
+                "count": 181
+            },
+            {
+                "dataset": "L2_L_GCOV",
+                "system_version": "CRID_VAL",
+                "count": 181
+            },
+            {
+                "dataset": "network_pair-state-config",
+                "system_version": "1",
+                "count": 165
+            }
+        ],
+        "NETWORK_PAIR_REPROC": [
+            {
+                "dataset": "L1_L_RSLC",
+                "system_version": "CRID_VAL",
+                "count": 143
+            },
+            {
+                "dataset": "network_pair-state-config",
+                "system_version": "1",
+                "count": 133
+            },
+            {
+                "dataset": "L2_L_GSLC",
+                "system_version": "CRID_VAL",
+                "count": 143
+            },
+            {
+                "dataset": "L2_L_GCOV",
+                "system_version": "CRID_VAL",
+                "count": 143
+            },
+            {
+                "dataset": "L1_L_RUNW",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },            
+            {
+                "dataset": "L2_L_GUNW",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },
+            {
+                "dataset": "L1_L_RIFG",
+                "system_version": "CRID_VAL",
+                "count": 1
+            }
+        ],
+        "NETWORK_PAIR_FWD": [
+            {
+                "dataset": "L1_L_RSLC",
+                "system_version": "CRID_VAL",
+                "count": 183
+            },
+            {
+                "dataset": "network_pair-state-config",
+                "system_version": "1",
+                "count": 167
+            },
+            {
+                "dataset": "L2_L_GSLC",
+                "system_version": "CRID_VAL",
+                "count": 183
+            },
+            {
+                "dataset": "L2_L_GCOV",
+                "system_version": "CRID_VAL",
+                "count": 183
+            },
+            {
+                "dataset": "L1_L_RUNW",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },
+            {
+                "dataset": "L2_L_GUNW",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },
+            {
+                "dataset": "L1_L_RIFG",
+                "system_version": "CRID_VAL",
+                "count": 1
+            }
+        ],
+        "L0A_REPROC": [
+            {
+                "dataset": "L0A_L_RRST_PP",
+                "system_version": "CRID_VAL",
+                "count": 11
+            },
+            {
+                "dataset": "L0A_L_RRST",
+                "system_version": "CRID_VAL",
+                "count": 11
+            }
+        ],
+        "L0A_FWD": [
+            {
+                "dataset": "L0A_L_RRST_PP",
+                "system_version": "CRID_VAL",
+                "count": 12
+            },
+            {
+                "dataset": "L0A_L_RRST",
+                "system_version": "CRID_VAL",
+                "count": 12
+            }
+        ],
+        "OBS_REPORT": [
+            {
+                "dataset": "Observation_Accountability_Report",
+                "system_version": "1",
+                "count": 1
+            }
+        ]
+    }
+}

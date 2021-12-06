@@ -1,0 +1,10 @@
+# This is a YAML configuration file that contains the base API urls and login endpoints for the different
+# environments.
+DAAC_ENVIRONMENTS:
+  OPS:
+    BASE_URL: https://cmr.earthdata.nasa.gov
+    EARTHDATA_LOGIN: https://urs.earthdata.nasa.gov
+
+  UAT:
+    BASE_URL: https://cmr.uat.earthdata.nasa.gov
+    EARTHDATA_LOGIN: https://uat.urs.earthdata.nasa.gov

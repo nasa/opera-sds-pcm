@@ -1,0 +1,35 @@
+{
+  "Ancillary_Files": [
+    "/data/work/jobs/2020/10/07/21/52/job-SCIFLO_Time_Extractor-NSDS-913-20201007T203409.805187Z/NISAR_198900_SCLKSCET_LRCLK.00003"
+  ],
+  "Input_Files": [
+    "/data/work/jobs/2020/10/07/21/52/job-SCIFLO_Time_Extractor-NSDS-913-20201007T203409.805187Z/NISAR_L0_RRST_VC29_20200515T012015_20200515T012015_D00101_001.bin"
+  ],
+  "PGE_Name": "LSAR_TIME_EXTRACTOR_PGE",
+  "PGE_Version": "V1.0",
+  "Production_DateTime": "2020-10-07T21:52:14.543925Z",
+  "RadarStartDateTime": "2019-01-02T15:04:45.608891Z",
+  "RadarStopDateTime": "2019-01-02T15:04:45.608891Z",
+  "ProductReceivedTime": "2020-10-07T21:52:14.828206Z",
+  "ProductReceivedYear": 2020,
+  "ProductReceivedMonth": "10",
+  "ProductReceivedDay": "07",
+  "FileLocation": "/data/work/jobs/2020/10/07/21/52/job-SCIFLO_Time_Extractor-NSDS-913-20201007T203409.805187Z/output/datasets/NISAR_L0_RRST_VC29_20200515T012015_20200515T012015_D00101_001",
+  "FileSize": 442000,
+  "FileName": "NISAR_L0_RRST_VC29_20200515T012015_20200515T012015_D00101_001.bin",
+  "id": "NISAR_L0_RRST_VC29_20200515T012015_20200515T012015_D00101_001",
+  "GranuleName": "NISAR_L0_RRST_VC29_20200515T012015_20200515T012015",
+  "VCID": "VC29",
+  "DAPHNE_Min_Time_Tag": "2020-05-15T01:20:15.000000Z",
+  "DAPHNE_Max_Time_Tag": "2020-05-15T01:20:15.000000Z",
+  "CompositeReleaseID": "D00101",
+  "ProductCounter": 1,
+  "ProductType": "L0A_L_RRST",
+  "lineage": [
+    "/data/work/jobs/2020/10/07/21/52/job-SCIFLO_Time_Extractor-NSDS-913-20201007T203409.805187Z/NISAR_L0_RRST_VC29_20200515T012015_20200515T012015_D00101_001.bin",
+    "/data/work/jobs/2020/10/07/21/52/job-SCIFLO_Time_Extractor-NSDS-913-20201007T203409.805187Z/NISAR_198900_SCLKSCET_LRCLK.00003"
+  ],
+  "tags": [
+    "PGE"
+  ]
+}

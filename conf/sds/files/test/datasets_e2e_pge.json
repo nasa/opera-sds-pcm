@@ -1,0 +1,169 @@
+{
+    "datasets": {
+        "1": [
+            {
+                "dataset": "CHIRP_PARAM",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "RADAR_CFG",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "WAVEFORM",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "SROST",
+                "system_version": "1",
+                "count": 7
+            },
+            {
+                "dataset": "OFS",
+                "system_version": "1",
+                "count": 7
+            },
+            {
+                "dataset": "SCLKSCET",
+                "system_version": "3",
+                "count": 1
+            }
+        ],
+        "2": [
+            {
+                "dataset": "area_of_interest",
+                "system_version": "2.0",
+                "count": 1
+            },
+            {
+                "dataset": "POE",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "COP",
+                "system_version": "1",
+                "count": 3
+            },
+            {
+                "dataset": "TIURDROP",
+                "system_version": "0",
+                "count": 1
+            },
+            {
+                "dataset": "OROST",
+                "system_version": "1",
+                "count": 7
+            },
+            {
+                "dataset": "STUF",
+                "system_version": "1",
+                "count": 8
+            }
+        ],
+        "3": [
+            {
+                "dataset": "NEN_L_RRST",
+                "system_version": "1",
+                "count": 7
+            },
+            {
+                "dataset": "ldf-state-config",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "L0A_L_RRST_PP",
+                "system_version": "CRID_VAL",
+                "count": 10
+            },
+            {
+                "dataset": "L0A_L_RRST",
+                "system_version": "CRID_VAL",
+                "count": 11
+            },
+            {
+                "dataset": "datatake-state-config",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "L0B_L_CRSD",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },
+            {
+                "dataset": "L0B_L_HST_DRT",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },
+            {
+                "dataset": "L0B_L_RRSD",
+                "system_version": "CRID_VAL",
+                "count": 4
+            },
+            {
+                "dataset": "track_frame-state-config",
+                "system_version": "1",
+                "count": 8
+            },
+            {
+                "dataset": "L1_L_RSLC",
+                "system_version": "CRID_VAL",
+                "count": 2
+            }         
+        ],
+        "4": [
+            {
+                "dataset": "network_pair-state-config",
+                "system_version": "1",
+                "count": 1
+            },
+            {
+                "dataset": "L2_L_GSLC",
+                "system_version": "CRID_VAL",
+                "count": 2
+            },
+            {
+                "dataset": "L2_L_GCOV",
+                "system_version": "CRID_VAL",
+                "count": 2
+            },
+            {
+                "dataset": "L1_L_RIFG",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },            
+            {
+                "dataset": "L1_L_RUNW",
+                "system_version": "CRID_VAL",
+                "count": 1
+            },            
+            {
+                "dataset": "L2_L_GUNW",
+                "system_version": "CRID_VAL",
+                "count": 1
+            }         
+        ],
+        "5": [
+            {
+                "dataset": "L0B_L_RRSD",
+                "system_version": "d00101",
+                "count": 2
+            },
+            {
+                "dataset": "NET",
+                "system_version": "1.0",
+                "count": 1
+            },
+            {
+                "dataset": "PTA",
+                "system_version": "1.0",
+                "count": 1
+            }
+        ]
+  }
+}

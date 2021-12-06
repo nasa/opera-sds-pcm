@@ -1,0 +1,140 @@
+[unix_http_server]
+file=%(here)s/../run/supervisor.sock
+
+[inet_http_server]
+port = 0.0.0.0:9001
+username = ops
+password = ops
+
+[supervisord]
+pidfile=%(here)s/../run/supervisord.pid
+logfile=%(here)s/../log/supervisord.log
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+nodaemon=false
+minfds=1024
+minprocs=200
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://%(here)s/../run/supervisor.sock
+
+[program:grq2]
+directory={{ OPS_HOME }}/sciflo/ops/grq2
+command=gunicorn -w4 -b 0.0.0.0:8878 -k gevent --log-level=debug
+        --limit-request-line=0 grq2:app
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:instance_stats]
+directory={{ OPS_HOME }}/sciflo/ops/hysds/scripts
+command={{ OPS_HOME }}/sciflo/ops/hysds/scripts/log_instance_stats.py --interval 600
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:sdswatch_client]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/sciflo/bin/run_sdswatch_client.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_supervisord_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/sciflo/bin/watch_supervisord_services.py --host grq
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:pele]
+directory={{ OPS_HOME }}/sciflo/ops/pele
+command=gunicorn -w4 -b 0.0.0.0:8877 -k gevent --timeout=3600
+        --graceful-timeout=3600 --log-level=debug
+        --limit-request-line=0
+        'pele:create_app("pele.settings.ProductionConfig")'
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:bach-api]
+directory={{ OPS_HOME }}/sciflo/ops/bach-api
+command=gunicorn -w4 -b 0.0.0.0:8876 --timeout=3600
+        --graceful-timeout=3600 --log-level=debug
+        --limit-request-line=0
+        'accountability_api:create_app("accountability_api.settings.Config")'
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:opera-bach-api]
+directory={{ OPS_HOME }}/sciflo/ops/opera-bach-api
+command=gunicorn -w4 -b 0.0.0.0:8875 --timeout=3600
+        --graceful-timeout=3600 --log-level=debug
+        --limit-request-line=0
+        'accountability_api:create_app("accountability_api.settings.Config")'
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:aws_es]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/sciflo/bin/run_aws_es.sh {{ ARTIFACTORY_REPO }} {{ GRQ_ES_PUB_IP_VERDI }} {{ AWS_REGION }}
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10

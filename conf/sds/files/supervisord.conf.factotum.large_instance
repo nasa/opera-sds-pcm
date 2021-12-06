@@ -1,0 +1,203 @@
+[unix_http_server]
+file=%(here)s/../run/supervisor.sock
+
+[inet_http_server]
+port = 0.0.0.0:9001
+username = ops
+password = ops
+
+[supervisord]
+pidfile=%(here)s/../run/supervisord.pid
+logfile=%(here)s/../log/supervisord.log
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+nodaemon=false
+minfds=1024
+minprocs=200
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://%(here)s/../run/supervisor.sock
+
+[program:instance_stats]
+directory={{ OPS_HOME }}/verdi/ops/hysds/scripts
+command={{ OPS_HOME }}/verdi/ops/hysds/scripts/log_instance_stats.py --interval 600
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:docker_registry]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/verdi/bin/run_docker_registry.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:sdswatch_client]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/verdi/bin/run_sdswatch_client.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_supervisord_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/verdi/bin/watch_supervisord_services.py --host factotum
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:on_demand_job]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q on_demand_job -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=4
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:on_demand_dataset]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q on_demand_dataset -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=4
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:user_rules_job]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q user_rules_job -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=512
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:user_rules_dataset]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q user_rules_dataset -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=512
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:user_rules_trigger]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q user_rules_trigger -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=32
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:import_prov_es]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+environment=HYSDS_WORKER_CFG="{{ OPS_HOME }}/verdi/etc/workers/job_worker.json.import_prov_es",
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q import_prov_es -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:system-jobs-queue]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+environment=HYSDS_ROOT_WORK_DIR="/data/work",
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q system-jobs-queue -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=32
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:factotum-job_worker-small]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+environment=HYSDS_ROOT_WORK_DIR="/data/work",
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q factotum-job_worker-small -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:factotum-job_worker-large]
+directory={{ OPS_HOME }}/verdi/ops/hysds
+environment=HYSDS_ROOT_WORK_DIR="/data/work",
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q factotum-job_worker-large -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
+process_name=%(program_name)s-%(process_num)02d
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10

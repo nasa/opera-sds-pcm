@@ -1,0 +1,67 @@
+# ElasticSearch URL
+ES_URL = "http://{{ GRQ_ES_PVT_IP }}:9200"
+ES_EXTERNAL_URL = "http://{{ GRQ_FQDN }}:9200"
+
+# elastic search index to query
+ES_INDEX = "grq"
+
+# grq_es base URL
+GRQ_ES_URL = "http://{{ GRQ_FQDN }}:8878/grq_es?dataset=grq"
+GRQ_RESULTS_LIMIT = 50000
+
+# elastic search index for user rules
+USER_RULES_INDEX = "user_rules"
+
+# elastic search index for "process results" history
+USER_RUNS_HISTORY_INDEX = "user_runs_history"
+
+#LDAP
+LDAP_HOST = 'ldap.jpl.nasa.gov'
+LDAP_BASEDN = 'ou=personnel,dc=dir,dc=jpl,dc=nasa,dc=gov'
+LDAP_GROUPS = {{ LDAP_GROUPS }}
+
+# secret key
+SECRET_KEY = 'mysecretkey'
+
+# scratch space
+SCRATCH_DIR = '/data/scratch'
+SCRATCH_URL = 'http://{{ GRQ_FQDN }}/scratch'
+
+# ops account
+OPS_USER = '{{ OPS_USER }}'
+OPS_PASSWORD_HASH = '{{ OPS_PASSWORD_HASH }}'
+
+# HySDS job management interfaces
+FLOWER_URL = "http://{{ MOZART_FQDN }}:5555"
+MOZART_URL = "https://{{ MOZART_FQDN }}/mozart/"
+FIGARO_URL = "https://{{ MOZART_FQDN }}/figaro/"
+GRQ_URL = "http://{{ GRQ_FQDN }}:8878/"
+
+# Mozart ElasticSearch URL
+MOZART_ES_URL = "http://{{ MOZART_ES_PVT_IP }}:9200"
+MOZART_ES_EXTERNAL_URL = "http://{{ MOZART_FQDN }}:9200"
+
+# Mozart REST API
+MOZART_REST_API = "https://{{ MOZART_PVT_IP }}/mozart/"
+
+# KML repo
+KML_URL = "https://{{ PUCCINI_FQDN }}/kml/"
+
+# incoming url
+INCOMING_URL = "https://{{ PUCCINI_FQDN }}/incoming/"
+
+# repository url
+REPO_URL = "https://{{ PUCCINI_FQDN }}/repository/"
+
+# PROV-ES FacetView url
+PROVES_URL = "{{ PROVES_URL }}"
+
+# GRQ indicies for Jobs and Containers
+JOB_GRQ_ALIAS = "grq_jobs"
+CONTAINER_GRQ_ALIAS = "grq_containers"
+
+# tosca template vars
+TOSCA_TITLE = "HySDS Facet Search"
+TOSCA_SUBTITLE = "Datasets"
+TOSCA_TITLE_BADGE = "BETA"
+SHOW_BADGE = False

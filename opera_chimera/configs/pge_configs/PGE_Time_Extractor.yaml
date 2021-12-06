@@ -1,0 +1,101 @@
+runconfig:
+  InputFilePath:
+    L0A_L_RRST_PP: "__CHIMERA_VAL__"
+
+  DynamicAncillaryFileGroup:
+    LRCLKFile: "__CHIMERA_VAL__"
+    # OrbitEphemerisFile: "__CHIMERA_VAL__"
+
+  PGEName: "LSAR_TIME_EXTRACTOR_PGE"
+  ProductPath: "/data/work/output"
+  ShortName: "L0A_L_RRST"
+  ProductCounter: "__CHIMERA_VAL__"
+  DebugSwitch: "Off"
+  FullPathname: "/home/pgeuser/opera_pge/lsar_time_extractor/opera_lsar_time_extractor.py"
+  #ProcessingType: "PR"
+
+  pge_job_name: "__CHIMERA_VAL__"
+  mock_metadata: "__CHIMERA_VAL__"
+  base_name: "__CHIMERA_VAL__"
+
+preconditions:
+  - get_crid
+  - get_products
+  - get_metadata
+  - get_product_metadata
+  - get_product_most_recent_version
+  - set_product_time
+  - set_pge_job_name
+  - set_mock_metadata
+  - set_base_name
+
+# This lists all the postprocessor steps that this PGE will run after running the PGE.
+postprocess:
+  - update_pass_product_accountability
+
+get_product_metadata:
+  keys:
+    - DAPHNE_Min_Time_Tag
+    - DAPHNE_Max_Time_Tag
+    - ProductCounter
+    - id
+    - VCID
+    - PCMRetrievalID
+
+get_metadata:
+  keys:
+    - input_dataset_id
+
+get_product_most_recent_version:
+  types:
+    - SCLKSCET
+  filters:
+    SCLKSCET:
+      metadata.Type: "LRCLK"
+  attribute_names:
+    SCLKSCET: "LRCLKFile"
+
+set_pge_job_name:
+  template: "{input_dataset_id}"
+
+set_mock_metadata:
+  L0A_L_RRST:
+    static:
+      PGE_Name: "L_SAR_Time_Extractor"
+      PGE_Version: "R1.1.0"
+      SAS_Version: "ISCE3 v0.2.0-dev"
+      GeoLocationStart: "(-2931148.127734, -4581538.338372, 4517022.541953)"
+      GeoLocationStop: "-2506678.293075, -3087139.614565, 5842726.670282"
+
+    dynamic:
+      Input_Files: L0A_L_RRST_PP
+      Ancillary_Files:
+        - LRCLKFile
+      ProductionDateTime: ProductionDateTime
+      RadarStartDateTime: DAPHNE_Min_Time_Tag
+      RadarStopDateTime: DAPHNE_Max_Time_Tag
+      CompositeReleaseID: CompositeReleaseID
+      ProductCounter: ProductCounter
+      VCID: VCID
+
+set_base_name:
+  L0A_L_RRST:
+    template: NISAR_L0_RRST_{VCID}_{RadarStartDateTime}_{RadarStopDateTime}_{CompositeReleaseID}_{ProductCounter:03d}
+    date_time_formats:
+      RadarStartDateTime: "%Y%m%dT%H%M%S"
+      RadarStopDateTime: "%Y%m%dT%H%M%S"
+
+output_types:
+  L0A_L_RRST:
+    - bin.log
+    - bin.met
+
+pge_name: "Time_Extractor"
+
+# Set the primary input/output types here
+primary_input: "L0A_L_RRST_PP"
+primary_output: "L0A_L_RRST"
+
+localize_groups:
+  - InputFilePath
+  - DynamicAncillaryFileGroup

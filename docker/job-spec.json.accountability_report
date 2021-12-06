@@ -1,0 +1,34 @@
+{
+  "command":"/home/ops/verdi/ops/opera-pcm/report/create_accountability_report.sh",
+  "disk_usage":"1GB",
+  "soft_time_limit": 600,
+  "time_limit": 660,
+  "recommended-queues": [ "opera-job_worker-small" ],
+  "post": [ "hysds.utils.triage" ],
+  "params" : [
+    {
+      "name": "report_name",
+      "destination": "context"
+    },
+    {
+      "name": "start_time",
+      "destination": "context"
+    },
+    {
+      "name": "end_time",
+      "destination": "context"
+    },
+    {
+      "name": "report_format",
+      "destination": "context"
+    },
+    {
+      "name": "osl_bucket_name",
+      "destination": "context"
+    },
+    {
+      "name": "osl_staging_area",
+      "destination": "context"
+    }
+  ]
+}
