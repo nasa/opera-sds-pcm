@@ -20,11 +20,11 @@ variable "hysds_release" {
   default = ""
 }
 
-variable "opera_pcm_repo" {
+variable "pcm_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/opera-pcm.git"
 }
 
-variable "opera_pcm_branch" {
+variable "pcm_branch" {
   default = ""
 }
 
@@ -276,7 +276,7 @@ variable "pass_catalog_url" {
 
 variable "observation_catalog_url" {
   default = ""
-} 
+}
 
 variable "delete_old_observation_catalog" {
   default = false
@@ -364,7 +364,7 @@ variable "pge_snapshots_date" {
   default = ""
 }
 
-variable "opera_pge_release" {
+variable "pge_release" {
   default = ""
 }
 
@@ -377,22 +377,6 @@ variable "cluster_type" {
 }
 
 variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
-}
-
-variable "l0b_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "rslc_timer_trigger_frequency" {
-  default = "rate(360 minutes)"
-}
-
-variable "network_pair_timer_trigger_frequency" {
-  default = "rate(360 minutes)"
-}
-
-variable "l0b_urgent_response_timer_trigger_frequency" {
   default = "rate(15 minutes)"
 }
 
@@ -474,71 +458,11 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 100
     }
-    "opera-job_worker-rrst-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
-    }
     "opera-job_worker-sciflo-l0a" = {
       "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 500
       "max_size"      = 100
-    }
-    "opera-job_worker-sciflo-time_extractor" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 500
-      "max_size"      = 100
-    }
-    "opera-job_worker-datatake-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-track-frame-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-network-pair-eval" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-l0b" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 900
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-rslc" = {
-      "instance_type" = ["p2.xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-gslc" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-gcov" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-insar" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
-      "max_size"      = 10
     }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
@@ -562,18 +486,6 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 100
-      "max_size" = 10
-    }
-    "opera-job_worker-net" = {
-      "instance_type" = ["c5.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-pta" = {
-      "instance_type" = ["c5.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
       "max_size"      = 10
     }
   }

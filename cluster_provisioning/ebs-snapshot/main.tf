@@ -97,14 +97,8 @@ resource "aws_volume_attachment" "volume_attachment" {
       "  rm docker-registry-${var.registry_release}.tar.gz",
       "fi",
 
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0a-${var.opera_pge_release}.tar.gz\"",
-      "  docker load -i opera_pge-l0a-${var.opera_pge_release}.tar.gz",
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0b-${var.opera_pge_release}.tar.gz\"",
-      "  docker load -i opera_pge-l0b-${var.opera_pge_release}.tar.gz",
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l1_l2-${var.opera_pge_release}.tar.gz\"",
-      "  docker load -i opera_pge-l1_l2-${var.opera_pge_release}.tar.gz",
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-lsar_time_extractor-${var.opera_pge_release}.tar.gz\"",
-      "  docker load -i opera_pge-lsar_time_extractor-${var.opera_pge_release}.tar.gz",
+      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0a-${var.pge_release}.tar.gz\"",
+      "  docker load -i opera_pge-l0a-${var.pge_release}.tar.gz",
 
       "docker tag hysds/verdi:${var.verdi_release} hysds/verdi:latest",
       "/etc/systemd/system/start-verdi.d/start-verdi.sh",
@@ -133,15 +127,12 @@ resource "aws_ebs_snapshot" "verdi_docker_snapshot" {
   volume_id   = aws_ebs_volume.verdi_docker.id
   description = "EBS Volume Snapshot containing Docker ${var.verdi_release}, Registry ${var.registry_release}, and Logstash ${var.logstash_release}"
   tags = {
-    Name                = "${var.project}-${var.venue}-pcm-verdi-docker-ebs-volume-snapshot",
-    Bravo               = "pcm"
-    Verdi               = var.verdi_release
-    Registry            = var.registry_release
-    Logstash            = var.logstash_release
-    l0a                 = var.opera_pge_release
-    l0b                 = var.opera_pge_release
-    l1_l2               = var.opera_pge_release
-    lsar_time_extractor = var.opera_pge_release
+    Name     = "${var.project}-${var.venue}-pcm-verdi-docker-ebs-volume-snapshot",
+    Bravo    = "pcm"
+    Verdi    = var.verdi_release
+    Registry = var.registry_release
+    Logstash = var.logstash_release
+    l0a      = var.pge_release
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {

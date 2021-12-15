@@ -28,13 +28,13 @@ variable "pge_snapshots_date" {
   default = "20210805-R2.0.0"
 }
 
-variable "opera_pge_release" {
+variable "pge_release" {
   default = "R2.0.0"
 }
 
 variable "private_key_file" {
-   #int
-   #default="~/.ssh/operasds-int-cluster-1.pem"
+  #int
+  #default="~/.ssh/operasds-int-cluster-1.pem"
 }
 
 variable "keypair_name" {

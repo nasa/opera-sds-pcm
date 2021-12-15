@@ -8,8 +8,8 @@ module "common" {
   source = "../modules/common"
 
   hysds_release                           = var.hysds_release
-  opera_pcm_repo                          = var.opera_pcm_repo
-  opera_pcm_branch                        = var.opera_pcm_branch
+  pcm_repo                                = var.pcm_repo
+  pcm_branch                              = var.pcm_branch
   product_delivery_repo                   = var.product_delivery_repo
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
@@ -75,13 +75,10 @@ module "common" {
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   queues                                  = var.queues
   pge_snapshots_date                      = var.pge_snapshots_date
-  opera_pge_release                       = var.opera_pge_release
+  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   l0a_timer_trigger_frequency             = var.l0a_timer_trigger_frequency
-  l0b_timer_trigger_frequency             = var.l0b_timer_trigger_frequency
-  rslc_timer_trigger_frequency            = var.rslc_timer_trigger_frequency
-  network_pair_timer_trigger_frequency    = var.network_pair_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -92,7 +89,6 @@ module "common" {
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
-  l0b_urgent_response_timer_trigger_frequency = var.l0b_urgent_response_timer_trigger_frequency
 }
 
 locals {
@@ -109,13 +105,13 @@ resource "null_resource" "mozart" {
   depends_on = [module.common]
 
   triggers = {
-    private_ip         = module.common.mozart.private_ip
-    private_key_file   = var.private_key_file
-    code_bucket        = module.common.code_bucket
-    dataset_bucket     = module.common.dataset_bucket
-    triage_bucket      = module.common.triage_bucket
-    lts_bucket         = module.common.lts_bucket
-    osl_bucket         = module.common.osl_bucket
+    private_ip       = module.common.mozart.private_ip
+    private_key_file = var.private_key_file
+    code_bucket      = module.common.code_bucket
+    dataset_bucket   = module.common.dataset_bucket
+    triage_bucket    = module.common.triage_bucket
+    lts_bucket       = module.common.lts_bucket
+    osl_bucket       = module.common.osl_bucket
   }
 
   connection {
@@ -139,8 +135,8 @@ resource "null_resource" "mozart" {
       "  ${var.artifactory_base_url} \\",
       "  ${var.artifactory_repo} \\",
       "  ${var.artifactory_mirror_url} \\",
-      "  ${var.opera_pcm_repo} \\",
-      "  ${var.opera_pcm_branch} \\",
+      "  ${var.pcm_repo} \\",
+      "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
       "  ${var.delete_old_cop_catalog} \\",
@@ -158,15 +154,9 @@ resource "null_resource" "mozart" {
       "  ${local.crid} \\",
       "  ${var.cluster_type} \\",
       "  \"${var.l0a_timer_trigger_frequency}\" \\",
-      "  \"${var.l0b_timer_trigger_frequency}\" \\",
-      "  \"${var.l0b_urgent_response_timer_trigger_frequency }\" \\",
       "  \"${var.obs_acct_report_timer_trigger_frequency}\" \\",
-      "  \"${var.rslc_timer_trigger_frequency}\" \\",
-      "  \"${var.network_pair_timer_trigger_frequency}\" \\",
       "  \"${var.pge_test_package}\" \\",
-      "  \"${var.l0a_test_package}\" \\",
-      "  \"${var.l0b_test_package}\" \\",
-      "  \"${var.l2_test_package}\" || :"
+      "  \"${var.l0a_test_package}\" || :"
     ]
   }
 

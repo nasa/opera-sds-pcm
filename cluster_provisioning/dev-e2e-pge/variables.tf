@@ -19,11 +19,11 @@ variable "artifactory_mirror_url" {
 variable "hysds_release" {
 }
 
-variable "opera_pcm_repo" {
+variable "pcm_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/opera-pcm.git"
 }
 
-variable "opera_pcm_branch" {
+variable "pcm_branch" {
   default = "develop"
 }
 
@@ -123,74 +123,12 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-rrst-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
     "opera-job_worker-sciflo-l0a" = {
       # TODO: restore multiple instance types when L0A PGE deterministically generates the same number of products
       #"instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "instance_type" = ["t3.xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-time_extractor" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-datatake-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-track-frame-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-l0b" = {
-      "instance_type" = ["m5.24xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 900
-      "max_size"      = 10
-    }
-    "opera-job_worker-network-pair-eval" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-rslc" = {
-      # TODO: p2.xlarge does not produce same quality of product for R2 RSLC PGE
-      #"instance_type" = ["p2.xlarge", "p3.2xlarge"]
-      "instance_type" = ["p3.2xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-gslc" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-gcov" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-insar" = {
-      "instance_type" = ["p3.2xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
       "max_size"      = 10
     }
     "opera-job_worker-send_cnm_notify" = {
@@ -215,20 +153,6 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size" = 10
-    }
-
-    "opera-job_worker-pta" = {
-      "instance_type" = ["c5.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-
-    "opera-job_worker-net" = {
-      "instance_type" = ["c5.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 50
       "max_size"      = 10
     }
   }
@@ -256,11 +180,11 @@ variable "az" {
   default = "us-west-2a"
 }
 
-variable grq_aws_es {
+variable "grq_aws_es" {
   default = false
 }
 
-variable grq_aws_es_host {
+variable "grq_aws_es_host" {
   default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
@@ -268,7 +192,7 @@ variable "grq_aws_es_host_private_verdi" {
   default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
-variable grq_aws_es_port {
+variable "grq_aws_es_port" {
   default = 443
 }
 
@@ -528,7 +452,7 @@ variable "pge_snapshots_date" {
   default = "20210805-R2.0.0"
 }
 
-variable "opera_pge_release" {
+variable "pge_release" {
   default = "R2.0.0"
 }
 
@@ -543,23 +467,6 @@ variable "cluster_type" {
 variable "l0a_timer_trigger_frequency" {
   default = "rate(15 minutes)"
 }
-
-variable "l0b_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "rslc_timer_trigger_frequency" {
-  default = "rate(360 minutes)"
-}
-
-variable "network_pair_timer_trigger_frequency" {
-  default = "rate(360 minutes)"
-}
-
-variable "l0b_urgent_response_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
-}
-
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -607,16 +514,4 @@ variable "pge_test_package" {
 
 variable "l0a_test_package" {
   default = "l0a_multi_003.tgz"
-}
-
-variable "l0b_test_package" {
-  default = "l0b_lsar_only_001.tgz"
-}
-
-variable "rslc_test_package" {
-  default = "rslc_ALPSRP037370690_002.tgz"
-}
-
-variable "l2_test_package" {
-  default = "end2end_ALPSRP_Rosamond_001.tgz"
 }
