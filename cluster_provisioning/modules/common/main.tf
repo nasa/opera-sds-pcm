@@ -1760,6 +1760,10 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
     name   = "tag:Logstash"
     values = ["7.9.3"]
   }
+  filter {
+    name   = "tag:l0a"
+    values = [var.pge_release]
+  }
 }
 
 resource "aws_lambda_function" "event-misfire_lambda" {
