@@ -18,7 +18,7 @@ RUN set -ex \
  && git checkout ${PCM_COMMONS_BRANCH} \
  && pip install -e . \
  && cd /home/ops/verdi/ops \
- && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/opera-mixed-modes.git \
+ && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/nisar-mixed-modes.git opera-mixed-modes \
  && cd opera-mixed-modes \
  && git checkout ${NISAR_MIXED_MODES_BRANCH} \
  && cd /home/ops/verdi/ops/opera-pcm \
