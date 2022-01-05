@@ -116,10 +116,10 @@ def update_opera_packages():
             send_template("run_aws_es.sh", "%s/bin/run_aws_es.sh" % hysds_dir)
             run("chmod 755 %s/bin/run_aws_es.sh" % hysds_dir)
 
-            rm_rf('%s/ops/bach-api' % hysds_dir)
-            rsync_project('%s/ops/' % hysds_dir, os.path.join(ops_dir, 'mozart/ops/bach-api'),
-                          extra_opts=extra_opts, ssh_opts=ssh_opts)
-            execute(pip_install_with_req, 'sciflo', '~/sciflo/ops/bach-api', False, roles=[role])
+            # rm_rf('%s/ops/bach-api' % hysds_dir)
+            # rsync_project('%s/ops/' % hysds_dir, os.path.join(ops_dir, 'mozart/ops/bach-api'),
+            #               extra_opts=extra_opts, ssh_opts=ssh_opts)
+            # execute(pip_install_with_req, 'sciflo', '~/sciflo/ops/bach-api', False, roles=[role])
             #rm_rf('%s/ops/opera-bach-api' % hysds_dir)
             #rsync_project('%s/ops/' % hysds_dir, os.path.join(ops_dir, 'mozart/ops/opera-bach-api'),
             #              extra_opts=extra_opts, ssh_opts=ssh_opts)
