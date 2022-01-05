@@ -191,14 +191,6 @@ variable "cluster_security_group_id" {
   default = "sg-039db67f56d1b12f0"
 }
 
-variable "bach_api_branch" {
-  default = "release-r2.0.0-opera"
-}
-
-variable "bach_ui_branch" {
-  default = "release-r1.0.0-opera"
-}
-
 variable "opera_bach_api_branch" {
   default = "release-r2.0.0"
 }

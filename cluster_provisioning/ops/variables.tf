@@ -40,24 +40,8 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
-variable "bach_api_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/bach-api.git"
-}
-
-variable "bach_api_branch" {
-  default = ""
-}
-
-variable "bach_ui_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/bach-ui.git"
-}
-
-variable "bach_ui_branch" {
-  default = ""
-}
-
 variable "opera_bach_api_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-bach-api.git"
+  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
 }
 
 variable "opera_bach_api_branch" {
@@ -65,7 +49,7 @@ variable "opera_bach_api_branch" {
 }
 
 variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-bach-ui.git"
+  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
 }
 
 variable "opera_bach_ui_branch" {

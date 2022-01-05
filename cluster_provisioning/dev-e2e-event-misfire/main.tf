@@ -14,10 +14,6 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  bach_api_repo                           = var.bach_api_repo
-  bach_api_branch                         = var.bach_api_branch
-  bach_ui_repo                            = var.bach_ui_repo
-  bach_ui_branch                          = var.bach_ui_branch
   opera_bach_api_repo                     = var.opera_bach_api_repo
   opera_bach_api_branch                   = var.opera_bach_api_branch
   opera_bach_ui_repo                      = var.opera_bach_ui_repo

@@ -168,14 +168,6 @@ variable "product_delivery_branch" {
   default = "release-r2.2.1"
 }
 
-variable "bach_api_branch" {
-  default = "release-r2.0.0-opera"
-}
-
-variable "bach_ui_branch" {
-  default = "release-r1.0.0-opera"
-}
-
 variable "opera_bach_api_branch" {
   default = "release-r2.0.0"
 }

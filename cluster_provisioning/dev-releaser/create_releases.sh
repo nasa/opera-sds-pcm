@@ -14,14 +14,10 @@ export PRODUCT_DELIVERY_BRANCH=$6
 export PRODUCT_DELIVERY_RELEASE=$7
 export LAMBDA_PACKAGE_BRANCH=$8
 export LAMBDA_PACKAGE_RELEASE=$9
-export BACH_API_BRANCH=${10}
-export BACH_API_RELEASE=${11}
-export BACH_UI_BRANCH=${12}
-export BACH_UI_RELEASE=${13}
-export OPERA_BACH_API_BRANCH=${14}
-export OPERA_BACH_API_RELEASE=${15}
-export OPERA_BACH_UI_BRANCH=${16}
-export OPERA_BACH_UI_RELEASE=${17}
+export OPERA_BACH_API_BRANCH=${10}
+export OPERA_BACH_API_RELEASE=${11}
+export OPERA_BACH_UI_BRANCH=${12}
+export OPERA_BACH_UI_RELEASE=${13}
 
 echo -e "\n\n========================================================="
 echo "Creating ${OPERA_PCM_RELEASE} tag for opera-pcm repo."
@@ -116,58 +112,10 @@ git push origin tag ${LAMBDA_PACKAGE_RELEASE}
 cd ../
 
 echo -e "\n\n========================================================="
-echo "Creating ${BACH_API_RELEASE} tag for bach-api repo."
-echo "========================================================="
-# FIXME: This will need to be changed in the future when we figure out a better way to release the Bach API
-rm -rf bach-api/
-git clone -b ${BACH_API_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/bach-api.git
-cd bach-api/
-git branch -D ${BACH_API_RELEASE} || :
-sleep 1
-git tag --delete ${BACH_API_RELEASE} || :
-sleep 1
-git push origin :refs/heads/${BACH_API_RELEASE}
-sleep 1
-git push origin :refs/tags/${BACH_API_RELEASE}
-sleep 1
-git checkout -b ${BACH_API_RELEASE}
-sleep 1
-git push origin refs/heads/${BACH_API_RELEASE}:refs/heads/${BACH_API_RELEASE}
-sleep 1
-git tag -a ${BACH_API_RELEASE} -m "Tagging release ${BACH_API_RELEASE}"
-sleep 1
-git push origin tag ${BACH_API_RELEASE}
-cd ../
-
-echo -e "\n\n========================================================="
-echo "Creating ${BACH_UI_RELEASE} tag for bach-ui repo."
-echo "========================================================="
-# FIXME: This will need to be changed in the future when we figure out a better way to release the Bach UI
-rm -rf bach-ui/
-git clone -b ${BACH_UI_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/bach-ui.git
-cd bach-ui/
-git branch -D ${BACH_UI_RELEASE} || :
-sleep 1
-git tag --delete ${BACH_UI_RELEASE} || :
-sleep 1
-git push origin :refs/heads/${BACH_UI_RELEASE}
-sleep 1
-git push origin :refs/tags/${BACH_UI_RELEASE}
-sleep 1
-git checkout -b ${BACH_UI_RELEASE}
-sleep 1
-git push origin refs/heads/${BACH_UI_RELEASE}:refs/heads/${BACH_UI_RELEASE}
-sleep 1
-git tag -a ${BACH_UI_RELEASE} -m "Tagging release ${BACH_UI_RELEASE}"
-sleep 1
-git push origin tag ${BACH_UI_RELEASE}
-cd ../
-
-echo -e "\n\n========================================================="
 echo "Creating ${OPERA_BACH_API_RELEASE} tag for opera-bach-api repo."
 echo "========================================================="
 rm -rf opera-bach-api/
-git clone -b ${OPERA_BACH_API_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/opera-bach-api.git
+git clone -b ${OPERA_BACH_API_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/opera-sds/opera-bach-api.git
 cd opera-bach-api/
 git branch -D ${OPERA_BACH_API_RELEASE} || :
 sleep 1
@@ -190,7 +138,7 @@ echo -e "\n\n========================================================="
 echo "Creating ${OPERA_BACH_UI_RELEASE} tag for opera-bach-ui repo."
 echo "========================================================="
 rm -rf opera-bach-ui/
-git clone -b ${OPERA_BACH_UI_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/opera-bach-ui.git
+git clone -b ${OPERA_BACH_UI_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/opera-sds/opera-bach-ui.git
 cd opera-bach-ui/
 git branch -D ${OPERA_BACH_UI_RELEASE} || :
 sleep 1
