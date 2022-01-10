@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 999 ]; then
+if [ "$#" -eq 28 ]; then
   project=$1
   environment=$2
   venue=$3
@@ -84,14 +84,8 @@ done
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0a --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-time_extractor --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-datatake-acct --desired-capacity 5
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-track-frame-acct --desired-capacity 5
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-network-pair-eval --desired-capacity 5
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0b --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-net --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
 
 # no jobs currently being submitted to these ASGs but left here commented out for future use
@@ -268,21 +262,9 @@ cat oad_*.xml
 python ~/mozart/ops/opera-pcm/report/accountability_report_cli.py DataAccountabilityReport --start ${data_start} --end ${data_end} --format_type=xml 
 cat dar_*.xml
 
-bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach_ui/1.0/dataSummary/incoming)
-bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/1.0/ancillary/list)
 #opera_bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach_ui/2.0/data-summary/incoming)
 #opera_bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/2.0/ancillary/list)
 
-if [[ "$bach_ui_status_code" -ne 200 ]] ; then
-  echo "FAILURE: Could not reach bach_ui v1.0" > /tmp/bach_ui_status_code.txt
-else
-  echo "SUCCESS" > /tmp/bach_ui_status_code.txt
-fi
-if [[ "$bach_api_status_code" -ne 200 ]] ; then
-  echo "FAILURE: Could not reach bach-api v1.0" > /tmp/bach_api_status_code.txt
-else
-  echo "SUCCESS" > /tmp/bach_api_status_code.txt
-fi
 #if [[ "$opera_bach_ui_status_code" -ne 200 ]] ; then
 #  echo "FAILURE: Could not reach bach_ui v2.0" > /tmp/opera_bach_ui_status_code.txt
 #else

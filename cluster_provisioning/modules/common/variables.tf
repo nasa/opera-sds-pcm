@@ -31,18 +31,6 @@ variable "product_delivery_repo" {
 variable "product_delivery_branch" {
 }
 
-variable "bach_api_repo" {
-}
-
-variable "bach_api_branch" {
-}
-
-variable "bach_ui_repo" {
-}
-
-variable "bach_ui_branch" {
-}
-
 variable "opera_bach_api_repo" {
 }
 
@@ -340,7 +328,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_names" {
-  default = "opera_pge-l0a,opera_pge-l3"
+  default = "nisar_pge-l0a"
 }
 
 variable "docker_registry_bucket" {

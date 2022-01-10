@@ -14,10 +14,6 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  bach_api_repo                           = var.bach_api_repo
-  bach_api_branch                         = var.bach_api_branch
-  bach_ui_repo                            = var.bach_ui_repo
-  bach_ui_branch                          = var.bach_ui_branch
   opera_bach_api_repo                     = var.opera_bach_api_repo
   opera_bach_api_branch                   = var.opera_bach_api_branch
   opera_bach_ui_repo                      = var.opera_bach_ui_repo
@@ -213,12 +209,6 @@ resource "null_resource" "mozart" {
       "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T pcm_commons-${var.pcm_commons_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
       "rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
       # Bach components
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o bach-api-${var.bach_api_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/bach-api/archive/${var.bach_api_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T bach-api-${var.bach_api_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-api-${var.bach_api_branch}.tar.gz\"",
-      "rm -rf bach-api-${var.bach_api_branch}.tar.gz",
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o bach-ui-${var.bach_ui_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/bach-ui/archive/${var.bach_ui_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T bach-ui-${var.bach_ui_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-ui-${var.bach_ui_branch}.tar.gz\"",
-      "rm -rf bach-ui-${var.bach_ui_branch}.tar.gz",
       "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o opera-bach-api-${var.opera_bach_api_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/opera-bach-api/archive/${var.opera_bach_api_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T opera-bach-api-${var.opera_bach_api_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
       "rm -rf opera-bach-api-${var.opera_bach_api_branch}.tar.gz",

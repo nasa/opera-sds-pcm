@@ -16,13 +16,13 @@ locals {
   sns_count                      = var.cnm_r_event_trigger == "sns" ? 1 : 0
   kinesis_count                  = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
   sqs_count                      = var.cnm_r_event_trigger == "sqs" ? 1 : 0
-  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/lambda"
+  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
   daac_delivery_event_type       = split(":", var.daac_delivery_proxy)[2]
   daac_delivery_region           = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account          = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name    = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url        = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
-  pge_artifactory_release_url    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/"
+  pge_artifactory_dev_url        = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
+  pge_artifactory_release_url    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/"
   daac_proxy_cnm_r_sns_count     = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                       = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type         = "timer_handler"
@@ -1058,54 +1058,39 @@ resource "aws_instance" "mozart" {
       "fi",
       "cd ~/mozart/ops",
       "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-pcm-${var.pcm_branch}.tar.gz\"",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-pcm-${var.pcm_branch}.tar.gz\"",
       "  tar xfz opera-pcm-${var.pcm_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/opera-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/opera-pcm",
       "  rm -rf opera-pcm-${var.pcm_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
       "  tar xfz CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/CNM_product_delivery-${var.product_delivery_branch} /export/home/hysdsops/mozart/ops/CNM_product_delivery",
       "  rm -rf CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
       "  tar xfz pcm_commons-${var.pcm_commons_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/pcm_commons-${var.pcm_commons_branch} /export/home/hysdsops/mozart/ops/pcm_commons",
       "  rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-api-${var.bach_api_branch}.tar.gz\"",
-      "  tar xfz bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
-      "  rm -rf bach-api-${var.bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-ui-${var.bach_ui_branch}.tar.gz\"",
-      "  tar xfz bach-ui-${var.bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach_ui",
-      "  rm -rf bach-ui-${var.bach_ui_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
-      "  tar xfz opera-bach-api-${var.opera_bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/opera-bach-api",
-      "  rm -rf opera-bach-api-${var.opera_bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz\"",
-      "  tar xfz opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-bach-ui-${var.opera_bach_ui_branch} /export/home/hysdsops/mozart/ops/opera-bach-ui",
-      "  rm -rf opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
+      "  tar xfz nisar-bach-api-${var.opera_bach_api_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/nisar-bach-api",
+      "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-bach-ui-${var.opera_bach_ui_branch}.tar.gz\"",
+      "  tar xfz nisar-bach-ui-${var.opera_bach_ui_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-ui-${var.opera_bach_ui_branch} /export/home/hysdsops/mozart/ops/nisar-bach-ui",
+      "  rm -rf nisar-bach-ui-${var.opera_bach_ui_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo}",
+      "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} opera-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
-      "  git clone --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach_ui",
       "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo}",
-      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} opera-bach-ui",
+      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} nisar-bach-ui",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp opera-pcm/conf/sds ~/.sds",
       "cp ~/.sds.bak/config ~/.sds",
-      "cd bach_ui",
+      "cd nisar-bach-ui",
       "~/conda/bin/npm install --silent",
-      "sh create_config_simlink.sh",
-      "~/conda/bin/npm run build --silent",
-      "cd ../",
-      "cd opera-bach-ui",
-      "~/conda/bin/npm install --silent",
-      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/opera-bach-ui",
+      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/nisar-bach-ui",
       "~/conda/bin/npm run build --silent",
       "cd ../",
       "if [ \"${var.grq_aws_es}\" = true ]; then",
@@ -1173,9 +1158,9 @@ resource "aws_instance" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
     ]
   }
 
@@ -1542,16 +1527,11 @@ resource "aws_instance" "grq" {
       "  rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz",
       "fi",
       "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-api-${var.bach_api_branch}.tar.gz\"",
-      "  tar xfz bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
-      "  rm -rf bach-api-${var.bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
-      "  tar xfz opera-bach-api-${var.opera_bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/opera-bach-api",
-      "  rm -rf opera-bach-api-${var.opera_bach_api_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
+      "  tar xfz nisar-bach-api-${var.opera_bach_api_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/nisar-bach-api",
+      "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
       "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo}",
       "fi"
     ]
