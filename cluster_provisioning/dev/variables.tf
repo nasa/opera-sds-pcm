@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -20,7 +20,7 @@ variable "hysds_release" {
 }
 
 variable "pcm_repo" {
-  default = "github.com/nasa/opera-sds-pcm"
+  default = "github.com/nasa/opera-sds-pcm.git"
 }
 
 variable "pcm_branch" {

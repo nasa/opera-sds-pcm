@@ -23,7 +23,7 @@ echo -e "\n\n========================================================="
 echo "Creating ${OPERA_PCM_RELEASE} tag for opera-pcm repo."
 echo "========================================================="
 rm -rf opera-pcm/
-git clone -b ${OPERA_PCM_BRANCH} https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/opera-pcm.git
+git clone -b ${OPERA_PCM_BRANCH} https://${GIT_OAUTH_TOKEN}@github.com/nasa/opera-sds-pcm.git
 cd opera-pcm/
 git branch -D ${OPERA_PCM_RELEASE} || :
 sleep 1

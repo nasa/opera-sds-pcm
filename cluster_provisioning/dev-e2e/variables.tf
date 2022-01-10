@@ -20,7 +20,7 @@ variable "hysds_release" {
 }
 
 variable "pcm_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-pcm.git"
+  default = "github.com/nasa/opera-sds-pcm.git"
 }
 
 variable "pcm_branch" {

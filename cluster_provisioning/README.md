@@ -9,7 +9,7 @@ OPERA cluster provisioning using Terraform
 ## Usage
 1. Clone the repo
    ```
-   git clone https://github.jpl.nasa.gov/opera-sds/opera-pcm.git
+   git clone https://github.com/nasa/opera-sds-pcm.git
    cd cluster_provisioning
    ```
 1. If you are provisioning a cluster in the dev AWS account:
