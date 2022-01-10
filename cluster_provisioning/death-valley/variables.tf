@@ -30,15 +30,15 @@ variable "pcm_repo_git" {
   default = "git@github.com:nasa/opera-sds-pcm.git"
 }
 
+variable "pcm_branch" {
+  default = "develop"
+}
+
 variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
 variable "product_delivery_branch" {
-  default = "develop"
-}
-
-variable "pcm_branch" {
   default = "develop"
 }
 
