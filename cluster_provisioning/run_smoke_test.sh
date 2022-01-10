@@ -45,17 +45,10 @@ cnm_datasets=L0A_L_RRST,L0B_L_RRSD,COP,SCLKSCET,STUF
 # in order to test the timers. Additionally, we should temporarily shorten the timers to something small for smoke test purposes
 if [ "${cluster_type}" = "forward" ]; then
   aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-l0b-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-l0b-urgent_response-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-rslc-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-network_pair-timer-Trigger --schedule-expression "rate(5 minutes)"
   
   echo "Making a copy of the original settings.yaml and pushing out a modified version out to the cluster"
   cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
-  sed -i 's/    RRST_EVALUATOR: .*/    RRST_EVALUATOR: 3/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
   sed -i 's/    DATATAKE_EVALUATOR: .*/    DATATAKE_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
-  sed -i 's/    TRACK_FRAME_EVALUATOR: .*/    TRACK_FRAME_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
-  sed -i 's/    NETWORK_PAIR_EVALUATOR: .*/    NETWORK_PAIR_EVALUATOR: 5/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
 
   fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
   sds ship
