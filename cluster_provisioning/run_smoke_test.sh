@@ -281,7 +281,7 @@ cat dar_*.xml
 # If we're deploying a forward cluster, restore the original settings.yaml to the cluster
 if [ "${cluster_type}" = "forward" ]; then
   aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "${l0a_timer_trigger_frequency}"
-  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF,datatake,trackframe,network_pair /tmp/check_expected_force_submits.txt
+  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF,datatake /tmp/check_expected_force_submits.txt
   echo "Restoring original settings.yaml and pushing it out to the cluster"
   cp ~/mozart/ops/opera-pcm/conf/settings.yaml.bak ~/mozart/ops/opera-pcm/conf/settings.yaml
   fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
