@@ -36,7 +36,7 @@ pipeline {
           string(name: 'cluster_security_group_id', defaultValue: 'sg-026af415158b38796', description: 'ID of the security group used for PCM.')
           string(name: 'asg_vpc', defaultValue: 'vpc-9b3500ff', description: 'ID of the VPC used for the workers.')
           string(name: 'asg_ami', defaultValue: 'ami-0c6480025b7828f15', description: 'AMI ID used for the workers.')
-          string(name: 'opera_pcm_branch', defaultValue: 'develop', description: 'Branch of https://github.jpl.nasa.gov/IEMS-SDS/opera-pcm to checkout on cluster.')
+          string(name: 'pcm_branch', defaultValue: 'develop', description: 'Branch of https://github.jpl.nasa.gov/IEMS-SDS/opera-pcm to checkout on cluster.')
           string(name: 'baseline_pge_branch', defaultValue: 'develop', description: 'Branch of https://github.jpl.nasa.gov/IEMS-SDS/baseline-pge that will be used for submitting jobs.')
           string(name: 'product_delivery_branch', defaultValue: 'develop', description: 'Branch of https://github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery that will be used to send CNM Notification messages.')
           string(name: 'cnm_r_event_trigger', defaultValue: 'sns', description: 'Specify the event trigger to handle CNM-R messages. Valid values are "kinesis" or "sns".')
@@ -68,7 +68,7 @@ pipeline {
           asg_vpc="${asg_vpc}"
           asg_ami="${asg_ami}"
           counter="${counter}"
-          opera_pcm_branch="${opera_pcm_branch}"
+          pcm_branch="${pcm_branch}"
           baseline_pge_branch="${baseline_pge_branch}"
           product_delivery_branch="${product_delivery_branch}"
           cnm_r_event_trigger="${cnm_r_event_trigger}"
@@ -113,7 +113,7 @@ pipeline {
               /home/hysdsops/bin/terraform validate --var private_key_file=${identityFile} \
               --var jenkins_api_user=${jenkins_api_user} --var jenkins_api_key=${jenkins_api_key} \
               --var git_auth_key=${git_auth_key} --var keypair_name=pcmdev \
-              --var opera_pcm_branch=${tf_vars.opera_pcm_branch} --var hysds_release=${tf_vars.hysds_release} \
+              --var pcm_branch=${tf_vars.pcm_branch} --var hysds_release=${tf_vars.hysds_release} \
               --var product_delivery_branch=${tf_vars.product_delivery_branch} --var cnm_r_event_trigger=${tf_vars.cnm_r_event_trigger} \
               --var lambda_package_release=${tf_vars.lambda_package_release}
               """
@@ -121,7 +121,7 @@ pipeline {
               /home/hysdsops/bin/terraform apply --var private_key_file=${identityFile} \
               --var jenkins_api_user=${jenkins_api_user} --var jenkins_api_key=${jenkins_api_key} \
               --var git_auth_key=${git_auth_key} --var keypair_name=pcmdev \
-              --var opera_pcm_branch=${tf_vars.opera_pcm_branch} --var hysds_release=${tf_vars.hysds_release} \
+              --var pcm_branch=${tf_vars.pcm_branch} --var hysds_release=${tf_vars.hysds_release} \
               --var product_delivery_branch=${tf_vars.product_delivery_branch} --var cnm_r_event_trigger=${tf_vars.cnm_r_event_trigger} \
               --var lambda_package_release=${tf_vars.lambda_package_release} \
               -auto-approve
@@ -306,7 +306,7 @@ pipeline {
                 /home/hysdsops/bin/terraform destroy --var private_key_file=${identityFile} \
                 --var jenkins_api_user=${jenkins_api_user} --var jenkins_api_key=${jenkins_api_key} \
                 --var git_auth_key=${git_auth_key} --var keypair_name=pcmdev \
-                --var opera_pcm_branch=${tf_vars.opera_pcm_branch} --var hysds_release=${tf_vars.hysds_release} \
+                --var pcm_branch=${tf_vars.pcm_branch} --var hysds_release=${tf_vars.hysds_release} \
                 --var product_delivery_branch=${tf_vars.product_delivery_branch} --var cnm_r_event_trigger=${tf_vars.cnm_r_event_trigger} \
                 --var lambda_package_release=${tf_vars.lambda_package_release} \
                 -auto-approve

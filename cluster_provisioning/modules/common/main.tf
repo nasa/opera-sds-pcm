@@ -16,13 +16,13 @@ locals {
   sns_count                      = var.cnm_r_event_trigger == "sns" ? 1 : 0
   kinesis_count                  = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
   sqs_count                      = var.cnm_r_event_trigger == "sqs" ? 1 : 0
-  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/lambda"
+  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
   daac_delivery_event_type       = split(":", var.daac_delivery_proxy)[2]
   daac_delivery_region           = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account          = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name    = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url        = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
-  pge_artifactory_release_url    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/"
+  pge_artifactory_dev_url        = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
+  pge_artifactory_release_url    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/"
   daac_proxy_cnm_r_sns_count     = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                       = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type         = "timer_handler"
@@ -703,7 +703,7 @@ resource "aws_lambda_function" "isl_lambda" {
   environment {
     variables = {
       "JOB_TYPE"            = var.lambda_job_type
-      "JOB_RELEASE"         = var.opera_pcm_branch
+      "JOB_RELEASE"         = var.pcm_branch
       "JOB_QUEUE"           = var.lambda_job_queue
       "MOZART_URL"          = "https://${aws_instance.mozart.private_ip}/mozart"
       "DATASET_S3_ENDPOINT" = "s3-us-west-2.amazonaws.com"
@@ -968,7 +968,7 @@ resource "aws_instance" "mozart" {
       "echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config",
       "echo '  LAMBDA_ROLE: \"${var.lambda_role_arn}\"' >> ~/.sds/config",
       "echo '  JOB_TYPE: ${var.lambda_job_type}' >> ~/.sds/config",
-      "echo '  JOB_RELEASE: ${var.opera_pcm_branch}' >> ~/.sds/config",
+      "echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config",
       "echo '  JOB_QUEUE: ${var.lambda_job_queue}' >> ~/.sds/config",
       "echo >> ~/.sds/config",
       "echo CNM_RESPONSE_HANDLER: >> ~/.sds/config",
@@ -1058,51 +1058,36 @@ resource "aws_instance" "mozart" {
       "fi",
       "cd ~/mozart/ops",
       "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-pcm-${var.opera_pcm_branch}.tar.gz\"",
-      "  tar xfz opera-pcm-${var.opera_pcm_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-pcm-${var.opera_pcm_branch} /export/home/hysdsops/mozart/ops/opera-pcm",
-      "  rm -rf opera-pcm-${var.opera_pcm_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-pcm-${var.pcm_branch}.tar.gz\"",
+      "  tar xfz opera-pcm-${var.pcm_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/opera-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/opera-pcm",
+      "  rm -rf opera-pcm-${var.pcm_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
       "  tar xfz CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/CNM_product_delivery-${var.product_delivery_branch} /export/home/hysdsops/mozart/ops/CNM_product_delivery",
       "  rm -rf CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
       "  tar xfz pcm_commons-${var.pcm_commons_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/pcm_commons-${var.pcm_commons_branch} /export/home/hysdsops/mozart/ops/pcm_commons",
       "  rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-api-${var.bach_api_branch}.tar.gz\"",
-      "  tar xfz bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
-      "  rm -rf bach-api-${var.bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-ui-${var.bach_ui_branch}.tar.gz\"",
-      "  tar xfz bach-ui-${var.bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach_ui",
-      "  rm -rf bach-ui-${var.bach_ui_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
-      "  tar xfz opera-bach-api-${var.opera_bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/opera-bach-api",
-      "  rm -rf opera-bach-api-${var.opera_bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz\"",
-      "  tar xfz opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-bach-ui-${var.opera_bach_ui_branch} /export/home/hysdsops/mozart/ops/opera-bach-ui",
-      "  rm -rf opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
+      "  tar xfz nisar-bach-api-${var.opera_bach_api_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/opera-bach-api",
+      "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-bach-ui-${var.opera_bach_ui_branch}.tar.gz\"",
+      "  tar xfz nisar-bach-ui-${var.opera_bach_ui_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-ui-${var.opera_bach_ui_branch} /export/home/hysdsops/mozart/ops/opera-bach-ui",
+      "  rm -rf nisar-bach-ui-${var.opera_bach_ui_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.opera_pcm_branch} https://${var.git_auth_key}@${var.opera_pcm_repo}",
+      "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} opera-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
-      "  git clone --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach_ui",
       "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo}",
-      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} opera-bach-ui",
+      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo}",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp opera-pcm/conf/sds ~/.sds",
       "cp ~/.sds.bak/config ~/.sds",
-      "cd bach_ui",
-      "~/conda/bin/npm install --silent",
-      "sh create_config_simlink.sh",
-      "~/conda/bin/npm run build --silent",
-      "cd ../",
       "cd opera-bach-ui",
       "~/conda/bin/npm install --silent",
       "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/opera-bach-ui",
@@ -1155,10 +1140,10 @@ resource "aws_instance" "mozart" {
       "pip install -e .",
       "cd ~/mozart/ops/opera-pcm",
       "pip install -e .",
-      "if [[ \"${var.opera_pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.opera_pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
+      "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
       "else",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.opera_pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
       "fi",
       "sds -d kibana import -f",
       "sds -d cloud storage ship_style --bucket ${local.dataset_bucket}",
@@ -1173,9 +1158,9 @@ resource "aws_instance" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/opera-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
     ]
   }
 
@@ -1542,16 +1527,11 @@ resource "aws_instance" "grq" {
       "  rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz",
       "fi",
       "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/bach-api-${var.bach_api_branch}.tar.gz\"",
-      "  tar xfz bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
-      "  rm -rf bach-api-${var.bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
-      "  tar xfz opera-bach-api-${var.opera_bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/opera-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/opera-bach-api",
-      "  rm -rf opera-bach-api-${var.opera_bach_api_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/nisar-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
+      "  tar xfz nisar-bach-api-${var.opera_bach_api_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/nisar-bach-api",
+      "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
       "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo}",
       "fi"
     ]
@@ -1762,20 +1742,7 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
   }
   filter {
     name   = "tag:l0a"
-    values = [var.opera_pge_release]
-  }
-  filter {
-    name   = "tag:l0b"
-    values = [var.opera_pge_release]
-  }
-  filter {
-    name   = "tag:l1_l2"
-    values = [var.opera_pge_release]
-  }
-  filter {
-    name = "tag:lsar_time_extractor"
-    values = [
-    var.opera_pge_release]
+    values = [var.pge_release]
   }
 }
 
@@ -1795,7 +1762,7 @@ resource "aws_lambda_function" "event-misfire_lambda" {
   environment {
     variables = {
       "JOB_TYPE"                    = var.lambda_job_type
-      "JOB_RELEASE"                 = var.opera_pcm_branch
+      "JOB_RELEASE"                 = var.pcm_branch
       "JOB_QUEUE"                   = var.lambda_job_queue
       "MOZART_ES_URL"               = "http://${aws_instance.mozart.private_ip}:9200"
       "DATASET_S3_ENDPOINT"         = "s3-us-west-2.amazonaws.com"
@@ -1852,7 +1819,7 @@ resource "aws_lambda_function" "l0a_timer" {
       #"JOB_QUEUE": "${var.project}-job_worker-timer",
       "JOB_QUEUE": "opera-job_worker-timer",
       "JOB_TYPE": local.timer_handler_job_type,
-      "JOB_RELEASE": var.opera_pcm_branch,
+      "JOB_RELEASE": var.pcm_branch,
       "DATASET_TYPE": "ldf-state-config",
       "NOTIFY_ARN": aws_sns_topic.operator_notify.arn
     }
@@ -1887,227 +1854,6 @@ resource "aws_lambda_permission" "l0a_timer" {
   function_name = aws_lambda_function.l0a_timer.function_name
 }
 
-# Resources to provision the L0B timer
-# Lambda function to submit a job to check for expired Datatake State Configs
-resource "aws_lambda_function" "l0b_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_timer_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that checks for expired Datatake State Configs"
-  function_name = "${var.project}-${var.venue}-${local.counter}-l0b-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      #"JOB_QUEUE": "${var.project}-job_worker-timer",
-      "JOB_QUEUE": "opera-job_worker-timer",
-      "JOB_TYPE": local.timer_handler_job_type,
-      "JOB_RELEASE": var.opera_pcm_branch,
-      "DATASET_TYPE": "datatake-state-config",
-      "NOTIFY_ARN": aws_sns_topic.operator_notify.arn
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "l0b_timer" {
-  depends_on = [aws_lambda_function.l0b_timer]
-  name = "/aws/lambda/${aws_lambda_function.l0b_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the L0B timer job
-resource "aws_cloudwatch_event_rule" "l0b_timer" {
-  name = "${aws_lambda_function.l0b_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the L0B timer Lambda"
-  schedule_expression = var.l0b_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
-
-resource "aws_cloudwatch_event_target" "l0b_timer" {
-  rule = aws_cloudwatch_event_rule.l0b_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.l0b_timer.arn
-}
-
-resource "aws_lambda_permission" "l0b_timer" {
-  statement_id = aws_cloudwatch_event_rule.l0b_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.l0b_timer.arn
-  function_name = aws_lambda_function.l0b_timer.function_name
-}
-
-# Resources to provision the L0B Urgent Response timer
-# Lambda function to submit a job to check for expired Urgent Ressponse Datatake State Configs
-resource "aws_lambda_function" "l0b_urgent_response_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_timer_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that checks for expired Datatake State Configs"
-  function_name = "${var.project}-${var.venue}-${local.counter}-l0b-urgent_response-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-timer",
-      "JOB_TYPE": local.timer_handler_job_type,
-      "JOB_RELEASE": var.opera_pcm_branch,
-      "DATASET_TYPE": "datatake-urgent_response_state-config",
-      "NOTIFY_ARN": aws_sns_topic.operator_notify.arn
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "l0b_urgent_response_timer" {
-  depends_on = [aws_lambda_function.l0b_urgent_response_timer]
-  name = "/aws/lambda/${aws_lambda_function.l0b_urgent_response_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the L0B timer job
-resource "aws_cloudwatch_event_rule" "l0b_urgent_response_timer" {
-  name = "${aws_lambda_function.l0b_urgent_response_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the L0B timer Lambda"
-  schedule_expression = var.l0b_urgent_response_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
-
-resource "aws_cloudwatch_event_target" "l0b_urgent_response_timer" {
-  rule = aws_cloudwatch_event_rule.l0b_urgent_response_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.l0b_urgent_response_timer.arn
-}
-
-resource "aws_lambda_permission" "l0b_urgent_response_timer" {
-  statement_id = aws_cloudwatch_event_rule.l0b_urgent_response_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.l0b_urgent_response_timer.arn
-  function_name = aws_lambda_function.l0b_urgent_response_timer.function_name
-}
-
-# Resources to provision the RSLC timer
-# Lambda function to submit a job to check for expired Track Frame State Configs
-resource "aws_lambda_function" "rslc_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_timer_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that checks for expired Datatake State Configs"
-  function_name = "${var.project}-${var.venue}-${local.counter}-rslc-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-timer",
-      "JOB_TYPE": local.timer_handler_job_type,
-      "JOB_RELEASE": var.opera_pcm_branch,
-      "DATASET_TYPE": "track_frame-state-config",
-      "NOTIFY_ARN": aws_sns_topic.operator_notify.arn
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "rslc_timer" {
-  depends_on = [aws_lambda_function.rslc_timer]
-  name = "/aws/lambda/${aws_lambda_function.rslc_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the rslc timer job
-resource "aws_cloudwatch_event_rule" "rslc_timer" {
-  name = "${aws_lambda_function.rslc_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the rslc timer Lambda"
-  schedule_expression = var.rslc_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
-
-resource "aws_cloudwatch_event_target" "rslc_timer" {
-  rule = aws_cloudwatch_event_rule.rslc_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.rslc_timer.arn
-}
-
-resource "aws_lambda_permission" "rslc_timer" {
-  statement_id = aws_cloudwatch_event_rule.rslc_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.rslc_timer.arn
-  function_name = aws_lambda_function.rslc_timer.function_name
-}
-
-# Resources to provision the network_pair timer
-# Lambda function to submit a job to check for expired Network Pair State Configs
-resource "aws_lambda_function" "network_pair_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_timer_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that checks for expired Network Pair State Configs"
-  function_name = "${var.project}-${var.venue}-${local.counter}-network_pair-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-timer",
-      "JOB_TYPE": local.timer_handler_job_type,
-      "JOB_RELEASE": var.opera_pcm_branch,
-      "DATASET_TYPE": "network_pair-state-config",
-      "NOTIFY_ARN": aws_sns_topic.operator_notify.arn
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "network_pair_timer" {
-  depends_on = [aws_lambda_function.network_pair_timer]
-  name = "/aws/lambda/${aws_lambda_function.network_pair_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the network_pair timer job
-resource "aws_cloudwatch_event_rule" "network_pair_timer" {
-  name = "${aws_lambda_function.network_pair_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the network_pair timer Lambda"
-  schedule_expression = var.network_pair_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
-
-resource "aws_cloudwatch_event_target" "network_pair_timer" {
-  rule = aws_cloudwatch_event_rule.network_pair_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.network_pair_timer.arn
-}
-
-resource "aws_lambda_permission" "network_pair_timer" {
-  statement_id = aws_cloudwatch_event_rule.network_pair_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.network_pair_timer.arn
-  function_name = aws_lambda_function.network_pair_timer.function_name
-}
-
 # Resources to provision the Observation Accountability Report timer
 # Lambda function to submit a job to create the Observation Accountability Report
 resource "aws_lambda_function" "observation_accountability_report_timer" {
@@ -2129,7 +1875,7 @@ resource "aws_lambda_function" "observation_accountability_report_timer" {
       #"JOB_QUEUE": "${var.project}-job_worker-small",
       "JOB_QUEUE": "opera-job_worker-small",
       "JOB_TYPE": local.accountability_report_job_type,
-      "JOB_RELEASE": var.opera_pcm_branch,
+      "JOB_RELEASE": var.pcm_branch,
       "REPORT_NAME": "ObservationAccountabilityReport",
       "REPORT_FORMAT": "xml",
       "OSL_BUCKET_NAME": local.osl_bucket,

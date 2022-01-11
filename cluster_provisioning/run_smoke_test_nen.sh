@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 31 ]; then
+if [ "$#" -eq 999 ]; then
   project=$1
   environment=$2
   venue=$3
@@ -30,10 +30,6 @@ if [ "$#" -eq 31 ]; then
   crid=${25}
   cluster_type=${26}
   l0a_timer_trigger_frequency=${27}
-  l0b_timer_trigger_frequency=${28}
-  rslc_timer_trigger_frequency=${29}
-  l0b_urgent_response_timer_trigger_frequency=${30}
-  network_pair_timer_trigger_frequency=${31}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1

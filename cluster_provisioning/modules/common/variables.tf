@@ -13,10 +13,10 @@ variable "artifactory_mirror_url" {
 variable "hysds_release" {
 }
 
-variable "opera_pcm_repo" {
+variable "pcm_repo" {
 }
 
-variable "opera_pcm_branch" {
+variable "pcm_branch" {
 }
 
 variable "pcm_commons_repo" {
@@ -29,18 +29,6 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-}
-
-variable "bach_api_repo" {
-}
-
-variable "bach_api_branch" {
-}
-
-variable "bach_ui_repo" {
-}
-
-variable "bach_ui_branch" {
 }
 
 variable "opera_bach_api_repo" {
@@ -274,67 +262,7 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-rrst-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
     "opera-job_worker-sciflo-l0a" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-time_extractor" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-datatake-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-track-frame-acct" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-network-pair-eval" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-l0b" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-rslc" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-gslc" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-gcov" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-insar" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
@@ -352,12 +280,6 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-net" = {
-      "instance_type" = ["c5.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
     "opera-workflow_profiler" = {
       "instance_type" = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
       "root_dev_size" = 50
@@ -368,12 +290,6 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 100
-      "max_size"      = 10
-    }
-    "opera-job_worker-pta" = {
-      "instance_type" = ["c5.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
       "max_size"      = 10
     }
   }
@@ -412,7 +328,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_names" {
-  default = "opera_pge-l0a,opera_pge-lsar_time_extractor,opera_pge-l0b,opera_pge-l1_l2"
+  default = "nisar_pge-l0a"
 }
 
 variable "docker_registry_bucket" {
@@ -423,7 +339,7 @@ variable "pge_snapshots_date" {
   default = "20210805-R2.0.0"
 }
 
-variable "opera_pge_release" {
+variable "pge_release" {
   default = "R2.0.0"
 }
 
@@ -432,18 +348,6 @@ variable "crid" {
 }
 
 variable "l0a_timer_trigger_frequency" {
-}
-
-variable "l0b_timer_trigger_frequency" {
-}
-
-variable "rslc_timer_trigger_frequency" {
-}
-
-variable "network_pair_timer_trigger_frequency" {
-}
-
-variable "l0b_urgent_response_timer_trigger_frequency" {
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {}

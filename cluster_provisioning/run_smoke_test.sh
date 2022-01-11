@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 32 ]; then
+if [ "$#" -eq 28 ]; then
   project=$1
   environment=$2
   venue=$3
@@ -11,8 +11,8 @@ if [ "$#" -eq 32 ]; then
   artifactory_base_url=$6
   artifactory_repo=$7
   artifactory_mirror_url=$8
-  opera_pcm_repo=$9
-  opera_pcm_branch=${10}
+  pcm_repo=$9
+  pcm_branch=${10}
   product_delivery_repo=${11}
   product_delivery_branch=${12}
   delete_old_cop_catalog=${13}
@@ -30,11 +30,7 @@ if [ "$#" -eq 32 ]; then
   crid=${25}
   cluster_type=${26}
   l0a_timer_trigger_frequency=${27}
-  l0b_timer_trigger_frequency=${28}
-  l0b_urgent_response_timer_trigger_frequency=${29}
-  obs_acct_report_timer_trigger_frequency=${30}
-  rslc_timer_trigger_frequency=${31}
-  network_pair_timer_trigger_frequency=${32}
+  obs_acct_report_timer_trigger_frequency=${28}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -49,17 +45,10 @@ cnm_datasets=L0A_L_RRST,L0B_L_RRSD,COP,SCLKSCET,STUF
 # in order to test the timers. Additionally, we should temporarily shorten the timers to something small for smoke test purposes
 if [ "${cluster_type}" = "forward" ]; then
   aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-l0b-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-l0b-urgent_response-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-rslc-timer-Trigger --schedule-expression "rate(5 minutes)"
-  aws events put-rule --name ${project}-${venue}-${counter}-network_pair-timer-Trigger --schedule-expression "rate(5 minutes)"
   
   echo "Making a copy of the original settings.yaml and pushing out a modified version out to the cluster"
   cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
-  sed -i 's/    RRST_EVALUATOR: .*/    RRST_EVALUATOR: 3/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
   sed -i 's/    DATATAKE_EVALUATOR: .*/    DATATAKE_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
-  sed -i 's/    TRACK_FRAME_EVALUATOR: .*/    TRACK_FRAME_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
-  sed -i 's/    NETWORK_PAIR_EVALUATOR: .*/    NETWORK_PAIR_EVALUATOR: 5/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
 
   fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
   sds ship
@@ -88,34 +77,27 @@ done
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0a --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-time_extractor --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-datatake-acct --desired-capacity 5
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-track-frame-acct --desired-capacity 5
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-network-pair-eval --desired-capacity 5
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0b --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-net --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-pta --desired-capacity 1
 
 # no jobs currently being submitted to these ASGs but left here commented out for future use
 #aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${project}-${venue}-${counter}-opera-job_worker-large --desired-capacity 7
 #aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${project}-${venue}-${counter}-opera-workflow_profiler --desired-capacity 1
 
 # build/import opera-pcm
-lowercase_opera_pcm_branch=`echo "${opera_pcm_branch}" | awk '{ print tolower($0); }'`
+lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
 
 if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${opera_pcm_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_opera-pcm-${opera_pcm_branch}.sdspkg.tar
-  rm -rf container-iems-sds_opera-pcm-${opera_pcm_branch}.sdspkg.tar
+  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar"
+  sds pkg import container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
+  rm -rf container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
   # Loads the opera-pcm container to the docker registry
-  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-iems-sds_opera-pcm:${lowercase_opera_pcm_branch}"
+  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-iems-sds_opera-pcm:${lowercase_pcm_branch}"
 else
-  sds -d ci add_job -b ${opera_pcm_branch} --token https://${opera_pcm_repo} s3
-  sds -d ci build_job -b ${opera_pcm_branch} https://${opera_pcm_repo}
-  sds -d ci remove_job -b ${opera_pcm_branch} https://${opera_pcm_repo}
+  sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
+  sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
+  sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
 fi
 
 # create COP catalog
@@ -168,10 +150,10 @@ fi
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json
 
 # submit test hello world job to CPU queue/ASG
-python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job.py ${opera_pcm_branch}
+python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job.py ${pcm_branch}
 
 # submit test hello world job to GPU queue/ASG to exercise GPU-capability
-python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job-gpu.py ${opera_pcm_branch}
+python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job-gpu.py ${pcm_branch}
 
 # import trigger rules for mozart and grq
 cd ~/.sds/files/test
@@ -273,21 +255,9 @@ cat oad_*.xml
 python ~/mozart/ops/opera-pcm/report/accountability_report_cli.py DataAccountabilityReport --start ${data_start} --end ${data_end} --format_type=xml 
 cat dar_*.xml
 
-bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach_ui/1.0/dataSummary/incoming)
-bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/1.0/ancillary/list)
 #opera_bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach_ui/2.0/data-summary/incoming)
 #opera_bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/2.0/ancillary/list)
 
-if [[ "$bach_ui_status_code" -ne 200 ]] ; then
-  echo "FAILURE: Could not reach bach_ui v1.0" > /tmp/bach_ui_status_code.txt
-else
-  echo "SUCCESS" > /tmp/bach_ui_status_code.txt
-fi
-if [[ "$bach_api_status_code" -ne 200 ]] ; then
-  echo "FAILURE: Could not reach bach-api v1.0" > /tmp/bach_api_status_code.txt
-else
-  echo "SUCCESS" > /tmp/bach_api_status_code.txt
-fi
 #if [[ "$opera_bach_ui_status_code" -ne 200 ]] ; then
 #  echo "FAILURE: Could not reach bach_ui v2.0" > /tmp/opera_bach_ui_status_code.txt
 #else
@@ -311,9 +281,7 @@ fi
 # If we're deploying a forward cluster, restore the original settings.yaml to the cluster
 if [ "${cluster_type}" = "forward" ]; then
   aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "${l0a_timer_trigger_frequency}"
-  aws events put-rule --name ${project}-${venue}-${counter}-l0b-urgent_response-timer-Trigger --schedule-expression "${l0b_urgent_response_timer_trigger_frequency}"
-  aws events put-rule --name ${project}-${venue}-${counter}-network_pair-timer-Trigger --schedule-expression "${network_pair_timer_trigger_frequency}"
-  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF,datatake,trackframe,network_pair /tmp/check_expected_force_submits.txt
+  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF,datatake /tmp/check_expected_force_submits.txt
   echo "Restoring original settings.yaml and pushing it out to the cluster"
   cp ~/mozart/ops/opera-pcm/conf/settings.yaml.bak ~/mozart/ops/opera-pcm/conf/settings.yaml
   fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages

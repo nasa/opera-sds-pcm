@@ -159,7 +159,7 @@ variable "pge_snapshots_date" {
   default = "20210805-R2.0.0"
 }
 
-variable "opera_pge_release" {
+variable "pge_release" {
   default = "R2.0.0"
 }
 
@@ -175,20 +175,12 @@ variable "pcm_commons_branch" {
   default = "release-r2.2.1"
 }
 
-variable "opera_pcm_branch" {
+variable "pcm_branch" {
   default = "release-r2.0.0"
 }
 
 variable "product_delivery_branch" {
   default = "release-r2.2.1"
-}
-
-variable "bach_api_branch" {
-  default = "release-r2.0.0-nisar"
-}
-
-variable "bach_ui_branch" {
-  default = "release-r1.0.0-nisar"
 }
 
 variable "opera_bach_api_branch" {

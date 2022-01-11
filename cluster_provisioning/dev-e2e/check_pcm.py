@@ -89,11 +89,9 @@ class TestPCM(unittest.TestCase):
         self.check_expected("/tmp/report_datasets.txt", logger)
 
     def test_expected_bach_services(self):
-        """Test that the bach_ui and bach_api v1 and v2 are up"""
+        """Test that the bach_ui and bach_api v2 are up"""
 
         logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/bach_ui_status_code.txt", logger)
-        self.check_expected("/tmp/bach_api_status_code.txt", logger)
         self.check_expected("/tmp/opera_bach_ui_status_code.txt", logger)
         self.check_expected("/tmp/opera_bach_api_status_code.txt", logger)
 
