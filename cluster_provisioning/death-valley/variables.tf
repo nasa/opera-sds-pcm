@@ -22,12 +22,16 @@ variable "baseline_pge_branch" {
 variable "hysds_release" {
 }
 
-variable "opera_pcm_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-pcm.git"
+variable "pcm_repo" {
+  default = "github.com/nasa/opera-sds-pcm.git"
 }
 
-variable "opera_pcm_repo_git" {
-  default = "git@github.jpl.nasa.gov:IEMS-SDS/opera-pcm.git"
+variable "pcm_repo_git" {
+  default = "git@github.com:nasa/opera-sds-pcm.git"
+}
+
+variable "pcm_branch" {
+  default = "develop"
 }
 
 variable "product_delivery_repo" {
@@ -35,10 +39,6 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "develop"
-}
-
-variable "opera_pcm_branch" {
   default = "develop"
 }
 

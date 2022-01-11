@@ -13,8 +13,8 @@ module "common" {
   source = "../modules/common"
 
   hysds_release                         = var.hysds_release
-  opera_pcm_repo                        = var.opera_pcm_repo
-  opera_pcm_branch                      = var.opera_pcm_branch
+  pcm_repo                              = var.pcm_repo
+  pcm_branch                            = var.pcm_branch
   product_delivery_repo                 = var.product_delivery_repo
   product_delivery_branch               = var.product_delivery_branch
   venue                                 = var.venue

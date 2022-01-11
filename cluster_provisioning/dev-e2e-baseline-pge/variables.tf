@@ -19,11 +19,11 @@ variable "artifactory_mirror_url" {
 variable "hysds_release" {
 }
 
-variable "opera_pcm_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-pcm.git"
+variable "pcm_repo" {
+  default = "github.com/nasa/opera-sds-pcm.git"
 }
 
-variable "opera_pcm_branch" {
+variable "pcm_branch" {
   default = "develop"
 }
 
@@ -51,24 +51,8 @@ variable "baseline_pge_branch" {
   default = "develop"
 }
 
-variable "bach_api_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/bach-api.git"
-}
-
-variable "bach_api_branch" {
-  default = "opera"
-}
-
-variable "bach_ui_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/bach-ui.git"
-}
-
-variable "bach_ui_branch" {
-  default = "opera"
-}
-
 variable "opera_bach_api_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-bach-api.git"
+  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
 }
 
 variable "opera_bach_api_branch" {
@@ -76,7 +60,7 @@ variable "opera_bach_api_branch" {
 }
 
 variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/opera-bach-ui.git"
+  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
 }
 
 variable "opera_bach_ui_branch" {
@@ -134,11 +118,11 @@ variable "az" {
   default = "us-west-2a"
 }
 
-variable grq_aws_es {
+variable "grq_aws_es" {
   default = false
 }
 
-variable grq_aws_es_host {
+variable "grq_aws_es_host" {
   default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
@@ -146,7 +130,7 @@ variable "grq_aws_es_host_private_verdi" {
   default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
-variable grq_aws_es_port {
+variable "grq_aws_es_port" {
   default = 443
 }
 
@@ -406,7 +390,7 @@ variable "pge_snapshots_date" {
   default = "20210805-R2.0.0"
 }
 
-variable "opera_pge_release" {
+variable "pge_release" {
   default = "R2.0.0"
 }
 
@@ -419,22 +403,6 @@ variable "cluster_type" {
 }
 
 variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
-}
-
-variable "l0b_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "rslc_timer_trigger_frequency" {
-  default = "rate(360 minutes)"
- }
-
-variable "network_pair_timer_trigger_frequency" {
-  default = "rate(360 minutes)"
-}
-
-variable "l0b_urgent_response_timer_trigger_frequency" {
   default = "rate(15 minutes)"
 }
 

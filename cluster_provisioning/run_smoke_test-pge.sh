@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 36 ]; then
+if [ "$#" -eq 999 ]; then
   project=$1
   environment=$2
   venue=$3
@@ -30,15 +30,9 @@ if [ "$#" -eq 36 ]; then
   crid=${25}
   cluster_type=${26}
   l0a_timer_trigger_frequency=${27}
-  l0b_timer_trigger_frequency=${28}
-  l0b_urgent_response_timer_trigger_frequency=${29}
-  obs_acct_report_timer_trigger_frequency=${30}
-  rslc_timer_trigger_frequency=${31}
-  network_pair_timer_trigger_frequency={32}
-  pge_test_package=${33}
-  l0a_test_package=${34}
-  l0b_test_package=${35}
-  l2_test_package=${36}
+  obs_acct_report_timer_trigger_frequency=${28}
+  pge_test_package=${29}
+  l0a_test_package=${30}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -134,18 +128,7 @@ fab -f ~/.sds/cluster.py -R mozart,factotum update_nisar_packages
 sds -d ship
 
 ~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-small --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-rrst-acct --desired-capacity 5
 ~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-l0a --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-time_extractor --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-datatake-acct --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-l0b --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-track-frame-acct --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-rslc --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-gslc --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-gcov --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-sciflo-insar --desired-capacity 1
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-pta --desired-capacity 1
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-nisar-job_worker-net --desired-capacity 1
 
 cd ~/.sds/files/test
 curl -XDELETE http://${mozart_private_ip}:9200/user_rules-grq
@@ -158,11 +141,9 @@ cd ~/.sds/files/test/pge
 
 # Extracting folder names from the test package names
 l0a_test_folder=`basename ${l0a_test_package} .tgz`
-l0b_test_folder=`basename ${l0b_test_package} .tgz`
-l2_test_folder=`basename ${l2_test_package} .tgz`
 
 # Download test packages
-for i in ${l0a_test_package} ${l0b_test_package} ${l2_test_package};
+for i in ${l0a_test_package};
 do
   if [ ! -f "$i" ];
   then

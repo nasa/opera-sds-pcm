@@ -5,7 +5,7 @@ terraform {
     # TODO: remove this pin once this ticket is resolved:
     #   https://github.com/hashicorp/terraform-provider-aws/issues/10297
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
       version = "2.63"
     }
     null = {
