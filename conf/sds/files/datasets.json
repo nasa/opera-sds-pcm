@@ -900,7 +900,7 @@
       "ipath": "hysds::data/L2_HLS",
       "level": "L2",
       "type": "L2_HLS",
-      "match_pattern": "/(?P<id>(?P<product_shortname>(HLS[.]L30|HLS[.]S30))[.](?P<tile_id>T[[:alnum:]]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[[:alnum:]]+)[.](?P<format>tif))$",
+      "match_pattern": "(?P<id>(?P<product_shortname>(HLS[.]L30|HLS[.]S30))[.](?P<tile_id>T[[:alnum:]]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[[:alnum:]]+)[.](?P<format>tif))",
       "alt_match_pattern": null,
       "extractor": null
     }
