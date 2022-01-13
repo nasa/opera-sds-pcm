@@ -397,6 +397,11 @@ def get_parser():
         help="Optionally specify a json that contains extra "
              "metadata to add to the resulting dataset."
     )
+    parser.add_argument(
+        "--create-hash",
+        action='store_true',
+        help="Optionally create MD5 checksum."
+    )
     return parser
 
 
@@ -421,7 +426,7 @@ def main():
         crawl(target, settings[PRODUCT_TYPES_KEY], workspace, extra_met=extra_met)
     else:
         try:
-            extract(target, settings[PRODUCT_TYPES_KEY], workspace, extra_met=extra_met)
+            extract(target, settings[PRODUCT_TYPES_KEY], workspace, extra_met=extra_met, create_hash=args.create_hash)
         except subprocess.CalledProcessError:
             sys.exit(1)
         except Exception:
