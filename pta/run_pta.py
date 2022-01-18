@@ -9,7 +9,7 @@ from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper, call_noerr
 from util.ctx_util import JobContext, DockerParams
 from opera_chimera.constants.opera_chimera_const import (
-    NisarChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 from commons.logger import logger
 from hysds.utils import download_file
@@ -119,7 +119,7 @@ def main(args):
     jc = JobContext(context_file)
 
     # set force publish (disable no-clobber)
-    if cfg.get(nc_const.FORCE_INGEST, {}).get('PTA', False):
+    if cfg.get(oc_const.FORCE_INGEST, {}).get('PTA', False):
         jc.set("_force_ingest", True)
         jc.save()
 

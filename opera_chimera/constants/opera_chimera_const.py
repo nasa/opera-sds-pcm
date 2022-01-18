@@ -4,7 +4,7 @@ from observation_accountability.catalog import ES_INDEX as observation_accountab
 from Track_Frame_Accountability.catalog import ES_INDEX as track_frame_accountability_index
 
 
-class NisarChimeraConstants(ChimeraConstants):
+class OperaChimeraConstants(ChimeraConstants):
     def __init__(self):
         ChimeraConstants.__init__(self)
 

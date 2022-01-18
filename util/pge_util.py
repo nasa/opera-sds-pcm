@@ -3,7 +3,7 @@ import json
 
 from commons.logger import logger
 
-from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as nc_const
+from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
 
 def simulate_output(metadata, base_name, output_dir, extensions):
@@ -25,29 +25,29 @@ def simulate_output(metadata, base_name, output_dir, extensions):
 
 def simulate_run_pge(runconfig, output_dir, pge_config, context):
     # simulate output
-    output_types = pge_config.get(nc_const.OUTPUT_TYPES)
+    output_types = pge_config.get(oc_const.OUTPUT_TYPES)
     for type in output_types.keys():
         # Need to formulate a base name for the output files
-        base_names = runconfig.get(nc_const.BASE_NAME, {})
+        base_names = runconfig.get(oc_const.BASE_NAME, {})
         if len(base_names) == 0:
-            raise RuntimeError("Missing {} field in the run_config parameter".format(nc_const.BASE_NAME))
+            raise RuntimeError("Missing {} field in the run_config parameter".format(oc_const.BASE_NAME))
         else:
             base_name = base_names.get(type, None)
             if not base_name:
                 raise RuntimeError("{} is not defined in the {} area of the run_config parameter".format(
-                    type, nc_const.BASE_NAME))
+                    type, oc_const.BASE_NAME))
             else:
                 if not isinstance(base_name, list):
                     base_name = [base_name]
 
-        mock_metadata = runconfig.get(nc_const.MOCK_METADATA, {})
+        mock_metadata = runconfig.get(oc_const.MOCK_METADATA, {})
         if len(mock_metadata) == 0:
-            raise RuntimeError("Missing {} field in the run_config parameter".format(nc_const.MOCK_METADATA))
+            raise RuntimeError("Missing {} field in the run_config parameter".format(oc_const.MOCK_METADATA))
         else:
             metadata = mock_metadata.get(type, None)
             if not metadata:
                 raise RuntimeError("{} is not defined in the {} area of the run_config parameter".format(
-                    type, nc_const.MOCK_METADATA))
+                    type, oc_const.MOCK_METADATA))
             else:
                 if not isinstance(metadata, list):
                     metadata = [metadata]

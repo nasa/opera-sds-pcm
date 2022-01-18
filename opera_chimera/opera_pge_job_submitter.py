@@ -12,7 +12,7 @@ from opera_chimera.accountability import OperaAccountability
 from commons.logger import logger
 from chimera.pge_job_submitter import PgeJobSubmitter
 from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 
 from pass_accountability.es_connection import get_pass_accountability_connection
@@ -145,7 +145,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                     "{}".format(self._context["job_specification"]["id"])
                 )
             job_type = match.group(1)
-            force_publish = self._settings.get(nc_const.FORCE_INGEST, {}).get(
+            force_publish = self._settings.get(oc_const.FORCE_INGEST, {}).get(
                 job_type, False
             )
             if force_publish:
@@ -183,7 +183,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
             pge_info = {}
             with open(self._base_work_dir + "/_pid", "r+") as pid:
                 pid = int(pid.read())
-            if self._settings.get(nc_const.PGE_SIM_MODE, True):
+            if self._settings.get(oc_const.PGE_SIM_MODE, True):
                 pge_info = {
                     "time_start": datetime.utcnow().strftime(ISO_DATETIME_PATTERN)
                     + "Z",

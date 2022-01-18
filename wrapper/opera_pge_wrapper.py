@@ -15,7 +15,7 @@ from util.conf_util import RunConfig
 from product2dataset import product2dataset
 from util.ctx_util import JobContext, DockerParams
 
-from opera_chimera.constants.opera_chimera_const import NisarChimeraConstants as opera_chimera_const
+from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 
 from commons.logger import logger
 
@@ -177,17 +177,12 @@ def run_pipeline(context, work_dir):
                 uid=uid, gid=gid, work_dir=work_dir
             ),
             " ".join(runtime_options),
-            "-v",
-            "/data/work/jobs:/data/work/jobs",
-            "-v",
-            "/data/work/cache:/data/work/cache:ro",
-            "-v",
-            "/home/ops/verdi/etc/datasets.json:/home/ops/verdi/etc/datasets.json:ro",
+            "-v", "/data/work/jobs:/data/work/jobs",
+            "-v", "/data/work/cache:/data/work/cache:ro",
+            "-v", "/home/ops/verdi/etc/datasets.json:/home/ops/verdi/etc/datasets.json:ro",
             dep_img_name,
-            "--file",
-            rc_file.split("/")[-1],
-            "--stats",
-            "/pge/run/pge_stats/_docker_stats.json",
+            "--file", rc_file.split("/")[-1],
+            "--stats", "/pge/run/pge_stats/_docker_stats.json",
         ]
 
         cmd_line = " ".join(cmd)
