@@ -10,7 +10,6 @@ import netrc
 import os
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
-from os.path import splitext
 from urllib import request
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
@@ -120,7 +119,7 @@ def run():
 
     if defined_time_range:
         temporal_range = get_temporal_range(start_date_time, end_date_time,
-                                             datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))  # noqa E501
+                                            datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))  # noqa E501
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
@@ -141,23 +140,6 @@ def run():
 
     logging.debug(str(results[
                           'hits']) + " new granules found for " + short_name + " since " + data_within_last_timestamp)  # noqa E501
-
-    if any([args.dy, args.dydoy, args.dymd]):
-        try:
-            file_start_times = [(r['meta']['native-id'],
-                                 datetime.strptime((r['umm']['TemporalExtent']['RangeDateTime']['BeginningDateTime']),
-                                                   "%Y-%m-%dT%H:%M:%S.%fZ")) for r in results['items']]  # noqa E501
-        except KeyError:
-            raise ValueError('Could not locate start time for data.')
-    elif args.cycle:
-        try:
-            cycles = [(splitext(r['meta']['native-id'])[0],
-                       str(r['umm']['SpatialExtent']['HorizontalSpatialDomain']['Track']['Cycle'])) for r in
-                      results['items']]  # noqa E501
-        except KeyError:
-            parser.error('No cycles found within collection granules. '
-                         'Specify an output directory or '
-                         'choose another output directory flag other than -dc.')  # noqa E501
 
     timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -214,7 +196,7 @@ def run():
                 for extension in extensions:
                     if f.lower().endswith(extension):
                         upload_return = upload(f, SessionWithHeaderRedirection(username, password, parsed_url.netloc),
-                                                token, s3_bucket)
+                                               token, s3_bucket)
                         if "failed_download" in upload_return:
                             raise Exception(upload_return["failed_download"])
                         logging.info(str(datetime.now()) + " SUCCESS: " + f)
@@ -438,7 +420,7 @@ def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
 
 
 def validate(args):
-    validate_bounds(args.bbox.split(','))
+    validate_bounds(args.bbox)
 
     if args.startDate:
         validate_date(args.startDate, "start")
