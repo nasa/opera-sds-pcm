@@ -285,9 +285,40 @@ fabric.properties
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 
+######################################################################
 # Deployment/Development specific files
-.DS_Store
+######################################################################
 cluster_provisioning/**/*.sh
 cluster_provisioning/**/*.xml
 cluster_provisioning/**/*.zip
 cluster_provisioning/**/*.tf
+
+######################################################################
+# MacOS files
+######################################################################
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
