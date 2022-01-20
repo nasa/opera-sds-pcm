@@ -10,6 +10,7 @@ import netrc
 import os
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
+from multiprocessing.pool import ThreadPool
 from urllib import request
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
@@ -45,12 +46,12 @@ class SessionWithHeaderRedirection(requests.Session):
 
 
 def run():
-    IPAddr = "127.0.0.1"
-    edl = "urs.earthdata.nasa.gov"
-    cmr = "cmr.earthdata.nasa.gov"
-    token_url = "https://" + cmr + "/legacy-services/rest/tokens"
-    parsed_url = urlparse("https://urs.earthdata.nasa.gov")
-    page_size = 2000
+    IP_ADDR = "127.0.0.1"
+    EDL = "urs.earthdata.nasa.gov"
+    CMR = "cmr.earthdata.nasa.gov"
+    TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
+    NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
+    PAGE_SIZE = 2000
 
     parser = create_parser()
     args = parser.parse_args()
@@ -65,20 +66,17 @@ def run():
         logging.error(v)
         exit()
 
-    username, password = setup_earthdata_login_auth(edl)
-    token = get_token(token_url, 'daac-subscriber', IPAddr, edl)
+    username, password = setup_earthdata_login_auth(EDL)
+    token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
 
-    defined_time_range = args.startDate or args.endDate
+    time_range_is_defined = args.startDate or args.endDate
 
-    if defined_time_range:
-        data_within_last_timestamp = args.startDate
-    else:
-        data_within_last_timestamp = (datetime.utcnow() - timedelta(minutes=args.minutes)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ")
+    data_within_last_timestamp = args.startDate if time_range_is_defined else (
+            datetime.utcnow() - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     params = {
         'scroll': "true",
-        'page_size': page_size,
+        'page_size': PAGE_SIZE,
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,
@@ -87,7 +85,7 @@ def run():
         'bounding_box': args.bbox,
     }
 
-    if defined_time_range:
+    if time_range_is_defined:
         temporal_range = get_temporal_range(args.startDate, args.endDate,
                                             datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))  # noqa E501
         params['temporal'] = temporal_range
@@ -97,8 +95,7 @@ def run():
     logging.debug("Updated Since: " + data_within_last_timestamp)
 
     # Get the query parameters as a string and then the complete search url:
-    query = urlencode(params)
-    url = "https://" + cmr + "/search/granules.umm_json?" + query
+    url = f"https://{CMR}/search/granules.umm_json?{urlencode(params)}"
 
     logging.debug(url)
 
@@ -123,9 +120,9 @@ def run():
                  if u['Type'] == "EXTENDED METADATA"
                  or u['Type'] == "GET DATA" and ('Subtype' not in u or u['Subtype'] != "OPENDAP DATA")]
 
-    if len(downloads) >= page_size:
+    if len(downloads) >= PAGE_SIZE:
         logging.info(
-            f"Warning: only the most recent {str(page_size)} granules will be downloaded; Try adjusting your search criteria.")
+            f"Warning: only the most recent {str(PAGE_SIZE)} granules will be downloaded; Try adjusting your search criteria.")
 
     # filter list based on extension
     filtered_downloads = [f
@@ -136,26 +133,28 @@ def run():
     logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
     logging.debug(f"Downloading files with extensions: {str(args.extensions)}")
 
-    success_cnt = failure_cnt = 0
+    num_successes = num_failures = 0
 
     for f in filtered_downloads:
         try:
             for extension in args.extensions:
                 if f.lower().endswith(extension):
-                    upload_return = upload(f, SessionWithHeaderRedirection(username, password, parsed_url.netloc),
-                                           token, args.s3_bucket)
+                    upload_return = upload(f, SessionWithHeaderRedirection(username, password, NETLOC), token,
+                                           args.s3_bucket)
                     if "failed_download" in upload_return:
                         raise Exception(upload_return["failed_download"])
+                    else:
+                        logging.debug(str(upload_return))
                     logging.info(f"{str(datetime.now())} SUCCESS: {f}")
-                    success_cnt = success_cnt + 1
+                    num_successes = num_successes + 1
         except Exception as e:
             logging.error(f"{str(datetime.now())} FAILURE: {f}")
-            failure_cnt = failure_cnt + 1
+            num_failures = num_failures + 1
             logging.error(e)
 
-    logging.info(f"Downloaded: {str(success_cnt)} files")
-    logging.info(f"Files Failed to download: {str(failure_cnt)}")
-    delete_token(token_url, token)
+    logging.info(f"Downloaded: {str(num_successes)} files")
+    logging.info(f"Files Failed to download: {str(num_failures)}")
+    delete_token(TOKEN_URL, token)
     logging.info("END")
 
 
@@ -322,23 +321,28 @@ def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
     key = os.path.join(staging_area, file_name)
     upload_start_time = datetime.utcnow()
     headers = {"Echo-Token": token}
+
     try:
         try:
             with session.get(url, headers=headers, stream=True) as r:
                 if r.status_code != 200:
                     r.raise_for_status()
                 logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
-                total_bytes = 0
+                #total_bytes = 0
                 with open("s3://{}/{}".format(bucket, key), "wb") as out:
-                    for chunk in r.iter_content(chunk_size=chunk_size):
-                        logging.debug("Uploading {} byte(s)".format(len(chunk)))
-                        out.write(chunk)
-                        total_bytes += len(chunk)
+                    pool = ThreadPool(processes=10)
+                    pool.map(upload_chunk, [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
+                    pool.close()
+                    pool.join()
+                    #for chunk in r.iter_content(chunk_size=chunk_size):
+                        #logging.debug("Uploading {} byte(s)".format(len(chunk)))
+                        #out.write(chunk)
+                        #total_bytes += len(chunk)
             upload_end_time = datetime.utcnow()
             upload_duration = upload_end_time - upload_start_time
             upload_stats = {
                 "file_name": file_name,
-                "file_size (in bytes)": total_bytes,
+                "file_size (in bytes)": r.headers.get('Content-Length'),
                 "upload_duration (in seconds)": upload_duration.total_seconds(),
                 "upload_start_time": convert_datetime(upload_start_time),
                 "upload_end_time": convert_datetime(upload_end_time)
@@ -350,6 +354,11 @@ def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
             raise Exception(str(he))
     except Exception as e:
         return {"failed_download": e}
+
+
+def upload_chunk(chunk_dict):
+    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
+    chunk_dict['out'].write(chunk_dict['chunk'])
 
 
 def validate(args):
