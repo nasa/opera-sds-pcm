@@ -14,9 +14,7 @@ from urllib import request
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 
-import boto3
 import requests
-from botocore.exceptions import ClientError
 from smart_open import open
 
 
@@ -53,12 +51,11 @@ def run():
     token_url = "https://" + cmr + "/legacy-services/rest/tokens"
     parsed_url = urlparse("https://urs.earthdata.nasa.gov")
     page_size = 2000
-    defined_time_range = False
 
     parser = create_parser()
     args = parser.parse_args()
 
-    LOGLEVEL = 'DEBUG' if args.verbose else os.environ.get('SUBSCRIBER_LOGLEVEL', 'INFO').upper()
+    LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
     logging.debug("Log level set to " + LOGLEVEL)
 
@@ -69,61 +66,34 @@ def run():
         exit()
 
     username, password = setup_earthdata_login_auth(edl)
-    token = get_token(token_url, 'podaac-subscriber', IPAddr, edl)
-    mins = args.minutes  # In this case download files ingested in the last 60 minutes -- change this to whatever setting is needed
+    token = get_token(token_url, 'daac-subscriber', IPAddr, edl)
 
-    provider = args.provider
+    defined_time_range = args.startDate or args.endDate
 
-    start_date_time = args.startDate
-    end_date_time = args.endDate
-
-    if start_date_time or end_date_time:
-        defined_time_range = True
-
-    short_name = args.collection
-    extensions = args.extensions
-
-    s3_bucket = args.s3_bucket
-
-    # **The search retrieves granules ingested during the last `n` minutes.
-    # ** A file in your local data dir  file that tracks updates to your data directory,
-    # if one file exists.
-    #
-
-    # This is the default way of finding data if no other
     if defined_time_range:
-        data_within_last_timestamp = start_date_time
+        data_within_last_timestamp = args.startDate
     else:
-        data_within_last_timestamp = (datetime.utcnow() - timedelta(minutes=mins)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    # Change this to whatever extent you need. Format is W Longitude,S Latitude,E Longitude,N Latitude
-    bounding_extent = args.bbox
-
-    # There are several ways to query for CMR updates that occured during a given timeframe. Read on in the CMR Search documentation:
-    # * https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html#c-with-new-granules (Collections)
-    # * https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html#c-with-revised-granules (Collections)
-    # * https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html#g-production-date (Granules)
-    # * https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html#g-created-at (Granules)
-    # The `created_at` parameter works for our purposes. It's a granule search parameter that returns the records ingested since the input timestamp.
+        data_within_last_timestamp = (datetime.utcnow() - timedelta(minutes=args.minutes)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
 
     params = {
         'scroll': "true",
         'page_size': page_size,
         'sort_key': "-start_date",
-        'provider': provider,
-        'ShortName': short_name,
+        'provider': args.provider,
+        'ShortName': args.collection,
         'updated_since': data_within_last_timestamp,
         'token': token,
-        'bounding_box': bounding_extent,
+        'bounding_box': args.bbox,
     }
 
     if defined_time_range:
-        temporal_range = get_temporal_range(start_date_time, end_date_time,
+        temporal_range = get_temporal_range(args.startDate, args.endDate,
                                             datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))  # noqa E501
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-    logging.debug("Provider: " + provider)
+    logging.debug("Provider: " + args.provider)
     logging.debug("Updated Since: " + data_within_last_timestamp)
 
     # Get the query parameters as a string and then the complete search url:
@@ -138,14 +108,8 @@ def run():
     with urlopen(url) as f:
         results = json.loads(f.read().decode())
 
-    logging.debug(str(results[
-                          'hits']) + " new granules found for " + short_name + " since " + data_within_last_timestamp)  # noqa E501
-
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    # Neatly print the first granule record (if one was returned):
-    # if len(results['items'])>0:
-    #    print(dumps(results['items'][0], indent=2))
+    logging.debug(
+        f"{str(results['hits'])} new granules found for {args.collection} since {data_within_last_timestamp}")  # noqa E501
 
     # The link for http access can be retrieved from each granule
     # record's `RelatedUrls` field.
@@ -153,72 +117,46 @@ def run():
     # other data files in EXTENDED METADATA" field.
     # Select the download URL for each of the granule records:
 
-    downloads_all = []
-
-    downloads_data = [[u['URL'] for u in r['umm']['RelatedUrls'] if
-                       u['Type'] == "GET DATA" and ('Subtype' not in u or u['Subtype'] != "OPENDAP DATA")] for r in
-                      results['items']]
-    downloads_metadata = [[u['URL'] for u in r['umm']['RelatedUrls'] if u['Type'] == "EXTENDED METADATA"] for r in
-                          results['items']]
-
-    for f in downloads_data:
-        downloads_all.append(f)
-    for f in downloads_metadata:
-        downloads_all.append(f)
-
-    downloads = [item for sublist in downloads_all for item in sublist]
+    downloads = [u['URL']
+                 for item in results['items']
+                 for u in item['umm']['RelatedUrls']
+                 if u['Type'] == "EXTENDED METADATA"
+                 or u['Type'] == "GET DATA" and ('Subtype' not in u or u['Subtype'] != "OPENDAP DATA")]
 
     if len(downloads) >= page_size:
-        logging.info("Warning: only the most recent " + str(
-            page_size) + " granules will be downloaded; try adjusting your search criteria (suggestion: reduce time period or spatial region of search) to ensure you retrieve all granules.")
+        logging.info(
+            f"Warning: only the most recent {str(page_size)} granules will be downloaded; Try adjusting your search criteria.")
 
     # filter list based on extension
-    if not extensions:
-        extensions = [".nc", ".h5", ".zip"]
-    filtered_downloads = []
-    for f in downloads:
-        for extension in extensions:
-            if f.lower().endswith(extension):
-                filtered_downloads.append(f)
+    filtered_downloads = [f
+                          for f in downloads
+                          for extension in args.extensions
+                          if f.lower().endswith(extension)]
 
-    downloads = filtered_downloads
+    logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
+    logging.debug(f"Downloading files with extensions: {str(args.extensions)}")
 
-    logging.debug("Found " + str(len(downloads)) + " total files to download")
-    logging.debug("Downloading files with extensions: " + str(extensions))
-
-    # Finish by downloading the files to the data directory in a loop.
-    # Overwrite `.update` with a new timestamp on success.
     success_cnt = failure_cnt = 0
 
-    if args.s3_bucket:
-        for f in downloads:
-            try:
-                for extension in extensions:
-                    if f.lower().endswith(extension):
-                        upload_return = upload(f, SessionWithHeaderRedirection(username, password, parsed_url.netloc),
-                                               token, s3_bucket)
-                        if "failed_download" in upload_return:
-                            raise Exception(upload_return["failed_download"])
-                        logging.info(str(datetime.now()) + " SUCCESS: " + f)
-                        success_cnt = success_cnt + 1
-            except Exception as e:
-                logging.error(str(datetime.now()) + " FAILURE: " + f)
-                failure_cnt = failure_cnt + 1
-                logging.error(e)
+    for f in filtered_downloads:
+        try:
+            for extension in args.extensions:
+                if f.lower().endswith(extension):
+                    upload_return = upload(f, SessionWithHeaderRedirection(username, password, parsed_url.netloc),
+                                           token, args.s3_bucket)
+                    if "failed_download" in upload_return:
+                        raise Exception(upload_return["failed_download"])
+                    logging.info(f"{str(datetime.now())} SUCCESS: {f}")
+                    success_cnt = success_cnt + 1
+        except Exception as e:
+            logging.error(f"{str(datetime.now())} FAILURE: {f}")
+            failure_cnt = failure_cnt + 1
+            logging.error(e)
 
-    # If there were updates to the local time series during this run and no
-    # exceptions were raised during the download loop, then overwrite the
-    #  timestamp file that tracks updates to the data folder
-    #   (`resources/nrt/.update`):
-    if len(results['items']) > 0:
-        if not failure_cnt > 0:
-            with open(s3_bucket + "/.update", "w") as f:
-                f.write(timestamp)
-
-    logging.info("Downloaded: " + str(success_cnt) + " files\n")
-    logging.info("Files Failed to download:" + str(failure_cnt) + "\n")
+    logging.info(f"Downloaded: {str(success_cnt)} files")
+    logging.info(f"Files Failed to download: {str(failure_cnt)}")
     delete_token(token_url, token)
-    logging.info("END \n\n")
+    logging.info("END")
 
 
 def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
@@ -249,7 +187,7 @@ def create_parser():
                         type=int, default=60)  # noqa E501
     parser.add_argument("-e", "--extensions", dest="extensions",
                         help="The extensions of products to download. Default is [.nc, .h5, .zip]",
-                        default=[".nc", ".h5", ".zip"], action='append')  # noqa E501
+                        default=[".nc", ".h5", ".zip"])  # noqa E501
     parser.add_argument("--version", dest="version", action="store_true",
                         help="Display script version information and exit.")  # noqa E501
     parser.add_argument("--verbose", dest="verbose", action="store_true", help="Verbose mode.")  # noqa E501
@@ -304,13 +242,8 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     return token
 
 
-def product_exists(bucket, key):
-    s3 = boto3.client('s3')
-    try:
-        s3.head_object(Bucket=bucket, Key=key)
-        return True
-    except ClientError:
-        return False
+def product_exists_in_es():
+    return False
 
 
 def setup_earthdata_login_auth(endpoint):
