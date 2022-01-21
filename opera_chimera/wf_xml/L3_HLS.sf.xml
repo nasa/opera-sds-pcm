@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<sf:sciflo xmlns:sf="http://sciflo.jpl.nasa.gov/2006v1/sf"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        xmlns:py="http://sciflo.jpl.nasa.gov/2006v1/py">
+  <sf:flow id="L3_HLS">
+    <sf:title>L3_HLS</sf:title>
+    <sf:icon>http://sciflo.jpl.nasa.gov/smap_sciflo/web/thumbnails/merged_data.png</sf:icon>
+    <sf:description>Run L3_HLS.</sf:description>
+    <sf:inputs>
+      <!-- See https://github.com/hysds/chimera/blob/develop/chimera/run_pge_docker.py -->
+        <sf_context>_context.json</sf_context>
+      <!-- runconfig -->
+      <!-- pge_config_file -->
+      <!-- settings_file -->
+      <!-- chimera_config_file -->
+    </sf:inputs>
+    <sf:outputs>
+      <job_id_L3_HLS from="@#L3_HLS"/>
+    </sf:outputs>
+
+    <sf:processes>
+      <sf:process id="L3_HLS">
+        <sf:inputs>
+          <sf_context/>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_HLS.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+        </sf:inputs>
+        <sf:outputs />
+        <sf:operator>
+          <sf:description>Run L3_HLS on AWS worker</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/run_pge_docker.py?run_pge_docker.submit_pge_job</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+    </sf:processes>
+  </sf:flow>
+</sf:sciflo>
