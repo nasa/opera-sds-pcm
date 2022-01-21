@@ -21,7 +21,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{ \"bool\": { \"must\": [ { \"term\": { \"dataset.keyword\": \"L3_DSWx_HLS\" } } ] } }",
+      "query_string": "{ \"bool\": { \"must\": [ { \"term\": { \"dataset.keyword\": \"L2_HLS_L30\" } } ] } }",
       "queue": "opera-job_worker-small",
       "rule_name": "trigger-SCIFLO_L3_DSWx_HLS",
       "username": "hysdsops",
