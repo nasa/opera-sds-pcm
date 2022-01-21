@@ -873,10 +873,34 @@
       }
     },
     {
-      "ipath": "hysds::data/L2_HLS",
+      "ipath": "hysds::data/L2_HLS_L30",
       "level": "L2",
-      "type": "L2_HLS",
-      "match_pattern": "(?P<id>(?P<product_shortname>(HLS[.]L30|HLS[.]S30))[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
+      "type": "L2_HLS_L30",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_S30",
+      "level": "L2",
+      "type": "L2_HLS_S30",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {

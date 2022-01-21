@@ -430,13 +430,36 @@ PRODUCT_TYPES:
             starttime: ValidityStartDateTime
             endtime: ValidityEndDateTime
 
-    L2_HLS:
+    L2_HLS_L30:
         # This pattern groups the metadata information in the filename using named groups.
         #
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>(HLS[.]L30|HLS[.]S30))[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            # Custom Pattern for dates like "<year><day number of year>T<hour><minute><second>"
+            # For example, "2021248T143156":
+            #   year: 2021
+            #   day number of year: 248
+            #   hour: 14
+            #   minute: 31
+            #   second: 56
+            Date_Time_Patterns: ['%Y%jT%H%M%S']
+
+            # Specify the metadata key to convert to a start and end time for the dataset times
+            Date_Time_Keys: ['acquisition_ts']
+        Dataset_Keys: {}
+
+    L2_HLS_S30:
+        # This pattern groups the metadata information in the filename using named groups.
+        #
+        # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
+        #
+        # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
