@@ -18,6 +18,8 @@ from urllib.request import urlopen
 import requests
 from smart_open import open
 
+from data_subscriber.es_connection import get_data_subscriber_connection
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -59,6 +61,8 @@ def run():
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
     logging.debug("Log level set to " + LOGLEVEL)
+
+    ES_CONN = get_data_subscriber_connection(logging.getLogger(__name__))
 
     try:
         validate(args)
@@ -102,8 +106,8 @@ def run():
     # Get a new timestamp that represents the UTC time of the search.
     # Then download the records in `umm_json` format for granules
     # that match our search parameters:
-    with urlopen(url) as f:
-        results = json.loads(f.read().decode())
+    with urlopen(url) as url:
+        results = json.loads(url.read().decode())
 
     logging.debug(
         f"{str(results['hits'])} new granules found for {args.collection} since {data_within_last_timestamp}")  # noqa E501
@@ -133,27 +137,34 @@ def run():
     logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
     logging.debug(f"Downloading files with extensions: {str(args.extensions)}")
 
-    num_successes = num_failures = 0
+    num_successes = num_failures = num_skipped = 0
 
-    for f in filtered_downloads:
+    for url in filtered_downloads:
         try:
-            for extension in args.extensions:
-                if f.lower().endswith(extension):
-                    upload_return = upload(f, SessionWithHeaderRedirection(username, password, NETLOC), token,
-                                           args.s3_bucket)
-                    if "failed_download" in upload_return:
-                        raise Exception(upload_return["failed_download"])
-                    else:
-                        logging.debug(str(upload_return))
-                    logging.info(f"{str(datetime.now())} SUCCESS: {f}")
-                    num_successes = num_successes + 1
+            if product_is_duplicate(ES_CONN, url):
+                logging.info(f"Skipping {url}: product has already been downloaded.")
+                num_skipped = num_skipped + 1
+            else:
+                for extension in args.extensions:
+                    if url.lower().endswith(extension):
+                        upload_return = upload(url, SessionWithHeaderRedirection(username, password, NETLOC), token,
+                                               args.s3_bucket)
+                        if "failed_download" in upload_return:
+                            raise Exception(upload_return["failed_download"])
+                        else:
+                            logging.debug(str(upload_return))
+
+                        mark_product_as_downloaded(ES_CONN, url)
+                        logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                        num_successes = num_successes + 1
         except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {f}")
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
             num_failures = num_failures + 1
             logging.error(e)
 
-    logging.info(f"Downloaded: {str(num_successes)} files")
-    logging.info(f"Files Failed to download: {str(num_failures)}")
+    logging.info(f"Files downloaded: {str(num_successes)}")
+    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
+    logging.info(f"Files failed to download: {str(num_failures)}")
     delete_token(TOKEN_URL, token)
     logging.info("END")
 
@@ -193,6 +204,11 @@ def create_parser():
     parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                         help="Specify a provider for collection search. Default is LPCLOUD.")  # noqa E501
     return parser
+
+
+def create_product_in_es(es_conn, url):
+    # es_conn.create(url)
+    pass
 
 
 def delete_token(url: str, token: str) -> None:
@@ -241,8 +257,27 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     return token
 
 
-def product_exists_in_es():
+def mark_product_as_downloaded(ES_CONN, url):
+    # es_conn.update(url)
+    pass
+
+
+def product_exists_in_es(es_conn, url):
+    # es_conn.query_existence(url)
     return False
+
+
+def product_is_downloaded(es_conn, url):
+    # es_conn.query_attribute(url)
+    return False
+
+
+def product_is_duplicate(es_conn, url):
+    if not product_exists_in_es(es_conn, url):
+        create_product_in_es(es_conn, url)
+        return False
+
+    return product_is_downloaded(es_conn, url)
 
 
 def setup_earthdata_login_auth(endpoint):
@@ -330,7 +365,8 @@ def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
                 logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
                 with open("s3://{}/{}".format(bucket, key), "wb") as out:
                     pool = ThreadPool(processes=10)
-                    pool.map(upload_chunk, [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
+                    pool.map(upload_chunk,
+                             [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
                     pool.close()
                     pool.join()
             upload_end_time = datetime.utcnow()
