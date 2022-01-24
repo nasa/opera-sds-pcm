@@ -11,7 +11,7 @@
   "dependency_images": [
     {
       "container_image_name": "opera_pge/dswx_hls-1.0.0:e1.0",
-      "container_image_url": "s3://opera-dev-cc-fwd-crivas/opera_pge-dswx_hls-1.0.0-er.1.0.tar.gz",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.0-er.1.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
