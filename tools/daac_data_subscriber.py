@@ -328,16 +328,11 @@ def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
                 if r.status_code != 200:
                     r.raise_for_status()
                 logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
-                #total_bytes = 0
                 with open("s3://{}/{}".format(bucket, key), "wb") as out:
                     pool = ThreadPool(processes=10)
                     pool.map(upload_chunk, [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
                     pool.close()
                     pool.join()
-                    #for chunk in r.iter_content(chunk_size=chunk_size):
-                        #logging.debug("Uploading {} byte(s)".format(len(chunk)))
-                        #out.write(chunk)
-                        #total_bytes += len(chunk)
             upload_end_time = datetime.utcnow()
             upload_duration = upload_end_time - upload_start_time
             upload_stats = {
