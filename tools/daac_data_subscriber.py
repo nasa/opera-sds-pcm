@@ -169,12 +169,6 @@ def run():
     logging.info("END")
 
 
-def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
-    if isinstance(datetime_obj, datetime):
-        return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat)
-
-
 def create_parser():
     parser = argparse.ArgumentParser()
 
@@ -206,78 +200,47 @@ def create_parser():
     return parser
 
 
-def create_product_in_es(es_conn, url):
-    # es_conn.create(url)
-    pass
+def validate(args):
+    validate_bounds(args.bbox)
+
+    if args.startDate:
+        validate_date(args.startDate, "start")
+
+    if args.endDate:
+        validate_date(args.endDate, "end")
+
+    if args.minutes:
+        validate_minutes(args.minutes)
 
 
-def delete_token(url: str, token: str) -> None:
+def validate_bounds(bbox):
+    bounds = bbox.split(',')
+    value_error = ValueError(
+        f"Error parsing bounds: {bbox}. Format is <W Longitude>,<S Latitude>,<E Longitude>,<N Latitude> without spaces ")  # noqa E501
+
+    if len(bounds) != 4:
+        raise value_error
+
+    for b in bounds:
+        try:
+            float(b)
+        except ValueError:
+            raise value_error
+
+
+def validate_date(date, type='start'):
     try:
-        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
-        url = '{}/{}'.format(url, token)
-        resp = requests.request('DELETE', url, headers=headers)
-        if resp.status_code == 204:
-            logging.info("CMR token successfully deleted")
-        else:
-            logging.error("CMR token deleting failed.")
-    except:  # noqa E722
-        logging.error("Error deleting the token")
-    exit(0)
+        datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')
+    except ValueError:
+        raise ValueError(
+            f"Error parsing {type} date: {date}. Format must be like 2021-01-14T00:00:00Z")  # noqa E501
 
 
-def get_temporal_range(start, end, now):
-    start = start if start is not False else None
-    end = end if end is not False else None
-
-    if start is not None and end is not None:
-        return "{},{}".format(start, end)
-    if start is not None and end is None:
-        return "{},{}".format(start, now)
-    if start is None and end is not None:
-        return "1900-01-01T00:00:00Z,{}".format(end)
-
-    raise ValueError("One of start-date or end-date must be specified.")
-
-
-def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
+def validate_minutes(minutes):
     try:
-        token: str = ''
-        username, _, password = netrc.netrc().authenticators(endpoint)
-        xml: str = """<?xml version='1.0' encoding='utf-8'?>
-        <token><username>{}</username><password>{}</password><client_id>{}</client_id>
-        <user_ip_address>{}</user_ip_address></token>""".format(username, password, client_id, user_ip)  # noqa E501
-        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
-        resp = requests.post(url, headers=headers, data=xml)
-        response_content: Dict = json.loads(resp.content)
-        token = response_content['token']['id']
-
-    # What error is thrown here? Value Error? Request Errors?
-    except:  # noqa E722
-        logging.error("Error getting the token - check user name and password")
-    return token
-
-
-def mark_product_as_downloaded(ES_CONN, url):
-    # es_conn.update(url)
-    pass
-
-
-def product_exists_in_es(es_conn, url):
-    # es_conn.query_existence(url)
-    return False
-
-
-def product_is_downloaded(es_conn, url):
-    # es_conn.query_attribute(url)
-    return False
-
-
-def product_is_duplicate(es_conn, url):
-    if not product_exists_in_es(es_conn, url):
-        create_product_in_es(es_conn, url)
-        return False
-
-    return product_is_downloaded(es_conn, url)
+        int(minutes)
+    except ValueError:
+        raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")  # noqa E501
 
 
 def setup_earthdata_login_auth(endpoint):
@@ -336,6 +299,67 @@ def setup_earthdata_login_auth(endpoint):
     return username, password
 
 
+def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
+    try:
+        token: str = ''
+        username, _, password = netrc.netrc().authenticators(endpoint)
+        xml: str = """<?xml version='1.0' encoding='utf-8'?>
+        <token><username>{}</username><password>{}</password><client_id>{}</client_id>
+        <user_ip_address>{}</user_ip_address></token>""".format(username, password, client_id, user_ip)  # noqa E501
+        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+        resp = requests.post(url, headers=headers, data=xml)
+        response_content: Dict = json.loads(resp.content)
+        token = response_content['token']['id']
+
+    # What error is thrown here? Value Error? Request Errors?
+    except:  # noqa E722
+        logging.error("Error getting the token - check user name and password")
+    return token
+
+
+def get_temporal_range(start, end, now):
+    start = start if start is not False else None
+    end = end if end is not False else None
+
+    if start is not None and end is not None:
+        return "{},{}".format(start, end)
+    if start is not None and end is None:
+        return "{},{}".format(start, now)
+    if start is None and end is not None:
+        return "1900-01-01T00:00:00Z,{}".format(end)
+
+    raise ValueError("One of start-date or end-date must be specified.")
+
+
+def product_is_duplicate(es_conn, url):
+    if not product_exists_in_es(es_conn, url):
+        create_product_in_es(es_conn, url)
+        return False
+
+    return product_is_downloaded(es_conn, url)
+
+
+def product_exists_in_es(es_conn, url):
+    # es_conn.query_existence(url)
+    return False
+
+
+def create_product_in_es(es_conn, url):
+    # es_conn.create(url)
+    pass
+
+
+def product_is_downloaded(es_conn, url):
+    # es_conn.query_attribute(url)
+    return False
+
+
+def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
+    if isinstance(datetime_obj, datetime):
+        return datetime_obj.strftime(strformat)
+    return datetime.strptime(str(datetime_obj), strformat)
+
+
 def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
     """
     This will basically transfer the file contents of the given url to an S3 bucket
@@ -392,47 +416,23 @@ def upload_chunk(chunk_dict):
     chunk_dict['out'].write(chunk_dict['chunk'])
 
 
-def validate(args):
-    validate_bounds(args.bbox)
-
-    if args.startDate:
-        validate_date(args.startDate, "start")
-
-    if args.endDate:
-        validate_date(args.endDate, "end")
-
-    if args.minutes:
-        validate_minutes(args.minutes)
+def mark_product_as_downloaded(ES_CONN, url):
+    # es_conn.update(url)
+    pass
 
 
-def validate_bounds(bbox):
-    bounds = bbox.split(',')
-    value_error = ValueError(
-        f"Error parsing bounds: {bbox}. Format is <W Longitude>,<S Latitude>,<E Longitude>,<N Latitude> without spaces ")  # noqa E501
-
-    if len(bounds) != 4:
-        raise value_error
-
-    for b in bounds:
-        try:
-            float(b)
-        except ValueError:
-            raise value_error
-
-
-def validate_date(date, type='start'):
+def delete_token(url: str, token: str) -> None:
     try:
-        datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')
-    except ValueError:
-        raise ValueError(
-            f"Error parsing {type} date: {date}. Format must be like 2021-01-14T00:00:00Z")  # noqa E501
-
-
-def validate_minutes(minutes):
-    try:
-        int(minutes)
-    except ValueError:
-        raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")  # noqa E501
+        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+        url = '{}/{}'.format(url, token)
+        resp = requests.request('DELETE', url, headers=headers)
+        if resp.status_code == 204:
+            logging.info("CMR token successfully deleted")
+        else:
+            logging.error("CMR token deleting failed.")
+    except:  # noqa E722
+        logging.error("Error deleting the token")
+    exit(0)
 
 
 if __name__ == '__main__':
