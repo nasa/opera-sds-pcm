@@ -1,5 +1,5 @@
 # The runconfig section is intended to be used for dynamically generating the runconfig file used
-# when running the NISAR PGEs. Any values set with a "__CHIMERA_VAL__" should be filled in by the input
+# when running the OPERA PGEs. Any values set with a "__CHIMERA_VAL__" should be filled in by the input
 # preprocessor. Otherwise, a precondition evaluation error will be thrown.
 runconfig:
     name: dswx_hls_workflow_default
@@ -57,5 +57,4 @@ primary_input: "L2_HLS_L30"
 primary_output: "L3_DSWx"
 
 # List the groups that Chimera will need to localize
-localize_groups:
-  - InputFilePath
+localize_groups: []

@@ -21,5 +21,18 @@
   "recommended-queues": [ "opera-job_worker-sciflo-l0a" ],
   "post": [ "hysds.utils.triage"],
   "disable_post_builtins": true,
-  "params": []
+  "params": [
+    {
+      "name": "module_path",
+      "destination": "positional"
+    },
+    {
+      "name": "wf_dir",
+      "destination": "positional"
+    },
+    {
+      "name": "wf_name",
+      "destination": "positional"
+    }
+  ]
 }
