@@ -15,18 +15,40 @@
       <!-- chimera_config_file -->
     </sf:inputs>
     <sf:outputs>
-      <job_id_L3_HLS from="@#L3_HLS"/>
+      <job_id_L3_HLS from="@#L3_HLS_PGE"/>
     </sf:outputs>
 
     <sf:processes>
-      <sf:process id="L3_HLS">
+      <!-- input preprocessor -->
+      <sf:process id="input_preprocesor_L3_HLS">
         <sf:inputs>
           <sf_context/>
           <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_HLS.yaml</pge_config_file>
           <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
           <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
         </sf:inputs>
-        <sf:outputs />
+        <sf:outputs>
+          <PGE_L3_HLS_job_params />
+        </sf:outputs>
+        <sf:operator>
+          <sf:description>Pre processing step for PGE L3_HLS</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/input_preprocessor.py?input_preprocessor.process</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+
+      <sf:process id="L3_HLS_PGE">
+        <sf:inputs>
+          <sf_context/>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_HLS.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+          <PGE_L3_HLS_job_params from="@#input_preprocesor_L3_HLS"/>
+        </sf:inputs>
+        <sf:outputs>
+          <job_id_L3_HLS />
+        </sf:outputs>
         <sf:operator>
           <sf:description>Run L3_HLS on AWS worker</sf:description>
           <sf:op>
