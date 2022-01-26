@@ -1,8 +1,8 @@
-from elasticsearch import RequestsHttpConnection
 from aws_requests_auth.boto_utils import BotoAWSRequestsAuth
+from elasticsearch import RequestsHttpConnection
+from hysds.celery import app
 
 from data_subscriber.catalog import DataSubscriberProductCatalog
-from hysds.celery import app
 
 DATA_SUBSCRIBER_CONN = None
 

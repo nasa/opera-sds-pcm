@@ -142,7 +142,7 @@ def run():
     for url in filtered_downloads:
         try:
             if product_is_duplicate(ES_CONN, url):
-                logging.info(f"Skipping {url}: product has already been downloaded.")
+                logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
                 for extension in args.extensions:
@@ -332,26 +332,26 @@ def get_temporal_range(start, end, now):
 
 
 def product_is_duplicate(es_conn, url):
-    if not product_exists_in_es(es_conn, url):
+    result = product_exists_in_es(es_conn, url)
+
+    if not result:
         create_product_in_es(es_conn, url)
         return False
 
-    return product_is_downloaded(es_conn, url)
+    return product_is_downloaded(result)
 
 
 def product_exists_in_es(es_conn, url):
-    # es_conn.query_existence(url)
-    return False
+    result = es_conn.query_existence(url)
+    return result['hits']['hits']
 
 
 def create_product_in_es(es_conn, url):
-    # es_conn.create(url)
-    pass
+    es_conn.post({"url": url, "downloaded": False})
 
 
-def product_is_downloaded(es_conn, url):
-    # es_conn.query_attribute(url)
-    return False
+def product_is_downloaded(result):
+    return result[0]["_source"]["downloaded"]
 
 
 def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
@@ -416,9 +416,10 @@ def upload_chunk(chunk_dict):
     chunk_dict['out'].write(chunk_dict['chunk'])
 
 
-def mark_product_as_downloaded(ES_CONN, url):
-    # es_conn.update(url)
-    pass
+def mark_product_as_downloaded(es_conn, url):
+    result = product_exists_in_es(es_conn, url)
+    id = result[0]["_id"]
+    es_conn.mark_downloaded(id)
 
 
 def delete_token(url: str, token: str) -> None:

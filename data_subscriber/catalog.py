@@ -1,10 +1,6 @@
-import os
-import json
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-REFREC_ID = "refrec_id"
 ES_INDEX = "data_subscriber_product_catalog"
-HEADER = "header"
 
 
 class DataSubscriberProductCatalog(ElasticsearchUtility):
@@ -22,12 +18,7 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         update_document
     """
 
-    def create_index(self, index=ES_INDEX, delete_old_index=False):
-        if delete_old_index is True:
-            self.es.indices.delete(index=index, ignore=404)
-            if self.logger:
-                self.logger.info("Deleted old index: {}".format(index))
-
+    def create_index(self, index=ES_INDEX):
         self.es.indices.create(index=ES_INDEX)
         if self.logger:
             self.logger.info("Successfully created index: {}".format(index))
@@ -37,33 +28,24 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(index))
 
-    def post(self, records, header=None, index=ES_INDEX):
-        """
-        Post records into ElasticSearch.
+    def post(self, document, index=ES_INDEX):
+        result = self.index_document(index=index, body=document)
 
-        :param records: A list of ROST records to ingest.
-        :param header: Header information associated with the records.
-        If present, they will get included with each record document posted.
-        :param index: Specify the index where the documents will get posted to.
-        :return:
-        """
-        for record in records:
-            if header:
-                record[HEADER] = header
-            else:
-                record[HEADER] = {}
-            if self.logger:
-                self.logger.info("record: {}".format(record))
-            self.__post_to_es(record, index)
-
-    def __post_to_es(self, document, index):
-        """
-        Posts the given document to ElasticSearch.
-
-        :param document: The document to ingest.
-        :return:
-        """
-        _id = document[REFREC_ID]
-        result = self.index_document(index=index, id=_id, body=document)
         if self.logger:
-            self.logger.info("document indexed: {}".format(result))
+            self.logger.debug(f"Document indexed: {result}")
+
+    def mark_downloaded(self, id, index=ES_INDEX):
+        result = self.update_document(id=id, body={"doc_as_upsert": True, "doc": {"downloaded": True}}, index=index)
+
+        if self.logger:
+            self.logger.debug(f"Document updated: {result}")
+
+        #return result
+
+    def query_existence(self, url, index=ES_INDEX):
+        result =  self.search(body={"query": {"match": {"url": url}}}, index=index)
+
+        if self.logger:
+            self.logger.debug(f"Query result: {result}")
+
+        return result
