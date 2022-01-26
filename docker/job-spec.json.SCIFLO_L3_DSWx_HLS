@@ -33,6 +33,14 @@
     {
       "name": "wf_name",
       "destination": "positional"
+    },
+    {
+      "name": "dataset_type",
+      "destination": "context"
+    },
+    {
+      "name":"input_dataset_id",
+      "destination": "context"
     }
   ]
 }

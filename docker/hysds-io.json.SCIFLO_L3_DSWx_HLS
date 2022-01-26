@@ -21,6 +21,16 @@
       "from": "value",
       "type": "text",
       "value": "L3_HLS"
+    },
+    {
+      "name":"dataset_type",
+      "type":"text",
+      "from":"dataset_jpath:_source.dataset"
+    },
+    {
+      "name":"input_dataset_id",
+      "type":"text",
+      "from":"dataset_jpath:_id"
     }
   ]
 }
