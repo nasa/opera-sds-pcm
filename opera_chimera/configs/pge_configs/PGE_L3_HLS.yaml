@@ -45,7 +45,7 @@ postprocess: []
 # List the extensions that the PGE generates
 output_types:
   L3_DSWx:
-    - tif
+    - tiff
     - bin
     - bin.log
     - bin.met
