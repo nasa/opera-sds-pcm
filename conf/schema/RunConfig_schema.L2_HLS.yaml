@@ -1,0 +1,20 @@
+# This is a Yamale schema (see https://github.com/23andMe/Yamale) for
+# validating run config files for the OPERA level 3 PGE.
+#
+runconfig:
+  name: enum('dswx_hls_workflow_default')
+  groups:
+    PGENameGroup:
+      PGEName: enum('DSWX_HLS_PGE')
+    InputFileGroup:
+      InputFilePath: list(str(), min=1)
+    DynamicAncillaryFileGroup:
+      DEMFile: str(required=False)
+      LandcoverFile: str(required=False)
+      BuiltUpCoverFractionFile: str(required=False)
+    ProductPathGroup:
+      ProductPath: str()
+      ScratchPath: str()
+      SasOutputFile: str()
+    PrimaryExecutable:
+      ProductType: enum('DSWX_HLS')

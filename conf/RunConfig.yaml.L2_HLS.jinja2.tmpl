@@ -1,0 +1,26 @@
+runconfig:
+  name: dswx_hls_workflow_default
+  groups:
+    PGENameGroup:
+      PGEName: DSWX_HLS_PGE
+    InputFileGroup:
+      InputFilePath:
+      {%- for type in data.InputFilePath.keys() %}
+        {%- for input in data.InputFilePath[type] %}
+        - {{ input }}
+        {%- endfor %}
+      {%- endfor %}
+    DynamicAncillaryFileGroup:
+      {%- for type in data.DynamicAncillaryFileGroup.keys() %}
+       {%- if data.DynamicAncillaryFileGroup[type] is not none %}
+        {{ type }}: {{ data.DynamicAncillaryFileGroup[type] }}
+       {%- else %}
+        {{ type }}:
+       {%- endif %}
+      {%- endfor %}
+    ProductPathGroup:
+      ProductPath: {{ data.ProductPath }}
+      ScratchPath: {{ data.ScratchPath }}
+      SasOutputFile: {{ data.SasOutputFile }}
+    PrimaryExecutable:
+      ProductType: DSWX_HLS

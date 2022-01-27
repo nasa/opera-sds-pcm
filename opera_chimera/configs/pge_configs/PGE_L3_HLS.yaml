@@ -15,7 +15,9 @@ runconfig:
         dynamic_ancillary_file_group:
             # Digital elevation model
             dem_file:
-            # landcover_file:
+            # Copernicus Land Cover Layer (CLCL)
+            landcover_file:
+            # Copernicus Human Settlement Layer (GHSL)
             built_up_cover_fraction_file:
 
         product_path_group:
@@ -46,9 +48,10 @@ postprocess: []
 output_types:
   L3_DSWx:
     - tiff
-    - bin
-    - bin.log
-    - bin.met
+    - log
+    - met
+    - qa
+    - xml
 
 # The PGE name
 pge_name: "L2_HLS"
