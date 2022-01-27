@@ -28,8 +28,8 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(index))
 
-    def post(self, document, index=ES_INDEX):
-        result = self.index_document(index=index, body=document)
+    def post(self, id, index=ES_INDEX):
+        result = self.index_document(index=index, body={"downloaded": False}, id=id)
 
         if self.logger:
             self.logger.debug(f"Document indexed: {result}")
@@ -40,12 +40,17 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.debug(f"Document updated: {result}")
 
-        #return result
+        # return result
 
-    def query_existence(self, url, index=ES_INDEX):
-        result =  self.search(body={"query": {"match": {"url": url}}}, index=index)
+    def query_existence(self, id, index=ES_INDEX):
+        try:
+            result = self.get_by_id(index=index, id=id)
+            if self.logger:
+                self.logger.debug(f"Query result: {result}")
 
-        if self.logger:
-            self.logger.debug(f"Query result: {result}")
+        except:
+            result = None
+            if self.logger:
+                self.logger.debug(f"{id} does not exist in {index}")
 
         return result

@@ -141,22 +141,21 @@ def run():
 
     for url in filtered_downloads:
         try:
-            if product_is_duplicate(ES_CONN, url):
+            filename = url.split('/')[-1]
+            if product_is_duplicate(ES_CONN, filename):
                 logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
-                for extension in args.extensions:
-                    if url.lower().endswith(extension):
-                        upload_return = upload(url, SessionWithHeaderRedirection(username, password, NETLOC), token,
-                                               args.s3_bucket)
-                        if "failed_download" in upload_return:
-                            raise Exception(upload_return["failed_download"])
-                        else:
-                            logging.debug(str(upload_return))
+                result = upload(url, SessionWithHeaderRedirection(username, password, NETLOC), token,
+                                       args.s3_bucket)
+                if "failed_download" in result:
+                    raise Exception(result["failed_download"])
+                else:
+                    logging.debug(str(result))
 
-                        mark_product_as_downloaded(ES_CONN, url)
-                        logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                        num_successes = num_successes + 1
+                mark_product_as_downloaded(ES_CONN, filename)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
         except Exception as e:
             logging.error(f"{str(datetime.now())} FAILURE: {url}")
             num_failures = num_failures + 1
@@ -192,8 +191,6 @@ def create_parser():
     parser.add_argument("-e", "--extensions", dest="extensions",
                         help="The extensions of products to download. Default is [.nc, .h5, .zip]",
                         default=[".nc", ".h5", ".zip"])  # noqa E501
-    parser.add_argument("--version", dest="version", action="store_true",
-                        help="Display script version information and exit.")  # noqa E501
     parser.add_argument("--verbose", dest="verbose", action="store_true", help="Verbose mode.")  # noqa E501
     parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                         help="Specify a provider for collection search. Default is LPCLOUD.")  # noqa E501
@@ -331,27 +328,26 @@ def get_temporal_range(start, end, now):
     raise ValueError("One of start-date or end-date must be specified.")
 
 
-def product_is_duplicate(es_conn, url):
-    result = product_exists_in_es(es_conn, url)
+def product_is_duplicate(es_conn, filename):
+    result = product_exists_in_es(es_conn, filename)
 
     if not result:
-        create_product_in_es(es_conn, url)
+        create_product_in_es(es_conn, filename)
         return False
 
     return product_is_downloaded(result)
 
 
-def product_exists_in_es(es_conn, url):
-    result = es_conn.query_existence(url)
-    return result['hits']['hits']
+def product_exists_in_es(es_conn, filename):
+    return es_conn.query_existence(filename)
 
 
-def create_product_in_es(es_conn, url):
-    es_conn.post({"url": url, "downloaded": False})
+def create_product_in_es(es_conn, filename):
+    es_conn.post(id=filename)
 
 
 def product_is_downloaded(result):
-    return result[0]["_source"]["downloaded"]
+    return result["_source"]["downloaded"]
 
 
 def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
@@ -416,10 +412,8 @@ def upload_chunk(chunk_dict):
     chunk_dict['out'].write(chunk_dict['chunk'])
 
 
-def mark_product_as_downloaded(es_conn, url):
-    result = product_exists_in_es(es_conn, url)
-    id = result[0]["_id"]
-    es_conn.mark_downloaded(id)
+def mark_product_as_downloaded(es_conn, filename):
+    es_conn.mark_downloaded(filename)
 
 
 def delete_token(url: str, token: str) -> None:
