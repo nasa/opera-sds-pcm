@@ -4,17 +4,17 @@
 runconfig:
   name: enum('dswx_hls_workflow_default')
   groups:
-    PGENameGroup:
-      PGEName: enum('DSWX_HLS_PGE')
-    InputFileGroup:
-      InputFilePath: list(str(), min=1)
-    DynamicAncillaryFileGroup:
-      DEMFile: str(required=False)
-      LandcoverFile: str(required=False)
-      BuiltUpCoverFractionFile: str(required=False)
-    ProductPathGroup:
-      ProductPath: str()
-      ScratchPath: str()
-      SasOutputFile: str()
-    PrimaryExecutable:
-      ProductType: enum('DSWX_HLS')
+    pge_name_group:
+      pge_name: enum('DSWX_HLS_PGE')
+    input_file_group:
+      input_file_path: list(str(), min=1)
+    dynamic_ancillary_file_group:
+      dem_file: str(required=False)
+      landcover_file: str(required=False)
+      built_up_cover_fraction_file: str(required=False)
+    product_path_group:
+      product_path: str()
+      scratch_path: str()
+      sas_output_file: str()
+    primary_executable:
+      product_type: enum('DSWX_HLS')
