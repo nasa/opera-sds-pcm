@@ -5,8 +5,8 @@ runconfig:
       PGEName: DSWX_HLS_PGE
     InputFileGroup:
       InputFilePath:
-      {%- for type in data.InputFilePath.keys() %}
-        {%- for input in data.InputFilePath[type] %}
+      {%- for type in data.InputFileGroup.InputFilePath.keys() %}
+        {%- for input in data.InputFileGroup.InputFilePath[type] %}
         - {{ input }}
         {%- endfor %}
       {%- endfor %}
