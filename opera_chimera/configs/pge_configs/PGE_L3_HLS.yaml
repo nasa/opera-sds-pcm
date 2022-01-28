@@ -27,6 +27,15 @@ runconfig:
   primary_executable:
       product_type: DSWX_HLS
 
+  # TODO chrisjrd: replace hardcoded value. support PGE simulation mode toggle
+  # Needed for an implicit simulated PGE run.
+  # * See PGE_SIMULATION_MODE in settings.yaml and it's usage
+  # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
+  base_name:
+    L3_DSWx: OPERA_L3_DSWx_HLS_Sentinel2_T15SXR_20210211T163901_01
+  mock_metadata:
+    L3_DSWx: {}
+
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions: []
 
