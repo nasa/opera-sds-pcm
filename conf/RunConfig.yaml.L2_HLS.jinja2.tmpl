@@ -5,7 +5,7 @@ runconfig:
       pge_name: DSWX_HLS_PGE
     input_file_group:
       input_file_path:
-        {%- for input in data.input_file_group.input_file_path[type] %}
+        {%- for input in data.input_file_group.input_file_path %}
         - {{ input }}
         {%- endfor %}
     dynamic_ancillary_file_group:
