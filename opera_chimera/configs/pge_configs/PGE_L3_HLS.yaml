@@ -2,38 +2,30 @@
 # when running the OPERA PGEs. Any values set with a "__CHIMERA_VAL__" should be filled in by the input
 # preprocessor. Otherwise, a precondition evaluation error will be thrown.
 runconfig:
-    name: dswx_hls_workflow_default
-
-    groups:
-        pge_name_group:
-            pge_name: DSWX_HLS_PGE
-
-        input_file_group:
-            # REQUIRED - Single HLS dataset (directory or files)
-            input_file_path: [input_dir]
-
-        dynamic_ancillary_file_group:
-            # Digital elevation model
-            dem_file:
-            # Copernicus Land Cover Layer (CLCL)
-            landcover_file:
-            # Copernicus Human Settlement Layer (GHSL)
-            built_up_cover_fraction_file:
-
-        product_path_group:
-            # Directory where PGE will place results
-            product_path: product_path
-
-            # Directory where SAS can write temporary data
-            scratch_path: scratch_dir
-
-            # Intermediate file name.  SAS writes output product to the following file.
-            # After the SAS completes, the PGE wrapper renames the product file
-            # according to proper file naming conventions.
-            sas_output_file: output_dir/dswx_hls.tif
-
-        primary_executable:
-            product_type: DSWX_HLS
+  name: dswx_hls_workflow_default
+  pge_name_group:
+    pge_name: DSWX_HLS_PGE
+  input_file_group:
+    # REQUIRED - Single HLS dataset (directory or files)
+    input_file_path: [input_dir]
+  dynamic_ancillary_file_group:
+    # Digital elevation model
+    dem_file:
+    # Copernicus Land Cover Layer (CLCL)
+    landcover_file:
+    # Copernicus Human Settlement Layer (GHSL)
+    built_up_cover_fraction_file:
+  product_path_group:
+    # Directory where PGE will place results
+    product_path: product_path
+    # Directory where SAS can write temporary data
+    scratch_path: scratch_dir
+    # Intermediate file name.  SAS writes output product to the following file.
+    # After the SAS completes, the PGE wrapper renames the product file
+    # according to proper file naming conventions.
+    sas_output_file: output_dir/dswx_hls.tif
+  primary_executable:
+      product_type: DSWX_HLS
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions: []
