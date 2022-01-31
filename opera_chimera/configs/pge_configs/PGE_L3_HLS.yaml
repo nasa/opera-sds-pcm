@@ -55,7 +55,8 @@ output_types:
     - xml
 
 # The PGE name
-pge_name: "L2_HLS"
+# This must MATCH the corresponding entry in pge_outputs.yaml
+pge_name: "L3_HLS"
 
 # Set the primary input/output types here
 primary_input: "L2_HLS_L30"

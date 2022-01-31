@@ -43,43 +43,47 @@ cnm_datasets=L0A_L_RRST,L0B_L_RRSD,COP,SCLKSCET,STUF
 
 # If we're deploying a forward cluster, push out a modified version of the settings.yaml
 # in order to test the timers. Additionally, we should temporarily shorten the timers to something small for smoke test purposes
-if [ "${cluster_type}" = "forward" ]; then
-  aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "rate(5 minutes)"
-  
-  echo "Making a copy of the original settings.yaml and pushing out a modified version out to the cluster"
-  cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
-  sed -i 's/    DATATAKE_EVALUATOR: .*/    DATATAKE_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
-
-  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
-  sds ship
-fi
+# TODO chrisjrd: uncomment
+#if [ "${cluster_type}" = "forward" ]; then
+#  aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "rate(5 minutes)"
+#
+#  echo "Making a copy of the original settings.yaml and pushing out a modified version out to the cluster"
+#  cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
+#  sed -i 's/    DATATAKE_EVALUATOR: .*/    DATATAKE_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
+#
+#  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
+#  sds ship
+#fi
 
 # build/import CNM product delivery
-if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-else
-  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
-  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
-  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
-fi
+# TODO chrisjrd: uncomment
+#if [ "${use_artifactory}" = true ]; then
+#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+#  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+#  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+#else
+#  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
+#  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
+#  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
+#fi
 
 cd ~/.sds/files
 
 # for GPU instances, require on-demand since requesting a spot instance take a while (high usage)
-for i in workflow_profiler job_worker-gpu; do
-  ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-${i} --cli-input-json test/modify_on-demand_base.json
-done
+# TODO chrisjrd: uncomment
+#for i in workflow_profiler job_worker-gpu; do
+#  ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-${i} --cli-input-json test/modify_on-demand_base.json
+#done
 
 # to simulate always-on OPERA reserved instances, prime a subset of all the ASGs by
-# setting the min size and desired capacity to the same value 
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
+# setting the min size and desired capacity to the same value
+# TODO chrisjrd: uncomment
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0a --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0a --desired-capacity 7
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
 
 # no jobs currently being submitted to these ASGs but left here commented out for future use
 #aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${project}-${venue}-${counter}-opera-job_worker-large --desired-capacity 7
@@ -282,6 +286,7 @@ cat dar_*.xml
 if [ "${cluster_type}" = "forward" ]; then
   aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "${l0a_timer_trigger_frequency}"
   python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF,datatake /tmp/check_expected_force_submits.txt
+
   echo "Restoring original settings.yaml and pushing it out to the cluster"
   cp ~/mozart/ops/opera-pcm/conf/settings.yaml.bak ~/mozart/ops/opera-pcm/conf/settings.yaml
   fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
