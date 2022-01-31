@@ -55,7 +55,7 @@ output_types:
     - xml
 
 # The PGE name
-pge_name: "L2_HLS"
+pge_name: "L3_DSWx"
 
 # Set the primary input/output types here
 primary_input: "L2_HLS_L30"
