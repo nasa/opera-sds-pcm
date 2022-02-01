@@ -1957,7 +1957,7 @@ resource "aws_cloudwatch_log_group" "data_subscriber_timer" {
 resource "aws_cloudwatch_event_rule" "data_subscriber_timer" {
   name = "${aws_lambda_function.data_subscriber_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.obs_acct_report_timer_trigger_frequency
+  schedule_expression = var.data_subscriber_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 
