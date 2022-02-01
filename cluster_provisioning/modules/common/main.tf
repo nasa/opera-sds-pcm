@@ -1923,7 +1923,7 @@ resource "aws_lambda_permission" "observation_accountability_report_timer" {
 resource "aws_lambda_function" "data_subscriber_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will create a Data Subscriber
+  description = "Lambda function to submit a job that will create a Data Subscriber"
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
