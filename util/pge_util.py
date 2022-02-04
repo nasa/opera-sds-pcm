@@ -16,7 +16,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     match = None
     for input_file_base_name_regex in input_file_base_name_regexes:
         pattern = re.compile(input_file_base_name_regex)
-        match = pattern.match(context['input_dataset_id'])
+        match = pattern.match(get_input_dataset_id(context))
         if match:
             break
 
@@ -38,6 +38,14 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
         )
         metadata = {}
         simulate_output(metadata, base_name, output_dir, output_types[output_type])
+
+
+def get_input_dataset_id(context: Dict) -> str:
+    params = context['params']
+    for param in params:
+        if param['name'] == 'input_dataset_id':
+            return param['value']
+    raise
 
 
 def simulate_output(metadata: Dict, base_name: str, output_dir: str, extensions: str):
