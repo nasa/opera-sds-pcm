@@ -3,9 +3,7 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import json
 import os
-import re
 import sys
-from datetime import datetime
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -15,13 +13,6 @@ from util import pge_util
 from util.conf_util import RunConfig
 from util.ctx_util import JobContext, DockerParams
 from util.exec_util import exec_wrapper, call_noerr
-
-timestamp = datetime.now()
-PAYLOAD_KEY = "run_config"
-LOCALIZE_KEY = "localize"
-
-L0A_L_PGE_OUTPUT_REGEX = "/(NISAR_(?P<Type>[LSJ]0_RRST)_.*)$"
-L0A_L_PGE_OUTPUT_PATTERN = re.compile(L0A_L_PGE_OUTPUT_REGEX)
 
 
 def get_pge_error_message(logfile: str) -> str:
@@ -115,7 +106,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     run_config: Dict = context.get("run_config")
     pge_config: Dict = context.get("pge_config")
 
-    # get depedency image
+    # get dependency image
     dep_img = context.get('job_specification')['dependency_images'][0]
     dep_img_name = dep_img['container_image_name']
     logger.info(f"dep_img_name: {dep_img_name}")
