@@ -1940,7 +1940,7 @@ resource "aws_lambda_function" "data_subscriber_timer" {
       "JOB_TYPE": local.data_subscriber_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_data_subscriber_staging_area,
+      "ISL_STAGING_AREA": var.isl_staging_area,
       "USER_START_TIME": "",
       "USER_END_TIME": ""
     }

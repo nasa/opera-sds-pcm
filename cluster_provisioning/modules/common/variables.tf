@@ -393,7 +393,7 @@ variable "osl_report_staging_area" {
   default = "accountability_reports"
 }
 
-variable "isl_data_subscriber_staging_area" {
+variable "isl_staging_area" {
   default = "data_subscriber"
 }
 

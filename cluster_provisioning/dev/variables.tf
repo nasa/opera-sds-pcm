@@ -400,7 +400,7 @@ variable "l0a_timer_trigger_frequency" {
 }
 
 variable "data_subscriber_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+  default = "rate(10 minutes)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {

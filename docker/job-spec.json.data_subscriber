@@ -19,7 +19,7 @@
       "destination": "context"
     },
     {
-      "name": "isl_data_subscriber_staging_area",
+      "name": "isl_staging_area",
       "destination": "context"
     }
   ]

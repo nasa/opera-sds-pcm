@@ -19,7 +19,7 @@
       "placeholder": "ISL Bucket Name"
     },
     {
-      "name": "isl_data_subscriber_staging_area",
+      "name": "isl_staging_area",
       "from": "submitter",
       "placeholder": "ISL staging area",
       "optional": true
