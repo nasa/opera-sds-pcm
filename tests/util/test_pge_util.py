@@ -20,7 +20,14 @@ def test_simulate_run_pge__when_product_shortname_is_l30():
             pge_config['runconfig'],
             pge_config,
             context={
-                'input_dataset_id': 'HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask'
+                "job_specification": {
+                    "params": [
+                        {
+                            "name": "input_dataset_id",
+                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
+                        }
+                    ]
+                }
             },
             output_dir='/tmp'
         )
@@ -53,7 +60,14 @@ def test_simulate_run_pge__when_product_shortname_is_s30():
             pge_config['runconfig'],
             pge_config,
             context={
-                'input_dataset_id': 'HLS.S30.T15SXR.2021250T163901.v2.0.Fmask'
+                "job_specification": {
+                    "params": [
+                        {
+                            "name": "input_dataset_id",
+                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
+                        }
+                    ]
+                }
             },
             output_dir='/tmp'
         )
@@ -87,7 +101,14 @@ def test_simulate_run_pge__when_product_shortname_is_unsupported():
                 pge_config['runconfig'],
                 pge_config,
                 context={
-                    'input_dataset_id': 'HLS.X30.T15SXR.2021250T163901.v2.0.Fmask'  # note that X30 is not supported
+                    "job_specification": {
+                        "params": [
+                            {
+                                "name": "input_dataset_id",
+                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0.Fmask"
+                            }
+                        ]
+                    }
                 },
                 output_dir='/tmp'
             )

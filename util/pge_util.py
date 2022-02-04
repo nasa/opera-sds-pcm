@@ -10,7 +10,6 @@ from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as
 
 
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
-    print(f'simulate_run_pge({context})')  # TODO chrisjrd: remove after debugging
     output_base_name: str = runconfig['output_base_name']
     input_file_base_name_regexes: List[str] = runconfig['input_file_base_name_regexes']
 
@@ -39,7 +38,6 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
         )
         metadata = {}
         simulate_output(metadata, base_name, output_dir, output_types[output_type])
-        print(f'simulate_run_pge({context=})')  # TODO chrisjrd: remove after debugging
 
 
 def get_input_dataset_id(context: Dict) -> str:
