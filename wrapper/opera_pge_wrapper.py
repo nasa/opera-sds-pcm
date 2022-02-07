@@ -106,20 +106,10 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     run_config: Dict = context.get("run_config")
     pge_config: Dict = context.get("pge_config")
 
-    # get dependency image
-    dep_img = context.get('job_specification')['dependency_images'][0]
-    dep_img_name = dep_img['container_image_name']
-    logger.info(f"dep_img_name: {dep_img_name}")
-
     logger.info(f"Making Working Directory: {work_dir}")
     output_dir = os.path.join(work_dir, 'output')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, 0o755)
-
-    # create directory to house PGE's _docker_stats.json
-    pge_stats_dir = os.path.join(work_dir, 'pge_stats')
-    logger.debug(f"Making PGE Stats Directory: {pge_stats_dir}")
-    os.makedirs(pge_stats_dir, 0o755)
 
     run_config = json.loads(json.dumps(run_config))
 
@@ -127,30 +117,33 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     # capture the inputs so we can store the lineage in the output dataset metadata
     run_config, lineage_metadata = process_inputs(run_config, work_dir, output_dir)
 
-    # Set the docker image name and version?
-    dep_img_name_tokens = dep_img_name.split(":", 1)
-    logger.debug(f"Splitting the PGE Docker Image Name: {dep_img_name_tokens}")
-
-    # Run the PGE
+    # create RunConfig.yaml
     logger.debug(f"Runconfig to transform to YAML is: {json.dumps(run_config)}")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
-    logger.debug(f"Run Config: {json.dumps(run_config)}")
 
+    logger.debug(f"Run Config: {json.dumps(run_config)}")
     logger.debug(f"PGE Config: {json.dumps(pge_config)}")
-    if opera_chimera_const.SIMULATE_OUTPUTS in context and context[opera_chimera_const.SIMULATE_OUTPUTS]:
-        logger.info("Simulate PGE run....")
+
+    # Run the PGE
+    simulate_outputs = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
+    logger.info(f"{simulate_outputs=}")
+    if context.get(opera_chimera_const.SIMULATE_OUTPUTS):
+        logger.info("Simulating PGE run....")
         pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
     else:
+        # get dependency image
+        dep_img = context.get('job_specification')['dependency_images'][0]
+        dep_img_name = dep_img['container_image_name']
+        logger.info(f"dep_img_name: {dep_img_name}")
+
         # get docker params
         docker_params_file = os.path.join(work_dir, "_docker_params.json")
-
         dp = DockerParams(docker_params_file)
         docker_params = dp.params
         logger.info(f"docker_params: {json.dumps(docker_params, indent=2)}")
-
         docker_img_params = docker_params[dep_img_name]
         uid = docker_img_params["uid"]
         gid = docker_img_params["gid"]
@@ -159,6 +152,11 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         runtime_options = []
         for k, v in docker_img_params.get('runtime_options', {}).items():
             runtime_options.extend([f"--{k}", f"{v}"])
+
+        # create directory to house PGE's _docker_stats.json
+        pge_stats_dir = os.path.join(work_dir, 'pge_stats')
+        logger.debug(f"Making PGE Stats Directory: {pge_stats_dir}")
+        os.makedirs(pge_stats_dir, 0o755)
 
         cmd = [
             f"docker run --init --rm -u {uid}:{gid} -v {work_dir}:/pge/run -w /pge/run",
