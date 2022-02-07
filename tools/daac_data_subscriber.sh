@@ -18,6 +18,8 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################" 1>&2
+echo -n "Installing dependencies"
+pip install .
 echo -n "Running job to subscribe to data"
 date 1>&2
 echo -n "Running python code: daac_data_subscriber.py"
