@@ -18,14 +18,14 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################" 1>&2
-echo -n "Installing dependencies"
+echo "Installing dependencies"
 pip install .
-echo -n "Running job to subscribe to data"
+echo "Running job to subscribe to data"
 date 1>&2
-echo -n "Running python code: daac_data_subscriber.py"
+echo "Running python code: daac_data_subscriber.py"
 python $BASE_PATH/daac_data_subscriber.py -m 10 -c HLSS30 -s "opera-dev-isl-fwd-mplotkin" --extensions ".tif" > daac_data_subscriber.log 2>&1
 STATUS=$?
-echo -n "Finished running daac_data_subscriber.py: " 1>&2
+echo "Finished running daac_data_subscriber.py: " 1>&2
 date 1>&2
 if [ $STATUS -ne 0 ]; then
   echo "Failed to run daac_data_subscriber.py" 1>&2
