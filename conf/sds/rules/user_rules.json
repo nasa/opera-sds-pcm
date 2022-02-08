@@ -27,6 +27,20 @@
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DSWx_HLS:__TAG__",
       "job_spec": "job-SCIFLO_L3_DSWx_HLS:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-SCIFLO_L3_DSWx_HLS_STATE_CONFIG:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L2_HLS_L30\",\"L2_HLS_S30\"]}}]}}",
+      "queue": "opera-job_worker-small",
+      "rule_name": "trigger-SCIFLO_L3_DSWx_HLS_STATE_CONFIG",
+      "username": "hysdsops",
+      "workflow": "hysds-io-SCIFLO_L3_DSWx_HLS_STATE_CONFIG:__TAG__",
+      "job_spec": "job-SCIFLO_L3_DSWx_HLS_STATE_CONFIG:__TAG__"
     }
   ],
   "mozart": []
