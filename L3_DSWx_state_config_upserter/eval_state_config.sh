@@ -19,13 +19,17 @@ export PYTHONDONTWRITEBYTECODE=1
 # source environment
 source ~/.bash_profile
 
+env | sort 1>&2
 echo "##########################################" 1>&2
 echo -n "Running eval_state_config.py: " 1>&2
 date 1>&2
+
 $BASE_PATH/eval_state_config.py $* > eval_state_config.log 2>&1
 STATUS=$?
+
 echo -n "Finished running eval_state_config.py: " 1>&2
 date 1>&2
+
 if [ $STATUS -ne 0 ]; then
   echo "Failed to run eval_state_config.py." 1>&2
   cat eval_state_config.log 1>&2
