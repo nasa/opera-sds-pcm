@@ -3,15 +3,17 @@
 L3 DSWx state config upserter job
 """
 import json
+import time
 from functools import partial
-from typing import Dict
+from typing import Dict, List
 
 from commons.es_connection import get_grq_es
 from commons.logger import logger
+from util import common_util
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 
-ancillary_es = get_grq_es(logger)  # getting GRQ's Elasticsearch connection
+grq_es = get_grq_es(logger)  # getting GRQ's Elasticsearch connection
 
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 
@@ -25,14 +27,25 @@ def evaluate():
     logger.debug(f"job_context={to_json(job_context)}")
 
     metadata: Dict = job_context["product_metadata"]["metadata"]
+    state_config_doc_id = generate_doc_id(metadata)
 
     state_config = {metadata['band_or_qa']: True}  # e.g. { "fmask": 1 }
-    state_config_doc_update_result: Dict = ancillary_es.update_document(
-        id=generate_doc_id(metadata),
-        index=f"grq_1_opera_state_config",
+    state_config_doc_update_result: Dict = grq_es.update_document(
+        index="grq_1_opera_state_config",
+        id=state_config_doc_id,
         body=to_update_doc(state_config)
     )
     logger.info(f"{to_json(state_config_doc_update_result)}")
+
+    time.sleep(5)  # allow some time for the upserted record to be query-able
+
+    # query for existing state config, creating a state-config dataset for subsequent ingestion
+    state_config_docs_query_results: List[Dict] = grq_es.query(index="grq_1_opera_state_config", q=f"_id:{state_config_doc_id}")
+    logger.info(f"{state_config_docs_query_results=}")
+    updated_state_config_doc: Dict = state_config_docs_query_results[0]
+
+    merged_state_config: Dict = updated_state_config_doc['_source']
+    common_util.create_state_config_dataset(dataset_name=f"{state_config_doc_id}_state_config", metadata=merged_state_config)
 
 
 def generate_doc_id(metadata) -> str:
