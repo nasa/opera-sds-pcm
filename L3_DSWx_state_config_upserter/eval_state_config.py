@@ -29,7 +29,9 @@ def evaluate():
     metadata: Dict = job_context["product_metadata"]["metadata"]
     state_config_doc_id = generate_doc_id(metadata)
 
-    state_config = {metadata['band_or_qa']: True}  # e.g. { "fmask": 1 }
+    state_config = {
+        metadata["band_or_qa"]: f"{job_context['product_paths']}/{metadata['FileName']}"
+    }  # e.g. { "Fmask": "s3://...Fmask.tif" }
     state_config_doc_update_result: Dict = grq_es.update_document(
         index="grq_1_opera_state_config",
         id=state_config_doc_id,
@@ -45,7 +47,7 @@ def evaluate():
     updated_state_config_doc: Dict = state_config_docs_query_results[0]
 
     # NOTE republishing a dataset will clobber the old document
-    merged_state_config: Dict = updated_state_config_doc['_source']
+    merged_state_config: Dict = updated_state_config_doc["_source"]
     common_util.create_state_config_dataset(
         dataset_name=f"{state_config_doc_id}_state_config",
         metadata=merged_state_config,
@@ -55,8 +57,8 @@ def evaluate():
 
 def generate_doc_id(metadata: Dict) -> str:
     """Generate a unique but deterministic document ID."""
-    metadata_id: str = metadata['id']  # e.g. :HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
-    suffix = f".{metadata['band_or_qa']}"  # e.g. ".fmask"
+    metadata_id: str = metadata["id"]  # e.g. :HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
+    suffix = f".{metadata['band_or_qa']}"  # e.g. ".Fmask"
     return remove_suffix(metadata_id, suffix)
 
 
