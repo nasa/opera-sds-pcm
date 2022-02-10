@@ -44,25 +44,31 @@ def evaluate():
     logger.info(f"{state_config_docs_query_results=}")
     updated_state_config_doc: Dict = state_config_docs_query_results[0]
 
+    # NOTE republishing a dataset will clobber the old document
     merged_state_config: Dict = updated_state_config_doc['_source']
-    common_util.create_state_config_dataset(dataset_name=f"{state_config_doc_id}_state_config", metadata=merged_state_config)
+    common_util.create_state_config_dataset(
+        dataset_name=f"{state_config_doc_id}_state_config",
+        metadata=merged_state_config,
+        start_time=None
+    )
 
 
 def generate_doc_id(metadata) -> str:
-    """Generate a unique but deterministic document ID"""
+    """Generate a unique but deterministic document ID."""
     metadata_id: str = metadata['id']  # e.g. :HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
     suffix = f".{metadata['band_or_qa']}"  # e.g. ".fmask"
     return remove_suffix(metadata_id, suffix)
 
 
 def remove_suffix(input_string, suffix) -> str:
-    """Polyfill for str.removesuffix function introduced in Python 3.9"""
+    """Polyfill for str.removesuffix function introduced in Python 3.9."""
     if suffix and input_string.endswith(suffix):
         return input_string[:-len(suffix)]
     return input_string
 
 
-def to_update_doc(input_dict: Dict):
+def to_update_doc(input_dict: Dict) -> Dict:
+    """Convert a document into the upsert format expected by Elasticsearch."""
     return {
         "doc_as_upsert": True,
         "doc": input_dict
