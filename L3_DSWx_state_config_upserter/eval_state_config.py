@@ -53,14 +53,14 @@ def evaluate():
     )
 
 
-def generate_doc_id(metadata) -> str:
+def generate_doc_id(metadata: Dict) -> str:
     """Generate a unique but deterministic document ID."""
     metadata_id: str = metadata['id']  # e.g. :HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
     suffix = f".{metadata['band_or_qa']}"  # e.g. ".fmask"
     return remove_suffix(metadata_id, suffix)
 
 
-def remove_suffix(input_string, suffix) -> str:
+def remove_suffix(input_string: str, suffix: str) -> str:
     """Polyfill for str.removesuffix function introduced in Python 3.9."""
     if suffix and input_string.endswith(suffix):
         return input_string[:-len(suffix)]
