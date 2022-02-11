@@ -37,7 +37,8 @@ runconfig:
   output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_01
 
   # TODO chrisjrd: remove after testing file localization
-  product_paths: __CHIMERA_VAL__
+  product_paths:
+    L2_HLS_L30: __CHIMERA_VAL__
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions: [get_input_filepaths_from_state_config]
