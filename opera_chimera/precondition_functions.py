@@ -3,11 +3,14 @@ Class that contains the precondition evaluation steps used in the various PGEs
 that are part of the OPERA PCM pipeline.
 
 """
-import traceback
-import os
+import copy
+import inspect
 import json
 import re
-import copy
+import os
+import traceback
+from typing import Dict, List
+
 import psutil
 
 from cop import cop_catalog
@@ -1501,3 +1504,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 raise RuntimeError("Cannot find {} in the settings.yaml under the {} area.".format(key, pge_name))
         logger.info("Adding the following to the job params: {}".format(json.dumps(results)))
         return results
+
+    def get_input_filepaths_from_state_config(self) -> Dict:
+        """Returns a partial RunConfig containing the s3 paths of the published L2_HLS_DSWx products."""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["products_metadata"]["metadata"]
+        product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
+        return {"product_paths": product_paths}

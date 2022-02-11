@@ -37,7 +37,7 @@ runconfig:
   output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_01
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
-preconditions: []
+preconditions: [get_input_filepaths_from_state_config]
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess: []
