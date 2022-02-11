@@ -451,3 +451,11 @@ variable "purge_es_snapshot" {
 variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
 }
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
+}

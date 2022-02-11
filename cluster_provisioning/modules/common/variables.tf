@@ -405,3 +405,11 @@ variable "inactivity_threshold" {
   type    = number
   default = 600
 }
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
+}
