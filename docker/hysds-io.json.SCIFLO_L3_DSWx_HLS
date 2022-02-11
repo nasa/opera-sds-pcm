@@ -31,7 +31,7 @@
       "name":"input_dataset_id",
       "type":"text",
       "from":"dataset_jpath:_id"
-    },,
+    },
     {
      "name": "product_metadata",
      "from": "dataset_jpath:_source",
