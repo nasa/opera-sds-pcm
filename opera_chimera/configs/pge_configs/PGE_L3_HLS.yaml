@@ -36,6 +36,9 @@ runconfig:
     - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+))$'
   output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_01
 
+  # TODO chrisjrd: remove after testing file localization
+  product_paths: __CHIMERA_VAL__
+
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions: [get_input_filepaths_from_state_config]
 
@@ -63,4 +66,5 @@ primary_input: "L2_HLS_L30"
 primary_output: "L3_DSWx"
 
 # List the groups that Chimera will need to localize
-localize_groups: []
+#TODO chrisjrd: finalize localization implementation
+localize_groups: [product_paths]
