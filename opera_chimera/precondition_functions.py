@@ -1509,6 +1509,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """Returns a partial RunConfig containing the s3 paths of the published L2_HLS_DSWx products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        metadata: Dict[str, str] = self._context["products_metadata"]["metadata"]
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
         product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
         return {"product_paths": product_paths}

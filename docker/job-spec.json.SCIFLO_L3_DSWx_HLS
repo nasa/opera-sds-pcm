@@ -41,6 +41,10 @@
     {
       "name":"input_dataset_id",
       "destination": "context"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
     }
   ]
 }
