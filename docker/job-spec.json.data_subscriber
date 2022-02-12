@@ -3,9 +3,6 @@
   "disk_usage":"1GB",
   "soft_time_limit": 600,
   "time_limit": 660,
-  "imported_worker_files": {
-    "$HOME/.netrc": "/home/ops/.netrc",
-  },
   "recommended-queues": [ "opera-job_worker-small" ],
   "post": [ "hysds.utils.triage" ],
   "params" : [
