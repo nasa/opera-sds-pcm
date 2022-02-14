@@ -3,6 +3,7 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Dict, Tuple, List, Union
@@ -127,12 +128,20 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     # capture the inputs so we can store the lineage in the output dataset metadata
     run_config, lineage_metadata = process_inputs(run_config, work_dir, output_dir)
 
+    # TODO chrisjrd: finalize implementation
+    run_config["input_file_group"]["input_file_path"] = [os.path.join(work_dir, os.path.basename(x)) for x in run_config["product_paths"]["L2_HLS_L30"]]
+
     # create RunConfig.yaml
     logger.debug(f"Runconfig to transform to YAML is: {json.dumps(run_config)}")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
+
+    # TODO chrisjrd: finalize implementation
+    shutil.copy(rc_file, runconfig_dir)
+    for input_file_path in run_config["input_file_group"]["input_file_path"]:
+        shutil.copy(input_file_path, input_hls_dir)
 
     logger.debug(f"Run Config: {json.dumps(run_config)}")
     logger.debug(f"PGE Config: {json.dumps(pge_config)}")
@@ -180,7 +189,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
             f"-v {output_dir}:/home/conda/output_dir",
             f"-v {output_dir}",
             dep_img_name,
-            "--file", f"/home/conda/runconfig/{rc_file.split('/')[-1]}",
+            f"--file /home/conda/runconfig/RunConfig.yaml",
         ]
 
         cmd_line = " ".join(cmd)
