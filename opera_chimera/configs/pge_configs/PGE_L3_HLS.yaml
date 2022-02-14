@@ -32,8 +32,8 @@ runconfig:
   # * See PGE_SIMULATION_MODE in settings.yaml and it's usage
   # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
   input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
-    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)_state_config)$'
-    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)_state_config)$'
+    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
+    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
   output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_01
 
   # TODO chrisjrd: remove after testing file localization
