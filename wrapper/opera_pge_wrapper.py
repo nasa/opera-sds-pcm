@@ -4,6 +4,7 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -107,7 +108,16 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     pge_config: Dict = context.get("pge_config")
 
     logger.info(f"Making Working Directory: {work_dir}")
-    output_dir = os.path.join(work_dir, 'output')
+
+    runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
+    if not os.path.exists(runconfig_dir):
+        os.makedirs(runconfig_dir, 0o755)
+
+    input_hls_dir = os.path.join(work_dir, 'input_hls_dir_tbf')
+    if not os.path.exists(input_hls_dir):
+        os.makedirs(input_hls_dir, 0o755)
+
+    output_dir = os.path.join(work_dir, 'output_dir_tbf')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, 0o755)
 
@@ -148,6 +158,10 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         uid = docker_img_params["uid"]
         gid = docker_img_params["gid"]
 
+        # TODO chrisjrd: set these properly
+        uid = "conda"
+        gid = "conda"
+
         # parse runtime options
         runtime_options = []
         for k, v in docker_img_params.get('runtime_options', {}).items():
@@ -159,14 +173,14 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         os.makedirs(pge_stats_dir, 0o755)
 
         cmd = [
-            f"docker run --init --rm -u {uid}:{gid} -v {work_dir}:/pge/run -w /pge/run",
+            f"docker run --init --rm -u {uid}:{gid}",
             " ".join(runtime_options),
-            "-v", "/data/work/jobs:/data/work/jobs",
-            "-v", "/data/work/cache:/data/work/cache:ro",
-            "-v", "/home/ops/verdi/etc/datasets.json:/home/ops/verdi/etc/datasets.json:ro",
+            f"-v {runconfig_dir}:/home/conda/runconfig:ro",
+            f"-v {input_hls_dir}:/home/conda/input_dir:ro",
+            f"-v {output_dir}:/home/conda/output_dir",
+            f"-v {output_dir}",
             dep_img_name,
-            "--file", rc_file.split("/")[-1],
-            "--stats", "/pge/run/pge_stats/_docker_stats.json",
+            "--file", f"/home/conda/runconfig/{rc_file.split('/')[-1]}",
         ]
 
         cmd_line = " ".join(cmd)
