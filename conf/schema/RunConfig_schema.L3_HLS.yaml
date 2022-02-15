@@ -1,20 +1,65 @@
-# This is a Yamale schema (see https://github.com/23andMe/Yamale) for
-# validating run config files for the OPERA level 3 PGE.
-#
-runconfig:
-  name: enum('dswx_hls_workflow_default')
-  groups:
-    pge_name_group:
-      pge_name: enum('DSWX_HLS_PGE')
-    input_file_group:
-      input_file_path: list(str(), min=1)
-    dynamic_ancillary_file_group:
-      dem_file: str(required=False)
-      landcover_file: str(required=False)
-      built_up_cover_fraction_file: str(required=False)
-    product_path_group:
-      product_path: str()
-      scratch_path: str()
-      sas_output_file: str()
-    primary_executable:
-      product_type: enum('DSWX_HLS')
+RunConfig:
+  Name: str()
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: str(required=True)
+      InputFilesGroup:
+        InputFilePaths: list(str(), min=1, required=True)
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: map(str(), key=str(), min=0)
+      ProductPathGroup:
+        ProductCounter: int(min=1, max=999, required=False)
+        OutputProductPath: str(required=True)
+        ScratchPath: str(required=True)
+        SASOutputFile: str(required=True)
+      PrimaryExecutable:
+        ProductIdentifier: str(required=False)
+        ProgramPath: str(required=True)
+        ProgramOptions: list(str(), min=0, required=False)
+        ErrorCodeBase: int(required=True)
+        SchemaPath: str(required=True)
+        IsoTemplatePath: str(required=False)
+      QAExecutable:
+        Enabled: bool(required=True)
+        ProgramPath: str(required=False)
+        ProgramOptions: list(str(), min=0, required=False)
+      DebugLevelGroup:
+        DebugSwitch: bool(required=False)
+        ExecuteViaShell: bool(required=False)
+    SAS:
+      runconfig:
+        name: str()
+
+        groups:
+          pge_name_group:
+            pge_name: enum('DSWX_HLS_PGE')
+
+          input_file_group:
+            # REQUIRED - Single HLS dataset (directory or files)
+            input_file_path: list(str(), min=1)
+
+          dynamic_ancillary_file_group:
+            # Digital elevation model
+            dem_file: str(required=False)
+
+            # Land cover map
+            landcover_file: str(required=False)
+
+            # Built-up land map
+            built_up_cover_fraction_file: str(required=False)
+
+          product_path_group:
+            # Directory where PGE will place results
+            product_path: str()
+
+            # Directory where SAS can write temporary data
+            scratch_path: str()
+
+            # Intermediate file name. SAS writes the output product to the following file
+            # After the SAS completes, the PGE wrapper renames the product file
+            # according to proper file naming conventions.
+            sas_output_file: str()
+
+          primary_executable:
+            product_type: enum('DSWX_HLS')

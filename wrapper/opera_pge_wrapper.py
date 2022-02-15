@@ -105,43 +105,37 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     :return:
     """
-    run_config: Dict = context.get("run_config")
-    pge_config: Dict = context.get("pge_config")
 
     logger.info(f"Making Working Directory: {work_dir}")
 
     runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
-    if not os.path.exists(runconfig_dir):
-        os.makedirs(runconfig_dir, 0o755)
+    os.makedirs(runconfig_dir, 0o755, exist_ok=True)
 
     input_hls_dir = os.path.join(work_dir, 'input_hls_dir_tbf')
-    if not os.path.exists(input_hls_dir):
-        os.makedirs(input_hls_dir, 0o755)
+    os.makedirs(input_hls_dir, 0o755, exist_ok=True)
 
     output_dir = os.path.join(work_dir, 'output_dir_tbf')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, 0o755)
+    os.makedirs(output_dir, 0o755, exist_ok=True)
 
+    run_config: Dict = context.get("run_config")
     run_config = json.loads(json.dumps(run_config))
 
     # We need to convert the S3 urls specified in the run config to local paths and also
-    # capture the inputs so we can store the lineage in the output dataset metadata
+    # capture the inputs, so we can store the lineage in the output dataset metadata
     run_config, lineage_metadata = process_inputs(run_config, work_dir, output_dir)
 
-    # TODO chrisjrd: finalize implementation
-    run_config["input_file_group"]["input_file_path"] = [os.path.join(work_dir, os.path.basename(x)) for x in run_config["product_paths"]["L2_HLS_L30"]]
+    for s3_input_filepath in run_config["product_paths"]["L2_HLS_L30"]:
+        local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
+        shutil.copy(local_input_filepath, input_hls_dir)
+    run_config["input_file_group"]["input_file_path"] = '/home/conda/input_dir'
 
     # create RunConfig.yaml
     logger.debug(f"Runconfig to transform to YAML is: {json.dumps(run_config)}")
+    pge_config: Dict = context.get("pge_config")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
-
-    # TODO chrisjrd: finalize implementation
-    shutil.copy(rc_file, runconfig_dir)
-    for input_file_path in run_config["input_file_group"]["input_file_path"]:
-        shutil.copy(input_file_path, input_hls_dir)
 
     logger.debug(f"Run Config: {json.dumps(run_config)}")
     logger.debug(f"PGE Config: {json.dumps(pge_config)}")
