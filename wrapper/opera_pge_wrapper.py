@@ -127,7 +127,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     for s3_input_filepath in run_config["product_paths"]["L2_HLS_L30"]:
         local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
         shutil.copy(local_input_filepath, input_hls_dir)
-    run_config["input_file_group"]["input_file_path"] = '/home/conda/input_dir'
+    run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
 
     # create RunConfig.yaml
     logger.debug(f"Runconfig to transform to YAML is: {json.dumps(run_config)}")
