@@ -7,7 +7,7 @@ from util.common_util import convert_datetime
 from chimera.commons.accountability import Accountability
 
 from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 
 from chimera.logger import logger
@@ -28,9 +28,9 @@ PGE_STEP_DICT = {
 
 INDECES = {
     "": None,
-    "pass": nc_const.PASS_ACCOUNTABILITY_INDEX,
-    "observation": nc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
-    "track_frame": nc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
+    "pass": oc_const.PASS_ACCOUNTABILITY_INDEX,
+    "observation": oc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
+    "track_frame": oc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
 }
 
 

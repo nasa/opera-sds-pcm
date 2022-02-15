@@ -1,33 +1,23 @@
 """
 OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
-import os
-import sys
-from datetime import datetime
 import json
-import glob
-import re
+import os
 import shutil
-
-from util import pge_util
-from util.exec_util import exec_wrapper, call_noerr
-from util.conf_util import RunConfig
-from product2dataset import product2dataset
-from util.ctx_util import JobContext, DockerParams
-
-from opera_chimera.constants.opera_chimera_const import NisarChimeraConstants as opera_chimera_const
+import sys
+from pathlib import Path
+from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
+from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
+from product2dataset import product2dataset
+from util import pge_util
+from util.conf_util import RunConfig
+from util.ctx_util import JobContext, DockerParams
+from util.exec_util import exec_wrapper, call_noerr
 
-timestamp = datetime.now()
-PAYLOAD_KEY = "run_config"
-LOCALIZE_KEY = "localize"
 
-L0A_L_PGE_OUTPUT_REGEX = "/(NISAR_(?P<Type>[LSJ]0_RRST)_.*)$"
-L0A_L_PGE_OUTPUT_PATTERN = re.compile(L0A_L_PGE_OUTPUT_REGEX)
-
-
-def get_pge_error_message(logfile):
+def get_pge_error_message(logfile: str) -> str:
     """
     Intended to parse a PGE log file, look for errors and propagate it up to the UI
 
@@ -57,7 +47,7 @@ def get_pge_error_message(logfile):
         return default_msg
 
 
-def process_inputs(run_config, work_dir, output_dir):
+def process_inputs(run_config: Dict, work_dir: str, output_dir: str) -> Tuple[Dict, List]:
     """
     Process the inputs:
 
@@ -107,7 +97,7 @@ def process_inputs(run_config, work_dir, output_dir):
     return run_config, lineage_metadata
 
 
-def run_pipeline(context, work_dir):
+def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     """
     Run the PGE in OPERA land
     :param context: Path to HySDS _context.json
@@ -115,116 +105,95 @@ def run_pipeline(context, work_dir):
 
     :return:
     """
-    run_config = context.get("run_config")
-    pge_config = context.get("pge_config")
 
-    # get depedency image
-    dep_img = context.get('job_specification')['dependency_images'][0]
-    dep_img_name = dep_img['container_image_name']
-    logger.info("dep_img_name: {}".format(dep_img_name))
+    logger.info(f"Making Working Directory: {work_dir}")
 
-    logger.info("Working Directory: {}".format(work_dir))
-    output_dir = os.path.join(work_dir, 'output')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, 0o755)
+    runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
+    os.makedirs(runconfig_dir, 0o755, exist_ok=True)
 
-    # create directory to house PGE's _docker_stats.json
-    pge_stats_dir = os.path.join(work_dir, 'pge_stats')
-    logger.debug("PGE Stats Directory: {}".format(pge_stats_dir))
-    os.makedirs(pge_stats_dir, 0o755)
+    input_hls_dir = os.path.join(work_dir, 'input_hls_dir_tbf')
+    os.makedirs(input_hls_dir, 0o755, exist_ok=True)
 
+    output_dir = os.path.join(work_dir, 'output_dir_tbf')
+    os.makedirs(output_dir, 0o755, exist_ok=True)
+
+    run_config: Dict = context.get("run_config")
     run_config = json.loads(json.dumps(run_config))
 
     # We need to convert the S3 urls specified in the run config to local paths and also
-    # capture the inputs so we can store the lineage in the output dataset metadata
+    # capture the inputs, so we can store the lineage in the output dataset metadata
     run_config, lineage_metadata = process_inputs(run_config, work_dir, output_dir)
 
-    # Set the docker image name and version?
-    dep_img_name_tokens = dep_img_name.split(":", 1)
-    logger.debug("Splitting the PGE Docker Image Name: {}".format(dep_img_name_tokens))
+    for s3_input_filepath in run_config["product_paths"]["L2_HLS_L30"]:
+        local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
+        shutil.copy(local_input_filepath, input_hls_dir)
+    run_config["input_file_group"]["input_file_path"] = '/home/conda/input_dir'
 
-    # Run the PGE
-    logger.debug("Runconfig to transform to YAML is: {}".format(json.dumps(run_config)))
+    # create RunConfig.yaml
+    logger.debug(f"Runconfig to transform to YAML is: {json.dumps(run_config)}")
+    pge_config: Dict = context.get("pge_config")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
-    logger.debug("Run Config: {}".format(json.dumps(run_config)))
+    shutil.copy(rc_file, runconfig_dir)
 
-    logger.debug("PGE Config: {}".format(json.dumps(pge_config)))
-    if opera_chimera_const.SIMULATE_OUTPUTS in context and context[opera_chimera_const.SIMULATE_OUTPUTS]:
-        logger.info("Simulate PGE run....")
-        pge_util.simulate_run_pge(run_config, output_dir, pge_config, context)
+    logger.debug(f"Run Config: {json.dumps(run_config)}")
+    logger.debug(f"PGE Config: {json.dumps(pge_config)}")
+
+    # Run the PGE
+    simulate_outputs = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
+    logger.info(f"{simulate_outputs=}")
+    if context.get(opera_chimera_const.SIMULATE_OUTPUTS):
+        logger.info("Simulating PGE run....")
+        pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
     else:
+        # get dependency image
+        dep_img = context.get('job_specification')['dependency_images'][0]
+        dep_img_name = dep_img['container_image_name']
+        logger.info(f"dep_img_name: {dep_img_name}")
+
         # get docker params
         docker_params_file = os.path.join(work_dir, "_docker_params.json")
-
         dp = DockerParams(docker_params_file)
         docker_params = dp.params
-        logger.info("docker_params: {}".format(json.dumps(docker_params, indent=2)))
-
+        logger.info(f"docker_params: {json.dumps(docker_params, indent=2)}")
         docker_img_params = docker_params[dep_img_name]
         uid = docker_img_params["uid"]
         gid = docker_img_params["gid"]
 
+        # TODO chrisjrd: set these properly
+        uid = "conda"
+        gid = "conda"
+
         # parse runtime options
         runtime_options = []
         for k, v in docker_img_params.get('runtime_options', {}).items():
-            runtime_options.extend(["--{}".format(k), "{}".format(v)])
+            runtime_options.extend([f"--{k}", f"{v}"])
+
+        # create directory to house PGE's _docker_stats.json
+        pge_stats_dir = os.path.join(work_dir, 'pge_stats')
+        logger.debug(f"Making PGE Stats Directory: {pge_stats_dir}")
+        os.makedirs(pge_stats_dir, 0o755)
 
         cmd = [
-            "docker run --init --rm -u {uid}:{gid} -v {work_dir}:/pge/run -w /pge/run".format(
-                uid=uid, gid=gid, work_dir=work_dir
-            ),
+            f"docker run --init --rm -u {uid}:{gid}",
             " ".join(runtime_options),
-            "-v",
-            "/data/work/jobs:/data/work/jobs",
-            "-v",
-            "/data/work/cache:/data/work/cache:ro",
-            "-v",
-            "/home/ops/verdi/etc/datasets.json:/home/ops/verdi/etc/datasets.json:ro",
+            f"-v {runconfig_dir}:/home/conda/runconfig:ro",
+            f"-v {input_hls_dir}:/home/conda/input_dir:ro",
+            f"-v {output_dir}:/home/conda/output_dir",
+            f"-v {output_dir}",
             dep_img_name,
-            "--file",
-            rc_file.split("/")[-1],
-            "--stats",
-            "/pge/run/pge_stats/_docker_stats.json",
+            f"--file /home/conda/runconfig/RunConfig.yaml",
         ]
 
         cmd_line = " ".join(cmd)
-        logger.info("Calling PGE: {}".format(cmd_line))
+        logger.info(f"Calling PGE: {cmd_line}")
         try:
             call_noerr(cmd_line, work_dir)
         except Exception as e:
-            logger.error("PGE failure: {}".format(e))
+            logger.error(f"PGE failure: {e}")
             raise
-
-    # For Time_Extractor PGE, we need to copy the input product to the output dataset
-    if pge_name == opera_chimera_const.TIME_EXTRACTOR:
-        logger.info("run_config: {}".format(json.dumps(run_config, indent=2)))
-        logger.info("pge_config: {}".format(json.dumps(pge_config, indent=2)))
-        product_counter = run_config.get(opera_chimera_const.PRODUCT_COUNTER)
-        logger.info("product_counter: {}".format(product_counter))
-        l0a_bins = run_config.get(opera_chimera_const.INPUT_FILE_PATH, {}).get(
-            pge_config.get(opera_chimera_const.PRIMARY_INPUT, None))
-
-        if l0a_bins:
-            for l0a_bin in l0a_bins:
-                # Current working directory should have the L0A bin file if we've made it
-                # this far
-                ext = os.path.splitext(l0a_bin)[1]
-                base_name, ext = os.path.splitext(os.path.basename(l0a_bin))
-                if ext != ".bin":
-                    raise NotImplementedError("Cannot handle file {}.".format(l0a_bin))
-                base_name_match = re.search(r'^(.+)_\d{3}$', base_name)
-                if not base_name_match:
-                    raise RuntimeError("Unrecognized base name format: {}".format(base_name))
-                base_name = "{}_{:03d}".format(base_name_match.group(1), product_counter)
-                src = os.path.join(work_dir, os.path.basename(l0a_bin))
-                dest = os.path.join(output_dir, "{}{}".format(base_name, ext))
-                logger.info("copying {} to {}".format(src, dest))
-                shutil.copyfile(src, dest)
-        else:
-            raise RuntimeError("Could not find the input L0A file(s) to move to the output directory")
 
     extra_met = {
         "lineage": lineage_metadata,
@@ -236,58 +205,6 @@ def run_pipeline(context, work_dir):
 
     logger.info("Converting output product to HySDS-style datasets")
     created_datasets = product2dataset.convert(output_dir, pge_name, rc_file, extra_met=extra_met)
-
-    # For the L0A_L_PGE, append a "PP" to the dataset directory, .met.json, and dataset.json
-    # Seems like we can't do this at the post processor level in Chimera since this renaming
-    # has to occur prior to dataset publishing.
-    if pge_name == opera_chimera_const.L0A:
-        glob_patterns = ["*", "*/*.met.json", "*/*.dataset.json"]
-        output_dataset_dir = os.path.join(output_dir, product2dataset.DATASETS_DIR_NAME)
-        for glob_pattern in glob_patterns:
-            results = glob.glob(os.path.join(output_dataset_dir, glob_pattern))
-            if results:
-                for result in results:
-                    match = L0A_L_PGE_OUTPUT_PATTERN.search(result)
-                    if match:
-                        if "Type" in list(match.groupdict().keys()):
-                            type = match.groupdict()["Type"]
-                            renamed_type = "{}_PP".format(type)
-                            if os.path.isdir(result):
-                                renamed_result = result.replace(type, renamed_type)
-                            else:
-                                # Preserve directory name if renaming files
-                                file_name = os.path.basename(result)
-                                renamed_file = file_name.replace(type, renamed_type)
-                                renamed_result = os.path.join(os.path.dirname(result), renamed_file)
-                            logger.info("Renaming {} to {}".format(result, renamed_result))
-                            os.rename(result, renamed_result)
-                        else:
-                            raise ValueError("Could not find the Type field in the output file/dir: {}".format(result))
-            else:
-                raise ValueError("Could not find glob pattern from output directory {}: {}".format(output_dataset_dir,
-                                                                                                   glob_pattern))
-
-    # For the L0B_PGE, update the OBS_ID and DATATAKE_ID to be string. It is temp fix
-    if pge_name == opera_chimera_const.L0B:
-        glob_pattern = "*/*.met.json"
-        output_dataset_dir = os.path.join(output_dir, product2dataset.DATASETS_DIR_NAME)
-        results = glob.glob(os.path.join(output_dataset_dir, glob_pattern))
-        print("PGE_WRAPPER : results : {}".format(results))
-        if results:
-            for result in results:
-                print("PGE_WRAPPER : processing : {}".format(result))
-
-                with open(result, "r") as jsonFile:
-                    data = json.load(jsonFile)
-                if "OBS_ID" in data:
-                    data["OBS_ID"] = str(data["OBS_ID"])
-                if "DATATAKE_ID" in data:
-                    data["DATATAKE_ID"] = str(data["DATATAKE_ID"])
-                with open(result, "w") as jsonFile:
-                    json.dump(data, jsonFile, indent=4)
-        else:
-            raise ValueError("Could not find glob pattern from output directory {}: {}".format(output_dataset_dir,
-                                                                                               glob_pattern))
 
     return created_datasets
 

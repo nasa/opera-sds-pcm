@@ -1,0 +1,71 @@
+# The runconfig section is intended to be used for dynamically generating the runconfig file used
+# when running the OPERA PGEs. Any values set with a "__CHIMERA_VAL__" should be filled in by the input
+# preprocessor. Otherwise, a precondition evaluation error will be thrown.
+runconfig:
+  name: dswx_hls_workflow_default
+  pge_name_group:
+    pge_name: DSWX_HLS_PGE
+  input_file_group:
+    # REQUIRED - Single HLS dataset (directory or files)
+    input_file_path: [input_dir]
+  dynamic_ancillary_file_group:
+    # Digital elevation model
+    dem_file:
+    # Copernicus Land Cover Layer (CLCL)
+    landcover_file:
+    # Copernicus Human Settlement Layer (GHSL)
+    built_up_cover_fraction_file:
+  product_path_group:
+    # Directory where PGE will place results
+    product_path: product_path
+    # Directory where SAS can write temporary data
+    scratch_path: scratch_dir
+    # Intermediate file name.  SAS writes output product to the following file.
+    # After the SAS completes, the PGE wrapper renames the product file
+    # according to proper file naming conventions.
+    sas_output_file: output_dir/dswx_hls.tif
+  primary_executable:
+      product_type: DSWX_HLS
+
+  # TODO chrisjrd: support PGE simulation mode toggle
+  # Needed for an implicit simulated PGE run.
+  # * See PGE_SIMULATION_MODE in settings.yaml and it's usage
+  # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
+  input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
+    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
+    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
+  output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_01
+
+  # TODO chrisjrd: remove after testing file localization
+  product_paths:
+    L2_HLS_L30: __CHIMERA_VAL__
+
+# This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
+preconditions: [get_input_filepaths_from_state_config]
+
+# This lists all the postprocessor steps that this PGE will run after running the PGE.
+postprocess: []
+
+# For any of the precondition evaluation steps listed in the preconditions area,
+# specify function arguments here
+
+# List the extensions that the PGE generates
+output_types:
+  L3_DSWx:
+    - tiff
+    - log
+    - met
+    - qa
+    - xml
+
+# The PGE name
+# This must MATCH the corresponding entry in pge_outputs.yaml
+pge_name: "L3_HLS"
+
+# Set the primary input/output types here
+primary_input: "L2_HLS_L30"
+primary_output: "L3_DSWx"
+
+# List the groups that Chimera will need to localize
+#TODO chrisjrd: finalize localization implementation
+localize_groups: [product_paths]

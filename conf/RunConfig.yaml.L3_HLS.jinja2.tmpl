@@ -1,0 +1,57 @@
+RunConfig:
+  Name: OPERA-DSWX-HLS-PGE-SAMPLE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DSWX_HLS_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.input_file_path %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: {}
+      ProductPathGroup:
+        ProductCounter: 001
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+        SASOutputFile: {{ data.product_path_group.sas_output_file }}
+      PrimaryExecutable:
+        ProductIdentifier: DSWX_HLS
+        ProgramPath: python3
+        ProgramOptions:
+            - DSWx-HLS-0.1/bin/dswx_hls.py
+        ErrorCodeBase: 100000
+        SchemaPath: dswx_hls_sas_schema.yaml
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions:
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+    SAS:
+      runconfig:
+        name: dswx_hls_workflow_default
+        groups:
+          pge_name_group:
+            pge_name: DSWX_HLS_PGE
+          input_file_group:
+            input_file_path:
+              {%- for input in data.input_file_group.input_file_path %}
+              - {{ input }}
+              {%- endfor %}
+          dynamic_ancillary_file_group:
+            {%- for type in data.dynamic_ancillary_file_group.keys() %}
+             {%- if data.dynamic_ancillary_file_group[type] is not none %}
+              {{ type }}: {{ data.dynamic_ancillary_file_group[type] }}
+             {%- else %}
+              {{ type }}:
+             {%- endif %}
+            {%- endfor %}
+          product_path_group:
+            product_path: {{ data.product_path_group.product_path }}
+            scratch_path: {{ data.product_path_group.scratch_path }}
+            sas_output_file: {{ data.product_path_group.sas_output_file }}
+          primary_executable:
+            product_type: DSWX_HLS

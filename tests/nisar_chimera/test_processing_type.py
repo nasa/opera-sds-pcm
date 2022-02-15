@@ -1,5 +1,5 @@
 import unittest
-from nisar_chimera.processing_type import ProcessingType
+from opera_chimera.processing_type import ProcessingType
 
 
 class TestProcessingType(unittest.TestCase):
