@@ -136,6 +136,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
+    shutil.copy(rc_file, runconfig_dir)
 
     logger.debug(f"Run Config: {json.dumps(run_config)}")
     logger.debug(f"PGE Config: {json.dumps(pge_config)}")
