@@ -1,0 +1,808 @@
+{
+  "_command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh '/home/ops/verdi/ops/nisar-pcm' '/home/ops/verdi/ops/nisar-pcm/nisar_chimera/wf_xml' 'L0B'",
+  "_disk_usage": "10GB",
+  "_prov": {
+    "wasGeneratedBy": "task_id:529927eb-5073-4282-9c40-74345c7cde19"
+  },
+  "container_image_id": "sha256:52ac7a39a8dfee0f914a5dcc260609d98c26b12c490338ad43d4010275ac27ea",
+  "container_image_name": "container-iems-sds_nisar-pcm:nsds-936",
+  "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+  "container_mappings": {
+    "$HOME/.aws": "/home/ops/.aws",
+    "$HOME/.netrc": "/home/ops/.netrc",
+    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml",
+    "/home/ops/verdi/etc/celeryconfig.py": "celeryconfig.py",
+    "/home/ops/verdi/etc/datasets.json": "datasets.json"
+  },
+  "container_specification": {
+    "digest": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+    "id": "container-iems-sds_nisar-pcm:nsds-936",
+    "url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+    "version": "NSDS-936"
+  },
+  "context": {
+    "_command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh '/home/ops/verdi/ops/nisar-pcm' '/home/ops/verdi/ops/nisar-pcm/nisar_chimera/wf_xml' 'L0B'",
+    "_disk_usage": "10GB",
+    "_prov": {
+      "wasGeneratedBy": "task_id:2aa2c906-0080-430b-964b-e18d60aa6aa5"
+    },
+    "container_image_id": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+    "container_image_name": "container-iems-sds_nisar-pcm:nsds-936",
+    "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+    "container_mappings": {
+      "$HOME/.aws": "/home/ops/.aws",
+      "$HOME/.netrc": "/home/ops/.netrc",
+      "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+    },
+    "container_specification": {
+      "digest": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+      "id": "container-iems-sds_nisar-pcm:nsds-936",
+      "url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+      "version": "NSDS-936"
+    },
+    "dataset_type": "datatake-state-config",
+    "job_priority": 0,
+    "job_specification": {
+      "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
+      "container": "container-iems-sds_nisar-pcm:nsds-936",
+      "dependency_images": [
+        {
+          "container_image_id": "sha256:a55823eeba298cb954e432610d397410be7ce0ea7d2d63793f24802247d05a81",
+          "container_image_name": "nisar_pge/l0b:R1.0.1",
+          "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/nisar_pge-l0b-R1.0.1.tar.gz",
+          "container_mappings": {
+            "$HOME/.aws": [
+              "/root/.aws",
+              "ro"
+            ],
+            "$HOME/.netrc": [
+              "/root/.netrc"
+            ]
+          }
+        }
+      ],
+      "disk_usage": "10GB",
+      "id": "job-SCIFLO_L0B:NSDS-936",
+      "imported_worker_files": {
+        "$HOME/.aws": "/home/ops/.aws",
+        "$HOME/.netrc": "/home/ops/.netrc",
+        "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+      },
+      "job-version": "NSDS-936",
+      "params": [
+        {
+          "destination": "context",
+          "name": "product_paths",
+          "value": [
+            "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+          ]
+        },
+        {
+          "destination": "context",
+          "name": "product_metadata",
+          "value": {
+            "metadata": {
+              "context": {
+                "_command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+                "_disk_usage": "20GB",
+                "_prov": {
+                  "wasDerivedFrom": [
+                    "url:s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                  ],
+                  "wasGeneratedBy": "task_id:755afc7e-30cd-4957-b8a4-561d4d71d061"
+                },
+                "container_image_id": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+                "container_image_name": "container-iems-sds_nisar-pcm:nsds-936",
+                "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+                "container_mappings": {
+                  "$HOME/.aws": "/home/ops/.aws",
+                  "$HOME/.netrc": "/home/ops/.netrc",
+                  "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+                },
+                "container_specification": {
+                  "digest": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+                  "id": "container-iems-sds_nisar-pcm:nsds-936",
+                  "url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+                  "version": "NSDS-936"
+                },
+                "dataset_type": "L0A_L_RRST",
+                "job_priority": 0,
+                "job_specification": {
+                  "command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+                  "container": "container-iems-sds_nisar-pcm:nsds-936",
+                  "disk_usage": "20GB",
+                  "id": "job-Datatake_Accountability:NSDS-936",
+                  "imported_worker_files": {
+                    "$HOME/.aws": "/home/ops/.aws",
+                    "$HOME/.netrc": "/home/ops/.netrc",
+                    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+                  },
+                  "job-version": "NSDS-936",
+                  "params": [
+                    {
+                      "destination": "localize",
+                      "name": "product_paths",
+                      "value": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                    },
+                    {
+                      "destination": "context",
+                      "name": "product_metadata",
+                      "value": {
+                        "metadata": {
+                          "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+                          "CompositeReleaseID": "D00200",
+                          "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+                          "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+                          "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+                          "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+                          "FileSize": 53809920,
+                          "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+                          "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+                          "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+                          "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+                          "PGE_Name": "L-SAR_Time_Extractor",
+                          "PGE_Version": "V1.0",
+                          "ProductCounter": 1,
+                          "ProductReceivedDay": "18",
+                          "ProductReceivedMonth": "09",
+                          "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+                          "ProductReceivedYear": 2020,
+                          "ProductType": "L0A_L_RRST",
+                          "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+                          "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+                          "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+                          "VCID": "VC29",
+                          "context": {},
+                          "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                        }
+                      }
+                    },
+                    {
+                      "destination": "context",
+                      "name": "dataset_type",
+                      "value": "L0A_L_RRST"
+                    }
+                  ],
+                  "post": [
+                    "hysds.utils.triage"
+                  ],
+                  "recommended-queues": [
+                    "nisar-job_worker-small"
+                  ],
+                  "resource": "jobspec",
+                  "soft_time_limit": 1080,
+                  "time_limit": 1200
+                },
+                "localize_urls": [
+                  {
+                    "url": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                  }
+                ],
+                "product_metadata": {
+                  "metadata": {
+                    "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+                    "CompositeReleaseID": "D00200",
+                    "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+                    "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+                    "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+                    "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+                    "FileSize": 53809920,
+                    "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+                    "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+                    "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+                    "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+                    "PGE_Name": "L-SAR_Time_Extractor",
+                    "PGE_Version": "V1.0",
+                    "ProductCounter": 1,
+                    "ProductReceivedDay": "18",
+                    "ProductReceivedMonth": "09",
+                    "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+                    "ProductReceivedYear": 2020,
+                    "ProductType": "L0A_L_RRST",
+                    "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+                    "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+                    "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+                    "VCID": "VC29",
+                    "context": {},
+                    "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                  }
+                },
+                "runtime_options": {},
+                "tag": "trigger-Datatake_Accountability_Eval"
+              },
+              "datatake_begin_time": "2020-02-21T20:18:36.000000Z",
+              "datatake_end_time": "2020-02-21T20:18:37.000000Z",
+              "found_l0a_rrsts": [
+                "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin"
+              ],
+              "l0a_rrst_product_paths": [
+                "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+              ],
+              "observation_ids": [
+                "oid_2020052201804"
+              ],
+              "state": "complete"
+            }
+          }
+        },
+        {
+          "destination": "context",
+          "name": "state_config_id",
+          "value": "dtid_2020052201804_state-config"
+        },
+        {
+          "destination": "context",
+          "name": "dataset_type",
+          "value": "datatake-state-config"
+        },
+        {
+          "destination": "positional",
+          "name": "module_path",
+          "value": "/home/ops/verdi/ops/nisar-pcm"
+        },
+        {
+          "destination": "positional",
+          "name": "wf_dir",
+          "value": "/home/ops/verdi/ops/nisar-pcm/nisar_chimera/wf_xml"
+        },
+        {
+          "destination": "positional",
+          "name": "purpose",
+          "value": "L0B"
+        },
+        {
+          "destination": "context",
+          "name": "processing_type",
+          "value": "forward"
+        }
+      ],
+      "post": [
+        "hysds.utils.triage"
+      ],
+      "recommended-queues": [
+        "nisar-job_worker-sciflo-l0b"
+      ],
+      "resource": "jobspec",
+      "soft_time_limit": 3600,
+      "time_limit": 3660
+    },
+    "localize_urls": [],
+    "module_path": "/home/ops/verdi/ops/nisar-pcm",
+    "processing_type": "forward",
+    "product_metadata": {
+      "metadata": {
+        "context": {
+          "_command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+          "_disk_usage": "20GB",
+          "_prov": {
+            "wasDerivedFrom": [
+              "url:s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+            ],
+            "wasGeneratedBy": "task_id:755afc7e-30cd-4957-b8a4-561d4d71d061"
+          },
+          "container_image_id": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+          "container_image_name": "container-iems-sds_nisar-pcm:nsds-936",
+          "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+          "container_mappings": {
+            "$HOME/.aws": "/home/ops/.aws",
+            "$HOME/.netrc": "/home/ops/.netrc",
+            "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+          },
+          "container_specification": {
+            "digest": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+            "id": "container-iems-sds_nisar-pcm:nsds-936",
+            "url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+            "version": "NSDS-936"
+          },
+          "dataset_type": "L0A_L_RRST",
+          "job_priority": 0,
+          "job_specification": {
+            "command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+            "container": "container-iems-sds_nisar-pcm:nsds-936",
+            "disk_usage": "20GB",
+            "id": "job-Datatake_Accountability:NSDS-936",
+            "imported_worker_files": {
+              "$HOME/.aws": "/home/ops/.aws",
+              "$HOME/.netrc": "/home/ops/.netrc",
+              "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+            },
+            "job-version": "NSDS-936",
+            "params": [
+              {
+                "destination": "localize",
+                "name": "product_paths",
+                "value": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+              },
+              {
+                "destination": "context",
+                "name": "product_metadata",
+                "value": {
+                  "metadata": {
+                    "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+                    "CompositeReleaseID": "D00200",
+                    "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+                    "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+                    "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+                    "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+                    "FileSize": 53809920,
+                    "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+                    "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+                    "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+                    "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+                    "PGE_Name": "L-SAR_Time_Extractor",
+                    "PGE_Version": "V1.0",
+                    "ProductCounter": 1,
+                    "ProductReceivedDay": "18",
+                    "ProductReceivedMonth": "09",
+                    "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+                    "ProductReceivedYear": 2020,
+                    "ProductType": "L0A_L_RRST",
+                    "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+                    "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+                    "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+                    "VCID": "VC29",
+                    "context": {},
+                    "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                  }
+                }
+              },
+              {
+                "destination": "context",
+                "name": "dataset_type",
+                "value": "L0A_L_RRST"
+              }
+            ],
+            "post": [
+              "hysds.utils.triage"
+            ],
+            "recommended-queues": [
+              "nisar-job_worker-small"
+            ],
+            "resource": "jobspec",
+            "soft_time_limit": 1080,
+            "time_limit": 1200
+          },
+          "localize_urls": [
+            {
+              "url": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+            }
+          ],
+          "product_metadata": {
+            "metadata": {
+              "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+              "CompositeReleaseID": "D00200",
+              "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+              "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+              "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+              "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+              "FileSize": 53809920,
+              "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+              "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+              "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+              "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+              "PGE_Name": "L-SAR_Time_Extractor",
+              "PGE_Version": "V1.0",
+              "ProductCounter": 1,
+              "ProductReceivedDay": "18",
+              "ProductReceivedMonth": "09",
+              "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+              "ProductReceivedYear": 2020,
+              "ProductType": "L0A_L_RRST",
+              "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+              "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+              "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+              "VCID": "VC29",
+              "context": {},
+              "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+            }
+          },
+          "runtime_options": {},
+          "tag": "trigger-Datatake_Accountability_Eval"
+        },
+        "datatake_begin_time": "2020-02-21T20:18:36.000000Z",
+        "datatake_end_time": "2020-02-21T20:18:37.000000Z",
+        "found_l0a_rrsts": [
+          "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin"
+        ],
+        "l0a_rrst_product_paths": [
+          "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+        ],
+        "observation_ids": [
+          "oid_2020052201804"
+        ],
+        "state": "complete"
+      }
+    },
+    "product_paths": [
+      "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+    ],
+    "purpose": "L0B",
+    "runtime_options": {},
+    "state_config_id": "dtid_2020052201804_state-config",
+    "tag": "trigger-SCIFLO_L0B",
+    "wf_dir": "/home/ops/verdi/ops/nisar-pcm/nisar_chimera/wf_xml"
+  },
+  "dataset_type": "datatake-state-config",
+  "job_priority": 0,
+  "job_specification": {
+    "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
+    "container": "container-iems-sds_nisar-pcm:nsds-936",
+    "dependency_images": [
+      {
+        "container_image_id": "sha256:a55823eeba298cb954e432610d397410be7ce0ea7d2d63793f24802247d05a81",
+        "container_image_name": "nisar_pge/l0b:R1.0.1",
+        "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/nisar_pge-l0b-R1.0.1.tar.gz",
+        "container_mappings": {
+          "$HOME/.aws": [
+            "/root/.aws",
+            "ro"
+          ],
+          "$HOME/.netrc": [
+            "/root/.netrc"
+          ],
+          "/home/ops/verdi/etc/celeryconfig.py": "celeryconfig.py",
+          "/home/ops/verdi/etc/datasets.json": "datasets.json"
+        }
+      }
+    ],
+    "disk_usage": "10GB",
+    "id": "job-SCIFLO_L0B:NSDS-936",
+    "imported_worker_files": {
+      "$HOME/.aws": "/home/ops/.aws",
+      "$HOME/.netrc": "/home/ops/.netrc",
+      "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+    },
+    "job-version": "NSDS-936",
+    "params": [
+      {
+        "destination": "context",
+        "name": "product_paths",
+        "value": [
+          "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+        ]
+      },
+      {
+        "destination": "context",
+        "name": "product_metadata",
+        "value": {
+          "metadata": {
+            "context": {
+              "_command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+              "_disk_usage": "20GB",
+              "_prov": {
+                "wasDerivedFrom": [
+                  "url:s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                ],
+                "wasGeneratedBy": "task_id:755afc7e-30cd-4957-b8a4-561d4d71d061"
+              },
+              "container_image_id": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+              "container_image_name": "container-iems-sds_nisar-pcm:nsds-936",
+              "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+              "container_mappings": {
+                "$HOME/.aws": "/home/ops/.aws",
+                "$HOME/.netrc": "/home/ops/.netrc",
+                "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+              },
+              "container_specification": {
+                "digest": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+                "id": "container-iems-sds_nisar-pcm:nsds-936",
+                "url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+                "version": "NSDS-936"
+              },
+              "dataset_type": "L0A_L_RRST",
+              "job_priority": 0,
+              "job_specification": {
+                "command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+                "container": "container-iems-sds_nisar-pcm:nsds-936",
+                "disk_usage": "20GB",
+                "id": "job-Datatake_Accountability:NSDS-936",
+                "imported_worker_files": {
+                  "$HOME/.aws": "/home/ops/.aws",
+                  "$HOME/.netrc": "/home/ops/.netrc",
+                  "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+                },
+                "job-version": "NSDS-936",
+                "params": [
+                  {
+                    "destination": "localize",
+                    "name": "product_paths",
+                    "value": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                  },
+                  {
+                    "destination": "context",
+                    "name": "product_metadata",
+                    "value": {
+                      "metadata": {
+                        "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+                        "CompositeReleaseID": "D00200",
+                        "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+                        "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+                        "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+                        "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+                        "FileSize": 53809920,
+                        "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+                        "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+                        "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+                        "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+                        "PGE_Name": "L-SAR_Time_Extractor",
+                        "PGE_Version": "V1.0",
+                        "ProductCounter": 1,
+                        "ProductReceivedDay": "18",
+                        "ProductReceivedMonth": "09",
+                        "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+                        "ProductReceivedYear": 2020,
+                        "ProductType": "L0A_L_RRST",
+                        "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+                        "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+                        "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+                        "VCID": "VC29",
+                        "context": {},
+                        "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                      }
+                    }
+                  },
+                  {
+                    "destination": "context",
+                    "name": "dataset_type",
+                    "value": "L0A_L_RRST"
+                  }
+                ],
+                "post": [
+                  "hysds.utils.triage"
+                ],
+                "recommended-queues": [
+                  "nisar-job_worker-small"
+                ],
+                "resource": "jobspec",
+                "soft_time_limit": 1080,
+                "time_limit": 1200
+              },
+              "localize_urls": [
+                {
+                  "url": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                }
+              ],
+              "product_metadata": {
+                "metadata": {
+                  "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+                  "CompositeReleaseID": "D00200",
+                  "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+                  "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+                  "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+                  "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+                  "FileSize": 53809920,
+                  "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+                  "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+                  "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+                  "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+                  "PGE_Name": "L-SAR_Time_Extractor",
+                  "PGE_Version": "V1.0",
+                  "ProductCounter": 1,
+                  "ProductReceivedDay": "18",
+                  "ProductReceivedMonth": "09",
+                  "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+                  "ProductReceivedYear": 2020,
+                  "ProductType": "L0A_L_RRST",
+                  "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+                  "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+                  "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+                  "VCID": "VC29",
+                  "context": {},
+                  "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                }
+              },
+              "runtime_options": {},
+              "tag": "trigger-Datatake_Accountability_Eval"
+            },
+            "datatake_begin_time": "2020-02-21T20:18:36.000000Z",
+            "datatake_end_time": "2020-02-21T20:18:37.000000Z",
+            "found_l0a_rrsts": [
+              "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin"
+            ],
+            "l0a_rrst_product_paths": [
+              "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+            ],
+            "observation_ids": [
+              "oid_2020052201804"
+            ],
+            "state": "complete"
+          }
+        }
+      },
+      {
+        "destination": "context",
+        "name": "state_config_id",
+        "value": "dtid_2020052201804_state-config"
+      },
+      {
+        "destination": "context",
+        "name": "dataset_type",
+        "value": "datatake-state-config"
+      },
+      {
+        "destination": "positional",
+        "name": "module_path",
+        "value": "/home/ops/verdi/ops/nisar-pcm"
+      },
+      {
+        "destination": "positional",
+        "name": "wf_dir",
+        "value": "/home/ops/verdi/ops/nisar-pcm/nisar_chimera/wf_xml"
+      },
+      {
+        "destination": "positional",
+        "name": "purpose",
+        "value": "L0B"
+      },
+      {
+        "destination": "context",
+        "name": "processing_type",
+        "value": "forward"
+      }
+    ],
+    "post": [
+      "hysds.utils.triage"
+    ],
+    "recommended-queues": [
+      "nisar-job_worker-sciflo-l0b"
+    ],
+    "resource": "jobspec",
+    "soft_time_limit": 3600,
+    "time_limit": 3660
+  },
+  "localize_urls": [],
+  "module_path": "/home/ops/verdi/ops/nisar-pcm",
+  "processing_type": "forward",
+  "product_metadata": {
+    "metadata": {
+      "context": {
+        "_command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+        "_disk_usage": "20GB",
+        "_prov": {
+          "wasDerivedFrom": [
+            "url:s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+          ],
+          "wasGeneratedBy": "task_id:755afc7e-30cd-4957-b8a4-561d4d71d061"
+        },
+        "container_image_id": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+        "container_image_name": "container-iems-sds_nisar-pcm:nsds-936",
+        "container_image_url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+        "container_mappings": {
+          "$HOME/.aws": "/home/ops/.aws",
+          "$HOME/.netrc": "/home/ops/.netrc",
+          "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+        },
+        "container_specification": {
+          "digest": "sha256:96712c364f3c91ad82ce1175703a0090b829c263e29f5e8e40cb07074f241863",
+          "id": "container-iems-sds_nisar-pcm:nsds-936",
+          "url": "s3://s3-us-west-2.amazonaws.com/nisar-dev-cc-fwd-mkarim/container-iems-sds_nisar-pcm:nsds-936.tar.gz",
+          "version": "NSDS-936"
+        },
+        "dataset_type": "L0A_L_RRST",
+        "job_priority": 0,
+        "job_specification": {
+          "command": "/home/ops/verdi/ops/nisar-pcm/Datatake_Accountability/eval_datatake.sh",
+          "container": "container-iems-sds_nisar-pcm:nsds-936",
+          "disk_usage": "20GB",
+          "id": "job-Datatake_Accountability:NSDS-936",
+          "imported_worker_files": {
+            "$HOME/.aws": "/home/ops/.aws",
+            "$HOME/.netrc": "/home/ops/.netrc",
+            "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/nisar-pcm/conf/settings.yaml"
+          },
+          "job-version": "NSDS-936",
+          "params": [
+            {
+              "destination": "localize",
+              "name": "product_paths",
+              "value": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+            },
+            {
+              "destination": "context",
+              "name": "product_metadata",
+              "value": {
+                "metadata": {
+                  "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+                  "CompositeReleaseID": "D00200",
+                  "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+                  "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+                  "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+                  "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+                  "FileSize": 53809920,
+                  "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+                  "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+                  "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+                  "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+                  "PGE_Name": "L-SAR_Time_Extractor",
+                  "PGE_Version": "V1.0",
+                  "ProductCounter": 1,
+                  "ProductReceivedDay": "18",
+                  "ProductReceivedMonth": "09",
+                  "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+                  "ProductReceivedYear": 2020,
+                  "ProductType": "L0A_L_RRST",
+                  "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+                  "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+                  "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+                  "VCID": "VC29",
+                  "context": {},
+                  "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+                }
+              }
+            },
+            {
+              "destination": "context",
+              "name": "dataset_type",
+              "value": "L0A_L_RRST"
+            }
+          ],
+          "post": [
+            "hysds.utils.triage"
+          ],
+          "recommended-queues": [
+            "nisar-job_worker-small"
+          ],
+          "resource": "jobspec",
+          "soft_time_limit": 1080,
+          "time_limit": 1200
+        },
+        "localize_urls": [
+          {
+            "url": "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+          }
+        ],
+        "product_metadata": {
+          "metadata": {
+            "Ancillary_Files": "/tmp/NISAR_ANC_J_PR_POE_20190904145019_20180603225942_20180605005942_CRID.xml",
+            "CompositeReleaseID": "D00200",
+            "DAPHNE_Max_Time_Tag": "2020-02-21T20:18:37.000000Z",
+            "DAPHNE_Min_Time_Tag": "2020-02-21T20:18:36.000000Z",
+            "FileLocation": "/export/home/hysdsops/.sds/files/test/pge/output/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001",
+            "FileName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin",
+            "FileSize": 53809920,
+            "GelocationStart": "(-2931148.127734, -4581538.338372, 4517022.541953)",
+            "GelocationStop": "(-2506678.293075, -3087139.614565, 5842726.670282)",
+            "GranuleName": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837",
+            "Input_Files": "/tmp/NISAR_L0_PR_RRST_VC29_20200221T201836_20200221T201836_D0000_001.bin",
+            "PGE_Name": "L-SAR_Time_Extractor",
+            "PGE_Version": "V1.0",
+            "ProductCounter": 1,
+            "ProductReceivedDay": "18",
+            "ProductReceivedMonth": "09",
+            "ProductReceivedTime": "2020-09-18T20:21:39.142724Z",
+            "ProductReceivedYear": 2020,
+            "ProductType": "L0A_L_RRST",
+            "Production_DateTime": "2020-01-22T00:06:03.923899Z",
+            "RadarStartDateTime": "2020-02-21T20:18:36.000000Z",
+            "RadarStopDateTime": "2020-02-21T20:18:37.000000Z",
+            "VCID": "VC29",
+            "context": {},
+            "id": "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+          }
+        },
+        "runtime_options": {},
+        "tag": "trigger-Datatake_Accountability_Eval"
+      },
+      "datatake_begin_time": "2020-02-21T20:18:36.000000Z",
+      "datatake_end_time": "2020-02-21T20:18:37.000000Z",
+      "found_l0a_rrsts": [
+        "NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001.bin"
+      ],
+      "l0a_rrst_product_paths": [
+        "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+      ],
+      "observation_ids": [
+        "oid_2020052201804"
+      ],
+      "state": "complete"
+    }
+  },
+  "product_paths": [
+    "s3://s3-us-west-2.amazonaws.com:80/nisar-dev-rs-fwd-mkarim/products/L0A_L_RRST/2020/02/21/NISAR_L0_RRST_VC29_20200221T201836_20200221T201837_D00200_001"
+  ],
+  "purpose": "L0B",
+  "runtime_options": {},
+  "state_config_id": "dtid_2020052201804_state-config",
+  "tag": "trigger-SCIFLO_L0B",
+  "wf_dir": "/home/ops/verdi/ops/nisar-pcm/nisar_chimera/wf_xml"
+}

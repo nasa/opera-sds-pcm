@@ -2,48 +2,6 @@
   "grq": [
     {
       "enabled": true,
-      "job_type": "hysds-io-PGE_COP:__TAG__",
-      "kwargs": "{}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"COP\"\n }\n }\n ]\n }\n }",
-      "queue": "opera-job_worker-small",
-      "rule_name": "trigger-PGE_COP",
-      "username": "hysdsops",
-      "workflow": "hysds-io-PGE_COP:__TAG__",
-      "job_spec": "job-PGE_COP:__TAG__"
-    },
-     {
-      "enabled": true,
-      "job_type": "hysds-io-PGE_COP:__TAG__",
-      "kwargs": "{}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"TIURDROP\"\n }\n }\n ]\n }\n }",
-      "queue": "opera-job_worker-small",
-      "rule_name": "trigger-PGE_COP_TIURDROP",
-      "username": "hysdsops",
-      "workflow": "hysds-io-PGE_COP:__TAG__",
-      "job_spec": "job-PGE_COP:__TAG__"
-    },
-    {
-      "enabled": true,
-      "job_type": "hysds-io-PGE_ROST:__TAG__",
-      "kwargs": "{}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"OROST\"\n }\n }\n ]\n }\n }",
-      "queue": "opera-job_worker-small",
-      "rule_name": "trigger-PGE_ROST",
-      "username": "hysdsops",
-      "workflow": "hysds-io-PGE_ROST:__TAG__",
-      "job_spec": "job-PGE_ROST:__TAG__"
-    },
-    {
-      "enabled": true,
       "job_type": "hysds-io-RRST_Accountability:__TAG__",
       "kwargs": "{}",
       "passthru_query": false,
@@ -69,20 +27,6 @@
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L0A:__TAG__",
       "job_spec": "job-SCIFLO_L0A:__TAG__"
-    },
-    {
-      "enabled": true,
-      "job_type": "hysds-io-SCIFLO_Time_Extractor:__TAG__",
-      "kwargs": "{}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"L0A_L_RRST_PP\"\n }\n }\n ]\n }\n }",
-      "queue": "opera-job_worker-sciflo-time_extractor",
-      "rule_name": "trigger-SCIFLO_Time_Extractor",
-      "username": "hysdsops",
-      "workflow": "hysds-io-SCIFLO_Time_Extractor:__TAG__",
-      "job_spec": "job-SCIFLO_Time_Extractor:__TAG__"
     },
     {
       "enabled": true,
