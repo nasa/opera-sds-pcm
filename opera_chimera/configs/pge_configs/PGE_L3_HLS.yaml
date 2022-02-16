@@ -17,13 +17,13 @@ runconfig:
     built_up_cover_fraction_file:
   product_path_group:
     # Directory where PGE will place results
-    product_path: product_path
+    product_path: output_dir
     # Directory where SAS can write temporary data
     scratch_path: scratch_dir
     # Intermediate file name.  SAS writes output product to the following file.
     # After the SAS completes, the PGE wrapper renames the product file
     # according to proper file naming conventions.
-    sas_output_file: output_dir/dswx_hls.tif
+    sas_output_file: dswx_hls.tif
   primary_executable:
       product_type: DSWX_HLS
 

@@ -52,6 +52,6 @@ RunConfig:
           product_path_group:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
-            sas_output_file: {{ data.product_path_group.sas_output_file }}
+            sas_output_file: {{ data.product_path_group.product_path }}/{{ data.product_path_group.sas_output_file }}
           primary_executable:
             product_type: DSWX_HLS
