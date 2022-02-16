@@ -35,7 +35,10 @@ def evaluate():
     state_config_doc_update_result: Dict = grq_es.update_document(
         index="grq_1_opera_state_config",
         id=state_config_doc_id,
-        body=to_update_doc(state_config)
+        body=to_update_doc(state_config),
+        # TODO chrisjrd: handle race condition appropriately.
+        #  setting to an arbitrary number greater than the number of expected input files, even if 1 retry would suffice
+        retry_on_conflict=30
     )
     logger.info(f"{to_json(state_config_doc_update_result)}")
 
