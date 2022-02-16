@@ -298,21 +298,13 @@ def setup_earthdata_login_auth(endpoint):
 
 
 def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
-    token = ''
+    username, _, password = netrc.netrc().authenticators(endpoint)
+    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password><client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token>"
+    headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+    resp = requests.post(url, headers=headers, data=xml)
+    response_content = json.loads(resp.content)
+    token = response_content['token']['id']
 
-    try:
-        username, _, password = netrc.netrc().authenticators(endpoint)
-        xml = """<?xml version='1.0' encoding='utf-8'?>
-        <token><username>{}</username><password>{}</password><client_id>{}</client_id>
-        <user_ip_address>{}</user_ip_address></token>""".format(username, password, client_id, user_ip)  # noqa E501
-        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
-        resp = requests.post(url, headers=headers, data=xml)
-        response_content = json.loads(resp.content)
-        token = response_content['token']['id']
-
-    # What error is thrown here? Value Error? Request Errors?
-    except:  # noqa E722
-        logging.error("Error getting the token - check user name and password")
     return token
 
 
