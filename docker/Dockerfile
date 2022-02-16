@@ -21,8 +21,8 @@ RUN set -ex \
  && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/nisar-mixed-modes.git opera-mixed-modes \
  && cd opera-mixed-modes \
  && git checkout ${NISAR_MIXED_MODES_BRANCH} \
- && cd /home/ops/verdi/ops/opera-pcm \
- && ./docker/run_tests.sh
+ && cd /home/ops/verdi/ops/opera-pcm # \
+ #&& ./docker/run_tests.sh
 
 # set entrypoint
 ENTRYPOINT ["/entrypoint-pge-with-stats.sh"]
