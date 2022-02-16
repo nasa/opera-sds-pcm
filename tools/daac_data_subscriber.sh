@@ -21,7 +21,10 @@ echo "##########################################"
 echo "Running job to subscribe to data"
 date
 echo "Running python code: daac_data_subscriber.py"
-python $BASE_PATH/daac_data_subscriber.py -m 10 -c HLSS30 -s "opera-dev-isl-fwd-mplotkin" --extensions ".tif" > daac_data_subscriber.log 2>&1
+# Forward processing use case; query previous 10 minutes
+# python $BASE_PATH/daac_data_subscriber.py -m 10 -c HLSS30 -s "opera-dev-isl-fwd-mplotkin" --extensions ".tif" > daac_data_subscriber.log 2>&1
+# Demo use case; query specific static range
+python $BASE_PATH/daac_data_subscriber.py -c HLSS30 -s "opera-dev-isl-fwd-mplotkin" --extensions ".tif" -sd 2021-09-07T16:39:00Z -ed 2021-09-07T16:40:00Z > daac_data_subscriber.log 2>&1
 STATUS=$?
 echo "Finished running daac_data_subscriber.py"
 date
