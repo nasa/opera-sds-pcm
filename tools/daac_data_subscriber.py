@@ -147,7 +147,7 @@ def run():
                 num_skipped = num_skipped + 1
             else:
                 result = upload(url, SessionWithHeaderRedirection(username, password, NETLOC), token,
-                                       args.s3_bucket)
+                                args.s3_bucket)
                 if "failed_download" in result:
                     raise Exception(result["failed_download"])
                 else:
@@ -275,6 +275,7 @@ def setup_earthdata_login_auth(endpoint):
     Valid endpoints include:
         urs.earthdata.nasa.gov - Earthdata Login production
     """
+    username = password = ""
     try:
         username, _, password = netrc.netrc().authenticators(endpoint)
     except (FileNotFoundError, TypeError):
@@ -297,15 +298,16 @@ def setup_earthdata_login_auth(endpoint):
 
 
 def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
+    token = ''
+
     try:
-        token: str = ''
         username, _, password = netrc.netrc().authenticators(endpoint)
-        xml: str = """<?xml version='1.0' encoding='utf-8'?>
+        xml = """<?xml version='1.0' encoding='utf-8'?>
         <token><username>{}</username><password>{}</password><client_id>{}</client_id>
         <user_ip_address>{}</user_ip_address></token>""".format(username, password, client_id, user_ip)  # noqa E501
-        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
         resp = requests.post(url, headers=headers, data=xml)
-        response_content: Dict = json.loads(resp.content)
+        response_content = json.loads(resp.content)
         token = response_content['token']['id']
 
     # What error is thrown here? Value Error? Request Errors?
@@ -418,7 +420,7 @@ def mark_product_as_downloaded(es_conn, filename):
 
 def delete_token(url: str, token: str) -> None:
     try:
-        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
         url = '{}/{}'.format(url, token)
         resp = requests.request('DELETE', url, headers=headers)
         if resp.status_code == 204:
