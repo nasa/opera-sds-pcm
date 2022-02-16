@@ -182,7 +182,6 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
             f"-v {runconfig_dir}:/home/conda/runconfig:ro",
             f"-v {input_hls_dir}:/home/conda/input_dir:ro",
             f"-v {output_dir}:/home/conda/output_dir",
-            f"-v {output_dir}",
             dep_img_name,
             f"--file /home/conda/runconfig/RunConfig.yaml",
         ]
