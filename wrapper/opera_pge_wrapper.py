@@ -164,8 +164,8 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         gid = docker_img_params["gid"]
 
         # TODO chrisjrd: set these properly
-        uid = "conda"
-        gid = "conda"
+        # uid = "conda"
+        # gid = "conda"
 
         # parse runtime options
         runtime_options = []
