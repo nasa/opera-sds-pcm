@@ -68,9 +68,6 @@ def process_inputs(run_config: Dict, work_dir: str, output_dir: str) -> Tuple[Di
         opera_chimera_const.DYNAMIC_ANCILLARY_FILE_GROUP,
     ]
 
-    if run_config.get("name") == "NISAR_L1-L-RSLC_RUNCONFIG":
-        input_groups.remove(opera_chimera_const.DYNAMIC_ANCILLARY_FILE_GROUP)
-
     # Add work and output directories
     run_config[opera_chimera_const.PRODUCT_PATH] = output_dir
     run_config[opera_chimera_const.DEBUG_PATH] = work_dir
