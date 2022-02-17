@@ -112,7 +112,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     os.makedirs(input_hls_dir, 0o755, exist_ok=True)
 
     output_dir = os.path.join(work_dir, 'output_dir_tbf')
-    os.makedirs(output_dir, 0o777, exist_ok=True)
+    os.makedirs(output_dir, 0o755, exist_ok=True)
 
     run_config: Dict = context.get("run_config")
     run_config = json.loads(json.dumps(run_config))
