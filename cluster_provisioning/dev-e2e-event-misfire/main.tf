@@ -14,10 +14,10 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  opera_bach_api_repo                     = var.opera_bach_api_repo
-  opera_bach_api_branch                   = var.opera_bach_api_branch
-  opera_bach_ui_repo                      = var.opera_bach_ui_repo
-  opera_bach_ui_branch                    = var.opera_bach_ui_branch
+  bach_api_repo                           = var.bach_api_repo
+  bach_api_branch                         = var.bach_api_branch
+  bach_ui_repo                            = var.bach_ui_repo
+  bach_ui_branch                          = var.bach_ui_branch
   venue                                   = var.venue
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
@@ -95,7 +95,7 @@ locals {
   tiurdrop_catalog_url     = var.tiurdrop_catalog_url != "" ? var.tiurdrop_catalog_url : local.grq_url
   rost_catalog_url         = var.rost_catalog_url != "" ? var.rost_catalog_url : local.grq_url
   pass_catalog_url         = var.pass_catalog_url != "" ? var.pass_catalog_url : local.grq_url
-  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/lambda"
+  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   default_isl_bucket       = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
   isl_bucket               = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
 }
@@ -124,10 +124,10 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/remove_s3_bucket_notification.sh ${module.common.isl_bucket}",
-      "aws s3 cp ~/mozart/ops/opera-pcm/tests/rost/test-files/orost/id_00-0a-0100_orost-2023001-c001-d01-v01.xml s3://${local.isl_bucket}/",
-      "python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_cloudwatch_metrics.py ${module.common.e_misfire_metric_alarm_name} /tmp/alarm_message_check.txt",
-      "pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-event-misfire/check_pcm.py ||:"
+      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/remove_s3_bucket_notification.sh ${module.common.isl_bucket}",
+      "aws s3 cp ~/mozart/ops/${var.project}-pcm/tests/rost/test-files/orost/id_00-0a-0100_orost-2023001-c001-d01-v01.xml s3://${local.isl_bucket}/",
+      "python ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/check_cloudwatch_metrics.py ${module.common.e_misfire_metric_alarm_name} /tmp/alarm_message_check.txt",
+      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e-event-misfire/check_pcm.py ||:"
     ]
   }
 
@@ -136,7 +136,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}",
+      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}",
     ]
   }
 

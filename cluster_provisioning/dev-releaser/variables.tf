@@ -6,6 +6,7 @@
 #
 variable "artifactory_base_url" {
   default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -370,19 +371,11 @@ variable "crid" {
   default = "D00200"
 }
 
-variable "opera_bach_api_repo" {
+variable "bach_api_repo" {
   default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
 }
 
-variable "opera_bach_api_branch" {
-  default = "develop"
-}
-
-variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
-}
-
-variable "opera_bach_ui_branch" {
+variable "bach_api_branch" {
   default = "develop"
 }
 

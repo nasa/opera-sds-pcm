@@ -14,10 +14,10 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  opera_bach_api_repo                     = var.opera_bach_api_repo
-  opera_bach_api_branch                   = var.opera_bach_api_branch
-  opera_bach_ui_repo                      = var.opera_bach_ui_repo
-  opera_bach_ui_branch                    = var.opera_bach_ui_branch
+  bach_api_repo                           = var.bach_api_repo
+  bach_api_branch                         = var.bach_api_branch
+  bach_ui_repo                            = var.bach_ui_repo
+  bach_ui_branch                          = var.bach_ui_branch
   venue                                   = var.venue
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
@@ -91,7 +91,7 @@ locals {
   default_source_event_arn = "arn:aws:${var.cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
   daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
   source_event_arn         = local.default_source_event_arn
-  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/lambda"
+  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   crid                     = lower(var.crid)
   default_isl_bucket       = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
   isl_bucket               = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
@@ -122,7 +122,7 @@ resource "null_resource" "mozart" {
       "set -ex",
       "source ~/.bash_profile",
       "echo \"use_daac_cnm is ${var.use_daac_cnm}\"",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/run_smoke_test-pge.sh \\",
+      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test-pge.sh \\",
       "  ${var.project} \\",
       "  ${var.environment} \\",
       "  ${var.venue} \\",
@@ -135,13 +135,6 @@ resource "null_resource" "mozart" {
       "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
-      "  ${var.delete_old_cop_catalog} \\",
-      "  ${var.delete_old_tiurdrop_catalog} \\",
-      "  ${var.delete_old_rost_catalog} \\",
-      "  ${var.delete_old_pass_catalog} \\",
-      "  ${var.delete_old_observation_catalog} \\",
-      "  ${var.delete_old_track_frame_catalog} \\",
-      "  ${var.delete_old_radar_mode_catalog} \\",
       "  ${module.common.mozart.private_ip} \\",
       "  ${module.common.isl_bucket} \\",
       "  ${local.source_event_arn} \\",
@@ -160,7 +153,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
+      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
     ]
   }
 
@@ -169,8 +162,8 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
+      "python ~/mozart/ops/${var.project}-pcm/cluster_provisioning/clear_grq_aws_es.py",
+      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
     ]
   }
 
@@ -178,7 +171,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge/check_pcm.py ||:",
+      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e-pge/check_pcm.py ||:",
     ]
   }
 

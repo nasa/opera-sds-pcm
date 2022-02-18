@@ -16,20 +16,6 @@
     },
     {
       "enabled": true,
-      "job_type": "hysds-io-SCIFLO_L0A:__TAG__",
-      "kwargs": "{\n  \"file_size_limit\":\"700M\"\n}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\n  \"bool\": {\n    \"should\": [\n      {\n        \"bool\": {\n          \"must\": [\n            {\n              \"term\": {\n                \"dataset.keyword\": \"ldf-state-config\"\n              }\n            },\n            {\n              \"bool\": {\n                \"should\": [\n                  {\n                    \"term\": {\n                      \"metadata.is_complete\": true\n                    }\n                  },\n                  {\n                    \"term\": {\n                      \"metadata.force_submit\": true\n                    }\n                  }\n                ]\n              }\n            }\n          ]\n        }\n      },\n      {\n        \"bool\": {\n          \"must\": [\n            {\n              \"term\": {\n                \"dataset.keyword\": \"ldf-expired-state-config\"\n              }\n            }\n          ]\n        }\n      }\n    ]\n  }\n}",
-      "queue": "opera-job_worker-sciflo-l0a",
-      "rule_name": "trigger-SCIFLO_L0A",
-      "username": "hysdsops",
-      "workflow": "hysds-io-SCIFLO_L0A:__TAG__",
-      "job_spec": "job-SCIFLO_L0A:__TAG__"
-    },
-    {
-      "enabled": true,
       "job_type": "hysds-io-purge_ISL:__TAG__",
       "kwargs": "{}",
       "passthru_query": false,

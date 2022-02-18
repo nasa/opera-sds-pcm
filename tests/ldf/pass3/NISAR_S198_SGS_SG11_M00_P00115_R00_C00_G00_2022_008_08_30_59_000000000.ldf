@@ -1,6 +1,0 @@
-{"mission":"nisar","scid":198,"station":"sgs","antenna":"sg11","pass":115,"mode":0,"receiver":0,"channel":0,"group":0,"numFiles":3,"files":{
-    "NISAR_S198_SGS_SG11_M00_P00115_R00_C00_G00_2022_008_08_25_36_000000000.vc24":{"name":"NISAR_S198_SGS_SG11_M00_P00115_R00_C00_G00_2022_008_08_25_36_000000000.vc24","md5":"TOUdJfmJTuLylPg7qKf0vw==","size":207400000,"status":"success"},
-    "NISAR_S198_SGS_SG11_M00_P00115_R00_C00_G00_2022_008_09_00_32_000000000.vc24":{"name":"NISAR_S198_SGS_SG11_M00_P00115_R00_C00_G00_2022_008_09_00_32_000000000.vc24","md5":"TOUdJfmJTuLylPg7qKf0vw==","size":207400000,"status":"success"},
-    "NISAR_S198_SGS_SG11_M00_P00115_R00_C00_G00_2022_008_09_03_16_000000000.vc24":{"name":"NISAR_S198_SGS_SG11_M00_P00115_R00_C00_G00_2022_008_09_03_16_000000000.vc24","md5":"TOUdJfmJTuLylPg7qKf0vw==","size":207400000,"status":"success"}
-    }
-}

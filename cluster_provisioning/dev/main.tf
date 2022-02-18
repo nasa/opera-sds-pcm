@@ -14,10 +14,10 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  opera_bach_api_repo                     = var.opera_bach_api_repo
-  opera_bach_api_branch                   = var.opera_bach_api_branch
-  opera_bach_ui_repo                      = var.opera_bach_ui_repo
-  opera_bach_ui_branch                    = var.opera_bach_ui_branch
+  bach_api_repo                           = var.bach_api_repo
+  bach_api_branch                         = var.bach_api_branch
+  bach_ui_repo                            = var.bach_ui_repo
+  bach_ui_branch                          = var.bach_ui_branch
   venue                                   = var.venue
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
@@ -87,7 +87,8 @@ module "common" {
 }
 
 locals {
-  lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
+  lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  #lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
 }
 
 resource "null_resource" "mozart" {

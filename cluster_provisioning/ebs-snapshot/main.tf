@@ -97,8 +97,9 @@ resource "aws_volume_attachment" "volume_attachment" {
       "  rm docker-registry-${var.registry_release}.tar.gz",
       "fi",
 
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0a-${var.pge_release}.tar.gz\"",
-      "  docker load -i opera_pge-l0a-${var.pge_release}.tar.gz",
+     # opera doesn't have any l0a - remove it once we have other PGEs defined
+     # "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0a-${var.pge_release}.tar.gz\"",
+     # "  docker load -i opera_pge-l0a-${var.pge_release}.tar.gz",
 
       "docker tag hysds/verdi:${var.verdi_release} hysds/verdi:latest",
       "/etc/systemd/system/start-verdi.d/start-verdi.sh",

@@ -9,20 +9,12 @@ NOMINAL_LATENCY:
     RRST_EVALUATOR: 60
     # Latency period in minutes
     DATATAKE_EVALUATOR: 360
-    # Latency period in minutes
-    TRACK_FRAME_EVALUATOR: 720
-    # Latency period in minutes
-    NETWORK_PAIR_EVALUATOR: 360
 
 URGENT_RESPONSE_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
     RRST_EVALUATOR: 60
     # Latency period in minutes
     DATATAKE_EVALUATOR: 15
-    # Latency period in minutes
-    TRACK_FRAME_EVALUATOR: 720
-    # Latency period in minutes
-    NETWORK_PAIR_EVALUATOR: 360
 
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
@@ -31,51 +23,36 @@ CHIMERA:
     # Leaving config for L0A, Time_Extractor, and L0B in case we want to make them as separate PGE jobs again.
     JOB_QUEUES:
         L0A: opera-job_worker-pge-l0a
-        Time_Extractor: opera-job_worker-pge-time_extractor
         RSLC: opera-job_worker-pge-rslc
     JOB_TYPES:
         L0A: job-PGE_L0A
-        Time_Extractor: job-PGE_Time_Extractor
-        L0B: job-PGE_L0B
         RSLC: job-PGE_RSLC
 
 PRODUCT_TYPES:
-    COP:
-        Pattern: !!python/regexp '(?P<id>COP_e(?P<ExecutionDateTime>\d{4}-\d{3})_c(?P<CreationDateTime>\d{4}-\d{3})_v(?P<VersionID>\d{3})\.xml)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
+    #LDF:
+    #    Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})\.ldf)$'
+    #    Extractor: extractor.FilenameRegexMetExtractor
+    #    Configuration:
             # If you have any metadata name in the pattern ending with
             # "DateTime", this field will be used to list all the datetime
             # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y-%j']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ExecutionDateTime
+    #        Date_Time_Patterns: ['%Y_%j_%H_%M_%S_%f']
+    #    Strip_File_Extension: !!bool true
+    #    Suffix: '_LDF'
+    #    Dataset_Keys:
+    #        starttime: FileCreationDateTime
 
-    LDF:
-        Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})\.ldf)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
+    #LDF_STATE_CONFIG:
+    #    Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})_state-config)$'
+    #    Extractor: extractor.FilenameRegexMetExtractor
+    #    Configuration:
             # If you have any metadata name in the pattern ending with
             # "DateTime", this field will be used to list all the datetime
             # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%j_%H_%M_%S_%f']
-        Strip_File_Extension: !!bool true
-        Suffix: '_LDF'
-        Dataset_Keys:
-            starttime: FileCreationDateTime
-
-    LDF_STATE_CONFIG:
-        Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})_state-config)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%j']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: CreationDateTime
+    #        Date_Time_Patterns: ['%Y_%j']
+    #    Strip_File_Extension: !!bool true
+    #    Dataset_Keys:
+    #        starttime: CreationDateTime
 
     Observation_Accountability_Report:
         Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
