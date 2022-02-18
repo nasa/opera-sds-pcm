@@ -3,10 +3,8 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import json
 import os
-import re
 import shutil
 import sys
-from datetime import datetime
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -196,39 +194,6 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         except Exception as e:
             logger.error(f"PGE failure: {e}")
             raise
-
-        # rename the output file. This behavior is configurable via the PGE config YAML.
-        logger.info("Renaming output file.")
-
-        # TODO chrisjrd: refactor. remove duplicate code. see pge_utils.py
-        output_base_name: str = run_config['output_base_name']
-        input_file_base_name_regexes: List[str] = run_config['input_file_base_name_regexes']
-
-        match = None
-        for input_file_base_name_regex in input_file_base_name_regexes:
-            pattern = re.compile(input_file_base_name_regex)
-            match = pattern.match(get_input_dataset_id(context))  # e.g. "HLS.L30.T22VEQ.2021248T143156.v2.0_state_config"
-            if match:
-                break
-
-        product_shortname = match.groupdict()['product_shortname']
-        if product_shortname == 'HLS.L30':
-            sensor = 'Landsat8'
-        elif product_shortname == 'HLS.S30':
-            sensor = 'Sentinel2'
-        else:
-            raise
-
-        base_name = output_base_name.format(
-            sensor=sensor,
-            tile_id=match.groupdict()['tile_id'],
-            # compare input datetime pattern with entries in settings.yaml,
-            #  and output datetime pattern with entries in pge_outputs.yaml
-            datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S')
-        )
-
-        shutil.move(f"{output_dir}/dswx_hls.tif", f"{output_dir}/{base_name}")
-        logger.info(f"Output file moved to {output_dir}/{base_name}")
 
     extra_met = {
         "lineage": lineage_metadata,
