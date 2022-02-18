@@ -1,16 +1,16 @@
 from elasticsearch import RequestsHttpConnection
 from aws_requests_auth.boto_utils import BotoAWSRequestsAuth
 
-from observation_accountability.catalog import ObservationAccountabilityCatalog
+from pass_accountability.catalog import PassAccountabilityCatalog
 from hysds.celery import app
 
-OBSERVATION_ACC_CONN = None
+PASS_ACC_CONN = None
 
 
-def get_observation_accountability_connection(logger):
-    global OBSERVATION_ACC_CONN
+def get_pass_accountability_connection(logger):
+    global PASS_ACC_CONN
 
-    if OBSERVATION_ACC_CONN is None:
+    if PASS_ACC_CONN is None:
         aws_es = app.conf['GRQ_AWS_ES']
         es_host = app.conf['GRQ_ES_HOST']
         es_url = app.conf['GRQ_ES_URL']
@@ -18,7 +18,7 @@ def get_observation_accountability_connection(logger):
 
         if aws_es is True:
             aws_auth = BotoAWSRequestsAuth(aws_host=es_host, aws_region=region, aws_service='es')
-            OBSERVATION_ACC_CONN = ObservationAccountabilityCatalog(
+            PASS_ACC_CONN = PassAccountabilityCatalog(
                 es_url=es_url,
                 logger=logger,
                 http_auth=aws_auth,
@@ -31,5 +31,5 @@ def get_observation_accountability_connection(logger):
                 retry_on_timeout=True,
             )
         else:
-            OBSERVATION_ACC_CONN = ObservationAccountabilityCatalog(es_url, logger)
-    return OBSERVATION_ACC_CONN
+            PASS_ACC_CONN = PassAccountabilityCatalog(es_url, logger)
+    return PASS_ACC_CONN

@@ -91,11 +91,8 @@ locals {
   daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
   source_event_arn         = local.default_source_event_arn
   grq_url                  = "http://${module.common.grq.private_ip}:9200"
-  cop_catalog_url          = var.cop_catalog_url != "" ? var.cop_catalog_url : local.grq_url
-  tiurdrop_catalog_url     = var.tiurdrop_catalog_url != "" ? var.tiurdrop_catalog_url : local.grq_url
-  rost_catalog_url         = var.rost_catalog_url != "" ? var.rost_catalog_url : local.grq_url
-  pass_catalog_url         = var.pass_catalog_url != "" ? var.pass_catalog_url : local.grq_url
-  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  #lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
   default_isl_bucket       = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
   isl_bucket               = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
 }

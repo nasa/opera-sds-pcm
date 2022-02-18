@@ -1,7 +1,7 @@
 import logging
 import argparse
 
-from observation_accountability.es_connection import get_observation_accountability_connection
+from pass_accountability.es_connection import get_pass_accountability_connection
 
 
 logging.basicConfig(level=logging.INFO)  # Set up logging
@@ -30,5 +30,5 @@ if __name__ == "__main__":
     if args.delete_old_catalog:
         delete_old_catalog = True
 
-    observation_catalog = get_observation_accountability_connection(LOGGER)
-    observation_catalog.create_index(delete_old_index=delete_old_catalog)
+    pass_catalog = get_pass_accountability_connection(LOGGER)
+    pass_catalog.create_index(delete_old_index=delete_old_catalog)

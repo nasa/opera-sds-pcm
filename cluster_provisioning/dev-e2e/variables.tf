@@ -1,12 +1,11 @@
 # globals
 #
-# venue : userId
+# venue : userId 
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
 variable "artifactory_base_url" {
   default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
-  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -40,10 +39,6 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
-variable "product_delivery_branch" {
-  default = "develop"
-}
-
 variable "bach_api_repo" {
   default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
 }
@@ -57,6 +52,10 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
+  default = "develop"
+}
+
+variable "product_delivery_branch" {
   default = "develop"
 }
 
@@ -161,7 +160,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 100
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -286,7 +285,6 @@ variable "daac_delivery_proxy" {
 
 variable "use_daac_cnm" {
   default = false
-
 }
 
 variable "daac_endpoint_url" {
@@ -407,7 +405,15 @@ variable "use_s3_uri_structure" {
 
 variable "inactivity_threshold" {
   type    = number
-  default = 600
+  default = 1800
+}
+
+variable "queues" {
+  default = ""
+}
+
+variable "docker_registry_bucket" {
+  default = "opera-pcm-registry-bucket"
 }
 
 variable "purge_es_snapshot" {
@@ -416,4 +422,22 @@ variable "purge_es_snapshot" {
 
 variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
+}
+
+variable "es_bucket_role_arn" {
+  default = "arn:aws:iam::271039147104:role/am-es-role"
+}
+
+# ami vars
+# duplicated from modules/common here so INT would pick up the values from its override.tf
+variable "amis" {
+  type = map(string)
+  default = {
+    mozart    = "ami-06b161f22c9086917"
+    metrics   = "ami-049f536813d215f39"
+    grq       = "ami-0d4589279c337e9c1"
+    factotum  = "ami-0f40727533013a107"
+    ci        = "ami-0601c031b967d1e15"
+    autoscale = "ami-0601c031b967d1e15"
+  }
 }

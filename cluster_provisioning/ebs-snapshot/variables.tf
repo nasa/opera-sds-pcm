@@ -68,7 +68,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name               = "verdi"
-    ami                = "ami-00baa2004b03f6090"
+    ami                = "ami-0601c031b967d1e15"
     instance_type      = "t3.medium"
     device_name        = "/dev/sda1"
     device_size        = 50

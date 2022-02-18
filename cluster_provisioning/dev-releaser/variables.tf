@@ -274,28 +274,12 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "cop_catalog_url" {
+variable "artifactory_user" {
   default = ""
 }
 
-variable "delete_old_cop_catalog" {
-  default = false
-}
-
-variable "tiurdrop_catalog_url" {
+variable "artifactory_api_key" {
   default = ""
-}
-
-variable "delete_old_tiurdrop_catalog" {
-  default = false
-}
-
-variable "rost_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_rost_catalog" {
-  default = false
 }
 
 variable "delete_old_pass_catalog" {
@@ -306,28 +290,9 @@ variable "pass_catalog_url" {
   default = ""
 }
 
-variable "delete_old_observation_catalog" {
+variable "delete_old_job_catalog" {
+  type    = bool
   default = false
-}
-
-variable "delete_old_track_frame_catalog" {
-  default = false
-}
-
-variable "observation_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_radar_mode_catalog" {
-  default = false
-}
-
-variable "artifactory_user" {
-  default = ""
-}
-
-variable "artifactory_api_key" {
-  default = ""
 }
 
 variable "environment" {

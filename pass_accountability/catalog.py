@@ -3,12 +3,12 @@ import json
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 REFREC_ID = "refrec_id"
-ES_INDEX = "observation_accountability_catalog"
-ES_TYPE = "observation"
+ES_INDEX = "pass_accountability_catalog"
+ES_TYPE = "pass"
 HEADER = "header"
 
 
-class ObservationAccountabilityCatalog(ElasticsearchUtility):
+class PassAccountabilityCatalog(ElasticsearchUtility):
     """
     Class to handle ingestion of All products past job-RRST_Accountability contents into ElasticSearch
 
@@ -54,7 +54,7 @@ class ObservationAccountabilityCatalog(ElasticsearchUtility):
         """
         Post records into ElasticSearch.
 
-        :param records: A list of ROST records to ingest.
+        :param records: A list of Pass Accountability records to ingest.
         :param header: Header information associated with the records.
         If present, they will get included with each record document posted.
         :param index: Specify the index where the documents will get posted to.

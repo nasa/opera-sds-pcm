@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 21 ]; then
+if [ "$#" -eq 22 ]; then
   project=${1}
   environment=${2}
   venue=${3}
@@ -15,15 +15,16 @@ if [ "$#" -eq 21 ]; then
   pcm_branch=${10}
   product_delivery_repo=${11}
   product_delivery_branch=${12}
-  mozart_private_ip=${13}
-  isl_bucket=${14}
-  source_event_arn=${15}
-  daac_delivery_proxy=${16}
-  use_daac_cnm=${17}
-  crid=${18}
-  cluster_type=${19}
-  l0a_timer_trigger_frequency=${20}
-  obs_acct_report_timer_trigger_frequency=${21}
+  delete_old_pass_catalog=${13}
+  mozart_private_ip=${14}
+  isl_bucket=${15}
+  source_event_arn=${16}
+  daac_delivery_proxy=${17}
+  use_daac_cnm=${18}
+  crid=${19}
+  cluster_type=${20}
+  l0a_timer_trigger_frequency=${21}
+  obs_acct_report_timer_trigger_frequency=${22}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -96,6 +97,13 @@ else
   sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
   sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
   sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
+fi
+
+
+if [ "${delete_old_pass_catalog}" = true ]; then
+  python ~/mozart/ops/opera-pcm/pass_accountability/create_pass_accountability_catalog.py --delete_old_catalog
+else
+  python ~/mozart/ops/opera-pcm/pass_accountability/create_pass_accountability_catalog.py
 fi
 
 # ingest Sacramento AOI to test ingest
