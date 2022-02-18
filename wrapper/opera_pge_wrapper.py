@@ -3,9 +3,10 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import json
 import os
+import re
 import shutil
 import sys
-from pathlib import Path
+from datetime import datetime
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -103,8 +104,9 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     :return:
     """
 
-    logger.info(f"Making Working Directory: {work_dir}")
+    logger.info(f"Preparing Working Directory: {work_dir}")
 
+    logger.info("Creating directories for PGE.")
     runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
     os.makedirs(runconfig_dir, 0o755, exist_ok=True)
 
@@ -121,24 +123,30 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     # capture the inputs, so we can store the lineage in the output dataset metadata
     run_config, lineage_metadata = process_inputs(run_config, work_dir, output_dir)
 
+    logger.info("Copying input files to input directories.")
     for s3_input_filepath in run_config["product_paths"]["L2_HLS_L30"]:
         local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
         shutil.copy(local_input_filepath, input_hls_dir)
+
+    logger.info("Updating run config for use with PGE.")
     run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
 
     # create RunConfig.yaml
-    logger.debug(f"Runconfig to transform to YAML is: {json.dumps(run_config)}")
+    logger.debug(f"Run config to transform to YAML is: {json.dumps(run_config)}")
     pge_config: Dict = context.get("pge_config")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
+
+    logger.info("Copying run config to run config input directory.")
     shutil.copy(rc_file, runconfig_dir)
 
     logger.debug(f"Run Config: {json.dumps(run_config)}")
     logger.debug(f"PGE Config: {json.dumps(pge_config)}")
 
     # Run the PGE
+    logger.info("Running PGE.")
     simulate_outputs = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
     logger.info(f"{simulate_outputs=}")
     # if context.get(opera_chimera_const.SIMULATE_OUTPUTS):  # TODO chrisjrd: uncomment after testing
@@ -146,6 +154,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         logger.info("Simulating PGE run....")
         pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
     else:
+        logger.info("Preparing PGE docker command.")
         # get dependency image
         dep_img = context.get('job_specification')['dependency_images'][0]
         dep_img_name = dep_img['container_image_name']
@@ -159,10 +168,6 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         docker_img_params = docker_params[dep_img_name]
         uid = docker_img_params["uid"]
         gid = docker_img_params["gid"]
-
-        # TODO chrisjrd: set these properly
-        # uid = "conda"
-        # gid = "conda"
 
         # parse runtime options
         runtime_options = []
@@ -192,6 +197,39 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
             logger.error(f"PGE failure: {e}")
             raise
 
+        # rename the output file. This behavior is configurable via the PGE config YAML.
+        logger.info("Renaming output file.")
+
+        # TODO chrisjrd: refactor. remove duplicate code. see pge_utils.py
+        output_base_name: str = run_config['output_base_name']
+        input_file_base_name_regexes: List[str] = run_config['input_file_base_name_regexes']
+
+        match = None
+        for input_file_base_name_regex in input_file_base_name_regexes:
+            pattern = re.compile(input_file_base_name_regex)
+            match = pattern.match(get_input_dataset_id(context))  # e.g. "HLS.L30.T22VEQ.2021248T143156.v2.0_state_config"
+            if match:
+                break
+
+        product_shortname = match.groupdict()['product_shortname']
+        if product_shortname == 'HLS.L30':
+            sensor = 'Landsat8'
+        elif product_shortname == 'HLS.S30':
+            sensor = 'Sentinel2'
+        else:
+            raise
+
+        base_name = output_base_name.format(
+            sensor=sensor,
+            tile_id=match.groupdict()['tile_id'],
+            # compare input datetime pattern with entries in settings.yaml,
+            #  and output datetime pattern with entries in pge_outputs.yaml
+            datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S')
+        )
+
+        shutil.move(f"{output_dir}/dswx_hls.tif", f"{output_dir}/{base_name}")
+        logger.info(f"Output file moved to {output_dir}/{base_name}")
+
     extra_met = {
         "lineage": lineage_metadata,
         "runconfig": run_config
@@ -204,6 +242,14 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     created_datasets = product2dataset.convert(output_dir, pge_name, rc_file, extra_met=extra_met)
 
     return created_datasets
+
+
+def get_input_dataset_id(context: Dict) -> str:
+    params = context['job_specification']['params']
+    for param in params:
+        if param['name'] == 'input_dataset_id':
+            return param['value']
+    raise
 
 
 @exec_wrapper
