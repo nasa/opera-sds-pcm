@@ -147,8 +147,9 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info("Running PGE.")
     simulate_outputs = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
     logger.info(f"{simulate_outputs=}")
-    # if context.get(opera_chimera_const.SIMULATE_OUTPUTS):  # TODO chrisjrd: uncomment after testing
-    if False:
+    # TODO chrisjrd: uncomment after testing
+    # if False:
+    if context.get(opera_chimera_const.SIMULATE_OUTPUTS):
         logger.info("Simulating PGE run....")
         pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
     else:

@@ -24,9 +24,9 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     for output_type in output_types.keys():
         product_shortname = match.groupdict()['product_shortname']
         if product_shortname == 'HLS.L30':
-            sensor = 'Landsat8'
+            sensor = 'LANDSAT-8'
         elif product_shortname == 'HLS.S30':
-            sensor = 'Sentinel2'
+            sensor = 'SENTINEL-2'
         else:
             raise
 
@@ -34,7 +34,8 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             sensor=sensor,
             tile_id=match.groupdict()['tile_id'],
             # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
-            datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S')
+            datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+            collection_version=match.groupdict()['collection_version']
         )
         metadata = {}
         simulate_output(metadata, base_name, output_dir, output_types[output_type])
