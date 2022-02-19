@@ -282,14 +282,6 @@ variable "artifactory_api_key" {
   default = ""
 }
 
-variable "delete_old_pass_catalog" {
-  default = ""
-}
-
-variable "pass_catalog_url" {
-  default = ""
-}
-
 variable "delete_old_job_catalog" {
   type    = bool
   default = false

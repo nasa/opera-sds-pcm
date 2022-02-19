@@ -3,12 +3,12 @@ import json
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 REFREC_ID = "refrec_id"
-ES_INDEX = "pass_accountability_catalog"
-ES_TYPE = "pass"
+ES_INDEX = "jobs_accountability_catalog"
+ES_TYPE = "job"
 HEADER = "header"
 
 
-class PassAccountabilityCatalog(ElasticsearchUtility):
+class JobAccountabilityCatalog(ElasticsearchUtility):
     """
     Class to handle ingestion of All products past job-RRST_Accountability contents into ElasticSearch
 

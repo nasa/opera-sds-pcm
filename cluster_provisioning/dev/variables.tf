@@ -73,6 +73,9 @@ variable "private_key_file" {
 variable "git_auth_key" {
 }
 
+variable "pub_git_auth_key" {
+}
+
 variable "jenkins_api_user" {
   default = ""
 }
@@ -314,12 +317,8 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "pass_catalog_url" {
+variable "job_catalog_url" {
   default = ""
-}
-
-variable "delete_old_pass_catalog" {
-  default = false
 }
 
 variable "delete_old_job_catalog" {

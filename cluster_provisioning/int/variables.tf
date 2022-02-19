@@ -76,6 +76,10 @@ variable "git_auth_key" {
   default = ""
 }
 
+variable "pub_git_auth_key" {
+  default = ""
+}
+
 variable "jenkins_api_user" {
   default = ""
 }

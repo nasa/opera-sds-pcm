@@ -6,27 +6,21 @@ CRID: '{{ CRID }}'
 # Settings to set the latency period for various jobs
 NOMINAL_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
-    RRST_EVALUATOR: 60
-    # Latency period in minutes
-    DATATAKE_EVALUATOR: 360
+#    RRST_EVALUATOR: 60
 
 URGENT_RESPONSE_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
-    RRST_EVALUATOR: 60
-    # Latency period in minutes
-    DATATAKE_EVALUATOR: 15
+#    RRST_EVALUATOR: 60
 
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
-CHIMERA:
+#CHIMERA:
     # Leaving config for L0A, Time_Extractor, and L0B in case we want to make them as separate PGE jobs again.
-    JOB_QUEUES:
-        L0A: opera-job_worker-pge-l0a
-        RSLC: opera-job_worker-pge-rslc
-    JOB_TYPES:
-        L0A: job-PGE_L0A
-        RSLC: job-PGE_RSLC
+#    JOB_QUEUES:
+#		L3_DSWx_HLS: opera-job_worker-pge-l3-dswx-hls
+#    JOB_TYPES:
+#		L3_DSWx_HLS: job-PGE_L3_DSWx_HLS
 
 PRODUCT_TYPES:
     #LDF:
@@ -54,15 +48,15 @@ PRODUCT_TYPES:
     #    Dataset_Keys:
     #        starttime: CreationDateTime
 
-    Observation_Accountability_Report:
-        Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            Date_Time_Patterns: ['%Y-%jT%H:%M:%S']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
+#    Observation_Accountability_Report:
+#        Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
+#        Extractor: extractor.FilenameRegexMetExtractor
+#        Configuration:
+#            Date_Time_Patterns: ['%Y-%jT%H:%M:%S']
+#        Strip_File_Extension: !!bool true
+#        Dataset_Keys:
+#            starttime: ValidityStartDateTime
+#            endtime: ValidityEndDateTime
 
     L2_HLS_L30:
         # This pattern groups the metadata information in the filename using named groups.

@@ -77,6 +77,9 @@ variable "git_auth_key" {
   default = ""
 }
 
+variable "pub_git_auth_key" {
+}
+
 variable "jenkins_api_user" {
   default = ""
 }
@@ -228,14 +231,6 @@ variable "aws_account_id" {
 }
 
 variable "lambda_package_release" {
-  default = ""
-}
-
-variable "delete_old_pass_catalog" {
-  default = "false"
-}
-
-variable "pass_catalog_url" {
   default = ""
 }
 

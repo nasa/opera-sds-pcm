@@ -22,6 +22,7 @@ module "common" {
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
   git_auth_key                            = var.git_auth_key
+  pub_git_auth_key                        = var.pub_git_auth_key
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
@@ -131,16 +132,15 @@ resource "null_resource" "mozart" {
       "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
-	  "  ${var.delete_old_pass_catalog} \\",
+	  "  ${var.delete_old_job_catalog} \\",
       "  ${module.common.mozart.private_ip} \\",
       "  ${module.common.isl_bucket} \\",
       "  ${local.source_event_arn} \\",
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
-      "  ${var.cluster_type} \\",
-      "  \"${var.l0a_timer_trigger_frequency}\" \\",
-      "  \"${var.obs_acct_report_timer_trigger_frequency}\" || :"
+      "  ${var.cluster_type} || :"
+#      "  \"${var.obs_acct_report_timer_trigger_frequency}\" || :"
     ]
   }
 
@@ -162,16 +162,16 @@ resource "null_resource" "mozart" {
       "cat /tmp/check_stamped_dataset_result.txt",
       "SUCCESS=$(grep -c ^SUCCESS /tmp/check_stamped_dataset_result.txt)",
       "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-      "cat /tmp/cop_catalog.txt",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/cop_catalog.txt)",
-      "cat /tmp/tiurdrop_catalog.txt",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/tiurdrop_catalog.txt)",
-      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-      "cat /tmp/rost_catalog.txt",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/rost_catalog.txt)",
-      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/radar_mode_catalog.txt)",
-      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "cat /tmp/cop_catalog.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/cop_catalog.txt)",
+#      "cat /tmp/tiurdrop_catalog.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/tiurdrop_catalog.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "cat /tmp/rost_catalog.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/rost_catalog.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/radar_mode_catalog.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
       "SUCCESS=$(grep -c ^SUCCESS /tmp/check_empty_isl_result.txt)",
       "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
       "SUCCESS=$(grep -c ^SUCCESS /tmp/check_expected_force_submits.txt)",
@@ -189,7 +189,7 @@ resource "null_resource" "mozart" {
       "rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
       "sds pkg export container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}",
       "ls -l",
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
+      "curl -L -H \"Authorization: token ${var.pub_git_auth_key}\" -o ${var.project}-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T ${var.project}-pcm-${var.pcm_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-pcm-${var.pcm_branch}.tar.gz\"",
       "rm -rf ${var.project}-pcm-${var.pcm_branch}.tar.gz",
       "ls -l",
@@ -229,15 +229,15 @@ resource "null_resource" "mozart" {
     command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_stamped_dataset_result.txt ."
   }
 
-  provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/cop_catalog.txt ."
-  }
+#  provisioner "local-exec" {
+#    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/cop_catalog.txt ."
+#  }
 
-  provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/tiurdrop_catalog.txt ."
-  }
+#  provisioner "local-exec" {
+#    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/tiurdrop_catalog.txt ."
+#  }
 
-  provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/rost_catalog.txt ."
-  }
+#  provisioner "local-exec" {
+#    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/rost_catalog.txt ."
+#  }
 }

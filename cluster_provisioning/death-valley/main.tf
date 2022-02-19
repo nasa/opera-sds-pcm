@@ -21,6 +21,7 @@ module "common" {
   counter                               = var.counter
   private_key_file                      = var.private_key_file
   git_auth_key                          = var.git_auth_key
+  pub_git_auth_key                      = var.pub_git_auth_key
   jenkins_api_user                      = var.jenkins_api_user
   keypair_name                          = var.keypair_name
   jenkins_api_key                       = var.jenkins_api_key

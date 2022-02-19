@@ -22,6 +22,7 @@ module "common" {
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
   git_auth_key                            = var.git_auth_key
+  pub_git_auth_key                        = var.pub_git_auth_key
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
@@ -137,16 +138,15 @@ resource "null_resource" "mozart" {
       "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
-	  "  ${var.delete_old_pass_catalog} \\",
+	  "  ${var.delete_old_job_catalog} \\",
       "  ${module.common.mozart.private_ip} \\",
       "  ${module.common.isl_bucket} \\",
       "  ${local.source_event_arn} \\",
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
-      "  ${var.cluster_type} \\",
-      "  \"${var.l0a_timer_trigger_frequency}\" \\",
-      "  \"${var.obs_acct_report_timer_trigger_frequency}\" || :"
+      "  ${var.cluster_type} || :"
+#      "  \"${var.obs_acct_report_timer_trigger_frequency}\" || :"
     ]
   }
 

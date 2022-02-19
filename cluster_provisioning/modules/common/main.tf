@@ -667,7 +667,7 @@ resource "aws_lambda_function" "harikiri_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-harikiri-autoscaling"
   role          = var.lambda_role_arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.7"
+  runtime       = "python3.8"
   timeout       = 600
 }
 
@@ -695,7 +695,7 @@ resource "aws_lambda_function" "isl_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-isl-lambda"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.7"
+  runtime       = "python3.8"
   timeout       = 60
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
@@ -987,6 +987,7 @@ resource "aws_instance" "mozart" {
       "echo '  ALLOWED_ACCOUNT: \"${var.cnm_r_allowed_account}\"' >> ~/.sds/config",
       "echo >> ~/.sds/config",
       "echo GIT_OAUTH_TOKEN: ${var.git_auth_key} >> ~/.sds/config",
+	  "echo PUT_GIT_OAUTH_TOKEN: ${var.pub_git_auth_key} >> ~/.sds/config",
       "echo >> ~/.sds/config",
       "echo PROVES_URL: https://prov-es.jpl.nasa.gov/beta >> ~/.sds/config",
       "echo PROVES_IMPORT_URL: https://prov-es.jpl.nasa.gov/beta/api/v0.1/prov_es/import/json >> ~/.sds/config",
@@ -1086,7 +1087,7 @@ resource "aws_instance" "mozart" {
       "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/${var.project}-bach-ui",
       "  rm -rf nisar-bach-ui-${var.bach_ui_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
+      "  git clone --single-branch -b ${var.pcm_branch} https://${var.pub_git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
       "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
@@ -1653,7 +1654,7 @@ resource "aws_lambda_function" "cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.7"
+  runtime       = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -1781,7 +1782,7 @@ resource "aws_lambda_function" "event-misfire_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-event-misfire-lambda"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.7"
+  runtime       = "python3.8"
   timeout       = 500
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
@@ -1826,118 +1827,62 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
   function_name = aws_lambda_function.event-misfire_lambda.function_name
 }
 
-# Resources to provision the L0A timer
-# Lambda function to submit a job to check for expired LDF State Configs
-resource "aws_lambda_function" "l0a_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_timer_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that checks for expired LDF State Configs"
-  function_name = "${var.project}-${var.venue}-${local.counter}-l0a-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-timer",
-      #"JOB_QUEUE": "opera-job_worker-timer",
-      "JOB_TYPE": local.timer_handler_job_type,
-      "JOB_RELEASE": var.pcm_branch,
-      "DATASET_TYPE": "ldf-state-config",
-      "NOTIFY_ARN": aws_sns_topic.operator_notify.arn
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "l0a_timer" {
-  depends_on = [aws_lambda_function.l0a_timer]
-  name = "/aws/lambda/${aws_lambda_function.l0a_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the LDF timer job
-resource "aws_cloudwatch_event_rule" "l0a_timer" {
-  name = "${aws_lambda_function.l0a_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the L0A timer Lambda"
-  schedule_expression = var.l0a_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
-
-resource "aws_cloudwatch_event_target" "l0a_timer" {
-  rule = aws_cloudwatch_event_rule.l0a_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.l0a_timer.arn
-}
-
-resource "aws_lambda_permission" "l0a_timer" {
-  statement_id = aws_cloudwatch_event_rule.l0a_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.l0a_timer.arn
-  function_name = aws_lambda_function.l0a_timer.function_name
-}
-
 # Resources to provision the Observation Accountability Report timer
 # Lambda function to submit a job to create the Observation Accountability Report
-resource "aws_lambda_function" "observation_accountability_report_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will create an Accountability Report"
-  function_name = "${var.project}-${var.venue}-${local.counter}-obs-acct-report-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-small",
-      #"JOB_QUEUE": "opera-job_worker-small",
-      "JOB_TYPE": local.accountability_report_job_type,
-      "JOB_RELEASE": var.pcm_branch,
-      "REPORT_NAME": "ObservationAccountabilityReport",
-      "REPORT_FORMAT": "xml",
-      "OSL_BUCKET_NAME": local.osl_bucket,
-      "OSL_STAGING_AREA": var.osl_report_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
-    }
-  }
-}
+#resource "aws_lambda_function" "observation_accountability_report_timer" {
+#  depends_on = [null_resource.download_lambdas]
+#  filename = "${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
+#  description = "Lambda function to submit a job that will create an Accountability Report"
+#  function_name = "${var.project}-${var.venue}-${local.counter}-obs-acct-report-timer"
+#  handler = "lambda_function.lambda_handler"
+#  role = var.lambda_role_arn
+#  runtime = "python3.8"
+#  vpc_config {
+#    security_group_ids = [var.cluster_security_group_id]
+#    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+#  }
+#  timeout = 30
+#  environment {
+#    variables = {
+#      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+#      "JOB_QUEUE": "${var.project}-job_worker-small",
+#      #"JOB_QUEUE": "opera-job_worker-small",
+#      "JOB_TYPE": local.accountability_report_job_type,
+#      "JOB_RELEASE": var.pcm_branch,
+#      "REPORT_NAME": "ObservationAccountabilityReport",
+#      "REPORT_FORMAT": "xml",
+#      "OSL_BUCKET_NAME": local.osl_bucket,
+#      "OSL_STAGING_AREA": var.osl_report_staging_area,
+#      "USER_START_TIME": "",
+#      "USER_END_TIME": ""
+#    }
+#  }
+#}
 
-resource "aws_cloudwatch_log_group" "observation_accountability_report_timer" {
-  depends_on = [aws_lambda_function.observation_accountability_report_timer]
-  name = "/aws/lambda/${aws_lambda_function.observation_accountability_report_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
+#resource "aws_cloudwatch_log_group" "observation_accountability_report_timer" {
+#  depends_on = [aws_lambda_function.observation_accountability_report_timer]
+#  name = "/aws/lambda/${aws_lambda_function.observation_accountability_report_timer.function_name}"
+#  retention_in_days = var.lambda_log_retention_in_days
+#}
 
-# Cloudwatch event that will trigger a Lambda that submits the LDF timer job
-resource "aws_cloudwatch_event_rule" "observation_accountability_report_timer" {
-  name = "${aws_lambda_function.observation_accountability_report_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the Observation Accountability Report Timer Lambda"
-  schedule_expression = var.obs_acct_report_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
+# Cloudwatch event that will trigger a Lambda that submits the observation accountability report job
+#resource "aws_cloudwatch_event_rule" "observation_accountability_report_timer" {
+#  name = "${aws_lambda_function.observation_accountability_report_timer.function_name}-Trigger"
+#  description = "Cloudwatch event to trigger the Observation Accountability Report Timer Lambda"
+#  schedule_expression = var.obs_acct_report_timer_trigger_frequency
+#  is_enabled = local.enable_timer
+#}
 
-resource "aws_cloudwatch_event_target" "observation_accountability_report_timer" {
-  rule = aws_cloudwatch_event_rule.observation_accountability_report_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.observation_accountability_report_timer.arn
-}
+#resource "aws_cloudwatch_event_target" "observation_accountability_report_timer" {
+#  rule = aws_cloudwatch_event_rule.observation_accountability_report_timer.name
+#  target_id = "Lambda"
+#  arn = aws_lambda_function.observation_accountability_report_timer.arn
+#}
 
-resource "aws_lambda_permission" "observation_accountability_report_timer" {
-  statement_id = aws_cloudwatch_event_rule.observation_accountability_report_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.observation_accountability_report_timer.arn
-  function_name = aws_lambda_function.observation_accountability_report_timer.function_name
-}
+#resource "aws_lambda_permission" "observation_accountability_report_timer" {
+#  statement_id = aws_cloudwatch_event_rule.observation_accountability_report_timer.name
+#  action = "lambda:InvokeFunction"
+#  principal = "events.amazonaws.com"
+#  source_arn = aws_cloudwatch_event_rule.observation_accountability_report_timer.arn
+#  function_name = aws_lambda_function.observation_accountability_report_timer.function_name
+#}

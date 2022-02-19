@@ -1,13 +1,13 @@
 from elasticsearch import RequestsHttpConnection
 from aws_requests_auth.boto_utils import BotoAWSRequestsAuth
 
-from pass_accountability.catalog import PassAccountabilityCatalog
+from job_accountability.catalog import JobAccountabilityCatalog
 from hysds.celery import app
 
 PASS_ACC_CONN = None
 
 
-def get_pass_accountability_connection(logger):
+def get_job_accountability_connection(logger):
     global PASS_ACC_CONN
 
     if PASS_ACC_CONN is None:
@@ -18,7 +18,7 @@ def get_pass_accountability_connection(logger):
 
         if aws_es is True:
             aws_auth = BotoAWSRequestsAuth(aws_host=es_host, aws_region=region, aws_service='es')
-            PASS_ACC_CONN = PassAccountabilityCatalog(
+            PASS_ACC_CONN = JobAccountabilityCatalog(
                 es_url=es_url,
                 logger=logger,
                 http_auth=aws_auth,
@@ -31,5 +31,5 @@ def get_pass_accountability_connection(logger):
                 retry_on_timeout=True,
             )
         else:
-            PASS_ACC_CONN = PassAccountabilityCatalog(es_url, logger)
+            PASS_ACC_CONN = JobAccountabilityCatalog(es_url, logger)
     return PASS_ACC_CONN

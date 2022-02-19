@@ -1,201 +1,217 @@
-import traceback
+import backoff
+import re
+import json
 import os
 from datetime import datetime
 
-from util.common_util import convert_datetime
-
 from chimera.commons.accountability import Accountability
 
-from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as oc_const,
+from nisar_chimera.constants.nisar_chimera_const import (
+    NisarChimeraConstants as nc_const,
 )
 
+from util.conf_util import SettingsConf
 from chimera.logger import logger
 
-from commons.es_connection import get_grq_es
-# from pass_accountability.es_connection import get_pass_accountability_connection
-# from observation_accountability.es_connection import get_observation_accountability_connection
+from job_accountability.es_connection import get_job_accountability_connection
 
-accountability_es = get_grq_es(logger)
-# accountability_es = get_pass_accountability_connection(logger)
-# obs_es = get_observation_accountability_connection(logger)
+grq_es = get_job_accountability_connection(logger)
+
 
 PGE_STEP_DICT = {
     "L0A": "L0A_L_RRST_PP",
     "Time_Extractor": "L0A_L_RRST",
-    "L0B": "L0B_L_RRSD"
+    "L0B": "L0B_L_RRSD",
+    "RSLC": "L1_L_RSLC",
+    "GSLC": "L2_L_GSLC",
+    "GCOV": "L2_L_GCOV",
+    "INSAR": "INSAR",
+    "RUNW": "L1_L_RUNW",
+    "RIFG": "L1_L_RIFG",
+    "GUNW": "L2_L_GUNW",
 }
 
-INDECES = {
-    "": None,
-    "pass": oc_const.PASS_ACCOUNTABILITY_INDEX,
-    "observation": oc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
-    "track_frame": oc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
-}
+
+def get_dataset(key, datasets_cfg):
+    dataset = None
+    for ds in datasets_cfg["datasets"]:
+        dataset_regex = re.compile(ds["match_pattern"])
+        file_name = os.path.basename(key)
+        match = dataset_regex.search("/{}".format(file_name))
+        if match:
+            group_dict = match.groupdict()
+            ipath = ds["ipath"].format(**group_dict)
+            dataset = ipath.split("hysds::data/", 1)[1]
+            break
+
+    return dataset
 
 
-class OperaAccountability(Accountability):
-    def __init__(self, context):
-        Accountability.__init__(self, context)
-        self.index = INDECES[context.get("es_index", "")]
+def get_dataset_type(file):
+    cfg = SettingsConf().cfg
+    data_name = None
+    for type, type_cfg in list(cfg["PRODUCT_TYPES"].items()):
+        matched = type_cfg["Pattern"].match(file)
+        if matched:
+            data_name = type
+            break
 
-    def _search(self, query):
-        """
-        searches for entries
-        :param query: query to send to elasticsearch
-        :type query: python dictionary in es format
-        :returns: list of hits
-        """
+    return data_name
 
-        hits = []
-        try:
-            result = {}
-            if self.index in INDECES.values():
-                result = accountability_es.search(
-                    body=query, index=self.index
-                )
+
+@backoff.on_exception(backoff.expo, Exception, max_value=13, max_time=34)
+def search_es(query, idx):
+    results = grq_es.search(body=query, index=idx)
+    if len(results["hits"]["hits"]) > 0:
+        return results
+    raise RuntimeError
+
+
+class NisarAccountability(Accountability):
+    def __init__(self, context, work_dir):
+        Accountability.__init__(self, context, work_dir)
+
+        self.trigger_dataset_type = context.get(nc_const.DATASET_TYPE)
+        self.trigger_dataset_id = context.get(nc_const.INPUT_DATASET_ID)
+        self.step = context.get(nc_const.STEP)
+        self.product_paths = context.get(nc_const.PRODUCT_PATHS)
+
+        self.inputs = []
+        if os.path.exists("{}/datasets.json".format(work_dir)):
+            with open("{}/datasets.json".format(work_dir), "r") as reader:
+                datasets_cfg = json.load(reader)
+
+            if isinstance(self.product_paths, list):
+                self.input_files_type = get_dataset(self.product_paths[0], datasets_cfg)
             else:
-                raise Exception("Index Not Found")
-            hits = result.get("hits", {}).get("hits", [])
-        except Exception:
-            logger.warn("Failed to search this query: {}".format(query))
-        return hits
+                self.input_files_type = get_dataset(self.product_paths, datasets_cfg)
+        else:
+            self.input_files_type = context.get(nc_const.DATASET_TYPE)
+        if isinstance(self.product_paths, list):
+            self.inputs = list(map(lambda x: os.path.basename(x), self.product_paths))
+        else:
+            self.inputs = [os.path.basename(self.product_paths)]
+        self.output_type = PGE_STEP_DICT[self.step]
 
-    def _update_doc(self, id, body):
-        """
-        update document with given id with passed body
-        :param id: document _id
-        :type id: _id string
-        :param body: dictionary to upsert to the document
-        :type body: dictionary in the following format
-        {
-            "doc_as_upsert": True,
-            "doc": <dictionary of updated values>,
-        }
-        :returns:
-        """
-        try:
-            if self.index in INDECES.values():
-                accountability_es.update_document(
-                    id=id,
-                    index=self.index,
-                    body=body
-                )
-            else:
-                raise Exception("Index Not Found")
-        except Exception:
-            logger.warn("Failed to update {} with {}".format(id, body))
+    def create_job_entry(self):
+        if self.job_id is not None:
+            payload = {
+                "output_data_type": self.output_type,
+                "inputs": self.inputs,
+                "input_data_type": self.input_files_type,
+                "trigger_dataset_type": self.trigger_dataset_type,
+                "trigger_dataset_id": self.trigger_dataset_id,
+                "created_at": datetime.now().isoformat()
+            }
+            grq_es.index_document(index=nc_const.JOB_ACCOUNTABILITY_INDEX, id=self.job_id, body=payload)
+        else:
+            raise Exception("Unable to create job_accountability_catalog entry: {}".format(self.product_paths))
 
     def get_entries(self):
-        """
-        retrieves entries as a list
-        :returns: entries given a given context
-        """
-        conditions = [
-            (self.input_dataset_type + ".keyword", self.input_dataset_id)]
-        conditions = accountability_es.construct_bool_query(
-            conditions)
-        query = {"query": {"bool": {"must": conditions}}}
-
-        logger.info("Query for grabbing entries: {}".format(query))
-        accountability_docs = []
-        try:
-            hits = self._search(query)
-            logger.info("hits with .keyword count : {}".format(len(hits)))
-            accountability_docs = hits
-        except Exception:
-            logger.warn(
-                "Could not retrieve associated accountability entries\t {}: {}".format(
-                    self.input_dataset_type, self.input_dataset_id)
-            )
-        return accountability_docs
-
-    def set_products(self, products, entries=None, job_id=None):
-        if entries is None:
-            entries = self.get_entries()
-        for entry in entries:
-            _id = entry.get("_id")
-            source = entry.get("_source")
-            logger.info("source: {}".format(source))
-            logger.info("step: {}".format(self.step))
-            records = []
-
-            products = list(map(
-                lambda prod: prod if "/data/work/" not in prod else os.path.basename(prod), products))
-            logger.info("products: {}".format(products))
-            source_copy = dict(source)
-
-            output_type = PGE_STEP_DICT[self.step] + "_id"
-            output_job_type = PGE_STEP_DICT[self.step] + "_job_id"
-
-            first_product = products.pop(0)
-
-            source[output_type] = first_product
-            source[output_job_type] = job_id
-            try:
-                body = {
-                    "doc_as_upsert": True,
-                    "doc": source
-                }
-                self._update_doc(_id, body)
-            except Exception:
-                logger.error(
-                    "Failed to update entry with first product {}".format(first_product)
-                )
-                return
-
-            if len(products) > 0:
-                records = []
-                for product in products:
-                    new_entry = dict(source_copy)
-                    new_entry[output_type] = product
-                    records.append(new_entry)
-                try:
-                    self.post(records)
-                except Exception:
-                    logger.error(
-                        "Failed to create new entries with newly created products {}".format(
-                            products
-                        )
-                    )
-            records.append(source)
-        return records
-
-    def set_status(self, status):
-        """
-        Function to implement a custom status setting for a specific index storing accountability statuses for associated products
-        :param status:
-        :return:
-        """
-        # if self.step not in PGE_STEP_DICT:
-        #     return
-        accountability_docs = self.get_entries()
-        if len(accountability_docs) >= 1:
-            try:
-                output_type_status = ""
-                if self.step == "L0B":
-                    output_type_status = self.step + "_status"
-                else:
-                    output_type = PGE_STEP_DICT[self.step]
-                    output_type_status = output_type + "_status"
-                updated_values = {
-                    output_type_status: status,
-                    "last_modified": convert_datetime(datetime.utcnow())
-                }
-                updated_doc = {
-                    "doc_as_upsert": True,
-                    "doc": updated_values,
-                }
-                for doc in accountability_docs:
-                    self._update_doc(
-                        doc.get("_id"),
-                        updated_doc
-                    )
-            except Exception:
-                logger.warn(
-                    "Failed to update accountability docs: {}".format(
-                        traceback.format_exc()
-                    )
-                )
+        entries = []
+        if isinstance(self.product_paths, list):
+            for input_path in self.product_paths:
+                input = os.path.basename(input_path)
+                results = grq_es.query(body={
+                                "query": {"bool": {"must": [{"term": {"_id": input}}]}}
+                            }, index="grq")
+                entries.extend(results)
         else:
-            return
+            input = os.path.basename(self.product_paths)
+            results = grq_es.query(body={
+                            "query": {"bool": {"must": [{"term": {"_id": input}}]}}
+                        }, index="grq")
+            entries.extend(results)
+        return entries
+
+    def flatten_and_merge_accountability(self):
+        entries = self.get_entries()
+        acc = {}
+        for entry in entries:
+            if "accountability" not in entry["_source"]["metadata"]:
+                acc_obj = {}
+            else:
+                acc_obj = entry["_source"]["metadata"]["accountability"]
+            logger.info("entry accountability object: {}".format(acc_obj))
+            for pge in acc_obj:
+                if pge in acc:
+                    if "id" in acc_obj[pge]:
+                        acc[pge]["outputs"].append(acc_obj[pge]["id"])
+                    else:
+                        acc[pge]["outputs"].extend(acc_obj[pge]["outputs"])
+
+                    if "trigger_dataset_id" in acc_obj[pge]:
+                        acc[pge]["trigger_dataset_ids"].append(acc_obj[pge]["trigger_dataset_id"])
+                    else:
+                        acc[pge]["trigger_dataset_ids"].extend(acc_obj[pge]["trigger_dataset_ids"])
+
+                    if "job_id" in acc_obj[pge]:
+                        acc[pge]["job_ids"].append(acc_obj[pge]["job_id"])
+                    else:
+                        acc[pge]["job_ids"].extend(acc_obj[pge]["job_ids"])
+
+                    acc[pge]["inputs"].extend(acc_obj[pge]["inputs"])
+
+                    acc[pge] = {
+                        "outputs": list(set(acc[pge]["outputs"])),
+                        "inputs": list(set(acc[pge]["inputs"])),
+                        "input_data_type": acc_obj[pge]["input_data_type"],
+                        "job_ids": list(set(acc[pge]["job_ids"])),
+                        "trigger_dataset_type": acc_obj[pge]["trigger_dataset_type"],
+                        "trigger_dataset_ids": list(set(acc[pge]["trigger_dataset_ids"]))
+                    }
+                else:
+                    acc[pge] = {
+                        "inputs": acc_obj[pge]["inputs"],
+                        "input_data_type": acc_obj[pge]["input_data_type"],
+                        "trigger_dataset_type": acc_obj[pge]["trigger_dataset_type"],
+                    }
+                    if "id" in acc_obj[pge]:
+                        acc[pge]["outputs"] = [acc_obj[pge]["id"]]
+                    else:
+                        acc[pge]["outputs"] = acc_obj[pge]["outputs"]
+
+                    if "job_id" in acc_obj[pge]:
+                        acc[pge]["job_ids"] = [acc_obj[pge]["job_id"]]
+                    else:
+                        acc[pge]["job_ids"] = acc_obj[pge]["job_ids"]
+
+                    if "trigger_dataset_id" in acc_obj[pge]:
+                        acc[pge]["trigger_dataset_ids"] = [acc_obj[pge]["trigger_dataset_id"]]
+                    else:
+                        acc[pge]["trigger_dataset_ids"] = acc_obj[pge]["trigger_dataset_ids"]
+
+        logger.info("accountability obj: {}".format(acc))
+        return acc
+
+    def update_product_met_json(self, job_result):
+        work_dir = job_result.get("work_dir")
+        datasets_path = "{}/output/datasets/".format(work_dir)
+        datasets = os.listdir(datasets_path)
+        accountability_obj = self.flatten_and_merge_accountability()
+
+        for dataset in datasets:
+            output_met_json = "{}/{}/{}.met.json".format(datasets_path, dataset, dataset)
+            met_json = None
+            with open(output_met_json, "r") as f:
+                met_json = json.load(f)
+                if PGE_STEP_DICT[self.step] == "INSAR" and "ProductType" in met_json:
+                    self.output_type = met_json["ProductType"]
+                accountability_obj_copy = accountability_obj.copy()
+                accountability_obj_copy[self.output_type] = {
+                    "id": dataset,
+                    "job_id": self.job_id,
+                    "inputs": self.inputs,
+                    "input_data_type": self.input_files_type,
+                    "trigger_dataset_type": self.trigger_dataset_type,
+                    "trigger_dataset_id": self.trigger_dataset_id
+                }
+                met_json["accountability"] = accountability_obj_copy
+            with open(output_met_json, "w") as f:
+                logger.info("to write: {}".format(met_json))
+                if met_json is not None:
+                    json.dump(met_json, f)
+
+    def set_products(self, job_results):
+        self.update_product_met_json(job_result=job_results)
+        return {}

@@ -1,7 +1,7 @@
 import logging
 import argparse
 
-from pass_accountability.es_connection import get_pass_accountability_connection
+from job_accountability.es_connection import get_job_accountability_connection
 
 
 logging.basicConfig(level=logging.INFO)  # Set up logging
@@ -13,7 +13,7 @@ def get_parser():
     Get a parser for this application
     @return: parser to for this application
     """
-    parser = argparse.ArgumentParser(description="Creates a Pass Accountability catalog at a given endpoint.")
+    parser = argparse.ArgumentParser(description="Creates a Job Accountability catalog at a given endpoint.")
     parser.add_argument("--delete_old_catalog", action='store_true',
                         help="Indicate whether to delete the old COP Catalog if it exists.")
     return parser
@@ -30,5 +30,5 @@ if __name__ == "__main__":
     if args.delete_old_catalog:
         delete_old_catalog = True
 
-    pass_catalog = get_pass_accountability_connection(LOGGER)
-    pass_catalog.create_index(delete_old_index=delete_old_catalog)
+    job_catalog = get_job_accountability_connection(LOGGER)
+    job_catalog.create_index(delete_old_index=delete_old_catalog)
