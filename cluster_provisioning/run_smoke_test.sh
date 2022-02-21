@@ -49,15 +49,15 @@ cnm_datasets=L3_DSWx_HLS
 
 # build/import CNM product delivery
 # TODO chrisjrd: uncomment
-#if [ "${use_artifactory}" = true ]; then
-#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
-#  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-#  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-#else
-#  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
-#  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
-#  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
-#fi
+if [ "${use_artifactory}" = true ]; then
+  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+else
+  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
+  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
+  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
+fi
 
 cd ~/.sds/files
 
@@ -72,9 +72,10 @@ cd ~/.sds/files
 # TODO chrisjrd: uncomment
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
-#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l0a --desired-capacity 7
-#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
-#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 7
+~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 5
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
 
 # no jobs currently being submitted to these ASGs but left here commented out for future use
@@ -97,11 +98,10 @@ else
   sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
 fi
 
-
-if [ "${delete_old_pass_catalog}" = true ]; then
-  python ~/mozart/ops/opera-pcm/pass_accountability/create_pass_accountability_catalog.py --delete_old_catalog
+if [ "${delete_old_job_catalog}" = true ]; then
+  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
 else
-  python ~/mozart/ops/opera-pcm/pass_accountability/create_pass_accountability_catalog.py
+  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
 fi
 
 # ingest Sacramento AOI to test ingest
@@ -196,7 +196,7 @@ data_end="${tomorrow}T00:00:00"
 # If we're deploying a forward cluster, restore the original settings.yaml to the cluster
 #if [ "${cluster_type}" = "forward" ]; then
 #  aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "${l0a_timer_trigger_frequency}"
-#  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF,datatake /tmp/check_expected_force_submits.txt
+#  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF /tmp/check_expected_force_submits.txt
 
 #  echo "Restoring original settings.yaml and pushing it out to the cluster"
 #  cp ~/mozart/ops/opera-pcm/conf/settings.yaml.bak ~/mozart/ops/opera-pcm/conf/settings.yaml

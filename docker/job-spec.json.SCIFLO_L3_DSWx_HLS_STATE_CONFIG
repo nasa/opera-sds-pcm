@@ -8,7 +8,7 @@
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-datatake-acct" ],
+  "recommended-queues": [ "opera-job_worker-dswx-hls-acct" ],
   "post": [ "hysds.utils.triage" ],
   "params": [
     {

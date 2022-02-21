@@ -7,7 +7,7 @@
       "name": "dataset_type",
       "from": "submitter",
       "type": "enum",
-      "enumerables": ["ldf-state-config", "datatake-state-config", "datatake-urgent_response_state-config", "track_frame-state-config"]
+      "enumerables": ["ldf-state-config"]
     },
     {
       "name": "creation_time",

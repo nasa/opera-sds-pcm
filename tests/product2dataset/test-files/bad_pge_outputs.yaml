@@ -17,14 +17,18 @@
 # will still continue with processing.
 # 
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
-L0A_L_PGE:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-        verify: true
-        hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
+
+
+
+
+#L0A_L_PGE:
+#  Outputs:
+#    Primary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+#        verify: true
+#        hash: md5
+#    Secondary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
+#    Optional: []
+#  Missing_Metadata: {}
