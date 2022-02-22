@@ -19,18 +19,14 @@ bad_pge_outputs = os.path.join(
 )
 
 # TODO: modify output filename with OPERA product name
-#L3_DSWx_HLS_DIR = os.path.join(
-#    os.path.dirname(os.path.abspath(__file__)),
-#    "test-files",
-#    "L3_DSWx_HLS",
-#    "NISAR_L0_RRST_VC00_20220108T073544_20220108T075044_D00200_001",
-#)
-#OUTPUT_TYPE = {"L3_DSWx_HLS_PGE": ".tif" }
-#CHECKSUM_TYPE = {"L3_DSWx_HLS_PGE": "md5"}
-
-OUTPUT_TYPE = {}
-CHECKSUM_TYPE = {}
-
+L3_DSWx_HLS_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "test-files",
+    "L3_DSWx_HLS",
+    "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0",
+)
+OUTPUT_TYPE = {"L3_DSWx_HLS_PGE": ".tif" }
+CHECKSUM_TYPE = {"L3_DSWx_HLS_PGE": "md5"}
 
 class Product2Dataset(unittest.TestCase):
     settings = {}
