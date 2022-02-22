@@ -18,21 +18,18 @@ bad_pge_outputs = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "test-files", "bad_pge_outputs.yaml"
 )
 
-L0B_L_RRSD_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "test-files",
-    "L0B_L_RRSD",
-    "NISAR_L0_PR_RRSD_001_001_D_128S_20220108T073420_20220108T074920_D00200_M_001",
-)
+# TODO: modify output filename with OPERA product name
+#L3_DSWx_HLS_DIR = os.path.join(
+#    os.path.dirname(os.path.abspath(__file__)),
+#    "test-files",
+#    "L3_DSWx_HLS",
+#    "NISAR_L0_RRST_VC00_20220108T073544_20220108T075044_D00200_001",
+#)
+#OUTPUT_TYPE = {"L3_DSWx_HLS_PGE": ".tif" }
+#CHECKSUM_TYPE = {"L3_DSWx_HLS_PGE": "md5"}
 
-L0A_L_RRST_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "test-files",
-    "L0A_L_RRST",
-    "NISAR_L0_RRST_VC00_20220108T073544_20220108T075044_D00200_001",
-)
-OUTPUT_TYPE = {"L0A_L_PGE": ".bin", "L0B_L_PGE": ".h5"}
-CHECKSUM_TYPE = {"L0A_L_PGE": "md5", "L0B_L_PGE": "sha512"}
+OUTPUT_TYPE = {}
+CHECKSUM_TYPE = {}
 
 
 class Product2Dataset(unittest.TestCase):
@@ -86,27 +83,21 @@ class Product2Dataset(unittest.TestCase):
         return [input_hash_file, output_hash_file]
 
     def test_good_hash_algorithm(self):
-        hash_files = self.__validate(L0A_L_RRST_DIR, "L0A_L_PGE", good_pge_outputs)
-        self.assertEqual(
-            os.path.basename(hash_files[0]), os.path.basename(hash_files[1])
-        )
-        self.assertEqual(self.__gethash(hash_files[0]), self.__gethash(hash_files[1]))
-
-        hash_files = self.__validate(L0B_L_RRSD_DIR, "L0B_L_PGE", good_pge_outputs)
-        self.assertEqual(
-            os.path.basename(hash_files[0]), os.path.basename(hash_files[1])
-        )
-        self.assertEqual(self.__gethash(hash_files[0]), self.__gethash(hash_files[1]))
+#        hash_files = self.__validate(L3_DSWx_HLS_DIR, "L3_DSWx_HLS_PGE", good_pge_outputs)
+#        self.assertEqual(
+#            os.path.basename(hash_files[0]), os.path.basename(hash_files[1])
+#        )
+#        self.assertEqual(self.__gethash(hash_files[0]), self.__gethash(hash_files[1]))
 
     def test_bad_hash_algorithm(self):
-        try:
-            self.__validate(L0B_L_RRSD_DIR, "L0B_L_PGE", bad_pge_outputs)
-        except Exception as err:
-            self.assertTrue(str(err).startswith("Unsupported hashing algorithm"))
-
-        self.assertRaises(
-            Exception, self.__validate, L0B_L_RRSD_DIR, "L0B_L_PGE", bad_pge_outputs
-        )
+#        try:
+#            self.__validate(L3_DSWx_HLS_DIR, "L3_DSWx_HLS_PGE", bad_pge_outputs)
+#        except Exception as err:
+#            self.assertTrue(str(err).startswith("Unsupported hashing algorithm"))
+#
+#        self.assertRaises(
+#            Exception, self.__validate, L3_DSWx_HLS_DIR, "L3_DSWx_HLS_PGE", bad_pge_outputs
+#        )
 
 
 if __name__ == "__main__":

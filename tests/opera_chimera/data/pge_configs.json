@@ -1,47 +1,32 @@
 {
     "runconfig": {
         "PGENameGroup": {
-            "PGEName": "L0B_L_PGE"
+            "PGEName": "L3_DSWx_HLS_PGE"
         },
-        "InputFilePath": {
-            "L0A_L_RRST": null
+        "InputFileGroup": {
+            "InputFilePaths": null
         },
         "DynamicAncillaryFileGroup": {
-            "RadarConfigurationFile": null,
-            "ChirpParameterFile": null,
-            "WaveformConfigurationFile": null,
-            "LRCLKFile": null
+            "DEM": null,
+			"CLCL": null,
+			"CHSL": null
         },
         "ProductPathGroup": {
             "ProductPath": "output",
-            "ProductCounter": null
+            "ProductCounter": null,
+			"ScrathPath: null,
+			"SASOutputFile: 
         },
         "PrimaryExecutable": {
-            "CompositeReleaseID": null,
-            "ProcessingType": null,
-            "MissionId": "NISAR",
-            "ProductType": null,
-            "RadarProcessingMode": null
+            "ProductIdentifier": "DSWX_HLS",
+			"ProgramPath: "python3",
+			"ProgramOpetions: "DSWx-HLS-0.1/bin/dswx_hls.py",
+			"ErrorCodeBase: 100000,
+			"SchemaPath: "dswx_hls_sas_schema.yaml"
         },
         "DebugLevelGroup": {
-            "DebugSwitch": null
-        },
-        "Observation": {
-            "PlannedDatatakeId": null,
-            "PlannedObservationId": null,
-            "PlannedDatatakeTimestamp": null,
-            "PlannedObservationTimestamp": null,
-            "TimeOffset": 31,
-            "IsUrgentObservation": null,
-            "ConfigurationId": null,
-            "MissionCycle": null,
-            "TotalNumberRangelines": null
-        },
-        "Geometry": {
-            "AbsoluteOrbitNumber": null,
-            "RelativeOrbitNumber": null,
-            "OrbitDirection": null,
-            "LookDirection": null
+            "DebugSwitch": null,
+			"ExecuteViaShell: False
         },
         "pge_job_name": null,
         "mock_metadata": null,
@@ -52,15 +37,10 @@
         "get_products",
         "get_metadata",
         "get_product_metadata",
-        "get_range_date_times",
         "get_processing_type",
-        "get_hardcoded_metadata",
-        "get_l0b_ancillary_files",
-        "get_product_most_recent_version",
+        "get_l3_hls_ancillary_files",
         "get_observations_data",
-        "get_stuf_info",
         "get_product_counter",
-        "get_orbit_ephemeris",
         "set_product_time",
         "set_pge_job_name",
         "set_mock_metadata",
@@ -73,72 +53,21 @@
     },
     "get_product_metadata": {
         "keys": [
-            "datatake_begin_time",
-            "datatake_end_time",
             "observation_begin_time",
             "observation_end_time"
         ]
     },
     "get_processing_type": null,
-    "get_hardcoded_metadata": {
-        "MissionCycle": "001",
-        "RadarProcessingMode": "S",
-        "ProductType": "RRSD",
-        "DebugSwitch": "Off"
-    },
-    "get_product_most_recent_version": {
-        "types": [
-            "SCLKSCET"
-        ],
-        "filters": {
-            "SCLKSCET": {
-                "metadata.Type": "LRCLK"
-            }
-        },
-        "attribute_names": {
-            "SCLKSCET": "LRCLKFile"
-        }
-    },
-    "get_observations_data": {
-        "beginning_date_time": "RangeStartDateTime",
-        "ending_date_time": "RangeStopDateTime"
-    },
-    "get_stuf_info": null,
-    "get_l0b_ancillary_files": null,
+    "get_l3_hls_ancillary_files": null,
     "get_product_counter": {
         "RangeStartDateTime": "RangeStartDateTime",
         "RangeStopDateTime": "RangeStopDateTime",
-        "CompositeReleaseID": "CompositeReleaseID",
-        "RelativeOrbit": "RelativeOrbitNumber",
-        "Direction": "OrbitDirection",
-        "CycleNumber": "MissionCycle",
-        "ProcessingType": "ProcessingType",
-        "RadarProcessingMode": "RadarProcessingMode"
-    },
-    "get_orbit_ephemeris": {
-        "padding": 1,
-        "type": "best",
-        "beginning_date_time": "RangeStartDateTime",
-        "ending_date_time": "RangeStopDateTime"
+        "ProcessingType": "ProcessingType"
     },
     "set_pge_job_name": {
         "template": "{state_config_id}"
     },
     "set_base_name": {
-        "L0B_L_RRSD": {
-            "template": "NISAR_L0_PR_RRSD_001_001_D_128S_{RangeStartDateTime}_{RangeStopDateTime}_{CompositeReleaseID}_M_{ProductCounter}",
-            "date_time_formats": {
-                "RangeStartDateTime": "%Y%m%dT%H%M%S",
-                "RangeStopDateTime": "%Y%m%dT%H%M%S"
-            }
-        },
-        "L0B_L_CRSD": {
-            "template": "NISAR_L0_PR_CRSD_001_001_D_{RangeStartDateTime}_{RangeStopDateTime}_{CompositeReleaseID}_{ProductCounter}",
-            "date_time_formats": {
-                "RangeStartDateTime": "%Y%m%dT%H%M%S",
-                "RangeStopDateTime": "%Y%m%dT%H%M%S"
-            }
-        },
         "L0B_L_HST_DRT": {
             "template": "NISAR_L0_PR_HST_DRT_001_001_D_{RangeStartDateTime}_{RangeStopDateTime}_{CompositeReleaseID}_{ProductCounter}",
             "date_time_formats": {
@@ -148,96 +77,53 @@
         }
     },
     "set_mock_metadata": {
-        "L0B_L_RRSD": {
+        "L2_HLS_L30": {
             "static": {
-                "PGE_Name": "L0B_L_PGE",
-                "PGE_Version": "V1.0",
-                "TotalNumberOfMissingRangelines": 10,
-                "TotalNumberOfRangelinesFailedChecksum": 1
+                "PGE_Name": "L3_DSWx_HLS_PGE",
+                "PGE_Version": "V1.0"
             },
             "dynamic": {
-                "Input_Files": "L0A_L_RRST",
+                "Input_Files": "L2_HLS_L30",
                 "Ancillary_Files": [
-                    "RadarConfigurationFile",
-                    "ChirpParameterFile",
-                    "WaveformConfigurationFile",
-                    "LRCLKFile"
+                    "DEM",
+					"CLCL",
+					"CHSL"
                 ],
                 "Production_DateTime": "ProductionDateTime",
                 "RangeStartDateTime": "RangeStartDateTime",
                 "RangeStopDateTime": "RangeStopDateTime",
-                "CompositeReleaseID": "CompositeReleaseID",
                 "ProductCounter": "ProductCounter",
-                "TotalNumberRangelines": "TotalNumberRangelines",
-                "OBS_ID": "PlannedObservationId"
+                "TotalNumberRangelines": "TotalNumberRangelines"
             }
         },
-        "L0B_L_CRSD": {
+        "L2_HLS_S30": {
             "static": {
-                "PGE_Name": "L0B_L_PGE",
-                "PGE_Version": "V1.0",
-                "TotalNumberOfMissingRangelines": 10,
-                "TotalNumberOfRangelinesFailedChecksum": 1
+                "PGE_Name": "L3_DSWx_HLS_PGE",
+                "PGE_Version": "V1.0"
             },
             "dynamic": {
-                "Input_Files": "L0A_L_RRST",
+                "Input_Files": "L2_HLS_L30",
                 "Ancillary_Files": [
-                    "RadarConfigurationFile",
-                    "ChirpParameterFile",
-                    "WaveformConfigurationFile",
-                    "LRCLKFile"
+				    "DEM",
+					"CLCL",
+					"CHSL"
                 ],
                 "Production_DateTime": "ProductionDateTime",
                 "RangeStartDateTime": "RangeStartDateTime",
                 "RangeStopDateTime": "RangeStopDateTime",
-                "CompositeReleaseID": "CompositeReleaseID",
                 "ProductCounter": "ProductCounter",
-                "TotalNumberRangelines": "TotalNumberRangelines",
-                "DATATAKE_ID": "PlannedDatatakeId"
-            }
-        },
-        "L0B_L_HST_DRT": {
-            "static": {
-                "PGE_Name": "L0B_L_PGE",
-                "PGE_Version": "V1.0",
-                "TotalNumberOfMissingRangelines": 10,
-                "Total_NumberOfRangelinesFailedChecksum": 1
-            },
-            "dynamic": {
-                "Input_Files": "L0A_L_RRST",
-                "Ancillary_Files": [
-                    "RadarConfigurationFile",
-                    "ChirpParameterFile",
-                    "WaveformConfigurationFile",
-                    "LRCLKFile"
-                ],
-                "Production_DateTime": "ProductionDateTime",
-                "RangeStartDateTime": "RangeStartDateTime",
-                "RangeStopDateTime": "RangeStopDateTime",
-                "CompositeReleaseID": "CompositeReleaseID",
-                "ProductCounter": "ProductCounter",
-                "TotalNumberRangelines": "TotalNumberRangelines",
-                "DATATAKE_ID": "PlannedDatatakeId"
+                "TotalNumberRangelines": "TotalNumberRangelines"
             }
         }
     },
     "output_types": {
-        "L0B_L_RRSD": [
-            "h5",
-            "h5.log",
-            "h5.met"
+        "L3_DSWx_HLS": [
+            "tif",
+            "tif.log",
+            "tif.met"
         ],
-        "L0B_L_CRSD": [
-            "h5",
-            "h5.met"
-        ],
-        "L0B_L_HST_DRT": [
-            "bin",
-            "bin.met"
-        ]
-    },
-    "pge_name": "L0B",
-    "primary_input": "L0A_L_RRST",
+    "pge_name": "L3_DSWx_HLS_PGE",
+    "primary_input": "L2_HLS_L30",
     "localize_groups": [
         "InputFilePath",
         "DynamicAncillaryFileGroup"
