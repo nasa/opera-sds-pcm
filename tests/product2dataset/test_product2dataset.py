@@ -82,14 +82,14 @@ class Product2Dataset(unittest.TestCase):
 
         return [input_hash_file, output_hash_file]
 
-    def test_good_hash_algorithm(self):
+#    def test_good_hash_algorithm(self):
 #        hash_files = self.__validate(L3_DSWx_HLS_DIR, "L3_DSWx_HLS_PGE", good_pge_outputs)
 #        self.assertEqual(
 #            os.path.basename(hash_files[0]), os.path.basename(hash_files[1])
 #        )
 #        self.assertEqual(self.__gethash(hash_files[0]), self.__gethash(hash_files[1]))
 
-    def test_bad_hash_algorithm(self):
+#    def test_bad_hash_algorithm(self):
 #        try:
 #            self.__validate(L3_DSWx_HLS_DIR, "L3_DSWx_HLS_PGE", bad_pge_outputs)
 #        except Exception as err:

@@ -15,13 +15,6 @@ URGENT_RESPONSE_LATENCY:
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
-#CHIMERA:
-    # Leaving config for L0A, Time_Extractor, and L0B in case we want to make them as separate PGE jobs again.
-#    JOB_QUEUES:
-#		L3_DSWx_HLS: opera-job_worker-pge-l3-dswx-hls
-#    JOB_TYPES:
-#		L3_DSWx_HLS: job-PGE_L3_DSWx_HLS
-
 PRODUCT_TYPES:
     #LDF:
     #    Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})\.ldf)$'

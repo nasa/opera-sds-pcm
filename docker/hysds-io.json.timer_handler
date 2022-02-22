@@ -7,7 +7,7 @@
       "name": "dataset_type",
       "from": "submitter",
       "type": "enum",
-      "enumerables": ["ldf-state-config"]
+      "enumerables": ["L3_DSWx_state_config"]
     },
     {
       "name": "creation_time",
