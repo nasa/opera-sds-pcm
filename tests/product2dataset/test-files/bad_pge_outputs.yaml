@@ -18,30 +18,14 @@
 # 
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
 
-
-
-
-#L0A_L_PGE:
-#  Outputs:
-#    Primary:
-#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-#        verify: true
-#        hash: md5
+L3_DSWx_HLS_PGE:
+  Outputs:
+    Primary:
+      - regex: !!python/regexp '^OPERA_L3_DSWx_HLS_[LANDSAT-8|SENTINEL-1]_\w{6}_\d{8}T\d{6}_v?[0-9]*\.?[0-9].tif$'
+        verify: true
+        hash: md5
 #    Secondary:
 #      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
 #      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-#    Optional: []
-#  Missing_Metadata: {}
-
-
-#L3_DSWx_HLS_PGE:
-#  Outputs:
-#    Primary:
-#      - regex: !!python/regexp '^OPERA_
-#        veryfi: true
-#        hash: md5
-#    Secondary:
-#      - regex: !!python/regex '^OPERA_
-#      - regex: !!python/regex '^OPERA_
-#    Optional: []
-#  Missing_Metadata: {}
+    Optional: []
+  Missing_Metadata: {}
