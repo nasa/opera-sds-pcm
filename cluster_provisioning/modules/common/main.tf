@@ -1085,7 +1085,7 @@ resource "aws_instance" "mozart" {
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "  tar xfz ${var.project}-bach-ui-${var.bach_ui_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/${var.project}-bach-ui",
-      "  rm -rf nisar-bach-ui-${var.bach_ui_branch}.tar.gz ",
+      "  rm -rf ${var.project}-bach-ui-${var.bach_ui_branch}.tar.gz ",
       "else",
       "  git clone --single-branch -b ${var.pcm_branch} https://${var.pub_git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",

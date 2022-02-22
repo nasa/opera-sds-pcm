@@ -360,10 +360,6 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
-}
-
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }

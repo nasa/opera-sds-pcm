@@ -182,7 +182,7 @@ variable "lambda_job_type" {
 }
 
 variable "lambda_job_queue" {
-  default = "nisar-job_worker-small"
+  default = "opera-job_worker-small"
 }
 
 # CNM Response job vars
@@ -192,7 +192,7 @@ variable "cnm_r_handler_job_type" {
 }
 
 variable "cnm_r_job_queue" {
-  default = "nisar-job_worker-rcv_cnm_notify"
+  default = "opera-job_worker-rcv_cnm_notify"
 }
 
 variable "cnm_r_event_trigger" {
@@ -205,7 +205,7 @@ variable "cnm_r_allowed_account" {
 
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:399787141461:daac-proxy-for-nisar"
+  default = "arn:aws:sqs:us-west-2:399787141461:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -314,7 +314,7 @@ variable "pge_snapshots_date" {
   default = ""
 }
 
-variable "nisar_pge_release" {
+variable "opera_pge_release" {
   default = ""
 }
 
@@ -324,10 +324,6 @@ variable "crid" {
 
 variable "cluster_type" {
   default = ""
-}
-
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {
@@ -396,134 +392,43 @@ variable "run_smoke_test" {
 
 variable "queues" {
   default = {
-    "nisar-job_worker-gpu" = {
+    "opera-job_worker-gpu" = {
       "instance_type"     = ["p2.xlarge", "p3.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 10
       "total_jobs_metric" = true
     }
-    "nisar-job_worker-small" = {
+    "opera-job_worker-small" = {
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 100
       "total_jobs_metric" = true
     }
-    "nisar-job_worker-large" = {
+    "opera-job_worker-large" = {
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 100
       "total_jobs_metric" = true
     }
-    "nisar-job_worker-rrst-acct" = {
+    "opera-job_worker-send_cnm_notify" = {
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 100
       "total_jobs_metric" = true
     }
-    "nisar-job_worker-sciflo-l0a" = {
-      "instance_type"     = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 500
-      "max_size"          = 100
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-sciflo-time_extractor" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 500
-      "max_size"          = 100
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-datatake-acct" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-track-frame-acct" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-network-pair-eval" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-sciflo-l0b" = {
-      "instance_type"     = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 900
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-sciflo-rslc" = {
-      "instance_type"     = ["p3.2xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 1200
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-sciflo-gslc" = {
-      "instance_type"     = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 1200
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-sciflo-gcov" = {
-      "instance_type"     = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 1200
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-sciflo-insar" = {
-      "instance_type"     = ["p3.2xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 1200
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-send_cnm_notify" = {
+    "opera-job_worker-rcv_cnm_notify" = {
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 100
       "total_jobs_metric" = true
     }
-    "nisar-job_worker-rcv_cnm_notify" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 100
-      "total_jobs_metric" = true
-    }
-    "nisar-workflow_profiler" = {
+    "opera-workflow_profiler" = {
       "instance_type"     = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-net" = {
-      "instance_type"     = ["c5.4xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
-      "total_jobs_metric" = true
-    }
-    "nisar-job_worker-pta" = {
-      "instance_type"     = ["c5.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 10

@@ -284,7 +284,7 @@ variable "cnm_r_allowed_account" {
 #  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -362,10 +362,6 @@ variable "crid" {
 
 variable "cluster_type" {
   default = "reprocessing"
-}
-
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {

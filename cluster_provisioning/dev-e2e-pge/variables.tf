@@ -111,14 +111,14 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-sciflo-l0a" = {
+#    "opera-job_worker-sciflo-l0a" = {
       # TODO: restore multiple instance types when L0A PGE deterministically generates the same number of products
       #"instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "instance_type" = ["t3.xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
+#      "instance_type" = ["t3.xlarge"]
+#      "root_dev_size" = 50
+#      "data_dev_size" = 25
+#      "max_size"      = 10
+#    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
@@ -413,9 +413,6 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
-}
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -458,9 +455,9 @@ variable "inactivity_threshold" {
 }
 
 variable "pge_test_package" {
-  default = "testdata_R2.0.0"
+  default = "testdata_R1.0.0"
 }
 
-variable "l0a_test_package" {
-  default = "l0a_multi_003.tgz"
-}
+#variable "l0a_test_package" {
+#  default = "l0a_multi_003.tgz"
+#}

@@ -97,7 +97,7 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    L3_DWSx_HLS:
+    L3_DSWx_HLS:
         # This pattern groups the metadata information in the filename using named groups.
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.

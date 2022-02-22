@@ -320,10 +320,6 @@ variable "cluster_type" {
   default = ""
 }
 
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
-}
-
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -402,12 +398,12 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 100
     }
-    "opera-job_worker-sciflo-l0a" = {
-      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 500
-      "max_size"      = 100
-    }
+#    "opera-job_worker-sciflo-l0a" = {
+#      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
+#      "root_dev_size" = 50
+#      "data_dev_size" = 500
+#      "max_size"      = 100
+#    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
