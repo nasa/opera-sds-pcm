@@ -35,7 +35,7 @@ runconfig:
 
   product_paths:
     # references an output dict entry of a precondition function to pass remote product URL onto localization phase.
-    L2_HLS_L30: __CHIMERA_VAL__
+    L2_HLS: __CHIMERA_VAL__
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions: [get_input_filepaths_from_state_config]

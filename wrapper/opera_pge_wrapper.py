@@ -1,10 +1,11 @@
 """
 OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
+import argparse
 import json
 import os
 import shutil
-import sys
+from functools import partial
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -15,82 +16,20 @@ from util.conf_util import RunConfig
 from util.ctx_util import JobContext, DockerParams
 from util.exec_util import exec_wrapper, call_noerr
 
-
-def get_pge_error_message(logfile: str) -> str:
-    """
-    Intended to parse a PGE log file, look for errors and propagate it up to the UI
-
-    :param logfile:
-    :return:
-    """
-    default_msg = "PGE Failed with a FATAL error, please check PGE log file"
-    if logfile is None:
-        return default_msg
-    msg = ""
-    # Read the log file and grep for FATAL
-    fatal_string = "FATAL"
-    lines_after_fatal_string = 4  # No. of lines to print after FATAL string
-    is_countdown = False
-    with open(logfile, 'r') as fr:
-        for line in fr:
-            if is_countdown and lines_after_fatal_string > 0:
-                lines_after_fatal_string -= 1
-                msg += line
-            elif lines_after_fatal_string == 0:
-                return msg
-            if fatal_string in line:
-                print("Found FATAL")
-                msg += line
-                is_countdown = True
-    if len(msg) < 1:
-        return default_msg
+to_json = partial(json.dumps, indent=2)
 
 
-def process_inputs(run_config: Dict, work_dir: str, output_dir: str) -> Tuple[Dict, List]:
-    """
-    Process the inputs:
+@exec_wrapper
+def main(context_file: str, workdir: str):
+    jc = JobContext(context_file)
+    context = jc.ctx
+    logger.debug(f"context={to_json(context)}")
 
-        - Convert inputs to reference local file paths instead of S3 urls.
-        - Capture inputs so the lineage can be captured in the output dataset metadata
+    # set additional files to triage
+    jc.set('_triage_additional_globs', ["output", "RunConfig.yaml"])
+    jc.save()
 
-    :param run_config:
-    :param work_dir:
-    :param output_dir:
-
-    :return:
-    """
-
-    lineage_metadata = list()
-    input_groups = [
-        opera_chimera_const.INPUT_FILE_PATH,
-        opera_chimera_const.STATIC_ANCILLARY_FILE_GROUP,
-        opera_chimera_const.DYNAMIC_ANCILLARY_FILE_GROUP,
-    ]
-
-    # Add work and output directories
-    run_config[opera_chimera_const.PRODUCT_PATH] = output_dir
-    run_config[opera_chimera_const.DEBUG_PATH] = work_dir
-
-    localized_groups = {}
-    for input_group in input_groups:
-        if input_group in run_config:
-            localized_groups[input_group] = {}
-            for product_type in run_config[input_group].keys():
-                value = run_config[input_group][product_type]
-                if isinstance(value, list):
-                    local_paths = []
-                    for url in value:
-                        local_path = os.path.join(work_dir, os.path.basename(url))
-                        local_paths.append(local_path)
-                    lineage_metadata.extend(local_paths)
-                else:
-                    local_paths = os.path.join(work_dir, os.path.basename(value))
-                    lineage_metadata.append(local_paths)
-
-                localized_groups[input_group][product_type] = local_paths
-
-    run_config.update(localized_groups)
-    return run_config, lineage_metadata
+    run_pipeline(context=context, work_dir=workdir)
 
 
 def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
@@ -104,33 +43,26 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     logger.info(f"Preparing Working Directory: {work_dir}")
 
-    logger.info("Creating directories for PGE.")
-    runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
-    os.makedirs(runconfig_dir, 0o755, exist_ok=True)
-
-    input_hls_dir = os.path.join(work_dir, 'input_hls_dir_tbf')
-    os.makedirs(input_hls_dir, 0o755, exist_ok=True)
-
-    output_dir = os.path.join(work_dir, 'output_dir_tbf')
-    os.makedirs(output_dir, 0o755, exist_ok=True)
+    input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir)
 
     run_config: Dict = context.get("run_config")
-    run_config = json.loads(json.dumps(run_config))
 
     # We need to convert the S3 urls specified in the run config to local paths and also
     # capture the inputs, so we can store the lineage in the output dataset metadata
-    run_config, lineage_metadata = process_inputs(run_config, work_dir, output_dir)
+    lineage_metadata = []
+    for s3_input_filepath in run_config["product_paths"]["L2_HLS"]:
+        local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
+        lineage_metadata.append(local_input_filepath)
 
     logger.info("Copying input files to input directories.")
-    for s3_input_filepath in run_config["product_paths"]["L2_HLS_L30"]:
-        local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
+    for local_input_filepath in lineage_metadata:
         shutil.copy(local_input_filepath, input_hls_dir)
 
     logger.info("Updating run config for use with PGE.")
     run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
 
     # create RunConfig.yaml
-    logger.debug(f"Run config to transform to YAML is: {json.dumps(run_config)}")
+    logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")
     pge_config: Dict = context.get("pge_config")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
@@ -140,69 +72,30 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info("Copying run config to run config input directory.")
     shutil.copy(rc_file, runconfig_dir)
 
-    logger.debug(f"Run Config: {json.dumps(run_config)}")
-    logger.debug(f"PGE Config: {json.dumps(pge_config)}")
+    logger.debug(f"Run Config: {to_json(run_config)}")
+    logger.debug(f"PGE Config: {to_json(pge_config)}")
 
     # Run the PGE
     logger.info("Running PGE.")
-    simulate_outputs = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
-    logger.info(f"{simulate_outputs=}")
-    # TODO chrisjrd: uncomment after testing
-    # if False:
-    if context.get(opera_chimera_const.SIMULATE_OUTPUTS):
+    should_simulate_pge = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
+    logger.info(f"{should_simulate_pge=}")
+
+    if should_simulate_pge:
         logger.info("Simulating PGE run....")
         pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
     else:
-        logger.info("Preparing PGE docker command.")
-        # get dependency image
-        dep_img = context.get('job_specification')['dependency_images'][0]
-        dep_img_name = dep_img['container_image_name']
-        logger.info(f"dep_img_name: {dep_img_name}")
-
-        # get docker params
-        docker_params_file = os.path.join(work_dir, "_docker_params.json")
-        dp = DockerParams(docker_params_file)
-        docker_params = dp.params
-        logger.info(f"docker_params: {json.dumps(docker_params, indent=2)}")
-        docker_img_params = docker_params[dep_img_name]
-        uid = docker_img_params["uid"]
-        gid = docker_img_params["gid"]
-
-        # parse runtime options
-        runtime_options = []
-        for k, v in docker_img_params.get('runtime_options', {}).items():
-            runtime_options.extend([f"--{k}", f"{v}"])
-
-        # create directory to house PGE's _docker_stats.json
-        pge_stats_dir = os.path.join(work_dir, 'pge_stats')
-        logger.debug(f"Making PGE Stats Directory: {pge_stats_dir}")
-        os.makedirs(pge_stats_dir, 0o755)
-
-        cmd = [
-            f"docker run --init --rm -u {uid}:{gid}",
-            " ".join(runtime_options),
-            f"-v {runconfig_dir}:/home/conda/runconfig:ro",
-            f"-v {input_hls_dir}:/home/conda/input_dir:ro",
-            f"-v {output_dir}:/home/conda/output_dir",
-            dep_img_name,
-            f"--file /home/conda/runconfig/RunConfig.yaml",
-        ]
-
-        cmd_line = " ".join(cmd)
-        logger.info(f"Calling PGE: {cmd_line}")
-        try:
-            call_noerr(cmd_line, work_dir)
-        except Exception as e:
-            logger.error(f"PGE failure: {e}")
-            raise
+        exec_pge_command(
+            context=context,
+            work_dir=work_dir,
+            input_hls_dir=input_hls_dir,
+            runconfig_dir=runconfig_dir,
+            output_dir=output_dir
+        )
 
     extra_met = {
         "lineage": lineage_metadata,
         "runconfig": run_config
     }
-    if opera_chimera_const.EXTRA_PGE_OUTPUT_METADATA in run_config:
-        for met_key in run_config[opera_chimera_const.EXTRA_PGE_OUTPUT_METADATA].keys():
-            extra_met[met_key] = run_config[opera_chimera_const.EXTRA_PGE_OUTPUT_METADATA][met_key]
 
     logger.info("Converting output product to HySDS-style datasets")
     created_datasets = product2dataset.convert(output_dir, pge_name, rc_file, extra_met=extra_met)
@@ -210,28 +103,67 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     return created_datasets
 
 
-def get_input_dataset_id(context: Dict) -> str:
-    params = context['job_specification']['params']
-    for param in params:
-        if param['name'] == 'input_dataset_id':
-            return param['value']
-    raise
+def create_required_directories(work_dir: str) -> Tuple[str, str, str]:
+    """Creates the requisite directories per PGE-PCM ICS for L3_DSWx_HLS."""
+    logger.info("Creating directories for PGE.")
+
+    runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
+    os.makedirs(runconfig_dir, 0o755, exist_ok=True)
+
+    input_hls_dir = os.path.join(work_dir, 'input_hls_dir_tbf')
+    os.makedirs(input_hls_dir, 0o755, exist_ok=True)
+
+    output_dir = os.path.join(work_dir, 'output_dir_tbf')
+    os.makedirs(output_dir, 0o755, exist_ok=True)
+
+    return input_hls_dir, output_dir, runconfig_dir
 
 
-@exec_wrapper
-def main(args):
-    context_file = args[1]
-    workdir = sys.argv[2]
-    jc = JobContext(context_file)
-    ctx = jc.ctx
-    logger.debug(json.dumps(ctx, indent=2))
+def exec_pge_command(context: Dict, work_dir: str, input_hls_dir: str, runconfig_dir: str, output_dir: str):
+    logger.info("Preparing PGE docker command.")
 
-    # set additional files to triage
-    jc.set('_triage_additional_globs', ["output", "RunConfig.yaml"])
-    jc.save()
+    # get dependency image
+    dep_img = context.get('job_specification')['dependency_images'][0]
+    dep_img_name = dep_img['container_image_name']
+    logger.info(f"{dep_img_name=}")
 
-    run_pipeline(context=ctx, work_dir=workdir)
+    # get docker params
+    docker_params_file = os.path.join(work_dir, "_docker_params.json")
+    dp = DockerParams(docker_params_file)
+    docker_params = dp.params
+    logger.info(f"docker_params={to_json(docker_params)}")
+    docker_img_params = docker_params[dep_img_name]
+    uid = docker_img_params["uid"]
+    gid = docker_img_params["gid"]
+
+    # parse runtime options
+    runtime_options = [f"--{k} {v}" for k, v in docker_img_params.get('runtime_options', {}).items()]
+
+    # create directory to house PGE's _docker_stats.json
+    pge_stats_dir = os.path.join(work_dir, 'pge_stats')
+    logger.debug(f"Making PGE Stats Directory: {pge_stats_dir}")
+    os.makedirs(pge_stats_dir, 0o755)
+
+    cmd = [
+        f"docker run --init --rm -u {uid}:{gid}",
+        " ".join(runtime_options),
+        f"-v {runconfig_dir}:/home/conda/runconfig:ro",
+        f"-v {input_hls_dir}:/home/conda/input_dir:ro",
+        f"-v {output_dir}:/home/conda/output_dir",
+        dep_img_name,
+        f"--file /home/conda/runconfig/RunConfig.yaml",
+    ]
+
+    cmd_line = " ".join(cmd)
+
+    logger.info(f"Calling PGE: {cmd_line}")
+    call_noerr(cmd_line, work_dir)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("context_file", help="The context file in the workspace. Typically \"_context.json\".")
+    parser.add_argument("workdir", help="The absolute pathname of the current working directory.")
+    args = parser.parse_args()
+
+    main(args.context_file, args.workdir)

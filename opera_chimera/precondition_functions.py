@@ -1514,4 +1514,4 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
-        return {"L2_HLS_L30": product_paths}
+        return {"L2_HLS": product_paths}
