@@ -10,8 +10,8 @@ from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as
 
 
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
-    output_base_name: str = runconfig['output_base_name']
-    input_file_base_name_regexes: List[str] = runconfig['input_file_base_name_regexes']
+    output_base_name: str = pge_config['output_base_name']
+    input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
 
     match = None
     for input_file_base_name_regex in input_file_base_name_regexes:
