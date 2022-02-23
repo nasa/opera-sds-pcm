@@ -59,7 +59,9 @@ RSLC:
 L3_HLS:
   Outputs:
     Primary:
-      # Pattern for parsing filenames such as "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
+      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
       # Reusing regex from settings.yaml previously used for data ingest testing
       - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>tif))$'
         verify: true

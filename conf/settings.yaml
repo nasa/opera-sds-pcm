@@ -88,6 +88,7 @@ PRODUCT_TYPES:
             endtime: ValidityEndDateTime
 
     L2_HLS_L30:
+        # Pattern for parsing filenames such as "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif".
         # This pattern groups the metadata information in the filename using named groups.
         #
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
@@ -111,6 +112,7 @@ PRODUCT_TYPES:
         Dataset_Keys: {}
 
     L2_HLS_S30:
+        # Pattern for parsing filenames such as "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif".
         # This pattern groups the metadata information in the filename using named groups.
         #
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
@@ -134,6 +136,9 @@ PRODUCT_TYPES:
         Dataset_Keys: {}
 
     L3_DWSx_HLS:
+        # Pattern for parsing filenames such as:
+        # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
+        # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
         # This pattern groups the metadata information in the filename using named groups.
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
