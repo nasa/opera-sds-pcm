@@ -260,7 +260,7 @@
       "ipath": "hysds::data/L3_DSWx_HLS",
       "level": "L3",
       "type": "L3_DSWx_HLS",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2|LANDSAT-8)_(?P<tile_id>T[^\\W_]{5})_(?P<datetime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))_(?P<collection_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\\W_]{5})_(?P<datetime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))_(?P<collection_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {

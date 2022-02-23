@@ -58,7 +58,7 @@ def upsert_state_config(state_config: Dict, state_config_doc_id: str):
         retry_on_conflict=20
     )
 
-    logger.info(f"{to_json(state_config_doc_update_result)}")
+    logger.info(f"state_config_doc_update_result={to_json(state_config_doc_update_result)}")
 
 
 def to_update_doc(input_dict: Dict) -> Dict:

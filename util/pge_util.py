@@ -26,7 +26,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
         if product_shortname == 'HLS.L30':
             sensor = 'LANDSAT-8'
         elif product_shortname == 'HLS.S30':
-            sensor = 'SENTINEL-2'
+            sensor = 'SENTINEL-2A'
         else:
             raise
 

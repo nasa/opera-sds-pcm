@@ -91,6 +91,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
             runconfig_dir=runconfig_dir,
             output_dir=output_dir
         )
+    logger.info(f"{os.listdir(output_dir)=}")
 
     extra_met = {
         "lineage": lineage_metadata,
