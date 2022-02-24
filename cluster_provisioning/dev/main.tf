@@ -118,7 +118,7 @@ resource "null_resource" "mozart" {
       "set -ex",
       "source ~/.bash_profile",
       "cd ~/.sds/files",
-      "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json",
+      "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force",
       "echo Your cluster has been provisioned!",
     ]
   }
