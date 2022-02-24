@@ -1,5 +1,5 @@
-import os
 import json
+import os
 
 try:
     import unittest.mock as umock
@@ -44,18 +44,18 @@ class TestGetOrbitEphemeris(unittest.TestCase):
         umock.patch.stopall()
 
     def test_success(self):
-        import nisar_chimera.precondition_functions
+        import opera_chimera.precondition_functions
 
-        recs2check_mock = umock.patch("nisar_chimera.precondition_functions.ancillary_es.perform_aggregate_range_intersection_query").start()
+        recs2check_mock = umock.patch("opera_chimera.precondition_functions.ancillary_es.perform_aggregate_range_intersection_query").start()
         recs2check_mock.return_value = self.recs_data
 
-        best_fit_mock = umock.patch("nisar_chimera.precondition_functions.ancillary_es.select_best_fit").start()
+        best_fit_mock = umock.patch("opera_chimera.precondition_functions.ancillary_es.select_best_fit").start()
         best_fit_mock.return_value = self.best_fit_data
 
-        datastore_refs_mock = umock.patch("nisar_chimera.precondition_functions.ancillary_es.get_datastore_refs_from_es_records").start()
+        datastore_refs_mock = umock.patch("opera_chimera.precondition_functions.ancillary_es.get_datastore_refs_from_es_records").start()
         datastore_refs_mock.return_value = self.datastore_refs
 
-        self.pf = nisar_chimera.precondition_functions.NisarPreConditionFunctions(self.context, self.pge_config, self.settings, self.job_params)
+        self.pf = opera_chimera.precondition_functions.OperaPreConditionFunctions(self.context, self.pge_config, self.settings, self.job_params)
 
         result = self.pf.get_orbit_ephemeris()
 
@@ -63,16 +63,16 @@ class TestGetOrbitEphemeris(unittest.TestCase):
         assert result['OrbitEphemerisFile'] == self.datastore_refs
 
     def test_failure(self):
-        import nisar_chimera.precondition_functions
+        import opera_chimera.precondition_functions
 
         self.job_params["RangeStartDateTime"] = "2020-06-04T00:10:10.000000Z"
         self.job_params["RangeStopDateTime"] = "2020-06-04T00:40:42.000000Z"
         exp_output = "Could not find any Orbit Ephemeris files of type(s) ['POE', 'MOE', 'NOE', 'FOE'] over 2020-06-03T23:10:10.000000Z to 2020-06-04T01:40:42.000000Z"
 
-        recs2check_mock = umock.patch("nisar_chimera.precondition_functions.ancillary_es.perform_aggregate_range_intersection_query").start()
+        recs2check_mock = umock.patch("opera_chimera.precondition_functions.ancillary_es.perform_aggregate_range_intersection_query").start()
         recs2check_mock.side_effect = ValueError(exp_output)
 
-        self.pf = nisar_chimera.precondition_functions.NisarPreConditionFunctions(self.context, self.pge_config, self.settings, self.job_params)
+        self.pf = opera_chimera.precondition_functions.OperaPreConditionFunctions(self.context, self.pge_config, self.settings, self.job_params)
         try:
             self.pf.get_orbit_ephemeris()
         except Exception as err:
@@ -81,15 +81,15 @@ class TestGetOrbitEphemeris(unittest.TestCase):
         self.assertRaises(Exception, self.pf, exp_output)
 
     def test_OE_TYPE_check(self):
-        import nisar_chimera.precondition_functions
+        import opera_chimera.precondition_functions
 
         self.pge_config["get_orbit_ephemeris"]["type"] = "NOE"
         exp_output = "Could not find any Orbit Ephemeris files of type(s) ['NOE'] over 2018-06-03T23:10:10.000000Z to 2018-06-04T01:40:42.000000Z"
 
-        recs2check_mock = umock.patch("nisar_chimera.precondition_functions.ancillary_es.perform_aggregate_range_intersection_query").start()
+        recs2check_mock = umock.patch("opera_chimera.precondition_functions.ancillary_es.perform_aggregate_range_intersection_query").start()
         recs2check_mock.side_effect = ValueError(exp_output)
 
-        self.pf = nisar_chimera.precondition_functions.NisarPreConditionFunctions(self.context, self.pge_config, self.settings, self.job_params)
+        self.pf = opera_chimera.precondition_functions.OperaPreConditionFunctions(self.context, self.pge_config, self.settings, self.job_params)
         try:
             self.pf.get_orbit_ephemeris()
         except Exception as err:

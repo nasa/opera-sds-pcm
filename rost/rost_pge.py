@@ -13,7 +13,7 @@ from util.common_util import lower_keys
 from util.common_util import convert_datetime
 from util.exec_util import exec_wrapper
 from opera_chimera.constants.opera_chimera_const import (
-    NisarChimeraConstants as nc_const
+    OperaChimeraConstants as oc_const
 )
 
 from commons.es_connection import get_grq_es
@@ -273,11 +273,11 @@ def rost_pge(rost_xml_filename: str, sclk_scet_filename: str = None):
     """
     download_sclk_scet = not sclk_scet_filename
     if download_sclk_scet:
-        sclk_scet_file = get_latest_file_by_type(product_type=nc_const.SCLKSCET)
+        sclk_scet_file = get_latest_file_by_type(product_type=oc_const.SCLKSCET)
         sclk_scet_filename = download_dependency_file(sclk_scet_file)
 
     # download the radar config file
-    radar_cfg_file = get_latest_file_by_type(product_type=nc_const.RADAR_CFG)
+    radar_cfg_file = get_latest_file_by_type(product_type=oc_const.RADAR_CFG)
     radar_cfg_filename = download_dependency_file(radar_cfg_file)
 
     """

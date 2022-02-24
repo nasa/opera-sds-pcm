@@ -88,9 +88,9 @@ for art_url in "${ART_URLS[@]}"; do
     fi
   fi
 
-  # download from arifactory as last resort
+  # download from artifactory as last resort
   echo "Will try artifactory url: $art_url"
-  curl -O --fail $art_url
+  curl -O --fail --silent $art_url
   if [ "$?" -ne 0 ]; then
     echoerr "Error: failed to download from artifactory: $art_url"
     exit 1

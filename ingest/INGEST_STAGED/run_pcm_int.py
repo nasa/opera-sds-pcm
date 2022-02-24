@@ -15,8 +15,8 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.checksum_util import get_file_checksum
 from extractor import extract
-from nisar_chimera.constants.nisar_chimera_const import (
-    NisarChimeraConstants as nc_const,
+from opera_chimera.constants.opera_chimera_const import (
+    OperaChimeraConstants as oc_const,
 )
 
 
@@ -37,7 +37,7 @@ def main(id, src_data):
     data_name = None
 
     # set force publish (disable no-clobber)
-    if cfg.get(nc_const.FORCE_INGEST, {}).get("INGEST_STAGED", False):
+    if cfg.get(oc_const.FORCE_INGEST, {}).get("INGEST_STAGED", False):
         jc.set("_force_ingest", True)
         jc.save()
 

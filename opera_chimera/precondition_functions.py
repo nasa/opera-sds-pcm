@@ -3,11 +3,14 @@ Class that contains the precondition evaluation steps used in the various PGEs
 that are part of the OPERA PCM pipeline.
 
 """
-import traceback
-import os
+import copy
+import inspect
 import json
 import re
-import copy
+import os
+import traceback
+from typing import Dict, List
+
 import psutil
 
 from cop import cop_catalog
@@ -23,7 +26,7 @@ from commons.constants import product_metadata
 
 from chimera.precondition_functions import PreConditionFunctions
 from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 
 from rost import catalog as rost_catalog
@@ -60,14 +63,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return:
         """
         return {
-            "{}".format(nc_const.PRODUCTION_DATETIME): convert_datetime(
+            "{}".format(oc_const.PRODUCTION_DATETIME): convert_datetime(
                 datetime.utcnow()
             )
         }
 
     def get_crid(self):
-        crid = self._settings.get(nc_const.CRID)
-        rc_params = {nc_const.COMPOSITE_RELEASE_ID: crid}
+        crid = self._settings.get(oc_const.CRID)
+        rc_params = {oc_const.COMPOSITE_RELEASE_ID: crid}
         return rc_params
 
     def __get_run_config_metadata(self, run_config_key, context):
@@ -95,7 +98,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return data
 
     def get_hardcoded_metadata(self):
-        return self._pge_config.get(nc_const.GET_HARDCODED_METADATA, {})
+        return self._pge_config.get(oc_const.GET_HARDCODED_METADATA, {})
 
     def get_product_counter(self, testmode=None):
         """
@@ -107,17 +110,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         if testmode is None:
 
-            if "value" in self._pge_config.get(nc_const.GET_PRODUCT_COUNTER, {}):
+            if "value" in self._pge_config.get(oc_const.GET_PRODUCT_COUNTER, {}):
                 return {
-                    nc_const.PRODUCT_COUNTER: self._pge_config.get(
-                        nc_const.GET_PRODUCT_COUNTER
+                    oc_const.PRODUCT_COUNTER: self._pge_config.get(
+                        oc_const.GET_PRODUCT_COUNTER
                     ).get("value")
                 }
 
-            primary_output = self._pge_config.get(nc_const.PRIMARY_OUTPUT)
+            primary_output = self._pge_config.get(oc_const.PRIMARY_OUTPUT)
             index = "grq_*_{}".format(primary_output.lower())
             clauses = []
-            pc_key = self._pge_config.get(nc_const.GET_PRODUCT_COUNTER, {})
+            pc_key = self._pge_config.get(oc_const.GET_PRODUCT_COUNTER, {})
             for term, job_params_key in pc_key.items():
                 value = self.__get_converted_data(
                     self.__get_run_config_metadata(job_params_key, self._job_params)
@@ -153,7 +156,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
                 logger.warn("Setting product counter to 1")
         logger.info("Setting product counter: {}".format(str(counter).zfill(3)))
-        return {nc_const.PRODUCT_COUNTER: counter}
+        return {oc_const.PRODUCT_COUNTER: counter}
 
     def get_products(self):
         """
@@ -162,22 +165,22 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         :return: dict containing the product s3 paths
         """
-        logger.info("Evaluating precondition {}".format(nc_const.PRODUCT_PATHS))
-        input_file_path_key = self._pge_config.get(nc_const.PRIMARY_INPUT)
+        logger.info("Evaluating precondition {}".format(oc_const.PRODUCT_PATHS))
+        input_file_path_key = self._pge_config.get(oc_const.PRIMARY_INPUT)
         product_paths = []
 
-        if self._context.get(nc_const.PRODUCT_PATHS):
-            ppaths = self._context.get(nc_const.PRODUCT_PATHS, [])
-            pmets = self._context.get(nc_const.PRODUCTS_METADATA, [])
+        if self._context.get(oc_const.PRODUCT_PATHS):
+            ppaths = self._context.get(oc_const.PRODUCT_PATHS, [])
+            pmets = self._context.get(oc_const.PRODUCTS_METADATA, [])
 
-            get_products_config = self._pge_config.get(nc_const.GET_PRODUCTS, {})
-            is_state_config_trigger = get_products_config.get(nc_const.IS_STATE_CONFIG_TRIGGER, False)
+            get_products_config = self._pge_config.get(oc_const.GET_PRODUCTS, {})
+            is_state_config_trigger = get_products_config.get(oc_const.IS_STATE_CONFIG_TRIGGER, False)
 
             if is_state_config_trigger is True:
-                file_names_met = get_products_config.get(nc_const.FILE_NAMES_KEY, None)
+                file_names_met = get_products_config.get(oc_const.FILE_NAMES_KEY, None)
                 if file_names_met is None:
                     raise RuntimeError("Missing {} in the PGE config for the {} precondtion".format(
-                        nc_const.FILE_NAMES_KEY, nc_const.GET_PRODUCTS))
+                        oc_const.FILE_NAMES_KEY, oc_const.GET_PRODUCTS))
                 file_names = pmets.get("metadata", {}).get(file_names_met)
                 if not file_names:
                     raise RuntimeError("Missing '{}' from input metadata: {}".format(
@@ -187,7 +190,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                         file_names_met, len(file_names), len(ppaths)))
                 for i in range(0, len(ppaths)):
                     file_ppath = os.path.join(ppaths[i], file_names[i])
-                    logger.debug("{}: Adding product {}".format(nc_const.PRODUCT_PATHS, file_ppath))
+                    logger.debug("{}: Adding product {}".format(oc_const.PRODUCT_PATHS, file_ppath))
                     product_paths.append(file_ppath)
             else:
                 if isinstance(ppaths, list):
@@ -201,7 +204,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                         )
                         logger.debug(
                             "{}: Adding product {}".format(
-                                nc_const.PRODUCT_PATHS, file_ppath
+                                oc_const.PRODUCT_PATHS, file_ppath
                             )
                         )
                         product_paths.append(file_ppath)
@@ -215,14 +218,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                     )
                     logger.debug(
                         "{}: Adding product {}".format(
-                            nc_const.PRODUCT_PATHS, file_ppath
+                            oc_const.PRODUCT_PATHS, file_ppath
                         )
                     )
                     product_paths.append(file_ppath)
 
         else:
             raise RuntimeError(
-                "{} NOT FOUND in provided context file".format(nc_const.PRODUCT_PATHS)
+                "{} NOT FOUND in provided context file".format(oc_const.PRODUCT_PATHS)
             )
 
         logger.info(
@@ -245,17 +248,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return:
         """
         logger.info("Evaluating precondition {}".format(
-            nc_const.GET_PRODUCT_METADATA))
+            oc_const.GET_PRODUCT_METADATA))
         try:
-            if self._context.get(nc_const.PRODUCTS_METADATA) is None:
+            if self._context.get(oc_const.PRODUCTS_METADATA) is None:
                 raise ValueError(
                     "No product metadata key found in the input context")
             keys = self._pge_config.get(
-                nc_const.GET_PRODUCT_METADATA).get("keys", [])
+                oc_const.GET_PRODUCT_METADATA).get("keys", [])
             metadata = dict()
-            metadata_obj = self._context.get(nc_const.PRODUCTS_METADATA)
+            metadata_obj = self._context.get(oc_const.PRODUCTS_METADATA)
             logger.debug("Found Product Metadata: {}".format(json.dumps(metadata_obj)))
-            attribute_names = self._pge_config.get(nc_const.GET_PRODUCT_METADATA).get("attribute_names", {})
+            attribute_names = self._pge_config.get(oc_const.GET_PRODUCT_METADATA).get("attribute_names", {})
             if isinstance(metadata_obj, list):
                 for product in metadata_obj:
                     metadata.update(self.__get_keys_from_dict(product.get("metadata"), keys, attribute_names))
@@ -276,8 +279,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         :return: dict or raises error if not found
         """
-        logger.info("Evaluating precondition {}".format(nc_const.GET_METADATA))
-        keys = self._pge_config.get(nc_const.GET_METADATA).get("keys")
+        logger.info("Evaluating precondition {}".format(oc_const.GET_METADATA))
+        keys = self._pge_config.get(oc_const.GET_METADATA).get("keys")
         try:
             metadata = self.__get_keys_from_dict(self._context, keys)
             logger.info("Returning the following context metadata to the job_params: {}".format(json.dumps(metadata)))
@@ -300,7 +303,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         min_range_begin_date_time = None
         max_range_end_date_time = None
-        metadata_obj = self._context.get(nc_const.PRODUCTS_METADATA)
+        metadata_obj = self._context.get(oc_const.PRODUCTS_METADATA)
         if isinstance(metadata_obj, list):
             product_mets = metadata_obj
         else:
@@ -378,7 +381,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
     def get_dyn_anc_over_time_range(self):
         run_config_parameters = dict()
         product_types = self._pge_config.get(
-            nc_const.DYN_ANCILLARY_FILES).get("types")
+            oc_const.DYN_ANCILLARY_FILES).get("types")
 
         beginning_time = self._job_params.get(
             product_metadata.RANGE_BEGINNING_DATE_TIME
@@ -417,7 +420,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         run_config_parameters = dict()
         product_types = self._pge_config.get(
-            nc_const.MOST_RECENT_FILES).get("types")
+            oc_const.MOST_RECENT_FILES).get("types")
         for product_type in product_types:
             prod_type = eval("product_metadata.{}".format(product_type.upper()))
             query = {"query": {"match_all": {}}}
@@ -438,12 +441,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return:
         """
         run_config_parameters = dict()
-        product_types = self._pge_config.get(nc_const.MOST_RECENT_VERSION_FILES).get(
+        product_types = self._pge_config.get(oc_const.MOST_RECENT_VERSION_FILES).get(
             "types"
         )
         attribute_names = self._pge_config.get(
-            nc_const.MOST_RECENT_VERSION_FILES, {}
-        ).get(nc_const.ATTRIBUTE_NAMES_KEY, {})
+            oc_const.MOST_RECENT_VERSION_FILES, {}
+        ).get(oc_const.ATTRIBUTE_NAMES_KEY, {})
         for product_type in product_types:
             query = {"query": {"match_all": {}}}
             ancillary = ancillary_es.get_latest_product_by_version(
@@ -460,13 +463,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         :return:
         """
-        get_oe_params = self._pge_config.get(nc_const.GET_ORBIT_EPHEMERIS, {})
+        get_oe_params = self._pge_config.get(oc_const.GET_ORBIT_EPHEMERIS, {})
         if not get_oe_params:
             raise RuntimeError(
-                "Missing {} area in the PGE config".format(nc_const.GET_ORBIT_EPHEMERIS)
+                "Missing {} area in the PGE config".format(oc_const.GET_ORBIT_EPHEMERIS)
             )
 
-        oe_type = self._pge_config.get(nc_const.GET_ORBIT_EPHEMERIS, {}).get(
+        oe_type = self._pge_config.get(oc_const.GET_ORBIT_EPHEMERIS, {}).get(
             "type", "best"
         )
         types_to_search = []
@@ -490,7 +493,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         except KeyError:
             raise RuntimeError(
                 "Missing 'beginning_date_time' and/or 'ending_date_time' setting in the "
-                "'{}' area of the PGE config".format(nc_const.GET_ORBIT_EPHEMERIS)
+                "'{}' area of the PGE config".format(oc_const.GET_ORBIT_EPHEMERIS)
             )
 
         padding = int(get_oe_params.get("padding", 0))
@@ -573,7 +576,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
             )
 
-        return {nc_const.ORBIT_EPHEMERIS_FILE: datastore_refs}
+        return {oc_const.ORBIT_EPHEMERIS_FILE: datastore_refs}
 
     def set_pge_job_name(self):
         """
@@ -582,11 +585,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return: a job name that will go into the job id during the job submission step.
         """
         logger.info("Evaluating {} preconditions".format(
-            nc_const.SET_PGE_JOB_NAME))
+            oc_const.SET_PGE_JOB_NAME))
         template = self._pge_config.get(
-            nc_const.SET_PGE_JOB_NAME, {}).get("template")
+            oc_const.SET_PGE_JOB_NAME, {}).get("template")
         pge_job_name = template.format(**self._job_params)
-        return {nc_const.PGE_JOB_NAME: pge_job_name}
+        return {oc_const.PGE_JOB_NAME: pge_job_name}
 
     def set_l0b_mock_metadata(self):
         """
@@ -596,23 +599,23 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         :return: A list of metadata dictionaries
         """
-        logger.info("Evaluating {} preconditions".format(nc_const.SET_L0B_MOCK_METADATA))
-        mock_metadata = {nc_const.MOCK_METADATA: {}}
-        if self._settings.get(nc_const.PGE_SIM_MODE, True):
+        logger.info("Evaluating {} preconditions".format(oc_const.SET_L0B_MOCK_METADATA))
+        mock_metadata = {oc_const.MOCK_METADATA: {}}
+        if self._settings.get(oc_const.PGE_SIM_MODE, True):
             config = {
-                nc_const.SET_MOCK_METADATA: self._pge_config.get(nc_const.SET_L0B_MOCK_METADATA)
+                oc_const.SET_MOCK_METADATA: self._pge_config.get(oc_const.SET_L0B_MOCK_METADATA)
             }
             self._pge_config.update(config)
             init_mock_met = self.set_mock_metadata()
-            l0b_l_rrsd_met = init_mock_met.get(nc_const.MOCK_METADATA).pop(product_metadata.L0B_L_RRSD)
+            l0b_l_rrsd_met = init_mock_met.get(oc_const.MOCK_METADATA).pop(product_metadata.L0B_L_RRSD)
             l0b_l_rrsd_met_list = list()
-            mock_met_config = self._pge_config.get(nc_const.SET_L0B_MOCK_METADATA, {}).get(
+            mock_met_config = self._pge_config.get(oc_const.SET_L0B_MOCK_METADATA, {}).get(
                 product_metadata.L0B_L_RRSD, {})
-            if nc_const.OBSERVATIONS not in self._job_params:
-                raise RuntimeError("'{}' missing from job_params: {}".format(nc_const.OBSERVATIONS,
+            if oc_const.OBSERVATIONS not in self._job_params:
+                raise RuntimeError("'{}' missing from job_params: {}".format(oc_const.OBSERVATIONS,
                                                                              json.dumps(self._job_params, indent=2)))
-            for observation in self._job_params.get(nc_const.OBSERVATIONS, {}):
-                obs_id = observation.get(nc_const.PLANNED_OBSERVATION_ID)
+            for observation in self._job_params.get(oc_const.OBSERVATIONS, {}):
+                obs_id = observation.get(oc_const.PLANNED_OBSERVATION_ID)
                 logger.info("Mocking metadata for observation: {}".format(obs_id))
                 obs_met = copy.deepcopy(l0b_l_rrsd_met)
                 for met_key, dyn_value in mock_met_config.get("observations", {}).items():
@@ -655,7 +658,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                 )
                             )
                 l0b_l_rrsd_met_list.append(obs_met)
-            init_mock_met.get(nc_const.MOCK_METADATA).update({product_metadata.L0B_L_RRSD: l0b_l_rrsd_met_list})
+            init_mock_met.get(oc_const.MOCK_METADATA).update({product_metadata.L0B_L_RRSD: l0b_l_rrsd_met_list})
             mock_metadata = init_mock_met
 
         return mock_metadata
@@ -667,14 +670,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return: metadata dictionary
         """
         logger.info("Evaluating {} preconditions".format(
-            nc_const.SET_MOCK_METADATA))
+            oc_const.SET_MOCK_METADATA))
         mock_metadata = {}
-        if self._settings.get(nc_const.PGE_SIM_MODE, True):
+        if self._settings.get(oc_const.PGE_SIM_MODE, True):
             for output_type in self._pge_config.get(
-                nc_const.SET_MOCK_METADATA, {}
+                oc_const.SET_MOCK_METADATA, {}
             ).keys():
                 mock_met_config = self._pge_config.get(
-                    nc_const.SET_MOCK_METADATA, {}
+                    oc_const.SET_MOCK_METADATA, {}
                 ).get(output_type, {})
 
                 metadata = mock_met_config.get("static", {})
@@ -719,7 +722,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                             )
 
                 # TODO: Figure out a way to generalize this
-                if self._pge_config.get(nc_const.PGE_NAME) == nc_const.L0A:
+                if self._pge_config.get(oc_const.PGE_NAME) == oc_const.L0A:
                     regex = (
                         r"NISAR_S\d{3}_\w{2,3}_\w{3,4}_M\d{2}_P\d{5}_R\d{2}_C\d{2}_G\d{2}_(\d{4})_(\d{3})_"
                         r"(\d{2})_(\d{2})_(\d{2})_\d{9}\.vc\d{2}$"
@@ -768,7 +771,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
                 mock_metadata[output_type] = metadata
 
-        return {nc_const.MOCK_METADATA: mock_metadata}
+        return {oc_const.MOCK_METADATA: mock_metadata}
 
     def set_l0b_base_names(self):
         """
@@ -777,13 +780,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return: A base name.
         """
         base_names = {}
-        if self._settings.get(nc_const.PGE_SIM_MODE, True):
+        if self._settings.get(oc_const.PGE_SIM_MODE, True):
             mock_met_copy = copy.deepcopy(
-                self._job_params.get(nc_const.MOCK_METADATA, {})
+                self._job_params.get(oc_const.MOCK_METADATA, {})
             )
 
-            for output_type in self._pge_config.get(nc_const.SET_L0B_BASE_NAMES, {}).keys():
-                base_name_config = self._pge_config.get(nc_const.SET_L0B_BASE_NAMES, {}).get(
+            for output_type in self._pge_config.get(oc_const.SET_L0B_BASE_NAMES, {}).keys():
+                base_name_config = self._pge_config.get(oc_const.SET_L0B_BASE_NAMES, {}).get(
                     output_type, {}
                 )
                 dt_formats = base_name_config.get("date_time_formats", {})
@@ -810,7 +813,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                     base_names[output_type] = template.format(
                         **mock_met_copy[output_type])
 
-        return {nc_const.BASE_NAME: base_names}
+        return {oc_const.BASE_NAME: base_names}
 
     def set_base_name(self):
         """
@@ -819,13 +822,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return: A base name.
         """
         base_names = {}
-        if self._settings.get(nc_const.PGE_SIM_MODE, True):
+        if self._settings.get(oc_const.PGE_SIM_MODE, True):
             mock_met_copy = copy.deepcopy(
-                self._job_params.get(nc_const.MOCK_METADATA, {})
+                self._job_params.get(oc_const.MOCK_METADATA, {})
             )
 
-            for output_type in self._pge_config.get(nc_const.SET_BASE_NAME, {}).keys():
-                base_name_config = self._pge_config.get(nc_const.SET_BASE_NAME, {}).get(
+            for output_type in self._pge_config.get(oc_const.SET_BASE_NAME, {}).keys():
+                base_name_config = self._pge_config.get(oc_const.SET_BASE_NAME, {}).get(
                     output_type, {}
                 )
 
@@ -841,7 +844,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 base_names[output_type] = template.format(
                     **mock_met_copy[output_type])
 
-        return {nc_const.BASE_NAME: base_names}
+        return {oc_const.BASE_NAME: base_names}
 
     def get_nominal_nens(self):
         """
@@ -853,12 +856,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return:
         """
         logger.info("Evaluating precondition 'get_nominal_nens'")
-        input_file_path_key = self._pge_config.get(nc_const.PRIMARY_INPUT)
+        input_file_path_key = self._pge_config.get(oc_const.PRIMARY_INPUT)
 
         pattern = (
-            self._settings.get(nc_const.PRODUCT_TYPES, {})
+            self._settings.get(oc_const.PRODUCT_TYPES, {})
             .get(product_metadata.NEN_L_RRST, {})
-            .get(nc_const.PATTERN, None)
+            .get(oc_const.PATTERN, None)
         )
         if not pattern:
             raise RuntimeError(
@@ -933,11 +936,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         LookDirection = "Left"
 
         rc_params = {
-            nc_const.ABSOLUTE_ORBIT_NUMBER: AbsoluteOrbitNumber,
-            nc_const.MISSION_CYCLE: CycleNumber,
-            nc_const.RELATIVE_ORBIT_NUMBER: RelativeOrbitNumber,
-            nc_const.ORBIT_DIRECTION: OrbitDirection,
-            nc_const.LOOK_DIRECTION: LookDirection,
+            oc_const.ABSOLUTE_ORBIT_NUMBER: AbsoluteOrbitNumber,
+            oc_const.MISSION_CYCLE: CycleNumber,
+            oc_const.RELATIVE_ORBIT_NUMBER: RelativeOrbitNumber,
+            oc_const.ORBIT_DIRECTION: OrbitDirection,
+            oc_const.LOOK_DIRECTION: LookDirection,
         }
 
         logger.info("get_stuf_info : rc_params : {}".format(rc_params))
@@ -945,16 +948,16 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_processing_type(self):
         processing_type = "PR"
-        state_config_type = self._context.get(nc_const.DATASET_TYPE)
-        if state_config_type == nc_const.DATATAKE_UR_STATE_CONFIG_DOC_TYPE or \
-                state_config_type == nc_const.DATATAKE_UR_EXP_STATE_CONFIG_DOC_TYPE:
+        state_config_type = self._context.get(oc_const.DATASET_TYPE)
+        if state_config_type == oc_const.DATATAKE_UR_STATE_CONFIG_DOC_TYPE or \
+                state_config_type == oc_const.DATATAKE_UR_EXP_STATE_CONFIG_DOC_TYPE:
             processing_type = "UR"
 
-        if self._context.get(nc_const.PRODUCTS_METADATA):
-            pmets = self._context.get(nc_const.PRODUCTS_METADATA, [])
-            is_urgent = pmets.get("metadata", {}).get(nc_const.IS_URGENT, False)
+        if self._context.get(oc_const.PRODUCTS_METADATA):
+            pmets = self._context.get(oc_const.PRODUCTS_METADATA, [])
+            is_urgent = pmets.get("metadata", {}).get(oc_const.IS_URGENT, False)
 
-        rc_params = {nc_const.PROCESSINGTYPE: processing_type, nc_const.URGENT_RESPONSE_FIELD: is_urgent}
+        rc_params = {oc_const.PROCESSINGTYPE: processing_type, oc_const.URGENT_RESPONSE_FIELD: is_urgent}
         logger.info("get_l0b_processing_type : rc_params : {}".format(rc_params))
         return rc_params
 
@@ -966,17 +969,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         WaveformConfigurationFile = None
 
         RadarConfigurationFiles = ancillary_es.get_latest_product_by_creation_time(
-            index="grq_*_{}".format(nc_const.RADAR_CFG),
+            index="grq_*_{}".format(oc_const.RADAR_CFG),
             sort_by="metadata.{}".format(product_metadata.PRODUCT_RECEIVED_TIME),
         )
 
         ChirpParameterFiles = ancillary_es.get_latest_product_by_creation_time(
-            index="grq_*_{}".format(nc_const.CHIRP_PARAM),
+            index="grq_*_{}".format(oc_const.CHIRP_PARAM),
             sort_by="metadata.{}".format(product_metadata.PRODUCT_RECEIVED_TIME),
         )
 
         WaveformConfigurationFiles = ancillary_es.get_latest_product_by_creation_time(
-            index="grq_*_{}".format(nc_const.WAVEFORM.lower()),
+            index="grq_*_{}".format(oc_const.WAVEFORM.lower()),
             sort_by="metadata.{}".format(product_metadata.PRODUCT_RECEIVED_TIME),
         )
 
@@ -985,14 +988,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 RadarConfigurationFiles["hits"]["hits"][0]
             )[0]
         else:
-            raise RuntimeError("Could not find any {} files in ES.".format(nc_const.RADAR_CFG))
+            raise RuntimeError("Could not find any {} files in ES.".format(oc_const.RADAR_CFG))
 
         if ChirpParameterFiles and len(ChirpParameterFiles["hits"]["hits"]) > 0:
             ChirpParameterFile = ancillary_es.get_datastore_ref_from_es_record(
                 ChirpParameterFiles["hits"]["hits"][0]
             )[0]
         else:
-            raise RuntimeError("Could not find any {} files in ES.".format(nc_const.CHIRP_PARAM))
+            raise RuntimeError("Could not find any {} files in ES.".format(oc_const.CHIRP_PARAM))
 
         if (
             WaveformConfigurationFiles
@@ -1002,12 +1005,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 WaveformConfigurationFiles["hits"]["hits"][0]
             )[0]
         else:
-            raise RuntimeError("Could not find any {} files in ES.".format(nc_const.WAVEFORM))
+            raise RuntimeError("Could not find any {} files in ES.".format(oc_const.WAVEFORM))
 
         rc_params = {
-            nc_const.RADAR_CONFIGURATION_FILE: RadarConfigurationFile,
-            nc_const.CHIRP_PARAMETER_FILE: ChirpParameterFile,
-            nc_const.WAVE_CONFIGURATION_FILE: WaveformConfigurationFile,
+            oc_const.RADAR_CONFIGURATION_FILE: RadarConfigurationFile,
+            oc_const.CHIRP_PARAMETER_FILE: ChirpParameterFile,
+            oc_const.WAVE_CONFIGURATION_FILE: WaveformConfigurationFile,
         }
 
         logger.info("get_l0b_ancillary_files : rc_params : {}".format(rc_params))
@@ -1085,8 +1088,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         if observation_ids is None:
             raise RuntimeError("Missing {} from job parameters".format(product_metadata.OBSERVATION_IDS))
-        pmets = self._context.get(nc_const.PRODUCTS_METADATA, [])
-        is_urgent = pmets.get("metadata", {}).get(nc_const.IS_URGENT, False)
+        pmets = self._context.get(oc_const.PRODUCTS_METADATA, [])
+        is_urgent = pmets.get("metadata", {}).get(oc_const.IS_URGENT, False)
         observations = list()
         for observation_id in observation_ids:
             logger.info("Getting observation info for: {}".format(observation_id))
@@ -1094,9 +1097,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             if rec.get("found", False) is True:
                 observation_info = dict()
                 logger.info("Observation record : \n{}\n".format(json.dumps(rec, indent=2)))
-                observation_info[nc_const.PLANNED_OBSERVATION_ID] = rec.get("_id")
-                observation_info[nc_const.IS_URGENT_OBSERVATION] = is_urgent
-                observation_info[nc_const.CONFIGURATION_ID] = rec.get("_source").get(cop_catalog.LSAR_CONFIG_ID)
+                observation_info[oc_const.PLANNED_OBSERVATION_ID] = rec.get("_id")
+                observation_info[oc_const.IS_URGENT_OBSERVATION] = is_urgent
+                observation_info[oc_const.CONFIGURATION_ID] = rec.get("_source").get(cop_catalog.LSAR_CONFIG_ID)
                 lsar_start_datetime_iso = rec.get("_source").get(
                     cop_catalog.CMD_LSAR_START_DATETIME_ISO
                 )
@@ -1110,8 +1113,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                         rost_catalog.START_TIME_ISO,
                         rost_catalog.END_TIME_ISO
                     )
-                    observation_info[nc_const.TOTAL_NUMBER_RANGELINES] = number_rangelines
-                    observation_info[nc_const.RANGELINES_TO_SKIP] = rangelines_to_skip
+                    observation_info[oc_const.TOTAL_NUMBER_RANGELINES] = number_rangelines
+                    observation_info[oc_const.RANGELINES_TO_SKIP] = rangelines_to_skip
 
                 except Exception as e:
                     raise RuntimeError(
@@ -1120,10 +1123,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                             lsar_start_datetime_iso, lsar_end_datetime_iso, str(e)
                         )
                     )
-                observation_info[nc_const.START_TIME] = lsar_start_datetime_iso
-                observation_info[nc_const.END_TIME] = lsar_end_datetime_iso
+                observation_info[oc_const.START_TIME] = lsar_start_datetime_iso
+                observation_info[oc_const.END_TIME] = lsar_end_datetime_iso
                 # Need to hardcode this for now per ICS
-                observation_info[nc_const.MISSION_CYCLE] = 1
+                observation_info[oc_const.MISSION_CYCLE] = 1
 
                 observations.append(observation_info)
             else:
@@ -1141,15 +1144,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         :return:
         """
         dyn_anc = {
-            nc_const.DEM_FILE: None,
-            nc_const.ORBIT: None,
-            nc_const.REFINED_POINTING: None,
-            nc_const.EXT_CALIBRATION: None,
-            nc_const.INT_CALIBRATION: None,
-            nc_const.POL_CALIBRATION: None,
-            nc_const.BOOK_CALIBRATION: None,
-            nc_const.ANT_PATTERN: None,
-            nc_const.WAVEFORM: None,
+            oc_const.DEM_FILE: None,
+            oc_const.ORBIT: None,
+            oc_const.REFINED_POINTING: None,
+            oc_const.EXT_CALIBRATION: None,
+            oc_const.INT_CALIBRATION: None,
+            oc_const.POL_CALIBRATION: None,
+            oc_const.BOOK_CALIBRATION: None,
+            oc_const.ANT_PATTERN: None,
+            oc_const.WAVEFORM: None,
         }
 
         logger.info("Setting default dyn anc for GSLC : {}".format(dyn_anc))
@@ -1157,7 +1160,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_range_date_times(self):
         metadata = {}
-        if self._pge_config.get(nc_const.PGE_NAME) == nc_const.L0B:
+        if self._pge_config.get(oc_const.PGE_NAME) == oc_const.L0B:
             if self._job_params.get(product_metadata.DATATAKE_START_DATE_TIME) and \
                     self._job_params.get(product_metadata.DATATAKE_STOP_DATE_TIME):
                 metadata[product_metadata.RANGE_START_DATE_TIME] = \
@@ -1177,22 +1180,22 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         else:
             raise RuntimeError(
                 "get_range_beginning_date_times precondition not implemented yet for PGE '{}'".format(
-                    self._pge_config.get(nc_const.PGE_NAME)
+                    self._pge_config.get(oc_const.PGE_NAME)
                 )
             )
 
         return metadata
 
     def get_file_size_limit(self):
-        pge_name = self._pge_config.get(nc_const.PGE_NAME)
-        file_size_limit = self._settings.get(pge_name, {}).get(nc_const.FILE_SIZE_LIMIT, "700M")
-        rc_params = {nc_const.FILESIZELIMIT: file_size_limit}
+        pge_name = self._pge_config.get(oc_const.PGE_NAME)
+        file_size_limit = self._settings.get(pge_name, {}).get(oc_const.FILE_SIZE_LIMIT, "700M")
+        rc_params = {oc_const.FILESIZELIMIT: file_size_limit}
         logger.info("get_file_size_limit : rc_params : {}".format(rc_params))
         return rc_params
 
     def get_number_of_threads(self):
         number_of_threads = psutil.cpu_count()
-        rc_params = {nc_const.NUMBEROFTHREADS: number_of_threads}
+        rc_params = {oc_const.NUMBEROFTHREADS: number_of_threads}
         logger.info("get_number_of_threads : rc_params : {}".format(rc_params))
         return rc_params
 
@@ -1200,7 +1203,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info("Return value of psutil.cpu_count() = {}".format(psutil.cpu_count()))
         number_of_threads = (psutil.cpu_count() * 2) - 2 or 1
 
-        rc_params = {nc_const.NUMBEROFTHREADS: number_of_threads}
+        rc_params = {oc_const.NUMBEROFTHREADS: number_of_threads}
         logger.info("get_number_of_threads : rc_params : {}".format(rc_params))
         return rc_params
 
@@ -1216,12 +1219,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
     def set_extra_pge_output_metadata(self):
         logger.info(
             "Calling {} pre-condition function".format(
-                nc_const.SET_EXTRA_PGE_OUTPUT_METADATA
+                oc_const.SET_EXTRA_PGE_OUTPUT_METADATA
             )
         )
         extra_met = dict()
         for met_key, job_params_key in self._pge_config.get(
-            nc_const.SET_EXTRA_PGE_OUTPUT_METADATA
+            oc_const.SET_EXTRA_PGE_OUTPUT_METADATA
         ).items():
             if job_params_key in self._job_params:
                 extra_met[met_key] = self._job_params.get(job_params_key)
@@ -1229,11 +1232,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 raise RuntimeError(
                     "Cannot find {} in the job_params dictionary".format(job_params_key)
                 )
-        return {nc_const.EXTRA_PGE_OUTPUT_METADATA: extra_met}
+        return {oc_const.EXTRA_PGE_OUTPUT_METADATA: extra_met}
 
     def get_gpu_enabled(self):
         logger.info(
-            "Calling {} pre-condition function".format(nc_const.GPU_ENABLED))
+            "Calling {} pre-condition function".format(oc_const.GPU_ENABLED))
 
         # read in SciFlo work unit json file and extract work directory
         work_unit_file = os.path.abspath("workunit.json")
@@ -1254,13 +1257,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         gpu_enabled = (
             True if "gpus" in pge_docker_params.get("runtime_options", {}) else False
         )
-        return {nc_const.GPU_ENABLED: gpu_enabled}
+        return {oc_const.GPU_ENABLED: gpu_enabled}
 
     def set_pcm_retrieval_id(self):
         logger.info(
-            "Calling function {} function".format(nc_const.SET_PCM_RETRIEVAL_ID)
+            "Calling function {} function".format(oc_const.SET_PCM_RETRIEVAL_ID)
         )
-        template = self._pge_config.get(nc_const.SET_PCM_RETRIEVAL_ID, {}).get(
+        template = self._pge_config.get(oc_const.SET_PCM_RETRIEVAL_ID, {}).get(
             "template", None
         )
 
@@ -1270,7 +1273,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         else:
             raise RuntimeError(
                 "Must define a 'template' field for the {} function".format(
-                    nc_const.SET_PCM_RETRIEVAL_ID
+                    oc_const.SET_PCM_RETRIEVAL_ID
                 )
             )
 
@@ -1283,10 +1286,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(
             "Evaluating precondition {}".format(
-                nc_const.GET_GCOV_JOB_PARAMS_FROM_CONTEXT
+                oc_const.GET_GCOV_JOB_PARAMS_FROM_CONTEXT
             )
         )
-        keys = self._pge_config.get(nc_const.GET_GCOV_JOB_PARAMS_FROM_CONTEXT).get(
+        keys = self._pge_config.get(oc_const.GET_GCOV_JOB_PARAMS_FROM_CONTEXT).get(
             "keys"
         )
         try:
@@ -1392,10 +1395,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         print("get_dems : wd : {}".format(wd))
         get_dems_param = self._pge_config.get(
-            nc_const.GET_DEMS, {})
+            oc_const.GET_DEMS, {})
         if not get_dems_param:
             raise RuntimeError("Missing {} area in the PGE config".format(
-                nc_const.GET_DEMS))
+                oc_const.GET_DEMS))
 
         # get bbox param
         bbox = None
@@ -1413,12 +1416,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if bbox is not None and polygon_key is not None:
             raise RuntimeError(
                 "Cannot set both 'bbox' and 'polygon_key' "
-                "parameters in {} area in the PGE config".format(nc_const.GET_DEMS)
+                "parameters in {} area in the PGE config".format(oc_const.GET_DEMS)
             )
         if bbox is None and polygon_key is None:
             raise RuntimeError(
                 "Set either the 'bbox' or 'polygon_key' "
-                "parameter in {} area in the PGE config".format(nc_const.GET_DEMS)
+                "parameter in {} area in the PGE config".format(oc_const.GET_DEMS)
             )
 
         # get bbox from bounding polygon
@@ -1474,14 +1477,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             json.dump(pge_metrics, f, indent=2)
 
         rc_params = {
-            nc_const.DEM_FILE: dem_file
+            oc_const.DEM_FILE: dem_file
         }
         logger.info("get_dems : rc_params : {}".format(rc_params))
         return rc_params
 
     def cast_string_to_int(self):
-        logger.info("Calling {} pre-condition".format(nc_const.CAST_STRING_TO_INT))
-        keys = self._pge_config.get(nc_const.CAST_STRING_TO_INT).get("keys")
+        logger.info("Calling {} pre-condition".format(oc_const.CAST_STRING_TO_INT))
+        keys = self._pge_config.get(oc_const.CAST_STRING_TO_INT).get("keys")
         results = {}
         for key in keys:
             results[key] = int(self._job_params.get(key))
@@ -1489,9 +1492,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return results
 
     def get_pge_settings_values(self):
-        logger.info("Calling {} pre-condition".format(nc_const.GET_PGE_SETTINGS_VALUES))
-        pge_name = self._pge_config.get(nc_const.PGE_NAME)
-        key_map = self._pge_config.get(nc_const.GET_PGE_SETTINGS_VALUES)
+        logger.info("Calling {} pre-condition".format(oc_const.GET_PGE_SETTINGS_VALUES))
+        pge_name = self._pge_config.get(oc_const.PGE_NAME)
+        key_map = self._pge_config.get(oc_const.GET_PGE_SETTINGS_VALUES)
         pge_settings = self._settings.get(pge_name)
         results = {}
         for key, value in key_map.items():
@@ -1501,3 +1504,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 raise RuntimeError("Cannot find {} in the settings.yaml under the {} area.".format(key, pge_name))
         logger.info("Adding the following to the job params: {}".format(json.dumps(results)))
         return results
+
+    def get_input_filepaths_from_state_config(self) -> Dict:
+        """Returns a partial RunConfig containing the s3 paths of the published L2_HLS_DSWx products."""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
+
+        # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
+        # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
+        return {"L2_HLS": product_paths}

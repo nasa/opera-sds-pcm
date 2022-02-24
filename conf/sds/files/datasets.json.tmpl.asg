@@ -49,54 +49,6 @@
       }
     },
     {
-      "ipath": "hysds::data/NET",
-      "level": "NA",
-      "type": "NET",
-      "match_pattern": "(?P<id>NET_NISAR_L0_(?P<ProcessingType>[P|U]R)_RRSD_(?P<CycleNumber>\\d{3})_(?P<RelativeOrbit>\\d{3})_(?P<Direction>\\w)_(?P<RadarMode>\\w{3})(?P<RadarProcessingMode>\\w)_(?P<RangeStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<RangeStopDateTime>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<Fidelity>\\w)_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/net/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/net/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/net/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/net/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/net/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/net/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/PTA",
-      "level": "NA",
-      "type": "PTA",
-      "match_pattern": "(?P<id>PTA_NISAR_L0_(?P<ProcessingType>[P|U]R)_RRSD_(?P<CycleNumber>\\d{3})_(?P<RelativeOrbit>\\d{3})_(?P<Direction>\\w)_(?P<RadarMode>\\w{3})(?P<RadarProcessingMode>\\w)_(?P<RangeStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<RangeStopDateTime>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<Fidelity>\\w)_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/pta/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/pta/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/pta/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/pta/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/pta/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/pta/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
       "ipath": "hysds::data/gpu_pge",
       "level": "NA",
       "type": "gpu_pge",
@@ -169,150 +121,6 @@
       }
     },
     {
-      "ipath": "hysds::data/COP",
-      "level": "NA",
-      "type": "COP",
-      "match_pattern": "/(?P<id>COP_e(?P<e_year>\\d{4})-(?P<e_doy>\\d{3})_c(?P<c_year>\\d{4})-(?P<c_doy>\\d{3})_v(?P<VersionID>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/COP/{e_year}/{e_doy}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/COP/{e_year}/{e_doy}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/COP/{e_year}/{e_doy}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/COP/{e_year}/{e_doy}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/COP/{e_year}/{e_doy}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/COP/{e_year}/{e_doy}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/TIURDROP",
-      "level": "NA",
-      "type": "TIURDROP",
-      "match_pattern":"/(?P<id>TIURDROP_UR_event_(?P<event_type>\\w+)_(?P<ExecutionDateTime>(?P<e_year>\\d{4})_(?P<e_month>\\d{2})_(?P<e_day>\\d{2})T\\d{2}_\\d{2}_\\d{2}_\\d{3}Z)_(?P<event_desc>[\\w|-]+)_v(?P<VersionID>\\d{3})\\.xml\\.xopsis)$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/TIURDROP/{e_year}/{e_month}/{e_day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/TIURDROP/{e_year}/{e_month}/{e_day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/TIURDROP/{e_year}/{e_month}/{e_day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/TIURDROP/{e_year}/{e_month}/{e_day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/TIURDROP/{e_year}/{e_month}/{e_day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/TIURDROP/{e_year}/{e_month}/{e_day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/OROST",
-      "level": "NA",
-      "type": "OROST",
-      "match_pattern": "/(?P<id>id_\\d{2}-(?P<Kind>\\w{2})-(?P<Variant>\\d{4})_(?P<Type>orost)-(?P<DayOfYear>(?P<year>\\d{4})(?P<doy>\\d{3}))-c(?P<CycleNumber>\\d{3})-d(?P<CycleDay>\\d{2})-v(?P<VersionID>\\d{2}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/OROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/OROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/OROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/OROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/OROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/OROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/SROST",
-      "level": "NA",
-      "type": "SROST",
-      "match_pattern": "/(?P<id>id_\\d{2}-(?P<Kind>\\w{2})-(?P<Variant>\\d{4})_(?P<Type>srost)-(?P<DayOfYear>(?P<year>\\d{4})(?P<doy>\\d{3}))-c(?P<CycleNumber>\\d{3})-d(?P<CycleDay>\\d{2})-v(?P<VersionID>\\d{2}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/SROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/SROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/SROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/SROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/SROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/SROST/{met[Year]}/{met[Month]}/{met[Day]}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/OFS",
-      "level": "NA",
-      "type": "OFS",
-      "match_pattern": "/(?P<id>ofs_\\d{2}-(?P<Kind>\\w{2})-(?P<Variant>\\d{4})_(?P<Type>srost|orost)-(?P<DayOfYear>(?P<year>\\d{4})(?P<doy>\\d{3}))-c(?P<CycleNumber>\\d{3})-d(?P<CycleDay>\\d{2})-v(?P<VersionID>\\d{2}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/OFS/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/OFS/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/OFS/{met[Year]}/{met[Month]}/{met[Day]}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/OFS/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/OFS/{met[Year]}/{met[Month]}/{met[Day]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/OFS/{met[Year]}/{met[Month]}/{met[Day]}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/ARP",
-      "level": "NA",
-      "type": "ARP",
-      "match_pattern": "/(?P<id>(?P<Station>\\w{2,3})_(?P<Mission>NISAR)_(?P<FileCreationDateTime>(?P<c_year>\\d{4})_(?P<c_doy>\\d{3})_\\d{2}_\\d{2}_\\d{2}_ARP))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/ARP/{c_year}/{c_doy}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/ARP/{c_year}/{c_doy}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/ARP/{c_year}/{c_doy}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/ARP/{c_year}/{c_doy}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/ARP/{c_year}/{c_doy}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/ARP/{c_year}/{c_doy}/{id}"
-        ]
-      }
-    },
-    {
       "ipath": "hysds::data/LDF",
       "level": "NA",
       "type": "LDF",
@@ -351,478 +159,6 @@
       "match_pattern": "/(?P<id>(?P<Mission>NISAR)_(?P<SCID>S\\d{3})_(?P<Station>\\w{2,3})_(?P<Antenna>\\w{3,4})_M(?P<Mode>\\d{2})_P(?P<Pass>\\d{5})_R(?P<Receiver>\\d{2})_C(?P<Channel>\\d{2})_G(?P<Group>\\d{2})_(?P<FileCreationDateTime>(?P<year>\\d{4})_(?P<doy>\\d{3})_\\d{2}_\\d{2}_\\d{2}_\\d{5})(?P<R>\\d{1,4})_vc(?P<VCID>\\w{2})_expired-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
-    },
-    {
-      "ipath": "hysds::data/datatake-state-config",
-      "level": "state-config",
-      "type": "datatake-state-config",
-      "match_pattern": "/(?P<id>dtid_\\d{13})_state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/datatake-expired-state-config",
-      "level": "state-config",
-      "type": "datatake-state-config",
-      "match_pattern": "/(?P<id>dtid_\\d{13})_expired-state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/datatake-urgent_response_state-config",
-      "level": "state-config",
-      "type": "datatake-urgent_response_state-config",
-      "match_pattern": "/(?P<id>dtid_\\d{13})_urgent_response_state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/datatake-urgent_response_expired-state-config",
-      "level": "state-config",
-      "type": "datatake-urgent_response_state-config",
-      "match_pattern": "/(?P<id>dtid_\\d{13})_urgent_response_expired-state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/track_frame-state-config",
-      "level": "state-config",
-      "type": "track_frame-state-config",
-      "match_pattern": "/(?P<id>track_frame_\\d{3}_\\d{3}_\\d{3}_\\w+)_state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/track_frame-expired-state-config",
-      "level": "state-config",
-      "type": "track_frame-state-config",
-      "match_pattern": "/(?P<id>track_frame_\\d{3}_\\d{3}_\\d{3}_\\w+)_expired-state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/network_pair-state-config",
-      "level": "state-config",
-      "type": "network_pair-state-config",
-      "match_pattern": "/(?P<id>network_pair_\\d{3}_\\d{3}_\\d{3})_state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/network_pair-expired-state-config",
-      "level": "state-config",
-      "type": "network_pair-state-config",
-      "match_pattern": "/(?P<id>network_pair_\\d{3}_\\d{3}_\\d{3})_expired-state-config$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/FOE",
-      "level": "NA",
-      "type": "FOE",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_FOE_(?P<CreationDateTime>\\d{8}T\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<ValidityEndDateTime>\\d{8}T\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/FOE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/FOE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/FOE/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/FOE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/FOE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/FOE/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/NOE",
-      "level": "NA",
-      "type": "NOE",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_NOE_(?P<CreationDateTime>\\d{8}T\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<ValidityEndDateTime>\\d{8}T\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/NOE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/NOE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/NOE/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/NOE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/NOE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/NOE/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/MOE",
-      "level": "NA",
-      "type": "MOE",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_MOE_(?P<CreationDateTime>\\d{8}T\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<ValidityEndDateTime>\\d{8}T\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/MOE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/MOE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/MOE/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/MOE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/MOE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/MOE/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/POE",
-      "level": "NA",
-      "type": "POE",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_POE_(?P<CreationDateTime>\\d{8}T\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<ValidityEndDateTime>\\d{8}T\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/POE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/POE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/POE/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/POE/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/POE/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/POE/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/SCLKSCET",
-      "level": "NA",
-      "type": "SCLKSCET",
-      "match_pattern": "(?P<id>NISAR_(?P<SpacecraftID>\\d+)_SCLKSCET_(?P<Type>\\w+)\\.(?P<VersionID>\\d{5}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/SCLKSCET/{Type}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/SCLKSCET/{Type}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/SCLKSCET/{Type}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/SCLKSCET/{Type}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/SCLKSCET/{Type}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/SCLKSCET/{Type}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/NEN_L_RRST",
-      "level": "L0",
-      "type": "NEN_L_RRST",
-      "match_pattern": "/(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\\d{3})_(?P<Station>\\w{2,3})_(?P<Antenna>\\w{3,4})_M(?P<Mode>\\d{2})_P(?P<Pass>\\d{5})_R(?P<Receiver>\\d{2})_C(?P<Channel>\\d{2})_G(?P<Group>\\d{2})_(?P<FileCreationDateTime>(?P<year>\\d{4})_(?P<doy>\\d{3})_\\d{2}_\\d{2}_\\d{2}_\\d{6})\\d{3}\\.vc(?P<VCID>\\w{2}))",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/NEN_L_RRST/{year}/{doy}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/NEN_L_RRST/{year}/{doy}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/NEN_L_RRST/{year}/{doy}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/NEN_L_RRST/{year}/{doy}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/NEN_L_RRST/{year}/{doy}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/NEN_L_RRST/{year}/{doy}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L0A_L_RRST_PP",
-      "level": "L0A",
-      "type": "L0A_L_RRST_PP",
-      "match_pattern": "(?P<id>NISAR_L0_RRST_PP_(?P<ChannelID>VC\\w{2})_(?P<DAPHNE_Min_Time_Tag>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<DAPHNE_Max_Time_Tag>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_L_RRST_PP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L0A_L_RRST_PP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_L_RRST_PP/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_L_RRST_PP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L0A_L_RRST_PP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_L_RRST_PP/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L0A_L_RRST",
-      "level": "L0A",
-      "type": "L0A_L_RRST",
-      "match_pattern": "(?P<id>NISAR_L0_RRST_(?P<ChannelID>VC\\w{2})_(?P<DAPHNE_Min_Time_Tag>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<DAPHNE_Max_Time_Tag>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_L_RRST/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L0A_L_RRST/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_L_RRST/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_L_RRST/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L0A_L_RRST/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_L_RRST/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L0A_S_RRST_PP",
-      "level": "L0A",
-      "type": "L0A_S_RRST_PP",
-      "match_pattern": "(?P<id>NISAR_S0_RRST_PP_(?P<ChannelID>VC\\w{2})_(?P<DAPHNE_Min_Time_Tag>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<DAPHNE_Max_Time_Tag>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_S_RRST_PP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L0A_S_RRST_PP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_S_RRST_PP/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_S_RRST_PP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L0A_S_RRST_PP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_S_RRST_PP/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L0A_S_RRST",
-      "level": "L0A",
-      "type": "L0A_S_RRST",
-      "match_pattern": "(?P<id>NISAR_S0_RRST_(?P<ChannelID>VC\\w{2})_(?P<DAPHNE_Min_Time_Tag>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<DAPHNE_Max_Time_Tag>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_S_RRST/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L0A_S_RRST/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_S_RRST/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_S_RRST/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L0A_S_RRST/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_S_RRST/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L0A_J_RRST_PP",
-      "level": "L0A",
-      "type": "L0A_J_RRST_PP",
-      "match_pattern": "(?P<id>NISAR_J0_RRST_PP_(?P<ChannelID>VC\\w{2})_(?P<DAPHNE_Min_Time_Tag>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<DAPHNE_Max_Time_Tag>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_J_RRST_PP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L0A_J_RRST_PP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_J_RRST_PP/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_J_RRST_PP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L0A_J_RRST_PP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_J_RRST_PP/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L0A_J_RRST",
-      "level": "L0A",
-      "type": "L0A_J_RRST",
-      "match_pattern": "(?P<id>NISAR_J0_RRST_(?P<ChannelID>VC\\w{2})_(?P<DAPHNE_Min_Time_Tag>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<DAPHNE_Max_Time_Tag>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_J_RRST/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L0A_J_RRST/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L0A_J_RRST/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_J_RRST/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L0A_J_RRST/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L0A_J_RRST/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L1_L_RSLC",
-      "level": "L1",
-      "type": "L1_L_RSLC",
-      "match_pattern": "(?P<id>NISAR_L1_(?P<ProcessingType>[P|U]R)_RSLC_(?P<CycleNumber>\\d{3})_(?P<RelativeOrbit>\\d{3})_(?P<Direction>\\w)_(?P<TrackFrame>\\d{3})_(?P<RadarProcessingMode>\\d{4})_(?P<Polarization>\\w{2})_(?P<RadarStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T\\d{6})_(?P<RadarStopDateTime>\\d{8}T\\d{6})_(?P<CompositeReleaseID>\\w{6})_(?P<Fidelity>\\w)_(?P<CoverageIndicator>[F|P])_(?P<ProductCounter>\\d{3}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L1_L_RSLC/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/L1_L_RSLC/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/L1_L_RSLC/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L1_L_RSLC/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/L1_L_RSLC/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/L1_L_RSLC/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/FRP",
-      "level": "NA",
-      "type": "FRP",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_FRP_(?P<CreationDateTime>\\d{8}\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})\\d{6})_(?P<ValidityEndDateTime>\\d{8}\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/FRP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/FRP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/FRP/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/FRP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/FRP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/FRP/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/NRP",
-      "level": "NA",
-      "type": "NRP",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_NRP_(?P<CreationDateTime>\\d{8}\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})\\d{6})_(?P<ValidityEndDateTime>\\d{8}\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/NRP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/NRP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/NRP/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/NRP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/NRP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/NRP/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/PRP",
-      "level": "NA",
-      "type": "PRP",
-      "match_pattern": "(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\\w{2})_PRP_(?P<CreationDateTime>\\d{8}\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})\\d{6})_(?P<ValidityEndDateTime>\\d{8}\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/PRP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/PRP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/PRP/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/PRP/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/PRP/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/PRP/{year}/{month}/{day}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/STUF",
-      "level": "NA",
-      "type": "STUF",
-      "match_pattern": "(?P<id>opera_stuf_(?P<CreationDateTime>\\d{8}\\d{6})_(?P<ValidityStartDateTime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})\\d{6})_(?P<ValidityEndDateTime>\\d{8}\\d{6}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/STUF/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/STUF/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/STUF/{year}/{month}/{day}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/STUF/{year}/{month}/{day}/{id}",
-        "urls": [
-          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/STUF/{year}/{month}/{day}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/STUF/{year}/{month}/{day}/{id}"
-        ]
-      }
     },
     {
       "ipath": "hysds::data/on_demand",
@@ -871,6 +207,94 @@
           "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}"
         ]
       }
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_L30",
+      "level": "L2",
+      "type": "L2_HLS_L30",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_S30",
+      "level": "L2",
+      "type": "L2_HLS_S30",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DSWx_HLS",
+      "level": "L3",
+      "type": "L3_DSWx_HLS",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\\W_]{5})_(?P<datetime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))_(?P<collection_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_L30-state-config",
+      "level": "state-config",
+      "type": "L2_HLS_L30-state-config",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)_state_config)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_S30-state-config",
+      "level": "state-config",
+      "type": "L2_HLS_S30-state-config",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)_state_config)$",
+      "alt_match_pattern": null,
+      "extractor": null
     }
   ]
 }

@@ -406,6 +406,15 @@ variable "inactivity_threshold" {
   default = 600
 }
 
+variable "artifactory_fn_user" {
+  description = "Username to use for authenticated Artifactory API calls."
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  description = "Artifactory API key for authenticated Artifactory API calls. Must map to artifactory_username."
+}
+
 variable "earthdata_user" {
   default = ""
 }

@@ -20,7 +20,7 @@ from pass_accountability.es_connection import get_pass_accountability_connection
 from observation_accountability.es_connection import get_observation_accountability_connection
 
 from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 
 pass_es = get_pass_accountability_connection(logger)
@@ -79,9 +79,9 @@ class OperaPostProcessFunctions(PostProcessFunctions):
                 )
 
             output_type = list(self._pge_config.get(
-                nc_const.OUTPUT_TYPES).keys())[0]
+                oc_const.OUTPUT_TYPES).keys())[0]
             # NECESSARY specific check to account for L0A and Time Extractor Differentiation
-            if self._pge_config.get(nc_const.PGE_NAME) == "L0A":
+            if self._pge_config.get(oc_const.PGE_NAME) == "L0A":
                 output_type += "_PP"
             # from self._pge_config get value of output_type + "_id" -> key
             output_type_key = output_type + "_id"
@@ -89,15 +89,15 @@ class OperaPostProcessFunctions(PostProcessFunctions):
             ouput_type_job_key = output_type + "_job_id"
             product_id = None
             job_id = None
-            if nc_const.OUTPUT_DATASETS in self._job_result:
-                task_id = self._job_result.get(nc_const.TASK_ID_FIELD)
-                job_id = self._job_result.get(nc_const.JOB_ID_FIELD)
+            if oc_const.OUTPUT_DATASETS in self._job_result:
+                task_id = self._job_result.get(oc_const.TASK_ID_FIELD)
+                job_id = self._job_result.get(oc_const.JOB_ID_FIELD)
                 logger.info("job_id: {}".format(job_id))
                 product_id = os.path.basename(
-                    self._job_result.get(nc_const.OUTPUT_DATASETS)[0])
+                    self._job_result.get(oc_const.OUTPUT_DATASETS)[0])
                 # Again need to check if it's L0A job so I can make the necessary change to the product name for the
                 # time extractor
-                if self._pge_config.get(nc_const.PGE_NAME) == "L0A":
+                if self._pge_config.get(oc_const.PGE_NAME) == "L0A":
                     product_id = "_RRST_PP".join(product_id.split("_RRST"))
                 # grab the task from mozart
                 try:
@@ -107,7 +107,7 @@ class OperaPostProcessFunctions(PostProcessFunctions):
                             "query": {"bool": {"must": [{"term": {"_id": task_id}}]}}
                         }
                         result = self._mozart_es.search(
-                            body=query, index=nc_const.TASK_INDEX)
+                            body=query, index=oc_const.TASK_INDEX)
                         hits = result.get("hits", {}).get("hits", [])
                         task_result_str = hits[0].get(
                             "_source").get("event").get("result")
@@ -143,7 +143,7 @@ class OperaPostProcessFunctions(PostProcessFunctions):
             if output_type_key == "ldf_id":
                 raise Exception("trying to overwrite ldf_id for some reason")
             updated_values = {output_type_key: product_id}
-            updated_values[nc_const.LAST_MOD] = datetime.now().isoformat()
+            updated_values[oc_const.LAST_MOD] = datetime.now().isoformat()
             if job_id is not None:
                 updated_values[ouput_type_job_key] = job_id
             updated_doc = {
@@ -186,15 +186,15 @@ class OperaPostProcessFunctions(PostProcessFunctions):
             # get the job id
             job_id = ""
             products_list = []
-            if nc_const.OUTPUT_DATASETS in self._job_result:
-                job_id = self._job_result.get(nc_const.JOB_ID_FIELD)
-                products_list = self._job_result.get(nc_const.OUTPUT_DATASETS)
+            if oc_const.OUTPUT_DATASETS in self._job_result:
+                job_id = self._job_result.get(oc_const.JOB_ID_FIELD)
+                products_list = self._job_result.get(oc_const.OUTPUT_DATASETS)
             else:
                 products_list, prev_context, message, job_id = self._get_job()
                 # let's get the job status via the job_id
                 # Append new {key: value} pairs to es doc and commit doc
             output_types = list(self._pge_config.get(
-                nc_const.OUTPUT_TYPES).keys())
+                oc_const.OUTPUT_TYPES).keys())
 
             products = self._associate_products(output_types, products_list)
             logger.info("step is {}".format(self.accountability.step))
@@ -229,7 +229,7 @@ class OperaPostProcessFunctions(PostProcessFunctions):
                     "begin_time": begin_time,
                     "end_time": end_time,
                     "created_at": convert_datetime(datetime.utcnow()),
-                    nc_const.LAST_MOD: convert_datetime(datetime.utcnow()),
+                    oc_const.LAST_MOD: convert_datetime(datetime.utcnow()),
                     "refrec_id": "",
                     "processing_type": processing_type,
                     "input_dataset_not_found": True,
@@ -258,7 +258,7 @@ class OperaPostProcessFunctions(PostProcessFunctions):
                 }
             else:
                 updated_values = {
-                    nc_const.LAST_MOD: datetime.now().isoformat(),
+                    oc_const.LAST_MOD: datetime.now().isoformat(),
                     "state-config_satus": self._context.get("product_metadata").get("metadata").get("state")
                 }
 
@@ -299,9 +299,9 @@ class OperaPostProcessFunctions(PostProcessFunctions):
         try:
             job_id = ""
             products_list = []
-            if nc_const.OUTPUT_DATASETS in self._job_result:
-                job_id = self._job_result.get(nc_const.JOB_ID_FIELD)
-                products_list = self._job_result.get(nc_const.OUTPUT_DATASETS)
+            if oc_const.OUTPUT_DATASETS in self._job_result:
+                job_id = self._job_result.get(oc_const.JOB_ID_FIELD)
+                products_list = self._job_result.get(oc_const.OUTPUT_DATASETS)
             else:
                 products_list, prev_context, message, job_id = self._get_job()
             records = self.accountability.set_products(products_list, job_id=job_id)
