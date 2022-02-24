@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId
+# venue : userId 
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -39,10 +39,6 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
-variable "product_delivery_branch" {
-  default = "develop"
-}
-
 variable "opera_bach_api_repo" {
   default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
 }
@@ -56,6 +52,10 @@ variable "opera_bach_ui_repo" {
 }
 
 variable "opera_bach_ui_branch" {
+  default = "develop"
+}
+
+variable "product_delivery_branch" {
   default = "develop"
 }
 
@@ -160,7 +160,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 100
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -285,7 +285,6 @@ variable "daac_delivery_proxy" {
 
 variable "use_daac_cnm" {
   default = false
-
 }
 
 variable "daac_endpoint_url" {
@@ -399,10 +398,6 @@ variable "l0a_timer_trigger_frequency" {
   default = "rate(15 minutes)"
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -441,7 +436,15 @@ variable "use_s3_uri_structure" {
 
 variable "inactivity_threshold" {
   type    = number
-  default = 600
+  default = 1800
+}
+
+variable "queues" {
+  default = ""
+}
+
+variable "docker_registry_bucket" {
+  default = "opera-pcm-registry-bucket"
 }
 
 variable "purge_es_snapshot" {
@@ -452,10 +455,20 @@ variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
 }
 
-variable "earthdata_user" {
-  default = ""
+variable "es_bucket_role_arn" {
+  default = "arn:aws:iam::271039147104:role/am-es-role"
 }
 
-variable "earthdata_pass" {
-  default = ""
+# ami vars
+# duplicated from modules/common here so INT would pick up the values from its override.tf
+variable "amis" {
+  type = map(string)
+  default = {
+    mozart    = "ami-01aa6dbec644a2672"
+    metrics   = "ami-0ee90e1f71e532095"
+    grq       = "ami-0872577aec2e40df1"
+    factotum  = "ami-06158820898dd2dfd"
+    ci        = "ami-00baa2004b03f6090"
+    autoscale = "ami-00baa2004b03f6090"
+  }
 }

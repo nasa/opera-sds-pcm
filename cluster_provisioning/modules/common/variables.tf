@@ -231,6 +231,10 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
+variable "lambda_data_subscriber_handler_package_name" {
+  default = "lambda-data-subscriber-handler"
+}
+
 variable "lambda_report_handler_package_name" {
   default = "lambda-report-handler"
 }
@@ -347,10 +351,11 @@ variable "crid" {
   default = "D00200"
 }
 
-variable "l0a_timer_trigger_frequency" {
-}
+variable "l0a_timer_trigger_frequency" {}
 
 variable "obs_acct_report_timer_trigger_frequency" {}
+
+variable "data_subscriber_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 
@@ -388,6 +393,10 @@ variable "osl_report_staging_area" {
   default = "accountability_reports"
 }
 
+variable "isl_staging_area" {
+  default = "data_subscriber"
+}
+
 variable "use_s3_uri_structure" {
   default = false
 }
@@ -395,4 +404,12 @@ variable "use_s3_uri_structure" {
 variable "inactivity_threshold" {
   type    = number
   default = 600
+}
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
 }
