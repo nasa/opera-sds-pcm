@@ -5,8 +5,7 @@
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
-  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -45,7 +44,7 @@ variable "product_delivery_branch" {
 }
 
 variable "bach_api_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
+  default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
 variable "bach_api_branch" {
@@ -53,7 +52,7 @@ variable "bach_api_branch" {
 }
 
 variable "bach_ui_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
+  default = "github.com/nasa/opera-sds-bach-ui.git"
 }
 
 variable "bach_ui_branch" {
@@ -85,6 +84,9 @@ variable "keypair_name" {
 }
 
 variable "jenkins_api_key" {
+}
+
+variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
@@ -364,6 +366,10 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
+variable "data_subscriber_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -405,6 +411,11 @@ variable "inactivity_threshold" {
   default = 600
 }
 
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
 variable "purge_es_snapshot" {
   default = true
 }
@@ -412,3 +423,13 @@ variable "purge_es_snapshot" {
 variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
 }
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
+}
+
+

@@ -16,42 +16,18 @@ URGENT_RESPONSE_LATENCY:
 # during production.
 
 PRODUCT_TYPES:
-    #LDF:
-    #    Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})\.ldf)$'
-    #    Extractor: extractor.FilenameRegexMetExtractor
-    #    Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-    #        Date_Time_Patterns: ['%Y_%j_%H_%M_%S_%f']
-    #    Strip_File_Extension: !!bool true
-    #    Suffix: '_LDF'
-    #    Dataset_Keys:
-    #        starttime: FileCreationDateTime
+    Observation_Accountability_Report:
+        Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            Date_Time_Patterns: ['%Y-%jT%H:%M:%S']
+        Strip_File_Extension: !!bool true
+        Dataset_Keys:
+            starttime: ValidityStartDateTime
+            endtime: ValidityEndDateTime
 
-    #LDF_STATE_CONFIG:
-    #    Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})_state-config)$'
-    #    Extractor: extractor.FilenameRegexMetExtractor
-    #    Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-    #        Date_Time_Patterns: ['%Y_%j']
-    #    Strip_File_Extension: !!bool true
-    #    Dataset_Keys:
-    #        starttime: CreationDateTime
-
-#    Observation_Accountability_Report:
-#        Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
-#        Extractor: extractor.FilenameRegexMetExtractor
-#        Configuration:
-#            Date_Time_Patterns: ['%Y-%jT%H:%M:%S']
-#        Strip_File_Extension: !!bool true
-#        Dataset_Keys:
-#            starttime: ValidityStartDateTime
-#            endtime: ValidityEndDateTime
-
-    L2_HLS_L30:
+    HLS_L30:
+        # Pattern for parsing filenames such as "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif".
         # This pattern groups the metadata information in the filename using named groups.
         #
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
@@ -74,7 +50,8 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    L2_HLS_S30:
+    HLS_S30:
+        # Pattern for parsing filenames such as "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif".
         # This pattern groups the metadata information in the filename using named groups.
         #
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
@@ -97,11 +74,14 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    L3_DSWx_HLS:
+    DWSX_HLS:
+        # Pattern for parsing filenames such as:
+        # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
+        # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
         # This pattern groups the metadata information in the filename using named groups.
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>Sentinel2|Landsat8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<product_version>\d+)[.](?P<ext>tiff))$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>tif))$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:

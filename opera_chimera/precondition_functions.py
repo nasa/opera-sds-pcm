@@ -1511,4 +1511,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
         product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
-        return {"L2_HLS_L30": product_paths}
+
+        # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
+        # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
+        return {"L2_HLS": product_paths}

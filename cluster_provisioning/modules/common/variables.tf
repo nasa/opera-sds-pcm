@@ -1,6 +1,5 @@
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
-  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -76,6 +75,9 @@ variable "jenkins_enabled" {
   default = true
 }
 
+variable "artifactory_fn_api_key" {
+}
+
 variable "ops_password" {
 }
 
@@ -133,12 +135,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-06b161f22c9086917"
-    metrics   = "ami-049f536813d215f39"
-    grq       = "ami-0d4589279c337e9c1"
-    factotum  = "ami-0f40727533013a107"
-    ci        = "ami-0601c031b967d1e15"
-    autoscale = "ami-0601c031b967d1e15"
+    mozart    = "ami-02fcd254c71ff0fa0"
+    metrics   = "ami-0a54a14946e0bb52f"
+    grq       = "ami-0a11c7d42e24fe7d5"
+    factotum  = "ami-0ce5e6a66b7732993"
+    ci        = "ami-0caed57c920d65ea8"
+    autoscale = "ami-0caed57c920d65ea8"
   }
 }
 
@@ -243,6 +245,10 @@ variable "lambda_e-misfire_handler_package_name" {
   default = "lambda-event-misfire-handler"
 }
 
+variable "lambda_data-subscriber_handler_package_name" {
+  default = "lambda-data-subscriber-handler"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -345,6 +351,8 @@ variable "crid" {
   default = "D00100"
 }
 
+variable "data_subscriber_timer_trigger_frequency" {}
+
 variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
@@ -383,6 +391,10 @@ variable "osl_report_staging_area" {
   default = "accountability_reports"
 }
 
+variable "isl_staging_area" {
+  default = "data_subscriber"
+}
+
 variable "use_s3_uri_structure" {
   default = false
 }
@@ -390,4 +402,17 @@ variable "use_s3_uri_structure" {
 variable "inactivity_threshold" {
   type    = number
   default = 600
+}
+
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
 }

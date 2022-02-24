@@ -26,6 +26,7 @@ module "common" {
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
+  artifactory_fn_api_key                  = var.artifactory_fn_api_key
   ops_password                            = var.ops_password
   shared_credentials_file                 = var.shared_credentials_file
   profile                                 = var.profile
@@ -75,6 +76,7 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
+  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -85,6 +87,9 @@ module "common" {
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
+  run_smoke_test                          = var.run_smoke_test
+  earthdata_user                          = var.earthdata_user
+  earthdata_pass                          = var.earthdata_pass
 }
 
 locals {
@@ -122,6 +127,7 @@ resource "null_resource" "mozart" {
       "set -ex",
       "source ~/.bash_profile",
       "echo \"use_daac_cnm is ${var.use_daac_cnm}\"",
+      "if [ \"${var.run_smoke_test}\" = true ]; then",
       "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test-pge.sh \\",
       "  ${var.project} \\",
       "  ${var.environment} \\",
@@ -142,9 +148,9 @@ resource "null_resource" "mozart" {
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
-      "  ${var.cluster_type} \\",
-      "  \"${var.pge_test_package}\" \\",
-      "  \"${var.l0a_test_package}\" || :"
+      "  ${var.cluster_type}  \\",
+      "  \"${var.pge_test_package}\" || :",
+      "fi",
     ]
   }
 
@@ -152,7 +158,9 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
+      "if [ \"${var.run_smoke_test}\" = true ]; then",
       "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
+      "fi",
     ]
   }
 
@@ -161,8 +169,8 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "python ~/mozart/ops/${var.project}-pcm/cluster_provisioning/clear_grq_aws_es.py",
-      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
+      "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
+      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
     ]
   }
 
@@ -170,11 +178,13 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
+      "if [ \"${var.run_smoke_test}\" = true ]; then",
       "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e-pge/check_pcm.py ||:",
+      "fi",
     ]
   }
 
   provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml ."
+    command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
   }
 }

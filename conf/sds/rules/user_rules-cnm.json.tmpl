@@ -7,9 +7,9 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"L3_DSWx_HLS\"\n }\n }\n ],\n \"must_not\": [\n {\n \"term\": {\n \"metadata.restaged\": \"true\"\n }\n }\n ]\n }\n}",
+      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"DSWX_HLS\"\n }\n }\n ],\n \"must_not\": [\n {\n \"term\": {\n \"metadata.restaged\": \"true\"\n }\n }\n ]\n }\n}",
       "queue": "opera-job_worker-send_cnm_notify",
-      "rule_name": "trigger-send_cnm_notify_msg_L3_DSWx_HLS",
+      "rule_name": "trigger-send_cnm_notify_msg_L3_DSWX_HLS",
       "username": "hysdsops",
       "workflow": "hysds-io-send_notify_msg:__TAG__",
       "job_spec": "job-send_notify_msg:__TAG__"
