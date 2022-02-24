@@ -84,6 +84,10 @@ module "common" {
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
+
+  # TODO chrisjrd: remove
+  artifactory_fn_user = var.artifactory_fn_user
+  artifactory_fn_api_key  = var.artifactory_fn_api_key
 }
 
 locals {
