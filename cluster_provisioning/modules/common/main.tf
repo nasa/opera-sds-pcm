@@ -27,6 +27,7 @@ locals {
   maturity                       = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type         = "timer_handler"
   accountability_report_job_type = "accountability_report"
+  data_subscriber_job_type       = "data_subscriber"
   use_s3_uri_structure           = var.use_s3_uri_structure
   grq_es_url                     = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -63,6 +64,9 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip"
   }
 }
 
@@ -834,17 +838,19 @@ resource "aws_instance" "mozart" {
       "scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip}:~/.creds ~/.creds_metrics",
       "echo TYPE: hysds > ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo MOZART_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config",
       "echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_REDIS_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
@@ -854,7 +860,6 @@ resource "aws_instance" "mozart" {
       "echo MOZART_ES_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_ES_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
       "echo MOZART_ES_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-
       "echo OPS_USER: hysdsops >> ~/.sds/config",
       "echo OPS_HOME: $${HOME} >> ~/.sds/config",
       "echo OPS_PASSWORD_HASH: $(echo -n ${var.ops_password} | sha224sum |awk '{ print $1}') >> ~/.sds/config",
@@ -862,12 +867,13 @@ resource "aws_instance" "mozart" {
       "echo KEY_FILENAME: $${HOME}/.ssh/${basename(var.private_key_file)} >> ~/.sds/config",
       "echo JENKINS_USER: jenkins >> ~/.sds/config",
       "echo JENKINS_DIR: /var/lib/jenkins >> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo METRICS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo METRICS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo METRICS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo METRICS_REDIS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
@@ -877,46 +883,47 @@ resource "aws_instance" "mozart" {
       "echo METRICS_ES_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo METRICS_ES_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
       "echo METRICS_ES_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo GRQ_PVT_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config",
       "echo GRQ_PUB_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config",
       "echo GRQ_FQDN: ${aws_instance.grq.private_ip} >> ~/.sds/config",
       "echo GRQ_PORT: 8878 >> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo GRQ_AWS_ES: ${var.grq_aws_es ? var.grq_aws_es : false} >> ~/.sds/config",
       "echo GRQ_ES_PROTOCOL: ${var.grq_aws_es ? "https" : "http"} >> ~/.sds/config",
       "echo GRQ_ES_PVT_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config",
       "echo GRQ_ES_PUB_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config",
       "echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config",
       "echo GRQ_ES_PORT: ${var.grq_aws_es ? var.grq_aws_es_port : 9200} >> ~/.sds/config",
+      "echo >> ~/.sds/config",
 
       "if [ \"${var.grq_aws_es}\" = true ] && [ \"${var.use_grq_aws_es_private_verdi}\" = true ]; then",
-      "  echo >> ~/.sds/config",
       "  echo GRQ_AWS_ES_PRIVATE_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
       "  echo GRQ_ES_PVT_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
       "  echo GRQ_ES_PUB_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
       "  echo GRQ_ES_FQDN_PVT_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
       "  echo ARTIFACTORY_REPO: ${var.artifactory_repo} >> ~/.sds/config",
+      "  echo >> ~/.sds/config",
       "fi",
 
-      "echo >> ~/.sds/config",
       "echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config",
       "echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config",
       "echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo CI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
       "echo CI_PUB_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
       "echo CI_FQDN: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo JENKINS_HOST: ${var.jenkins_host} >> ~/.sds/config",
       "echo JENKINS_ENABLED: ${var.jenkins_enabled} >> ~/.sds/config",
       "echo JENKINS_API_USER: ${var.jenkins_api_user != "" ? var.jenkins_api_user : var.venue} >> ~/.sds/config",
       "echo JENKINS_API_KEY: ${var.jenkins_api_key} >> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo VERDI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
       "echo VERDI_PUB_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
       "echo VERDI_FQDN: ${var.common_ci["private_ip"]} >> ~/.sds/config",
@@ -925,11 +932,12 @@ resource "aws_instance" "mozart" {
       "echo '    VERDI_PUB_IP:' >> ~/.sds/config",
       "echo '    VERDI_FQDN:' >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo DAV_SERVER: None >> ~/.sds/config",
       "echo DAV_USER: None >> ~/.sds/config",
       "echo DAV_PASSWORD: None >> ~/.sds/config",
-
       "echo >> ~/.sds/config",
+
       "echo DATASET_AWS_REGION: us-west-2 >> ~/.sds/config",
       "echo DATASET_AWS_ACCESS_KEY: >> ~/.sds/config",
       "echo DATASET_AWS_SECRET_KEY: >> ~/.sds/config",
@@ -940,6 +948,7 @@ resource "aws_instance" "mozart" {
       "echo TRIAGE_BUCKET: ${local.triage_bucket} >> ~/.sds/config",
       "echo LTS_BUCKET: ${local.lts_bucket} >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo AWS_REGION: us-west-2 >> ~/.sds/config",
       "echo AWS_ACCESS_KEY: >> ~/.sds/config",
       "echo AWS_SECRET_KEY: >> ~/.sds/config",
@@ -949,9 +958,9 @@ resource "aws_instance" "mozart" {
       "echo VERDI_TAG: ${var.hysds_release} >> ~/.sds/config",
       "echo VERDI_UID: 1002 >> ~/.sds/config",
       "echo VERDI_GID: 1002 >> ~/.sds/config",
-
       "echo VENUE: ${var.project}-${var.venue}-${local.counter} >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo ASG: >> ~/.sds/config",
       "echo '  AMI: ${var.amis["autoscale"]}' >> ~/.sds/config",
       "echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config",
@@ -962,6 +971,7 @@ resource "aws_instance" "mozart" {
       "echo '    - ${var.verdi_security_group_id}' >> ~/.sds/config",
       "echo '  VPC: ${var.asg_vpc}' >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo STAGING_AREA: >> ~/.sds/config",
       "echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config",
       "echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config",
@@ -971,6 +981,7 @@ resource "aws_instance" "mozart" {
       "echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config",
       "echo '  JOB_QUEUE: ${var.lambda_job_queue}' >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo CNM_RESPONSE_HANDLER: >> ~/.sds/config",
       "echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config",
       "echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config",
@@ -983,14 +994,18 @@ resource "aws_instance" "mozart" {
       "echo '  PRODUCT_TAG: true' >> ~/.sds/config",
       "echo '  ALLOWED_ACCOUNT: \"${var.cnm_r_allowed_account}\"' >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo GIT_OAUTH_TOKEN: ${var.git_auth_key} >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo PROVES_URL: https://prov-es.jpl.nasa.gov/beta >> ~/.sds/config",
       "echo PROVES_IMPORT_URL: https://prov-es.jpl.nasa.gov/beta/api/v0.1/prov_es/import/json >> ~/.sds/config",
       "echo DATASETS_CFG: $${HOME}/verdi/etc/datasets.json >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo SYSTEM_JOBS_QUEUE: system-jobs-queue >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo MOZART_ES_CLUSTER: resource_cluster >> ~/.sds/config",
       "echo METRICS_ES_CLUSTER: metrics_cluster >> ~/.sds/config",
       "echo DATASET_QUERY_INDEX: grq >> ~/.sds/config",
@@ -1011,7 +1026,12 @@ resource "aws_instance" "mozart" {
       "echo CRID: \"${var.crid}\" >> ~/.sds/config",
       "cat ~/q_config >> ~/.sds/config",
       "echo >> ~/.sds/config",
+
       "echo INACTIVITY_THRESHOLD: ${var.inactivity_threshold} >> ~/.sds/config",
+      "echo >> ~/.sds/config",
+
+      "echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config",
+      "echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config",
       "echo >> ~/.sds/config"
     ]
   }
@@ -1923,4 +1943,61 @@ resource "aws_lambda_permission" "observation_accountability_report_timer" {
   principal = "events.amazonaws.com"
   source_arn = aws_cloudwatch_event_rule.observation_accountability_report_timer.arn
   function_name = aws_lambda_function.observation_accountability_report_timer.function_name
+}
+
+# Resources to provision the Data Subscriber timer
+# Lambda function to submit a job to create the Data Subscriber
+resource "aws_lambda_function" "data_subscriber_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will create a Data Subscriber"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.7"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_TYPE": local.data_subscriber_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "ISL_STAGING_AREA": var.isl_staging_area,
+      "USER_START_TIME": "",
+      "USER_END_TIME": ""
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "data_subscriber_timer" {
+  depends_on = [aws_lambda_function.data_subscriber_timer]
+  name = "/aws/lambda/${aws_lambda_function.data_subscriber_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+resource "aws_cloudwatch_event_rule" "data_subscriber_timer" {
+  name = "${aws_lambda_function.data_subscriber_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.data_subscriber_timer_trigger_frequency
+  is_enabled = local.enable_timer
+}
+
+resource "aws_cloudwatch_event_target" "data_subscriber_timer" {
+  rule = aws_cloudwatch_event_rule.data_subscriber_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.data_subscriber_timer.arn
+}
+
+resource "aws_lambda_permission" "data_subscriber_timer" {
+  statement_id = aws_cloudwatch_event_rule.data_subscriber_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.data_subscriber_timer.arn
+  function_name = aws_lambda_function.data_subscriber_timer.function_name
 }

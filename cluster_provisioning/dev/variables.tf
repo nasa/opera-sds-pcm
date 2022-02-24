@@ -399,6 +399,10 @@ variable "l0a_timer_trigger_frequency" {
   default = "rate(15 minutes)"
 }
 
+variable "data_subscriber_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -453,5 +457,12 @@ variable "artifactory_fn_user" {
 }
 
 variable "artifactory_fn_api_key" {
+}
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
   default = ""
 }
