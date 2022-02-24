@@ -396,3 +396,13 @@ variable "inactivity_threshold" {
   type    = number
   default = 600
 }
+
+variable "artifactory_fn_user" {
+  description = "Username to use for authenticated Artifactory API calls."
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  description = "Artifactory API key for authenticated Artifactory API calls. Must map to artifactory_username."
+  default = ""
+}

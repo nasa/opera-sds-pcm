@@ -447,3 +447,11 @@ variable "purge_es_snapshot" {
 variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
 }
+
+variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  default = ""
+}
