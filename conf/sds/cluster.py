@@ -121,6 +121,13 @@ def update_opera_packages():
                           extra_opts=extra_opts, ssh_opts=ssh_opts)
             execute(pip_install_with_req, 'sciflo',
                     '~/sciflo/ops/bach-api', False, roles=[role])
+
+            rm_rf(f'{hysds_dir}/ops/opera-bach-api')
+            rsync_project(f'{hysds_dir}/ops/', os.path.join(ops_dir, 'mozart/ops/opera-bach-api'),
+                          extra_opts=extra_opts, ssh_opts=ssh_opts)
+            execute(pip_install_with_req, 'sciflo',
+                    '~/sciflo/ops/opera-bach-api', False, roles=[role])
+
             break
         elif role == "metrics":
             # run sdswatch using local logstash installation
