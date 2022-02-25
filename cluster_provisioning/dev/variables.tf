@@ -425,9 +425,6 @@ variable "artifactory_fn_user" {
   default = ""
 }
 
-variable "artifactory_fn_api_key" {
-}
-
 variable "earthdata_user" {
   default = ""
 }

@@ -70,9 +70,9 @@ resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
   }
-  provisioner "local-exec" {
-    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip"
-  }
+#  provisioner "local-exec" {
+#    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+#  }
 }
 
 resource "null_resource" "is_cnm_r_event_trigger_value_valid" {
@@ -1927,63 +1927,6 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 resource "aws_lambda_function" "data_subscriber_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
-  handler = "lambda_function.lambda_handler"
-  role = var.lambda_role_arn
-  runtime = "python3.7"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.data_subscriber_job_type,
-      "JOB_RELEASE": var.pcm_branch,
-      "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "data_subscriber_timer" {
-  depends_on = [aws_lambda_function.data_subscriber_timer]
-  name = "/aws/lambda/${aws_lambda_function.data_subscriber_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
-resource "aws_cloudwatch_event_rule" "data_subscriber_timer" {
-  name = "${aws_lambda_function.data_subscriber_timer.function_name}-Trigger"
-  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_subscriber_timer_trigger_frequency
-  is_enabled = local.enable_timer
-}
-
-resource "aws_cloudwatch_event_target" "data_subscriber_timer" {
-  rule = aws_cloudwatch_event_rule.data_subscriber_timer.name
-  target_id = "Lambda"
-  arn = aws_lambda_function.data_subscriber_timer.arn
-}
-
-resource "aws_lambda_permission" "data_subscriber_timer" {
-  statement_id = aws_cloudwatch_event_rule.data_subscriber_timer.name
-  action = "lambda:InvokeFunction"
-  principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.data_subscriber_timer.arn
-  function_name = aws_lambda_function.data_subscriber_timer.function_name
-}
-
-# Resources to provision the Data Subscriber timer
-# Lambda function to submit a job to create the Data Subscriber
-resource "aws_lambda_function" "data_subscriber_timer" {
-  depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
   handler = "lambda_function.lambda_handler"

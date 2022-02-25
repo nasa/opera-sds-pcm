@@ -73,7 +73,7 @@ else
   python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py
 fi
 
-~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json
+~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
 
 # Set PGE_SIMULATION_MODE to false so we call the PGE Docker image in the PGE jobs
 echo "************Turning off PGE_SIMULATION_MODE**************"

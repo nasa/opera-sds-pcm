@@ -73,9 +73,6 @@ variable "jenkins_enabled" {
   default = true
 }
 
-variable "artifactory_fn_api_key" {
-}
-
 variable "ops_password" {
 }
 
@@ -235,7 +232,7 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
-variable "lambda_data_subscriber_handler_package_name" {
+variable "lambda_data-subscriber_handler_package_name" {
   default = "lambda-data-subscriber-handler"
 }
 

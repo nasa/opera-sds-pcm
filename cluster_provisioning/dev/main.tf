@@ -25,7 +25,6 @@ module "common" {
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
-  artifactory_fn_api_key                  = var.artifactory_fn_api_key
   ops_password                            = var.ops_password
   shared_credentials_file                 = var.shared_credentials_file
   profile                                 = var.profile
@@ -120,7 +119,7 @@ resource "null_resource" "mozart" {
       "set -ex",
       "source ~/.bash_profile",
       "cd ~/.sds/files",
-      "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json",
+      "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force",
       "echo Your cluster has been provisioned!",
     ]
   }
