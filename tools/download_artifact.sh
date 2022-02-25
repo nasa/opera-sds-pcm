@@ -21,6 +21,7 @@ Usage:
                                 https://https://artifactory.jpl.nasa.gov/artifactory
     -h | --help                 Print help
     artifactory_url             Artifactory URL to download
+	-k <artifactory_api_key> | --key <artifactory_api_key>
 USAGE
   exit 1
 }
@@ -30,6 +31,7 @@ USAGE
 unset MIRROR
 unset BASE
 unset ART_URLS
+unset ART_API_KEY
 
 # parse options
 PARAMS=""
@@ -47,6 +49,10 @@ while (( "$#" )); do
       BASE=$2
       shift 2
       ;;
+	-k|--key)
+	  ART_API_KEY=$2
+	  shift 2
+	  ;;
     --) # end argument parsing
       shift
       break
@@ -88,9 +94,17 @@ for art_url in "${ART_URLS[@]}"; do
     fi
   fi
 
+  echo "MIRROR = ${MIRROR}"
+  echo "ART_API_KEY = ${ART_API_KEY}"
+  echo "ART_URLS = ${ART_URLS}"
+
   # download from arifactory as last resort
   echo "Will try artifactory url: $art_url"
-  curl -O --fail $art_url
+  if [ ! -z ${ART_API_KEY+X} ]; then
+     curl -O --fail --silent -H "X-JFrog-Art-Api:${ART_API_KEY}" $art_url
+  else
+     curl -O --fail --silent $art_url 
+  fi
   if [ "$?" -ne 0 ]; then
     echoerr "Error: failed to download from artifactory: $art_url"
     exit 1

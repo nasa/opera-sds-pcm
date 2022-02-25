@@ -72,9 +72,6 @@ variable "private_key_file" {
 variable "git_auth_key" {
 }
 
-variable "pub_git_auth_key" {
-}
-
 variable "jenkins_api_user" {
   default = ""
 }

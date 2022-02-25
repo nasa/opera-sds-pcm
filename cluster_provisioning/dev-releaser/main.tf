@@ -22,7 +22,6 @@ module "common" {
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
   git_auth_key                            = var.git_auth_key
-  pub_git_auth_key                        = var.pub_git_auth_key
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
@@ -192,7 +191,7 @@ resource "null_resource" "mozart" {
       "rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
       "sds pkg export container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}",
       "ls -l",
-      "curl -L -H \"Authorization: token ${var.pub_git_auth_key}\" -o ${var.project}-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
+      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T ${var.project}-pcm-${var.pcm_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-pcm-${var.pcm_branch}.tar.gz\"",
       "rm -rf ${var.project}-pcm-${var.pcm_branch}.tar.gz",
       "ls -l",

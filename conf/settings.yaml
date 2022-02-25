@@ -6,7 +6,7 @@ CRID: '{{ CRID }}'
 # Settings to set the latency period for various jobs
 NOMINAL_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
-#    RRST_EVALUATOR: 60
+#   RRST_EVALUATOR: 60
 
 URGENT_RESPONSE_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.

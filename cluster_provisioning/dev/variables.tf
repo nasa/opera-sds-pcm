@@ -48,7 +48,7 @@ variable "bach_api_repo" {
 }
 
 variable "bach_api_branch" {
-  default = "develop"
+  default = "main"
 }
 
 variable "bach_ui_repo" {
@@ -56,7 +56,7 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-  default = "develop"
+  default = "main"
 }
 
 variable "venue" {
@@ -70,9 +70,6 @@ variable "private_key_file" {
 }
 
 variable "git_auth_key" {
-}
-
-variable "pub_git_auth_key" {
 }
 
 variable "jenkins_api_user" {
