@@ -97,6 +97,12 @@ resource "aws_volume_attachment" "volume_attachment" {
       "  rm docker-registry-${var.registry_release}.tar.gz",
       "fi",
 
+#      "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0a-${var.pge_release}.tar.gz\"",
+#      "  docker load -i opera_pge-l0a-${var.pge_release}.tar.gz",
+# TODO chrisjrd: extract variables
+      "  curl -O \"https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge/opera_pge-dswx_hls-1.0.0-er.2.0.tar.gz\" \\",
+      "  --header 'Authorization: Basic ${base64encode(format("%s:%s", var.artifactory_fn_user, var.artifactory_fn_api_key))}'",
+      "  docker load -i opera_pge-dswx_hls-1.0.0-er.2.0.tar.gz",
      # opera doesn't have any l0a - remove it once we have other PGEs defined
      # "  curl -O \"https://cae-artifactory.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-l0a-${var.pge_release}.tar.gz\"",
      # "  docker load -i opera_pge-l0a-${var.pge_release}.tar.gz",

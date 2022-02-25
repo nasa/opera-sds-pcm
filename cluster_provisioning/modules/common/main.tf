@@ -675,7 +675,7 @@ resource "aws_lambda_function" "harikiri_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-harikiri-autoscaling"
   role          = var.lambda_role_arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.8"
+  runtime       = "python3.7"
   timeout       = 600
 }
 
@@ -703,7 +703,7 @@ resource "aws_lambda_function" "isl_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-isl-lambda"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.7"
   timeout       = 60
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
@@ -1164,19 +1164,30 @@ resource "aws_instance" "mozart" {
       "sds -d ship",
       "cd ~/mozart/pkgs",
       "sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar",
-      "aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/",
-      "aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/",
-      "aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/",
+      "aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress",
+      "aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress",
+      "aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/ --no-progress",
       "sds -d reset all -f",
       "cd ~/mozart/ops/pcm_commons",
-      "pip install -e .",
-      "cd ~/mozart/ops/${var.project}-pcm",
-      "pip install -e .",
-#      "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-#      "    python ~/mozart/ops/${var.project}-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
-#      "else",
-#      "    python ~/mozart/ops/${var.project}-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
-#      "fi",
+      "pip install --progress-bar off -e .",
+      "cd ~/mozart/ops/opera-pcm",
+      "pip install --progress-bar off -e .",
+      "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
+      "else",
+      # TODO chrisjrd: remove
+#      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
+      # TODO chrisjrd: extract vars as needed
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
+      "    --image_names opera_pge-dswx_hls \\",
+      "    --pge_release \"1.0.0-er.2.0\" \\",
+      "    --sds_config ~/.sds/config \\",
+      "    --processes 4 \\",
+      "    --force \\",
+      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
+      "    --username ${var.artifactory_fn_user} \\",
+      "    --api_key ${var.artifactory_fn_api_key}",
+      "fi",
       "sds -d kibana import -f",
       "sds -d cloud storage ship_style --bucket ${local.dataset_bucket}",
       "sds -d cloud storage ship_style --bucket ${local.osl_bucket}",

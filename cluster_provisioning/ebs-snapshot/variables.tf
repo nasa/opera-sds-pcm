@@ -114,3 +114,11 @@ variable "docker_pwd" {
 variable "use_s3_uri_structure" {
   default = true
 }
+
+variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  default = ""
+}

@@ -235,16 +235,16 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
+variable "lambda_data_subscriber_handler_package_name" {
+  default = "lambda-data-subscriber-handler"
+}
+
 variable "lambda_report_handler_package_name" {
   default = "lambda-report-handler"
 }
 
 variable "lambda_e-misfire_handler_package_name" {
   default = "lambda-event-misfire-handler"
-}
-
-variable "lambda_data-subscriber_handler_package_name" {
-  default = "lambda-data-subscriber-handler"
 }
 
 variable "lambda_package_release" {
@@ -405,6 +405,15 @@ variable "inactivity_threshold" {
 variable "run_smoke_test" {
   type    = bool
   default = true
+}
+
+variable "artifactory_fn_user" {
+  description = "Username to use for authenticated Artifactory API calls."
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  description = "Artifactory API key for authenticated Artifactory API calls. Must map to artifactory_username."
 }
 
 variable "earthdata_user" {
