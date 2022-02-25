@@ -1092,7 +1092,7 @@ resource "aws_instance" "mozart" {
       "cp ~/.sds.bak/config ~/.sds",
       "cd bach_ui",
       "~/conda/bin/npm install --silent --no-progress",
-      "sh create_config_simlink.sh",
+      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach_ui",
       "~/conda/bin/npm run build --silent",
       "cd ../",
       "cd opera-bach-ui",
