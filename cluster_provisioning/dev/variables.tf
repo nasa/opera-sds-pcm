@@ -44,19 +44,21 @@ variable "product_delivery_branch" {
 }
 
 variable "opera_bach_api_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
+  default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
+# TODO chrisjrd: set up and use develop branch
 variable "opera_bach_api_branch" {
-  default = "develop"
+  default = "main"
 }
 
 variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
+  default = "github.com/nasa/opera-sds-bach-ui.git"
 }
 
+# TODO chrisjrd: set up and use develop branch
 variable "opera_bach_ui_branch" {
-  default = "develop"
+  default = "main"
 }
 
 variable "venue" {

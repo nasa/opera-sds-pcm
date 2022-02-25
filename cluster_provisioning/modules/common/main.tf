@@ -1082,8 +1082,8 @@ resource "aws_instance" "mozart" {
       "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} opera-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo}",
-      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo}",
+      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} opera-bach-api",
+      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} opera-bach-ui",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp opera-pcm/conf/sds ~/.sds",
@@ -1543,7 +1543,7 @@ resource "aws_instance" "grq" {
       "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/nisar-bach-api",
       "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo}",
+      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} opera-bach-api",
       "fi"
     ]
   }
