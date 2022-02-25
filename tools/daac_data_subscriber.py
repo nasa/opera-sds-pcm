@@ -18,6 +18,8 @@ from urllib.request import urlopen
 import requests
 from smart_open import open
 
+from data_subscriber.es_connection import get_data_subscriber_connection
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -59,6 +61,8 @@ def run():
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
     logging.debug("Log level set to " + LOGLEVEL)
+
+    ES_CONN = get_data_subscriber_connection(logging.getLogger(__name__))
 
     try:
         validate(args)
@@ -102,8 +106,8 @@ def run():
     # Get a new timestamp that represents the UTC time of the search.
     # Then download the records in `umm_json` format for granules
     # that match our search parameters:
-    with urlopen(url) as f:
-        results = json.loads(f.read().decode())
+    with urlopen(url) as url:
+        results = json.loads(url.read().decode())
 
     logging.debug(
         f"{str(results['hits'])} new granules found for {args.collection} since {data_within_last_timestamp}")  # noqa E501
@@ -133,35 +137,35 @@ def run():
     logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
     logging.debug(f"Downloading files with extensions: {str(args.extensions)}")
 
-    num_successes = num_failures = 0
+    num_successes = num_failures = num_skipped = 0
 
-    for f in filtered_downloads:
+    for url in filtered_downloads:
         try:
-            for extension in args.extensions:
-                if f.lower().endswith(extension):
-                    upload_return = upload(f, SessionWithHeaderRedirection(username, password, NETLOC), token,
-                                           args.s3_bucket)
-                    if "failed_download" in upload_return:
-                        raise Exception(upload_return["failed_download"])
-                    else:
-                        logging.debug(str(upload_return))
-                    logging.info(f"{str(datetime.now())} SUCCESS: {f}")
-                    num_successes = num_successes + 1
+            filename = url.split('/')[-1]
+            if product_is_duplicate(ES_CONN, filename):
+                logging.info(f"SKIPPING: {url}")
+                num_skipped = num_skipped + 1
+            else:
+                result = upload(url, SessionWithHeaderRedirection(username, password, NETLOC), token,
+                                args.s3_bucket)
+                if "failed_download" in result:
+                    raise Exception(result["failed_download"])
+                else:
+                    logging.debug(str(result))
+
+                mark_product_as_downloaded(ES_CONN, filename)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
         except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {f}")
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
             num_failures = num_failures + 1
             logging.error(e)
 
-    logging.info(f"Downloaded: {str(num_successes)} files")
-    logging.info(f"Files Failed to download: {str(num_failures)}")
+    logging.info(f"Files downloaded: {str(num_successes)}")
+    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
+    logging.info(f"Files failed to download: {str(num_failures)}")
     delete_token(TOKEN_URL, token)
     logging.info("END")
-
-
-def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
-    if isinstance(datetime_obj, datetime):
-        return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat)
 
 
 def create_parser():
@@ -173,10 +177,10 @@ def create_parser():
                         help="The s3 bucket where data products will be downloaded.")
 
     parser.add_argument("-sd", "--start-date", dest="startDate",
-                        help="The ISO date time before which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z",
+                        help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z",
                         default=False)  # noqa E501
     parser.add_argument("-ed", "--end-date", dest="endDate",
-                        help="The ISO date time after which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z",
+                        help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z",
                         default=False)  # noqa E501
     parser.add_argument("-b", "--bounds", dest="bbox",
                         help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".",
@@ -187,173 +191,10 @@ def create_parser():
     parser.add_argument("-e", "--extensions", dest="extensions",
                         help="The extensions of products to download. Default is [.nc, .h5, .zip]",
                         default=[".nc", ".h5", ".zip"])  # noqa E501
-    parser.add_argument("--version", dest="version", action="store_true",
-                        help="Display script version information and exit.")  # noqa E501
     parser.add_argument("--verbose", dest="verbose", action="store_true", help="Verbose mode.")  # noqa E501
     parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                         help="Specify a provider for collection search. Default is LPCLOUD.")  # noqa E501
     return parser
-
-
-def delete_token(url: str, token: str) -> None:
-    try:
-        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
-        url = '{}/{}'.format(url, token)
-        resp = requests.request('DELETE', url, headers=headers)
-        if resp.status_code == 204:
-            logging.info("CMR token successfully deleted")
-        else:
-            logging.error("CMR token deleting failed.")
-    except:  # noqa E722
-        logging.error("Error deleting the token")
-    exit(0)
-
-
-def get_temporal_range(start, end, now):
-    start = start if start is not False else None
-    end = end if end is not False else None
-
-    if start is not None and end is not None:
-        return "{},{}".format(start, end)
-    if start is not None and end is None:
-        return "{},{}".format(start, now)
-    if start is None and end is not None:
-        return "1900-01-01T00:00:00Z,{}".format(end)
-
-    raise ValueError("One of start-date or end-date must be specified.")
-
-
-def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
-    try:
-        token: str = ''
-        username, _, password = netrc.netrc().authenticators(endpoint)
-        xml: str = """<?xml version='1.0' encoding='utf-8'?>
-        <token><username>{}</username><password>{}</password><client_id>{}</client_id>
-        <user_ip_address>{}</user_ip_address></token>""".format(username, password, client_id, user_ip)  # noqa E501
-        headers: Dict = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
-        resp = requests.post(url, headers=headers, data=xml)
-        response_content: Dict = json.loads(resp.content)
-        token = response_content['token']['id']
-
-    # What error is thrown here? Value Error? Request Errors?
-    except:  # noqa E722
-        logging.error("Error getting the token - check user name and password")
-    return token
-
-
-def product_exists_in_es():
-    return False
-
-
-def setup_earthdata_login_auth(endpoint):
-    # ## Authentication setup
-    #
-    # This function will allow Python scripts to log into any Earthdata Login
-    # application programmatically.  To avoid being prompted for
-    # credentials every time you run and also allow clients such as curl to log in,
-    # you can add the following to a `.netrc` (`_netrc` on Windows) file in
-    # your home directory:
-    #
-    # ```
-    # machine urs.earthdata.nasa.gov
-    #     login <your username>
-    #     password <your password>
-    # ```
-    #
-    # Make sure that this file is only readable by the current user
-    # or you will receive an error stating
-    # "netrc access too permissive."
-    #
-    # `$ chmod 0600 ~/.netrc`
-    #
-    # You'll need to authenticate using the netrc method when running from
-    # command line with [`papermill`](https://papermill.readthedocs.io/en/latest/).
-    # You can log in manually by executing the cell below when running in the
-    # notebook client in your browser.*
-
-    """
-    Set up the request library so that it authenticates against the given
-    Earthdata Login endpoint and is able to track cookies between requests.
-    This looks in the .netrc file first and if no credentials are found,
-    it prompts for them.
-
-    Valid endpoints include:
-        urs.earthdata.nasa.gov - Earthdata Login production
-    """
-    try:
-        username, _, password = netrc.netrc().authenticators(endpoint)
-    except (FileNotFoundError, TypeError):
-        # FileNotFound = There's no .netrc file
-        # TypeError = The endpoint isn't in the netrc file,
-        #  causing the above to try unpacking None
-        logging.error("There's no .netrc file or the The endpoint isn't in the netrc file")  # noqa E501
-
-    manager = request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(None, endpoint, username, password)
-    auth = request.HTTPBasicAuthHandler(manager)
-
-    jar = CookieJar()
-    processor = request.HTTPCookieProcessor(jar)
-    opener = request.build_opener(auth, processor)
-    opener.addheaders = [('User-agent', 'daac-subscriber')]
-    request.install_opener(opener)
-
-    return username, password
-
-
-def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
-    """
-    This will basically transfer the file contents of the given url to an S3 bucket
-
-    :param url: url to the file.
-    :param session: SessionWithHeaderRedirection object.
-    :param token: token.
-    :param bucket_name: The S3 bucket name to transfer the file url contents to.
-    :param staging_area: A staging area where the file url contents will go to. If none, contents will be found
-     in the top level of the bucket.
-    :param chunk_size: the number of bytes to stream at a time.
-
-    :return:
-    """
-    file_name = os.path.basename(url)
-    bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-
-    key = os.path.join(staging_area, file_name)
-    upload_start_time = datetime.utcnow()
-    headers = {"Echo-Token": token}
-
-    try:
-        try:
-            with session.get(url, headers=headers, stream=True) as r:
-                if r.status_code != 200:
-                    r.raise_for_status()
-                logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
-                with open("s3://{}/{}".format(bucket, key), "wb") as out:
-                    pool = ThreadPool(processes=10)
-                    pool.map(upload_chunk, [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
-                    pool.close()
-                    pool.join()
-            upload_end_time = datetime.utcnow()
-            upload_duration = upload_end_time - upload_start_time
-            upload_stats = {
-                "file_name": file_name,
-                "file_size (in bytes)": r.headers.get('Content-Length'),
-                "upload_duration (in seconds)": upload_duration.total_seconds(),
-                "upload_start_time": convert_datetime(upload_start_time),
-                "upload_end_time": convert_datetime(upload_end_time)
-            }
-            return upload_stats
-        except ConnectionResetError as ce:
-            raise Exception(str(ce))
-        except requests.exceptions.HTTPError as he:
-            raise Exception(str(he))
-    except Exception as e:
-        return {"failed_download": e}
-
-
-def upload_chunk(chunk_dict):
-    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
-    chunk_dict['out'].write(chunk_dict['chunk'])
 
 
 def validate(args):
@@ -397,6 +238,190 @@ def validate_minutes(minutes):
         int(minutes)
     except ValueError:
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")  # noqa E501
+
+
+def setup_earthdata_login_auth(endpoint):
+    # ## Authentication setup
+    #
+    # This function will allow Python scripts to log into any Earthdata Login
+    # application programmatically.  To avoid being prompted for
+    # credentials every time you run and also allow clients such as curl to log in,
+    # you can add the following to a `.netrc` (`_netrc` on Windows) file in
+    # your home directory:
+    #
+    # ```
+    # machine urs.earthdata.nasa.gov
+    #     login <your username>
+    #     password <your password>
+    # ```
+    #
+    # Make sure that this file is only readable by the current user
+    # or you will receive an error stating
+    # "netrc access too permissive."
+    #
+    # `$ chmod 0600 ~/.netrc`
+    #
+    # You'll need to authenticate using the netrc method when running from
+    # command line with [`papermill`](https://papermill.readthedocs.io/en/latest/).
+    # You can log in manually by executing the cell below when running in the
+    # notebook client in your browser.*
+
+    """
+    Set up the request library so that it authenticates against the given
+    Earthdata Login endpoint and is able to track cookies between requests.
+    This looks in the .netrc file first and if no credentials are found,
+    it prompts for them.
+
+    Valid endpoints include:
+        urs.earthdata.nasa.gov - Earthdata Login production
+    """
+    username = password = ""
+    try:
+        username, _, password = netrc.netrc().authenticators(endpoint)
+    except (FileNotFoundError, TypeError):
+        # FileNotFound = There's no .netrc file
+        # TypeError = The endpoint isn't in the netrc file,
+        #  causing the above to try unpacking None
+        logging.error("There's no .netrc file or the The endpoint isn't in the netrc file")  # noqa E501
+
+    manager = request.HTTPPasswordMgrWithDefaultRealm()
+    manager.add_password(None, endpoint, username, password)
+    auth = request.HTTPBasicAuthHandler(manager)
+
+    jar = CookieJar()
+    processor = request.HTTPCookieProcessor(jar)
+    opener = request.build_opener(auth, processor)
+    opener.addheaders = [('User-agent', 'daac-subscriber')]
+    request.install_opener(opener)
+
+    return username, password
+
+
+def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
+    username, _, password = netrc.netrc().authenticators(endpoint)
+    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password><client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token>"
+    headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+    resp = requests.post(url, headers=headers, data=xml)
+    response_content = json.loads(resp.content)
+    token = response_content['token']['id']
+
+    return token
+
+
+def get_temporal_range(start, end, now):
+    start = start if start is not False else None
+    end = end if end is not False else None
+
+    if start is not None and end is not None:
+        return "{},{}".format(start, end)
+    if start is not None and end is None:
+        return "{},{}".format(start, now)
+    if start is None and end is not None:
+        return "1900-01-01T00:00:00Z,{}".format(end)
+
+    raise ValueError("One of start-date or end-date must be specified.")
+
+
+def product_is_duplicate(es_conn, filename):
+    result = product_exists_in_es(es_conn, filename)
+
+    if not result:
+        create_product_in_es(es_conn, filename)
+        return False
+
+    return product_is_downloaded(result)
+
+
+def product_exists_in_es(es_conn, filename):
+    return es_conn.query_existence(filename)
+
+
+def create_product_in_es(es_conn, filename):
+    es_conn.post(id=filename)
+
+
+def product_is_downloaded(result):
+    return result["_source"]["downloaded"]
+
+
+def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
+    if isinstance(datetime_obj, datetime):
+        return datetime_obj.strftime(strformat)
+    return datetime.strptime(str(datetime_obj), strformat)
+
+
+def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
+    """
+    This will basically transfer the file contents of the given url to an S3 bucket
+
+    :param url: url to the file.
+    :param session: SessionWithHeaderRedirection object.
+    :param token: token.
+    :param bucket_name: The S3 bucket name to transfer the file url contents to.
+    :param staging_area: A staging area where the file url contents will go to. If none, contents will be found
+     in the top level of the bucket.
+    :param chunk_size: the number of bytes to stream at a time.
+
+    :return:
+    """
+    file_name = os.path.basename(url)
+    bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+
+    key = os.path.join(staging_area, file_name)
+    upload_start_time = datetime.utcnow()
+    headers = {"Echo-Token": token}
+
+    try:
+        try:
+            with session.get(url, headers=headers, stream=True) as r:
+                if r.status_code != 200:
+                    r.raise_for_status()
+                logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+                with open("s3://{}/{}".format(bucket, key), "wb") as out:
+                    pool = ThreadPool(processes=10)
+                    pool.map(upload_chunk,
+                             [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
+                    pool.close()
+                    pool.join()
+            upload_end_time = datetime.utcnow()
+            upload_duration = upload_end_time - upload_start_time
+            upload_stats = {
+                "file_name": file_name,
+                "file_size (in bytes)": r.headers.get('Content-Length'),
+                "upload_duration (in seconds)": upload_duration.total_seconds(),
+                "upload_start_time": convert_datetime(upload_start_time),
+                "upload_end_time": convert_datetime(upload_end_time)
+            }
+            return upload_stats
+        except ConnectionResetError as ce:
+            raise Exception(str(ce))
+        except requests.exceptions.HTTPError as he:
+            raise Exception(str(he))
+    except Exception as e:
+        return {"failed_download": e}
+
+
+def upload_chunk(chunk_dict):
+    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
+    chunk_dict['out'].write(chunk_dict['chunk'])
+
+
+def mark_product_as_downloaded(es_conn, filename):
+    es_conn.mark_downloaded(filename)
+
+
+def delete_token(url: str, token: str) -> None:
+    try:
+        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}  # noqa E501
+        url = '{}/{}'.format(url, token)
+        resp = requests.request('DELETE', url, headers=headers)
+        if resp.status_code == 204:
+            logging.info("CMR token successfully deleted")
+        else:
+            logging.error("CMR token deleting failed.")
+    except:  # noqa E722
+        logging.error("Error deleting the token")
+    exit(0)
 
 
 if __name__ == '__main__':
