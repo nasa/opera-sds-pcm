@@ -26,7 +26,7 @@ PRODUCT_TYPES:
             starttime: ValidityStartDateTime
             endtime: ValidityEndDateTime
 
-    HLS_L30:
+    L2_HLS_L30:
         # Pattern for parsing filenames such as "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif".
         # This pattern groups the metadata information in the filename using named groups.
         #
@@ -50,7 +50,7 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    HLS_S30:
+    L2_HLS_S30:
         # Pattern for parsing filenames such as "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif".
         # This pattern groups the metadata information in the filename using named groups.
         #
@@ -74,7 +74,7 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    DWSX_HLS:
+    L3_DWSx_HLS:
         # Pattern for parsing filenames such as:
         # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
         # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
