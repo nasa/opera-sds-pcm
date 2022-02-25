@@ -1082,15 +1082,15 @@ resource "aws_instance" "mozart" {
       "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} opera-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} opera-bach-api",
-      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} opera-bach-ui",
+      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} bach-api",
+      "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} bach-ui",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp opera-pcm/conf/sds ~/.sds",
       "cp ~/.sds.bak/config ~/.sds",
-      "cd opera-bach-ui",
+      "cd bach-ui",
       "~/conda/bin/npm install --silent --no-progress",
-      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/opera-bach-ui",
+      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui",
       "~/conda/bin/npm run build --silent",
       "cd ../",
       "if [ \"${var.grq_aws_es}\" = true ]; then",
@@ -1543,7 +1543,7 @@ resource "aws_instance" "grq" {
       "  ln -s /export/home/hysdsops/mozart/ops/nisar-bach-api-${var.opera_bach_api_branch} /export/home/hysdsops/mozart/ops/nisar-bach-api",
       "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} opera-bach-api",
+      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} bach-api",
       "fi"
     ]
   }
