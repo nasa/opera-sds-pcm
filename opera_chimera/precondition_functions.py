@@ -13,6 +13,8 @@ from typing import Dict, List
 
 import psutil
 
+#from cop import cop_catalog
+
 from datetime import datetime, timedelta
 
 from opera_chimera.accountability import OperaAccountability
@@ -27,8 +29,11 @@ from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 
+#from rost import catalog as rost_catalog
+
 from util.common_util import convert_datetime, to_datetime
 from util.type_util import set_type
+#from util.stuf_util import get_stuf_info_from_xml
 
 try:
     from tools.stage_dem import main as stage_dem
@@ -37,6 +42,14 @@ except Exception:
 
 
 ancillary_es = get_grq_es(logger)
+
+#OE_TYPES = [
+#    "POE",
+#    "MOE",
+#    "NOE",
+#    "FOE",
+#]  # Orbit Ephemeris types in order from best to worst
+
 
 class OperaPreConditionFunctions(PreConditionFunctions):
     def __init__(self, context, pge_config, settings, job_params):
@@ -514,6 +527,42 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                 )
                             )
 
+                # TODO: Figure out a way to generalize this
+                if self._pge_config.get(oc_const.PGE_NAME) == oc_const.L0A:
+                    regex = (
+                        r"NISAR_S\d{3}_\w{2,3}_\w{3,4}_M\d{2}_P\d{5}_R\d{2}_C\d{2}_G\d{2}_(\d{4})_(\d{3})_"
+                        r"(\d{2})_(\d{2})_(\d{2})_\d{9}\.vc\d{2}$"
+                    )
+                    match = re.search(regex, self._job_params.get("NEN_L_RRST")[0])
+                    if not match:
+                        raise RuntimeError(
+                            "Failed to parse date from {}.".format(
+                                self._job_params.get("NEN_L_RRST")[0]
+                            )
+                        )
+                    begin_date_time = convert_datetime(
+                        "{}-{}T{}:{}:{}".format(*match.groups()),
+                        strformat="%Y-%jT%H:%M:%S",
+                    )
+                    match = re.search(
+                        regex, self._job_params.get("NEN_L_RRST")[-1])
+                    if not match:
+                        raise RuntimeError(
+                            "Failed to parse date from {}.".format(
+                                self._job_params.get("NEN_L_RRST")[-1]
+                            )
+                        )
+                    end_date_time = convert_datetime(
+                        "{}-{}T{}:{}:{}".format(*match.groups()),
+                        strformat="%Y-%jT%H:%M:%S",
+                    )
+                    metadata[product_metadata.DAPHNE_MIN_TIME_TAG] = convert_datetime(
+                        begin_date_time
+                    )
+                    metadata[product_metadata.DAPHNE_MAX_TIME_TAG] = convert_datetime(
+                        end_date_time
+                    )
+
                 # Convert the TrackFramePolygon to a json structure
                 if product_metadata.BOUNDING_POLYGON in metadata:
                     if isinstance(metadata[product_metadata.BOUNDING_POLYGON], str):
@@ -575,34 +624,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {oc_const.PROCESSINGTYPE: processing_type, oc_const.URGENT_RESPONSE_FIELD: is_urgent}
         logger.info("get_l0b_processing_type : rc_params : {}".format(rc_params))
         return rc_params
-
-    def get_range_date_times(self):
-        metadata = {}
-        if self._pge_config.get(oc_const.PGE_NAME) == oc_const.L0B:
-            if self._job_params.get(product_metadata.DATATAKE_START_DATE_TIME) and \
-                    self._job_params.get(product_metadata.DATATAKE_STOP_DATE_TIME):
-                metadata[product_metadata.RANGE_START_DATE_TIME] = \
-                    self._job_params.get(product_metadata.DATATAKE_START_DATE_TIME)
-                metadata[product_metadata.RANGE_STOP_DATE_TIME] = \
-                    self._job_params.get(product_metadata.DATATAKE_STOP_DATE_TIME)
-            elif self._job_params.get(product_metadata.OBSERVATION_BEGIN_TIME) and \
-                    self._job_params.get(product_metadata.OBSERVATION_END_TIME):
-                metadata[product_metadata.RANGE_START_DATE_TIME] = \
-                    self._job_params.get(product_metadata.OBSERVATION_BEGIN_TIME)
-                metadata[product_metadata.RANGE_STOP_DATE_TIME] = \
-                    self._job_params.get(product_metadata.OBSERVATION_END_TIME)
-            else:
-                raise RuntimeError("Cannot find {}/{} or {}/{} in the job params".format(
-                    product_metadata.DATATAKE_START_DATE_TIME, product_metadata.DATATAKE_STOP_DATE_TIME,
-                    product_metadata.OBSERVATION_BEGIN_TIME, product_metadata.OBSERVATION_END_TIME))
-        else:
-            raise RuntimeError(
-                "get_range_beginning_date_times precondition not implemented yet for PGE '{}'".format(
-                    self._pge_config.get(oc_const.PGE_NAME)
-                )
-            )
-
-        return metadata
 
     def get_file_size_limit(self):
         pge_name = self._pge_config.get(oc_const.PGE_NAME)
