@@ -6,8 +6,8 @@ from datetime import datetime
 
 from chimera.commons.accountability import Accountability
 
-from nisar_chimera.constants.nisar_chimera_const import (
-    NisarChimeraConstants as nc_const,
+from opera_chimera.constants.opera_chimera_const import (
+   OperaChimeraConstants as oc_const,
 )
 
 from util.conf_util import SettingsConf
@@ -19,16 +19,7 @@ grq_es = get_job_accountability_connection(logger)
 
 
 PGE_STEP_DICT = {
-    "L0A": "L0A_L_RRST_PP",
-    "Time_Extractor": "L0A_L_RRST",
-    "L0B": "L0B_L_RRSD",
-    "RSLC": "L1_L_RSLC",
-    "GSLC": "L2_L_GSLC",
-    "GCOV": "L2_L_GCOV",
-    "INSAR": "INSAR",
-    "RUNW": "L1_L_RUNW",
-    "RIFG": "L1_L_RIFG",
-    "GUNW": "L2_L_GUNW",
+#    "L0A": "L0A_L_RRST_PP",
 }
 
 
@@ -67,14 +58,14 @@ def search_es(query, idx):
     raise RuntimeError
 
 
-class NisarAccountability(Accountability):
+class OperaAccountability(Accountability):
     def __init__(self, context, work_dir):
         Accountability.__init__(self, context, work_dir)
 
-        self.trigger_dataset_type = context.get(nc_const.DATASET_TYPE)
-        self.trigger_dataset_id = context.get(nc_const.INPUT_DATASET_ID)
-        self.step = context.get(nc_const.STEP)
-        self.product_paths = context.get(nc_const.PRODUCT_PATHS)
+        self.trigger_dataset_type = context.get(oc_const.DATASET_TYPE)
+        self.trigger_dataset_id = context.get(oc_const.INPUT_DATASET_ID)
+        self.step = context.get(oc_const.STEP)
+        self.product_paths = context.get(oc_const.PRODUCT_PATHS)
 
         self.inputs = []
         if os.path.exists("{}/datasets.json".format(work_dir)):
@@ -86,7 +77,7 @@ class NisarAccountability(Accountability):
             else:
                 self.input_files_type = get_dataset(self.product_paths, datasets_cfg)
         else:
-            self.input_files_type = context.get(nc_const.DATASET_TYPE)
+            self.input_files_type = context.get(oc_const.DATASET_TYPE)
         if isinstance(self.product_paths, list):
             self.inputs = list(map(lambda x: os.path.basename(x), self.product_paths))
         else:
@@ -103,7 +94,7 @@ class NisarAccountability(Accountability):
                 "trigger_dataset_id": self.trigger_dataset_id,
                 "created_at": datetime.now().isoformat()
             }
-            grq_es.index_document(index=nc_const.JOB_ACCOUNTABILITY_INDEX, id=self.job_id, body=payload)
+            grq_es.index_document(index=oc_const.JOB_ACCOUNTABILITY_INDEX, id=self.job_id, body=payload)
         else:
             raise Exception("Unable to create job_accountability_catalog entry: {}".format(self.product_paths))
 
