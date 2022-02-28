@@ -136,6 +136,9 @@ STAGING_AREA:
 # git oauth token
 GIT_OAUTH_TOKEN:
 
+# public git oauth token
+PUB_GIT_OAUTH_TOKEN:
+
 # Container Registry
 CONTAINER_REGISTRY:
 

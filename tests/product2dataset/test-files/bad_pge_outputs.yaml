@@ -17,39 +17,15 @@
 # will still continue with processing.
 # 
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
-L0A_L_PGE:
+
+L3_DSWx_HLS_PGE:
   Outputs:
     Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+      - regex: !!python/regexp '^OPERA_L3_DSWx_HLS_[LANDSAT-8|SENTINEL-1]_\w{6}_\d{8}T\d{6}_v?[0-9]*\.?[0-9].tif$'
         verify: true
         hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
-
-L0A_Time_Extractor_PGE:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-        verify: true
-        hash: sha256
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-        verify: false
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
-
-L0B_L_PGE:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_[P|N|U]R_RRSD_\d{3}_\d{3}_\w_\w{3}\w_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_\d{3}\.h5$'
-        verify: true
-        hash: sha512a
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_[P|N|U]R_RRSD_\d{3}_\d{3}_\w_\w{3}\w_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_\d{3}\.h5\.log$'
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_[P|N|U]R_RRSD_\d{3}_\d{3}_\w_\w{3}\w_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_\d{3}\.h5\.met$'
+#    Secondary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
     Optional: []
   Missing_Metadata: {}

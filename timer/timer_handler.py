@@ -39,66 +39,20 @@ def notify_operator(sns_arn, subject, message):
     )
 
 
-def send_missing_nen_message(sns_arn, metadata):
-    ldf_name = metadata.get(pm.LDF_NAME)
-    vcid = metadata.get(pm.VCID.lower())
-    # AWS limits SNS subject to be less that 100 chars:
-    # https://docs.aws.amazon.com/sns/latest/api/API_Publish.html
-    subject = "Incomplete VCID NENs for LDF"
-    message = "Missing the following VCID {} NENs for LDF {}:\n\n".format(
-        vcid, ldf_name
-    )
-    for missing_rrst in metadata.get(pm.MISSING_RRSTS):
-        message += "{}\n".format(missing_rrst)
-
-    notify_operator(sns_arn, subject=subject, message=message)
-
-
-def send_incomplete_datatake_message(sns_arn, metadata):
-    dtid = metadata.get(pm.DATATAKE_ID)
-    begin_time = metadata.get(pm.DATATAKE_BEGIN_TIME)
-    end_time = metadata.get(pm.DATATAKE_END_TIME)
-    subject = "Incomplete Datatake"
-    message = (
-        "Missing one or more L0B_L_RRST files needed to completely cover Datatake {} with "
-        "range times {} to {}.".format(dtid, begin_time, end_time)
-    )
-    notify_operator(sns_arn, subject=subject, message=message)
-
-
-def send_incomplete_network_pair_message(sns_arn, metadata):
-    sec_rslc = None
-    network_pair_rslcs = metadata.get(pm.NETWORK_PAIR_RSLCS)
-    for rslc in network_pair_rslcs:
-        if rslc:
-            sec_rslc = rslc
-    begin_time = metadata.get(pm.RADAR_START_DATE_TIME)
-    end_time = metadata.get(pm.RADAR_STOP_DATE_TIME)
-    subject = "Incomplete Network Pair"
-    message = (
-        "Missing Compatiable Neighbor RSLC file needed to create complete network pair for {} with "
-        "range times {} to {}.".format(sec_rslc, begin_time, end_time)
-    )
-    notify_operator(sns_arn, subject=subject, message=message)
-
-
-def send_incomplete_trackframe_message(sns_arn, metadata):
-    begin_time = metadata.get(pm.PROCESSING_START_TIME)
-    end_time = metadata.get(pm.PROCESSING_END_TIME)
-    relative_orbit_number = metadata.get(pm.RELATIVE_ORBIT_NUMBER)
-    cycle_number = metadata.get(pm.CYCLE_NUMBER)
-    trackframe = metadata.get(pm.TRACK_FRAME)
-    beam_name = metadata.get(pm.BEAM_NAME)
-    frame_coverage = metadata.get(pm.FRAME_COVERAGE)
-    data_source = metadata.get(pm.DATA_SOURCE)
-    subject = "Incomplete TrackFrame"
-    message = (
-        "Missing one or more L0B_L_RRSD files needed to completely cover Cycle={}, Track={} "
-        "Frame={} with range times {} to {}, Frame Coverage={}, Data Source={}, "
-        "Beam Name={}".format(cycle_number, relative_orbit_number, trackframe, begin_time, end_time,
-                              frame_coverage, data_source, beam_name)
-    )
-    notify_operator(sns_arn, subject=subject, message=message)
+#def send_incomplete_network_pair_message(sns_arn, metadata):
+#    sec_rslc = None
+#    network_pair_rslcs = metadata.get(pm.NETWORK_PAIR_RSLCS)
+#    for rslc in network_pair_rslcs:
+#        if rslc:
+#            sec_rslc = rslc
+#    begin_time = metadata.get(pm.RADAR_START_DATE_TIME)
+#    end_time = metadata.get(pm.RADAR_STOP_DATE_TIME)
+#    subject = "Incomplete Network Pair"
+#    message = (
+#        "Missing Compatiable Neighbor RSLC file needed to create complete network pair for {} with "
+#        "range times {} to {}.".format(sec_rslc, begin_time, end_time)
+#    )
+#    notify_operator(sns_arn, subject=subject, message=message)
 
 
 def update_state_config(es_record):
@@ -239,12 +193,6 @@ def evaluate():
             # Notify the operator if needed
             if dataset_type == pm.LDF_STATE_CONFIG:
                 send_missing_nen_message(sns_arn, metadata)
-            elif dataset_type == pm.DATATAKE_STATE_CONFIG:
-                send_incomplete_datatake_message(sns_arn, metadata)
-            elif dataset_type == pm.TRACK_FRAME_STATE_CONFIG:
-                send_incomplete_trackframe_message(sns_arn, metadata)
-            elif dataset_type == pm.NETWORK_PAIR_STATE_CONFIG:
-                send_incomplete_network_pair_message(sns_arn, metadata)
 
         if scroll_id:
             scroll_ids.add(scroll_id)

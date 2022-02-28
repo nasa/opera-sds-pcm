@@ -13,7 +13,7 @@ from typing import Dict, List
 
 import psutil
 
-from cop import cop_catalog
+#from cop import cop_catalog
 
 from datetime import datetime, timedelta
 
@@ -29,11 +29,11 @@ from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 
-from rost import catalog as rost_catalog
+#from rost import catalog as rost_catalog
 
 from util.common_util import convert_datetime, to_datetime
 from util.type_util import set_type
-from util.stuf_util import get_stuf_info_from_xml
+#from util.stuf_util import get_stuf_info_from_xml
 
 try:
     from tools.stage_dem import main as stage_dem
@@ -43,12 +43,12 @@ except Exception:
 
 ancillary_es = get_grq_es(logger)
 
-OE_TYPES = [
-    "POE",
-    "MOE",
-    "NOE",
-    "FOE",
-]  # Orbit Ephemeris types in order from best to worst
+#OE_TYPES = [
+#    "POE",
+#    "MOE",
+#    "NOE",
+#    "FOE",
+#]  # Orbit Ephemeris types in order from best to worst
 
 
 class OperaPreConditionFunctions(PreConditionFunctions):
@@ -456,128 +456,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             run_config_parameters[attribute_name] = ancillary
         return run_config_parameters
 
-    def get_orbit_ephemeris(self):
-        """
-        Select one or more Orbit Ephemeris files that completely cover the given
-        time range
-
-        :return:
-        """
-        get_oe_params = self._pge_config.get(oc_const.GET_ORBIT_EPHEMERIS, {})
-        if not get_oe_params:
-            raise RuntimeError(
-                "Missing {} area in the PGE config".format(oc_const.GET_ORBIT_EPHEMERIS)
-            )
-
-        oe_type = self._pge_config.get(oc_const.GET_ORBIT_EPHEMERIS, {}).get(
-            "type", "best"
-        )
-        types_to_search = []
-        if oe_type == "best":
-            types_to_search = OE_TYPES
-        else:
-            oe_type = oe_type.upper()
-            if oe_type not in OE_TYPES:
-                raise ValueError(
-                    "{} is not one of the valid Orbit Ephemeris types: {}".format(
-                        oe_type, OE_TYPES
-                    )
-                )
-            types_to_search.append(oe_type)
-
-        try:
-            beginning_time = self._job_params.get(
-                get_oe_params.get("beginning_date_time")
-            )
-            ending_time = self._job_params.get(get_oe_params.get("ending_date_time"))
-        except KeyError:
-            raise RuntimeError(
-                "Missing 'beginning_date_time' and/or 'ending_date_time' setting in the "
-                "'{}' area of the PGE config".format(oc_const.GET_ORBIT_EPHEMERIS)
-            )
-
-        padding = int(get_oe_params.get("padding", 0))
-        if padding != 0:
-            logger.info(
-                "Padding begin and end times by {} hour(s)".format(padding))
-
-            bt = convert_datetime(beginning_time)
-            bt = bt - timedelta(hours=padding)
-            beginning_time = convert_datetime(bt)
-
-            et = convert_datetime(ending_time)
-            et = et + timedelta(hours=padding)
-            ending_time = convert_datetime(et)
-
-        logger.info(
-            "Searching for the best Orbit Ephemeris file: "
-            "type(s) = {}, beginning_time={}, ending_time={}".format(
-                types_to_search, beginning_time, ending_time
-            )
-        )
-
-        records = []
-        for data_type in types_to_search:
-            recs2check = ancillary_es.perform_aggregate_range_intersection_query(
-                beginning_date_time=beginning_time,
-                ending_date_time=ending_time,
-                met_field_beginning_date_time="starttime",
-                met_field_ending_date_time="endtime",
-                sort_list=[
-                    "metadata.{}:desc".format(product_metadata.CREATION_DATE_TIME)
-                ],
-                index="grq_*_{}".format(data_type.lower()),
-            )
-
-            if recs2check:
-                logger.info("Records found for type {}".format(data_type))
-                best_fit_records = ancillary_es.select_best_fit(
-                    beginning_time, ending_time, recs2check
-                )
-                if best_fit_records:
-                    ids = list()
-                    for r in best_fit_records:
-                        ids.append(r.get("_source", {}).get("id"))
-                    logger.info("best fit records: {}".format(ids))
-                    records = best_fit_records
-                    break
-                else:
-                    ids = []
-                    for rec in recs2check:
-                        ids.append(rec.get("_source").get("id"))
-                    message = (
-                        "Record(s) for type {} do not completely cover the data "
-                        "date time range {} to {}: {}".format(
-                            type, beginning_time, ending_time, ids
-                        )
-                    )
-                    if oe_type == "best":
-                        logger.info(message)
-                        # if no records match yet, use these non-zero results
-                        #  to have something
-                        if len(records) == 0:
-                            records = list()
-                    else:
-                        logger.error(message)
-                        raise RuntimeError(message)
-
-        datastore_refs = ancillary_es.get_datastore_refs_from_es_records(
-            records)
-        if len(datastore_refs) == 0:
-            raise ValueError(
-                "Could not find any Orbit Ephemeris files of type(s) {} over {} to {} ".format(
-                    types_to_search, beginning_time, ending_time
-                )
-            )
-        else:
-            logger.info(
-                "Found the best available Orbit Ephemeris file(s): {}".format(
-                    datastore_refs
-                )
-            )
-
-        return {oc_const.ORBIT_EPHEMERIS_FILE: datastore_refs}
-
     def set_pge_job_name(self):
         """
         Sets the PGE job name when the job submission step is run.
@@ -590,78 +468,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             oc_const.SET_PGE_JOB_NAME, {}).get("template")
         pge_job_name = template.format(**self._job_params)
         return {oc_const.PGE_JOB_NAME: pge_job_name}
-
-    def set_l0b_mock_metadata(self):
-        """
-        Creates a mock metadata set specifically for L0B outputs when PGE runs are simulated.
-        Specifically, it creates mock metadata for each observation since the PGE is designed
-        to produce 1 output per observation.
-
-        :return: A list of metadata dictionaries
-        """
-        logger.info("Evaluating {} preconditions".format(oc_const.SET_L0B_MOCK_METADATA))
-        mock_metadata = {oc_const.MOCK_METADATA: {}}
-        if self._settings.get(oc_const.PGE_SIM_MODE, True):
-            config = {
-                oc_const.SET_MOCK_METADATA: self._pge_config.get(oc_const.SET_L0B_MOCK_METADATA)
-            }
-            self._pge_config.update(config)
-            init_mock_met = self.set_mock_metadata()
-            l0b_l_rrsd_met = init_mock_met.get(oc_const.MOCK_METADATA).pop(product_metadata.L0B_L_RRSD)
-            l0b_l_rrsd_met_list = list()
-            mock_met_config = self._pge_config.get(oc_const.SET_L0B_MOCK_METADATA, {}).get(
-                product_metadata.L0B_L_RRSD, {})
-            if oc_const.OBSERVATIONS not in self._job_params:
-                raise RuntimeError("'{}' missing from job_params: {}".format(oc_const.OBSERVATIONS,
-                                                                             json.dumps(self._job_params, indent=2)))
-            for observation in self._job_params.get(oc_const.OBSERVATIONS, {}):
-                obs_id = observation.get(oc_const.PLANNED_OBSERVATION_ID)
-                logger.info("Mocking metadata for observation: {}".format(obs_id))
-                obs_met = copy.deepcopy(l0b_l_rrsd_met)
-                for met_key, dyn_value in mock_met_config.get("observations", {}).items():
-                    if isinstance(dyn_value, list):
-                        obs_met[met_key] = list()
-                        for dv in dyn_value:
-                            v = observation.get(dv, None)
-                            if v:
-                                if isinstance(v, list):
-                                    values = list()
-                                    for i in v:
-                                        values.append(set_type(i))
-                                    obs_met[met_key].extend(values)
-                                elif isinstance(v, dict):
-                                    obs_met[met_key].append(v)
-                                else:
-                                    obs_met[met_key].append(set_type(v))
-                            else:
-                                raise RuntimeError(
-                                    "Missing {} from observation dictionary {}".format(
-                                        dv, obs_id
-                                    )
-                                )
-                    else:
-                        v = observation.get(dyn_value, None)
-                        if v:
-                            if isinstance(v, list):
-                                values = list()
-                                for i in v:
-                                    values.append(set_type(i))
-                                obs_met[met_key] = values
-                            elif isinstance(v, dict):
-                                obs_met[met_key] = v
-                            else:
-                                obs_met[met_key] = set_type(v)
-                        else:
-                            raise RuntimeError(
-                                "Missing {} from observation dictionary {}".format(
-                                    dyn_value, obs_id
-                                )
-                            )
-                l0b_l_rrsd_met_list.append(obs_met)
-            init_mock_met.get(oc_const.MOCK_METADATA).update({product_metadata.L0B_L_RRSD: l0b_l_rrsd_met_list})
-            mock_metadata = init_mock_met
-
-        return mock_metadata
 
     def set_mock_metadata(self):
         """
@@ -773,48 +579,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return {oc_const.MOCK_METADATA: mock_metadata}
 
-    def set_l0b_base_names(self):
-        """
-        Sets the base name to be used when simulating PGE output products.
-
-        :return: A base name.
-        """
-        base_names = {}
-        if self._settings.get(oc_const.PGE_SIM_MODE, True):
-            mock_met_copy = copy.deepcopy(
-                self._job_params.get(oc_const.MOCK_METADATA, {})
-            )
-
-            for output_type in self._pge_config.get(oc_const.SET_L0B_BASE_NAMES, {}).keys():
-                base_name_config = self._pge_config.get(oc_const.SET_L0B_BASE_NAMES, {}).get(
-                    output_type, {}
-                )
-                dt_formats = base_name_config.get("date_time_formats", {})
-                if output_type == product_metadata.L0B_L_RRSD:
-                    base_names[output_type] = list()
-                    rrsd_mock_met_list = mock_met_copy[output_type]
-                    for rrsd_met in rrsd_mock_met_list:
-                        print("rrsd_met : {}".format(json.dumps(rrsd_met, indent=2)))
-                        for key in rrsd_met.keys():
-                            if key in dt_formats.keys():
-                                dt_value = convert_datetime(rrsd_met.get(key))
-                                rrsd_met[key] = convert_datetime(dt_value,
-                                                                 strformat=dt_formats.get(key))
-                        template = base_name_config.get("template")
-                        base_names[output_type].append(template.format(**rrsd_met))
-                else:
-                    for key in mock_met_copy[output_type].keys():
-                        if key in dt_formats.keys():
-                            dt_value = convert_datetime(mock_met_copy[output_type].get(key))
-                            mock_met_copy[output_type][key] = convert_datetime(
-                                dt_value, strformat=dt_formats.get(key)
-                            )
-                    template = base_name_config.get("template")
-                    base_names[output_type] = template.format(
-                        **mock_met_copy[output_type])
-
-        return {oc_const.BASE_NAME: base_names}
-
     def set_base_name(self):
         """
         Sets the base name to be used when simulating PGE output products.
@@ -846,106 +610,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return {oc_const.BASE_NAME: base_names}
 
-    def get_nominal_nens(self):
-        """
-        Currently, this is used during L0A PGE preconditions. According to the PGE team, the PGE will only accept
-        nominal NEN files as input.
-
-        This function will be used to filter out the bad NEN inputs by checking for Mode 0 in the file names.
-
-        :return:
-        """
-        logger.info("Evaluating precondition 'get_nominal_nens'")
-        input_file_path_key = self._pge_config.get(oc_const.PRIMARY_INPUT)
-
-        pattern = (
-            self._settings.get(oc_const.PRODUCT_TYPES, {})
-            .get(product_metadata.NEN_L_RRST, {})
-            .get(oc_const.PATTERN, None)
-        )
-        if not pattern:
-            raise RuntimeError(
-                "Cannot find {} product type definition in the settings.yaml".format(
-                    product_metadata.NEN_L_RRST
-                )
-            )
-
-        filtered_nens = list()
-        logger.info(
-            "NEN list prior to filtering: {}".format(
-                self._job_params.get(input_file_path_key)
-            )
-        )
-        for nen_input in self._job_params.get(input_file_path_key):
-            match = pattern.search(nen_input)
-            if match:
-                keys = match.groupdict().keys()
-                if product_metadata.MODE in keys:
-                    mode = match.groupdict()[product_metadata.MODE]
-                    if int(mode) == 0:
-                        filtered_nens.append(nen_input)
-                    else:
-                        logger.info(
-                            "Removing bad NEN file as it has a non-0 Mode of '{}': {}".format(
-                                mode, os.path.basename(nen_input)
-                            )
-                        )
-                else:
-                    raise RuntimeError(
-                        "Could not find {} in the metadata of the file name: {}".format(
-                            product_metadata.MODE, nen_input
-                        )
-                    )
-            else:
-                raise RuntimeError(
-                    "{} file does not match the expected {} product type pattern: {}".format(
-                        os.path.basename(nen_input),
-                        product_metadata.NEN_L_RRST,
-                        pattern.pattern,
-                    )
-                )
-        if len(filtered_nens) == 0:
-            raise RuntimeError(
-                "NEN list is now empty after filtering out the bad nens from the initial input list."
-            )
-        return {input_file_path_key: filtered_nens}
-
-    def get_stuf_info(self):
-
-        logger.info("Evaluating precondition 'get_stuf_info'")
-        logger.info("self._job_params {}".format(self._job_params))
-        beginning_time = self._job_params.get(product_metadata.RANGE_START_DATE_TIME)
-        ending_time = self._job_params.get(product_metadata.RANGE_STOP_DATE_TIME)
-
-        (
-            orbit_num,
-            cycle_num,
-            relative_orbit_num,
-            orbit_start_time,
-            orbit_end_time,
-            ctz,
-            orbit_dir,
-            eq_cross_time,
-        ) = get_stuf_info_from_xml(beginning_time, ending_time)
-
-        # parse stuf file and return
-        CycleNumber = int(cycle_num)
-        AbsoluteOrbitNumber = int(orbit_num)
-        RelativeOrbitNumber = int(relative_orbit_num)
-        OrbitDirection = orbit_dir
-        LookDirection = "Left"
-
-        rc_params = {
-            oc_const.ABSOLUTE_ORBIT_NUMBER: AbsoluteOrbitNumber,
-            oc_const.MISSION_CYCLE: CycleNumber,
-            oc_const.RELATIVE_ORBIT_NUMBER: RelativeOrbitNumber,
-            oc_const.ORBIT_DIRECTION: OrbitDirection,
-            oc_const.LOOK_DIRECTION: LookDirection,
-        }
-
-        logger.info("get_stuf_info : rc_params : {}".format(rc_params))
-        return rc_params
-
     def get_processing_type(self):
         processing_type = "PR"
         state_config_type = self._context.get(oc_const.DATASET_TYPE)
@@ -960,231 +624,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {oc_const.PROCESSINGTYPE: processing_type, oc_const.URGENT_RESPONSE_FIELD: is_urgent}
         logger.info("get_l0b_processing_type : rc_params : {}".format(rc_params))
         return rc_params
-
-    def get_l0b_ancillary_files(self):
-        logger.info("Evaluating precondition 'get_l0b_ancillary_files'")
-
-        RadarConfigurationFile = None
-        ChirpParameterFile = None
-        WaveformConfigurationFile = None
-
-        RadarConfigurationFiles = ancillary_es.get_latest_product_by_creation_time(
-            index="grq_*_{}".format(oc_const.RADAR_CFG),
-            sort_by="metadata.{}".format(product_metadata.PRODUCT_RECEIVED_TIME),
-        )
-
-        ChirpParameterFiles = ancillary_es.get_latest_product_by_creation_time(
-            index="grq_*_{}".format(oc_const.CHIRP_PARAM),
-            sort_by="metadata.{}".format(product_metadata.PRODUCT_RECEIVED_TIME),
-        )
-
-        WaveformConfigurationFiles = ancillary_es.get_latest_product_by_creation_time(
-            index="grq_*_{}".format(oc_const.WAVEFORM.lower()),
-            sort_by="metadata.{}".format(product_metadata.PRODUCT_RECEIVED_TIME),
-        )
-
-        if RadarConfigurationFiles and len(RadarConfigurationFiles["hits"]["hits"]) > 0:
-            RadarConfigurationFile = ancillary_es.get_datastore_ref_from_es_record(
-                RadarConfigurationFiles["hits"]["hits"][0]
-            )[0]
-        else:
-            raise RuntimeError("Could not find any {} files in ES.".format(oc_const.RADAR_CFG))
-
-        if ChirpParameterFiles and len(ChirpParameterFiles["hits"]["hits"]) > 0:
-            ChirpParameterFile = ancillary_es.get_datastore_ref_from_es_record(
-                ChirpParameterFiles["hits"]["hits"][0]
-            )[0]
-        else:
-            raise RuntimeError("Could not find any {} files in ES.".format(oc_const.CHIRP_PARAM))
-
-        if (
-            WaveformConfigurationFiles
-            and len(WaveformConfigurationFiles["hits"]["hits"]) > 0
-        ):
-            WaveformConfigurationFile = ancillary_es.get_datastore_ref_from_es_record(
-                WaveformConfigurationFiles["hits"]["hits"][0]
-            )[0]
-        else:
-            raise RuntimeError("Could not find any {} files in ES.".format(oc_const.WAVEFORM))
-
-        rc_params = {
-            oc_const.RADAR_CONFIGURATION_FILE: RadarConfigurationFile,
-            oc_const.CHIRP_PARAMETER_FILE: ChirpParameterFile,
-            oc_const.WAVE_CONFIGURATION_FILE: WaveformConfigurationFile,
-        }
-
-        logger.info("get_l0b_ancillary_files : rc_params : {}".format(rc_params))
-
-        return rc_params
-
-    def get_rost_data_from_cop_time(
-        self, beginning_time, ending_time, met_field_beginning_time, met_field_ending_time
-    ):
-
-        total_number_rangelines = 0
-        total_rangelines_to_skip = 0
-        rost_results = ancillary_es.perform_es_range_intersection_query(
-            beginning_date_time=beginning_time,
-            ending_date_time=ending_time,
-            padding=6,
-            met_field_beginning_date_time=met_field_beginning_time,
-            met_field_ending_date_time=met_field_ending_time,
-            sort=["{}:asc".format(product_metadata.START_TIME_ISO)],
-            index=rost_catalog.ES_INDEX,
-        )
-        if rost_results:
-            rost_results = rost_results["hits"]["hits"]
-            if len(rost_results) > 0:
-                logger.info(
-                    "\n{} ROST records found".format(len(rost_results)))
-                prev_delta = None
-                logger.info("observation time is {}".format(beginning_time))
-                beginning_time = to_datetime(beginning_time) if type(beginning_time) is str else beginning_time
-                for rec in rost_results:
-                    rost_start_time = rec.get("_source").get(product_metadata.START_TIME_ISO)
-                    format1 = re.compile(r'\d{4}[-/]\d{2}[-/]\d{2}T\d{2}:\d{2}:\d{2}Z')
-                    format2 = re.compile(r'\d{4}[-/]\d{2}[-/]\d{2}T\d{2}:\d{2}:\d{2}.\d+Z')
-                    if type(rost_start_time) is str:
-                        if format1.match(rost_start_time+"Z") is not None:
-                            rost_start_time = to_datetime(rost_start_time, "%Y-%m-%dT%H:%M:%SZ")
-                        elif format2.match(rost_start_time+"Z") is not None:
-                            rost_start_time = to_datetime(rost_start_time, "%Y-%m-%dT%H:%M:%S.%fZ")
-                        else:
-                            rost_start_time = to_datetime(rost_start_time+"Z")
-                    delta = abs(beginning_time - rost_start_time)
-                    logger.info("delta: {}".format(delta))
-                    if prev_delta is None:
-                        nearest_match = True
-                    elif delta < prev_delta:
-                        nearest_match = True
-                    else:
-                        nearest_match = False
-                    if nearest_match:
-                        logger.info("Nearest match is {}, delta: {}".format(rost_start_time, delta))
-                        logger.info("ROST rec : \n{}\n".format(json.dumps(rec, indent=2)))
-                        total_number_rangelines = int(rec.get("_source").get("number_of_pulses"))
-                        total_rangelines_to_skip = int(rec.get("_source").get("rangelines_to_skip_div_16"))
-                    prev_delta = delta
-            else:
-                raise Exception(
-                    "NO ROST record with range beginning_time={}".format(beginning_time)
-                )
-        else:
-            raise Exception(
-                "NO ROST record with range beginning_time={}".format(beginning_time)
-            )
-        return total_number_rangelines, total_rangelines_to_skip
-
-    def get_observations_data(self):
-        """
-        This function gets observation data based on COP and ROST data within radar start and end time.
-        This will be revisited after we receive samople COP and ROST data from PGE team
-        and their relationship is better understood.
-        """
-
-        logger.info("Evaluating precondition 'get_observations'")
-
-        observation_ids = self._job_params.get(product_metadata.OBSERVATION_IDS, None)
-
-        if observation_ids is None:
-            raise RuntimeError("Missing {} from job parameters".format(product_metadata.OBSERVATION_IDS))
-        pmets = self._context.get(oc_const.PRODUCTS_METADATA, [])
-        is_urgent = pmets.get("metadata", {}).get(oc_const.IS_URGENT, False)
-        observations = list()
-        for observation_id in observation_ids:
-            logger.info("Getting observation info for: {}".format(observation_id))
-            rec = ancillary_es.get_by_id(id=observation_id, index=cop_catalog.ES_INDEX)
-            if rec.get("found", False) is True:
-                observation_info = dict()
-                logger.info("Observation record : \n{}\n".format(json.dumps(rec, indent=2)))
-                observation_info[oc_const.PLANNED_OBSERVATION_ID] = rec.get("_id")
-                observation_info[oc_const.IS_URGENT_OBSERVATION] = is_urgent
-                observation_info[oc_const.CONFIGURATION_ID] = rec.get("_source").get(cop_catalog.LSAR_CONFIG_ID)
-                lsar_start_datetime_iso = rec.get("_source").get(
-                    cop_catalog.CMD_LSAR_START_DATETIME_ISO
-                )
-                lsar_end_datetime_iso = rec.get("_source").get(
-                    cop_catalog.CMD_LSAR_END_DATETIME_ISO
-                )
-                try:
-                    number_rangelines, rangelines_to_skip = self.get_rost_data_from_cop_time(
-                        lsar_start_datetime_iso,
-                        lsar_end_datetime_iso,
-                        rost_catalog.START_TIME_ISO,
-                        rost_catalog.END_TIME_ISO
-                    )
-                    observation_info[oc_const.TOTAL_NUMBER_RANGELINES] = number_rangelines
-                    observation_info[oc_const.RANGELINES_TO_SKIP] = rangelines_to_skip
-
-                except Exception as e:
-                    raise RuntimeError(
-                        "Number of range lines could not be found from the ROST records found with "
-                        "cop start time={} and end time={}: {}".format(
-                            lsar_start_datetime_iso, lsar_end_datetime_iso, str(e)
-                        )
-                    )
-                observation_info[oc_const.START_TIME] = lsar_start_datetime_iso
-                observation_info[oc_const.END_TIME] = lsar_end_datetime_iso
-                # Need to hardcode this for now per ICS
-                observation_info[oc_const.MISSION_CYCLE] = 1
-
-                observations.append(observation_info)
-            else:
-                raise RuntimeError(
-                    "NO COP record found with {} = {}".format(cop_catalog.REFOBS_ID, observation_id)
-                )
-
-        rc_params = {"Observations": observations}
-        logger.info("get_observation_data : rc_params : {}".format(rc_params))
-        return rc_params
-
-    def get_dyn_anc_l1_l2(self):
-        """
-        For R2, the dyn ancillaries for L1/L2 PGEs to null. To accomodate that we have a dedicated precondition for now.
-        :return:
-        """
-        dyn_anc = {
-            oc_const.DEM_FILE: None,
-            oc_const.ORBIT: None,
-            oc_const.REFINED_POINTING: None,
-            oc_const.EXT_CALIBRATION: None,
-            oc_const.INT_CALIBRATION: None,
-            oc_const.POL_CALIBRATION: None,
-            oc_const.BOOK_CALIBRATION: None,
-            oc_const.ANT_PATTERN: None,
-            oc_const.WAVEFORM: None,
-        }
-
-        logger.info("Setting default dyn anc for GSLC : {}".format(dyn_anc))
-        return dyn_anc
-
-    def get_range_date_times(self):
-        metadata = {}
-        if self._pge_config.get(oc_const.PGE_NAME) == oc_const.L0B:
-            if self._job_params.get(product_metadata.DATATAKE_START_DATE_TIME) and \
-                    self._job_params.get(product_metadata.DATATAKE_STOP_DATE_TIME):
-                metadata[product_metadata.RANGE_START_DATE_TIME] = \
-                    self._job_params.get(product_metadata.DATATAKE_START_DATE_TIME)
-                metadata[product_metadata.RANGE_STOP_DATE_TIME] = \
-                    self._job_params.get(product_metadata.DATATAKE_STOP_DATE_TIME)
-            elif self._job_params.get(product_metadata.OBSERVATION_BEGIN_TIME) and \
-                    self._job_params.get(product_metadata.OBSERVATION_END_TIME):
-                metadata[product_metadata.RANGE_START_DATE_TIME] = \
-                    self._job_params.get(product_metadata.OBSERVATION_BEGIN_TIME)
-                metadata[product_metadata.RANGE_STOP_DATE_TIME] = \
-                    self._job_params.get(product_metadata.OBSERVATION_END_TIME)
-            else:
-                raise RuntimeError("Cannot find {}/{} or {}/{} in the job params".format(
-                    product_metadata.DATATAKE_START_DATE_TIME, product_metadata.DATATAKE_STOP_DATE_TIME,
-                    product_metadata.OBSERVATION_BEGIN_TIME, product_metadata.OBSERVATION_END_TIME))
-        else:
-            raise RuntimeError(
-                "get_range_beginning_date_times precondition not implemented yet for PGE '{}'".format(
-                    self._pge_config.get(oc_const.PGE_NAME)
-                )
-            )
-
-        return metadata
 
     def get_file_size_limit(self):
         pge_name = self._pge_config.get(oc_const.PGE_NAME)
@@ -1276,49 +715,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                     oc_const.SET_PCM_RETRIEVAL_ID
                 )
             )
-
-    def get_gcov_job_params_from_context(self):
-        """
-        Returns a dict with only the key: value pair for keys in 'keys' from the
-        input_context and do any PGE-specific value coercion for the GCOV PGE.
-
-        :return: dict or raises error if not found
-        """
-        logger.info(
-            "Evaluating precondition {}".format(
-                oc_const.GET_GCOV_JOB_PARAMS_FROM_CONTEXT
-            )
-        )
-        keys = self._pge_config.get(oc_const.GET_GCOV_JOB_PARAMS_FROM_CONTEXT).get(
-            "keys"
-        )
-        try:
-            metadata = self.__get_keys_from_dict(self._context, keys)
-        except Exception as e:
-            logger.error(
-                "Could not extract metadata from input "
-                "context: {}".format(traceback.format_exc())
-            )
-            raise RuntimeError(
-                "Could not extract metadata from input context: {}".format(e)
-            )
-
-        # coerce output_posting
-        logger.info(
-            "Coercing output_posting. Current type: {}".format(
-                type(metadata["output_posting"])
-            )
-        )
-        metadata["output_posting"] = eval(metadata["output_posting"])
-        logger.info("New type: {}".format(type(metadata["output_posting"])))
-
-        # return full dot notation
-        return {
-            "processing.input_subset.fullcovariance": metadata["fullcovariance"],
-            "processing.rtc.output_type": metadata["output_type"],
-            "processing.rtc.algorithm_type": metadata["algorithm_type"],
-            "processing.geocode.output_posting": metadata["output_posting"],
-        }
 
     def get_bbox(self, dem_file=None):
         """

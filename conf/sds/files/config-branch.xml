@@ -24,12 +24,6 @@
           <defaultValue>{{ PCM_COMMONS_BRANCH }}</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
-        <hudson.model.StringParameterDefinition>
-          <name>NISAR_MIXED_MODES_BRANCH</name>
-          <description>The opera-mixed-modes branch to use</description>
-          <defaultValue>{{ NISAR_MIXED_MODES_BRANCH }}</defaultValue>
-          <trim>true</trim>
-        </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
   </properties>
@@ -89,10 +83,10 @@ set -ex
 if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]
 then
   {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
-  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} --build-arg NISAR_MIXED_MODES_BRANCH=${NISAR_MIXED_MODES_BRANCH}
+  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} 
 else
   {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
-  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} --build-arg NISAR_MIXED_MODES_BRANCH=${NISAR_MIXED_MODES_BRANCH}
+  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} 
 fi
 
 if [ -f "./docker/extract_artifacts.sh" ]; then

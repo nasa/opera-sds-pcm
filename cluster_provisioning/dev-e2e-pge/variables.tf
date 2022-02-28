@@ -5,7 +5,7 @@
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -43,19 +43,19 @@ variable "product_delivery_branch" {
   default = "develop"
 }
 
-variable "opera_bach_api_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
+variable "bach_api_repo" {
+  default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
-variable "opera_bach_api_branch" {
+variable "bach_api_branch" {
   default = "develop"
 }
 
-variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
+variable "bach_ui_repo" {
+  default = "github.com/nasa/opera-sds-bach-ui.git"
 }
 
-variable "opera_bach_ui_branch" {
+variable "bach_ui_branch" {
   default = "develop"
 }
 
@@ -83,6 +83,9 @@ variable "keypair_name" {
 variable "jenkins_api_key" {
 }
 
+variable "artifactory_fn_api_key" {
+}
+
 variable "ops_password" {
   default = "hysdsops"
 }
@@ -107,14 +110,14 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-sciflo-l0a" = {
+#    "opera-job_worker-sciflo-l0a" = {
       # TODO: restore multiple instance types when L0A PGE deterministically generates the same number of products
       #"instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "instance_type" = ["t3.xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
+#      "instance_type" = ["t3.xlarge"]
+#      "root_dev_size" = 50
+#      "data_dev_size" = 25
+#      "max_size"      = 10
+#    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
@@ -366,47 +369,8 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "cop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_cop_catalog" {
-  default = false
-}
-
-variable "tiurdrop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_tiurdrop_catalog" {
-  default = false
-}
-
-variable "rost_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_rost_catalog" {
-  default = false
-}
-
-variable "pass_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_pass_catalog" {
-  default = false
-}
-
-variable "delete_old_observation_catalog" {
-  default = false
-}
-
-variable "delete_old_track_frame_catalog" {
-  default = false
-}
-
-variable "delete_old_radar_mode_catalog" {
+variable "delete_old_job_catalog" {
+  type    = bool
   default = false
 }
 
@@ -448,9 +412,10 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
+variable "data_subscriber_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
 }
+
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
@@ -492,10 +457,23 @@ variable "inactivity_threshold" {
   default = 600
 }
 
-variable "pge_test_package" {
-  default = "testdata_R2.0.0"
+variable "run_smoke_test" {
+  type    = bool
+  default = true
 }
 
-variable "l0a_test_package" {
-  default = "l0a_multi_003.tgz"
+variable "earthdata_user" {
+  default = ""
 }
+
+variable "earthdata_pass" {
+  default = ""
+}
+
+variable "pge_test_package" {
+  default = "testdata_R1.0.0"
+}
+
+#variable "l0a_test_package" {
+#  default = "l0a_multi_003.tgz"
+#}

@@ -21,16 +21,14 @@ accountability_es = get_grq_es(logger)
 # obs_es = get_observation_accountability_connection(logger)
 
 PGE_STEP_DICT = {
-    "L0A": "L0A_L_RRST_PP",
-    "Time_Extractor": "L0A_L_RRST",
-    "L0B": "L0B_L_RRSD"
+#    "L0A": "L0A_L_RRST_PP"
 }
 
 INDECES = {
     "": None,
-    "pass": oc_const.PASS_ACCOUNTABILITY_INDEX,
-    "observation": oc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
-    "track_frame": oc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
+#    "pass": oc_const.PASS_ACCOUNTABILITY_INDEX,
+#    "observation": oc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
+#    "track_frame": oc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
 }
 
 

@@ -56,7 +56,7 @@ def create_cnm_r_msg(dataset_id, product_type):
         submission_time=utilities.get_current_datetime(),
         received_time=utilities.get_current_datetime(),
         status="SUCCESS",
-        catalog_id="C1234208438-NISAR-TEST",
+        catalog_id="C1234208438-OPERA-TEST",
         catalog_url="http://some/cmr/url",
     )
     cnm_r.add_product(dataset_id)

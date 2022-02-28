@@ -17,42 +17,17 @@
 # will still continue with processing.
 # 
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
-L0A:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-        verify: true
-        hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
-
-Time_Extractor:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-        verify: true
-        hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-        verify: false
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
-
-RSLC:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_L1_[P|U]R_RSLC_\d{3}_\d{3}_\w_\d{3}_\d{4}_\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_[F|P]_\d{3}\.h5$'
-        verify: true
-        hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_L1_[P|U]R_RSLC_\d{3}_\d{3}_\w_\d{3}_\d{4}_\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_[F|P]_\d{3}\.h5\.log$'
-      - regex: !!python/regexp '^NISAR_L1_[P|U]R_RSLC_\d{3}_\d{3}_\w_\d{3}_\d{4}_\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_[F|P]_\d{3}\.h5\.met$'
-    Optional: []
-  Missing_Metadata: {}
+#L0A:
+#  Outputs:
+#    Primary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+#        verify: true
+#        hash: md5
+#    Secondary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
+#    Optional: []
+#  Missing_Metadata: {}
 
 # TODO chrisjrd: Finalize config, adding regex for the other output files
 # Key name MUST match the corresponding RunConfig jinja2 template filename.

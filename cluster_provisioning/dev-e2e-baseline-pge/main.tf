@@ -14,10 +14,10 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  opera_bach_api_repo                     = var.opera_bach_api_repo
-  opera_bach_api_branch                   = var.opera_bach_api_branch
-  opera_bach_ui_repo                      = var.opera_bach_ui_repo
-  opera_bach_ui_branch                    = var.opera_bach_ui_branch
+  bach_api_repo                           = var.bach_api_repo
+  bach_api_branch                         = var.bach_api_branch
+  bach_ui_repo                            = var.bach_ui_repo
+  bach_ui_branch                          = var.bach_ui_branch
   venue                                   = var.venue
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
@@ -25,6 +25,7 @@ module "common" {
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
+  artifactory_fn_api_key                  = var.artifactory_fn_api_key
   ops_password                            = var.ops_password
   shared_credentials_file                 = var.shared_credentials_file
   profile                                 = var.profile
@@ -73,7 +74,7 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  l0a_timer_trigger_frequency             = var.l0a_timer_trigger_frequency
+  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -84,13 +85,15 @@ module "common" {
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
+  earthdata_user                          = var.earthdata_user
+  earthdata_pass                          = var.earthdata_pass
 }
 
 locals {
   baseline_pge_repo   = var.baseline_pge_repo
   baseline_pge_branch = var.baseline_pge_branch
   source_event_arn    = "arn:aws:${var.cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
-  lambda_repo         = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/lambda"
+  lambda_repo         = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   crid                = lower(var.crid)
 }
 
@@ -123,7 +126,7 @@ resource "null_resource" "mozart" {
       "sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
       "cd ~/.sds/files",
       "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json",
-      "/bin/cp -f ~/mozart/ops/opera-pcm/cluster_provisioning/death-valley/rules/user_rules.json ~/.sds/rules/user_rules.json",
+      "/bin/cp -f ~/mozart/ops/${var.project}-pcm/cluster_provisioning/death-valley/rules/user_rules.json ~/.sds/rules/user_rules.json",
       "cd ~/.sds/files/test",
       "curl -XDELETE http://${module.common.mozart_pvt_ip}:9200/user_rules-grq",
       "curl -XDELETE http://${module.common.mozart_pvt_ip}:9200/user_rules-mozart",
@@ -134,10 +137,10 @@ resource "null_resource" "mozart" {
       "sds -d ci remove_job -b ${local.baseline_pge_branch} https://${local.baseline_pge_repo}",
       "cd ~/mozart/ops",
       "git clone --single-branch -b ${local.baseline_pge_branch} https://${var.git_auth_key}@${local.baseline_pge_repo}",
-      "python ~/mozart/ops/baseline-pge/utilities/submit_dumby_landsat.py -jv ${local.baseline_pge_branch} --min_sleep 30 --max_sleep 60 opera-job_worker-large 1",
-      "~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py  --crid=${local.crid} datasets_baseline.json 1 /tmp/datasets.txt || :",
-      "~/mozart/ops/opera-pcm/conf/sds/files/test/submit_cnm_r_msg.py --datasets dumby-landsat ${local.source_event_arn} /tmp/cnm_r_stamped_dataset.json || :",
-      "~/mozart/ops/opera-pcm/conf/sds/files/test/check_stamped_dataset.py /tmp/cnm_r_stamped_dataset.json daac_delivery_status /tmp/check_stamped_dataset_result.txt || :",
+      "python ~/mozart/ops/baseline-pge/utilities/submit_dumby_landsat.py -jv ${local.baseline_pge_branch} --min_sleep 30 --max_sleep 60 ${var.project}-job_worker-large 1",
+      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/check_datasets_file.py  --crid=${local.crid} datasets_baseline.json 1 /tmp/datasets.txt || :",
+      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/submit_cnm_r_msg.py --datasets dumby-landsat ${local.source_event_arn} /tmp/cnm_r_stamped_dataset.json || :",
+      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/check_stamped_dataset.py /tmp/cnm_r_stamped_dataset.json daac_delivery_status /tmp/check_stamped_dataset_result.txt || :",
     ]
   }
 
@@ -145,7 +148,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
+      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
     ]
   }
 
@@ -163,7 +166,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-baseline-pge/check_pcm.py ||:",
+      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e-baseline-pge/check_pcm.py ||:",
     ]
   }
 
