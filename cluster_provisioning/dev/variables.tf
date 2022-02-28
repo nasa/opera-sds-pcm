@@ -86,6 +86,10 @@ variable "jenkins_api_key" {
 variable "artifactory_fn_api_key" {
 }
 
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "ops_password" {
   default = "hysdsops"
 }
@@ -288,7 +292,6 @@ variable "daac_delivery_proxy" {
 
 variable "use_daac_cnm" {
   default = false
-
 }
 
 variable "daac_endpoint_url" {
@@ -419,10 +422,6 @@ variable "purge_es_snapshot" {
 
 variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
-}
-
-variable "artifactory_fn_user" {
-  default = ""
 }
 
 variable "earthdata_user" {

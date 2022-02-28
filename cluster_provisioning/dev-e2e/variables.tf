@@ -39,12 +39,15 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
+variable "product_delivery_branch" {
+  default = "develop"
+}
+
 variable "bach_api_repo" {
   default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
 variable "bach_api_branch" {
-#  default = "develop"
   default = "main"
 }
 
@@ -53,12 +56,7 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-#  default = "develop"
   default = "main"
-}
-
-variable "product_delivery_branch" {
-  default = "develop"
 }
 
 variable "venue" {
@@ -289,7 +287,7 @@ variable "cnm_r_allowed_account" {
 #  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {

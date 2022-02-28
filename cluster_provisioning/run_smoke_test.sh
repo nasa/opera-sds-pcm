@@ -22,6 +22,7 @@ if [ "$#" -eq 19 ]; then
   use_daac_cnm=${17}
   crid=${18}
   cluster_type=${19}
+#  data_subscriber_timer_trigger_frequency=${20}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -35,16 +36,16 @@ cnm_datasets=L3_DSWx_HLS
 # If we're deploying a forward cluster, push out a modified version of the settings.yaml
 # in order to test the timers. Additionally, we should temporarily shorten the timers to something small for smoke test purposes
 # TODO chrisjrd: uncomment
-#if [ "${cluster_type}" = "forward" ]; then
+if [ "${cluster_type}" = "forward" ]; then
 #  aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "rate(5 minutes)"
-#
+  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-timer-Trigger --schedule-expression "rate(5 minutes)"
 #  echo "Making a copy of the original settings.yaml and pushing out a modified version out to the cluster"
 #  cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
 #  sed -i 's/    DATATAKE_EVALUATOR: .*/    DATATAKE_EVALUATOR: 10/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
 #
-#  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
-#  sds ship
-#fi
+  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
+  sds ship
+fi
 
 # build/import CNM product delivery
 if [ "${use_artifactory}" = true ]; then
@@ -199,12 +200,11 @@ data_end="${tomorrow}T00:00:00"
 #  echo "SUCCESS: No force submit state configs expected to be found." > /tmp/check_expected_force_submits.txt
 #fi
 
-# If we're deploying a forward cluster, restore the original settings that will create the daily observational
-# accountability reports
+# If we're deploying a forward cluster, restore the original settings that will
 #if [ "${cluster_type}" = "forward" ]; then
 #  echo "Restoring original settings to generate daily Observation Accountability Reports"
 #  python ~/mozart/ops/opera-pcm/conf/sds/files/test/update_lambda.py ${project}-${venue}-${counter}-obs-acct-report-timer "{\"USER_START_TIME\": \"\", \"USER_END_TIME\": \"\"}"
-#  aws events put-rule --name ${project}-${venue}-${counter}-obs-acct-report-timer-Trigger --schedule-expression "${obs_acct_report_timer_trigger_frequency}"
+#  aws events put-rule --name ${project}-${venue}-${counter}-ata-subscriber-timer-Trigger --schedule-expression "${data_subscriber_timer_trigger_frequency}"
 #fi
 
 # Restore OnDemandPercentageAboveBaseCapacity back to 0 for GPU instances

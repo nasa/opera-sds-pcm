@@ -96,12 +96,12 @@ module "common" {
 }
 
 locals {
+  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  #lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
   default_source_event_arn = "arn:aws:${var.cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
   daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
   source_event_arn         = local.default_source_event_arn
   grq_es_url               = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : module.common.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
-  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  #lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
   crid                     = lower(var.crid)
 }
 
@@ -150,31 +150,31 @@ resource "null_resource" "mozart" {
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
-      "  ${var.cluster_type} \\",
-      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :",
+      "  ${var.cluster_type} || :",
+#      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :",
       "fi",
     ]
   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "  ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
-      "fi",
-    ]
-  }
+#  provisioner "remote-exec" {
+#    inline = [
+#      "set -ex",
+#      "source ~/.bash_profile",
+#      "if [ \"${var.run_smoke_test}\" = true ]; then",
+#      "  ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
+#      "fi",
+#    ]
+#  }
 
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:",
-      "fi",
-    ]
-  }
+#  provisioner "remote-exec" {
+#    inline = [
+#      "set -ex",
+#      "source ~/.bash_profile",
+#      "if [ \"${var.run_smoke_test}\" = true ]; then",
+#      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:",
+#      "fi",
+#    ]
+#  }
 
   provisioner "remote-exec" {
     inline = [
