@@ -52,7 +52,7 @@
         </sf:operator>
       </sf:process>
 
-      <sf:process id="post_L3_HLS">
+      <!--sf:process id="post_L3_HLS">
         <sf:inputs>
           <sf_context/>
           <job_id_PGE_L0B_Prime from="@#previous"/>
@@ -67,7 +67,7 @@
             <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/post_processor.py?post_processor.post_process</sf:binding>
           </sf:op>
         </sf:operator>
-      </sf:process>
+      </sf:process-->
     </sf:processes>
   </sf:flow>
 </sf:sciflo>

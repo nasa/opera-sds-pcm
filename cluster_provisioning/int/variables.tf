@@ -97,6 +97,10 @@ variable "artifactory_fn_api_key" {
   default = ""
 }
 
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "keypair_name" {
   default = ""
 }

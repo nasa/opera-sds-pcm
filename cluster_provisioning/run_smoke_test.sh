@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 20 ]; then
+if [ "$#" -eq 19 ]; then
   project=${1}
   environment=${2}
   venue=${3}
@@ -15,14 +15,13 @@ if [ "$#" -eq 20 ]; then
   pcm_branch=${10}
   product_delivery_repo=${11}
   product_delivery_branch=${12}
-  delete_old_job_catalog=${13}
-  mozart_private_ip=${14}
-  isl_bucket=${15}
-  source_event_arn=${16}
-  daac_delivery_proxy=${17}
-  use_daac_cnm=${18}
-  crid=${19}
-  cluster_type=${20}
+  mozart_private_ip=${13}
+  isl_bucket=${14}
+  source_event_arn=${15}
+  daac_delivery_proxy=${16}
+  use_daac_cnm=${17}
+  crid=${18}
+  cluster_type=${19}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
