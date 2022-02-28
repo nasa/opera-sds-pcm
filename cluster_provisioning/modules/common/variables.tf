@@ -129,12 +129,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-06b161f22c9086917"
-    metrics   = "ami-049f536813d215f39"
-    grq       = "ami-0d4589279c337e9c1"
-    factotum  = "ami-0f40727533013a107"
-    ci        = "ami-0601c031b967d1e15"
-    autoscale = "ami-0601c031b967d1e15"
+    mozart    = "ami-07d5fa9c4e08774ba" # mozart v4.15 opera dev
+    metrics   = "ami-0b7c5bf42706743be" # metrics v4.10 opera dev
+    grq       = "ami-01781a9cc6b15a04e" # grq v4.11 opera dev
+    factotum  = "ami-00d0274121da6c039" # factotum v4.11 opera dev
+    ci        = "ami-07eca91ff44702e8d" # verdi v4.11 opera dev
+    autoscale = "ami-07eca91ff44702e8d" # verdi v4.11 opera dev
   }
 }
 
