@@ -48,7 +48,6 @@ cnm_datasets=L3_DSWx_HLS
 #fi
 
 # build/import CNM product delivery
-# TODO chrisjrd: uncomment
 if [ "${use_artifactory}" = true ]; then
   ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
   sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
@@ -72,8 +71,6 @@ cd ~/.sds/files
 # TODO chrisjrd: uncomment
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
-#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 7
-#~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 5
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
@@ -98,11 +95,11 @@ else
   sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
 fi
 
-if [ "${delete_old_job_catalog}" = true ]; then
-  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-else
-  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
-fi
+#if [ "${delete_old_job_catalog}" = true ]; then
+#  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
+#else
+#  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
+#fi
 
 # ingest Sacramento AOI to test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
@@ -128,24 +125,21 @@ fab -f ~/.sds/cluster.py -R mozart,grq create_all_user_rules_index
 # verify number of ingested ancillary/auxiliary products
 #~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} datasets_e2e.json 1,2 /tmp/datasets.txt
 
-# stage met_required files to ISL
-#./stage_met_required_files_to_s3.sh ${isl_bucket}
-
-# verify number of ingested ancillary/auxiliary, NEN, and LDF
-#~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --max_time=2700 --crid=${crid} datasets_e2e.json 1,2,3 /tmp/datasets.txt
+# stage L2_HLS_L30 & L2_HLS_S30 files to ISL
+./stage_l2_hls_to_s3.sh ${isl_bucket}
 
 # verify accountability table counts
 #python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_accountability.py --max_time=2700 pass_accountability_catalog 12 /tmp/pass_accountability_catalog.txt
 
 # simulate reception of CNM-R messages from the DAAC and submit jobs for stamping their response on the dataset
-if [ "${use_daac_cnm}" = false ]; then
-  python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_cnm_r_msg.py --datasets ${cnm_datasets} ${source_event_arn} /tmp/cnm_r_stamped_dataset.json
-else
-  python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_cnm_r_msg.py --datasets ${cnm_datasets} --no_simulation  ${source_event_arn} /tmp/cnm_r_stamped_dataset.json
-fi
+#if [ "${use_daac_cnm}" = false ]; then
+#  python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_cnm_r_msg.py --datasets ${cnm_datasets} ${source_event_arn} /tmp/cnm_r_stamped_dataset.json
+#else
+#  python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_cnm_r_msg.py --datasets ${cnm_datasets} --no_simulation  ${source_event_arn} /tmp/cnm_r_stamped_dataset.json
+#fi
 
 # check that the datasets got stamped
-python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_stamped_dataset.py /tmp/cnm_r_stamped_dataset.json daac_delivery_status /tmp/check_stamped_dataset_result.txt
+#python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_stamped_dataset.py /tmp/cnm_r_stamped_dataset.json daac_delivery_status /tmp/check_stamped_dataset_result.txt
 
 # check that the ISL was cleaned out by the trigger rule
 python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_empty_isl.py ${isl_bucket} /tmp/check_empty_isl_result.txt
