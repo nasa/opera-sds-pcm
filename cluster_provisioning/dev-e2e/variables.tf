@@ -44,7 +44,8 @@ variable "bach_api_repo" {
 }
 
 variable "bach_api_branch" {
-  default = "develop"
+#  default = "develop"
+  default = "main"
 }
 
 variable "bach_ui_repo" {
@@ -52,7 +53,8 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-  default = "develop"
+#  default = "develop"
+  default = "main"
 }
 
 variable "product_delivery_branch" {
@@ -84,6 +86,10 @@ variable "jenkins_api_key" {
 }
 
 variable "artifactory_fn_api_key" {
+}
+
+variable "artifactory_fn_user" {
+  default = ""
 }
 
 variable "ops_password" {
