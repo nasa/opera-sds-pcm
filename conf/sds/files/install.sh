@@ -28,8 +28,7 @@ sed "s/__IPADDRESS_ETH0__/$IPADDRESS_ETH0/g" $HOME/verdi/etc/supervisord.conf.tm
   sed "s/__FQDN__/$FQDN/g" > $HOME/verdi/etc/supervisord.conf
 
 # move creds
-rm -rf $HOME/.aws
-mv -f $BASE_PATH/creds/.aws $HOME/
+rm -rf $HOME/.aws; mv -f $BASE_PATH/creds/.aws $HOME/
 rm -rf $HOME/.boto; mv -f $BASE_PATH/creds/.boto $HOME/
 rm -rf $HOME/.s3cfg; mv -f $BASE_PATH/creds/.s3cfg $HOME/
 rm -rf $HOME/.netrc; mv -f $BASE_PATH/creds/.netrc $HOME/; chmod 600 $HOME/.netrc

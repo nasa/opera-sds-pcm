@@ -85,3 +85,7 @@ output "daac_proxy_cnm_r_sns_count" {
 output "e_misfire_metric_alarm_name" {
   value = local.e_misfire_metric_alarm_name
 }
+
+output "aws_cloudwatch_event_rule_data_subscriber_timer" {
+  value = aws_cloudwatch_event_rule.data_subscriber_timer
+}

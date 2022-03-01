@@ -5,7 +5,7 @@
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -51,19 +51,19 @@ variable "baseline_pge_branch" {
   default = "develop"
 }
 
-variable "opera_bach_api_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
+variable "bach_api_repo" {
+  default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
-variable "opera_bach_api_branch" {
+variable "bach_api_branch" {
   default = "develop"
 }
 
-variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
+variable "bach_ui_repo" {
+  default = "github.com/nasa/opera-sds-bach-ui.git"
 }
 
-variable "opera_bach_ui_branch" {
+variable "bach_ui_branch" {
   default = "develop"
 }
 
@@ -89,6 +89,9 @@ variable "keypair_name" {
 }
 
 variable "jenkins_api_key" {
+}
+
+variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
@@ -320,47 +323,8 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "cop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_cop_catalog" {
-  default = false
-}
-
-variable "tiurdrop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_tiurdrop_catalog" {
-  default = false
-}
-
-variable "rost_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_rost_catalog" {
-  default = false
-}
-
-variable "pass_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_pass_catalog" {
-  default = false
-}
-
-variable "delete_old_observation_catalog" {
-  default = false
-}
-
-variable "delete_old_track_frame_catalog" {
-  default = false
-}
-
-variable "delete_old_radar_mode_catalog" {
+variable "delete_old_job_catalog" {
+  type    = bool
   default = false
 }
 
@@ -402,8 +366,8 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
+variable "data_subscriber_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {
@@ -446,3 +410,17 @@ variable "inactivity_threshold" {
   type    = number
   default = 600
 }
+
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
+}
+

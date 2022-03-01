@@ -18,12 +18,13 @@ export OPERA_BACH_API_BRANCH=${10}
 export OPERA_BACH_API_RELEASE=${11}
 export OPERA_BACH_UI_BRANCH=${12}
 export OPERA_BACH_UI_RELEASE=${13}
+export PUB_GIT_OAUTH_TOKEN=${14}
 
 echo -e "\n\n========================================================="
 echo "Creating ${OPERA_PCM_RELEASE} tag for opera-pcm repo."
 echo "========================================================="
 rm -rf opera-pcm/
-git clone -b ${OPERA_PCM_BRANCH} https://${GIT_OAUTH_TOKEN}@github.com/nasa/opera-sds-pcm.git
+git clone -b ${OPERA_PCM_BRANCH} https://${PUB_GIT_OAUTH_TOKEN}@github.com/nasa/opera-sds-pcm.git
 cd opera-pcm/
 git branch -D ${OPERA_PCM_RELEASE} || :
 sleep 1

@@ -1,4 +1,0 @@
-{"mission":"nisar","scid":198,"station":"asf","antenna":"as4","pass":114,"mode":0,"receiver":0,"channel":0,"group":0,"numFiles":1,"files":{
-    "NISAR_S198_ASF_AS4_M00_P00114_R00_C00_G00_2020_008_07_10_28_000000000.vc24":{"name":"NISAR_S198_ASF_AS4_M00_P00114_R00_C00_G00_2020_008_07_10_28_000000000.vc24","md5":"TOUdJfmJTuLylPg7qKf0vw==","size":207400000,"status":"success"}
-    }
-}

@@ -14,10 +14,10 @@ module "common" {
   product_delivery_branch                 = var.product_delivery_branch
   pcm_commons_repo                        = var.pcm_commons_repo
   pcm_commons_branch                      = var.pcm_commons_branch
-  opera_bach_api_repo                     = var.opera_bach_api_repo
-  opera_bach_api_branch                   = var.opera_bach_api_branch
-  opera_bach_ui_repo                      = var.opera_bach_ui_repo
-  opera_bach_ui_branch                    = var.opera_bach_ui_branch
+  bach_api_repo                           = var.bach_api_repo
+  bach_api_branch                         = var.bach_api_branch
+  bach_ui_repo                            = var.bach_ui_repo
+  bach_ui_branch                          = var.bach_ui_branch
   venue                                   = var.venue
   counter                                 = var.counter
   private_key_file                        = var.private_key_file
@@ -25,6 +25,7 @@ module "common" {
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
+  artifactory_fn_api_key                  = var.artifactory_fn_api_key
   ops_password                            = var.ops_password
   shared_credentials_file                 = var.shared_credentials_file
   profile                                 = var.profile
@@ -71,7 +72,7 @@ module "common" {
   use_daac_cnm                            = var.use_daac_cnm
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  l0a_timer_trigger_frequency             = var.l0a_timer_trigger_frequency
+  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -82,6 +83,8 @@ module "common" {
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
+  earthdata_user                          = var.earthdata_user
+  earthdata_pass                          = var.earthdata_pass
 }
 
 locals {
@@ -90,7 +93,7 @@ locals {
   source_event_arn         = local.default_source_event_arn
   artifactory_user         = var.artifactory_user
   artifactory_api          = var.artifactory_api_key
-  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/lambda"
+  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   crid                     = lower(var.crid)
 }
 
@@ -118,7 +121,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/run_smoke_test.sh \\",
+      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \\",
       "  ${var.project} \\",
       "  ${var.environment} \\",
       "  ${var.venue} \\",
@@ -131,13 +134,7 @@ resource "null_resource" "mozart" {
       "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
-      "  ${var.delete_old_cop_catalog} \\",
-      "  ${var.delete_old_tiurdrop_catalog} \\",
-      "  ${var.delete_old_rost_catalog} \\",
-      "  ${var.delete_old_pass_catalog} \\",
-      "  ${var.delete_old_observation_catalog} \\",
-      "  ${var.delete_old_track_frame_catalog} \\",
-      "  ${var.delete_old_radar_mode_catalog} \\",
+	  "  ${var.delete_old_job_catalog} \\",
       "  ${module.common.mozart.private_ip} \\",
       "  ${module.common.isl_bucket} \\",
       "  ${local.source_event_arn} \\",
@@ -145,8 +142,7 @@ resource "null_resource" "mozart" {
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
       "  ${var.cluster_type} \\",
-      "  \"${var.l0a_timer_trigger_frequency}\" \\",
-      "  \"${var.obs_acct_report_timer_trigger_frequency}\" || :"
+      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :"
     ]
   }
 
@@ -154,7 +150,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
+      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
     ]
   }
 
@@ -168,16 +164,16 @@ resource "null_resource" "mozart" {
       "cat /tmp/check_stamped_dataset_result.txt",
       "SUCCESS=$(grep -c ^SUCCESS /tmp/check_stamped_dataset_result.txt)",
       "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-      "cat /tmp/cop_catalog.txt",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/cop_catalog.txt)",
-      "cat /tmp/tiurdrop_catalog.txt",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/tiurdrop_catalog.txt)",
-      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-      "cat /tmp/rost_catalog.txt",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/rost_catalog.txt)",
-      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-      "SUCCESS=$(grep -c ^SUCCESS /tmp/radar_mode_catalog.txt)",
-      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "cat /tmp/cop_catalog.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/cop_catalog.txt)",
+#      "cat /tmp/tiurdrop_catalog.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/tiurdrop_catalog.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "cat /tmp/rost_catalog.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/rost_catalog.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/radar_mode_catalog.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
       "SUCCESS=$(grep -c ^SUCCESS /tmp/check_empty_isl_result.txt)",
       "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
       "SUCCESS=$(grep -c ^SUCCESS /tmp/check_expected_force_submits.txt)",
@@ -189,35 +185,32 @@ resource "null_resource" "mozart" {
       "pwd",
       "aws s3 ls",
       "aws s3 ls --recursive ${module.common.code_bucket}",
-      "sds pkg export container-iems-sds_opera-pcm:${var.pcm_branch}",
+      "sds pkg export container-nasa_${var.project}-sds-pcm:${var.pcm_branch}",
       "ls -l",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T container-iems-sds_opera-pcm-${var.pcm_branch}.sdspkg.tar -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${var.pcm_branch}.sdspkg.tar\"",
-      "rm -rf container-iems-sds_opera-pcm-${var.pcm_branch}.sdspkg.tar",
+      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar\"",
+      "rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
       "sds pkg export container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}",
       "ls -l",
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o opera-pcm-${var.pcm_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/opera-pcm/archive/${var.pcm_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T opera-pcm-${var.pcm_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-pcm-${var.pcm_branch}.tar.gz\"",
-      "rm -rf opera-pcm-${var.pcm_branch}.tar.gz",
+      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
+      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T ${var.project}-pcm-${var.pcm_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-pcm-${var.pcm_branch}.tar.gz\"",
+      "rm -rf ${var.project}-pcm-${var.pcm_branch}.tar.gz",
       "ls -l",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar\"",
+      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar\"",
       "rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
       "ls -l",
       "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o CNM_product_delivery-${var.product_delivery_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery/archive/${var.product_delivery_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T CNM_product_delivery-${var.product_delivery_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
+      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T CNM_product_delivery-${var.product_delivery_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
       "rm -rf CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
       "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o pcm_commons-${var.pcm_commons_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/pcm_commons/archive/${var.pcm_commons_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T pcm_commons-${var.pcm_commons_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
+      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T pcm_commons-${var.pcm_commons_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
       "rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
       # Bach components
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o opera-bach-api-${var.opera_bach_api_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/opera-bach-api/archive/${var.opera_bach_api_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T opera-bach-api-${var.opera_bach_api_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-api-${var.opera_bach_api_branch}.tar.gz\"",
-      "rm -rf opera-bach-api-${var.opera_bach_api_branch}.tar.gz",
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/opera-bach-ui/archive/${var.opera_bach_ui_branch}.tar.gz\"",
-      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz\"",
-      "rm -rf opera-bach-ui-${var.opera_bach_ui_branch}.tar.gz",
+      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-bach-api-${var.bach_api_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/${var.project}-bach-api/archive/${var.bach_api_branch}.tar.gz\"",
+      "curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -T ${var.project}-bach-api-${var.bach_api_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-bach-api-${var.bach_api_branch}.tar.gz\"",
+      "rm -rf ${var.project}-bach-api-${var.bach_api_branch}.tar.gz",
       # publish opera-pcm and CNM_product_delivery docker images to artifactory's docker registry
-      "ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${var.common_ci["private_ip"]} 'docker login -u ${var.artifactory_user} --password ${var.artifactory_api_key} cae-artifactory.jpl.nasa.gov:16001; docker tag container-iems-sds_opera-pcm:${var.pcm_branch} cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/opera/sds/pcm/container-iems-sds_opera-pcm:${var.pcm_branch}; docker push cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/opera/sds/pcm/container-iems-sds_opera-pcm:${var.pcm_branch}'",
-      "ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${var.common_ci["private_ip"]} 'docker login -u ${var.artifactory_user} --password ${var.artifactory_api_key} cae-artifactory.jpl.nasa.gov:16001; docker tag container-iems-sds_cnm_product_delivery:${var.product_delivery_branch} cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/opera/sds/pcm/container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}; docker push cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/opera/sds/pcm/container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}'",
+      "ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${var.common_ci["private_ip"]} 'docker login -u ${var.artifactory_user} --password ${var.artifactory_api_key} cae-artifactory.jpl.nasa.gov:16001; docker tag container-nasa-${var.project}-sds-pcm:${var.pcm_branch} cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/${var.project}/sds/pcm/container-nasa_${var.project}-sds-pcm:${var.pcm_branch}; docker push cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/${var.project}/sds/pcm/container-nasa_${var.project}-sds-pcm:${var.pcm_branch}'",
+      "ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${var.common_ci["private_ip"]} 'docker login -u ${var.artifactory_user} --password ${var.artifactory_api_key} cae-artifactory.jpl.nasa.gov:16001; docker tag container-iems-sds_cnm_product_delivery:${var.product_delivery_branch} cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/${var.project}/sds/pcm/container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}; docker push cae-artifactory.jpl.nasa.gov:16001/gov/nasa/jpl/${var.project}/sds/pcm/container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}'",
     ]
   }
 
@@ -238,15 +231,15 @@ resource "null_resource" "mozart" {
     command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_stamped_dataset_result.txt ."
   }
 
-  provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/cop_catalog.txt ."
-  }
+#  provisioner "local-exec" {
+#    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/cop_catalog.txt ."
+#  }
 
-  provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/tiurdrop_catalog.txt ."
-  }
+#  provisioner "local-exec" {
+#    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/tiurdrop_catalog.txt ."
+#  }
 
-  provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/rost_catalog.txt ."
-  }
+#  provisioner "local-exec" {
+#    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/rost_catalog.txt ."
+#  }
 }

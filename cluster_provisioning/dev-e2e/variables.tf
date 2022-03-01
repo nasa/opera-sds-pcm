@@ -5,7 +5,7 @@
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -39,20 +39,22 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
-variable "opera_bach_api_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-api.git"
+variable "bach_api_repo" {
+  default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
-variable "opera_bach_api_branch" {
-  default = "develop"
+variable "bach_api_branch" {
+#  default = "develop"
+  default = "main"
 }
 
-variable "opera_bach_ui_repo" {
-  default = "github.jpl.nasa.gov/opera-sds/opera-bach-ui.git"
+variable "bach_ui_repo" {
+  default = "github.com/nasa/opera-sds-bach-ui.git"
 }
 
-variable "opera_bach_ui_branch" {
-  default = "develop"
+variable "bach_ui_branch" {
+#  default = "develop"
+  default = "main"
 }
 
 variable "product_delivery_branch" {
@@ -81,6 +83,13 @@ variable "keypair_name" {
 }
 
 variable "jenkins_api_key" {
+}
+
+variable "artifactory_fn_api_key" {
+}
+
+variable "artifactory_fn_user" {
+  default = ""
 }
 
 variable "ops_password" {
@@ -312,47 +321,8 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "cop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_cop_catalog" {
-  default = false
-}
-
-variable "tiurdrop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_tiurdrop_catalog" {
-  default = false
-}
-
-variable "rost_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_rost_catalog" {
-  default = false
-}
-
-variable "pass_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_pass_catalog" {
-  default = false
-}
-
-variable "delete_old_observation_catalog" {
-  default = false
-}
-
-variable "delete_old_track_frame_catalog" {
-  default = false
-}
-
-variable "delete_old_radar_mode_catalog" {
+variable "delete_old_job_catalog" {
+  type    = bool
   default = false
 }
 
@@ -394,8 +364,8 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "l0a_timer_trigger_frequency" {
-  default = "rate(15 minutes)"
+variable "data_subscriber_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {
@@ -439,6 +409,11 @@ variable "inactivity_threshold" {
   default = 1800
 }
 
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
 variable "queues" {
   default = ""
 }
@@ -459,16 +434,24 @@ variable "es_bucket_role_arn" {
   default = "arn:aws:iam::271039147104:role/am-es-role"
 }
 
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
+}
+
 # ami vars
 # duplicated from modules/common here so INT would pick up the values from its override.tf
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-01aa6dbec644a2672"
-    metrics   = "ami-0ee90e1f71e532095"
-    grq       = "ami-0872577aec2e40df1"
-    factotum  = "ami-06158820898dd2dfd"
-    ci        = "ami-00baa2004b03f6090"
-    autoscale = "ami-00baa2004b03f6090"
+    mozart    = "ami-06b161f22c9086917"
+    metrics   = "ami-049f536813d215f39"
+    grq       = "ami-0d4589279c337e9c1"
+    factotum  = "ami-0f40727533013a107"
+    ci        = "ami-0601c031b967d1e15"
+    autoscale = "ami-0601c031b967d1e15"
   }
 }
