@@ -17,5 +17,6 @@ open -a "Google Chrome" https://${MOZART_IP}/hysds_ui/ \
                         https://${MOZART_IP}:15673 \
                         https://${MOZART_IP}/metrics \
                         https://${MOZART_IP}/bach-ui/ \
+                        https://${MOZART_IP}/bach-api/swagger.json \
                         https://${MOZART_IP}/grq_es \
                         https://opera-pcm-ci.jpl.nasa.gov
