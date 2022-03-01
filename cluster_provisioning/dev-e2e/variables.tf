@@ -284,7 +284,7 @@ variable "cnm_r_allowed_account" {
 }
 
 #The value of daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
+#  arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
   default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
@@ -429,7 +429,7 @@ variable "es_snapshot_bucket" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-es-role"
+  default = "arn:aws:iam::681612454726:role/am-es-role"
 }
 
 variable "earthdata_user" {

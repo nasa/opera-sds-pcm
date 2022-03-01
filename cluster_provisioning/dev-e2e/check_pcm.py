@@ -28,17 +28,17 @@ class TestPCM(unittest.TestCase):
         assert os.path.exists(check_file)
         logger.debug("File exist: {}".format(check_file))
 
-    def test_expected_datasets(self):
-        """Test that the expected number of datasets were generated."""
+#    def test_expected_datasets(self):
+#        """Test that the expected number of datasets were generated."""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/datasets.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/datasets.txt", logger)
 
-    def test_stamped_datasets(self):
-        """Test that the expected number of datasets were stamped."""
+#    def test_stamped_datasets(self):
+#        """Test that the expected number of datasets were stamped."""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/check_stamped_dataset_result.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/check_stamped_dataset_result.txt", logger)
 
     def test_empty_isl(self):
         """Test that the ISL was emptied out by the trigger rules."""
@@ -52,24 +52,24 @@ class TestPCM(unittest.TestCase):
         logger = logging.getLogger(__name__)
         self.check_exist("/tmp/isl_report.csv", logger)
 
-    def test_expected_force_submits(self):
-        """Test that the expected number of datasets were generated."""
+#    def test_expected_force_submits(self):
+#        """Test that the expected number of datasets were generated."""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/check_expected_force_submits.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/check_expected_force_submits.txt", logger)
 
-    def test_expected_report_datasets(self):
-        """Test that the expected number of report-related datasets were generated."""
+#    def test_expected_report_datasets(self):
+#        """Test that the expected number of report-related datasets were generated."""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/report_datasets.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/report_datasets.txt", logger)
 
-    def test_expected_bach_services(self):
-        """Test that the bach_ui and bach_api v2 are up"""
+#    def test_expected_bach_services(self):
+#        """Test that the bach_ui and bach_api v2 are up"""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/opera_bach_ui_status_code.txt", logger)
-        self.check_expected("/tmp/opera_bach_api_status_code.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/opera_bach_ui_status_code.txt", logger)
+#        self.check_expected("/tmp/opera_bach_api_status_code.txt", logger)
 
     def tearDown(self):
         pass

@@ -2,7 +2,7 @@
 source $HOME/.bash_profile
 
 # check args
-if [ "$#" -eq 999 ]; then
+if [ "$#" -eq 20 ]; then
   project=${1}
   environment=${2}
   venue=${3}
@@ -15,16 +15,15 @@ if [ "$#" -eq 999 ]; then
   pcm_branch=${10}
   product_delivery_repo=${11}
   product_delivery_branch=${12}
-  delete_old_job_catalog=${13}
-  mozart_private_ip=${14}
-  isl_bucket=${15}
-  source_event_arn=${16}
-  daac_delivery_proxy=${17}
-  use_daac_cnm=${18}
-  crid=${19}
-  cluster_type=${20}
-  pge_test_package=${21}
-  l0a_test_package=${22}
+  mozart_private_ip=${13}
+  isl_bucket=${14}
+  source_event_arn=${15}
+  daac_delivery_proxy=${16}
+  use_daac_cnm=${17}
+  crid=${18}
+  cluster_type=${19}
+  pge_test_package=${20}
+#  delete_old_job_catalog=${13}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -82,8 +81,8 @@ fab -f ~/.sds/cluster.py -R mozart,factotum update_opera_packages
 sds -d ship
 
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 2
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 2
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
+#~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 2
 
 cd ~/.sds/files/test
 curl -XDELETE http://${mozart_private_ip}:9200/user_rules-grq

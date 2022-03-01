@@ -140,7 +140,6 @@ resource "null_resource" "mozart" {
       "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
-	  "  ${var.delete_old_job_catalog} \\",
       "  ${module.common.mozart.private_ip} \\",
       "  ${module.common.isl_bucket} \\",
       "  ${local.source_event_arn} \\",
@@ -149,6 +148,7 @@ resource "null_resource" "mozart" {
       "  ${local.crid} \\",
       "  ${var.cluster_type}  \\",
       "  \"${var.pge_test_package}\" || :",
+#      "  ${var.delete_old_job_catalog}  || :",
       "fi",
     ]
   }

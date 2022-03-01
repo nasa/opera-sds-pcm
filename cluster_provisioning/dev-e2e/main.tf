@@ -166,15 +166,15 @@ resource "null_resource" "mozart" {
 #    ]
 #  }
 
-#  provisioner "remote-exec" {
-#    inline = [
-#      "set -ex",
-#      "source ~/.bash_profile",
-#      "if [ \"${var.run_smoke_test}\" = true ]; then",
-#      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:",
-#      "fi",
-#    ]
-#  }
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      "if [ \"${var.run_smoke_test}\" = true ]; then",
+      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:",
+      "fi",
+    ]
+  }
 
   provisioner "remote-exec" {
     inline = [
