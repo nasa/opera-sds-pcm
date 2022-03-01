@@ -54,6 +54,7 @@ class FilenameRegexMetExtractor(CoreMetExtractor):
                     key.endswith("DateTime")
                     or key.endswith("Time")
                     or key.endswith("Time_Tag")
+                    or (key in extractor_config.get("Date_Time_Keys", []))
                 ):
                     for datetimePattern in file_date_time_patterns:
                         try:

@@ -62,12 +62,6 @@ module "common" {
   lambda_isl_handler_package_name       = var.lambda_isl_handler_package_name
   lambda_package_release                = var.lambda_package_release
   lambda_e-misfire_handler_package_name = var.lambda_e-misfire_handler_package_name
-  cop_catalog_url                       = var.cop_catalog_url
-  tiurdrop_catalog_url                  = var.tiurdrop_catalog_url
-  delete_old_cop_catalog                = var.delete_old_cop_catalog
-  delete_old_tiurdrop_catalog           = var.delete_old_tiurdrop_catalog
-  rost_catalog_url                      = var.rost_catalog_url
-  delete_old_rost_catalog               = var.delete_old_rost_catalog
   environment                           = var.environment
   use_artifactory                       = var.use_artifactory
   artifactory_base_url                  = var.artifactory_base_url

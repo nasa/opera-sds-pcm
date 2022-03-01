@@ -7,7 +7,7 @@ from util.common_util import convert_datetime
 from chimera.commons.accountability import Accountability
 
 from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 
 from chimera.logger import logger
@@ -21,16 +21,14 @@ accountability_es = get_grq_es(logger)
 # obs_es = get_observation_accountability_connection(logger)
 
 PGE_STEP_DICT = {
-    "L0A": "L0A_L_RRST_PP",
-    "Time_Extractor": "L0A_L_RRST",
-    "L0B": "L0B_L_RRSD"
+#    "L0A": "L0A_L_RRST_PP"
 }
 
 INDECES = {
     "": None,
-    "pass": nc_const.PASS_ACCOUNTABILITY_INDEX,
-    "observation": nc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
-    "track_frame": nc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
+#    "pass": oc_const.PASS_ACCOUNTABILITY_INDEX,
+#    "observation": oc_const.OBSERVATION_ACCOUNTABILITY_INDEX,
+#    "track_frame": oc_const.TRACK_FRAME_ACCOUNTABILITY_INDEX
 }
 
 

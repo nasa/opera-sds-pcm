@@ -17,39 +17,30 @@
 # will still continue with processing.
 # 
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
-L0A:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-        verify: true
-        hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
+#L0A:
+#  Outputs:
+#    Primary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+#        verify: true
+#        hash: md5
+#    Secondary:
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
+#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
+#    Optional: []
+#  Missing_Metadata: {}
 
-Time_Extractor:
+# TODO chrisjrd: Finalize config, adding regex for the other output files
+# Key name MUST match the corresponding RunConfig jinja2 template filename.
+L3_HLS:
   Outputs:
     Primary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
+      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
+      # Reusing regex from settings.yaml previously used for data ingest testing
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>tif))$'
         verify: true
         hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-        verify: false
-      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-    Optional: []
-  Missing_Metadata: {}
-
-RSLC:
-  Outputs:
-    Primary:
-      - regex: !!python/regexp '^NISAR_L1_[P|U]R_RSLC_\d{3}_\d{3}_\w_\d{3}_\d{4}_\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_[F|P]_\d{3}\.h5$'
-        verify: true
-        hash: md5
-    Secondary:
-      - regex: !!python/regexp '^NISAR_L1_[P|U]R_RSLC_\d{3}_\d{3}_\w_\d{3}_\d{4}_\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_[F|P]_\d{3}\.h5\.log$'
-      - regex: !!python/regexp '^NISAR_L1_[P|U]R_RSLC_\d{3}_\d{3}_\w_\d{3}_\d{4}_\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\w_[F|P]_\d{3}\.h5\.met$'
+    Secondary: []
     Optional: []
   Missing_Metadata: {}

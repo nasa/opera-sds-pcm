@@ -296,30 +296,6 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "cop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_cop_catalog" {
-  default = false
-}
-
-variable "tiurdrop_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_tiurdrop_catalog" {
-  default = false
-}
-
-variable "rost_catalog_url" {
-  default = ""
-}
-
-variable "delete_old_rost_catalog" {
-  default = false
-}
-
 variable "environment" {
   default = "dev"
 }

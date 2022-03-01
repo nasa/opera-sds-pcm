@@ -6,420 +6,16 @@ CRID: '{{ CRID }}'
 # Settings to set the latency period for various jobs
 NOMINAL_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
-    RRST_EVALUATOR: 60
-    # Latency period in minutes
-    DATATAKE_EVALUATOR: 360
-    # Latency period in minutes
-    TRACK_FRAME_EVALUATOR: 720
-    # Latency period in minutes
-    NETWORK_PAIR_EVALUATOR: 360
+#   RRST_EVALUATOR: 60
 
 URGENT_RESPONSE_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
-    RRST_EVALUATOR: 60
-    # Latency period in minutes
-    DATATAKE_EVALUATOR: 15
-    # Latency period in minutes
-    TRACK_FRAME_EVALUATOR: 720
-    # Latency period in minutes
-    NETWORK_PAIR_EVALUATOR: 360
+#    RRST_EVALUATOR: 60
 
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
-L0A:
-    FILE_SIZE_LIMIT: 50M
-
-CHIMERA:
-    # Leaving config for L0A, Time_Extractor, and L0B in case we want to make them as separate PGE jobs again.
-    JOB_QUEUES:
-        L0A: opera-job_worker-pge-l0a
-        Time_Extractor: opera-job_worker-pge-time_extractor
-        RSLC: opera-job_worker-pge-rslc
-    JOB_TYPES:
-        L0A: job-PGE_L0A
-        Time_Extractor: job-PGE_Time_Extractor
-        L0B: job-PGE_L0B
-        RSLC: job-PGE_RSLC
 
 PRODUCT_TYPES:
-    FOE:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>FOE)_(?P<CreationDateTime>\d{8}T\d{6})_(?P<ValidityStartDateTime>\d{8}T\d{6})_(?P<ValidityEndDateTime>\d{8}T\d{6})\.xml\.gz)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            GranuleName: NISAR_ANC_{Instrument}_{ProcessingType}_{Fidelity}_{ValidityStartDateTime}_{ValidityEndDateTime}
-        Strip_File_Extension: !!bool true
-        IsCompressed: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    NOE:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>NOE)_(?P<CreationDateTime>\d{8}T\d{6})_(?P<ValidityStartDateTime>\d{8}T\d{6})_(?P<ValidityEndDateTime>\d{8}T\d{6})\.xml\.gz)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            GranuleName: NISAR_ANC_{Instrument}_{ProcessingType}_{Fidelity}_{ValidityStartDateTime}_{ValidityEndDateTime}
-        Strip_File_Extension: !!bool true
-        IsCompressed: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    MOE:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>MOE)_(?P<CreationDateTime>\d{8}T\d{6})_(?P<ValidityStartDateTime>\d{8}T\d{6})_(?P<ValidityEndDateTime>\d{8}T\d{6})\.xml\.gz)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            GranuleName: NISAR_ANC_{Instrument}_{ProcessingType}_{Fidelity}_{ValidityStartDateTime}_{ValidityEndDateTime}
-        Strip_File_Extension: !!bool true
-        IsCompressed: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    POE:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>POE)_(?P<CreationDateTime>\d{8}T\d{6})_(?P<ValidityStartDateTime>\d{8}T\d{6})_(?P<ValidityEndDateTime>\d{8}T\d{6})\.xml\.gz)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            GranuleName: NISAR_ANC_{Instrument}_{ProcessingType}_{Fidelity}_{ValidityStartDateTime}_{ValidityEndDateTime}
-        Strip_File_Extension: !!bool true
-        IsCompressed: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    COP:
-        Pattern: !!python/regexp '(?P<id>COP_e(?P<ExecutionDateTime>\d{4}-\d{3})_c(?P<CreationDateTime>\d{4}-\d{3})_v(?P<VersionID>\d{3})\.xml)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y-%j']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ExecutionDateTime
-
-    TIURDROP:
-        Pattern: !!python/regexp '(?P<id>TIURDROP_UR_event_(?P<event_type>\w+)_(?P<ExecutionDateTime>\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}_\d{3}Z)_(?P<event_desc>[\w|-]+)_v(?P<VersionID>\d{3})\.xml\.xopsis\.xml)$'
-
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%m_%dT%H_%M_%S_%fZ']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ExecutionDateTime
-    
-    NET:
-        Pattern: !!python/regexp '(?P<id>(?P<GranuleName>NET_NISAR_L0_(?P<ProcessingType>[P|U]R)_RRSD_(?P<CycleNumber>\d{3})_(?P<RelativeOrbitNumber>\d{3})_(?P<Direction>\w)_(?P<RadarMode>\w{3})(?P<RadarProcessingMode>\w)_(?P<RangeStartDateTime>\d{8}T\d{6})_(?P<RangeStopDateTime>\d{8}T\d{6}))_(?P<CompositeReleaseID>\w{6})_(?P<Fidelity>\w)_(?P<ProductCounter>\d{3})\.net)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            PCMRetrievalID: NISAR_L0_{ProcessingType}_RRSD_{CycleNumber}_{RelativeOrbitNumber}_{Direction}_{RadarProcessingMode}_{catalog_metadata[ObservationStartDateTime]}_{catalog_metadata[ObservationEndDateTime]}
-            Template_Date_Time_Formats:
-                ObservationStartDateTime: "%Y%m%dT%H%M%S"
-                ObservationEndDateTime: "%Y%m%dT%H%M%S"
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: RangeStartDateTime
-            endtime: RangeStopDateTime
-
-    PTA:
-        Pattern: !!python/regexp '(?P<id>(?P<GranuleName>PTA_NISAR_L0_(?P<ProcessingType>[P|U]R)_RRSD_(?P<CycleNumber>\d{3})_(?P<RelativeOrbitNumber>\d{3})_(?P<Direction>\w)_(?P<RadarMode>\w{3})(?P<RadarProcessingMode>\w)_(?P<RangeStartDateTime>\d{8}T\d{6})_(?P<RangeStopDateTime>\d{8}T\d{6}))_(?P<CompositeReleaseID>\w{6})_(?P<Fidelity>\w)_(?P<ProductCounter>\d{3})\.pta)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            PCMRetrievalID: NISAR_L0_{ProcessingType}_RRSD_{CycleNumber}_{RelativeOrbitNumber}_{Direction}_{RadarProcessingMode}_{catalog_metadata[ObservationStartDateTime]}_{catalog_metadata[ObservationEndDateTime]}
-            Template_Date_Time_Formats:
-                ObservationStartDateTime: "%Y%m%dT%H%M%S"
-                ObservationEndDateTime: "%Y%m%dT%H%M%S"
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: RangeStartDateTime
-            endtime: RangeStopDateTime
-
-    ARP:
-        Pattern: !!python/regexp '(?P<id>(?P<Station>\w{2,3})_(?P<Mission>NISAR)_(?P<CreationDateTime>\d{4}_\d{3})_(?P<CreationHour>\d{2})_(?P<CreationMinute>\d{2})_(?P<CreationSecond>\d{2})\.arp)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%j']
-        Strip_File_Extension: !!bool true
-        Suffix: '_ARP'
-        Dataset_Keys:
-            starttime: CreationDateTime
-
-    LDF:
-        Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})\.ldf)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%j_%H_%M_%S_%f']
-        Strip_File_Extension: !!bool true
-        Suffix: '_LDF'
-        Dataset_Keys:
-            starttime: FileCreationDateTime
-
-    LDF_STATE_CONFIG:
-        Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{5})(?P<R>\d{1,4})_state-config)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%j']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: CreationDateTime
-
-    OROST:
-        Pattern: !!python/regexp '(?P<id>id_\d{2}-(?P<Kind>\w{2})-(?P<Variant>\d{4})_orost-(?P<FileCorrelationId>(?P<ValidityDate>\d{7})-c(?P<CycleNumber>\d{3})-d(?P<CycleDay>\d{2}))-v(?P<VersionID>\d{2})\.xml)$'
-        Extractor: extractor.DayOfYearRostExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Patterns: ['%Y%j']
-            # Specify the metadata key to convert to a start and end time for the dataset times
-            Date_Key: ValidityDate
-            # Specify the start and end keys to store the start and end times of the given date value.
-            # This will be {Date_Key_Value}T00:00:00.000000Z
-            Start_Date_Time_Key: ValidityStartDateTime
-            # This will be {Date_Key_Value}T23:59:59.999999Z
-            End_Date_Time_Key: ValidityEndDateTime
-        Strip_File_Extension: !!bool true
-        Unpack_Archive: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    SROST:
-        Pattern: !!python/regexp '(?P<id>id_\d{2}-(?P<Kind>\w{2})-(?P<Variant>\d{4})_srost-(?P<FileCorrelationId>(?P<ValidityDate>\d{7})-c(?P<CycleNumber>\d{3})-d(?P<CycleDay>\d{2}))-v(?P<VersionID>\d{2})\.xml)$'
-        Extractor: extractor.DayOfYearRostExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Patterns: ['%Y%j']
-            # Specify the metadata key to convert to a start and end time for the dataset times
-            Date_Key: ValidityDate
-            # Specify the start and end keys to store the start and end times of the given date value.
-            # This will be {Date_Key_Value}T00:00:00.000000Z
-            Start_Date_Time_Key: ValidityStartDateTime
-            # This will be {Date_Key_Value}T23:59:59.999999Z
-            End_Date_Time_Key: ValidityEndDateTime
-        Strip_File_Extension: !!bool true
-        Unpack_Archive: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    OFS:
-        # ofs_00-89-0000_srost-2023016-c032-d09-v01.tsv
-        Pattern: !!python/regexp '(?P<id>ofs_\d{2}-(?P<Kind>\w{2})-(?P<Variant>\d{4})_(?P<Type>srost|orost)-(?P<FileCorrelationId>(?P<ValidityDate>\d{7})-c(?P<CycleNumber>\d{3})-d(?P<CycleDay>\d{2}))-v(?P<VersionID>\d{2})\.tsv)$'
-        Extractor: extractor.DayOfYearRostExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Patterns: ['%Y%j']
-            # Specify the metadata key to convert to a start and end time for the dataset times
-            Date_Key: ValidityDate
-            # Specify the start and end keys to store the start and end times of the given date value.
-            # This will be {Date_Key_Value}T00:00:00.000000Z
-            Start_Date_Time_Key: ValidityStartDateTime
-            # This will be {Date_Key_Value}T23:59:59.999999Z
-            End_Date_Time_Key: ValidityEndDateTime
-        Strip_File_Extension: !!bool true
-        Unpack_Archive: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    SCLKSCET:
-        Pattern: !!python/regexp '(?P<id>NISAR_(?P<SpacecraftID>\d+)_SCLKSCET_(?P<Type>LRCLK)\.(?P<VersionID>\d{5}))'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration: {}
-        Strip_File_Extension: !!bool false
-        Dataset_Keys: {}
-
-    NEN_L_RRST:
-        Pattern: !!python/regexp '(?P<id>(?P<Mission>NISAR)_S(?P<SCID>\d{3})_(?P<Station>\w{2,3})_(?P<Antenna>\w{3,4})_M(?P<Mode>\d{2})_P(?P<Pass>\d{5})_R(?P<Receiver>\d{2})_C(?P<Channel>\d{2})_G(?P<Group>\d{2})_(?P<FileCreationDateTime>\d{4}_\d{3}_\d{2}_\d{2}_\d{2}_\d{6})\d{3}\.vc(?P<VCID>\w{2}))'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y_%j_%H_%M_%S', '%Y_%j_%H_%M_%S_%f']
-        Strip_File_Extension: !!bool false
-        Dataset_Keys:
-            starttime: FileCreationDateTime
-
-    L0A_L_RRST:
-        Pattern: !!python/regexp '(?P<id>(?P<PCMRetrievalID>NISAR_L0_RRST_(?P<VCID>VC\w{2})_(?P<DAPHNE_Min_Time_Tag>\d{8}T\d{6})_(?P<DAPHNE_Max_Time_Tag>\d{8}T\d{6}))_(?P<CompositeReleaseID>\w{6})_(?P<ProductCounter>\d{3})\.bin)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: RadarStartDateTime
-            endtime: RadarStopDateTime
-        Alt_Dataset_Keys:
-            starttime: DAPHNE_Min_Time_Tag
-            endtime: DAPHNE_Max_Time_Tag
-
-    L0A_S_RRST:
-        Pattern: !!python/regexp '(?P<id>(?P<PCMRetrievalID>NISAR_S0_RRST_(?P<VCID>VC\w{2})_(?P<DAPHNE_Min_Time_Tag>\d{8}T\d{6})_(?P<DAPHNE_Max_Time_Tag>\d{8}T\d{6}))_(?P<CompositeReleaseID>\w{6})_(?P<ProductCounter>\d{3})\.bin)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: RadarStartDateTime
-            endtime: RadarStopDateTime
-        Alt_Dataset_Keys:
-            starttime: DAPHNE_Min_Time_Tag
-            endtime: DAPHNE_Max_Time_Tag
-
-    L0A_J_RRST:
-        Pattern: !!python/regexp '(?P<id>(?P<PCMRetrievalID>NISAR_J0_RRST_(?P<VCID>VC\w{2})_(?P<DAPHNE_Min_Time_Tag>\d{8}T\d{6})_(?P<DAPHNE_Max_Time_Tag>\d{8}T\d{6}))_(?P<CompositeReleaseID>\w{6})_(?P<ProductCounter>\d{3})\.bin)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: RadarStartDateTime
-            endtime: RadarStopDateTime
-        Alt_Dataset_Keys:
-            starttime: DAPHNE_Min_Time_Tag
-            endtime: DAPHNE_Max_Time_Tag
-
-    L1_L_RSLC:
-        Pattern: !!python/regexp '(?P<id>NISAR_L1_(?P<ProcessingType>[P|U]R)_RSLC_(?P<CycleNumber>\d{3})_(?P<RelativeOrbitNumber>\d{3})_(?P<Direction>\w)_(?P<TrackFrame>\d{3})_(?P<RadarProcessingMode>\d{4})_(?P<Polarization>\w{2})_(?P<RadarStartDateTime>\d{8}T\d{6})_(?P<RadarStopDateTime>\d{8}T\d{6})_(?P<CompositeReleaseID>\w{6})_(?P<Fidelity>\w)_(?P<CoverageIndicator>[F|P])_(?P<ProductCounter>\d{3})\.h5)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
-            GranuleName: NISAR_L1_{ProcessingType}_RSLC_{CycleNumber}_{RelativeOrbitNumber}_{Direction}_{TrackFrame}_{RadarProcessingMode}_{Polarization}_{RadarStartDateTime}_{RadarStopDateTime}_{Fidelity}_{CoverageIndicator}
-            PCMRetrievalID: NISAR_L1_{ProcessingType}_RSLC_{CycleNumber}_{RelativeOrbitNumber}_{Direction}_{TrackFrame}_{Fidelity}_{catalog_metadata[FrameCoverage]}_{catalog_metadata[DataSource]}_{catalog_metadata[BeamName]}
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: RadarStartDateTime
-            endtime: RadarStopDateTime
-
-    FRP:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>FRP)_(?P<CreationDateTime>\d{8}\d{6})_(?P<ValidityStartDateTime>\d{8}\d{6})_(?P<ValidityEndDateTime>\d{8}\d{6})\.xml)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%d%H%M%S']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    NRP:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>NRP)_(?P<CreationDateTime>\d{8}\d{6})_(?P<ValidityStartDateTime>\d{8}\d{6})_(?P<ValidityEndDateTime>\d{8}\d{6})\.xml)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%d%H%M%S']
-            GranuleName: NISAR_ANC_{Instrument}_{ProcessingType}_{Fidelity}_{ValidityStartDateTime}_{ValidityEndDateTime}
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    PRP:
-        Pattern: !!python/regexp '(?P<id>NISAR_ANC_(?P<Instrument>[L|S|J])_(?P<ProcessingType>\w{2})_(?P<Fidelity>PRP)_(?P<CreationDateTime>\d{8}\d{6})_(?P<ValidityStartDateTime>\d{8}\d{6})_(?P<ValidityEndDateTime>\d{8}\d{6})\.xml)$'
-        Extractor: extractor.TemplateMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%d%H%M%S']
-            GranuleName: NISAR_ANC_{Instrument}_{ProcessingType}_{Fidelity}_{ValidityStartDateTime}_{ValidityEndDateTime}
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    STUF:
-        Pattern: !!python/regexp '(?P<id>opera_stuf_(?P<CreationDateTime>\d{8}\d{6})_(?P<ValidityStartDateTime>\d{8}\d{6})_(?P<ValidityEndDateTime>\d{8}\d{6})\.xml)'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration:
-            # If you have any metadata name in the pattern ending with
-            # "DateTime", this field will be used to list all the datetime
-            # patterns (the format used in the file name).
-            Date_Time_Patterns: ['%Y%m%d%H%M%S']
-        Strip_File_Extension: !!bool true
-        Dataset_Keys:
-            starttime: ValidityStartDateTime
-            endtime: ValidityEndDateTime
-
-    WAVEFORM:
-        Pattern: !!python/regexp '(?P<id>id_\w{2}-\w{2}-\w{4}_waveform_v(?P<mode_table_version>\d{2})-(?P<ifsw_version>\d{2})\.xml)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration: {}
-        Strip_File_Extension: !!bool true
-        Dataset_Keys: {}
- 
-    RADAR_CFG:
-        Pattern: !!python/regexp '(?P<id>id_\w{2}-\w{2}-\w{4}_radar-configuration_v(?P<mode_table_version>\d{2})-(?P<ifsw_version>\d{2})\.xml)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration: {}
-        Strip_File_Extension: !!bool true
-        Dataset_Keys: {}
-
-    CHIRP_PARAM:
-        Pattern: !!python/regexp '(?P<id>id_\w{2}-\w{2}-\w{4}_chirp-parameter_v(?P<mode_table_version>\d{2})-(?P<ifsw_version>\d{2})\.xml)$'
-        Extractor: extractor.FilenameRegexMetExtractor
-        Configuration: {}
-        Strip_File_Extension: !!bool true
-        Dataset_Keys: {}
-
     Observation_Accountability_Report:
         Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
         Extractor: extractor.FilenameRegexMetExtractor
@@ -430,6 +26,80 @@ PRODUCT_TYPES:
             starttime: ValidityStartDateTime
             endtime: ValidityEndDateTime
 
+    L2_HLS_L30:
+        # Pattern for parsing filenames such as "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif".
+        # This pattern groups the metadata information in the filename using named groups.
+        #
+        # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
+        #
+        # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            # Custom Pattern for dates like "<year><day number of year>T<hour><minute><second>"
+            # For example, "2021248T143156":
+            #   year: 2021
+            #   day number of year: 248
+            #   hour (24hr): 14
+            #   minute: 31
+            #   second: 56
+            Date_Time_Patterns: ['%Y%jT%H%M%S']
+
+            # Specify the metadata key to convert to a start and end time for the dataset times
+            Date_Time_Keys: ['acquisition_ts']
+        Dataset_Keys: {}
+
+    L2_HLS_S30:
+        # Pattern for parsing filenames such as "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif".
+        # This pattern groups the metadata information in the filename using named groups.
+        #
+        # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
+        #
+        # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            # Custom Pattern for dates like "<year><day number of year>T<hour><minute><second>"
+            # For example, "2021248T143156":
+            #   year: 2021
+            #   day number of year: 248
+            #   hour (24hr): 14
+            #   minute: 31
+            #   second: 56
+            Date_Time_Patterns: ['%Y%jT%H%M%S']
+
+            # Specify the metadata key to convert to a start and end time for the dataset times
+            Date_Time_Keys: ['acquisition_ts']
+        Dataset_Keys: {}
+
+    L3_DWSx_HLS:
+        # Pattern for parsing filenames such as:
+        # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
+        # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
+        # This pattern groups the metadata information in the filename using named groups.
+        #
+        # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>tif))$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+            # For example, "20210211T163901":
+            #   year: 2021
+            #   month: 02 (February)
+            #   day of month: 11 (the 11th)
+            #   hour (24hr): 16
+            #   minute: 39
+            #   second: 01
+            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
+
+            # Specify the metadata key to convert to a start and end time for the dataset times
+            Date_Time_Keys: ['datetime']
+        Dataset_Keys: {}
+
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # WARNING: ONLY MODIFY THE SETTINGS BELOW IF YOU KNOW WHAT YOU'RE DOING !!!!!!!!!!!!!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -439,7 +109,3 @@ PRODUCT_TYPES:
 # pushed to object storage.
 FORCE_INGEST:
     INGEST_STAGED: !!bool false
-    NET: !!bool false
-    PTA: !!bool false
-    SCIFLO_L0A: !!bool false
-    SCIFLO_RSLC: !!bool false

@@ -1,5 +1,6 @@
 variable "artifactory_base_url" {
   default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -31,16 +32,16 @@ variable "product_delivery_repo" {
 variable "product_delivery_branch" {
 }
 
-variable "opera_bach_api_repo" {
+variable "bach_api_repo" {
 }
 
-variable "opera_bach_api_branch" {
+variable "bach_api_branch" {
 }
 
-variable "opera_bach_ui_repo" {
+variable "bach_ui_repo" {
 }
 
-variable "opera_bach_ui_branch" {
+variable "bach_ui_branch" {
 }
 
 variable "venue" {
@@ -231,6 +232,10 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
+variable "lambda_data-subscriber_handler_package_name" {
+  default = "lambda-data-subscriber-handler"
+}
+
 variable "lambda_report_handler_package_name" {
   default = "lambda-report-handler"
 }
@@ -257,12 +262,6 @@ variable "queues" {
       "max_size"      = 10
     }
     "opera-job_worker-large" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
-    "opera-job_worker-sciflo-l0a" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
@@ -328,7 +327,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_names" {
-  default = "nisar_pge-l0a"
+  default = "opera_pge-l3_dswx_hls"
 }
 
 variable "docker_registry_bucket" {
@@ -336,21 +335,20 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220208-R1.0.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "R1.0.0"
 }
 
 variable "crid" {
-  default = "D00200"
-}
-
-variable "l0a_timer_trigger_frequency" {
+  default = "D00100"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {}
+
+variable "data_subscriber_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 
@@ -388,6 +386,10 @@ variable "osl_report_staging_area" {
   default = "accountability_reports"
 }
 
+variable "isl_staging_area" {
+  default = "data_subscriber"
+}
+
 variable "use_s3_uri_structure" {
   default = false
 }
@@ -395,4 +397,26 @@ variable "use_s3_uri_structure" {
 variable "inactivity_threshold" {
   type    = number
   default = 600
+}
+
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
+variable "artifactory_fn_user" {
+  description = "Username to use for authenticated Artifactory API calls."
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  description = "Artifactory API key for authenticated Artifactory API calls. Must map to artifactory_username."
+}
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
+  default = ""
 }

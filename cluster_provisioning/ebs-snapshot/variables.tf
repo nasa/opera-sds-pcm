@@ -68,7 +68,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name               = "verdi"
-    ami                = "ami-00baa2004b03f6090"
+    ami                = "ami-0601c031b967d1e15"
     instance_type      = "t3.medium"
     device_name        = "/dev/sda1"
     device_size        = 50
@@ -92,7 +92,7 @@ variable "subnet_id" {
 }
 
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -113,4 +113,12 @@ variable "docker_pwd" {
 
 variable "use_s3_uri_structure" {
   default = true
+}
+
+variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "artifactory_fn_api_key" {
+  default = ""
 }

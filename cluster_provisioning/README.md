@@ -43,7 +43,7 @@ OPERA cluster provisioning using Terraform
 
 | Variable          | Description              | Default Value (if any) |
 |:-----------------:|:-------------------------|:----------------------:|
-| hysds_release     | HySDS core release to install. e.g. v3.0.0-rc.4, develop. | develop |
+| hysds_release     | HySDS core release to install. e.g. v4.0.1-beta.2, develop. | develop |
 | private_key_file  | Path to the PEM key file. e.g. ~/.ssh/pcmdev.pem. |
 | project           | Name of the project e.g. nisar, smap, aria, grfn. For OPERA, value is opera. | opera |
 | venue             | Venue name e.g. ops, dev, test, gerald, mcayanan. |
@@ -56,18 +56,14 @@ OPERA cluster provisioning using Terraform
 | pcm_branch | Specify the opera-pcm branch to use in provisioning. | develop |
 | product_delivery_branch | Specify the CNM_product_delivery repo branch to use in provisioning. | develop | 
 | lambda_package_release | Specify the release version of the Lambda package to deploy. | develop |
-| cop_catalog_url | Specify the ElasticSearch URL where the COP catalog is located. | The GRQ ElasticSearch URL |
-| delete_old_cop_catalog | Specify true to delete an exsiting instance of the COP catalog, if it exists, before re-creating a new one. Specify false otherwise. | false |
-| rost_catalog_url | Specify the ElasticSearch URL where the ROST catalog is located. | The GRQ ElasticSearch URL |
-| delete_old_rost_catalog | Specify true to delete an exsiting instance of the ROST catalog, if it exists, before re-creating a new one. Specify false otherwise. | false |
 | 
 1. Validate your configuration:
    ```
-   terraform validate --var pcm_branch=<branch_or_tag> --var hysds_release=v3.0.0-rc.4 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
+   terraform validate --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.2 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```
 1. Build your OPERA cluster:
    ```
-   terraform apply --var pcm_branch=<branch_or_tag> --var hysds_release=v3.0.0-rc.4 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
+   terraform apply --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.2 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```
 1. Show status of your OPERA cluster:
    ```
@@ -75,5 +71,5 @@ OPERA cluster provisioning using Terraform
    ```
 1. Destroy your OPERA cluster once it's no longer needed:
    ```
-   terraform destroy --var pcm_branch=<branch_or_tag> --var hysds_release=v3.0.0-rc.4 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
+   terraform destroy --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.2 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```

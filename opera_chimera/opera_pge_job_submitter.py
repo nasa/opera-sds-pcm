@@ -7,21 +7,15 @@ import re
 
 from datetime import datetime
 
-from opera_chimera.accountability import OperaAccountability
-
 from commons.logger import logger
 from chimera.pge_job_submitter import PgeJobSubmitter
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as nc_const,
 )
 
-from pass_accountability.es_connection import get_pass_accountability_connection
-
 from wrapper.opera_pge_wrapper import run_pipeline
 
-from hysds.utils import download_file, publish_datasets, get_disk_usage, makedirs
-
-pass_es = get_pass_accountability_connection(logger)
+from hysds.utils import download_file, get_disk_usage, makedirs
 
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 
@@ -45,7 +39,6 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
             wuid=wuid,
             job_num=job_num,
         )
-        self.accountability = OperaAccountability(self._context)
 
     def get_payload_hash(self, job_type):
         """
@@ -126,9 +119,13 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                         "transfer_rate": path_disk_usage / loc_dur,
                     }
                 )
-
+            old_pge_metrics = {}
+            if os.path.exists(os.path.join(self._base_work_dir, "pge_metrics.json")):
+                with open(os.path.join(self._base_work_dir, "pge_metrics.json"), "r") as f:
+                    old_pge_metrics = json.load(f)
+                pge_metrics.update(old_pge_metrics)
             # pge_metrics.json is already created in get_dems() in precondition_function.py
-            with open(os.path.join(self._base_work_dir, "pge_metrics.json"), "a") as f:
+            with open(os.path.join(self._base_work_dir, "pge_metrics.json"), "w") as f:
                 json.dump(pge_metrics, f, indent=2)
 
             # set additional files to triage
@@ -206,20 +203,20 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                 local_job_json["job_info"]["datasets_cfg_file"] = (
                     self._base_work_dir + "/datasets.json"
                 )
-                result = publish_datasets(local_job_json, self._context)
-                pge_metrics["upload"].extend(
-                    local_job_json.get("job_info", {})
-                    .get("metrics", {})
-                    .get("products_staged", [])
-                )
-                with open(
-                    os.path.join(self._base_work_dir, "pge_metrics.json"), "w"
-                ) as f:
-                    json.dump(pge_metrics, f, indent=2)
-                if not result:
-                    raise Exception(
-                        "Failed to publish datasets: {}".format(local_job_json)
-                    )
+                # result = publish_datasets(local_job_json, self._context)
+                # pge_metrics["upload"].extend(
+                #     local_job_json.get("job_info", {})
+                #     .get("metrics", {})
+                #     .get("products_staged", [])
+                # )
+                # with open(
+                #     os.path.join(self._base_work_dir, "pge_metrics.json"), "w"
+                # ) as f:
+                #     json.dump(pge_metrics, f, indent=2)
+                # if not result:
+                #     raise Exception(
+                #         "Failed to publish datasets: {}".format(local_job_json)
+                #     )
             return {
                 "output_datasets": output_datasets,
                 "error": error,

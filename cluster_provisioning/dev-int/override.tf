@@ -183,11 +183,11 @@ variable "product_delivery_branch" {
   default = "release-r2.2.1"
 }
 
-variable "opera_bach_api_branch" {
+variable "bach_api_branch" {
   default = "release-r2.0.0"
 }
 
-variable "opera_bach_ui_branch" {
+variable "bach_ui_branch" {
   default = "release-r2.0.0"
 }
 

@@ -1,0 +1,40 @@
+{
+  "label": "SCIFLO_L3_HLS",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    {
+      "name": "module_path",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm"
+    },
+    {
+      "name": "wf_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+    },
+    {
+      "name": "wf_name",
+      "from": "value",
+      "type": "text",
+      "value": "L3_HLS"
+    },
+    {
+      "name":"dataset_type",
+      "type":"text",
+      "from":"dataset_jpath:_source.dataset"
+    },
+    {
+      "name":"input_dataset_id",
+      "type":"text",
+      "from":"dataset_jpath:_id"
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
+    }
+  ]
+}

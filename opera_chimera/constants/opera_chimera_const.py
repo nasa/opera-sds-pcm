@@ -1,10 +1,10 @@
 from chimera.commons.constants import ChimeraConstants
-from pass_accountability.catalog import ES_INDEX as pass_accountability_index
-from observation_accountability.catalog import ES_INDEX as observation_accountability_index
-from Track_Frame_Accountability.catalog import ES_INDEX as track_frame_accountability_index
+#from pass_accountability.catalog import ES_INDEX as pass_accountability_index
+#from observation_accountability.catalog import ES_INDEX as observation_accountability_index
+#from Track_Frame_Accountability.catalog import ES_INDEX as track_frame_accountability_index
 
 
-class NisarChimeraConstants(ChimeraConstants):
+class OperaChimeraConstants(ChimeraConstants):
     def __init__(self):
         ChimeraConstants.__init__(self)
 
@@ -139,20 +139,20 @@ class NisarChimeraConstants(ChimeraConstants):
     GPU_ENABLED = "gpu_enabled"
 
     # PGE names
-    L0A = "L0A"
-    TIME_EXTRACTOR = "Time_Extractor"
-    L0B = "L0B"
+    #L0A = "L0A"
+    #TIME_EXTRACTOR = "Time_Extractor"
+    #L0B = "L0B"
 
     # Other Constants
-    PASS_ACCOUNTABILITY_INDEX = pass_accountability_index
-    OBSERVATION_ACCOUNTABILITY_INDEX = observation_accountability_index
-    TRACK_FRAME_ACCOUNTABILITY_INDEX = track_frame_accountability_index
+    #PASS_ACCOUNTABILITY_INDEX = pass_accountability_index
+    #OBSERVATION_ACCOUNTABILITY_INDEX = observation_accountability_index
+    #TRACK_FRAME_ACCOUNTABILITY_INDEX = track_frame_accountability_index
 
     # state config dataset types
-    DATATAKE_STATE_CONFIG_DOC_TYPE = "datatake-state-config"
-    DATATAKE_EXP_STATE_CONFIG_DOC_TYPE = "datatake-expired-state-config"
-    DATATAKE_UR_EXP_STATE_CONFIG_DOC_TYPE = "datatake-urgent_response_expired-state-config"
-    DATATAKE_UR_STATE_CONFIG_DOC_TYPE = "datatake-urgent_response_state-config"
+    #DATATAKE_STATE_CONFIG_DOC_TYPE = "datatake-state-config"
+    #DATATAKE_EXP_STATE_CONFIG_DOC_TYPE = "datatake-expired-state-config"
+    #DATATAKE_UR_EXP_STATE_CONFIG_DOC_TYPE = "datatake-urgent_response_expired-state-config"
+    #DATATAKE_UR_STATE_CONFIG_DOC_TYPE = "datatake-urgent_response_state-config"
 
     TASK_INDEX = "task_status-current"
     TASK_ID_FIELD = "task_id"
@@ -166,7 +166,7 @@ class NisarChimeraConstants(ChimeraConstants):
     EXTRA_PGE_OUTPUT_METADATA = "extra_pge_output_metadata"
 
     # job-specific parameter extraction/coercion from context
-    GET_GCOV_JOB_PARAMS_FROM_CONTEXT = "get_gcov_job_params_from_context"
+    #GET_GCOV_JOB_PARAMS_FROM_CONTEXT = "get_gcov_job_params_from_context"
 
     GET_PRODUCTS = "get_products"
     IS_STATE_CONFIG_TRIGGER = "is_state_config_trigger"

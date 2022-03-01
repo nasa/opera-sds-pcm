@@ -41,7 +41,7 @@ def ensure_ssl(node_type):
     elif node_type == "mozart":
         common_name = ctx["MOZART_FQDN"]
     else:
-        raise RuntimeError("Unknown node type: %s" % node_type)
+        raise RuntimeError(f"Unknown node type: {node_type}")
     prompts = {
         "Enter pass phrase for server.key:": "hysds",
         "Enter pass phrase for server.key.org:": "hysds",
@@ -97,14 +97,14 @@ def update_opera_packages():
         )
         copy(
             "~/mozart/ops/pcm_commons/pcm_commons/tools/snapshot_es_data.py",
-            "%s/bin/snapshot_es_data.py" % hysds_dir,
+            f"{hysds_dir}/bin/snapshot_es_data.py",
         )
-        run("chmod +x %s/bin/snapshot_es_data.py" % hysds_dir)
+        run(f"chmod +x {hysds_dir}/bin/snapshot_es_data.py")
         copy(
             "~/mozart/ops/opera-pcm/cluster_provisioning/restore_snapshot.sh",
             "%s/bin/restore_snapshot.sh" % hysds_dir,
         )
-        run("chmod +x %s/bin/restore_snapshot.sh" % hysds_dir)
+        run(f"chmod +x {hysds_dir}/bin/restore_snapshot.sh")
         hysds_dirs = [hysds_dir, "verdi"]
     else:
         hysds_dirs = [hysds_dir]
@@ -112,9 +112,9 @@ def update_opera_packages():
     for hysds_dir in hysds_dirs:
         if role == "grq":
             # update run_aws_es.sh
-            rm_rf("%s/bin/run_aws_es.sh" % hysds_dir)
-            send_template("run_aws_es.sh", "%s/bin/run_aws_es.sh" % hysds_dir)
-            run("chmod 755 %s/bin/run_aws_es.sh" % hysds_dir)
+            rm_rf(f"{hysds_dir}/bin/run_aws_es.sh")
+            send_template("run_aws_es.sh", f"{hysds_dir}/bin/run_aws_es.sh")
+            run(f"chmod 755 {hysds_dir}/bin/run_aws_es.sh")
 
             #rm_rf('%s/ops/opera-bach-api' % hysds_dir)
             #rsync_project('%s/ops/' % hysds_dir, os.path.join(ops_dir, 'mozart/ops/opera-bach-api'),
@@ -124,27 +124,27 @@ def update_opera_packages():
             break
         elif role == "metrics":
             # run sdswatch using local logstash installation
-            run('sed -i "s#/sdswatch/#${HOME}/%s/#" ~/metrics/etc/sdswatch_client.conf' % hysds_dir)
+            run(f'sed -i "s#/sdswatch/#${{HOME}}/{hysds_dir}/#" ~/metrics/etc/sdswatch_client.conf')
 
         # update opera-pcm settings
-        rm_rf("%s/etc/settings.yaml" % hysds_dir)
+        rm_rf(f"{hysds_dir}/etc/settings.yaml")
         send_template(
             "settings.yaml",
-            "%s/etc/settings.yaml" % hysds_dir,
+            f"{hysds_dir}/etc/settings.yaml",
             "~/mozart/ops/opera-pcm/conf",
         )
 
         # update harikiri and spot_termination_detector configuration files
-        rm_rf("%s/etc/harikiri.yml" % hysds_dir)
+        rm_rf(f"{hysds_dir}/etc/harikiri.yml")
         send_template(
             "harikiri.yml.tmpl",
-            "%s/etc/harikiri.yml" % hysds_dir
+            f"{hysds_dir}/etc/harikiri.yml"
         )
 
         rm_rf("%s/etc/spot_termination_detector.yml" % hysds_dir)
         send_template(
             "spot_termination_detector.yml.tmpl",
-            "%s/etc/spot_termination_detector.yml" % hysds_dir
+            f"{hysds_dir}/etc/spot_termination_detector.yml"
         )
 
 
@@ -173,13 +173,13 @@ def create_all_user_rules_index():
     if role == "grq":
         send_template(
             "user_rules_dataset.mapping",
-            "%s/ops/grq2/config/user_rules_dataset.mapping" % hysds_dir,
+            f"{hysds_dir}/ops/grq2/config/user_rules_dataset.mapping",
         )
         create_grq_user_rules_index()
     if role == "mozart":
         send_template(
             "user_rules_job.mapping",
-            "%s/ops/mozart/configs/user_rules_job.mapping" % hysds_dir,
+            f"{hysds_dir}/ops/mozart/configs/user_rules_job.mapping",
         )
         create_user_rules_index()
 
@@ -191,7 +191,7 @@ def update_es_template():
     if role == 'grq':
         copy(
             "~/.sds/files/es_template.json",
-            "%s/ops/grq2/config/es_template.json" % hysds_dir,
+            f"{hysds_dir}/ops/grq2/config/es_template.json",
         )
         execute(install_es_template, roles=[role])
 
@@ -200,7 +200,7 @@ def load_container_in_registry(container_name):
     role, hysds_dir, hostname = resolve_role()
     ctx = get_context(role)
     if role == 'mozart':
-        run("aws s3 cp s3://{}/{}.tar.gz ~/mozart/pkgs/".format(ctx["CODE_BUCKET"], container_name))
-        run("docker load < ~/mozart/pkgs/{}.tar.gz".format(container_name))
-        run("docker tag {} {}/{}".format(container_name, ctx["CONTAINER_REGISTRY"], container_name))
-        run("docker push {}/{}".format(ctx["CONTAINER_REGISTRY"], container_name))
+        run(f"aws s3 cp s3://{ctx['CODE_BUCKET']}/{container_name}.tar.gz ~/mozart/pkgs/")
+        run(f"docker load < ~/mozart/pkgs/{container_name}.tar.gz")
+        run(f"docker tag {container_name} {ctx['CONTAINER_REGISTRY']}/{container_name}")
+        run(f"docker push {ctx['CONTAINER_REGISTRY']}/{container_name}")

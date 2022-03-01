@@ -1,3 +1,0 @@
-smart_open
-pandas
-h5py
