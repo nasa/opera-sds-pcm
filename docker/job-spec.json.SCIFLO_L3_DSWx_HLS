@@ -20,7 +20,7 @@
   ],
   "recommended-queues": [ "opera-job_worker-sciflo-l3_dswx_hls"],
   "post": [ "hysds.utils.triage"],
-  "disable_post_builtins": true,
+  "disable_post_builtins": false,
   "params": [
     {
       "name": "module_path",
