@@ -1084,7 +1084,6 @@ resource "aws_instance" "mozart" {
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
       "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} bach-api",
       "  git clone --single-branch -b ${var.opera_bach_ui_branch} https://${var.git_auth_key}@${var.opera_bach_ui_repo} bach-ui",
-      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} opera-bach-api",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp opera-pcm/conf/sds ~/.sds",
@@ -1545,7 +1544,6 @@ resource "aws_instance" "grq" {
       "  rm -rf nisar-bach-api-${var.opera_bach_api_branch}.tar.gz ",
       "else",
       "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} bach-api",
-      "  git clone --single-branch -b ${var.opera_bach_api_branch} https://${var.git_auth_key}@${var.opera_bach_api_repo} opera-bach-api",
       "fi"
     ]
   }
@@ -1752,10 +1750,6 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
   filter {
     name   = "tag:Logstash"
     values = ["7.9.3"]
-  }
-  filter {
-    name   = "tag:l0a"
-    values = [var.pge_release]
   }
 }
 
