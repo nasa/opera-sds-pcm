@@ -44,8 +44,8 @@ variable "bach_api_repo" {
 }
 
 variable "bach_api_branch" {
-#  default = "develop"
-  default = "main"
+  default = "develop"
+#  default = "main"
 }
 
 variable "bach_ui_repo" {
@@ -53,8 +53,8 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-#  default = "develop"
-  default = "main"
+  default = "develop"
+#  default = "main"
 }
 
 variable "product_delivery_branch" {

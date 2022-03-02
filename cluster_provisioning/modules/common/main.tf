@@ -1107,7 +1107,7 @@ resource "aws_instance" "mozart" {
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui",
       "  rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz ",
       "else",
       "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
