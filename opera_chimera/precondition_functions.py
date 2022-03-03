@@ -6,34 +6,23 @@ that are part of the OPERA PCM pipeline.
 import copy
 import inspect
 import json
-import re
 import os
+import re
 import traceback
+from datetime import datetime
 from typing import Dict, List
 
 import psutil
-
-#from cop import cop_catalog
-
-from datetime import datetime, timedelta
-
-from opera_chimera.accountability import OperaAccountability
-
-from commons.logger import logger
-from commons.es_connection import get_grq_es
+from chimera.precondition_functions import PreConditionFunctions
 
 from commons.constants import product_metadata
-
-from chimera.precondition_functions import PreConditionFunctions
+from commons.es_connection import get_grq_es
+from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
-
-#from rost import catalog as rost_catalog
-
-from util.common_util import convert_datetime, to_datetime
+from util.common_util import convert_datetime
 from util.type_util import set_type
-#from util.stuf_util import get_stuf_info_from_xml
 
 try:
     from tools.stage_dem import main as stage_dem
@@ -55,7 +44,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
     def __init__(self, context, pge_config, settings, job_params):
         PreConditionFunctions.__init__(
             self, context, pge_config, settings, job_params)
-        self.accountability = OperaAccountability(self._context)
 
     def set_product_time(self):
         """
