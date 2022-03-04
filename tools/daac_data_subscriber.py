@@ -56,6 +56,13 @@ def run():
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
     PAGE_SIZE = 2000
 
+    EXTENSION_LIST_MAP = {
+        "L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+        "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+        "TIF": ["tif"]
+    }
+
+    logging.info(f"sys.argv = {sys.argv}")
     parser = create_parser()
     args = parser.parse_args()
 
@@ -67,7 +74,6 @@ def run():
 
     try:
         validate(args)
-        logging.info(f"sys.argv = {sys.argv}")
     except ValueError as v:
         logging.error(v)
         exit()
@@ -120,11 +126,11 @@ def run():
     # other data files in EXTENDED METADATA" field.
     # Select the download URL for each of the granule records:
 
-    downloads = [u['URL']
+    downloads = [u['url']
                  for item in results['items']
                  for u in item['umm']['RelatedUrls']
-                 if u['Type'] == "EXTENDED METADATA"
-                 or u['Type'] == "GET DATA" and ('Subtype' not in u or u['Subtype'] != "OPENDAP DATA")]
+                 if u['type'] == "EXTENDED METADATA"
+                 or u['type'] == "GET DATA" and "S3" in u['description']]
 
     if len(downloads) >= PAGE_SIZE:
         logging.info(
@@ -133,11 +139,11 @@ def run():
     # filter list based on extension
     filtered_downloads = [f
                           for f in downloads
-                          for extension in args.extensions
-                          if f.lower().endswith(extension)]
+                          for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
+                          if extension in f.lower()]
 
     logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
-    logging.debug(f"Downloading files with extensions: {str(args.extensions)}")
+    logging.debug(f"Downloading files with extension list: {str(args.extension_list)}")
 
     num_successes = num_failures = num_skipped = 0
 
@@ -190,9 +196,8 @@ def create_parser():
     parser.add_argument("-m", "--minutes", dest="minutes",
                         help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).",
                         type=int, default=60)  # noqa E501
-    parser.add_argument("-e", "--extensions", dest="extensions",
-                        help="The extensions of products to download. Default is [.nc, .h5, .zip]",
-                        default=[".nc", ".h5", ".zip"])  # noqa E501
+    parser.add_argument("-e", "--extension_list", dest="extension_list", default="TIF",
+                        help="The file extension mapping of products to download (band/mask). Defaults to all .tif files.")  # noqa E501
     parser.add_argument("--verbose", dest="verbose", action="store_true", help="Verbose mode.")  # noqa E501
     parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                         help="Specify a provider for collection search. Default is LPCLOUD.")  # noqa E501

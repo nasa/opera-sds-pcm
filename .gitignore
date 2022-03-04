@@ -19,6 +19,7 @@ crash.*.log
 # to change depending on the environment.
 #
 *.tfvars
+*.tfvars.*
 
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
@@ -289,6 +290,7 @@ fabric.properties
 # Deployment/Development specific files
 ######################################################################
 cluster_provisioning/**/*.sh
+cluster_provisioning/**/*.sh.*
 cluster_provisioning/**/*.xml
 cluster_provisioning/**/*.zip
 cluster_provisioning/**/*.tf
