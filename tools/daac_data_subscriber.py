@@ -129,8 +129,8 @@ def run():
     downloads = [u['url']
                  for item in results['items']
                  for u in item['umm']['RelatedUrls']
-                 if u['type'] == "EXTENDED METADATA"
-                 or u['type'] == "GET DATA" and "S3" in u['description']]
+                 if u['Type'] == "EXTENDED METADATA"
+                 or u['Type'] == "GET DATA" and "S3" in u['Description']]
 
     if len(downloads) >= PAGE_SIZE:
         logging.info(
