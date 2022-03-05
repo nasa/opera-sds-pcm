@@ -120,17 +120,7 @@ def run():
     logging.debug(
         f"{str(results['hits'])} new granules found for {args.collection} since {data_within_last_timestamp}")  # noqa E501
 
-    # The link for http access can be retrieved from each granule
-    # record's `RelatedUrls` field.
-    # The download link is identified by `"Type": "GET DATA"` but there are
-    # other data files in EXTENDED METADATA" field.
-    # Select the download URL for each of the granule records:
-
-    downloads = [u['url']
-                 for item in results['items']
-                 for u in item['umm']['RelatedUrls']
-                 if u['Type'] == "EXTENDED METADATA"
-                 or u['Type'] == "GET DATA" and "S3" in u['Description']]
+    downloads = [u['URL'] for item in results['items'] for u in item['umm']['RelatedUrls'] if "s3" in u['URL']]
 
     if len(downloads) >= PAGE_SIZE:
         logging.info(
