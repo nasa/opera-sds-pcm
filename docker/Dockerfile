@@ -1,8 +1,8 @@
 # TODO chrisjrd: finalize. testing out setting docker image version other than "develop"
 #FROM hysds/pge-base:develop
-#ARG PGE_BASE_VERSION=v4.0.1-beta.8
-ARG PGE_BASE_VERSION=develop
-FROM hysds/pge-base:$PGE_BASE_VERSION
+ARG PGE_BASE_VERSION=v4.0.1-beta.8
+#ARG PGE_BASE_VERSION=develop
+FROM hysds/pge-base:${PGE_BASE_VERSION}
 
 ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
