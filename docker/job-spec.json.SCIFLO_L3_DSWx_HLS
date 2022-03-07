@@ -52,6 +52,6 @@
     {
       "name": "accountability_class",
       "destination": "context"
-    },
+    }
   ]
 }
