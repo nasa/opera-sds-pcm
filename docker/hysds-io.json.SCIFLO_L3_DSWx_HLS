@@ -35,6 +35,18 @@
      "name": "product_metadata",
      "from": "dataset_jpath:_source",
      "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
-    }
+    },
+    {
+      "name": "accountability_module_path",
+      "from": "value",
+      "type": "text",
+      "value": "opera_chimera.accountability"
+    },
+    {
+      "name": "accountability_class",
+      "from": "value",
+      "type": "text",
+      "value": "OperaAccountability"
+    },
   ]
 }

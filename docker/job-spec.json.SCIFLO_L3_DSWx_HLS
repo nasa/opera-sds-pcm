@@ -44,6 +44,14 @@
     {
       "name": "product_metadata",
       "destination": "context"
-    }
+    },
+    {
+      "name": "accountability_module_path",
+      "destination": "context"
+    },
+    {
+      "name": "accountability_class",
+      "destination": "context"
+    },
   ]
 }
