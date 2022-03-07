@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import backoff
 import re
 import json
@@ -65,19 +67,24 @@ class OperaAccountability(Accountability):
         self.trigger_dataset_type = context.get(oc_const.DATASET_TYPE)
         self.trigger_dataset_id = context.get(oc_const.INPUT_DATASET_ID)
         # self.step = context.get(oc_const.STEP)  # TODO chrisjrd: resolve
-        self.product_paths = context.get(oc_const.PRODUCT_PATHS)
+        # self.product_paths = context.get(oc_const.PRODUCT_PATHS)
+
+        metadata: Dict[str, str] = context["product_metadata"]["metadata"]
+        self.product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
 
         self.inputs = []
-        if os.path.exists("{}/datasets.json".format(work_dir)):
-            with open("{}/datasets.json".format(work_dir), "r") as reader:
-                datasets_cfg = json.load(reader)
-
-            if isinstance(self.product_paths, list):
-                self.input_files_type = get_dataset(self.product_paths[0], datasets_cfg)
-            else:
-                self.input_files_type = get_dataset(self.product_paths, datasets_cfg)
-        else:
-            self.input_files_type = context.get(oc_const.DATASET_TYPE)
+        # TODO chrisjrd: resolve getting dataset type associated with the input files
+        # if os.path.exists("{}/datasets.json".format(work_dir)):
+        #     with open("{}/datasets.json".format(work_dir), "r") as reader:
+        #         datasets_cfg = json.load(reader)
+        #
+        #     if isinstance(self.product_paths, list):
+        #         self.input_files_type = get_dataset(self.product_paths[0], datasets_cfg)
+        #     else:
+        #         self.input_files_type = get_dataset(self.product_paths, datasets_cfg)
+        # else:
+        #     self.input_files_type = context.get(oc_const.DATASET_TYPE)
+        self.input_files_type = "TBD"  # TODO chrisjrd: resolve
         if isinstance(self.product_paths, list):
             self.inputs = list(map(lambda x: os.path.basename(x), self.product_paths))
         else:
