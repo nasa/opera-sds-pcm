@@ -141,8 +141,10 @@ def run():
     if args.direct:
         # Use S3 source. Not true direct until IAM role is configured.
         aws_creds = get_aws_creds(session)
-        s3 = boto3.client('s3', aws_access_key_id=aws_creds.get("aws_access_key_id"),
-                          aws_secret_access_key=aws_creds.get("aws_secret_access_key"))
+        s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                           aws_secret_access_key=aws_creds['secretAccessKey'],
+                           aws_session_token=aws_creds['sessionToken'],
+                           region_name='us-west-2').client("s3")
         filtered_downloads = [f for f in filtered_downloads if "s3://" in f]
 
         for url in filtered_downloads:
@@ -335,14 +337,11 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
 
 
 def get_aws_creds(session):
-    with session.get("https://archive.podaac.earthdata.nasa.gov/s3credentials") as r:
+    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
         if r.status_code != 200:
             r.raise_for_status()
 
-        json = r.json()
-
-        return {"aws_access_key_id": json.get('accessKeyId'),
-                "aws_secret_access_key": json.get('secretAccessKey')}
+        return r.json()
 
 
 def get_temporal_range(start, end, now):
