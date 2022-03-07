@@ -130,7 +130,7 @@ def run():
     filtered_downloads = [f
                           for f in downloads
                           for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
-                          if extension in f.lower()]
+                          if extension in f]
 
     logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
     logging.debug(f"Downloading files with extension list: {str(args.extension_list)}")
