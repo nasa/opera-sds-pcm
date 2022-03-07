@@ -64,7 +64,7 @@ class OperaAccountability(Accountability):
 
         self.trigger_dataset_type = context.get(oc_const.DATASET_TYPE)
         self.trigger_dataset_id = context.get(oc_const.INPUT_DATASET_ID)
-        self.step = context.get(oc_const.STEP)
+        # self.step = context.get(oc_const.STEP)  # TODO chrisjrd: resolve
         self.product_paths = context.get(oc_const.PRODUCT_PATHS)
 
         self.inputs = []
@@ -82,7 +82,13 @@ class OperaAccountability(Accountability):
             self.inputs = list(map(lambda x: os.path.basename(x), self.product_paths))
         else:
             self.inputs = [os.path.basename(self.product_paths)]
-        self.output_type = PGE_STEP_DICT[self.step]
+        # TODO chrisjrd: resolve
+        #  Use:
+        #  * wf_name/purpose job param from job-spec
+        #  * PGE output type from PGE config YAML
+        #  * .sf.xml name (workflow name / wf_name?)
+        # self.output_type = PGE_STEP_DICT[self.step]
+        self.output_type = "L3_DSWx"  # got this from PGE config YAML
 
     def create_job_entry(self):
         if self.job_id is not None:
@@ -186,8 +192,6 @@ class OperaAccountability(Accountability):
             met_json = None
             with open(output_met_json, "r") as f:
                 met_json = json.load(f)
-                if PGE_STEP_DICT[self.step] == "INSAR" and "ProductType" in met_json:
-                    self.output_type = met_json["ProductType"]
                 accountability_obj_copy = accountability_obj.copy()
                 accountability_obj_copy[self.output_type] = {
                     "id": dataset,
