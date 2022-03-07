@@ -16,6 +16,12 @@
       "name":"dataset_type",
       "type":"text",
       "from":"dataset_jpath:_source.dataset"
+    },
+    {
+      "name": "module_path",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm"
     }
   ]
 }
