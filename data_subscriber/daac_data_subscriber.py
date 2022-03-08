@@ -12,14 +12,12 @@ import shutil
 import sys
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
-from multiprocessing.pool import ThreadPool
 from urllib import request
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 
 import boto3
 import requests
-from smart_open import open
 
 from data_subscriber.es_connection import get_data_subscriber_connection
 
@@ -75,10 +73,13 @@ def run():
     username, password = setup_earthdata_login_auth(EDL)
     token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
 
-    downloads = get_all_undownloaded() if args.index_mode.lower() is "download" else query_cmr(args, token, CMR)
+    downloads = get_all_undownloaded(ES_CONN) if args.index_mode.lower() == "download" else query_cmr(args, token, CMR)
 
-    if args.index_mode.lower() is not "query":
-        upload_url_list(username, password, NETLOC, ES_CONN, token, downloads, args)
+    if downloads != []:
+        if args.index_mode.lower() == "query":
+            update_es_index(ES_CONN, downloads)
+        else:
+            upload_url_list(username, password, NETLOC, ES_CONN, downloads, args)
 
     delete_token(TOKEN_URL, token)
     logging.info("END")
@@ -91,7 +92,6 @@ def create_parser():
                         help="The collection shortname for which you want to retrieve data.")
     parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
                         help="The s3 bucket where data products will be downloaded.")
-    parser.add_argument("-d", "--direct", dest="direct", action="store_true", help="Enable direct download.")
     parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
                         help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
     parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
@@ -107,6 +107,7 @@ def create_parser():
                         help="Specify a provider for collection search. Default is LPCLOUD.")
     parser.add_argument("-i", "--index-mode", dest="index_mode", default="Disabled",
                         help="-i \"query\" will execute the query and update the ES index without downloading files. -i \"download\" will download all files from the ES index marked as not yet downloaded.")
+
     return parser
 
 
@@ -220,8 +221,9 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     return token
 
 
-def get_all_undownloaded():
-    pass
+def get_all_undownloaded(ES_CONN):
+    undownloaded = ES_CONN.query_undownloaded()
+    return [result['_source']['url'] for result in undownloaded]
 
 
 def query_cmr(args, token, CMR):
@@ -277,8 +279,7 @@ def query_cmr(args, token, CMR):
                           for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
                           if extension in f]
 
-    logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
-    logging.debug(f"Downloading files with extension list: {str(args.extension_list)}")
+    logging.debug(f"Found {str(len(filtered_downloads))} total files")
 
     return filtered_downloads
 
@@ -297,11 +298,11 @@ def get_temporal_range(start, end, now):
     raise ValueError("One of start-date or end-date must be specified.")
 
 
-def product_is_duplicate(es_conn, filename):
+def product_is_duplicate(es_conn, filename, url):
     result = product_exists_in_es(es_conn, filename)
 
     if not result:
-        create_product_in_es(es_conn, filename)
+        create_product_in_es(es_conn, filename, url)
         return False
 
     return product_is_downloaded(result)
@@ -311,8 +312,8 @@ def product_exists_in_es(es_conn, filename):
     return es_conn.query_existence(filename)
 
 
-def create_product_in_es(es_conn, filename):
-    es_conn.post(id=filename)
+def create_product_in_es(es_conn, filename, url):
+    es_conn.post(id=filename, url=url)
 
 
 def product_is_downloaded(result):
@@ -324,66 +325,49 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
         return datetime_obj.strftime(strformat)
     return datetime.strptime(str(datetime_obj), strformat)
 
+def update_es_index(ES_CONN, downloads):
+    filtered_downloads = [f for f in downloads if "s3://" in f]
 
-def upload_url_list(username, password, NETLOC, ES_CONN, token, downloads, args):
+    for url in filtered_downloads:
+        filename = url.split('/')[-1]
+        product_is_duplicate(ES_CONN, filename, url) #Implicitly adds new product to index
+
+def upload_url_list(username, password, NETLOC, ES_CONN, downloads, args):
     session = SessionWithHeaderRedirection(username, password, NETLOC)
+    aws_creds = get_aws_creds(session)
+    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                       aws_secret_access_key=aws_creds['secretAccessKey'],
+                       aws_session_token=aws_creds['sessionToken'],
+                       region_name='us-west-2').client("s3")
+
+    tmp_dir = "/tmp/data_subscriber"
+    os.makedirs(tmp_dir, exist_ok=True)
 
     num_successes = num_failures = num_skipped = 0
+    filtered_downloads = [f for f in downloads if "s3://" in f]
 
-    if args.direct:
-        # Use S3 source. Not true direct until IAM role is configured.
-        aws_creds = get_aws_creds(session)
-        s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
-                           aws_secret_access_key=aws_creds['secretAccessKey'],
-                           aws_session_token=aws_creds['sessionToken'],
-                           region_name='us-west-2').client("s3")
-        filtered_downloads = [f for f in downloads if "s3://" in f]
-
-        for url in filtered_downloads:
-            try:
-                filename = url.split('/')[-1]
-                if product_is_duplicate(ES_CONN, filename):
-                    logging.info(f"SKIPPING: {url}")
-                    num_skipped = num_skipped + 1
+    for url in filtered_downloads:
+        try:
+            filename = url.split('/')[-1]
+            if product_is_duplicate(ES_CONN, filename, url):
+                logging.info(f"SKIPPING: {url}")
+                num_skipped = num_skipped + 1
+            else:
+                result = s3_transfer(url, args.s3_bucket, s3, tmp_dir)
+                if "failed_download" in result:
+                    raise Exception(result["failed_download"])
                 else:
-                    result = s3_transfer(url, args.s3_bucket, s3)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
+                    logging.debug(str(result))
 
-                    mark_product_as_downloaded(ES_CONN, filename)
-                    logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                    num_successes = num_successes + 1
-            except Exception as e:
-                logging.error(f"{str(datetime.now())} FAILURE: {url}")
-                num_failures = num_failures + 1
-                logging.error(e)
-    else:
-        # Use HTTP source.
-        filtered_downloads = [f for f in downloads if "http" in f]
+                mark_product_as_downloaded(ES_CONN, filename)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
+        except Exception as e:
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
+            num_failures = num_failures + 1
+            logging.error(e)
 
-        for url in filtered_downloads:
-            try:
-                filename = url.split('/')[-1]
-                if product_is_duplicate(ES_CONN, filename):
-                    logging.info(f"SKIPPING: {url}")
-                    num_skipped = num_skipped + 1
-                else:
-                    result = upload(url, args.s3_bucket, session, token)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                    mark_product_as_downloaded(ES_CONN, filename)
-                    logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                    num_successes = num_successes + 1
-            except Exception as e:
-                logging.error(f"{str(datetime.now())} FAILURE: {url}")
-                num_failures = num_failures + 1
-                logging.error(e)
-
+    shutil.rmtree(tmp_dir)
     logging.info(f"Files downloaded: {str(num_successes)}")
     logging.info(f"Duplicate files skipped: {str(num_skipped)}")
     logging.info(f"Files failed to download: {str(num_failures)}")
@@ -397,8 +381,7 @@ def get_aws_creds(session):
         return r.json()
 
 
-def s3_transfer(url, bucket_name, s3, staging_area=""):
-    tmp_dir = "/tmp/data_subscriber"
+def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     file_name = os.path.basename(url)
 
     source = url[len("s3://"):].partition('/')
@@ -408,75 +391,15 @@ def s3_transfer(url, bucket_name, s3, staging_area=""):
     target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
     target_key = os.path.join(staging_area, file_name)
 
-    os.mkdir(tmp_dir)
-
     try:
         s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
 
         target_s3 = boto3.resource("s3")
         target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
 
-        shutil.rmtree(tmp_dir)
         return {"successful_download": target_key}
     except Exception as e:
-        shutil.rmtree(tmp_dir)
         return {"failed_download": e}
-
-
-def upload(url, bucket_name, session, token, staging_area="", chunk_size=25600):
-    """
-    This will basically transfer the file contents of the given url to an S3 bucket
-
-    :param url: url to the file.
-    :param session: SessionWithHeaderRedirection object.
-    :param token: token.
-    :param bucket_name: The S3 bucket name to transfer the file url contents to.
-    :param staging_area: A staging area where the file url contents will go to. If none, contents will be found
-     in the top level of the bucket.
-    :param chunk_size: the number of bytes to stream at a time.
-
-    :return:
-    """
-    file_name = os.path.basename(url)
-    bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-
-    key = os.path.join(staging_area, file_name)
-    upload_start_time = datetime.utcnow()
-    headers = {"Echo-Token": token}
-
-    try:
-        try:
-            with session.get(url, headers=headers, stream=True) as r:
-                if r.status_code != 200:
-                    r.raise_for_status()
-                logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
-                with open("s3://{}/{}".format(bucket, key), "wb") as out:
-                    pool = ThreadPool(processes=10)
-                    pool.map(upload_chunk,
-                             [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
-                    pool.close()
-                    pool.join()
-            upload_end_time = datetime.utcnow()
-            upload_duration = upload_end_time - upload_start_time
-            upload_stats = {
-                "file_name": file_name,
-                "file_size (in bytes)": r.headers.get('Content-Length'),
-                "upload_duration (in seconds)": upload_duration.total_seconds(),
-                "upload_start_time": convert_datetime(upload_start_time),
-                "upload_end_time": convert_datetime(upload_end_time)
-            }
-            return upload_stats
-        except ConnectionResetError as ce:
-            raise Exception(str(ce))
-        except requests.exceptions.HTTPError as he:
-            raise Exception(str(he))
-    except Exception as e:
-        return {"failed_download": e}
-
-
-def upload_chunk(chunk_dict):
-    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
-    chunk_dict['out'].write(chunk_dict['chunk'])
 
 
 def mark_product_as_downloaded(es_conn, filename):
