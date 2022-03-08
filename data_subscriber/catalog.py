@@ -5,7 +5,7 @@ ES_INDEX = "data_subscriber_product_catalog"
 
 class DataSubscriberProductCatalog(ElasticsearchUtility):
     """
-    Class to track products downloaded by tools/daac_data_subscriber.py
+    Class to track products downloaded by daac_data_subscriber.py
 
     https://github.com/hysds/hysds_commons/blob/develop/hysds_commons/elasticsearch_utils.py
     ElasticsearchUtility methods
