@@ -1,4 +1,5 @@
 from chimera.commons.constants import ChimeraConstants
+from job_accountability.catalog import ES_INDEX as job_accountability_index
 #from pass_accountability.catalog import ES_INDEX as pass_accountability_index
 #from observation_accountability.catalog import ES_INDEX as observation_accountability_index
 #from Track_Frame_Accountability.catalog import ES_INDEX as track_frame_accountability_index
@@ -144,6 +145,7 @@ class OperaChimeraConstants(ChimeraConstants):
     #L0B = "L0B"
 
     # Other Constants
+    JOB_ACCOUNTABILITY_INDEX = job_accountability_index
     #PASS_ACCOUNTABILITY_INDEX = pass_accountability_index
     #OBSERVATION_ACCOUNTABILITY_INDEX = observation_accountability_index
     #TRACK_FRAME_ACCOUNTABILITY_INDEX = track_frame_accountability_index
