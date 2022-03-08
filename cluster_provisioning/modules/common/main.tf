@@ -1201,8 +1201,9 @@ resource "aws_instance" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
+      "mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
       "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \\",
-                     " -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
+      "     -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
       "cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
       "tar xfz hls_l2.tar.gz"
  #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
