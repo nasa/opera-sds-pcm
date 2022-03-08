@@ -17,7 +17,6 @@ locals {
   kinesis_count                  = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
   sqs_count                      = var.cnm_r_event_trigger == "sqs" ? 1 : 0
   lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-#  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
   daac_delivery_event_type       = split(":", var.daac_delivery_proxy)[2]
   daac_delivery_region           = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account          = split(":", var.daac_delivery_proxy)[4]
@@ -1108,21 +1107,21 @@ resource "aws_instance" "mozart" {
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui",
       "  rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz ",
       "else",
       "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
       "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
       "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
-      "  git clone --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo}",
+      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
+      "  git clone --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp ${var.project}-pcm/conf/sds ~/.sds",
       "cp ~/.sds.bak/config ~/.sds",
-      "cd ${var.project}-sds-bach-ui",
-      "~/conda/bin/npm install --silent",
-      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/${var.project}-sds-bach-ui",
+      "cd bach-ui",
+      "~/conda/bin/npm install --silent --no-progress",
+      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui",
       "~/conda/bin/npm run build --silent",
       "cd ../",
       "if [ \"${var.grq_aws_es}\" = true ]; then",
@@ -1197,15 +1196,19 @@ resource "aws_instance" "mozart" {
     ]
   }
 
- # provisioner "remote-exec" {
- #   inline = [
- #     "set -ex",
- #     "source ~/.bash_profile",
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
+  # Get test data from the artifactory and put into tests directory
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      "mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \\",
+      "     -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
+      "cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
+      "tar xfz hls_l2.tar.gz"
  #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
- #   ]
- # }
+    ]
+  }
 
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
@@ -1593,7 +1596,7 @@ resource "aws_instance" "grq" {
       "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api",
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo}",
+      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
       "fi"
     ]
   }
@@ -1804,10 +1807,6 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
     name   = "tag:Logstash"
     values = ["7.9.3"]
   }
-  #filter {
-  #  name   = "tag:l0a"
-  #  values = [var.pge_release]
-  #}
 }
 
 resource "aws_lambda_function" "event-misfire_lambda" {
