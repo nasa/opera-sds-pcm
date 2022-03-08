@@ -1196,15 +1196,18 @@ resource "aws_instance" "mozart" {
     ]
   }
 
- # provisioner "remote-exec" {
- #   inline = [
- #     "set -ex",
- #     "source ~/.bash_profile",
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
+  # Get test data from the artifactory and put into tests directory
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \\",
+                     " -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
+      "cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
+      "tar xfz hls_l2.tar.gz"
  #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
- #   ]
- # }
+    ]
+  }
 
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {

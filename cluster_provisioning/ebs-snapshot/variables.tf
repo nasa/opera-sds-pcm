@@ -3,17 +3,17 @@ variable "project" {
 }
 
 variable "venue" {
-  default = "int"
+  default = "ci"
 }
 
 variable "profile" {
-  default = "saml"
+  #default = "saml"
   #int
-  #default = "saml-pub"
+  default = "saml-pub"
 }
 
 variable "verdi_release" {
-  default = "v4.0.1-beta.2"
+  default = "v4.0.1-beta.7"
 }
 
 variable "registry_release" {
@@ -38,7 +38,7 @@ variable "private_key_file" {
 }
 
 variable "keypair_name" {
-  default = "operasds-int-cluster-1"
+  #default = "operasds-int-cluster-1"
 }
 
 variable "shared_credentials_file" {
@@ -54,7 +54,7 @@ variable "region" {
 }
 
 variable "verdi_security_group_id" {
-  default = "sg-05c2b46227bb3bf54"
+  default = "sg-08d98b1b7b66f7dea"
 }
 
 variable "pcm_verdi_role" {
@@ -88,7 +88,7 @@ variable "asg_vpc" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "artifactory_base_url" {
