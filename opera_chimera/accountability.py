@@ -190,7 +190,7 @@ class OperaAccountability(Accountability):
 
     def update_product_met_json(self, job_result):
         work_dir = job_result.get("work_dir")
-        datasets_path = "{}/output/datasets/".format(work_dir)
+        datasets_path = f"{work_dir}/output_dir_tbf/datasets/"  # TODO chrisjrd: resolve
         datasets = os.listdir(datasets_path)
         accountability_obj = self.flatten_and_merge_accountability()
 
