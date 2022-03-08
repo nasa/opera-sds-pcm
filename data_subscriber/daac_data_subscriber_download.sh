@@ -19,12 +19,10 @@ source $HOME/verdi/bin/activate
 echo "##########################################"
 echo "Running job to subscribe to data"
 date
-# Forward processing use case; query previous 60 minutes
-echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --direct --verbose > subscriber.log 2>&1"
-python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --direct --verbose > subscriber.log 2>&1
 
-echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSS30 -s $ISL_BUCKET_NAME -e S30 --direct --verbose >> subscriber.log 2>&1"
-python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSS30 -s $ISL_BUCKET_NAME -e S30 --direct --verbose >> subscriber.log 2>&1
+# Forward processing use case; download all undownloaded files from ES index
+echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose > subscriber.log 2>&1"
+python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose > subscriber.log 2>&1
 
 STATUS=$?
 echo "Finished running job"

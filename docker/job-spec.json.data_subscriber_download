@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/daac_data_subscriber.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/daac_data_subscriber_download.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 600,
   "time_limit": 660,

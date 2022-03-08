@@ -1,5 +1,5 @@
 {
-  "label": "Subscribe to Data",
+  "label": "Query subscribed data",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [

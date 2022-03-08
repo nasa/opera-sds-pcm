@@ -68,6 +68,7 @@ def run():
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
     logging.info("Log level set to " + LOGLEVEL)
+
     logging.debug(f"sys.argv = {sys.argv}")
 
     username, password = setup_earthdata_login_auth(EDL)
@@ -325,12 +326,14 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
         return datetime_obj.strftime(strformat)
     return datetime.strptime(str(datetime_obj), strformat)
 
+
 def update_es_index(ES_CONN, downloads):
     filtered_downloads = [f for f in downloads if "s3://" in f]
 
     for url in filtered_downloads:
         filename = url.split('/')[-1]
-        product_is_duplicate(ES_CONN, filename, url) #Implicitly adds new product to index
+        product_is_duplicate(ES_CONN, filename, url)  # Implicitly adds new product to index
+
 
 def upload_url_list(username, password, NETLOC, ES_CONN, downloads, args):
     session = SessionWithHeaderRedirection(username, password, NETLOC)
