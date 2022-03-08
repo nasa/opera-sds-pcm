@@ -1923,7 +1923,7 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
   runtime = "python3.7"
@@ -1978,7 +1978,7 @@ resource "aws_lambda_function" "data_subscriber_query_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
   runtime = "python3.7"
