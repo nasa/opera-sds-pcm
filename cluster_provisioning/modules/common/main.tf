@@ -1935,7 +1935,7 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_QUEUE": "opera-job_worker-small",
       "JOB_TYPE": local.data_subscriber_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
