@@ -55,6 +55,13 @@ def search_es(query, idx):
     raise RuntimeError
 
 
+def remove_suffix(input_string: str, suffix: str) -> str:
+    """Polyfill for str.removesuffix function introduced in Python 3.9."""
+    if suffix and input_string.endswith(suffix):
+        return input_string[:-len(suffix)]
+    return input_string
+
+
 class OperaAccountability(Accountability):
     def __init__(self, context: Dict, work_dir: str):
         Accountability.__init__(self, context, work_dir)
@@ -65,7 +72,7 @@ class OperaAccountability(Accountability):
         metadata: Dict[str, str] = context["product_metadata"]["metadata"]
         self.product_paths = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']  # TODO chrisjrd: improve dataset structure to avoid duplicating this logic from eval_state_config.py
 
-        self.input_files_type = self.remove_suffix(self.trigger_dataset_type, "-state-config")
+        self.input_files_type = remove_suffix(self.trigger_dataset_type, "-state-config")
         self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
 
         self.output_type = "L3_DSWx"  # got this from PGE config YAML
