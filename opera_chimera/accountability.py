@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 
 import backoff
 import re
@@ -18,11 +18,6 @@ from chimera.logger import logger
 from job_accountability.es_connection import get_job_accountability_connection
 
 grq_es = get_job_accountability_connection(logger)
-
-
-PGE_STEP_DICT = {
-    # "L0A": "L0A_L_RRST_PP"
-}
 
 
 def get_dataset(key, datasets_cfg):
@@ -61,40 +56,18 @@ def search_es(query, idx):
 
 
 class OperaAccountability(Accountability):
-    def __init__(self, context, work_dir):
+    def __init__(self, context: Dict, work_dir: str):
         Accountability.__init__(self, context, work_dir)
 
-        self.trigger_dataset_type = context.get(oc_const.DATASET_TYPE)
-        self.trigger_dataset_id = context.get(oc_const.INPUT_DATASET_ID)
-        # self.step = context.get(oc_const.STEP)  # TODO chrisjrd: resolve
-        # self.product_paths = context.get(oc_const.PRODUCT_PATHS)
+        self.trigger_dataset_type = context[oc_const.DATASET_TYPE]
+        self.trigger_dataset_id = context[oc_const.INPUT_DATASET_ID]
 
         metadata: Dict[str, str] = context["product_metadata"]["metadata"]
-        self.product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
+        self.product_paths = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']  # TODO chrisjrd: improve dataset structure to avoid duplicating this logic from eval_state_config.py
 
-        self.inputs = []
-        # TODO chrisjrd: resolve getting dataset type associated with the input files
-        # if os.path.exists("{}/datasets.json".format(work_dir)):
-        #     with open("{}/datasets.json".format(work_dir), "r") as reader:
-        #         datasets_cfg = json.load(reader)
-        #
-        #     if isinstance(self.product_paths, list):
-        #         self.input_files_type = get_dataset(self.product_paths[0], datasets_cfg)
-        #     else:
-        #         self.input_files_type = get_dataset(self.product_paths, datasets_cfg)
-        # else:
-        #     self.input_files_type = context.get(oc_const.DATASET_TYPE)
-        self.input_files_type = "TBD"  # TODO chrisjrd: resolve
-        if isinstance(self.product_paths, list):
-            self.inputs = list(map(lambda x: os.path.basename(x), self.product_paths))
-        else:
-            self.inputs = [os.path.basename(self.product_paths)]
-        # TODO chrisjrd: resolve
-        #  Use:
-        #  * wf_name/purpose job param from job-spec
-        #  * PGE output type from PGE config YAML
-        #  * .sf.xml name (workflow name / wf_name?)
-        # self.output_type = PGE_STEP_DICT[self.step]
+        self.input_files_type = self.remove_suffix(self.trigger_dataset_type, "-state-config")
+        self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
+
         self.output_type = "L3_DSWx"  # got this from PGE config YAML
 
     def create_job_entry(self):
@@ -113,15 +86,8 @@ class OperaAccountability(Accountability):
 
     def get_entries(self):
         entries = []
-        if isinstance(self.product_paths, list):
-            for input_path in self.product_paths:
-                input = os.path.basename(input_path)
-                results = grq_es.query(body={
-                                "query": {"bool": {"must": [{"term": {"_id": input}}]}}
-                            }, index="grq")
-                entries.extend(results)
-        else:
-            input = os.path.basename(self.product_paths)
+        for input_path in self.product_paths:
+            input = os.path.basename(input_path)
             results = grq_es.query(body={
                             "query": {"bool": {"must": [{"term": {"_id": input}}]}}
                         }, index="grq")
@@ -189,30 +155,31 @@ class OperaAccountability(Accountability):
         return acc
 
     def update_product_met_json(self, job_result):
+        """Creates a .met.json with updated accountability metadata."""
         work_dir = job_result.get("work_dir")
         datasets_path = f"{work_dir}/output_dir_tbf/datasets/"  # TODO chrisjrd: resolve
         datasets = os.listdir(datasets_path)
-        accountability_obj = self.flatten_and_merge_accountability()
+        old_accountability = self.flatten_and_merge_accountability()
 
         for dataset in datasets:
-            output_met_json = "{}/{}/{}.met.json".format(datasets_path, dataset, dataset)
-            met_json = None
-            with open(output_met_json, "r") as f:
+            new_accountability = old_accountability.copy()
+            new_accountability[self.output_type] = {
+                "id": dataset,
+                "job_id": self.job_id,
+                "inputs": self.inputs,
+                "input_data_type": self.input_files_type,
+                "trigger_dataset_type": self.trigger_dataset_type,
+                "trigger_dataset_id": self.trigger_dataset_id
+            }
+
+            output_met_json_filepath = f"{datasets_path}/{dataset}/{dataset}.met.json"
+            with open(output_met_json_filepath, "r") as f:
                 met_json = json.load(f)
-                accountability_obj_copy = accountability_obj.copy()
-                accountability_obj_copy[self.output_type] = {
-                    "id": dataset,
-                    "job_id": self.job_id,
-                    "inputs": self.inputs,
-                    "input_data_type": self.input_files_type,
-                    "trigger_dataset_type": self.trigger_dataset_type,
-                    "trigger_dataset_id": self.trigger_dataset_id
-                }
-                met_json["accountability"] = accountability_obj_copy
-            with open(output_met_json, "w") as f:
-                logger.info("to write: {}".format(met_json))
-                if met_json is not None:
-                    json.dump(met_json, f)
+                met_json["accountability"] = new_accountability
+
+            with open(output_met_json_filepath, "w") as f:
+                logger.info(f"to write: {met_json}")
+                json.dump(met_json, f)
 
     def set_products(self, job_results):
         self.update_product_met_json(job_result=job_results)
