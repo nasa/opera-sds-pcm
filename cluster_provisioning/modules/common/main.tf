@@ -1135,6 +1135,35 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  # To test HySDS core development (feature branches), uncomment this block
+  # and add lines to perform the mods to test them. Three examples have been
+  # left as described below:
+  #provisioner "remote-exec" {
+  #  inline = [
+  #    "set -ex",
+  #    "source ~/.bash_profile",
+
+  # Example 1: test a single file update from an sdscli feature branch named hotfix-sighup
+  #    "cd ~/mozart/ops/sdscli/sdscli/adapters/hysds",
+  #    "mv fabfile.py fabfile.py.bak",
+  #    "wget https://raw.githubusercontent.com/sdskit/sdscli/hotfix-sighup/sdscli/adapters/hysds/fabfile.py",
+
+  # Example 2: test an entire feature branch (need HYSDS_RELEASE=develop terraform variable)
+  #    "cd ~/mozart/ops/hysds",
+  #    "git checkout <dustins_branch>",
+  #    "pip install -e .",
+
+  # Example 3: test a custom verdi docker image on the ASGs (need HYSDS_RELEASE=develop terraform variable)
+  #    "cd ~/mozart/pkgs",
+  #    "mv hysds-verdi-develop.tar.gz hysds-verdi-develop.tar.gz.bak",
+  #    "docker pull hysds/verdi:<dustins_branch>",
+  #    "docker tag hysds/verdi:<dustins_branch> hysds/verdi:develop",
+  #    "docker save hysds/verdi:develop > hysds-verdi-develop.tar",
+  #    "pigz hysds-verdi-develop.tar",
+
+  #  ]
+  #}
+
   provisioner "remote-exec" {
     inline = [
       "set -ex",
@@ -1222,6 +1251,51 @@ resource "aws_instance" "mozart" {
       // metrics
       "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}",
       "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*",
+    ]
+  }
+}
+
+# Resource to install PCM and its dependencies
+resource "null_resource" "install_pcm_and_pges" {
+  depends_on = [
+    aws_instance.mozart
+  ]
+
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      # build/import opera-pcm
+      "echo Build container",
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "    ~/mozart/ops/opera-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    sds pkg import container-iems-sds_opera-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    rm -rf container-iems-sds_opera-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-iems-sds_opera-pcm:${lower(var.pcm_branch)}\"",
+      "else",
+      "    sds --debug ci add_job --branch ${var.pcm_branch} --token https://${var.pcm_repo} s3",
+      "    sds --debug ci build_job --branch ${var.pcm_branch} https://${var.pcm_repo}",
+      "    sds --debug ci remove_job --branch ${var.pcm_branch} https://${var.pcm_repo}",
+      "fi",
+      # build/import CNM product delivery
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "    ~/mozart/ops/opera-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "    sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "    rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "else",
+      "    sds --debug ci add_job --branch ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
+      "    sds --debug ci build_job --branch ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+      "    sds --debug ci remove_job --branch ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+      "fi",
+      "echo Set up trigger rules",
+      "sh ~/mozart/ops/opera-pcm/cluster_provisioning/setup_trigger_rules.sh"
     ]
   }
 }
@@ -1441,7 +1515,6 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
         name  = "Queue"
         value = each.key
       }
-#      metric_name = "JobsWaitingPerInstance-${var.project}-${var.venue}-${local.counter}-${each.key}"
       metric_name = "${lookup(each.value, "total_jobs_metric", false) ? "JobsPerInstance" : "JobsWaitingPerInstance"}-${var.project}-${var.venue}-${local.counter}-${each.key}"
       unit        = "None"
       namespace   = "HySDS"
@@ -1474,7 +1547,6 @@ resource "aws_instance" "metrics" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1542,7 +1614,6 @@ resource "aws_instance" "grq" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1620,7 +1691,6 @@ resource "aws_instance" "factotum" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
