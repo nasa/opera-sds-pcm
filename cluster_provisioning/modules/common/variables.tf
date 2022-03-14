@@ -232,8 +232,12 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
-variable "lambda_data-subscriber_handler_package_name" {
-  default = "lambda-data-subscriber-handler"
+variable "lambda_data-subscriber-download_handler_package_name" {
+  default = "lambda-data-subscriber-download-handler"
+}
+
+variable "lambda_data-subscriber-query_handler_package_name" {
+  default = "lambda-data-subscriber-query-handler"
 }
 
 variable "lambda_report_handler_package_name" {

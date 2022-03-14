@@ -68,7 +68,10 @@ resource "null_resource" "download_lambdas" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
-    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   }
 #  provisioner "local-exec" {
 #    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_download_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_download_handler_package_name}-${var.lambda_package_release}.zip"
@@ -1921,7 +1924,7 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 # Resources to provision the Data Subscriber timers
 resource "aws_lambda_function" "data_subscriber_download_timer" {
   depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+  filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
   handler = "lambda_function.lambda_handler"
@@ -1976,7 +1979,7 @@ resource "aws_lambda_permission" "data_subscriber_download_timer" {
 
 resource "aws_lambda_function" "data_subscriber_query_timer" {
   depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
   handler = "lambda_function.lambda_handler"
