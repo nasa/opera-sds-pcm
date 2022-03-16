@@ -54,7 +54,7 @@ variable "region" {
 }
 
 variable "verdi_security_group_id" {
-  default = "sg-05c2b46227bb3bf54"
+  default = "sg-08d98b1b7b66f7dea"
 }
 
 variable "pcm_verdi_role" {
