@@ -8,6 +8,7 @@ import json
 import logging
 import netrc
 import os
+import sys
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
 from multiprocessing.pool import ThreadPool
@@ -66,6 +67,7 @@ def run():
 
     try:
         validate(args)
+        logging.info(f"sys.argv = {sys.argv}")
     except ValueError as v:
         logging.error(v)
         exit()

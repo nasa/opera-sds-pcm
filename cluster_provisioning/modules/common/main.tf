@@ -735,7 +735,7 @@ resource "aws_lambda_event_source_mapping" "isl_queue_event_source_mapping" {
 }
 
 #####################################
-# sds config  QUEUE block generation 
+# sds config  QUEUE block generation
 #####################################
 data "template_file" "config" {
   template = file("${path.module}/config.tmpl")
@@ -1306,7 +1306,7 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
 }
 
 ############################
-# Autoscaling Group related 
+# Autoscaling Group related
 ############################
 
 data "aws_subnet_ids" "asg_vpc" {

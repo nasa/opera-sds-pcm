@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -140,7 +140,7 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -252,7 +252,7 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
@@ -439,19 +439,18 @@ variable "earthdata_user" {
 }
 
 variable "earthdata_pass" {
-  default = ""
+    default = ""
 }
 
 # ami vars
-# duplicated from modules/common here so INT would pick up the values from its override.tf
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-06b161f22c9086917"
-    metrics   = "ami-049f536813d215f39"
-    grq       = "ami-0d4589279c337e9c1"
-    factotum  = "ami-0f40727533013a107"
-    ci        = "ami-0601c031b967d1e15"
-    autoscale = "ami-0601c031b967d1e15"
+    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
+    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
+    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
+    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
+    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
   }
 }

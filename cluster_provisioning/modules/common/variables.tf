@@ -1,6 +1,6 @@
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
-  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
+  #default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -130,12 +130,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-07d5fa9c4e08774ba" # mozart v4.15 opera dev
-    metrics   = "ami-0b7c5bf42706743be" # metrics v4.10 opera dev
-    grq       = "ami-01781a9cc6b15a04e" # grq v4.11 opera dev
-    factotum  = "ami-00d0274121da6c039" # factotum v4.11 opera dev
-    ci        = "ami-07eca91ff44702e8d" # verdi v4.11 opera dev
-    autoscale = "ami-07eca91ff44702e8d" # verdi v4.11 opera dev
+    mozart    = "ami-02fcd254c71ff0fa0"
+    metrics   = "ami-0a54a14946e0bb52f"
+    grq       = "ami-0a11c7d42e24fe7d5"
+    factotum  = "ami-0ce5e6a66b7732993"
+    ci        = "ami-0caed57c920d65ea8"
+    autoscale = "ami-0caed57c920d65ea8"
   }
 }
 

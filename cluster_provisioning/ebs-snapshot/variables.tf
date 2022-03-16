@@ -13,7 +13,7 @@ variable "profile" {
 }
 
 variable "verdi_release" {
-  default = "v4.0.1-beta.7"
+  #default = "v4.0.1-beta.8"
 }
 
 variable "registry_release" {
@@ -68,7 +68,8 @@ variable "verdi" {
   type = map(string)
   default = {
     name               = "verdi"
-    ami                = "ami-0601c031b967d1e15"
+    #ami                = "ami-0601c031b967d1e15"  # verdi v4.07 HySDS v4.0.1-beta.2
+	ami                = "ami-03a334419b86d28b1"
     instance_type      = "t3.medium"
     device_name        = "/dev/sda1"
     device_size        = 50
