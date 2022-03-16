@@ -13,8 +13,7 @@ import sys
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
 from urllib import request
-from urllib.parse import urlencode, urlparse
-from urllib.request import urlopen
+from urllib.parse import urlparse
 
 import boto3
 import requests
@@ -237,8 +236,9 @@ def query_cmr(args, token, CMR):
     data_within_last_timestamp = args.startDate if time_range_is_defined else (
             datetime.utcnow() - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    url = f"https://{CMR}/search/granules.umm_json"
     params = {
-        'scroll': "true",
+        'scroll': "false",
         'page_size': PAGE_SIZE,
         'sort_key': "-start_date",
         'provider': args.provider,
@@ -257,32 +257,21 @@ def query_cmr(args, token, CMR):
     logging.debug("Provider: " + args.provider)
     logging.debug("Updated Since: " + data_within_last_timestamp)
 
-    # Get the query parameters as a string and then the complete search url:
-    url = f"https://{CMR}/search/granules.umm_json?{urlencode(params)}"
+    product_urls, search_after = request_search(url, params)
 
-    logging.debug(url)
-
-    with urlopen(url) as url:
-        results = json.loads(url.read().decode())
-
-    logging.debug(
-        f"{str(results['hits'])} new granules found for {args.collection} since {data_within_last_timestamp}")
-
-    downloads = [u['URL'] for item in results['items'] for u in item['umm']['RelatedUrls']]
-
-    if len(downloads) >= PAGE_SIZE:
-        logging.info(
-            f"Warning: only the most recent {str(PAGE_SIZE)} granules will be downloaded; Try adjusting your search criteria.")
+    while search_after:
+        results, search_after = request_search(url, params, search_after=search_after)
+        product_urls.extend(results)
 
     # filter list based on extension
-    filtered_downloads = [f
-                          for f in downloads
-                          for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
-                          if extension in f]
+    filtered_urls = [f
+                     for f in product_urls
+                     for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
+                     if extension in f]
 
-    logging.debug(f"Found {str(len(filtered_downloads))} total files")
+    logging.debug(f"Found {str(len(filtered_urls))} total files")
 
-    return filtered_downloads
+    return filtered_urls
 
 
 def get_temporal_range(start, end, now):
@@ -297,6 +286,19 @@ def get_temporal_range(start, end, now):
         return "1900-01-01T00:00:00Z,{}".format(end)
 
     raise ValueError("One of start-date or end-date must be specified.")
+
+
+def request_search(url, params, search_after=None):
+    response = requests.get(url, params=params, headers={'CMR-Search-After': search_after}) \
+        if search_after else requests.get(url, params=params)
+    results = response.json()
+    items = results.get('items')
+    next_search_after = response.headers.get('CMR-Search-After')
+
+    if items and items[0].get('umm'):
+        return [meta.get('URL') for item in items for meta in item.get('umm').get('RelatedUrls')], next_search_after
+    else:
+        return [], None
 
 
 def product_is_duplicate(es_conn, filename, url):
