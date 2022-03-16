@@ -3,17 +3,17 @@ variable "project" {
 }
 
 variable "venue" {
-  default = "int"
+  default = "ci"
 }
 
 variable "profile" {
-  default = "saml"
+  #default = "saml"
   #int
-  #default = "saml-pub"
+  default = "saml-pub"
 }
 
 variable "verdi_release" {
-  default = "v4.0.1-beta.2"
+  #default = "v4.0.1-beta.8"
 }
 
 variable "registry_release" {
@@ -38,7 +38,7 @@ variable "private_key_file" {
 }
 
 variable "keypair_name" {
-  default = "operasds-int-cluster-1"
+  #default = "operasds-int-cluster-1"
 }
 
 variable "shared_credentials_file" {
@@ -68,7 +68,8 @@ variable "verdi" {
   type = map(string)
   default = {
     name               = "verdi"
-    ami                = "ami-0601c031b967d1e15"
+    #ami                = "ami-0601c031b967d1e15"  # verdi v4.07 HySDS v4.0.1-beta.2
+	ami                = "ami-03a334419b86d28b1"
     instance_type      = "t3.medium"
     device_name        = "/dev/sda1"
     device_size        = 50
@@ -88,7 +89,7 @@ variable "asg_vpc" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "artifactory_base_url" {
