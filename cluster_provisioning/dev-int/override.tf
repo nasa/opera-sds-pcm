@@ -134,14 +134,6 @@ variable "artifactory_repo" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.2
-    #mozart    = "ami-06b161f22c9086917"
-    #metrics   = "ami-049f536813d215f39"
-    #grq       = "ami-0d4589279c337e9c1"
-    #factotum  = "ami-0f40727533013a107"
-    #ci        = "ami-0601c031b967d1e15"
-    #autoscale = "ami-0601c031b967d1e15"
-
 	# HySDS v4.0.1-beta.8-oraclelinux
 	mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
     metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8

@@ -60,6 +60,10 @@ variable "bach_ui_branch" {
   default = ""
 }
 
+variable "product_delivery_branch" {
+  default = ""
+}
+
 variable "venue" {
   default = ""
 }

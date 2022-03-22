@@ -59,6 +59,10 @@ variable "bach_ui_branch" {
   default = "develop"
 }
 
+variable "product_delivery_branch" {
+  default = "develop"
+}
+
 variable "venue" {
 }
 
@@ -440,7 +444,7 @@ variable "earthdata_user" {
 }
 
 variable "earthdata_pass" {
-  default = ""
+    default = ""
 }
 
 # ami vars

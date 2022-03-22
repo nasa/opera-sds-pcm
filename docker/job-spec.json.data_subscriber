@@ -21,11 +21,11 @@
     },
     {
       "name": "isl_bucket_name",
-      "destination": "context"
+      "destination": "positional"
     },
     {
       "name": "isl_staging_area",
-      "destination": "context"
+      "destination": "positional"
     }
   ]
 }
