@@ -125,7 +125,10 @@ fab -f ~/.sds/cluster.py -R mozart,grq create_all_user_rules_index
 #~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} datasets_e2e.json 1,2 /tmp/datasets.txt
 
 # stage L2_HLS_L30 & L2_HLS_S30 files to ISL
-./stage_l2_hls_to_s3.sh ${isl_bucket}
+# TODO TODO: uncoment this after testing stage l2 and L3_DSWX_HLS PGE
+#./stage_l2_hls_to_s3.sh ${isl_bucket}
+
+
 
 # verify accountability table counts
 #python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_accountability.py --max_time=2700 pass_accountability_catalog 12 /tmp/pass_accountability_catalog.txt

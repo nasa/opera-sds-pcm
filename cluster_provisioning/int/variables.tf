@@ -80,6 +80,10 @@ variable "jenkins_api_user" {
   default = ""
 }
 
+variable "keypair_name" {
+  default = ""
+}
+
 variable "jenkins_api_key" {
   default = ""
 }
@@ -94,14 +98,6 @@ variable "jenkins_enabled" {
 }
 
 variable "artifactory_fn_api_key" {
-  default = ""
-}
-
-variable "artifactory_fn_user" {
-  default = ""
-}
-
-variable "keypair_name" {
   default = ""
 }
 
@@ -209,7 +205,7 @@ variable "cnm_r_allowed_account" {
 
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:399787141461:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -239,6 +235,10 @@ variable "aws_account_id" {
 }
 
 variable "lambda_package_release" {
+  default = ""
+}
+
+variable "job_catalog_url" {
   default = ""
 }
 
@@ -385,14 +385,6 @@ variable "run_smoke_test" {
   default = true
 }
 
-variable "earthdata_user" {
-  default = ""
-}
-
-variable "earthdata_pass" {
-  default = ""
-}
-
 variable "purge_es_snapshot" {
   type    = bool
   default = false
@@ -403,6 +395,18 @@ variable "es_snapshot_bucket" {
 }
 
 variable "es_bucket_role_arn" {
+  default = ""
+}
+
+variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "earthdata_user" {
+  default = ""
+}
+
+variable "earthdata_pass" {
   default = ""
 }
 
