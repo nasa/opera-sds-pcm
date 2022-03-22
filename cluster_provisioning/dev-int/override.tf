@@ -7,7 +7,7 @@
 
 ##### Environments #######
 variable "aws_account_id" {
-  default = "271039147104"
+  default = "681612454726"
 }
 
 variable "venue" {
@@ -23,7 +23,7 @@ variable "counter" {
 }
 
 variable "crid" {
-  default = "D00200"
+  default = "D00100"
 }
 
 variable "project" {
@@ -41,24 +41,27 @@ variable "az" {
 # Specify either forward or reprocessing. When this is set to "reprocessing"
 # PCM will disable all timers upon provisioning. Otherwise, they are enabled at start up.
 variable "cluster_type" {
-  default = "reprocessing"
+  #default = "reprocessing"
+  default = "forward"
 }
 
 ###### Security  ########
 variable "verdi_security_group_id" {
-  default = "sg-0dc79d95a7e284bf9"
+  default = "sg-09a915669ed25d1ed"
 }
 
 variable "cluster_security_group_id" {
-  default = "sg-0656188b92eabb69d"
+  default = "sg-0748562abca276298"
 }
 
 variable "private_key_file" {
-  default = "~/.ssh/operasds-int-cluster-1.pem"
+  #default = "~/.ssh/operasds-int-cluster-1.pem"
+  default = ""
 }
 
 variable "keypair_name" {
-  default = "operasds-int-cluster-1"
+  #default = "operasds-int-cluster-1"
+  default = ""
 }
 
 variable "ops_password" {
@@ -78,50 +81,49 @@ variable "profile" {
 
 ####### Subnet ###########
 variable "subnet_id" {
-  default = "subnet-0b69acd65c7bf133b"
+  default = "subnet-000eb551ad06392c7"
 }
 
 ####### VPC #########
 variable "lambda_vpc" {
-  default = "vpc-0f27ba0544fa10ee6"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "asg_vpc" {
-  default = "vpc-9b3500ff"
+  default = "vpc-b5a983cd"
 }
 
 ##### Bucket Names #########
 variable "docker_registry_bucket" {
-  default = "opera-dev-cc-fwd-int"
+  default = "opera-dev-cc-fwd-ci"
 }
 
 variable "dataset_bucket" {
-  default = "opera-dev-rs-fwd-int"
+  default = "opera-dev-rs-fwd-ci"
 }
 
 variable "code_bucket" {
-  default = "opera-dev-cc-fwd-int"
+  default = "opera-dev-cc-fwd-ci"
 }
 
 variable "lts_bucket" {
-  default = "opera-dev-lts-fwd-int"
+  default = "opera-dev-lts-fwd-ci"
 }
 
 variable "triage_bucket" {
-  default = "opera-dev-triage-fwd-int"
+  default = "opera-dev-triage-fwd-ci"
 }
 
 variable "isl_bucket" {
-  default = "opera-dev-isl-fwd-int"
+  default = "opera-dev-isl-fwd-ci"
 }
 
 variable "osl_bucket" {
-  default = "opera-dev-osl-fwd-int"
+  default = "opera-dev-osl-fwd-ci"
 }
 
 variable "es_snapshot_bucket" {
-  #default = "opera-dev-es-bucket-int"
-  default = "opera-dev-cc-fwd-int"
+  default = "opera-dev-cc-fwd-ci"
 }
 
 variable "artifactory_repo" {
@@ -132,22 +134,32 @@ variable "artifactory_repo" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-01aa6dbec644a2672"
-    metrics   = "ami-0ee90e1f71e532095"
-    grq       = "ami-0872577aec2e40df1"
-    factotum  = "ami-06158820898dd2dfd"
-    ci        = "ami-00baa2004b03f6090"
-    autoscale = "ami-00baa2004b03f6090"
+    # HySDS v4.0.1-beta.2
+    #mozart    = "ami-06b161f22c9086917"
+    #metrics   = "ami-049f536813d215f39"
+    #grq       = "ami-0d4589279c337e9c1"
+    #factotum  = "ami-0f40727533013a107"
+    #ci        = "ami-0601c031b967d1e15"
+    #autoscale = "ami-0601c031b967d1e15"
+
+	# HySDS v4.0.1-beta.8-oraclelinux
+	mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
+    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
+    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
+    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
+    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
   }
 }
 
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:824481342913:sds-n-cumulus-int-opera-workflow-queue"
+  #default = "arn:aws:sqs:us-west-2:824481342913:sds-n-cumulus-int-opera-workflow-queue"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
-  default = true
+  default = false
 }
 
 variable "daac_endpoint_url" {
@@ -156,11 +168,11 @@ variable "daac_endpoint_url" {
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220318-R1.0.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "R1.0.0"
 }
 
 variable "hysds_release" {
@@ -168,27 +180,27 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "release-r2.2.1"
+  default = "v1.0.0-er.2.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "release-r2.2.1"
+  default = "v1.0.0-er.2.0"
 }
 
 variable "pcm_branch" {
-  default = "release-r2.0.0"
+  default = "v1.0.0-er.2.0"
 }
 
 variable "product_delivery_branch" {
-  default = "release-r2.2.1"
+  default = "v1.0.0-er.2.0"
 }
 
 variable "bach_api_branch" {
-  default = "release-r2.0.0"
+  default = "v1.0.0-er.2.0"
 }
 
 variable "bach_ui_branch" {
-  default = "release-r2.0.0"
+  default = "v1.0.0-er.2.0"
 }
 
 ###### Roles ########
@@ -197,43 +209,30 @@ variable "asg_use_role" {
 }
 
 variable "asg_role" {
-  default = "am-pcm-verdi-stage-role"
+  default = "am-pcm-verdi-role"
 }
 
 variable "pcm_cluster_role" {
   default = {
-    name = "am-pcm-cluster-stage-role"
+    name = "am-pcm-cluster-role"
     path = "/"
   }
 }
 
 variable "pcm_verdi_role" {
   default = {
-    name = "am-pcm-verdi-stage-role"
+    name = "am-pcm-verdi-role"
     path = "/"
   }
 }
 
-# ami vars
-variable "amis" {
-  type = map(string)
-  default = {
-    mozart    = "ami-04f3e46d5c6b4ce03"
-    metrics   = "ami-01036d95384ffaee3"
-    grq       = "ami-09fc228c7a28d839c"
-    factotum  = "ami-088982c253b1c835a"
-    ci        = "ami-07a3d26f784b9e9be"
-    autoscale = "ami-00baa2004b03f6090"
-  }
-}
-
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-pcm-lambda-stage-role"
+  default = "arn:aws:iam::681612454726:role/am-pcm-lambda-role"
 }
 
 ##### ES ######
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-es-role"
+  default = "arn:aws:iam::681612454726:role/am-es-role"
 }
 
 variable "grq_aws_es_host" {
