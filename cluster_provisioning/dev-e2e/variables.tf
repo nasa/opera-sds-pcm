@@ -39,13 +39,16 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
+variable "product_delivery_branch" {
+  default = "develop"
+}
+
 variable "bach_api_repo" {
   default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
 variable "bach_api_branch" {
   default = "develop"
-#  default = "main"
 }
 
 variable "bach_ui_repo" {
@@ -54,7 +57,6 @@ variable "bach_ui_repo" {
 
 variable "bach_ui_branch" {
   default = "develop"
-#  default = "main"
 }
 
 variable "product_delivery_branch" {
@@ -86,10 +88,6 @@ variable "jenkins_api_key" {
 }
 
 variable "artifactory_fn_api_key" {
-}
-
-variable "artifactory_fn_user" {
-  default = ""
 }
 
 variable "ops_password" {
@@ -286,10 +284,9 @@ variable "cnm_r_allowed_account" {
 }
 
 #The value of daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -321,6 +318,10 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
+variable "job_catalog_url" {
+  default = ""
+}
+
 variable "delete_old_job_catalog" {
   type    = bool
   default = false
@@ -349,15 +350,15 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220318-R1.0.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "R1.0.0"
 }
 
 variable "crid" {
-  default = "D00200"
+  default = "D00100"
 }
 
 variable "cluster_type" {
@@ -431,7 +432,11 @@ variable "es_snapshot_bucket" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-es-role"
+  default = "arn:aws:iam::681612454726:role/am-es-role"
+}
+
+variable "artifactory_fn_user" {
+  default = ""
 }
 
 variable "earthdata_user" {

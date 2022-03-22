@@ -25,11 +25,11 @@ variable "logstash_release" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220208-develop-ER2.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "v1.0.0-er.2.0"
 }
 
 variable "private_key_file" {
@@ -68,8 +68,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name               = "verdi"
-    #ami                = "ami-0601c031b967d1e15"  # verdi v4.07 HySDS v4.0.1-beta.2
-	ami                = "ami-03a334419b86d28b1"
+	  ami                = "ami-0caed57c920d65ea8"   # verdi v4.11 v4.0.1-beta.8-oraclelinux
     instance_type      = "t3.medium"
     device_name        = "/dev/sda1"
     device_size        = 50
