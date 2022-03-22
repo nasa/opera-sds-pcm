@@ -129,12 +129,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-06b161f22c9086917"
-    metrics   = "ami-049f536813d215f39"
-    grq       = "ami-0d4589279c337e9c1"
-    factotum  = "ami-0f40727533013a107"
-    ci        = "ami-0601c031b967d1e15"
-    autoscale = "ami-0601c031b967d1e15"
+    mozart    = "ami-02fcd254c71ff0fa0"
+    metrics   = "ami-0a54a14946e0bb52f"
+    grq       = "ami-0a11c7d42e24fe7d5"
+    factotum  = "ami-0ce5e6a66b7732993"
+    ci        = "ami-0caed57c920d65ea8"
+    autoscale = "ami-0caed57c920d65ea8"
   }
 }
 

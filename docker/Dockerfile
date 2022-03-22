@@ -2,7 +2,6 @@ FROM hysds/pge-base:develop
 
 ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
-#ARG NISAR_MIXED_MODES_BRANCH
 
 # provision
 USER ops
