@@ -110,14 +110,6 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-#    "opera-job_worker-sciflo-l0a" = {
-      # TODO: restore multiple instance types when L0A PGE deterministically generates the same number of products
-      #"instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-#      "instance_type" = ["t3.xlarge"]
-#      "root_dev_size" = 50
-#      "data_dev_size" = 25
-#      "max_size"      = 10
-#    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
@@ -188,7 +180,7 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -300,7 +292,7 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
@@ -322,7 +314,7 @@ variable "cnm_r_handler_job_type" {
 }
 
 variable "cnm_r_job_queue" {
-  default = "opera-job_worker-small"
+  default = "opera-job_worker-rcv_cnm_notify"
 }
 
 variable "cnm_r_event_trigger" {
@@ -334,10 +326,9 @@ variable "cnm_r_allowed_account" {
 }
 
 #The value of daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
-#  arn:aws:sqs:us-east-1:206609214770:asf-cumulus-dev-opera-workflow-queue
+#  arn:aws:sqs:us-east-1:871271927522:asf-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -369,6 +360,10 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
+variable "job_catalog_url" {
+  default = ""
+}
+
 variable "delete_old_job_catalog" {
   type    = bool
   default = false
@@ -397,15 +392,15 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220318-R1.0.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "R1.0.0"
 }
 
 variable "crid" {
-  default = "D00200"
+  default = "D00100"
 }
 
 variable "cluster_type" {
@@ -462,6 +457,10 @@ variable "run_smoke_test" {
   default = true
 }
 
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }
@@ -473,7 +472,3 @@ variable "earthdata_pass" {
 variable "pge_test_package" {
   default = "testdata_R1.0.0"
 }
-
-#variable "l0a_test_package" {
-#  default = "l0a_multi_003.tgz"
-#}

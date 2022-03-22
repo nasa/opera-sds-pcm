@@ -150,7 +150,7 @@ resource "null_resource" "mozart" {
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
       "  ${var.cluster_type} \\",
-      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :",
+#      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :",
       "fi",
     ]
   }

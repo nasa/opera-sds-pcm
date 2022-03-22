@@ -40,6 +40,10 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
+variable "product_delivery_branch" {
+  default = ""
+}
+
 variable "bach_api_repo" {
   default = "github.com/nasa/opera-sds-bach-api.git"
 }
@@ -53,10 +57,6 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-  default = "develop"
-}
-
-variable "product_delivery_branch" {
   default = ""
 }
 
@@ -80,6 +80,10 @@ variable "jenkins_api_user" {
   default = ""
 }
 
+variable "keypair_name" {
+  default = ""
+}
+
 variable "jenkins_api_key" {
   default = ""
 }
@@ -93,10 +97,6 @@ variable "jenkins_enabled" {
 }
 
 variable "artifactory_fn_api_key" {
-  default = ""
-}
-
-variable "keypair_name" {
   default = ""
 }
 
@@ -148,7 +148,7 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = ""
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -203,7 +203,7 @@ variable "cnm_r_allowed_account" {
 
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:399787141461:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -231,6 +231,10 @@ variable "aws_account_id" {
 }
 
 variable "lambda_package_release" {
+  default = ""
+}
+
+variable "job_catalog_url" {
   default = ""
 }
 
@@ -414,12 +418,6 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 100
     }
-#    "opera-job_worker-sciflo-l0a" = {
-#      "instance_type" = ["r5.4xlarge", "r5b.4xlarge", "r5n.4xlarge"]
-#      "root_dev_size" = 50
-#      "data_dev_size" = 500
-#      "max_size"      = 100
-#    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
