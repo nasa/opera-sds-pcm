@@ -8,6 +8,7 @@ import json
 import logging
 import netrc
 import os
+import shutil
 import sys
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
@@ -16,6 +17,7 @@ from urllib import request
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 
+import boto3
 import requests
 from smart_open import open
 
@@ -56,6 +58,13 @@ def run():
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
     PAGE_SIZE = 2000
 
+    EXTENSION_LIST_MAP = {
+        "L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+        "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+        "TIF": ["tif"]
+    }
+
+    logging.info(f"sys.argv = {sys.argv}")
     parser = create_parser()
     args = parser.parse_args()
 
@@ -67,7 +76,6 @@ def run():
 
     try:
         validate(args)
-        logging.info(f"sys.argv = {sys.argv}")
     except ValueError as v:
         logging.error(v)
         exit()
@@ -105,26 +113,13 @@ def run():
 
     logging.debug(url)
 
-    # Get a new timestamp that represents the UTC time of the search.
-    # Then download the records in `umm_json` format for granules
-    # that match our search parameters:
     with urlopen(url) as url:
         results = json.loads(url.read().decode())
 
     logging.debug(
         f"{str(results['hits'])} new granules found for {args.collection} since {data_within_last_timestamp}")  # noqa E501
 
-    # The link for http access can be retrieved from each granule
-    # record's `RelatedUrls` field.
-    # The download link is identified by `"Type": "GET DATA"` but there are
-    # other data files in EXTENDED METADATA" field.
-    # Select the download URL for each of the granule records:
-
-    downloads = [u['URL']
-                 for item in results['items']
-                 for u in item['umm']['RelatedUrls']
-                 if u['Type'] == "EXTENDED METADATA"
-                 or u['Type'] == "GET DATA" and ('Subtype' not in u or u['Subtype'] != "OPENDAP DATA")]
+    downloads = [u['URL'] for item in results['items'] for u in item['umm']['RelatedUrls']]
 
     if len(downloads) >= PAGE_SIZE:
         logging.info(
@@ -133,39 +128,74 @@ def run():
     # filter list based on extension
     filtered_downloads = [f
                           for f in downloads
-                          for extension in args.extensions
-                          if f.lower().endswith(extension)]
+                          for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
+                          if extension in f]
 
     logging.debug(f"Found {str(len(filtered_downloads))} total files to download")
-    logging.debug(f"Downloading files with extensions: {str(args.extensions)}")
+    logging.debug(f"Downloading files with extension list: {str(args.extension_list)}")
+
+    session = SessionWithHeaderRedirection(username, password, NETLOC)
 
     num_successes = num_failures = num_skipped = 0
 
-    for url in filtered_downloads:
-        try:
-            filename = url.split('/')[-1]
-            if product_is_duplicate(ES_CONN, filename):
-                logging.info(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
-                result = upload(url, SessionWithHeaderRedirection(username, password, NETLOC), token,
-                                args.s3_bucket)
-                if "failed_download" in result:
-                    raise Exception(result["failed_download"])
-                else:
-                    logging.debug(str(result))
+    if args.direct:
+        # Use S3 source. Not true direct until IAM role is configured.
+        aws_creds = get_aws_creds(session)
+        s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                           aws_secret_access_key=aws_creds['secretAccessKey'],
+                           aws_session_token=aws_creds['sessionToken'],
+                           region_name='us-west-2').client("s3")
+        filtered_downloads = [f for f in filtered_downloads if "s3://" in f]
 
-                mark_product_as_downloaded(ES_CONN, filename)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
+        for url in filtered_downloads:
+            try:
+                filename = url.split('/')[-1]
+                if product_is_duplicate(ES_CONN, filename):
+                    logging.info(f"SKIPPING: {url}")
+                    num_skipped = num_skipped + 1
+                else:
+                    result = s3_transfer(url, args.s3_bucket, s3)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
+
+                    mark_product_as_downloaded(ES_CONN, filename)
+                    logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                    num_successes = num_successes + 1
+            except Exception as e:
+                logging.error(f"{str(datetime.now())} FAILURE: {url}")
+                num_failures = num_failures + 1
+                logging.error(e)
+    else:
+        # Use HTTP source.
+        filtered_downloads = [f for f in filtered_downloads if "http" in f]
+
+        for url in filtered_downloads:
+            try:
+                filename = url.split('/')[-1]
+                if product_is_duplicate(ES_CONN, filename):
+                    logging.info(f"SKIPPING: {url}")
+                    num_skipped = num_skipped + 1
+                else:
+                    result = upload(url, args.s3_bucket, session, token)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
+
+                    mark_product_as_downloaded(ES_CONN, filename)
+                    logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                    num_successes = num_successes + 1
+            except Exception as e:
+                logging.error(f"{str(datetime.now())} FAILURE: {url}")
+                num_failures = num_failures + 1
+                logging.error(e)
 
     logging.info(f"Files downloaded: {str(num_successes)}")
     logging.info(f"Duplicate files skipped: {str(num_skipped)}")
     logging.info(f"Files failed to download: {str(num_failures)}")
+
     delete_token(TOKEN_URL, token)
     logging.info("END")
 
@@ -177,25 +207,22 @@ def create_parser():
                         help="The collection shortname for which you want to retrieve data.")  # noqa E501
     parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
                         help="The s3 bucket where data products will be downloaded.")
-
-    parser.add_argument("-sd", "--start-date", dest="startDate",
-                        help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z",
-                        default=False)  # noqa E501
-    parser.add_argument("-ed", "--end-date", dest="endDate",
-                        help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z",
-                        default=False)  # noqa E501
-    parser.add_argument("-b", "--bounds", dest="bbox",
-                        help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".",
-                        default="-180,-90,180,90")  # noqa E501
-    parser.add_argument("-m", "--minutes", dest="minutes",
-                        help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).",
-                        type=int, default=60)  # noqa E501
-    parser.add_argument("-e", "--extensions", dest="extensions",
-                        help="The extensions of products to download. Default is [.nc, .h5, .zip]",
-                        default=[".nc", ".h5", ".zip"])  # noqa E501
-    parser.add_argument("--verbose", dest="verbose", action="store_true", help="Verbose mode.")  # noqa E501
+    parser.add_argument("-d", "--direct", dest="direct", action="store_true",
+                        help="Enable direct download.")  # noqa E501
+    parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+                        help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
+    parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+                        help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
+    parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
+                        help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
+    parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
+                        help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
+    parser.add_argument("-e", "--extension_list", dest="extension_list", default="TIF",
+                        help="The file extension mapping of products to download (band/mask). Defaults to all .tif files.")  # noqa E501
+    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")  # noqa E501
     parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                         help="Specify a provider for collection search. Default is LPCLOUD.")  # noqa E501
+
     return parser
 
 
@@ -280,11 +307,10 @@ def setup_earthdata_login_auth(endpoint):
     username = password = ""
     try:
         username, _, password = netrc.netrc().authenticators(endpoint)
-    except (FileNotFoundError, TypeError):
-        # FileNotFound = There's no .netrc file
-        # TypeError = The endpoint isn't in the netrc file,
-        #  causing the above to try unpacking None
-        logging.error("There's no .netrc file or the The endpoint isn't in the netrc file")  # noqa E501
+    except (FileNotFoundError):
+        logging.error("There's no .netrc file")  # noqa E501
+    except (TypeError):
+        logging.error("The endpoint isn't in the netrc file")  # noqa E501
 
     manager = request.HTTPPasswordMgrWithDefaultRealm()
     manager.add_password(None, endpoint, username, password)
@@ -308,6 +334,14 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     token = response_content['token']['id']
 
     return token
+
+
+def get_aws_creds(session):
+    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+        if r.status_code != 200:
+            r.raise_for_status()
+
+        return r.json()
 
 
 def get_temporal_range(start, end, now):
@@ -352,7 +386,33 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def upload(url, session, token, bucket_name, staging_area="", chunk_size=25600):
+def s3_transfer(url, bucket_name, s3, staging_area=""):
+    tmp_dir = "/tmp/data_subscriber"
+    file_name = os.path.basename(url)
+
+    source = url[len("s3://"):].partition('/')
+    source_bucket = source[0]
+    source_key = source[2]
+
+    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+    target_key = os.path.join(staging_area, file_name)
+
+    os.mkdir(tmp_dir)
+
+    try:
+        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+
+        target_s3 = boto3.resource("s3")
+        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
+
+        shutil.rmtree(tmp_dir)
+        return {"successful_download": target_key}
+    except Exception as e:
+        shutil.rmtree(tmp_dir)
+        return {"failed_download": e}
+
+
+def upload(url, bucket_name, session, token, staging_area="", chunk_size=25600):
     """
     This will basically transfer the file contents of the given url to an S3 bucket
 

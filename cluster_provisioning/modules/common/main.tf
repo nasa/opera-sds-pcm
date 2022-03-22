@@ -1103,7 +1103,7 @@ resource "aws_instance" "mozart" {
       "  rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz",
@@ -1229,6 +1229,51 @@ resource "aws_instance" "mozart" {
     ]
   }
 }
+
+# Resource to install PCM and its dependencies
+#resource "null_resource" "install_pcm_and_pges" {
+#  depends_on = [
+#    aws_instance.mozart
+#  ]
+
+#  connection {
+#    type = "ssh"
+#    host = aws_instance.mozart.private_ip
+#    user = "hysdsops"
+#    private_key = file(var.private_key_file)
+#  }
+
+#  provisioner "remote-exec" {
+#    inline = [
+#      "set -ex",
+#      "source ~/.bash_profile",
+#      # build/import opera-pcm
+#      "echo Build container",
+#      "if [ \"${var.use_artifactory}\" = true ]; then",
+#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+#      "    sds pkg import container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
+#      "    rm -rf container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
+#      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
+#      "else",
+#      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
+#      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+#      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+#      "fi",
+#      # build/import CNM product delivery
+#      "if [ \"${var.use_artifactory}\" = true ]; then",
+#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+#      "    sds pkg import container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
+#      "    rm -rf container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
+#      "else",
+#      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
+#      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+#      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+#      "fi",
+#      "echo Set up trigger rules",
+#      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
+#    ]
+#  }
+#}
 
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
