@@ -390,6 +390,10 @@ variable "es_bucket_role_arn" {
   default = ""
 }
 
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }
