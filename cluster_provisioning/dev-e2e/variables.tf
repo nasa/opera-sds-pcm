@@ -59,10 +59,6 @@ variable "bach_ui_branch" {
   default = "develop"
 }
 
-variable "product_delivery_branch" {
-  default = "develop"
-}
-
 variable "venue" {
 }
 

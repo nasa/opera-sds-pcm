@@ -1154,7 +1154,7 @@ resource "aws_instance" "mozart" {
       "if [ \"${var.use_artifactory}\" = true ]; then",
       "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
       "else",
-      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum,verdi update_${var.project}_packages",
+      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
       "fi",
       "if [ \"${var.grq_aws_es}\" = true ] && [ \"${var.use_grq_aws_es_private_verdi}\" = true ]; then",
       "  fab -f ~/.sds/cluster.py -R mozart update_celery_config",
