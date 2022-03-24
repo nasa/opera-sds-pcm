@@ -182,7 +182,7 @@ resource "null_resource" "mozart" {
       "rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
       "sds pkg export container-iems-sds_cnm_product_delivery:${var.product_delivery_branch}",
       "ls -l",
-      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
+      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-pcm/archive/${var.pcm_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz\"",
       "rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz",
       "ls -l",
