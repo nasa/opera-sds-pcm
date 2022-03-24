@@ -17,19 +17,19 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to subscribe to data"
+echo "Running job to download data"
 date
 
 # Forward processing use case; download all undownloaded files from ES index
-echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose > subscriber.log 2>&1"
-python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose > subscriber.log 2>&1
-
+echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose"
+python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose
 STATUS=$?
-echo "Finished running job"
-date
-if [ $STATUS -ne 0 ]; then
-  echo "Failed to run daac_data_subscriber.py" 1>&2
-  cat subscriber.log 1>&2
-  echo "{}"
-  exit $STATUS
+
+if [ $STATUS -eq 0 ]; then
+  echo "Finished running job"
+else
+  echo "Failed to run daac_data_subscriber.py"
 fi
+
+date
+exit $STATUS

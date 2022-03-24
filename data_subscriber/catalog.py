@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 ES_INDEX = "data_subscriber_product_catalog"
@@ -35,7 +37,10 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
             self.logger.debug(f"Document indexed: {result}")
 
     def mark_downloaded(self, id, index=ES_INDEX):
-        result = self.update_document(id=id, body={"doc_as_upsert": True, "doc": {"downloaded": True}}, index=index)
+        result = self.update_document(id=id,
+                                      body={"doc_as_upsert": True,
+                                            "doc": {"downloaded": True, "download_date": str(datetime.now())}},
+                                      index=index)
 
         if self.logger:
             self.logger.debug(f"Document updated: {result}")
