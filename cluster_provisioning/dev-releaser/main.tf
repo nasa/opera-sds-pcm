@@ -199,6 +199,9 @@ resource "null_resource" "mozart" {
       "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-bach-api/archive/${var.bach_api_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
       "rm -rf ${var.project}-bach-api-${var.bach_api_branch}.tar.gz",
+      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-bach-ui/archive/${var.bach_ui_branch}.tar.gz\"",
+      "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
+      "rm -rf ${var.project}-bach-ui-${var.bach_ui_branch}.tar.gz",
       # publish opera-pcm and CNM_product_delivery docker images to artifactory's docker registry
       "ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${var.common_ci["private_ip"]} \\",
       "   'docker login -u ${var.artifactory_fn_user} --password ${var.artifactory_fn_api_key} artifactory-fn.jpl.nasa.gov:16001; \\",
