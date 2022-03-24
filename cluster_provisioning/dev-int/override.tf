@@ -198,25 +198,29 @@ variable "asg_use_role" {
 }
 
 variable "asg_role" {
-  default = "am-pcm-verdi-role"
+  default = "am-pcm-dev-verdi-role"
+  #default = "am-pcm-verdi-role"
 }
 
 variable "pcm_cluster_role" {
   default = {
-    name = "am-pcm-cluster-role"
+    name = "am-pcm-dev-cluster-role"
+    #name = "am-pcm-cluster-role"
     path = "/"
   }
 }
 
 variable "pcm_verdi_role" {
   default = {
-    name = "am-pcm-verdi-role"
+    name = "am-pcm-dev-verdi-role"
+    #name = "am-pcm-verdi-role"
     path = "/"
   }
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-pcm-lambda-role"
+  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
+  #default = "arn:aws:iam::681612454726:role/am-pcm-lambda-role"
 }
 
 ##### ES ######
