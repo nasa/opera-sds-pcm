@@ -11,7 +11,7 @@ variable "aws_account_id" {
 }
 
 variable "venue" {
-  default = "int"
+  default = "ci"
 }
 
 variable "environment" {
@@ -47,15 +47,12 @@ variable "cluster_type" {
 
 ###### Security  ########
 variable "verdi_security_group_id" {
-  default = "sg-09a915669ed25d1ed"
 }
 
 variable "cluster_security_group_id" {
-  default = "sg-0748562abca276298"
 }
 
 variable "private_key_file" {
-  #default = "~/.ssh/operasds-int-cluster-1.pem"
   default = ""
 }
 
@@ -168,7 +165,7 @@ variable "pge_release" {
 }
 
 variable "hysds_release" {
-  default = "v4.0.1-beta.2"
+  default = "v4.0.1-beta.8-oraclelinux"
 }
 
 variable "lambda_package_release" {

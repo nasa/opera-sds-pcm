@@ -417,6 +417,10 @@ variable "es_bucket_role_arn" {
 variable "es_snapshot_restore_bucket_path" {
 }
 
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }
