@@ -164,7 +164,7 @@ class OperaAccountability(Accountability):
     def update_product_met_json(self, job_result):
         """Creates a .met.json with updated accountability metadata."""
         work_dir = job_result.get("work_dir")
-        datasets_path = f"{work_dir}/output_dir_tbf/datasets/"  # TODO chrisjrd: resolve
+        datasets_path = f"{work_dir}/{self.context['pge_output_dir']}/datasets/"
         datasets = os.listdir(datasets_path)
         old_accountability = self.flatten_and_merge_accountability()
 

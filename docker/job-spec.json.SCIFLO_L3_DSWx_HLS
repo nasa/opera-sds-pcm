@@ -52,6 +52,18 @@
     {
       "name": "accountability_class",
       "destination": "context"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_input_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_output_dir",
+      "destination": "context"
     }
   ]
 }

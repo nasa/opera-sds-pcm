@@ -43,7 +43,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     logger.info(f"Preparing Working Directory: {work_dir}")
 
-    input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir)
+    input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir, context)
 
     run_config: Dict = context.get("run_config")
 
@@ -104,17 +104,17 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     return created_datasets
 
 
-def create_required_directories(work_dir: str) -> Tuple[str, str, str]:
+def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str, str]:
     """Creates the requisite directories per PGE-PCM ICS for L3_DSWx_HLS."""
     logger.info("Creating directories for PGE.")
 
-    runconfig_dir = os.path.join(work_dir, 'runconfig_dir_tbf')
+    runconfig_dir = os.path.join(work_dir, context["pge_runconfig_dir"])
     os.makedirs(runconfig_dir, 0o755, exist_ok=True)
 
-    input_hls_dir = os.path.join(work_dir, 'input_hls_dir_tbf')
+    input_hls_dir = os.path.join(work_dir, context["pge_input_dir"])
     os.makedirs(input_hls_dir, 0o755, exist_ok=True)
 
-    output_dir = os.path.join(work_dir, 'output_dir_tbf')
+    output_dir = os.path.join(work_dir, context["pge_output_dir"])
     os.makedirs(output_dir, 0o755, exist_ok=True)
 
     return input_hls_dir, output_dir, runconfig_dir

@@ -47,6 +47,24 @@
       "from": "value",
       "type": "text",
       "value": "OperaAccountability"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_runconfig_dir"
+    },
+    {
+      "name": "pge_input_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_input_dir"
+    },
+    {
+      "name": "pge_output_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_output_dir"
     }
   ]
 }
