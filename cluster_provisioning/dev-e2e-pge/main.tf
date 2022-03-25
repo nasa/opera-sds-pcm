@@ -76,7 +76,7 @@ module "common" {
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
-  obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
+  #obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
   code_bucket                             = var.code_bucket
@@ -87,6 +87,7 @@ module "common" {
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
   run_smoke_test                          = var.run_smoke_test
+  artifactory_fn_user                     = var.artifactory_fn_user
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
 }

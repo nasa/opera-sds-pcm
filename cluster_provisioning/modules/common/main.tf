@@ -739,7 +739,7 @@ resource "aws_lambda_event_source_mapping" "isl_queue_event_source_mapping" {
 }
 
 #####################################
-# sds config  QUEUE block generation 
+# sds config  QUEUE block generation
 #####################################
 data "template_file" "config" {
   template = file("${path.module}/config.tmpl")
@@ -1081,22 +1081,20 @@ resource "aws_instance" "mozart" {
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz\"",
 
       "  tar xfz hysds-mozart_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-mozart_venv-${var.hysds_release}.tar.gz",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz",
       "fi",
       "cd ~/mozart/ops",
       "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-pcm-${var.pcm_branch}.tar.gz\"",
-      "  tar xfz ${var.project}-pcm-${var.pcm_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm",
-      "  rm -rf ${var.project}-pcm-${var.pcm_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz\"",
+      "  tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm",
+      "  rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
       "  tar xfz CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/CNM_product_delivery-${var.product_delivery_branch} /export/home/hysdsops/mozart/ops/CNM_product_delivery",
@@ -1107,7 +1105,7 @@ resource "aws_instance" "mozart" {
       "  rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz",
@@ -1158,7 +1156,7 @@ resource "aws_instance" "mozart" {
       "if [ \"${var.use_artifactory}\" = true ]; then",
       "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
       "else",
-      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum,verdi update_${var.project}_packages",
+      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
       "fi",
       "if [ \"${var.grq_aws_es}\" = true ] && [ \"${var.use_grq_aws_es_private_verdi}\" = true ]; then",
       "  fab -f ~/.sds/cluster.py -R mozart update_celery_config",
@@ -1200,15 +1198,19 @@ resource "aws_instance" "mozart" {
     ]
   }
 
- # provisioner "remote-exec" {
- #   inline = [
- #     "set -ex",
- #     "source ~/.bash_profile",
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_06-00-0101_chirp-parameter_v44.12.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_06-00-0101_chirp-parameter_v44.12.xml",
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_01-00-0101_radar-configuration_v44.12.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_01-00-0101_radar-configuration_v44.12.xml",
+  # Get test data from the artifactory and put into tests directory
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      "mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
+      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \\",
+      "     -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
+      "cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
+      "tar xfz hls_l2.tar.gz"
  #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
- #   ]
- # }
+    ]
+  }
 
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
@@ -1229,6 +1231,51 @@ resource "aws_instance" "mozart" {
     ]
   }
 }
+
+# Resource to install PCM and its dependencies
+#resource "null_resource" "install_pcm_and_pges" {
+#  depends_on = [
+#    aws_instance.mozart
+#  ]
+
+#  connection {
+#    type = "ssh"
+#    host = aws_instance.mozart.private_ip
+#    user = "hysdsops"
+#    private_key = file(var.private_key_file)
+#  }
+
+#  provisioner "remote-exec" {
+#    inline = [
+#      "set -ex",
+#      "source ~/.bash_profile",
+#      # build/import opera-pcm
+#      "echo Build container",
+#      "if [ \"${var.use_artifactory}\" = true ]; then",
+#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+#      "    sds pkg import container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
+#      "    rm -rf container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
+#      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
+#      "else",
+#      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
+#      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+#      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+#      "fi",
+#      # build/import CNM product delivery
+#      "if [ \"${var.use_artifactory}\" = true ]; then",
+#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+#      "    sds pkg import container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
+#      "    rm -rf container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
+#      "else",
+#      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
+#      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+#      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+#      "fi",
+#      "echo Set up trigger rules",
+#      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
+#    ]
+#  }
+#}
 
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
@@ -1306,7 +1353,7 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
 }
 
 ############################
-# Autoscaling Group related 
+# Autoscaling Group related
 ############################
 
 data "aws_subnet_ids" "asg_vpc" {

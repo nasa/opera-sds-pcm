@@ -93,7 +93,6 @@ module "common" {
 
 locals {
   lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  #lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
 }
 
 resource "null_resource" "mozart" {
