@@ -87,6 +87,7 @@ module "common" {
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
   run_smoke_test                          = var.run_smoke_test
+  artifactory_fn_user                     = var.artifactory_fn_user
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
   purge_es_snapshot                       = var.purge_es_snapshot
@@ -142,14 +143,14 @@ resource "null_resource" "mozart" {
       "  ${var.pcm_branch} \\",
       "  ${var.product_delivery_repo} \\",
       "  ${var.product_delivery_branch} \\",
-	  "  ${var.delete_old_job_catalog} \\",
+#	  "  ${var.delete_old_job_catalog} \\",
       "  ${module.common.mozart.private_ip} \\",
       "  ${module.common.isl_bucket} \\",
       "  ${local.source_event_arn} \\",
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
-      "  ${var.cluster_type} \\",
+      "  ${var.cluster_type}  || :",
 #      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :",
       "fi",
     ]
@@ -160,7 +161,7 @@ resource "null_resource" "mozart" {
       "set -ex",
       "source ~/.bash_profile",
       "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
+      "  ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
       "fi",
     ]
   }

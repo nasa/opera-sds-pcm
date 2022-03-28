@@ -24,7 +24,6 @@ if [ "$#" -eq 999 ]; then
   crid=${19}
   cluster_type=${20}
   pge_test_package=${21}
-  l0a_test_package=${22}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -35,7 +34,8 @@ set -ex
 
 # build/import CNM product delivery
 if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
   sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
   rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
 else
@@ -55,23 +55,22 @@ cd ~/.sds/files
 lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
 
 if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${pcm_branch}.sdspkg.tar"
-#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
-  rm -rf container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
+  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar"
+  sds pkg import container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
+  rm -rf container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
   # Loads the opera-pcm container to the docker registry
-  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${var.project}-sds-pcm:${lowercase_pcm_branch}"
+  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${project}-sds-pcm:${lowercase_pcm_branch}"
 else
   sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
   sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
   sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
-
-
-if [ "${delete_old_job_catalog}" = true ]; then
-  python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-else
-  python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py
 fi
+
+#if [ "${delete_old_job_catalog}" = true ]; then
+#  python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
+#else
+#  python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py
+#fi
 
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
 
@@ -82,8 +81,8 @@ fab -f ~/.sds/cluster.py -R mozart,factotum update_opera_packages
 sds -d ship
 
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 2
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
-~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 2
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
+#~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 2
 
 cd ~/.sds/files/test
 curl -XDELETE http://${mozart_private_ip}:9200/user_rules-grq
@@ -120,28 +119,17 @@ cd ~/.sds/files/test/pge
 #cd ${l0b_test_folder}/input
 
 # Now stage these files to the ISL
-#aws s3 cp id_01-00-0701_radar-configuration_v45-14.xml s3://${isl_bucket}/
-#aws s3 cp id_06-00-0701_chirp-parameter_v45-14.xml s3://${isl_bucket}/
-#aws s3 cp id_ff-00-ff01_waveform_v45-14.xml s3://${isl_bucket}/
 #aws s3 cp NISAR_198900_SCLKSCET_LRCLK.00003 s3://${isl_bucket}/
-
-# TODO: eventually undo this kludge to handle incorrect filename convention from R2 test dataset
-#mv -f NISAR_L0_RRST_VC25_20210707T02000_20210707T021000_D00200_001.bin NISAR_L0_RRST_VC25_20210707T020000_20210707T021000_D00200_001.bin
-
 
 #cd ~/.sds/files/test/pge
 
 #~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} datasets_e2e_pge.json 1 /tmp/ancillary_datasets.txt
-
-# verify Radar Mode catalog
-#python ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_catalog.py radar_mode_catalog 204 /tmp/radar_mode_catalog.txt
 
 # Stage other ancillaries
 #./stage_ancillaries.sh ${isl_bucket}
 
 # verify COP and ROST catalog
 #python ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_catalog.py cop_catalog 16 /tmp/cop_catalog.txt
-#python ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_catalog.py rost_catalog 18 /tmp/rost_catalog.txt
 
 # verify number of ingested ancillary/auxiliary products
 #~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} datasets_e2e_pge.json 1,2 /tmp/ancillary_datasets.txt

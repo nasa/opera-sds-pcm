@@ -93,7 +93,8 @@ variable "jenkins_host" {
 }
 
 variable "jenkins_enabled" {
-  default = "false"
+  type    = bool
+  default = false
 }
 
 variable "artifactory_fn_api_key" {
@@ -128,6 +129,7 @@ variable "az" {
 }
 
 variable "grq_aws_es" {
+  type    = bool
   default = false
 }
 
@@ -148,7 +150,7 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
+  default = ""
 }
 
 variable "verdi_security_group_id" {
@@ -207,6 +209,7 @@ variable "daac_delivery_proxy" {
 }
 
 variable "use_daac_cnm" {
+  type    = bool
   default = false
 }
 
@@ -215,7 +218,8 @@ variable "daac_endpoint_url" {
 }
 # asg vars
 variable "asg_use_role" {
-  default = "true"
+  type    = bool
+  default = true
 }
 
 variable "asg_role" {
@@ -252,6 +256,7 @@ variable "amis" {
 
 }
 
+
 # mozart vars
 variable "mozart" {
 
@@ -287,6 +292,7 @@ variable "autoscale" {
 }
 
 variable "use_artifactory" {
+  type    = bool
   default = true
 }
 
@@ -365,6 +371,7 @@ variable "osl_report_staging_area" {
 }
 
 variable "use_s3_uri_structure" {
+  type    = bool
   default = true
 }
 
@@ -379,6 +386,7 @@ variable "run_smoke_test" {
 }
 
 variable "purge_es_snapshot" {
+  type    = bool
   default = false
 }
 
@@ -387,6 +395,10 @@ variable "es_snapshot_bucket" {
 }
 
 variable "es_bucket_role_arn" {
+  default = ""
+}
+
+variable "artifactory_fn_user" {
   default = ""
 }
 
@@ -401,46 +413,46 @@ variable "earthdata_pass" {
 variable "queues" {
   default = {
     "opera-job_worker-gpu" = {
-      "instance_type" = ["p2.xlarge", "p3.2xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
+      "instance_type"     = ["p2.xlarge", "p3.2xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-small" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
+      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 100
+      "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
+      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 100
+      "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
+      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 100
+      "total_jobs_metric" = true
     }
     "opera-job_worker-rcv_cnm_notify" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
+      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 100
+      "total_jobs_metric" = true
     }
     "opera-workflow_profiler" = {
-      "instance_type" = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    },
-    "opera-job_worker-timer" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 100
-      "max_size"      = 10
+      "instance_type"     = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 10
+      "total_jobs_metric" = true
     }
   }
 }
