@@ -770,8 +770,9 @@ resource "aws_instance" "mozart" {
   user_data            = <<-EOF
               GRQIP=${aws_instance.grq.private_ip}
               METRICSIP=${aws_instance.metrics.private_ip}
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
               EOF
-
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
     Bravo = "pcm"
@@ -1204,7 +1205,6 @@ resource "aws_instance" "mozart" {
       "     -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
       "cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
       "tar xfz hls_l2.tar.gz"
- #     "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pge/testdata_R1.0.0/l0b_small_001.tgz!/input/id_ff-00-ff01_waveform.xml -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/pge/l0b/id_ff-00-ff01_waveform.xml",
     ]
   }
 
@@ -1356,12 +1356,24 @@ data "aws_subnet_ids" "asg_vpc" {
   vpc_id = var.asg_vpc
 }
 
+data "template_file" "launch_template_user_data" {
+  for_each = var.queues
+  template = <<-EOF
+        BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2
+        PROJECT=${var.project}
+        ENVIRONMENT=${var.environment}
+        EOF
+}
+
 resource "aws_launch_template" "launch_template" {
+  depends_on = [data.template_file.launch_template_user_data]
+
   for_each               = var.queues
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
-  user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
+  #user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
+  user_data              = base64encode(data.template_file.launch_template_user_data[each.key].rendered)
   vpc_security_group_ids = [var.verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
@@ -1512,6 +1524,10 @@ resource "aws_instance" "metrics" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.metrics["private_ip"] != "" ? var.metrics["private_ip"] : null
+  user_data              = <<-EOF
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+              EOF
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
     Bravo = "pcm"
@@ -1580,6 +1596,10 @@ resource "aws_instance" "grq" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.grq["private_ip"] != "" ? var.grq["private_ip"] : null
+  user_data              = <<-EOF
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+              EOF
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
     Bravo = "pcm"
@@ -1658,6 +1678,10 @@ resource "aws_instance" "factotum" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.factotum["private_ip"] != "" ? var.factotum["private_ip"] : null
+  user_data              = <<-EOF
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+              EOF
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
     Bravo = "pcm"

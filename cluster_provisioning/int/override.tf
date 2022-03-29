@@ -124,7 +124,8 @@ variable "es_snapshot_bucket" {
 }
 
 variable "artifactory_repo" {
-  default = "general-stage"
+  #default = "general-stage"
+  default = "general-develop"
 }
 
 ######### ami vars #######
@@ -151,31 +152,31 @@ variable "pge_release" {
 }
 
 variable "hysds_release" {
-  default = "v4.0.1-beta.2"
+  default = "v4.0.1-beta.8-oraclelinux"
 }
 
 variable "lambda_package_release" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "pcm_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.2.1"
 }
 
 variable "product_delivery_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "bach_api_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "bach_ui_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.2.0"
 }
 
 ###### Roles ########
