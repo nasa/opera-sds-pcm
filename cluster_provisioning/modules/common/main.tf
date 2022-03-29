@@ -1,35 +1,36 @@
 locals {
-  counter                        = var.counter != "" ? var.counter : random_id.counter.hex
-  default_dataset_bucket         = "${var.project}-${var.environment}-rs-fwd-${var.venue}"
-  dataset_bucket                 = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
-  default_code_bucket            = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
-  code_bucket                    = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
-  default_isl_bucket             = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
-  isl_bucket                     = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
-  default_osl_bucket             = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
-  osl_bucket                     = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
-  default_triage_bucket          = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
-  triage_bucket                  = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
-  default_lts_bucket             = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
-  lts_bucket                     = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
-  key_name                       = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
-  sns_count                      = var.cnm_r_event_trigger == "sns" ? 1 : 0
-  kinesis_count                  = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
-  sqs_count                      = var.cnm_r_event_trigger == "sqs" ? 1 : 0
-  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  daac_delivery_event_type       = split(":", var.daac_delivery_proxy)[2]
-  daac_delivery_region           = split(":", var.daac_delivery_proxy)[3]
-  daac_delivery_account          = split(":", var.daac_delivery_proxy)[4]
-  daac_delivery_resource_name    = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url        = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
-  pge_artifactory_release_url    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pge/"
-  daac_proxy_cnm_r_sns_count     = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
-  maturity                       = split("-", var.daac_delivery_proxy)[5]
-  timer_handler_job_type         = "timer_handler"
-  accountability_report_job_type = "accountability_report"
-  data_subscriber_job_type       = "data_subscriber"
-  use_s3_uri_structure           = var.use_s3_uri_structure
-  grq_es_url                     = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+  counter                           = var.counter != "" ? var.counter : random_id.counter.hex
+  default_dataset_bucket            = "${var.project}-${var.environment}-rs-fwd-${var.venue}"
+  dataset_bucket                    = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
+  default_code_bucket               = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
+  code_bucket                       = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
+  default_isl_bucket                = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
+  isl_bucket                        = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
+  default_osl_bucket                = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
+  osl_bucket                        = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
+  default_triage_bucket             = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
+  triage_bucket                     = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
+  default_lts_bucket                = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
+  lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
+  key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
+  sns_count                         = var.cnm_r_event_trigger == "sns" ? 1 : 0
+  kinesis_count                     = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
+  sqs_count                         = var.cnm_r_event_trigger == "sqs" ? 1 : 0
+  lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  daac_delivery_event_type          = split(":", var.daac_delivery_proxy)[2]
+  daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
+  daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
+  daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
+  pge_artifactory_release_url       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pge/"
+  daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  maturity                          = split("-", var.daac_delivery_proxy)[5]
+  timer_handler_job_type            = "timer_handler"
+  accountability_report_job_type    = "accountability_report"
+  data_subscriber_download_job_type = "data_subscriber_download"
+  data_subscriber_query_job_type    = "data_subscriber_query"
+  use_s3_uri_structure              = var.use_s3_uri_structure
+  grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
 
   cnm_response_queue_name = {
@@ -67,10 +68,13 @@ resource "null_resource" "download_lambdas" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
-    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   }
 #  provisioner "local-exec" {
-#    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+#    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_download_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_download_handler_package_name}-${var.lambda_package_release}.zip"
 #  }
 }
 
@@ -1964,13 +1968,67 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 #  function_name = aws_lambda_function.observation_accountability_report_timer.function_name
 #}
 
-# Resources to provision the Data Subscriber timer
-# Lambda function to submit a job to create the Data Subscriber
-resource "aws_lambda_function" "data_subscriber_timer" {
+# Resources to provision the Data Subscriber timers
+resource "aws_lambda_function" "data_subscriber_download_timer" {
   depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+  filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.7"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-small",
+      "JOB_TYPE": local.data_subscriber_download_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "ISL_STAGING_AREA": var.isl_staging_area,
+      "USER_START_TIME": "",
+      "USER_END_TIME": ""
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "data_subscriber_download_timer" {
+  depends_on = [aws_lambda_function.data_subscriber_download_timer]
+  name = "/aws/lambda/${aws_lambda_function.data_subscriber_download_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+resource "aws_cloudwatch_event_rule" "data_subscriber_download_timer" {
+  name = "${aws_lambda_function.data_subscriber_download_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.data_subscriber_download_timer_trigger_frequency
+  is_enabled = local.enable_timer
+}
+
+resource "aws_cloudwatch_event_target" "data_subscriber_download_timer" {
+  rule = aws_cloudwatch_event_rule.data_subscriber_download_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.data_subscriber_download_timer.arn
+}
+
+resource "aws_lambda_permission" "data_subscriber_download_timer" {
+  statement_id = aws_cloudwatch_event_rule.data_subscriber_download_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.data_subscriber_download_timer.arn
+  function_name = aws_lambda_function.data_subscriber_download_timer.function_name
+}
+
+resource "aws_lambda_function" "data_subscriber_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will create a Data Subscriber"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
   runtime = "python3.7"
@@ -1983,7 +2041,7 @@ resource "aws_lambda_function" "data_subscriber_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.data_subscriber_job_type,
+      "JOB_TYPE": local.data_subscriber_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
@@ -1992,31 +2050,30 @@ resource "aws_lambda_function" "data_subscriber_timer" {
     }
   }
 }
-
-resource "aws_cloudwatch_log_group" "data_subscriber_timer" {
-  depends_on = [aws_lambda_function.data_subscriber_timer]
-  name = "/aws/lambda/${aws_lambda_function.data_subscriber_timer.function_name}"
+resource "aws_cloudwatch_log_group" "data_subscriber_query_timer" {
+  depends_on = [aws_lambda_function.data_subscriber_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.data_subscriber_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
 # Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
-resource "aws_cloudwatch_event_rule" "data_subscriber_timer" {
-  name = "${aws_lambda_function.data_subscriber_timer.function_name}-Trigger"
+resource "aws_cloudwatch_event_rule" "data_subscriber_query_timer" {
+  name = "${aws_lambda_function.data_subscriber_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_subscriber_timer_trigger_frequency
+  schedule_expression = var.data_subscriber_query_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 
-resource "aws_cloudwatch_event_target" "data_subscriber_timer" {
-  rule = aws_cloudwatch_event_rule.data_subscriber_timer.name
+resource "aws_cloudwatch_event_target" "data_subscriber_query_timer" {
+  rule = aws_cloudwatch_event_rule.data_subscriber_query_timer.name
   target_id = "Lambda"
-  arn = aws_lambda_function.data_subscriber_timer.arn
+  arn = aws_lambda_function.data_subscriber_query_timer.arn
 }
 
-resource "aws_lambda_permission" "data_subscriber_timer" {
-  statement_id = aws_cloudwatch_event_rule.data_subscriber_timer.name
+resource "aws_lambda_permission" "data_subscriber_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.data_subscriber_query_timer.name
   action = "lambda:InvokeFunction"
   principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.data_subscriber_timer.arn
-  function_name = aws_lambda_function.data_subscriber_timer.function_name
+  source_arn = aws_cloudwatch_event_rule.data_subscriber_query_timer.arn
+  function_name = aws_lambda_function.data_subscriber_query_timer.function_name
 }

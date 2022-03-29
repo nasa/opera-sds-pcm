@@ -232,8 +232,12 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
-variable "lambda_data-subscriber_handler_package_name" {
-  default = "lambda-data-subscriber-handler"
+variable "lambda_data-subscriber-download_handler_package_name" {
+  default = "lambda-data-subscriber-download-handler"
+}
+
+variable "lambda_data-subscriber-query_handler_package_name" {
+  default = "lambda-data-subscriber-query-handler"
 }
 
 variable "lambda_report_handler_package_name" {
@@ -348,7 +352,9 @@ variable "crid" {
 
 variable "obs_acct_report_timer_trigger_frequency" {}
 
-variable "data_subscriber_timer_trigger_frequency" {}
+variable "data_subscriber_download_timer_trigger_frequency" {}
+
+variable "data_subscriber_query_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 
