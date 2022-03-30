@@ -21,7 +21,14 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
     """
 
     def create_index(self, index=ES_INDEX):
-        self.es.indices.create(index=ES_INDEX)
+        self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
+                                     "mappings": {
+                                         "properties": {
+                                             "url": {"type": "keyword"},
+                                             "index_datetime": {"type": "date"},
+                                             "download_datetime": {"type": "date"},
+                                             "downloaded": {"type": "boolean"}}}},
+                               index=ES_INDEX)
         if self.logger:
             self.logger.info("Successfully created index: {}".format(index))
 
@@ -32,7 +39,7 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
     def post(self, id, url, index=ES_INDEX):
         result = self.index_document(index=index,
-                                     body={"url": url, "downloaded": False, "index_datetime": str(datetime.now())},
+                                     body={"url": url, "downloaded": False, "index_datetime": datetime.now()},
                                      id=id)
 
         if self.logger:
@@ -41,7 +48,7 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
     def mark_downloaded(self, id, index=ES_INDEX):
         result = self.update_document(id=id,
                                       body={"doc_as_upsert": True,
-                                            "doc": {"downloaded": True, "download_datetime": str(datetime.now())}},
+                                            "doc": {"downloaded": True, "download_datetime": datetime.now()}},
                                       index=index)
 
         if self.logger:
