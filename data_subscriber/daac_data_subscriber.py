@@ -397,10 +397,12 @@ def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     target_key = os.path.join(staging_area, file_name)
 
     try:
-        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+        tmp_path = f"{tmp_dir}/{target_key}"
+        s3.download_file(source_bucket, source_key, tmp_path)
 
         target_s3 = boto3.resource("s3")
-        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
+        target_s3.Bucket(target_bucket).upload_file(tmp_path, target_key)
+        os.remove(tmp_path)
 
         return {"successful_download": target_key}
     except Exception as e:
