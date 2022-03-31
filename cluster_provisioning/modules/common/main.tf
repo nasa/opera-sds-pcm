@@ -27,8 +27,8 @@ locals {
   maturity                          = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
-  data_subscriber_download_job_type = "data_subscriber_download"
-  data_subscriber_query_job_type    = "data_subscriber_query"
+  data_download_job_type            = "data_download"
+  data_query_job_type               = "data_query"
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -73,9 +73,6 @@ resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   }
-#  provisioner "local-exec" {
-#    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_download_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_download_handler_package_name}-${var.lambda_package_release}.zip"
-#  }
 }
 
 resource "null_resource" "is_cnm_r_event_trigger_value_valid" {
@@ -1006,7 +1003,6 @@ resource "aws_instance" "mozart" {
       "echo >> ~/.sds/config",
 
       "echo GIT_OAUTH_TOKEN: ${var.git_auth_key} >> ~/.sds/config",
-#	  "echo PUT_GIT_OAUTH_TOKEN: ${var.pub_git_auth_key} >> ~/.sds/config",
       "echo >> ~/.sds/config",
 
       "echo PROVES_URL: https://prov-es.jpl.nasa.gov/beta >> ~/.sds/config",
@@ -1074,7 +1070,6 @@ resource "aws_instance" "mozart" {
       "  ./install.sh mozart -d",
       "  rm -rf ~/mozart/pkgs/hysds-verdi-latest.tar.gz",
       "else",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
@@ -1091,10 +1086,10 @@ resource "aws_instance" "mozart" {
       "fi",
       "cd ~/mozart/ops",
       "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz\"",
-      "  tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm",
-      "  rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz ",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-pcm-${var.pcm_branch}.tar.gz\"",
+      "  tar xfz ${var.project}-pcm-${var.pcm_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm",
+      "  rm -rf ${var.project}-pcm-${var.pcm_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
       "  tar xfz CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
       "  ln -s /export/home/hysdsops/mozart/ops/CNM_product_delivery-${var.product_delivery_branch} /export/home/hysdsops/mozart/ops/CNM_product_delivery",
@@ -1105,7 +1100,7 @@ resource "aws_instance" "mozart" {
       "  rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "  tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz",
@@ -1557,14 +1552,12 @@ resource "aws_instance" "metrics" {
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz\"",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz",
       "fi"
@@ -1625,14 +1618,12 @@ resource "aws_instance" "grq" {
     inline = [
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz",
@@ -1715,14 +1706,12 @@ resource "aws_instance" "factotum" {
     inline = [
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-#     "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz",
@@ -1986,7 +1975,7 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "opera-job_worker-small",
-      "JOB_TYPE": local.data_subscriber_download_job_type,
+      "JOB_TYPE": local.data_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
@@ -2006,7 +1995,7 @@ resource "aws_cloudwatch_log_group" "data_subscriber_download_timer" {
 resource "aws_cloudwatch_event_rule" "data_subscriber_download_timer" {
   name = "${aws_lambda_function.data_subscriber_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_subscriber_download_timer_trigger_frequency
+  schedule_expression = var.data_download_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 
@@ -2041,7 +2030,7 @@ resource "aws_lambda_function" "data_subscriber_query_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.data_subscriber_query_job_type,
+      "JOB_TYPE": local.data_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
@@ -2060,7 +2049,7 @@ resource "aws_cloudwatch_log_group" "data_subscriber_query_timer" {
 resource "aws_cloudwatch_event_rule" "data_subscriber_query_timer" {
   name = "${aws_lambda_function.data_subscriber_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_subscriber_query_timer_trigger_frequency
+  schedule_expression = var.data_query_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 

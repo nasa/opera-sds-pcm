@@ -74,7 +74,8 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
+  data_download_timer_trigger_frequency   = var.data_download_timer_trigger_frequency
+  data_query_timer_trigger_frequency      = var.data_query_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -151,7 +152,7 @@ resource "null_resource" "mozart" {
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
       "  ${var.cluster_type}  || :",
-#      "  \"${var.data_subscriber_timer_trigger_frequency}\" || :",
+#      "  \"${var.data_download_timer_trigger_frequency}\" || :",
       "fi",
     ]
   }
