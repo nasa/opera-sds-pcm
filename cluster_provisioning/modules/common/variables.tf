@@ -352,9 +352,9 @@ variable "crid" {
 
 variable "obs_acct_report_timer_trigger_frequency" {}
 
-variable "data_subscriber_download_timer_trigger_frequency" {}
+variable "data_download_timer_trigger_frequency" {}
 
-variable "data_subscriber_query_timer_trigger_frequency" {}
+variable "data_query_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 
