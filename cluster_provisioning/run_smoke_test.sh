@@ -48,7 +48,7 @@ cnm_datasets=L3_DSWx_HLS
 
 # build/import CNM product delivery
 if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
   sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
   rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
 else
@@ -69,9 +69,9 @@ cd ~/.sds/files
 # setting the min size and desired capacity to the same value
 # TODO chrisjrd: uncomment
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 5
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 5
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 5
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
 
 # no jobs currently being submitted to these ASGs but left here commented out for future use
@@ -82,12 +82,11 @@ cd ~/.sds/files
 lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
 
 if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${pcm_branch}.sdspkg.tar"
-#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
-  rm -rf container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
+  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar"
+  sds pkg import container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
+  rm -rf container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
   # Loads the opera-pcm container to the docker registry
-  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${var.project}-sds-pcm:${lowercase_pcm_branch}"
+  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${project}-sds-pcm:${lowercase_pcm_branch}"
 else
   sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
   sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
@@ -127,7 +126,6 @@ fab -f ~/.sds/cluster.py -R mozart,grq create_all_user_rules_index
 # stage L2_HLS_L30 & L2_HLS_S30 files to ISL
 # TODO TODO: uncoment this after testing stage l2 and L3_DSWX_HLS PGE
 #./stage_l2_hls_to_s3.sh ${isl_bucket}
-
 
 
 # verify accountability table counts

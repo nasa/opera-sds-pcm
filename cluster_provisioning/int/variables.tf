@@ -330,7 +330,11 @@ variable "cluster_type" {
   default = ""
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
+variable "data_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "data_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
