@@ -252,10 +252,10 @@ def query_cmr(args, token, CMR):
         temporal_range = get_temporal_range(args.startDate, args.endDate,
                                             datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
         params['temporal'] = temporal_range
-        logging.info("Temporal Range: " + temporal_range)
+        logging.debug("Temporal Range: " + temporal_range)
 
-    logging.info("Provider: " + args.provider)
-    logging.info("Updated Since: " + data_within_last_timestamp)
+    logging.debug("Provider: " + args.provider)
+    logging.debug("Updated Since: " + data_within_last_timestamp)
 
     product_urls, search_after = request_search(url, params)
 
@@ -269,7 +269,7 @@ def query_cmr(args, token, CMR):
                      for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
                      if extension in f]
 
-    logging.info(f"Found {str(len(filtered_urls))} total files")
+    logging.debug(f"Found {str(len(filtered_urls))} total files")
 
     return filtered_urls
 
@@ -397,12 +397,10 @@ def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     target_key = os.path.join(staging_area, file_name)
 
     try:
-        tmp_path = f"{tmp_dir}/{target_key}"
-        s3.download_file(source_bucket, source_key, tmp_path)
+        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
 
         target_s3 = boto3.resource("s3")
-        target_s3.Bucket(target_bucket).upload_file(tmp_path, target_key)
-        os.remove(tmp_path)
+        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
 
         return {"successful_download": target_key}
     except Exception as e:
