@@ -73,8 +73,8 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
-  obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
+  data_download_timer_trigger_frequency   = var.data_download_timer_trigger_frequency
+  data_query_timer_trigger_frequency      = var.data_query_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
   code_bucket                             = var.code_bucket
@@ -93,8 +93,8 @@ module "common" {
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
   run_smoke_test                          = var.run_smoke_test
-  data_subscriber_download_timer_trigger_frequency = ""
-  data_subscriber_query_timer_trigger_frequency = ""
+  data_download_timer_trigger_frequency   = var.data_download_timer_trigger_frequency
+  data_query_timer_trigger_frequency      = var.data_query_timer_trigger_frequency
 }
 
 locals {

@@ -1116,8 +1116,6 @@ resource "aws_instance" "mozart" {
       "export PATH=~/conda/bin:$PATH",
       "cp -rp ${var.project}-pcm/conf/sds ~/.sds",
       "cp ~/.sds.bak/config ~/.sds",
-      # create the data subscriber catalog elasticsearch index
-      "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
       "cd bach-ui",
       "~/conda/bin/npm install --silent --no-progress",
       "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui",
@@ -1170,6 +1168,9 @@ resource "aws_instance" "mozart" {
       "pip install --progress-bar off -e .",
       "cd ~/mozart/ops/opera-pcm",
       "pip install --progress-bar off -e .",
+      # TODO hyunlee: remove comment after test
+      # create the data subscriber catalog elasticsearch index
+      "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
       "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
       "else",
