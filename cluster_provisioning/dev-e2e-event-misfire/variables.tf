@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -134,7 +134,7 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -246,7 +246,7 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
@@ -280,10 +280,9 @@ variable "cnm_r_allowed_account" {
 }
 
 #The value of daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
-#  arn:aws:sqs:us-east-1:206609214770:asf-cumulus-dev-opera-workflow-queue
+#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -315,6 +314,10 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
+variable "job_catalog_url" {
+  default = ""
+}
+
 variable "delete_old_job_catalog" {
   type    = bool
   default = false
@@ -343,22 +346,26 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220318-R1.0.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "R1.0.0"
 }
 
 variable "crid" {
-  default = "D00200"
+  default = "D00100"
 }
 
 variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
+variable "data_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "data_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
@@ -408,6 +415,10 @@ variable "run_smoke_test" {
   default = true
 }
 
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }
@@ -415,4 +426,3 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
   default = ""
 }
-

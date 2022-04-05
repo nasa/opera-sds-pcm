@@ -1,6 +1,5 @@
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
-  #default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -130,12 +129,13 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-07d5fa9c4e08774ba" # mozart v4.15 opera dev
-    metrics   = "ami-0b7c5bf42706743be" # metrics v4.10 opera dev
-    grq       = "ami-01781a9cc6b15a04e" # grq v4.11 opera dev
-    factotum  = "ami-00d0274121da6c039" # factotum v4.11 opera dev
-    ci        = "ami-07eca91ff44702e8d" # verdi v4.11 opera dev
-    autoscale = "ami-07eca91ff44702e8d" # verdi v4.11 opera dev
+    # HySDS v4.0.1-beta.8-oraclelinux
+    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
+    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
+    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
+    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
+    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
   }
 }
 
@@ -232,8 +232,12 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
-variable "lambda_data-subscriber_handler_package_name" {
-  default = "lambda-data-subscriber-handler"
+variable "lambda_data-subscriber-download_handler_package_name" {
+  default = "lambda-data-subscriber-download-handler"
+}
+
+variable "lambda_data-subscriber-query_handler_package_name" {
+  default = "lambda-data-subscriber-query-handler"
 }
 
 variable "lambda_report_handler_package_name" {
@@ -327,7 +331,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_names" {
-  default = "opera_pge-l3_dswx_hls"
+  default = "opera_pge-dswx_hls"
 }
 
 variable "docker_registry_bucket" {
@@ -339,16 +343,18 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "R1.0.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "crid" {
   default = "D00100"
 }
 
-variable "obs_acct_report_timer_trigger_frequency" {}
+variable "data_download_timer_trigger_frequency" {}
 
-variable "data_subscriber_timer_trigger_frequency" {}
+variable "data_query_timer_trigger_frequency" {}
+
+variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 

@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -39,13 +39,16 @@ variable "product_delivery_repo" {
   default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
 }
 
+variable "product_delivery_branch" {
+  default = "develop"
+}
+
 variable "bach_api_repo" {
   default = "github.com/nasa/opera-sds-bach-api.git"
 }
 
 variable "bach_api_branch" {
-#  default = "develop"
-  default = "main"
+  default = "develop"
 }
 
 variable "bach_ui_repo" {
@@ -53,11 +56,6 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-#  default = "develop"
-  default = "main"
-}
-
-variable "product_delivery_branch" {
   default = "develop"
 }
 
@@ -86,10 +84,6 @@ variable "jenkins_api_key" {
 }
 
 variable "artifactory_fn_api_key" {
-}
-
-variable "artifactory_fn_user" {
-  default = ""
 }
 
 variable "ops_password" {
@@ -140,7 +134,7 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -252,7 +246,7 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
@@ -286,10 +280,9 @@ variable "cnm_r_allowed_account" {
 }
 
 #The value of daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -321,6 +314,10 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
+variable "job_catalog_url" {
+  default = ""
+}
+
 variable "delete_old_job_catalog" {
   type    = bool
   default = false
@@ -349,22 +346,26 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20210805-R2.0.0"
+  default = "20220318-R1.0.0"
 }
 
 variable "pge_release" {
-  default = "R2.0.0"
+  default = "R1.0.0"
 }
 
 variable "crid" {
-  default = "D00200"
+  default = "D00100"
 }
 
 variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
+variable "data_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "data_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
@@ -431,7 +432,11 @@ variable "es_snapshot_bucket" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-es-role"
+  default = "arn:aws:iam::681612454726:role/am-es-role"
+}
+
+variable "artifactory_fn_user" {
+  default = ""
 }
 
 variable "earthdata_user" {
@@ -439,19 +444,18 @@ variable "earthdata_user" {
 }
 
 variable "earthdata_pass" {
-  default = ""
+    default = ""
 }
 
 # ami vars
-# duplicated from modules/common here so INT would pick up the values from its override.tf
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-06b161f22c9086917"
-    metrics   = "ami-049f536813d215f39"
-    grq       = "ami-0d4589279c337e9c1"
-    factotum  = "ami-0f40727533013a107"
-    ci        = "ami-0601c031b967d1e15"
-    autoscale = "ami-0601c031b967d1e15"
+    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
+    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
+    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
+    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
+    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
   }
 }

@@ -67,7 +67,7 @@ then
         exit 2
     fi
 fi
-# Loop accross all Dockerfiles, build and ingest them
+# Loop across all Dockerfiles, build and ingest them
 for dockerfile in docker/Dockerfile*
 do
     dockerfile=${dockerfile#docker/}

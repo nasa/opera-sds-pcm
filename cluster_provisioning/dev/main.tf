@@ -73,7 +73,8 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
+  data_download_timer_trigger_frequency   = var.data_download_timer_trigger_frequency
+  data_query_timer_trigger_frequency      = var.data_query_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -92,7 +93,6 @@ module "common" {
 
 locals {
   lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  #lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/lambda"
 }
 
 resource "null_resource" "mozart" {

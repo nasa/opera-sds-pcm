@@ -43,6 +43,22 @@ variable "product_delivery_branch" {
   default = "develop"
 }
 
+variable "bach_api_repo" {
+  default = "github.com/nasa/opera-sds-bach-api.git"
+}
+
+variable "bach_api_branch" {
+  default = "develop"
+}
+
+variable "bach_ui_repo" {
+  default = "github.com/nasa/opera-sds-bach-ui.git"
+}
+
+variable "bach_ui_branch" {
+  default = "develop"
+}
+
 variable "venue" {
 }
 
@@ -97,8 +113,28 @@ variable "az" {
   default = "us-west-2a"
 }
 
+variable "grq_aws_es" {
+  default = false
+}
+
+variable "grq_aws_es_host" {
+  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
+}
+
+variable "grq_aws_es_host_private_verdi" {
+  default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
+}
+
+variable "grq_aws_es_port" {
+  default = 443
+}
+
+variable "use_grq_aws_es_private_verdi" {
+  default = true
+}
+
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -210,7 +246,7 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
@@ -244,7 +280,7 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:782376038308:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -276,11 +312,7 @@ variable "lambda_package_release" {
   default = "develop"
 }
 
-variable "artifactory_user" {
-  default = ""
-}
-
-variable "artifactory_api_key" {
+variable "job_catalog_url" {
   default = ""
 }
 
@@ -306,51 +338,19 @@ variable "event_misfire_delay_threshold_seconds" {
   default = 60
 }
 
-variable "grq_aws_es" {
-  default = false
-}
-
-variable "grq_aws_es_host" {
-  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
-}
-
-variable "grq_aws_es_host_private_verdi" {
-  default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
-}
-
-variable "grq_aws_es_port" {
-  default = 443
-}
-
-variable "use_grq_aws_es_private_verdi" {
-  default = true
-}
-
 variable "crid" {
-  default = "D00200"
-}
-
-variable "bach_api_repo" {
-  default = "github.com/nasa/opera-sds-bach-api.git"
-}
-
-variable "bach_api_branch" {
-  default = ""
-}
-
-variable "bach_ui_repo" {
-  default = "github.com/nasa/opera-sds-bach-ui.git"
-}
-
-variable "bach_ui_branch" {
-  default = "develop"
+  default = "D00100"
 }
 
 variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
+variable "data_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "data_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
@@ -395,6 +395,15 @@ variable "inactivity_threshold" {
   default = 600
 }
 
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
+variable "artifactory_fn_user" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }
@@ -402,4 +411,3 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
   default = ""
 }
-

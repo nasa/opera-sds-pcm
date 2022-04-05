@@ -29,7 +29,7 @@ locals {
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   data_download_job_type            = "data_subscriber_download"
-  data_query_job_type               = "data_subscriber_query"
+  data_query_job_type               = "data_subscriber_query" 
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
