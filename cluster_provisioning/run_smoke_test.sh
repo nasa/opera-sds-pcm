@@ -49,15 +49,15 @@ cnm_datasets=L3_DSWx_HLS
 #fi
 
 # build/import CNM product delivery
-if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-else
-  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
-  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
-  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
-fi
+#if [ "${use_artifactory}" = true ]; then
+#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+#  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+#  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+#else
+#  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
+#  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
+#  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
+#fi
 
 cd ~/.sds/files
 
@@ -81,19 +81,19 @@ cd ~/.sds/files
 #aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${project}-${venue}-${counter}-opera-workflow_profiler --desired-capacity 1
 
 # build/import opera-pcm
-lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
+#lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
 
-if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar"
-  sds pkg import container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
-  rm -rf container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
+#if [ "${use_artifactory}" = true ]; then
+#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar"
+#  sds pkg import container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
+#  rm -rf container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
   # Loads the opera-pcm container to the docker registry
-  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${project}-sds-pcm:${lowercase_pcm_branch}"
-else
-  sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
-  sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
-  sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
-fi
+#  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${project}-sds-pcm:${lowercase_pcm_branch}"
+#else
+#  sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
+#  sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
+#  sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
+#fi
 
 #if [ "${delete_old_job_catalog}" = true ]; then
 #  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
