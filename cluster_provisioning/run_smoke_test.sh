@@ -22,6 +22,8 @@ if [ "$#" -eq 19 ]; then
   use_daac_cnm=${17}
   crid=${18}
   cluster_type=${19}
+#  data_query_timer_trigger_frequency=${20}
+#  data_download_timer_trigger_frequency=${21}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -164,19 +166,19 @@ data_end="${tomorrow}T00:00:00"
 #python ~/mozart/ops/opera-pcm/report/accountability_report_cli.py ObservationAccountabilityReport --start ${start_date_time} --end ${end_date_time} --format_type=xml
 #cat oad_*.xml
 
-#opera_bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach_ui/2.0/data-summary/incoming)
-#opera_bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/2.0/ancillary/list)
+opera_bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-ui/data-summary/incoming)
+opera_bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/ancillary/list)
 
-#if [[ "$opera_bach_ui_status_code" -ne 200 ]] ; then
-#  echo "FAILURE: Could not reach bach_ui v2.0" > /tmp/opera_bach_ui_status_code.txt
-#else
-#  echo "SUCCESS" > /tmp/opera_bach_ui_status_code.txt
-#fi
-#if [[ "$opera_bach_api_status_code" -ne 200 ]] ; then
-#  echo "FAILURE: Could not reach bach-api v2.0" > /tmp/opera_bach_api_status_code.txt
-#else
-#  echo "SUCCESS" > /tmp/opera_bach_api_status_code.txt
-#fi
+if [[ "$opera_bach_ui_status_code" -ne 200 ]] ; then
+  echo "FAILURE: Could not reach bach-ui" > /tmp/opera_bach_ui_status_code.txt
+else
+  echo "SUCCESS" > /tmp/opera_bach_ui_status_code.txt
+fi
+if [[ "$opera_bach_api_status_code" -ne 200 ]] ; then
+  echo "FAILURE: Could not reach bach-api" > /tmp/opera_bach_api_status_code.txt
+else
+  echo "SUCCESS" > /tmp/opera_bach_api_status_code.txt
+fi
 
 # Test auto generation of the Observation Accountability Report
 #if [ "${cluster_type}" = "forward" ]; then
@@ -188,17 +190,19 @@ data_end="${tomorrow}T00:00:00"
 #fi
 
 # If we're deploying a forward cluster, restore the original settings.yaml to the cluster
-#if [ "${cluster_type}" = "forward" ]; then
-#  aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "${l0a_timer_trigger_frequency}"
+if [ "${cluster_type}" = "forward" ]; then
+  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-query-timer-Trigger --schedule-expression "rate(5 minutes)"
+  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-download-timer-Trigger --schedule-expression "rate(5 minutes)"
+#  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-query-timer-Trigger --schedule-expression "${data_query_timer_trigger_frequency}"
+#  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-download-timer-Trigger --schedule-expression "${data_download_timer_trigger_frequency}"
 #  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF /tmp/check_expected_force_submits.txt
-
 #  echo "Restoring original settings.yaml and pushing it out to the cluster"
 #  cp ~/mozart/ops/opera-pcm/conf/settings.yaml.bak ~/mozart/ops/opera-pcm/conf/settings.yaml
 #  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
 #  sds ship
 #else
 #  echo "SUCCESS: No force submit state configs expected to be found." > /tmp/check_expected_force_submits.txt
-#fi
+fi
 
 # If we're deploying a forward cluster, restore the original settings that will create the daily observational
 # accountability reports
