@@ -1,3 +1,4 @@
+#######################################################################
 # This file defines the outputs that are expected to be produced by the
 # different PGEs within the PCM.
 # 
@@ -28,8 +29,8 @@
 #      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
 #    Optional: []
 #  Missing_Metadata: {}
+#######################################################################
 
-# TODO chrisjrd: Finalize config, adding regex for the other output files
 # Key name MUST match the corresponding RunConfig jinja2 template filename.
 L3_HLS:
   Outputs:
