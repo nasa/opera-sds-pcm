@@ -13,7 +13,7 @@ variable "profile" {
 }
 
 variable "verdi_release" {
-  #default = "v4.0.1-beta.8"
+  #default = "v4.0.1-beta.8-oraclelinux"
 }
 
 variable "registry_release" {
@@ -29,7 +29,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "v1.0.0-er.2.0"
+  default = "v1.0.0-er.3.0"
 }
 
 variable "private_key_file" {
