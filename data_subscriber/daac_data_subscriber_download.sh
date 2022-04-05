@@ -21,8 +21,8 @@ echo "Running job to download data"
 date
 
 # Forward processing use case; download all undownloaded files from ES index
-echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download"
-python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download 2>&1
+echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose"
+python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --verbose
 STATUS=$?
 
 if [ $STATUS -eq 0 ]; then
