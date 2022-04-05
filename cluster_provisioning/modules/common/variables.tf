@@ -331,7 +331,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_names" {
-  default = "opera_pge-l3_dswx_hls"
+  default = "opera_pge-dswx_hls"
 }
 
 variable "docker_registry_bucket" {
@@ -343,18 +343,18 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "R1.0.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "crid" {
   default = "D00100"
 }
 
-variable "obs_acct_report_timer_trigger_frequency" {}
-
 variable "data_download_timer_trigger_frequency" {}
 
 variable "data_query_timer_trigger_frequency" {}
+
+variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 

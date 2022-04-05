@@ -21,14 +21,15 @@ locals {
   daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url           = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
-  pge_artifactory_release_url       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pge/"
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+#  pge_artifactory_dev_url           = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
+  pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
   daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                          = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
-  data_download_job_type            = "data_download"
-  data_query_job_type               = "data_query"
+  data_download_job_type            = "data_subscriber_download"
+  data_query_job_type               = "data_subscriber_query" 
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -1168,19 +1169,27 @@ resource "aws_instance" "mozart" {
       "pip install --progress-bar off -e .",
       "cd ~/mozart/ops/opera-pcm",
       "pip install --progress-bar off -e .",
+      #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
+      # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
+      # create the data subscriber catalog elasticsearch index, delete the existing catalog first
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      #"fi",
+      # deploy PGE for R1 (DSWx_HLS)
       "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" \\",
+      "    --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url} \\",
+      "    --username ${var.artifactory_fn_user} --api_key ${var.artifactory_fn_api_key}",
       "else",
-      # TODO chrisjrd: remove
-#      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
       # TODO chrisjrd: extract vars as needed
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
-      "    --image_names opera_pge-dswx_hls \\",
-      "    --pge_release \"1.0.0-er.2.0\" \\",
+      "    --image_names ${var.pge_names} \\",
+#      "    --image_names opera_pge-dswx_hls \\",
+      "    --pge_release \"${var.pge_release}\" \\",
       "    --sds_config ~/.sds/config \\",
-      "    --processes 4 \\",
-      "    --force \\",
-      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
+      "    --processes 4 --force \\",
+      "    --artifactory_url ${local.pge_artifactory_release_url} \\",
+#      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
       "    --username ${var.artifactory_fn_user} \\",
       "    --api_key ${var.artifactory_fn_api_key}",
       "fi",
@@ -1248,8 +1257,8 @@ resource "aws_instance" "mozart" {
 #      "echo Build container",
 #      "if [ \"${var.use_artifactory}\" = true ]; then",
 #      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-#      "    sds pkg import container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
-#      "    rm -rf container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
+#      "    sds pkg import container-nasa_${var.project}-pcm-${var.pcm_branch}.sdspkg.tar",
+#      "    rm -rf container-nasa_${var.project}-pcm-${var.pcm_branch}.sdspkg.tar",
 #      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
 #      "else",
 #      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
