@@ -1,5 +1,5 @@
 from chimera.commons.constants import ChimeraConstants
-from job_accountability.catalog import ES_INDEX as job_accountability_index
+from data_subscriber.catalog import ES_INDEX as job_accountability_index
 
 
 class OperaChimeraConstants(ChimeraConstants):
