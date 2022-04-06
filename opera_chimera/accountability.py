@@ -15,9 +15,9 @@ from opera_chimera.constants.opera_chimera_const import (
 from util.conf_util import SettingsConf
 from chimera.logger import logger
 
-from job_accountability.es_connection import get_job_accountability_connection
+from data_subscriber.es_connection import get_data_subscriber_connection
 
-grq_es = get_job_accountability_connection(logger)
+grq_es = get_data_subscriber_connection(logger)
 
 
 def get_dataset(key, datasets_cfg):
