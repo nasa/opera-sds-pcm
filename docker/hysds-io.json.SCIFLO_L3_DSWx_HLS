@@ -35,6 +35,36 @@
      "name": "product_metadata",
      "from": "dataset_jpath:_source",
      "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
+    },
+    {
+      "name": "accountability_module_path",
+      "from": "value",
+      "type": "text",
+      "value": "opera_chimera.accountability"
+    },
+    {
+      "name": "accountability_class",
+      "from": "value",
+      "type": "text",
+      "value": "OperaAccountability"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_runconfig_dir"
+    },
+    {
+      "name": "pge_input_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_input_dir"
+    },
+    {
+      "name": "pge_output_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_output_dir"
     }
   ]
 }

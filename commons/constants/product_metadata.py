@@ -67,7 +67,6 @@ RADAR_MODE = "RadarMode"
 
 # TODO: update these with what they will actually be
 OBS_ID = "OBS_ID"
-TOTAL_NUMBER_RANGELINES = "Total_Number_Rangelines"
 TOTAL_NUMBER_OF_MISSING_RANGELINES = "Total_Number_Of_Missing_Rangelines"
 TOTAL_NUMBER_OF_RANGELINES_FAILED_CHECKSUM = (
     "Total_Number_Of_Rangelines_Failed_Checksum"

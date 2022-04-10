@@ -6,5 +6,5 @@ logging.basicConfig(level=logging.INFO)  # Set up logging
 LOGGER = logging.getLogger(__name__)
 
 if __name__ == "__main__":
-    observation_catalog = get_data_subscriber_connection(LOGGER)
-    observation_catalog.create_index()
+    data_subscriber_catalog = get_data_subscriber_connection(LOGGER)
+    data_subscriber_catalog.create_index()

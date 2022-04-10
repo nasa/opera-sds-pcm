@@ -1,7 +1,5 @@
 from chimera.commons.constants import ChimeraConstants
-#from pass_accountability.catalog import ES_INDEX as pass_accountability_index
-#from observation_accountability.catalog import ES_INDEX as observation_accountability_index
-#from Track_Frame_Accountability.catalog import ES_INDEX as track_frame_accountability_index
+from job_accountability.catalog import ES_INDEX as job_accountability_index
 
 
 class OperaChimeraConstants(ChimeraConstants):
@@ -37,17 +35,11 @@ class OperaChimeraConstants(ChimeraConstants):
 
     SET_MOCK_METADATA = "set_mock_metadata"
 
-    SET_L0B_MOCK_METADATA = "set_l0b_mock_metadata"
-
     SET_BASE_NAME = "set_base_name"
-
-    SET_L0B_BASE_NAMES = "set_l0b_base_names"
 
     SET_EXTRA_PGE_OUTPUT_METADATA = "set_extra_pge_output_metadata"
 
     GET_OBSERVATIONS_DATA = "get_observations_data"
-
-    GET_L0B_ANCILLAY_FILES = "get_l0b_ancillary_files"
 
     GET_HARDCODED_METADATA = "get_hardcoded_metadata"
 
@@ -83,23 +75,13 @@ class OperaChimeraConstants(ChimeraConstants):
     MOCK_METADATA = "mock_metadata"
     BASE_NAME = "base_name"
 
-    OROST = ""
-    LRCLK_FILE = "LRCLKFile"
     DEM_FILE = "DEMFile"
-    RADAR_CONFIGURATION_FILE = "RadarConfigurationFile"
-    CHIRP_PARAMETER_FILE = "ChirpParameterFile"
-    WAVE_CONFIGURATION_FILE = "WaveformConfigurationFile"
 
-    PLANNED_DATATAKE_ID = "PlannedDatatakeId"
     PLANNED_OBSERVATION_ID = "PlannedObservationId"
-    PLANNED_DATATAKE_TIMESTAMP = "PlannedDatatakeTimestamp"
     PLANNED_OBSERVATION_TIMESTAMP = "PlannedObservationTimestamp"
     IS_URGENT_OBSERVATION = "IsUrgentObservation"
     CONFIGURATION_ID = "ConfigurationId"
     MISSION_CYCLE = "MissionCycle"
-    TOTAL_NUMBER_RANGELINES = "TotalNumberRangelines"
-    RANGELINES_TO_SKIP = "RangelinesToSkip"
-    TOTAL_RANGELINES_FAILED_CHECKSUM = "TotalNumberOfRangelinesFailedChecksum"
     START_TIME = "StartTime"
     END_TIME = "EndTime"
     IS_URGENT = "is_urgent"
@@ -111,13 +93,8 @@ class OperaChimeraConstants(ChimeraConstants):
     ORBIT_DIRECTION = "OrbitDirection"
     LOOK_DIRECTION = "LookDirection"
 
-    OROST = "orost"
-    SROST = "srost"
-    OFS = "ofs"
 
-    CHIRP_PARAM = "chirp_param"
     SCLKSCET = "sclkscet"
-    RADAR_CFG = "radar_cfg"
 
     REFINED_POINTING = "Pointing"
     ANT_PATTERN = "AntennaPattern"
@@ -139,20 +116,10 @@ class OperaChimeraConstants(ChimeraConstants):
     GPU_ENABLED = "gpu_enabled"
 
     # PGE names
-    #L0A = "L0A"
-    #TIME_EXTRACTOR = "Time_Extractor"
-    #L0B = "L0B"
+    #L3_DSWX_HLS = "L3_DSWX_HLS"
 
     # Other Constants
-    #PASS_ACCOUNTABILITY_INDEX = pass_accountability_index
-    #OBSERVATION_ACCOUNTABILITY_INDEX = observation_accountability_index
-    #TRACK_FRAME_ACCOUNTABILITY_INDEX = track_frame_accountability_index
-
-    # state config dataset types
-    #DATATAKE_STATE_CONFIG_DOC_TYPE = "datatake-state-config"
-    #DATATAKE_EXP_STATE_CONFIG_DOC_TYPE = "datatake-expired-state-config"
-    #DATATAKE_UR_EXP_STATE_CONFIG_DOC_TYPE = "datatake-urgent_response_expired-state-config"
-    #DATATAKE_UR_STATE_CONFIG_DOC_TYPE = "datatake-urgent_response_state-config"
+    JOB_ACCOUNTABILITY_INDEX = job_accountability_index
 
     TASK_INDEX = "task_status-current"
     TASK_ID_FIELD = "task_id"
@@ -164,9 +131,6 @@ class OperaChimeraConstants(ChimeraConstants):
     PRIMARY_OUTPUT = "primary_output"
 
     EXTRA_PGE_OUTPUT_METADATA = "extra_pge_output_metadata"
-
-    # job-specific parameter extraction/coercion from context
-    #GET_GCOV_JOB_PARAMS_FROM_CONTEXT = "get_gcov_job_params_from_context"
 
     GET_PRODUCTS = "get_products"
     IS_STATE_CONFIG_TRIGGER = "is_state_config_trigger"

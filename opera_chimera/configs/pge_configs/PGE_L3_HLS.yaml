@@ -32,7 +32,7 @@ runconfig:
 preconditions: [get_input_filepaths_from_state_config]
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
-postprocess: []
+postprocess: [update_product_accountability]
 
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here

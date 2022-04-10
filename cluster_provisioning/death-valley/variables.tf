@@ -5,7 +5,7 @@
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
 variable "artifactory_base_url" {
-  default = "https://cae-artifactory.jpl.nasa.gov/artifactory"
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
 variable "artifactory_repo" {
@@ -96,7 +96,7 @@ variable "az" {
 }
 
 variable "subnet_id" {
-  default = "subnet-8ecc5dd3"
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
@@ -124,7 +124,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    ami           = "ami-084d0134c0ffaf89a"
+    ami           = "ami-06b161f22c9086917"
     instance_type = "r5.2xlarge"
     root_dev_size = 50
     private_ip    = ""
@@ -137,7 +137,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    ami           = "ami-084e463eea4525426"
+    ami           = "ami-049f536813d215f39"
     instance_type = "r5.xlarge"
     private_ip    = ""
     public_ip     = ""
@@ -149,7 +149,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    ami           = "ami-0d417980127d802e5"
+    ami           = "ami-0d4589279c337e9c1"
     instance_type = "r5.2xlarge"
     private_ip    = ""
     public_ip     = ""
@@ -161,7 +161,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    ami           = "ami-041f69e29c640b605"
+    ami           = "ami-0f40727533013a107"
     instance_type = "m5.8xlarge"
     root_dev_size = 50
     data          = "/data"
@@ -177,7 +177,7 @@ variable "ci" {
   type = map(string)
   default = {
     name          = "ci"
-    ami           = "ami-044a23d149494c265"
+    ami           = "ami-0601c031b967d1e15"
     instance_type = "c5.xlarge"
     data          = "/data"
     data_dev      = "/dev/xvdb"
@@ -201,7 +201,7 @@ variable "autoscale" {
   type = map(string)
   default = {
     name          = "autoscale"
-    ami           = "ami-0b03255d9d1e3f69f"
+    ami           = "ami-0601c031b967d1e15"
     instance_type = "t2.micro"
     data          = "/data"
     data_dev      = "/dev/xvdb"
@@ -214,7 +214,7 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
@@ -248,7 +248,8 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-east-1:206609214770:asf-cumulus-dev-opera-workflow-queue"
+  #default = "arn:aws:sqs:us-east-1:206609214770:asf-cumulus-dev-opera-workflow-queue"
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -261,7 +262,7 @@ variable "daac_endpoint_url" {
 
 # asg vars
 variable "asg_ami" {
-  default = "ami-0b03255d9d1e3f69f"
+  #default = "ami-0b03255d9d1e3f69f"
 }
 
 variable "asg_use_role" {

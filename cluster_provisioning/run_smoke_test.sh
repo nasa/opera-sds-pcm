@@ -22,6 +22,8 @@ if [ "$#" -eq 19 ]; then
   use_daac_cnm=${17}
   crid=${18}
   cluster_type=${19}
+#  data_query_timer_trigger_frequency=${20}
+#  data_download_timer_trigger_frequency=${21}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -47,15 +49,15 @@ cnm_datasets=L3_DSWx_HLS
 #fi
 
 # build/import CNM product delivery
-if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/nisar/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
-else
-  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
-  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
-  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
-fi
+#if [ "${use_artifactory}" = true ]; then
+#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar"
+#  sds pkg import container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+#  rm -rf container-iems-sds_cnm_product_delivery-${product_delivery_branch}.sdspkg.tar
+#else
+#  sds ci add_job -b ${product_delivery_branch} --token https://${product_delivery_repo} s3
+#  sds ci build_job -b ${product_delivery_branch} https://${product_delivery_repo}
+#  sds ci remove_job -b ${product_delivery_branch} https://${product_delivery_repo}
+#fi
 
 cd ~/.sds/files
 
@@ -69,9 +71,9 @@ cd ~/.sds/files
 # setting the min size and desired capacity to the same value
 # TODO chrisjrd: uncomment
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-gpu --desired-capacity 1
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 7
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 7
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 5
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 5
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 5
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-timer --desired-capacity 1
 
 # no jobs currently being submitted to these ASGs but left here commented out for future use
@@ -79,20 +81,19 @@ cd ~/.sds/files
 #aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${project}-${venue}-${counter}-opera-workflow_profiler --desired-capacity 1
 
 # build/import opera-pcm
-lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
+#lowercase_pcm_branch=`echo "${pcm_branch}" | awk '{ print tolower($0); }'`
 
-if [ "${use_artifactory}" = true ]; then
-  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${pcm_branch}.sdspkg.tar"
-#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/hysds_pkgs/container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar"
-  sds pkg import container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
-  rm -rf container-iems-sds_opera-pcm-${pcm_branch}.sdspkg.tar
+#if [ "${use_artifactory}" = true ]; then
+#  ~/download_artifact.sh -m ${artifactory_mirror_url} -b ${artifactory_base_url} "${artifactory_base_url}/${artifactory_repo}/gov/nasa/jpl/${project}/sds/pcm/hysds_pkgs/container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar"
+#  sds pkg import container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
+#  rm -rf container-nasa_${project}-sds-pcm-${pcm_branch}.sdspkg.tar
   # Loads the opera-pcm container to the docker registry
-  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${var.project}-sds-pcm:${lowercase_pcm_branch}"
-else
-  sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
-  sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
-  sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
-fi
+#  fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${project}-sds-pcm:${lowercase_pcm_branch}"
+#else
+#  sds -d ci add_job -b ${pcm_branch} --token https://${pcm_repo} s3
+#  sds -d ci build_job -b ${pcm_branch} https://${pcm_repo}
+#  sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
+#fi
 
 #if [ "${delete_old_job_catalog}" = true ]; then
 #  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
@@ -125,7 +126,9 @@ fab -f ~/.sds/cluster.py -R mozart,grq create_all_user_rules_index
 #~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} datasets_e2e.json 1,2 /tmp/datasets.txt
 
 # stage L2_HLS_L30 & L2_HLS_S30 files to ISL
-./stage_l2_hls_to_s3.sh ${isl_bucket}
+# TODO TODO: uncoment this after testing stage l2 and L3_DSWX_HLS PGE
+#./stage_l2_hls_to_s3.sh ${isl_bucket}
+
 
 # verify accountability table counts
 #python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_accountability.py --max_time=2700 pass_accountability_catalog 12 /tmp/pass_accountability_catalog.txt
@@ -163,19 +166,19 @@ data_end="${tomorrow}T00:00:00"
 #python ~/mozart/ops/opera-pcm/report/accountability_report_cli.py ObservationAccountabilityReport --start ${start_date_time} --end ${end_date_time} --format_type=xml
 #cat oad_*.xml
 
-#opera_bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach_ui/2.0/data-summary/incoming)
-#opera_bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/2.0/ancillary/list)
+opera_bach_ui_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-ui/data-summary/incoming)
+opera_bach_api_status_code=$(curl -k --write-out %{http_code} --silent --output /dev/null https://${mozart_private_ip}/bach-api/ancillary/list)
 
-#if [[ "$opera_bach_ui_status_code" -ne 200 ]] ; then
-#  echo "FAILURE: Could not reach bach_ui v2.0" > /tmp/opera_bach_ui_status_code.txt
-#else
-#  echo "SUCCESS" > /tmp/opera_bach_ui_status_code.txt
-#fi
-#if [[ "$opera_bach_api_status_code" -ne 200 ]] ; then
-#  echo "FAILURE: Could not reach bach-api v2.0" > /tmp/opera_bach_api_status_code.txt
-#else
-#  echo "SUCCESS" > /tmp/opera_bach_api_status_code.txt
-#fi
+if [[ "$opera_bach_ui_status_code" -ne 200 ]] ; then
+  echo "FAILURE: Could not reach bach-ui" > /tmp/opera_bach_ui_status_code.txt
+else
+  echo "SUCCESS" > /tmp/opera_bach_ui_status_code.txt
+fi
+if [[ "$opera_bach_api_status_code" -ne 200 ]] ; then
+  echo "FAILURE: Could not reach bach-api" > /tmp/opera_bach_api_status_code.txt
+else
+  echo "SUCCESS" > /tmp/opera_bach_api_status_code.txt
+fi
 
 # Test auto generation of the Observation Accountability Report
 #if [ "${cluster_type}" = "forward" ]; then
@@ -187,17 +190,19 @@ data_end="${tomorrow}T00:00:00"
 #fi
 
 # If we're deploying a forward cluster, restore the original settings.yaml to the cluster
-#if [ "${cluster_type}" = "forward" ]; then
-#  aws events put-rule --name ${project}-${venue}-${counter}-l0a-timer-Trigger --schedule-expression "${l0a_timer_trigger_frequency}"
+if [ "${cluster_type}" = "forward" ]; then
+  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-query-timer-Trigger --schedule-expression "rate(5 minutes)"
+  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-download-timer-Trigger --schedule-expression "rate(5 minutes)"
+#  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-query-timer-Trigger --schedule-expression "${data_query_timer_trigger_frequency}"
+#  aws events put-rule --name ${project}-${venue}-${counter}-data-subscriber-download-timer-Trigger --schedule-expression "${data_download_timer_trigger_frequency}"
 #  python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_forced_state_configs.py datasets_e2e_force_submits.json LDF /tmp/check_expected_force_submits.txt
-
 #  echo "Restoring original settings.yaml and pushing it out to the cluster"
 #  cp ~/mozart/ops/opera-pcm/conf/settings.yaml.bak ~/mozart/ops/opera-pcm/conf/settings.yaml
 #  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
 #  sds ship
 #else
 #  echo "SUCCESS: No force submit state configs expected to be found." > /tmp/check_expected_force_submits.txt
-#fi
+fi
 
 # If we're deploying a forward cluster, restore the original settings that will create the daily observational
 # accountability reports

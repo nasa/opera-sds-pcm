@@ -34,30 +34,6 @@ class TestPCM(unittest.TestCase):
         logger = logging.getLogger(__name__)
         self.check_expected("/tmp/datasets.txt", logger)
 
-    def test_expected_cop_catalog(self):
-        """Test that the expected number of COP catalog records were created."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/cop_catalog.txt", logger)
-
-    def test_expected_tiurdrop_catalog(self):
-        """Test that the expected number of COP catalog records were created."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/tiurdrop_catalog.txt", logger)
-
-    def test_expected_rost_catalog(self):
-        """Test that the expected number of ROST catalog records were created."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/rost_catalog.txt", logger)
-
-    def test_expected_radar_mode_catalog(self):
-        """Test that the expected number of Radar Mode catalog records were created."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/radar_mode_catalog.txt", logger)
-
     def test_stamped_datasets(self):
         """Test that the expected number of datasets were stamped."""
 

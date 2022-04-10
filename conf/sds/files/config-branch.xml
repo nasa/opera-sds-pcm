@@ -24,6 +24,12 @@
           <defaultValue>{{ PCM_COMMONS_BRANCH }}</defaultValue>
           <trim>true</trim>
         </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>PGE_BASE_VERSION</name>
+          <description>The hysds/pge-base image version to use</description>
+          <defaultValue>{{ VERDI_TAG }}</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
   </properties>
@@ -83,10 +89,18 @@ set -ex
 if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]
 then
   {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
-  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} 
+  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} \
+        --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
+        --build-arg BRANCH=${TAG} \
+        --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} \
+        --build-arg PGE_BASE_VERSION=${PGE_BASE_VERSION}
 else
   {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
-  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} --build-arg BRANCH=${TAG} --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} 
+  ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" \
+        --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
+        --build-arg BRANCH=${TAG} \
+        --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} \
+        --build-arg PGE_BASE_VERSION=${PGE_BASE_VERSION}
 fi
 
 if [ -f "./docker/extract_artifacts.sh" ]; then

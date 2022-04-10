@@ -22,29 +22,11 @@ class TestPCM(unittest.TestCase):
         assert self.success_re.search(res) is not None
         assert self.error_re.search(res) is None
 
-    def test_expected_radar_mode_catalog(self):
-        """Test that the expected number of Radar Mode catalog records were created."""
+#    def test_expected_ancillary_datasets(self):
+#        """Test that the expected number of ancillary datasets were generated."""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/radar_mode_catalog.txt", logger)
-
-    def test_expected_cop_catalog(self):
-        """Test that the expected number of COP catalog records were created."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/cop_catalog.txt", logger)
-
-    def test_expected_rost_catalog(self):
-        """Test that the expected number of ROST catalog records were created."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/rost_catalog.txt", logger)
-
-    def test_expected_ancillary_datasets(self):
-        """Test that the expected number of ancillary datasets were generated."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/ancillary_datasets.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/ancillary_datasets.txt", logger)
 
     def test_expected_datasets(self):
         """Test that the expected number of datasets were generated."""
@@ -52,11 +34,11 @@ class TestPCM(unittest.TestCase):
         logger = logging.getLogger(__name__)
         self.check_expected("/tmp/datasets.txt", logger)
 
-    def test_expected_calval_datasets(self):
-        """Test that the expected number of cal/val datasets were generated."""
+#    def test_expected_calval_datasets(self):
+#        """Test that the expected number of cal/val datasets were generated."""
 
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/calval_datasets.txt", logger)
+#        logger = logging.getLogger(__name__)
+#        self.check_expected("/tmp/calval_datasets.txt", logger)
 
     def test_compare_products(self):
         """Test that PCM is generating comparable products to an expected set."""

@@ -43,10 +43,10 @@ OPERA cluster provisioning using Terraform
 
 | Variable          | Description              | Default Value (if any) |
 |:-----------------:|:-------------------------|:----------------------:|
-| hysds_release     | HySDS core release to install. e.g. v4.0.1-beta.2, develop. | develop |
+| hysds_release     | HySDS core release to install. e.g. v4.0.1-beta.8-oraclelinux, develop. | develop |
 | private_key_file  | Path to the PEM key file. e.g. ~/.ssh/pcmdev.pem. |
 | project           | Name of the project e.g. nisar, smap, aria, grfn. For OPERA, value is opera. | opera |
-| venue             | Venue name e.g. ops, dev, test, gerald, mcayanan. |
+| venue             | Venue name e.g. ops, dev, test, hyunlee, chrisjrd, etc. |
 | counter           | Integer value e.g. 1, 2, 3. |
 | git_auth_key      | github OAUTH token. Can be generated from the GitHub User Interface. |
 | jenkins_api_key   | Jenkins API token. Can be generated from the Jenkins User Interface. |
@@ -59,11 +59,11 @@ OPERA cluster provisioning using Terraform
 | 
 1. Validate your configuration:
    ```
-   terraform validate --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.2 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
+   terraform validate --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.8-oraclelinux --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```
 1. Build your OPERA cluster:
    ```
-   terraform apply --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.2 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
+   terraform apply --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.8-oraclelinux --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```
 1. Show status of your OPERA cluster:
    ```
@@ -71,5 +71,5 @@ OPERA cluster provisioning using Terraform
    ```
 1. Destroy your OPERA cluster once it's no longer needed:
    ```
-   terraform destroy --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.2 --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
+   terraform destroy --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.8-oraclelinux --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```
