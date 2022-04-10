@@ -7,7 +7,7 @@
 
 ##### Environments #######
 variable "aws_account_id" {
-  default = "399787141461"
+  default = "337765570207"
 }
 
 variable "venue" {
@@ -20,6 +20,7 @@ variable "environment" {
 
 variable "counter" {
   default = "fwd"
+  #default = "pop1"
 }
 
 variable "crid" {
@@ -46,19 +47,27 @@ variable "cluster_type" {
 
 ###### Security  ########
 variable "verdi_security_group_id" {
-  default = "sg-0c6342d8c098f1491"
+  # fwd security group
+  default = "sg-0869719f04e735bd6"
+  # pop1 security group
+  #default = "sg-045ff9d3d16a65ba4"
 }
 
 variable "cluster_security_group_id" {
-  default = "sg-06cad001f63628a45"
+  # fwd security group
+  default = "sg-039db67f56d1b12f0"
+  # pop1 security group
+  #default = "sg-06bf23a69b4d83f66"
 }
 
 variable "private_key_file" {
-  default = "~/.ssh/operasds-int-cluster-1.pem"
+  default = "~/.ssh/operasds-int-cluster-fwd.pem"
+  #default = "~/.ssh/operasds-int-cluster-pop1.pem"
 }
 
 variable "keypair_name" {
-  default = "operasds-int-cluster-1"
+  default = "operasds-int-cluster-fwd"
+#  default = "operasds-int-cluster-pop1"
 }
 
 variable "ops_password" {
@@ -78,45 +87,52 @@ variable "profile" {
 
 ####### Subnet ###########
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
+  default = "subnet-0644c172bef1d690e"
 }
 
 ####### VPC #########
 variable "lambda_vpc" {
-  default = "vpc-02676637ea26098a7"
+  default = "vpc-07cd74102c0dfd9ab"
 }
 
 variable "asg_vpc" {
-  default = "vpc-02676637ea26098a7"
+  default = "vpc-c1e0dab9"
 }
 
 ##### Bucket Names #########
 variable "docker_registry_bucket" {
   default = "opera-int-cc-fwd"
+  #default = "opera-int-cc-pop1"
 }
 
 variable "dataset_bucket" {
   default = "opera-int-rs-fwd"
+  #default = "opera-int-rs-pop1"
 }
 
 variable "code_bucket" {
   default = "opera-int-cc-fwd"
+  #default = "opera-int-cc-pop1"
 }
 
 variable "lts_bucket" {
   default = "opera-int-lts-fwd"
+  #default = "opera-int-lts-pop1"
 }
 
 variable "triage_bucket" {
   default = "opera-int-triage-fwd"
+  #default = "opera-int-triage-pop1"
 }
 
 variable "isl_bucket" {
   default = "opera-int-isl-fwd"
+  #default = "opera-int-isl-pop1"
 }
 
 variable "osl_bucket" {
   default = "opera-int-osl-fwd"
+  #default = "opera-int-osl-pop1"
 }
 
 variable "es_snapshot_bucket" {
@@ -132,50 +148,50 @@ variable "amis" {
   type = map(string)
   default = {
 	# HySDS v4.0.1-beta8-oraclelinux
-	mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
-    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
-    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
-    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
-    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
-    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    mozart    = "ami-014ef2d57c80be48c"  # opera int mozart - ol8
+    metrics   = ""  # opera int metrics - ol8
+    grq       = ""  # opera int grq - ol8
+    factotum  = ""  # opera int factotum - ol8
+    ci        = "ami-0e4564f8e531e816f"  # OL8 All-project verdi v4.12
+    autoscale = "ami-0e4564f8e531e816f"  # OL8 All-project verdi v4.12
   }
 }
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20220208-develop-ER2.0"
+  default = "20220401-1.0.0-er.3.0"
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "hysds_release" {
-  default = "v4.0.1-beta.2"
+  default = "v4.0.1-beta.8-oraclelinux"
 }
 
 variable "lambda_package_release" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "pcm_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "product_delivery_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "bach_api_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "bach_ui_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 ###### Roles ########

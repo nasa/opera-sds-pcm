@@ -1,0 +1,50 @@
+{
+  "properties": {
+    "ldf_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "ldf_state": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "vcid": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "ldf_state_config_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "nen_l_rrst_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "nen_l_rrst_job_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0a_l_rrst_pp_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0a_l_rrst_pp_job_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0a_l_rrst_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "l0a_l_rrst_job_id": {
+      "type": "text",
+      "copy_to": "text_fields"
+    },
+    "last_modified": {
+      "type": "date"
+    },
+    "text_fields": {
+      "type": "text"
+    }
+  }
+}

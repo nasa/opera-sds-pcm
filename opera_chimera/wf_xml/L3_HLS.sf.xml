@@ -52,13 +52,13 @@
         </sf:operator>
       </sf:process>
 
-      <!--sf:process id="post_L3_HLS">
+      <sf:process id="post_L3_HLS">
         <sf:inputs>
           <sf_context/>
-          <job_id_PGE_L0B_Prime from="@#previous"/>
+          <job_id_L3_HLS from="@#previous"/>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
           <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_HLS.yaml</pge_config_file>
           <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
-          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
         </sf:inputs>
         <sf:outputs/>
         <sf:operator>
@@ -67,7 +67,7 @@
             <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/post_processor.py?post_processor.post_process</sf:binding>
           </sf:op>
         </sf:operator>
-      </sf:process-->
+      </sf:process>
     </sf:processes>
   </sf:flow>
 </sf:sciflo>

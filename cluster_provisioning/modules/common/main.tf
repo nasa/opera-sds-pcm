@@ -21,14 +21,15 @@ locals {
   daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url           = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
-  pge_artifactory_release_url       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pge/"
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+#  pge_artifactory_dev_url           = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
+  pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
   daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                          = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
-  data_download_job_type            = "data_download"
-  data_query_job_type               = "data_query"
+  data_download_job_type            = "data_subscriber_download"
+  data_query_job_type               = "data_subscriber_query" 
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -1132,6 +1133,35 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  # To test HySDS core development (feature branches), uncomment this block
+  # and add lines to perform the mods to test them. Three examples have been
+  # left as described below:
+  #provisioner "remote-exec" {
+  #  inline = [
+  #    "set -ex",
+  #    "source ~/.bash_profile",
+
+  # Example 1: test a single file update from an sdscli feature branch named hotfix-sighup
+  #    "cd ~/mozart/ops/sdscli/sdscli/adapters/hysds",
+  #    "mv fabfile.py fabfile.py.bak",
+  #    "wget https://raw.githubusercontent.com/sdskit/sdscli/hotfix-sighup/sdscli/adapters/hysds/fabfile.py",
+
+  # Example 2: test an entire feature branch (need HYSDS_RELEASE=develop terraform variable)
+  #    "cd ~/mozart/ops/hysds",
+  #    "git checkout <dustins_branch>",
+  #    "pip install -e .",
+
+  # Example 3: test a custom verdi docker image on the ASGs (need HYSDS_RELEASE=develop terraform variable)
+  #    "cd ~/mozart/pkgs",
+  #    "mv hysds-verdi-develop.tar.gz hysds-verdi-develop.tar.gz.bak",
+  #    "docker pull hysds/verdi:<dustins_branch>",
+  #    "docker tag hysds/verdi:<dustins_branch> hysds/verdi:develop",
+  #    "docker save hysds/verdi:develop > hysds-verdi-develop.tar",
+  #    "pigz hysds-verdi-develop.tar",
+
+  #  ]
+  #}
+
   provisioner "remote-exec" {
     inline = [
       "set -ex",
@@ -1168,19 +1198,27 @@ resource "aws_instance" "mozart" {
       "pip install --progress-bar off -e .",
       "cd ~/mozart/ops/opera-pcm",
       "pip install --progress-bar off -e .",
+      #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
+      # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
+      # create the data subscriber catalog elasticsearch index, delete the existing catalog first
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      #"fi",
+      # deploy PGE for R1 (DSWx_HLS)
       "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" \\",
+      "    --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url} \\",
+      "    --username ${var.artifactory_fn_user} --api_key ${var.artifactory_fn_api_key}",
       "else",
-      # TODO chrisjrd: remove
-#      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
       # TODO chrisjrd: extract vars as needed
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
-      "    --image_names opera_pge-dswx_hls \\",
-      "    --pge_release \"1.0.0-er.2.0\" \\",
+      "    --image_names ${var.pge_names} \\",
+#      "    --image_names opera_pge-dswx_hls \\",
+      "    --pge_release \"${var.pge_release}\" \\",
       "    --sds_config ~/.sds/config \\",
-      "    --processes 4 \\",
-      "    --force \\",
-      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
+      "    --processes 4 --force \\",
+      "    --artifactory_url ${local.pge_artifactory_release_url} \\",
+#      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
       "    --username ${var.artifactory_fn_user} \\",
       "    --api_key ${var.artifactory_fn_api_key}",
       "fi",
@@ -1228,49 +1266,49 @@ resource "aws_instance" "mozart" {
 }
 
 # Resource to install PCM and its dependencies
-#resource "null_resource" "install_pcm_and_pges" {
-#  depends_on = [
-#    aws_instance.mozart
-#  ]
+resource "null_resource" "install_pcm_and_pges" {
+  depends_on = [
+    aws_instance.mozart
+  ]
 
-#  connection {
-#    type = "ssh"
-#    host = aws_instance.mozart.private_ip
-#    user = "hysdsops"
-#    private_key = file(var.private_key_file)
-#  }
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
 
-#  provisioner "remote-exec" {
-#    inline = [
-#      "set -ex",
-#      "source ~/.bash_profile",
-#      # build/import opera-pcm
-#      "echo Build container",
-#      "if [ \"${var.use_artifactory}\" = true ]; then",
-#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-#      "    sds pkg import container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
-#      "    rm -rf container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
-#      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
-#      "else",
-#      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
-#      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-#      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-#      "fi",
-#      # build/import CNM product delivery
-#      "if [ \"${var.use_artifactory}\" = true ]; then",
-#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-#      "    sds pkg import container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
-#      "    rm -rf container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
-#      "else",
-#      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
-#      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-#      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-#      "fi",
-#      "echo Set up trigger rules",
-#      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
-#    ]
-#  }
-#}
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      # build/import opera-pcm
+      "echo Build container",
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar", 
+      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar", 
+      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
+      "else",
+      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
+      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+      "fi",
+      # build/import CNM product delivery
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "    sds pkg import container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
+      "    rm -rf container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
+      "else",
+      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
+      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+      "fi",
+      "echo Set up trigger rules",
+      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
+    ]
+  }
+}
 
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
@@ -1487,7 +1525,6 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
         name  = "Queue"
         value = each.key
       }
-#      metric_name = "JobsWaitingPerInstance-${var.project}-${var.venue}-${local.counter}-${each.key}"
       metric_name = "${lookup(each.value, "total_jobs_metric", false) ? "JobsPerInstance" : "JobsWaitingPerInstance"}-${var.project}-${var.venue}-${local.counter}-${each.key}"
       unit        = "None"
       namespace   = "HySDS"
@@ -1520,7 +1557,6 @@ resource "aws_instance" "metrics" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1586,7 +1622,6 @@ resource "aws_instance" "grq" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1662,7 +1697,6 @@ resource "aws_instance" "factotum" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1916,7 +1950,6 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 #    variables = {
 #      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
 #      "JOB_QUEUE": "${var.project}-job_worker-small",
-#      #"JOB_QUEUE": "opera-job_worker-small",
 #      "JOB_TYPE": local.accountability_report_job_type,
 #      "JOB_RELEASE": var.pcm_branch,
 #      "REPORT_NAME": "ObservationAccountabilityReport",
@@ -1974,7 +2007,7 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "opera-job_worker-small",
+	    "JOB_QUEUE": "${var.project}-job_worker-small",
       "JOB_TYPE": local.data_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
