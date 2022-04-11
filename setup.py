@@ -10,5 +10,16 @@ setup(
         'smart_open',
         'pandas',
         'h5py'
-    ]
+    ],
+    extras_require={
+        'integration': [
+            'pytest',
+            'boto3',
+            "elasticsearch==7.13.4",
+            "elasticsearch-dsl==7.3.0",
+            "requests",
+            "backoff",
+            "python-dotenv==0.20.0"
+        ]
+    }
 )
