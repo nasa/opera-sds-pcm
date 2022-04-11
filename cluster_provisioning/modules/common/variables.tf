@@ -339,7 +339,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220208-R1.0.0"
+  default = "20220401-1.0.0-er.3.0"
 }
 
 variable "pge_release" {

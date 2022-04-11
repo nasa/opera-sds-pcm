@@ -1270,7 +1270,7 @@ resource "null_resource" "install_pcm_and_pges" {
   depends_on = [
     aws_instance.mozart
   ]
-  
+
   connection {
     type = "ssh"
     host = aws_instance.mozart.private_ip
