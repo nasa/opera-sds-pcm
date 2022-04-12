@@ -19,7 +19,10 @@ setup(
             "elasticsearch-dsl==7.3.0",
             "requests",
             "backoff",
-            "python-dotenv==0.20.0"
+            "python-dotenv==0.20.0",
+            "pytest-xdist==2.5.0",
+            "pytest-xdist[psutil]",
+            "filelock==3.6.0"
         ]
     }
 )

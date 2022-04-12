@@ -2,6 +2,7 @@ import contextlib
 import logging
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 import backoff
@@ -21,14 +22,14 @@ def index_not_found(e: elasticsearch.exceptions.NotFoundError):
     return e.error != "index_not_found_exception"
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_tries=10)
-@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=30*10, giveup=index_not_found)
+@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*5)
+@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*10, giveup=index_not_found)
 def wait_for_l2(index, _id):
     return search_es(index, _id)
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_tries=10)
-@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=30*10, giveup=index_not_found)
+@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*5)
+@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*5, giveup=index_not_found)
 def wait_for_l3(index, _id):
     return search_es(index, _id)
 
@@ -36,8 +37,9 @@ def wait_for_l3(index, _id):
 @backoff.on_predicate(
     backoff.constant,
     lambda r: get(r, "daac_CNM_S_status") != "SUCCESS",
-    interval=30,
-    max_tries=10
+    # 60 seconds to queue, 300 seconds to start, 180 seconds to finish
+    interval=60,
+    max_time=60*10
 )
 def wait_for_cnm_s_success(_id, index):
     logging.info(f"Waiting for CNM-S success (id={_id})")
@@ -49,7 +51,7 @@ def wait_for_cnm_s_success(_id, index):
     backoff.constant,
     lambda r: get(r, "daac_delivery_status") != "SUCCESS",
     interval=60,
-    max_tries=10
+    max_time=60*10
 )
 def wait_for_cnm_r_success(_id, index):
     logging.info(f"Waiting for CNM-R success (id={_id})")
@@ -63,11 +65,12 @@ def mock_cnm_r_success(id):
     sqs_client = boto3.client("sqs")
     sqs_client.send_message(
         QueueUrl=config["CNMR_QUEUE"],
+        # body text is dynamic, so we can skip any de-dupe logic
         MessageBody=f"""{{
             "version": "1.0",
             "provider": "JPL-OPERA",
             "collection": "SWOT_Prod_l2:1",
-            "processCompleteTime": "2017-09-30T03:45:29.791198Z",
+            "processCompleteTime": "{datetime.now().isoformat()}Z",
             "submissionTime": "2017-09-30T03:42:29.791198Z",
             "receivedTime": "2017-09-30T03:42:31.634552Z",
             "identifier": "{id}",

@@ -8,25 +8,9 @@ from int_test_util import \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
     wait_for_l2, \
-    wait_for_l3, \
-    es_index_delete, \
-    delete_output_files
+    wait_for_l3
 
 config = conftest.config
-
-
-def setup_module(module):
-    logging.info('*****SETUP*****')
-
-    es_index_delete(index="grq_1_l2_hls_l30")
-    es_index_delete(index="grq_1_l2_hls_s30")
-    es_index_delete(index="grq_1_opera_state_config")
-    es_index_delete(index="grq_1_l3_dswx_hls")
-    delete_output_files(bucket="opera-dev-rs-fwd-crivas", prefix="products/")
-
-
-def teardown_module(module):
-    logging.info('******TEARDOWN******')
 
 
 def test_l30():
