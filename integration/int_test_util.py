@@ -150,9 +150,7 @@ def upload_file(file_name, bucket=config["ISL_BUCKET"], object_name=None):
 
     # Upload the file
     s3_client = boto3.client("s3")
-    response = s3_client.upload_file(file_name, bucket, object_name)
-
-    logging.info(f"uploaded {file_name}")
+    s3_client.upload_file(file_name, bucket, object_name)
 
 
 def delete_output_files(bucket="opera-dev-rs-fwd-crivas", prefix="products/"):
