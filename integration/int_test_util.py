@@ -159,6 +159,8 @@ def delete_output_files(bucket="opera-dev-rs-fwd-crivas", prefix="products/"):
     :param prefix: S3 object prefix. e.g. "folder1/"
     :return:
     """
+    logging.info(f"Deleting S3 objects at s3://{bucket}/{prefix}")
+
     s3_client = boto3.client("s3")
     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
