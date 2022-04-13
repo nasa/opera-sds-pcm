@@ -28,8 +28,8 @@ def wait_for_l2(index, _id):
     return search_es(index, _id)
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*5)
-@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*5, giveup=index_not_found)
+@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*10)
+@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*10, giveup=index_not_found)
 def wait_for_l3(index, _id):
     return search_es(index, _id)
 
@@ -142,7 +142,7 @@ def upload_file(file_name, bucket=config["ISL_BUCKET"], object_name=None):
     :param object_name: S3 object name. If not specified then file_name is used
     :return: True if file was uploaded, else False
     """
-    logging.info(f"uploading {file_name}")
+    logging.info(f"Uploading {file_name}")
 
     # If S3 object_name was not specified, use file_name
     if object_name is None:

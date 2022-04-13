@@ -14,7 +14,7 @@ config = conftest.config
 
 
 def test_l30():
-    logging.info("uploading input files")
+    logging.info("Uploading input files")
 
     download_dir: Path = Path("~/Downloads/test_datasets/l30_greenland/input_files_hls_v2.0").expanduser()
     input_files = [
