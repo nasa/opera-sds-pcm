@@ -57,8 +57,8 @@ def clear_pcm_test_state():
         es_index_delete, \
         delete_output_files
 
-    es_index_delete(index="grq_1_l2_hls_l30")
-    es_index_delete(index="grq_1_l2_hls_s30")
-    es_index_delete(index="grq_1_opera_state_config")
-    es_index_delete(index="grq_1_l3_dswx_hls")
-    delete_output_files(bucket="opera-dev-rs-fwd-crivas", prefix="products/")
+    es_index_delete("grq_1_l2_hls_l30")
+    es_index_delete("grq_1_l2_hls_s30")
+    es_index_delete("grq_1_opera_state_config")
+    es_index_delete("grq_1_l3_dswx_hls")
+    delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")

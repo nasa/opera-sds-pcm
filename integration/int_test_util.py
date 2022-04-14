@@ -153,7 +153,7 @@ def upload_file(file_name, bucket=config["ISL_BUCKET"], object_name=None):
     s3_client.upload_file(file_name, bucket, object_name)
 
 
-def delete_output_files(bucket="opera-dev-rs-fwd-crivas", prefix="products/"):
+def delete_output_files(bucket=None, prefix=None):
     """
     :param bucket: bucket name
     :param prefix: S3 object prefix. e.g. "folder1/"

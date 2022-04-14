@@ -14,9 +14,9 @@ config = conftest.config
 
 
 def test_l30():
-    logging.info("Uploading input files")
+    logging.info("UPLOADING INPUT FILES")
 
-    download_dir: Path = Path("~/Downloads/test_datasets/l30_greenland/input_files_hls_v2.0").expanduser()
+    download_dir: Path = Path(config["L30_INPUT_DIR"]).expanduser()
     input_files = [
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.B02.tif",
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.B03.tif",
@@ -30,7 +30,7 @@ def test_l30():
         logging.info(f"Uploading file {i+1} of {len(input_files)}")
         upload_file(file_name=str(input_file))
 
-    logging.info("Checking for L2 entries, indicating successful data ingest")
+    logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
     response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_1_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B02"
@@ -53,15 +53,15 @@ def test_l30():
     response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask", index="grq_1_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
 
-    logging.info("Checking for L3 entries, indicating successful PGE execution")
+    logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0"
 
-    logging.info("Checking for CNM-S success")
+    logging.info("CHECKING FOR CNM-S SUCCESS")
     response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
 
-    logging.info("Trigger and check for CNM-R success")
+    logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
     mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0")
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
 
@@ -69,9 +69,9 @@ def test_l30():
 
 
 def test_s30():
-    logging.info("uploading input files")
+    logging.info("UPLOADING INPUT FILES")
 
-    download_dir: Path = Path("~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0").expanduser()
+    download_dir: Path = Path(config["S30_INPUT_DIR"]).expanduser()
     input_files = [
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif",
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.B03.tif",
@@ -85,7 +85,7 @@ def test_s30():
         logging.info(f"Uploading file {i+1} of {len(input_files)}")
         upload_file(file_name=str(input_file))
 
-    logging.info("Checking for L2 entries, indicating successful data ingest")
+    logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
     response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_1_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B02"
@@ -108,15 +108,15 @@ def test_s30():
     response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.Fmask", index="grq_1_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
 
-    logging.info("Checking for L3 entries, indicating successful PGE execution")
+    logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0"
 
-    logging.info("Checking for CNM-S success")
+    logging.info("CHECKING FOR CNM-S SUCCESS")
     response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
 
-    logging.info("Trigger and check for CNM-R success")
+    logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
     mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0")
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
 
