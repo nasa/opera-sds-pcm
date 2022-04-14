@@ -29,7 +29,7 @@ def setup_session(tmp_path_factory, worker_id):
 
     if worker_id == "master":
         logging.debug("Single worker mode detected.")
-        logging.info("Executing one-time setup.")
+        logging.info("Executing session setup.")
         # not executing in with multiple workers, just produce the data and let
         # pytest's fixture caching do its job
         clear_pcm_test_state()
@@ -43,10 +43,10 @@ def setup_session(tmp_path_factory, worker_id):
     fn = root_tmp_dir / "data.json"
     with FileLock(str(fn) + ".lock"):
         if fn.is_file():
-            logging.debug("Setup already executed by a different worker.")
+            logging.info("Session setup already executed by a different worker.")
             return
         else:
-            logging.info("Executing one-time setup.")
+            logging.info("Executing session setup.")
             clear_pcm_test_state()
             fn.write_text(json.dumps({}))
     return

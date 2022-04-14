@@ -2,6 +2,12 @@
 
 Execute with `pytest integration/`
 
+To run the tests in parallel (recommended), execute `pytest -n auto integration/`. 
+
+>Note that live logs will not be available when executing in parallel.
+
+See pytest-xdist documentation. (https://pytest-xdist.readthedocs.io/en/latest/)
+
 ## .ENV
 
 The tests require a `.env` configuration file. Modify the sample below as needed.
