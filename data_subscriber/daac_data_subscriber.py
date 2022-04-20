@@ -69,12 +69,13 @@ def run():
     logging.basicConfig(level=LOGLEVEL)
     logging.info("Log level set to " + LOGLEVEL)
 
-    logging.debug(f"sys.argv = {sys.argv}")
+    logging.info(f"sys.argv = {sys.argv}")
 
     username, password = setup_earthdata_login_auth(EDL)
     token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
 
-    downloads = get_all_undownloaded(ES_CONN) if args.index_mode.lower() == "download" else query_cmr(args, token, CMR)
+    downloads = get_all_undownloaded(ES_CONN) if args.index_mode.lower() == "download" else query_cmr(args, token, CMR,
+                                                                                                      args.transfer_protocol.lower())
 
     if downloads != []:
         if args.index_mode.lower() == "query":
@@ -231,7 +232,7 @@ def get_all_undownloaded(ES_CONN):
     return [result['_source']['url'] for result in undownloaded]
 
 
-def query_cmr(args, token, CMR):
+def query_cmr(args, token, CMR, protocol='s3'):
     PAGE_SIZE = 2000
     EXTENSION_LIST_MAP = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
                           "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
@@ -272,9 +273,9 @@ def query_cmr(args, token, CMR):
     filtered_urls = [f
                      for f in product_urls
                      for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
-                     if extension in f]
+                     if extension in f and protocol in f]
 
-    logging.debug(f"Found {str(len(filtered_urls))} total files")
+    logging.info(f"Found {str(len(filtered_urls))} total files")
 
     return filtered_urls
 
