@@ -289,6 +289,8 @@ fabric.properties
 
 .idea/inspectionProfiles/
 .idea/opera-sds-pcm.iml
+.idea/opera-pcm.iml
+.idea/misc.xml
 
 ######################################################################
 # Deployment/Development specific files
