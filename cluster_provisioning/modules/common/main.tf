@@ -1267,6 +1267,8 @@ resource "aws_instance" "mozart" {
   // Initialize data subscriber ES index
   provisioner "remote-exec" {
     inline = [
+      "set -ex",
+      "source ~/.bash_profile",
       "python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py",
       "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py"
     ]
