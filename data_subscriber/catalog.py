@@ -21,7 +21,15 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
     """
 
     def create_index(self):
-        self.es.indices.create(index=ES_INDEX)
+        self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
+                                     "mappings": {
+                                         "properties": {
+                                             "s3_url": {"type": "keyword"},
+                                             "https_url": {"type": "keyword"},
+                                             "index_datetime": {"type": "date"},
+                                             "download_datetime": {"type": "date"},
+                                             "downloaded": {"type": "boolean"}}}},
+                               index=ES_INDEX)
         if self.logger:
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
@@ -38,19 +46,19 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
     def process_url(self, url):
         filename = url.split('/')[-1]
         result = self._query_existence(filename)
-        body = {}
+        doc = {"index_datetime": datetime.now()}
 
         if "https://" in url:
-            body["https_url"] = url
+            doc["https_url"] = url
         if "s3://" in url:
-            body["s3_url"] = url
+            doc["s3_url"] = url
 
         if not result:
-            body["downloaded"] = False
-            self._post(id=filename, body=body)
+            doc["downloaded"] = False
+            self._post(id=filename, body=doc)
             return False
         else:
-            self.update_document(index=ES_INDEX, body=body, id=filename)
+            self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
             return True
 
     def product_is_downloaded(self, url):
@@ -66,7 +74,7 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         filename = url.split('/')[-1]
         result = self.update_document(id=filename,
                                       body={"doc_as_upsert": True,
-                                            "doc": {"downloaded": True, "download_date": str(datetime.now())}},
+                                            "doc": {"downloaded": True, "download_datetime": datetime.now()}},
                                       index=ES_INDEX)
 
         if self.logger:
@@ -93,7 +101,8 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
     def _query_undownloaded(self, index=ES_INDEX):
         try:
-            result = self.query(index=index, body={"query": {"match": {"downloaded": False}}})
+            result = self.query(index=index,
+                                body={"sort": [{"index_datetime": "asc"}], "query": {"match": {"downloaded": False}}})
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
