@@ -1,5 +1,7 @@
 # INTEGRATION TESTS
 
+Install test dependencies with `pip install '.[integration]'`
+
 Execute with `pytest integration/`
 
 To run the tests in parallel (recommended), execute `pytest -n auto integration/`. 

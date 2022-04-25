@@ -25,7 +25,7 @@ def pytest_configure(config: pytest.Config):
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_session(tmp_path_factory, worker_id):
-    logging.info('*****SETUP SESSION*****')
+    logging.info("*****SETUP SESSION*****")
 
     if worker_id == "master":
         logging.debug("Single worker mode detected.")

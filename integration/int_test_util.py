@@ -165,7 +165,7 @@ def delete_output_files(bucket=None, prefix=None):
     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
     try:
-        objects = [{"Key": obj["Key"]} for obj in response['Contents']]
+        objects = [{"Key": obj["Key"]} for obj in response["Contents"]]
         s3_client.delete_objects(Bucket=bucket, Delete={"Objects": objects})
     except KeyError:
         logging.warning("Error while deleting objects. Ignoring.")
