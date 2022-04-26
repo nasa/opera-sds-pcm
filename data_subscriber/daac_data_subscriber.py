@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 import boto3
 import requests
+from smart_open import open
 
 from data_subscriber.es_connection import get_data_subscriber_connection
 
