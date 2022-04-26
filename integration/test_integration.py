@@ -17,7 +17,7 @@ def test_l30():
     logging.info("UPLOADING INPUT FILES")
 
     download_dir: Path = Path(config["L30_INPUT_DIR"]).expanduser()
-    input_files = [
+    input_filepaths = [
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.B02.tif",
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.B03.tif",
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.B04.tif",
@@ -26,9 +26,9 @@ def test_l30():
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.B07.tif",
         download_dir / "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif"
     ]
-    for i, input_file in enumerate(input_files):
-        logging.info(f"Uploading file {i+1} of {len(input_files)}")
-        upload_file(file_name=str(input_file))
+    for i, input_filepath in enumerate(input_filepaths):
+        logging.info(f"Uploading file {i+1} of {len(input_filepaths)}")
+        upload_file(filepath=input_filepath)
 
     logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
@@ -72,7 +72,7 @@ def test_s30():
     logging.info("UPLOADING INPUT FILES")
 
     download_dir: Path = Path(config["S30_INPUT_DIR"]).expanduser()
-    input_files = [
+    input_filepaths = [
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif",
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.B03.tif",
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.B04.tif",
@@ -81,9 +81,9 @@ def test_s30():
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.B8A.tif",
         download_dir / "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif"
     ]
-    for i, input_file in enumerate(input_files):
-        logging.info(f"Uploading file {i+1} of {len(input_files)}")
-        upload_file(file_name=str(input_file))
+    for i, input_filepath in enumerate(input_filepaths):
+        logging.info(f"Uploading file {i+1} of {len(input_filepaths)}")
+        upload_file(filepath=input_filepath)
 
     logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
