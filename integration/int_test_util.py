@@ -4,6 +4,7 @@ import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 import backoff
 import boto3
@@ -17,20 +18,28 @@ import conftest
 
 config = conftest.config
 
+s3_client = boto3.client("s3")
+sqs_client = boto3.client("sqs")
+
 
 def index_not_found(e: elasticsearch.exceptions.NotFoundError):
     return e.error != "index_not_found_exception"
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*5)
+def success_handler(details):
+    if details["tries"] > 1:
+        logging.info(f'Successfully called {details["target"].__name__}(...) after {details["tries"]} tries and {details["elapsed"]:f} seconds')
+
+
+@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*5, on_success=success_handler)
 @backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*10, giveup=index_not_found)
-def wait_for_l2(index, _id):
+def wait_for_l2(_id, index):
     return search_es(index, _id)
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*10)
+@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*10, on_success=success_handler)
 @backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*10, giveup=index_not_found)
-def wait_for_l3(index, _id):
+def wait_for_l3(_id, index):
     return search_es(index, _id)
 
 
@@ -62,7 +71,6 @@ def wait_for_cnm_r_success(_id, index):
 def mock_cnm_r_success(id):
     logging.info(f"Mocking CNM-R success (id={id})")
 
-    sqs_client = boto3.client("sqs")
     sqs_client.send_message(
         QueueUrl=config["CNMR_QUEUE"],
         # body text is dynamic, so we can skip any de-dupe logic
@@ -134,23 +142,25 @@ def get_es_host() -> str:
     return es_host
 
 
-def upload_file(file_name, bucket=config["ISL_BUCKET"], object_name=None):
+def upload_file(filepath: Union[Path, str], bucket=config["ISL_BUCKET"], object_name=None):
     """Upload a file to an S3 bucket
 
-    :param file_name: File to upload
+    :param filepath: File to upload
     :param bucket: destination S3 bucket name
     :param object_name: S3 object name. If not specified then file_name is used
     :return: True if file was uploaded, else False
     """
-    logging.info(f"Uploading {file_name}")
+    logging.info(f"Uploading {filepath}")
+
+    if isinstance(filepath, Path):
+        filepath = str(filepath)
 
     # If S3 object_name was not specified, use file_name
     if object_name is None:
-        object_name = os.path.basename(file_name)
+        object_name = os.path.basename(filepath)
 
     # Upload the file
-    s3_client = boto3.client("s3")
-    s3_client.upload_file(file_name, bucket, object_name)
+    s3_client.upload_file(filepath, bucket, object_name)
 
 
 def delete_output_files(bucket=None, prefix=None):
@@ -161,7 +171,6 @@ def delete_output_files(bucket=None, prefix=None):
     """
     logging.info(f"Deleting S3 objects at s3://{bucket}/{prefix}")
 
-    s3_client = boto3.client("s3")
     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
     try:
