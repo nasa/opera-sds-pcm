@@ -1475,11 +1475,11 @@ resource "aws_autoscaling_group" "autoscaling_group" {
       value               = "${var.project}-${var.venue}-${local.counter}-${each.key}"
       propagate_at_launch = true
     },
-    {
-      key                 = "Venue"
-      value               = "${var.project}-${var.venue}-${local.counter}"
-      propagate_at_launch = true
-    },
+#    {
+#      key                 = "Venue"
+#      value               = "${var.project}-${var.venue}-${local.counter}"
+#      propagate_at_launch = true
+#    },
     {
       key                 = "Queue"
       value               = each.key

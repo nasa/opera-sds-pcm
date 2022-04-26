@@ -266,6 +266,8 @@ def query_cmr(args, token, CMR):
                                         datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
     if time_range_is_defined:
         params['temporal'] = temporal_range
+        logging.debug("Temporal Range: " + temporal_range)
+
 
     product_urls, search_after = request_search(url, params)
 

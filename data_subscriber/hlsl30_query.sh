@@ -21,8 +21,8 @@ echo "Running job to query LPDAAC HLSL30 data"
 date
 
 # Forward processing use case; query previous 60 minutes
-echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --index-mode query --verbose"
-python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --index-mode query --verbose
+echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --index-mode query"
+python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --index-mode query 2>&1
 STATUS_L30=$?
 
 if [ $STATUS_L30 -eq 0 ]; then
