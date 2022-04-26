@@ -13,7 +13,7 @@ import json
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
-from util.checksum_util import get_file_checksum
+from util.checksum_util import create_dataset_checksums, get_file_checksum
 from extractor import extract
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
@@ -90,8 +90,9 @@ def main(id, src_data):
     try:
         output_dir = os.path.abspath("output")
         dataset_dir = extract.extract(
-            src_data, cfg["PRODUCT_TYPES"], output_dir, job_context["prod_met"], create_hash=True, hash_type="md5"
+            src_data, cfg["PRODUCT_TYPES"], output_dir, job_context["prod_met"]
         )
+        create_dataset_checksums(dataset_dir, "md5")
         logger.info("Created dataset: {}".format(dataset_dir))
     except subprocess.CalledProcessError as cpe:
         logger.error(
