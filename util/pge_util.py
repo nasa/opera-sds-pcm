@@ -35,7 +35,8 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             tile_id=match.groupdict()['tile_id'],
             # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
             datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            collection_version=match.groupdict()['collection_version']
+            collection_version=match.groupdict()['collection_version'],
+            product_counter="001",
         )
         metadata = {}
         simulate_output(metadata, base_name, output_dir, output_types[output_type])
