@@ -1,5 +1,5 @@
 {
-  "label": "Query subscribed data",
+  "label": "Query HLSS30 data",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [

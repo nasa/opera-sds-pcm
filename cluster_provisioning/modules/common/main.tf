@@ -22,14 +22,14 @@ locals {
   daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
-#  pge_artifactory_dev_url           = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
   daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                          = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
-  data_download_job_type            = "data_subscriber_download"
-  data_query_job_type               = "data_subscriber_query"
+  hls_download_job_type             = "hls_download"
+  hlsl30_query_job_type             = "hlsl30_query"
+  hlss30_query_job_type             = "hlss30_query"
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -2003,7 +2003,7 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 #}
 
 # Resources to provision the Data Subscriber timers
-resource "aws_lambda_function" "data_subscriber_download_timer" {
+resource "aws_lambda_function" "hls_download_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
@@ -2020,7 +2020,7 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
 	    "JOB_QUEUE": "${var.project}-job_worker-small",
-      "JOB_TYPE": local.data_download_job_type,
+      "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
@@ -2030,35 +2030,35 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "data_subscriber_download_timer" {
-  depends_on = [aws_lambda_function.data_subscriber_download_timer]
-  name = "/aws/lambda/${aws_lambda_function.data_subscriber_download_timer.function_name}"
+resource "aws_cloudwatch_log_group" "hls_download_timer" {
+  depends_on = [aws_lambda_function.hls_download_timer]
+  name = "/aws/lambda/${aws_lambda_function.hls_download_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
 # Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
-resource "aws_cloudwatch_event_rule" "data_subscriber_download_timer" {
-  name = "${aws_lambda_function.data_subscriber_download_timer.function_name}-Trigger"
+resource "aws_cloudwatch_event_rule" "hls_download_timer" {
+  name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_download_timer_trigger_frequency
+  schedule_expression = var.hls_download_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 
-resource "aws_cloudwatch_event_target" "data_subscriber_download_timer" {
-  rule = aws_cloudwatch_event_rule.data_subscriber_download_timer.name
+resource "aws_cloudwatch_event_target" "hls_download_timer" {
+  rule = aws_cloudwatch_event_rule.hls_download_timer.name
   target_id = "Lambda"
-  arn = aws_lambda_function.data_subscriber_download_timer.arn
+  arn = aws_lambda_function.hls_download_timer.arn
 }
 
-resource "aws_lambda_permission" "data_subscriber_download_timer" {
-  statement_id = aws_cloudwatch_event_rule.data_subscriber_download_timer.name
+resource "aws_lambda_permission" "hls_download_timer" {
+  statement_id = aws_cloudwatch_event_rule.hls_download_timer.name
   action = "lambda:InvokeFunction"
   principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.data_subscriber_download_timer.arn
-  function_name = aws_lambda_function.data_subscriber_download_timer.function_name
+  source_arn = aws_cloudwatch_event_rule.hls_download_timer.arn
+  function_name = aws_lambda_function.hls_download_timer.function_name
 }
 
-resource "aws_lambda_function" "data_subscriber_query_timer" {
+resource "aws_lambda_function" "hlsl30_query_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
@@ -2075,7 +2075,7 @@ resource "aws_lambda_function" "data_subscriber_query_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.data_query_job_type,
+      "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
@@ -2084,30 +2084,89 @@ resource "aws_lambda_function" "data_subscriber_query_timer" {
     }
   }
 }
-resource "aws_cloudwatch_log_group" "data_subscriber_query_timer" {
-  depends_on = [aws_lambda_function.data_subscriber_query_timer]
-  name = "/aws/lambda/${aws_lambda_function.data_subscriber_query_timer.function_name}"
+resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
+  depends_on = [aws_lambda_function.hlsl30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlsl30_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_lambda_function" "hlss30_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will create a Data Subscriber"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.7"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_TYPE": local.hlsl30_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "ISL_STAGING_AREA": var.isl_staging_area,
+      "USER_START_TIME": "",
+      "USER_END_TIME": ""
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
+  depends_on = [aws_lambda_function.hlss30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlss30_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
 # Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
-resource "aws_cloudwatch_event_rule" "data_subscriber_query_timer" {
-  name = "${aws_lambda_function.data_subscriber_query_timer.function_name}-Trigger"
+resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
+  name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_query_timer_trigger_frequency
+  schedule_expression = var.hlsl30_query_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 
-resource "aws_cloudwatch_event_target" "data_subscriber_query_timer" {
-  rule = aws_cloudwatch_event_rule.data_subscriber_query_timer.name
+resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
+  rule = aws_cloudwatch_event_rule.hlsl30_query_timer.name
   target_id = "Lambda"
-  arn = aws_lambda_function.data_subscriber_query_timer.arn
+  arn = aws_lambda_function.hlsl30_query_timer.arn
 }
 
-resource "aws_lambda_permission" "data_subscriber_query_timer" {
-  statement_id = aws_cloudwatch_event_rule.data_subscriber_query_timer.name
+resource "aws_lambda_permission" "hlsl30_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.hlsl30_query_timer.name
   action = "lambda:InvokeFunction"
   principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.data_subscriber_query_timer.arn
-  function_name = aws_lambda_function.data_subscriber_query_timer.function_name
+  source_arn = aws_cloudwatch_event_rule.hlsl30_query_timer.arn
+  function_name = aws_lambda_function.hlsl30_query_timer.function_name
+}
+
+resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
+  depends_on = [aws_lambda_function.hlss30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlss30_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
+  name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.hlss30_query_timer_trigger_frequency
+  is_enabled = local.enable_timer
+}
+
+resource "aws_cloudwatch_event_target" "hlss30_query_timer" {
+  rule = aws_cloudwatch_event_rule.hlss30_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.hlss30_query_timer.arn
+}
+
+resource "aws_lambda_permission" "hlss30_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.hlss30_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.hlss30_query_timer.arn
+  function_name = aws_lambda_function.hlss30_query_timer.function_name
 }
