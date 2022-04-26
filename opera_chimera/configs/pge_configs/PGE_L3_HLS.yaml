@@ -18,7 +18,6 @@ runconfig:
   dynamic_ancillary_file_group:
     dem_file:  # Digital elevation model
     landcover_file:  # Copernicus Land Cover Layer (CLCL)
-    built_up_cover_fraction_file:  # Copernicus Human Settlement Layer (GHSL)
   product_path_group:
     product_path: output_dir
     scratch_path: scratch_dir
@@ -41,8 +40,10 @@ postprocess: [update_product_accountability]
 output_types:
   L3_DSWx:
     - tif
-    - met
+    - catalog.json
+    - iso.xml
     - log
+    - qa.log
 
 # The PGE name
 # This must MATCH the corresponding entry in pge_outputs.yaml
@@ -67,4 +68,4 @@ localize_groups: [product_paths]
 input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
     - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
     - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
-output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_{collection_version}
+output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_{collection_version}_{product_counter}
