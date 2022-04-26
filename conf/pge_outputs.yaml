@@ -1,48 +1,43 @@
 #######################################################################
 # This file defines the outputs that are expected to be produced by the
 # different PGEs within the PCM.
-# 
+#
 # Outputs - This area defines the different file name patterns for the
 # expected outputs:
-# 
-# Primary - Refers to the primary output product, which is usually the *.nc
+#
+# Primary - Refers to the primary output product, which is usually the image (*.tif)
 # files. Any product found here will be converted to a HySDS style
 # dataset.
 #
 # Secondary - Refers to the other output product types like *.log, *.qa, etc.
 # Any product found here will be copied into the dataset directories produced
 # from the Primary section.
-# 
+#
 # Optional - Refers to other outputs that may/may not be produced from the
 # PGE. If a product cannot be found with the regex patterns given here, PCM
 # will still continue with processing.
-# 
+#
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
-#L0A:
-#  Outputs:
-#    Primary:
-#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin$'
-#        verify: true
-#        hash: md5
-#    Secondary:
-#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.log$'
-#      - regex: !!python/regexp '^NISAR_[L|S|J]0_RRST_VC\w{2}_\d{8}T\d{6}_\d{8}T\d{6}_\w{6}_\d{3}\.bin\.met$'
-#    Optional: []
-#  Missing_Metadata: {}
-#######################################################################
 
 # Key name MUST match the corresponding RunConfig jinja2 template filename.
 L3_HLS:
   Outputs:
     Primary:
-      # Pattern for parsing filenames such as:
-      # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
-      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
-      # Reusing regex from settings.yaml previously used for data ingest testing
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>tif))$'
+      # Pattern for parsing output image filenames, such as:
+      # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001_B01_WTF.tif"
+      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001_B09_CLOUD.tif"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)_(?P<product_counter>\d{3}))_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG|WTR-1|WTR-2|LAND|SHAD|CLOUD|DEM)[.](?P<ext>tif)$'
         verify: true
         hash: md5
     Secondary:
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>log))$'
-    Optional: []
+      # Patterns for parsing aux filenames, such as:
+      # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001.catalog.json"
+      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001.iso.xml"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)_(?P<product_counter>\d{3}))[.](?P<ext>log|iso\.xml|catalog\.json)$'
+        verify: false
+    Optional:
+      # Pattern for optional QA log file filenames, such as:
+      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001.qa.log"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)_(?P<product_counter>\d{3}))[.](?P<ext>qa\.log)$'
+        verify: false
   Missing_Metadata: {}
