@@ -32,7 +32,7 @@ PRODUCT_TYPES:
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Pattern: !!python/regexp '(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -56,7 +56,7 @@ PRODUCT_TYPES:
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Pattern: !!python/regexp '(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:

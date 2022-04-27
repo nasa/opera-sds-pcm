@@ -25,7 +25,10 @@ L3_HLS:
     Primary:
       # Pattern for parsing output image filenames, such as:
       # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001_B01_WTF.tif"
+
+
       # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001_B09_CLOUD.tif"
+      # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001_B01_LAND.tif"
       - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)_(?P<product_counter>\d{3}))_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG|WTR-1|WTR-2|LAND|SHAD|CLOUD|DEM)[.](?P<ext>tif)$'
         verify: true
         hash: md5
