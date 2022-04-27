@@ -2115,13 +2115,12 @@ resource "aws_lambda_function" "hlss30_query_timer" {
     }
   }
 }
-resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
-  depends_on = [aws_lambda_function.hlss30_query_timer]
-  name = "/aws/lambda/${aws_lambda_function.hlss30_query_timer.function_name}"
+resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
+  depends_on = [aws_lambda_function.hlsl30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlsl30_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
-# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
 resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
@@ -2149,7 +2148,6 @@ resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
   retention_in_days = var.lambda_log_retention_in_days
 }
 
-# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
 resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
