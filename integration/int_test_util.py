@@ -31,14 +31,42 @@ def success_handler(details):
         logging.info(f'Successfully called {details["target"].__name__}(...) after {details["tries"]} tries and {details["elapsed"]:f} seconds')
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*5, on_success=success_handler)
-@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*10, giveup=index_not_found)
+def raise_(ex: Exception):
+    raise ex
+
+
+@backoff.on_predicate(
+    backoff.constant,
+    lambda r: len(r) != 1,
+    max_time=60*10,
+    on_success=success_handler,
+    on_giveup=lambda _: raise_(Exception()),
+    interval=30,
+)
+@backoff.on_exception(
+    backoff.expo,
+    elasticsearch.exceptions.NotFoundError,
+    max_time=60*10,
+    giveup=index_not_found,
+)
 def wait_for_l2(_id, index):
     return search_es(index, _id)
 
 
-@backoff.on_predicate(backoff.constant, lambda r: len(r) != 1, interval=30, max_time=60*10, on_success=success_handler)
-@backoff.on_exception(backoff.expo, elasticsearch.exceptions.NotFoundError, max_time=60*10, giveup=index_not_found)
+@backoff.on_predicate(
+    backoff.constant,
+    lambda r: len(r) != 1,
+    max_time=60*10,
+    on_success=success_handler,
+    on_giveup=lambda _: raise_(Exception()),
+    interval=30
+)
+@backoff.on_exception(
+    backoff.expo,
+    elasticsearch.exceptions.NotFoundError,
+    max_time=60*10,
+    giveup=index_not_found
+)
 def wait_for_l3(_id, index):
     return search_es(index, _id)
 
@@ -47,8 +75,9 @@ def wait_for_l3(_id, index):
     backoff.constant,
     lambda r: get(r, "daac_CNM_S_status") != "SUCCESS",
     # 60 seconds to queue, 300 seconds to start, 180 seconds to finish
-    interval=60,
-    max_time=60*10
+    max_time=60*10,
+    on_giveup=lambda _: raise_(Exception()),
+    interval=60
 )
 def wait_for_cnm_s_success(_id, index):
     logging.info(f"Waiting for CNM-S success (id={_id})")
@@ -59,17 +88,18 @@ def wait_for_cnm_s_success(_id, index):
 @backoff.on_predicate(
     backoff.constant,
     lambda r: get(r, "daac_delivery_status") != "SUCCESS",
+    max_time=60*10,
+    on_giveup=lambda _: raise_(Exception()),
     interval=60,
-    max_time=60*10
 )
 def wait_for_cnm_r_success(_id, index):
-    logging.info(f"Waiting for CNM-R success (id={_id})")
+    logging.info(f"Waiting for CNM-R success ({_id=})")
     response = search_es(_id=_id, index=index)
     return response
 
 
 def mock_cnm_r_success(id):
-    logging.info(f"Mocking CNM-R success (id={id})")
+    logging.info(f"Mocking CNM-R success ({id=})")
 
     sqs_client.send_message(
         QueueUrl=config["CNMR_QUEUE"],
@@ -94,7 +124,7 @@ def mock_cnm_r_success(id):
 
 
 def search_es(index, _id):
-    logging.info(f"Searching for {_id}")
+    logging.info(f"Searching for {_id=}")
 
     search = Search(using=get_es_client(), index=index) \
         .query("match", _id=_id)
@@ -104,7 +134,7 @@ def search_es(index, _id):
 
 
 def es_index_delete(index):
-    logging.info(f"Deleting index {index}")
+    logging.info(f"Deleting {index=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
         Index(name=index, using=get_es_client()).delete()
 
