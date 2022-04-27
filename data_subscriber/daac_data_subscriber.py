@@ -254,8 +254,8 @@ def query_cmr(args, token, CMR):
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-    logging.debug("Provider: " + args.provider)
-    logging.debug("Updated Since: " + data_within_last_timestamp)
+    logging.info("Provider: " + args.provider)
+    logging.info("Updated Since: " + data_within_last_timestamp)
 
     product_urls, search_after = request_search(url, params)
 
@@ -269,7 +269,7 @@ def query_cmr(args, token, CMR):
                      for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
                      if extension in f]
 
-    logging.debug(f"Found {str(len(filtered_urls))} total files")
+    logging.info(f"Found {str(len(filtered_urls))} total files")
 
     return filtered_urls
 
