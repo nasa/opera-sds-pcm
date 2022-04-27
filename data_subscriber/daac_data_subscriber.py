@@ -275,13 +275,15 @@ def query_cmr(args, token, CMR):
         results, search_after = request_search(url, params, search_after=search_after)
         product_urls.extend(results)
 
+    logging.info(f"Found {str(len(product_urls))} total files")
+
     # filter list based on extension
     filtered_urls = [f
                      for f in product_urls
                      for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
                      if extension in f]
 
-    logging.info(f"Found {str(len(filtered_urls))} total files")
+    logging.info(f"Found {str(len(filtered_urls))} relevant bandwidth files")
 
     return filtered_urls, temporal_range
 
