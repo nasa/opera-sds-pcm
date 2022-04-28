@@ -23,6 +23,14 @@ setup(
             "pytest-xdist==2.5.0",
             "pytest-xdist[psutil]",
             "filelock==3.6.0"
+        ],
+        "benchmark": [
+            "boto3-stubs",
+            "boto3-stubs-lite[essential]",
+            "botocore",
+            "elasticsearch[async]",
+            "more-itertools",
+            "pytest-asyncio"
         ]
     }
 )
