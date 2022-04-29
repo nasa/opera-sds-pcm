@@ -2078,8 +2078,8 @@ resource "aws_lambda_permission" "hls_download_timer" {
 resource "aws_lambda_function" "hlsl30_query_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
+  description = "Lambda function to submit a job that will query HLSL30 data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-hlsl30-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
   runtime = "python3.7"
@@ -2109,8 +2109,8 @@ resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
 resource "aws_lambda_function" "hlss30_query_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
+  description = "Lambda function to submit a job that will query HLSS30 data"
+  function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
   runtime = "python3.7"
