@@ -130,12 +130,12 @@ variable "amis" {
   type = map(string)
   default = {
     # HySDS v4.0.1-beta.8-oraclelinux
-    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
-    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
-    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
-    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
-    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
-    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    mozart    = "ami-031dd1ada8418ff92" # mozart v4.16-1 opera dev
+    metrics   = "ami-0f1f019dbdc713602" # metrics v4.11-1 opera dev
+    grq       = "ami-022b08655b5e25e67" # grq v4.12-1 opera dev
+    factotum  = "ami-0d1de8c0dd2be225a" # factotum v4.12-1 opera dev
+    ci        = "ami-05129e7fdd9b9aacc" # verdi v4.12 opera dev
+    autoscale = "ami-05129e7fdd9b9aacc" # verdi v4.12 opera dev
   }
 }
 

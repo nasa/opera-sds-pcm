@@ -29,7 +29,7 @@ locals {
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   data_download_job_type            = "data_subscriber_download"
-  data_query_job_type               = "data_subscriber_query" 
+  data_query_job_type               = "data_subscriber_query"
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -1280,6 +1280,16 @@ resource "aws_instance" "mozart" {
       "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*",
     ]
   }
+
+  // Initialize data subscriber ES index
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py"
+    ]
+  }
 }
 
 # Resource to install PCM and its dependencies
@@ -1303,8 +1313,8 @@ resource "null_resource" "install_pcm_and_pges" {
       "echo Build container",
       "if [ \"${var.use_artifactory}\" = true ]; then",
       "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar", 
-      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar", 
+	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
       "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
       "else",
       "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
