@@ -818,12 +818,12 @@ resource "aws_instance" "mozart" {
 
   provisioner "file" {
     content     = data.template_file.q_config.rendered
-    destination = "~/q_config"
+    destination = "q_config"
   }
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1290,8 +1290,8 @@ resource "null_resource" "install_pcm_and_pges" {
       "echo Build container",
       "if [ \"${var.use_artifactory}\" = true ]; then",
       "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar", 
-      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar", 
+	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
       "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
       "else",
       "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
@@ -1586,7 +1586,7 @@ resource "aws_instance" "metrics" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1652,7 +1652,7 @@ resource "aws_instance" "grq" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1739,7 +1739,7 @@ resource "aws_instance" "factotum" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
