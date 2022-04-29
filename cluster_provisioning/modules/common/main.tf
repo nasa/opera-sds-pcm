@@ -47,6 +47,8 @@ locals {
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
   enable_timer = var.cluster_type == "reprocessing" ? false : true
+
+  delete_old_job_catalog = true
 }
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
@@ -1204,6 +1206,21 @@ resource "aws_instance" "mozart" {
       #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
       #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
       #"fi",
+
+      # create accountability Elasticsearch index
+      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py --delete_old_catalog",
+      "else",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      "fi",
+
+      # create data subscriber Elasticsearch index
+      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
+      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
+      "else",
+      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py",
+      "fi",
+
       # deploy PGE for R1 (DSWx_HLS)
       "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" \\",
