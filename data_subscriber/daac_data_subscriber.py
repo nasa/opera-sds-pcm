@@ -262,7 +262,7 @@ def query_cmr(args, token, CMR):
         'bounding_box': args.bbox,
     }
 
-    temporal_range = get_temporal_range(args.startDate, args.endDate,
+    temporal_range = get_temporal_range(data_within_last_timestamp, args.endDate,
                                         datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
     if time_range_is_defined:
         params['temporal'] = temporal_range

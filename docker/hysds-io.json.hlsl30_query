@@ -1,5 +1,5 @@
 {
-  "label": "Query HLSS30 data",
+  "label": "Query HLSL30 data",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
