@@ -32,6 +32,12 @@ PRODUCT_TYPES_KEY = "PRODUCT_TYPES"
 STRIP_FILE_EXTENSION_KEY = "Strip_File_Extension"
 IS_COMPRESSED = "IsCompressed"
 
+MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DWSx_HLS']
+"""
+List of the product types (from settings.yaml) which produce multiple output files
+which should all be bundled in the same dataset.
+"""
+
 
 def crawl(target_dir, product_types, workspace, extra_met=None):
     for root, subdirs, files in os.walk(target_dir):
@@ -147,9 +153,10 @@ def create_dataset_id(product, product_types):
         match = product_types[product_type]["Pattern"].search(os.path.basename(product))
 
         if match:
-            # Check if the regex used to match the output product defines its
-            # own notion of a dataset ID, and use it if provided
-            if REGEX_ID_KEY in match.groupdict():
+            # Check if the regex matched one of multiple output products which
+            # should be bundled with the same dataset ID, and if so use the "id"
+            # match group value
+            if product_type in MULTI_OUTPUT_PRODUCT_TYPES and REGEX_ID_KEY in match.groupdict():
                 dataset_id = match.groupdict()[REGEX_ID_KEY]
             # Otherwise, default to using the product's filename to derive the dataset ID
             else:

@@ -20,7 +20,7 @@ from commons.logger import logger
 
 from extractor import extract
 from util.conf_util import SettingsConf, PGEOutputsConf
-#from util.checksum_util import create_dataset_checksums
+from util.checksum_util import create_dataset_checksums
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -66,7 +66,7 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
 
             if hashcheck:
                 hash_algo = products[output_type][product].get("hash_algo", DEFAULT_HASH_ALGO)
-                #create_dataset_checksums(os.path.join(dataset_dir, product), hash_algo)
+                create_dataset_checksums(os.path.join(dataset_dir, product), hash_algo)
 
             created_datasets.add(dataset_dir)
 
@@ -124,7 +124,7 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
 
             if hashcheck:
                 hash_algo = products[SECONDARY_KEY][secondary_product].get("hash_algo", DEFAULT_HASH_ALGO)
-                #create_dataset_checksums(target, hash_algo)
+                create_dataset_checksums(target, hash_algo)
 
     return list(created_datasets)
 
