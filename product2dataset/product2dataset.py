@@ -99,6 +99,7 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         # Add fields to the top-level of the .met.json file
         dataset_met_json["FileSize"] = combined_file_size
         dataset_met_json["FileName"] = dataset_id
+        dataset_met_json["id"] = dataset_id   # added by Hyun 5-4-22
         dataset_met_json.update(extra_met)
 
         dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")
