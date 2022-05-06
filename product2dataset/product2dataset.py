@@ -76,12 +76,14 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         # Merge all created .met.json files into a single one for use with accountability reporting
         dataset_met_json = {"Files": []}
         combined_file_size = 0
+        product_type = ""
 
         for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
             with open(met_json_file, 'r') as infile:
                 met_json = json.load(infile)
                 file_key = os.path.splitext(met_json["FileName"])[0]
                 combined_file_size += int(met_json["FileSize"])
+                product_type = met_json["product_type"]
 
                 # Extract a copy of the "Product*" key/values to include at the top level
                 # They should be the same values for each file in the dataset
@@ -99,7 +101,8 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         # Add fields to the top-level of the .met.json file
         dataset_met_json["FileSize"] = combined_file_size
         dataset_met_json["FileName"] = dataset_id
-        dataset_met_json["id"] = dataset_id   # added by Hyun 5-4-22
+        dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
+        dataset_met_json["product_type"] = product_type   # added by Hyun 5-5-22 (for collection in cnm msg)
         dataset_met_json.update(extra_met)
 
         dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")
