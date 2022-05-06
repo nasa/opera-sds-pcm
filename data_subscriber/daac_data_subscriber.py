@@ -108,8 +108,8 @@ def create_parser():
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
 
     full_parser = subparsers.add_parser("full")
-    full_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
-                              help="The collection shortname for which you want to retrieve data.")
+    full_parser.add_argument("-c", "--collection", dest="collection", required=True,
+                              help="The collection for which you want to retrieve data.")
     full_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
                               help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
     full_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
@@ -297,7 +297,7 @@ def query_cmr(args, token, CMR):
     # filter list based on extension
     filter_extension = "TIF"
     for extension in EXTENSION_LIST_MAP:
-        if extension.upper() in args.collection_label.upper():
+        if extension.upper() in args.collection.upper():
             filter_extension = extension.upper()
             break
 
