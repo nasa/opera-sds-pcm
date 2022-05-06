@@ -4,16 +4,6 @@
   "allowed_accounts": [ "ops" ],
   "params": [
     {
-      "name": "start_time",
-      "from": "submitter",
-      "placeholder": "YYYY-MM-DDThh:mm:ssZ"
-    },
-    {
-      "name": "end_time",
-      "from": "submitter",
-      "placeholder": "YYYY-MM-DDThh:mm:ssZ"
-    },
-    {
       "name": "isl_bucket_name",
       "from": "submitter",
       "placeholder": "ISL Bucket Name"

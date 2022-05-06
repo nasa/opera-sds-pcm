@@ -356,11 +356,17 @@ variable "crid" {
   default = "D00100"
 }
 
-variable "hls_download_timer_trigger_frequency" {}
+variable "hls_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
 
-variable "hlsl30_query_timer_trigger_frequency" {}
+variable "hlsl30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
 
-variable "hlss30_query_timer_trigger_frequency" {}
+variable "hlss30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
 
 variable "obs_acct_report_timer_trigger_frequency" {}
 

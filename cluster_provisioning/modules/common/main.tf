@@ -2040,9 +2040,7 @@ resource "aws_lambda_function" "hls_download_timer" {
       "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "ISL_STAGING_AREA": var.isl_staging_area
     }
   }
 }
@@ -2094,10 +2092,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_QUEUE": "factotum-job_worker-small",
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
-      "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "MINUTES": var.hls_download_timer_trigger_frequency
     }
   }
 }
@@ -2125,10 +2120,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "JOB_QUEUE": "factotum-job_worker-small",
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
-      "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "MINUTES": var.hls_download_timer_trigger_frequency
     }
   }
 }

@@ -12,19 +12,7 @@
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {
-      "name": "start_time",
-      "destination": "context"
-    },
-    {
-      "name": "end_time",
-      "destination": "context"
-    },
-    {
-      "name": "isl_bucket_name",
-      "destination": "positional"
-    },
-    {
-      "name": "isl_staging_area",
+      "name": "minutes",
       "destination": "positional"
     }
   ]

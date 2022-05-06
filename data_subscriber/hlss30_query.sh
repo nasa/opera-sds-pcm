@@ -3,8 +3,7 @@
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
-ISL_BUCKET_NAME=$1
-STAGING_AREA=$2
+MINUTES=$1
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -21,11 +20,10 @@ echo "Running job to query LPDAAC HLSS30 data"
 date
 
 # Forward processing use case; query previous 60 minutes
-echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSS30 -s $ISL_BUCKET_NAME -e S30 --index-mode query --verbose"
-python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSS30 -s $ISL_BUCKET_NAME -e S30 --index-mode query --verbose
-STATUS_S30=$?
+echo "python $BASE_PATH/daac_data_subscriber.py query -m $MINUTES -c HLSS30"
+python $BASE_PATH/daac_data_subscriber.py query -m $MINUTES -c HLSS30
 
-if [ $STATUS_S30 -eq 0 ]; then
+if [ $? -eq 0 ]; then
   echo "Finished running job"
   date
   exit 0
