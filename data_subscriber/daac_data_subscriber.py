@@ -30,8 +30,6 @@ from more_itertools import map_reduce, chunked
 from smart_open import open
 
 from data_subscriber.es_connection import get_data_subscriber_connection
-from util.conf_util import SettingsConf
-from util.ctx_util import JobContext
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -80,10 +78,11 @@ async def run(argv: list[str]):
 
     logging.info(f"{argv=}")
 
-    cfg = SettingsConf().cfg
-    job_context = JobContext("_context.json").ctx
-    logging.info(f"{json.dumps(job_context)=!s}")
-    job_id = job_context["job_id"]
+    with open("_job.json", "r+") as job:
+        logging.info("job_path: {}".format(job))
+        local_job_json = json.load(job)
+        logging.info(f"{local_job_json=!s}")
+    job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
     username, password = setup_earthdata_login_auth(EDL)
