@@ -5,6 +5,7 @@ BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 ISL_BUCKET_NAME=$1
 STAGING_AREA=$2
+TILE_IDS=$3
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -22,7 +23,7 @@ date
 
 # Forward processing use case; download all undownloaded files from ES index
 echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download"
-python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download 2>&1
+python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --tile-ids $TILE_IDS 2>&1
 STATUS=$?
 
 if [ $STATUS -eq 0 ]; then

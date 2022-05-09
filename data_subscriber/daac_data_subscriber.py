@@ -4,23 +4,34 @@
 
 
 import argparse
+import asyncio
 import json
 import logging
 import netrc
 import os
+import re
 import shutil
 import sys
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta
+from functools import partial
 from http.cookiejar import CookieJar
 from multiprocessing.pool import ThreadPool
+from pathlib import Path
+from typing import Any, Iterable
 from urllib import request
 from urllib.parse import urlparse
 
 import boto3
 import requests
+from hysds_commons.job_utils import submit_mozart_job
+from more_itertools import map_reduce, chunked
 from smart_open import open
 
 from data_subscriber.es_connection import get_data_subscriber_connection
+from util.conf_util import SettingsConf
+from util.ctx_util import JobContext
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -46,13 +57,11 @@ class SessionWithHeaderRedirection(requests.Session):
                     redirect_parsed.hostname != self.auth_host and \
                     original_parsed.hostname != self.auth_host:
                 del headers['Authorization']
-        return
 
 
-def run():
+async def run(argv: list[str]):
     parser = create_parser()
-    args = parser.parse_args()
-
+    args = parser.parse_args(argv)
     try:
         validate(args)
     except ValueError as v:
@@ -65,31 +74,162 @@ def run():
     TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
     ES_CONN = get_data_subscriber_connection(logging.getLogger(__name__))
-
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
     logging.info("Log level set to " + LOGLEVEL)
 
-    logging.info(f"sys.argv = {sys.argv}")
+    logging.info(f"{argv=}")
+
+    cfg = SettingsConf().cfg
+    job_context = JobContext("_context.json").ctx
+    logging.info(f"{json.dumps(job_context)=!s}")
+    job_id = job_context["job_id"]
+    logging.info(f"{job_id=}")
 
     username, password = setup_earthdata_login_auth(EDL)
-    token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
 
-    downloads = ES_CONN.get_all_undownloaded() if args.index_mode.lower() == "download" else query_cmr(args, token, CMR)
-
-    if downloads != []:
-        update_es_index(ES_CONN, downloads)
-
-        if args.index_mode.lower() != "query":
-            session = SessionWithHeaderRedirection(username, password, NETLOC)
-
-            if args.transfer_protocol.lower() == "https":
-                upload_url_list_from_https(session, ES_CONN, downloads, args, token)
-            else:
-                upload_url_list_from_s3(session, ES_CONN, downloads, args)
-
-    delete_token(TOKEN_URL, token)
+    with token_ctx(TOKEN_URL, IP_ADDR, EDL) as token:
+        if args.index_mode == "query":
+            results = await run_query(args, token, ES_CONN, CMR, job_id)
+        elif args.index_mode == "query-and-something":
+            results = await run_query(args, token, ES_CONN, CMR, job_id)
+            # TODO chridjrd: implement meee
+        elif args.index_mode == "download":
+            results = run_download(args, token, ES_CONN, NETLOC, username, password, job_id)
+        else:
+            raise Exception(f"Unsupported operation. {args.index_mode=}")  # TODO chrisjrd: implement
     logging.info("END")
+    return results
+
+
+async def run_query(args, token, ES_CONN, CMR, job_id):
+    downloads: list[str] = query_cmr(args, token, CMR)
+    if not downloads:
+        return
+
+    download_urls = [to_url(download) for download in downloads]
+    update_es_index(ES_CONN, download_urls, job_id)
+
+    tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
+        iterable=downloads,
+        keyfunc=to_tile_id,
+        valuefunc=to_url,
+        reducefunc=set
+    )
+    logging.info(f"{tile_id_to_urls_map=}")
+    job_submission_tasks = []
+    loop = asyncio.get_event_loop()
+    # TODO chrisjrd: finalize chunk size
+    #  chunk_size=1 means 1 tile per job
+    # chunk_size>1 means multiple (N) tiles per job
+    chunk_size = 2
+    logging.info(f"{chunk_size=}")
+    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=chunk_size):
+        chunk_id = str(uuid.uuid4())
+        logging.info(f"{chunk_id=}")
+
+        chunk_tile_ids = []
+        chunk_urls = []
+        for tile_id, urls in tile_chunk:
+            chunk_tile_ids.append(tile_id)
+            chunk_urls.extend(urls)
+
+        logging.info(f"{chunk_tile_ids=}")
+        logging.info(f"{chunk_urls=}")
+
+        job_submission_tasks.append(
+            loop.run_in_executor(
+                executor=None,
+                func=partial(
+                    submit_download_job,
+                    params=[
+                        {"name": "tile_ids", "value": " ".join(chunk_tile_ids), "from": "value"},
+                        {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
+                        {"name": "start_time", "value": args.startDate, "from": "value"},
+                        {"name": "end_time", "value": args.endDate, "from": "value"},
+                    ]
+                )
+            )
+        )
+
+    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+    logging.info(f"{len(results)=}")
+    logging.info(f"{results=}")
+
+    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+    logging.info(f"{succeeded=}")
+    failed = [e for e in results if isinstance(e, Exception)]
+    logging.info(f"{failed=}")
+    return {
+        "success": succeeded,
+        "fail": failed
+    }
+
+
+def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
+    downloads: Iterable[dict] = ES_CONN.get_all_undownloaded()
+    logging.info(f"{downloads=}")
+    if not downloads:
+        return
+
+    downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, downloads))
+
+    download_urls = [to_url(download) for download in downloads]
+    logging.info(f"{download_urls=}")
+    session = SessionWithHeaderRedirection(username, password, NETLOC)
+    # TODO chrisjrd: re-enable
+    # if args.transfer_protocol == "https":
+    #     upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
+    # else:
+    #     upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
+
+
+def submit_download_job(*, params: list[dict[str, str]]) -> str:
+    return submit_mozart_job_minimal(
+        hysdsio={
+            "id": "test_id",
+            "params": params,
+            "job-specification": "data_subscriber_download",  # TODO chrisjrd: TBD
+        }
+    )
+
+
+def submit_mozart_job_minimal(*, hysdsio: dict) -> str:
+    return submit_mozart_job(
+        hysdsio=hysdsio,
+        product={},
+        rule={
+            "rule_name": "trigger_data_subscriber_download_TBD",  # TODO chrisjrd: TBD
+            "queue": "opera-job_worker-small",  # TODO chrisjrd: TBD
+            "priority": "0",
+            "kwargs": "{}",
+            "enable_dedup": True
+        },
+        queue=None,
+        job_name="job_TBD",  # TODO chrisjrd: TBD
+        payload_hash=None,
+        enable_dedup=None,
+        soft_time_limit=None,
+        time_limit=None,
+        component=None
+    )
+
+
+def to_tile_id(dl_doc: dict[str, Any]):
+    input_filename = Path(to_url(dl_doc)).name
+    tile_id: str = re.findall(r"T\w{5}", input_filename)[0]
+    return tile_id
+
+
+def to_url(dl_doc: dict[str, Any]) -> str:
+    if dl_doc["_source"].get("url"):
+        return dl_doc["_source"]["url"]
+    elif dl_doc["_source"].get("https_url"):
+        return dl_doc["_source"]["https_url"]
+    elif dl_doc["_source"].get("s3_url"):
+        return dl_doc["_source"]["s3_url"]
+    else:
+        raise Exception("Couldn't find any URL in the document.")
 
 
 def create_parser():
@@ -113,9 +253,12 @@ def create_parser():
     parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                         help="Specify a provider for collection search. Default is LPCLOUD.")
     parser.add_argument("-i", "--index-mode", dest="index_mode", default="Disabled",
-                        help="-i \"query\" will execute the query and update the ES index without downloading files. -i \"download\" will download all files from the ES index marked as not yet downloaded.")
+                        help="-i \"query\" will execute the query and update the ES index without downloading files. "
+                             "-i \"download\" will download all files from the ES index marked as not yet downloaded.")
     parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                         help="The protocol used for retrieving data, HTTPS or default of S3")
+
+    parser.add_argument("--tile-ids", nargs="*", dest="tile_ids")
 
     return parser
 
@@ -201,10 +344,12 @@ def setup_earthdata_login_auth(endpoint):
     username = password = ""
     try:
         username, _, password = netrc.netrc().authenticators(endpoint)
-    except (FileNotFoundError):
+    except FileNotFoundError as e:
         logging.error("There's no .netrc file")
-    except (TypeError):
+        raise e
+    except TypeError as e:
         logging.error("The endpoint isn't in the netrc file")
+        raise e
 
     manager = request.HTTPPasswordMgrWithDefaultRealm()
     manager.add_password(None, endpoint, username, password)
@@ -253,7 +398,7 @@ def query_cmr(args, token, CMR):
     }
 
     if time_range_is_defined:
-        temporal_range = get_temporal_range(args.startDate, args.endDate,
+        temporal_range = get_temporal_range(data_within_last_timestamp, args.endDate,
                                             datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
@@ -311,12 +456,12 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_es_index(ES_CONN, downloads):
-    for url in downloads:
-        ES_CONN.process_url(url)  # Implicitly adds new product to index
+def update_es_index(ES_CONN, download_urls, job_id):
+    for url in download_urls:
+        ES_CONN.process_url(url, job_id)  # Implicitly adds new product to index
 
 
-def upload_url_list_from_https(session, ES_CONN, downloads, args, token):
+def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
@@ -332,7 +477,7 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token):
                 else:
                     logging.debug(str(result))
 
-                ES_CONN.mark_product_as_downloaded(url)
+                ES_CONN.mark_product_as_downloaded(url, job_id)
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
                 num_successes = num_successes + 1
         except Exception as e:
@@ -383,7 +528,7 @@ def upload_chunk(chunk_dict):
     chunk_dict['out'].write(chunk_dict['chunk'])
 
 
-def upload_url_list_from_s3(session, ES_CONN, downloads, args):
+def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
     aws_creds = get_aws_creds(session)
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
@@ -408,7 +553,7 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args):
                 else:
                     logging.debug(str(result))
 
-                ES_CONN.mark_product_as_downloaded(url)
+                ES_CONN.mark_product_as_downloaded(url, job_id)
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
                 num_successes = num_successes + 1
         except Exception as e:
@@ -452,6 +597,15 @@ def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
         return {"failed_download": e}
 
 
+@contextmanager
+def token_ctx(token_url, ip_addr, edl):
+    token = get_token(token_url, 'daac-subscriber', ip_addr, edl)
+    try:
+        yield token
+    finally:
+        delete_token(token_url, token)
+
+
 def delete_token(url: str, token: str) -> None:
     try:
         headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
@@ -460,11 +614,11 @@ def delete_token(url: str, token: str) -> None:
         if resp.status_code == 204:
             logging.info("CMR token successfully deleted")
         else:
-            logging.error("CMR token deleting failed.")
-    except:
+            logging.warning("CMR token deleting failed.")
+    except Exception as e:
         logging.error("Error deleting the token")
-    exit(0)
+        raise e
 
 
 if __name__ == '__main__':
-    run()
+    asyncio.run(run(sys.argv))

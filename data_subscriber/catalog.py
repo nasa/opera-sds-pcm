@@ -1,8 +1,9 @@
 from datetime import datetime
+from pathlib import Path
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-ES_INDEX = "data_subscriber_product_catalog"
+ES_INDEX = "data_subscriber_product_catalog"  # TODO chrisjrd: rename index
 
 
 class DataSubscriberProductCatalog(ElasticsearchUtility):
@@ -26,8 +27,8 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
                                          "properties": {
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
-                                             "index_datetime": {"type": "date"},
-                                             "download_datetime": {"type": "date"},
+                                             "index_datetime": {"type": "date"},  # TODO chrisjrd: record creation time
+                                             "download_datetime": {"type": "date"}, # TODO when chrisjrd: record is downloaded/updated
                                              "downloaded": {"type": "boolean"}}}},
                                index=ES_INDEX)
         if self.logger:
@@ -40,18 +41,28 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
     def get_all_undownloaded(self):
         undownloaded = self._query_undownloaded()
-        return [{"s3_url": result['_source']['s3_url'], "https_url": result['_source']['https_url']}
-                for result in undownloaded]
+        return [
+            {
+                "s3_url": result['_source']['s3_url'],
+                "https_url": result['_source']['https_url']
+            } for result in undownloaded
+        ]
 
-    def process_url(self, url):
-        filename = url.split('/')[-1]
+    def process_url(self, url, job_id):
+        filename = Path(url).name
         result = self._query_existence(filename)
-        doc = {"index_datetime": datetime.now()}
+        doc = {
+            "index_datetime": datetime.now(),
+            "query_job_id": job_id,
+
+        }
 
         if "https://" in url:
             doc["https_url"] = url
-        if "s3://" in url:
+        elif "s3://" in url:
             doc["s3_url"] = url
+        else:
+            raise Exception(f"Unrecognized URL format. {url=}")
 
         if not result:
             doc["downloaded"] = False
@@ -70,12 +81,20 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         else:
             return False
 
-    def mark_product_as_downloaded(self, url):
+    def mark_product_as_downloaded(self, url, job_id):
         filename = url.split('/')[-1]
-        result = self.update_document(id=filename,
-                                      body={"doc_as_upsert": True,
-                                            "doc": {"downloaded": True, "download_datetime": datetime.now()}},
-                                      index=ES_INDEX)
+        result = self.update_document(
+            id=filename,
+            body={
+                "doc_as_upsert": True,
+                "doc": {
+                    "downloaded": True,
+                    "download_datetime": datetime.now(),
+                    "download_job_id": job_id,
+                }
+            },
+            index=ES_INDEX
+        )
 
         if self.logger:
             self.logger.info(f"Document updated: {result}")

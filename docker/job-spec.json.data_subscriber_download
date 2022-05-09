@@ -26,6 +26,10 @@
     {
       "name": "isl_staging_area",
       "destination": "positional"
+    },
+    {
+      "name": "tile_ids",
+      "destination": "positional"
     }
   ]
 }

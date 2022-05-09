@@ -23,6 +23,10 @@
       "from": "submitter",
       "placeholder": "ISL staging area",
       "optional": true
+    },
+    {
+      "name": "tile_ids",
+      "from": "submitter"
     }
   ]
 }
