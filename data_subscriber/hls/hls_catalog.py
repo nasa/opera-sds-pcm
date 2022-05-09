@@ -2,10 +2,10 @@ from datetime import datetime
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-ES_INDEX = "data_subscriber_product_catalog"
+ES_INDEX = "hls_catalog"
 
 
-class DataSubscriberProductCatalog(ElasticsearchUtility):
+class HLSProductCatalog(ElasticsearchUtility):
     """
     Class to track products downloaded by daac_data_subscriber.py
 

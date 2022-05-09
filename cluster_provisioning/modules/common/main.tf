@@ -1203,8 +1203,8 @@ resource "aws_instance" "mozart" {
       #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
       # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
       # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py"
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py",
       #"fi",
 
       # create accountability Elasticsearch index

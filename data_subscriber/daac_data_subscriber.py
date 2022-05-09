@@ -20,7 +20,7 @@ import boto3
 import requests
 from smart_open import open
 
-from data_subscriber.es_connection import get_data_subscriber_connection
+from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -64,7 +64,7 @@ def run():
     CMR = "cmr.earthdata.nasa.gov"
     TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
-    ES_CONN = get_data_subscriber_connection(logging.getLogger(__name__))
+    ES_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
 
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
