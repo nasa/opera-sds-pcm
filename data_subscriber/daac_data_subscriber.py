@@ -61,7 +61,7 @@ class SessionWithHeaderRedirection(requests.Session):
 
 async def run(argv: list[str]):
     parser = create_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv[1:])
     try:
         validate(args)
     except ValueError as v:
