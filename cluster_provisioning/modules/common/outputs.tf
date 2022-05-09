@@ -86,10 +86,14 @@ output "e_misfire_metric_alarm_name" {
   value = local.e_misfire_metric_alarm_name
 }
 
-output "aws_cloudwatch_event_rule_data_subscriber_download_timer" {
-  value = aws_cloudwatch_event_rule.data_subscriber_download_timer
+output "aws_cloudwatch_event_rule_hls_download_timer" {
+  value = aws_cloudwatch_event_rule.hls_download_timer
 }
 
-output "aws_cloudwatch_event_rule_data_subscriber_query_timer" {
-  value = aws_cloudwatch_event_rule.data_subscriber_query_timer
+output "aws_cloudwatch_event_rule_hlsl30_query_timer" {
+  value = aws_cloudwatch_event_rule.hlsl30_query_timer
+}
+
+output "aws_cloudwatch_event_rule_hlss30_query_timer" {
+  value = aws_cloudwatch_event_rule.hlss30_query_timer
 }

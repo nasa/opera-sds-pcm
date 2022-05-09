@@ -75,7 +75,12 @@ def run():
     username, password = setup_earthdata_login_auth(EDL)
     token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
 
-    downloads = ES_CONN.get_all_undownloaded() if args.index_mode.lower() == "download" else query_cmr(args, token, CMR)
+    temporal_range = None
+
+    if args.index_mode.lower() == "download":
+        downloads = ES_CONN.get_all_undownloaded()
+    else:
+        downloads, temporal_range = query_cmr(args, token, CMR)
 
     if downloads != []:
         update_es_index(ES_CONN, downloads)
@@ -89,6 +94,11 @@ def run():
                 upload_url_list_from_s3(session, ES_CONN, downloads, args)
 
     delete_token(TOKEN_URL, token)
+
+    if temporal_range:
+        logging.info(f"Temporal range: {temporal_range}")
+
+    logging.info(f"Total files updated: {len(downloads)}")
     logging.info("END")
 
 
@@ -252,14 +262,12 @@ def query_cmr(args, token, CMR):
         'bounding_box': args.bbox,
     }
 
+    temporal_range = get_temporal_range(data_within_last_timestamp, args.endDate,
+                                        datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
     if time_range_is_defined:
-        temporal_range = get_temporal_range(args.startDate, args.endDate,
-                                            datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-    logging.info("Provider: " + args.provider)
-    logging.info("Updated Since: " + data_within_last_timestamp)
 
     product_urls, search_after = request_search(url, params)
 
@@ -267,15 +275,17 @@ def query_cmr(args, token, CMR):
         results, search_after = request_search(url, params, search_after=search_after)
         product_urls.extend(results)
 
+    logging.info(f"Found {str(len(product_urls))} total files")
+
     # filter list based on extension
     filtered_urls = [f
                      for f in product_urls
                      for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
                      if extension in f]
 
-    logging.info(f"Found {str(len(filtered_urls))} total files")
+    logging.info(f"Found {str(len(filtered_urls))} relevant bandwidth files")
 
-    return filtered_urls
+    return filtered_urls, temporal_range
 
 
 def get_temporal_range(start, end, now):
