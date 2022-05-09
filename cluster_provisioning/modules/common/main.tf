@@ -2058,8 +2058,7 @@ resource "aws_cloudwatch_event_rule" "data_subscriber_download_timer" {
   name = "${aws_lambda_function.data_subscriber_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.data_download_timer_trigger_frequency
-  is_enabled = false
-  depends_on = [aws_instance.mozart]
+  is_enabled = local.enable_timer
 }
 
 resource "aws_cloudwatch_event_target" "data_subscriber_download_timer" {
@@ -2114,7 +2113,6 @@ resource "aws_cloudwatch_event_rule" "data_subscriber_query_timer" {
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.data_query_timer_trigger_frequency
   is_enabled = local.enable_timer
-  depends_on = [aws_instance.mozart]
 
 }
 
