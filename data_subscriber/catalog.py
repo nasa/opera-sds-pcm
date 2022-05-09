@@ -21,7 +21,12 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         update_document
     """
 
-    def create_index(self):
+    def create_index(self, index=ES_INDEX, delete_old_index=False):
+        if delete_old_index is True:
+            self.es.indices.delete(index=index, ignore=404)
+            if self.logger:
+                self.logger.info("Deleted old index: {}".format(index))
+
         self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
