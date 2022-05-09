@@ -102,17 +102,16 @@ async def run(argv: list[str]):
 
 
 async def run_query(args, token, ES_CONN, CMR, job_id):
-    downloads: list[str] = query_cmr(args, token, CMR)
-    if not downloads:
+    download_urls: list[str] = query_cmr(args, token, CMR)
+    if not download_urls:
         return
 
-    download_urls = [to_url(download) for download in downloads]
     update_es_index(ES_CONN, download_urls, job_id)
 
     tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
-        iterable=downloads,
-        keyfunc=to_tile_id,
-        valuefunc=to_url,
+        iterable=download_urls,
+        keyfunc=url_to_tile_id,
+        valuefunc=lambda url: url,
         reducefunc=set
     )
     logging.info(f"{tile_id_to_urls_map=}")
@@ -215,7 +214,11 @@ def submit_mozart_job_minimal(*, hysdsio: dict) -> str:
 
 
 def to_tile_id(dl_doc: dict[str, Any]):
-    input_filename = Path(to_url(dl_doc)).name
+    return url_to_tile_id(to_url(dl_doc))
+
+
+def url_to_tile_id(url: str):
+    input_filename = Path(url).name
     tile_id: str = re.findall(r"T\w{5}", input_filename)[0]
     return tile_id
 
