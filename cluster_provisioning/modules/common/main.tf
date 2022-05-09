@@ -1207,14 +1207,14 @@ resource "aws_instance" "mozart" {
       #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
       #"fi",
 
-      # create accountability Elasticsearch index
+      # create data subscriber Elasticsearch index
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
       "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py --delete_old_catalog",
       "else",
       "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
       "fi",
 
-      # create data subscriber Elasticsearch index
+      # create accountability Elasticsearch index
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
       "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
       "else",
@@ -2058,7 +2058,8 @@ resource "aws_cloudwatch_event_rule" "data_subscriber_download_timer" {
   name = "${aws_lambda_function.data_subscriber_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.data_download_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = false
+  depends_on = [aws_instance.mozart]
 }
 
 resource "aws_cloudwatch_event_target" "data_subscriber_download_timer" {
@@ -2113,6 +2114,8 @@ resource "aws_cloudwatch_event_rule" "data_subscriber_query_timer" {
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.data_query_timer_trigger_frequency
   is_enabled = local.enable_timer
+  depends_on = [aws_instance.mozart]
+
 }
 
 resource "aws_cloudwatch_event_target" "data_subscriber_query_timer" {
