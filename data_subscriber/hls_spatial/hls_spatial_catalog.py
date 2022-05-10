@@ -21,10 +21,9 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
     """
 
     def create_index(self):
-        self.es.indices.create(body={"settings": {"index": {"sort.field": "granuleid", "sort.order": "asc"}},
+        self.es.indices.create(body={"settings": {},
                                      "mappings": {
                                          "properties": {
-                                             "granule_id": {"type": "keyword"},
                                              "bounding_box": {"type": "object"},
                                              "short_name": {"type": "keyword"},
                                              "production_datetime": {"type": "date"},
@@ -38,22 +37,34 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
+    def process_granule(self, granule):
+        result = self._query_existence(granule["granule_id"])
 
-    def _post(self, id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=id)
+        if not result:
+            doc = {
+                "bounding_box": granule["bounding_box"],
+                "short_name": granule["short_name"],
+                "production_datetime": granule["production_datetime"],
+                "index_datetime": datetime.now()
+            }
+
+            self._post(granule['granule_id'], doc)
+
+    def _post(self, granule_id, body):
+        result = self.index_document(index=ES_INDEX, body=body, id=granule_id)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, id, index=ES_INDEX):
+    def _query_existence(self, granule_id, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=id)
+            result = self.get_by_id(index=index, id=granule_id)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
             if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
+                self.logger.debug(f"{granule_id} does not exist in {index}")
 
         return result

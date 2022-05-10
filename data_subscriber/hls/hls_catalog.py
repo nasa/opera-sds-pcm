@@ -56,7 +56,7 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         if not result:
             doc["downloaded"] = False
-            self._post(id=filename, body=doc)
+            self._post(filename=filename, body=doc)
             return False
         else:
             self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
@@ -81,22 +81,22 @@ class HLSProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
-    def _post(self, id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=id)
+    def _post(self, filename, body):
+        result = self.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, id, index=ES_INDEX):
+    def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=id)
+            result = self.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
             if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
+                self.logger.debug(f"{filename} does not exist in {index}")
 
         return result
 
@@ -109,7 +109,5 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         except:
             result = None
-            if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
 
         return result

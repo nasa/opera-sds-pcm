@@ -21,6 +21,7 @@ import requests
 from smart_open import open
 
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
+from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -64,7 +65,8 @@ def run():
     CMR = "cmr.earthdata.nasa.gov"
     TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
-    ES_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
+    HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
+    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
 
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
@@ -78,20 +80,21 @@ def run():
     temporal_range = None
 
     if args.subparser_name == "download":
-        downloads = ES_CONN.get_all_undownloaded()
+        downloads = HLS_CONN.get_all_undownloaded()
+        granules = []
     else:
-        downloads, temporal_range = query_cmr(args, token, CMR)
+        downloads, temporal_range, granules = query_cmr(args, token, CMR)
 
     if downloads != []:
-        update_es_index(ES_CONN, downloads)
+        update_es_index(HLS_CONN, HLS_SPATIAL_CONN, downloads, granules)
 
         if args.subparser_name != "query":
             session = SessionWithHeaderRedirection(username, password, NETLOC)
 
             if args.transfer_protocol.lower() == "https":
-                upload_url_list_from_https(session, ES_CONN, downloads, args, token)
+                upload_url_list_from_https(session, HLS_CONN, downloads, args, token)
             else:
-                upload_url_list_from_s3(session, ES_CONN, downloads, args)
+                upload_url_list_from_s3(session, HLS_CONN, downloads, args)
 
     delete_token(TOKEN_URL, token)
 
@@ -109,21 +112,21 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full")
     full_parser.add_argument("-c", "--collection", dest="collection", required=True,
-                              help="The collection for which you want to retrieve data.")
+                             help="The collection for which you want to retrieve data.")
     full_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
-                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
+                             help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
     full_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
-                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
+                             help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     full_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
-                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
+                             help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
     full_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
-                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
+                             help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
     full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                              help="Specify a provider for collection search. Default is LPCLOUD.")
+                             help="Specify a provider for collection search. Default is LPCLOUD.")
     full_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                                 help="The s3 bucket where data products will be downloaded.")
+                             help="The s3 bucket where data products will be downloaded.")
     full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
-                                 help="The protocol used for retrieving data, HTTPS or default of S3")
+                             help="The protocol used for retrieving data, HTTPS or default of S3")
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
@@ -268,7 +271,7 @@ def query_cmr(args, token, CMR):
     data_within_last_timestamp = args.startDate if time_range_is_defined else (
             datetime.utcnow() - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    url = f"https://{CMR}/search/granules.umm_json"
+    request_url = f"https://{CMR}/search/granules.umm_json"
     params = {
         'scroll': "false",
         'page_size': PAGE_SIZE,
@@ -286,11 +289,12 @@ def query_cmr(args, token, CMR):
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-    product_urls, search_after = request_search(url, params)
+    product_urls, product_granules, search_after = request_search(request_url, params)
 
     while search_after:
-        results, search_after = request_search(url, params, search_after=search_after)
-        product_urls.extend(results)
+        urls, granules, search_after = request_search(request_url, params, search_after=search_after)
+        product_urls.extend(urls)
+        product_granules.extend(granules)
 
     logging.info(f"Found {str(len(product_urls))} total files")
 
@@ -308,7 +312,14 @@ def query_cmr(args, token, CMR):
 
     logging.info(f"Found {str(len(filtered_urls))} relevant bandwidth files")
 
-    return filtered_urls, temporal_range
+    granule = {
+        "granule_id": "",
+        "bounding_box": "",
+        "short_name": "",
+        "production_datetime": ""
+    }
+
+    return filtered_urls, temporal_range, granule
 
 
 def get_temporal_range(start, end, now):
@@ -325,17 +336,19 @@ def get_temporal_range(start, end, now):
     raise ValueError("One of start-date or end-date must be specified.")
 
 
-def request_search(url, params, search_after=None):
-    response = requests.get(url, params=params, headers={'CMR-Search-After': search_after}) \
-        if search_after else requests.get(url, params=params)
+def request_search(request_url, params, search_after=None):
+    response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
+        if search_after else requests.get(request_url, params=params)
     results = response.json()
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
 
     if items and items[0].get('umm'):
-        return [meta.get('URL') for item in items for meta in item.get('umm').get('RelatedUrls')], next_search_after
+        return [meta.get('URL') for item in items for meta in item.get('umm').get('RelatedUrls')], \
+               [meta.get('GRANULE_ID') for item in items for meta in item.get('umm').get('GRANULE_ETC')], \
+               next_search_after
     else:
-        return [], None
+        return [], [], None
 
 
 def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
@@ -344,9 +357,13 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_es_index(ES_CONN, downloads):
+def update_es_index(ES_CONN, ES_SPATIAL_CONN, downloads, granules):
     for url in downloads:
-        ES_CONN.process_url(url)  # Implicitly adds new product to index
+        ES_CONN.process_url(url)
+
+    if granules != []:
+        for granule in granules:
+            ES_SPATIAL_CONN.process_granule(granule)
 
 
 def upload_url_list_from_https(session, ES_CONN, downloads, args, token):
