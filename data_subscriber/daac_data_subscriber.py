@@ -120,7 +120,7 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
     # TODO chrisjrd: finalize chunk size
     #  chunk_size=1 means 1 tile per job
     # chunk_size>1 means multiple (N) tiles per job
-    chunk_size = 10
+    chunk_size = 2
     logging.info(f"{chunk_size=}")
     for tile_chunk in chunked(tile_id_to_urls_map.items(), n=chunk_size):
         chunk_id = str(uuid.uuid4())
@@ -145,10 +145,6 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
                         {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
                         {"name": "start_time", "value": args.startDate, "from": "value"},
                         {"name": "end_time", "value": args.endDate, "from": "value"},
-
-                        # TODO chrisjrd: remove this if possible
-                        # NOTE: need to add dummy `isl_staging_area` param even though it is currently not used
-                        {"name": "isl_staging_area", "value": "dummy", "from": "value"},
                     ]
                 )
             )
