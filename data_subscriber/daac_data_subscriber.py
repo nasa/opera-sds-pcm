@@ -191,14 +191,16 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
 
     downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, downloads))
 
-    download_urls = [to_url(download) for download in downloads]
-    logging.info(f"{download_urls=}")
     session = SessionWithHeaderRedirection(username, password, NETLOC)
 
     # TODO chrisjrd: re-enable
     if args.transfer_protocol == "https":
+        download_urls = [to_https_url(download) for download in downloads]
+        logging.info(f"{download_urls=}")
         upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
     else:
+        download_urls = [to_s3_url(download) for download in downloads]
+        logging.info(f"{download_urls=}")
         upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
 
 
@@ -247,6 +249,20 @@ def to_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("https_url"):
         return dl_dict["https_url"]
     elif dl_dict.get("s3_url"):
+        return dl_dict["s3_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+
+
+def to_https_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+
+
+def to_s3_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("s3_url"):
         return dl_dict["s3_url"]
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
