@@ -186,7 +186,7 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
         return
 
     if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to a single file.")
+        logging.info(f"{args.smoke_run=}. Restricting to a single tile.")
         args.tile_ids = args.tile_ids[:1]
 
     downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, downloads))
