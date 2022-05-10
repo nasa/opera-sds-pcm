@@ -23,7 +23,7 @@ date
 
 # Forward processing use case; download all undownloaded files from ES index
 echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download"
-python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --tile-ids $TILE_IDS --smoke-run --dry-run 2>&1
+python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download --tile-ids $TILE_IDS --smoke-run 2>&1
 STATUS=$?
 
 if [ $STATUS -eq 0 ]; then
