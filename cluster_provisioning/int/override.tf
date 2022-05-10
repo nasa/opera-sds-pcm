@@ -141,7 +141,8 @@ variable "es_snapshot_bucket" {
 }
 
 variable "artifactory_repo" {
-  default = "general-stage"
+  #default = "general-stage"
+  default = "general-develop"
 }
 
 ######### ami vars #######
@@ -149,12 +150,12 @@ variable "amis" {
   type = map(string)
   default = {
 	# HySDS v4.0.1-beta8-oraclelinuxA
-    mozart    = "ami-014ef2d57c80be48c"  # opera int mozart - ol8
-    metrics   = "ami-044c136e9811420c3"  # opera int metrics - ol8
-    grq       = "ami-0ab4b9c17f81e016e"  # opera int grq - ol8
-    factotum  = "ami-0844e14407d5bc226"  # opera int factotum - ol8
-    ci        = "ami-0e4564f8e531e816f"  # OL8 All-project verdi v4.12
-    autoscale = "ami-0e4564f8e531e816f"  # OL8 All-project verdi v4.12
+    mozart    = ""  # opera int mozart - ol8
+    metrics   = ""  # opera int metrics - ol8
+    grq       = ""  # opera int grq - ol8
+    factotum  = ""  # opera int factotum - ol8
+    ci        = ""  # OL8 All-project verdi v4.12
+    autoscale = ""  # OL8 All-project verdi v4.12
   }
 }
 
