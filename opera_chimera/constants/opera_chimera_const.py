@@ -79,7 +79,7 @@ class OperaChimeraConstants(ChimeraConstants):
     MOCK_METADATA = "mock_metadata"
     BASE_NAME = "base_name"
 
-    DEM_FILE = "DEMFile"
+    DEM_FILE = "dem_file"
 
     PLANNED_OBSERVATION_ID = "PlannedObservationId"
     PLANNED_OBSERVATION_TIMESTAMP = "PlannedObservationTimestamp"
@@ -141,6 +141,7 @@ class OperaChimeraConstants(ChimeraConstants):
     FILE_NAMES_KEY = "file_names_key"
 
     CAST_STRING_TO_INT = "cast_string_to_int"
+    DEM_BBOX = "bbox"
     GET_DEM_BBOX = "get_dem_bbox"
     GET_DEMS = "get_dems"
 
