@@ -150,12 +150,12 @@ variable "amis" {
   type = map(string)
   default = {
 	# HySDS v4.0.1-beta8-oraclelinuxA
-    mozart    = "ami-014ef2d57c80be48c"  # opera int mozart - ol8
-    metrics   = "ami-044c136e9811420c3"  # opera int metrics - ol8
-    grq       = "ami-0ab4b9c17f81e016e"  # opera int grq - ol8
-    factotum  = "ami-0844e14407d5bc226"  # opera int factotum - ol8
-    ci        = "ami-0e4564f8e531e816f"  # OL8 All-project verdi v4.12
-    autoscale = "ami-0e4564f8e531e816f"  # OL8 All-project verdi v4.12
+    mozart    = ""  # opera int mozart - ol8
+    metrics   = ""  # opera int metrics - ol8
+    grq       = ""  # opera int grq - ol8
+    factotum  = ""  # opera int factotum - ol8
+    ci        = ""  # OL8 All-project verdi v4.12
+    autoscale = ""  # OL8 All-project verdi v4.12
   }
 }
 
@@ -173,29 +173,6 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-<<<<<<< HEAD
-  default = "1.0.0-er.2.0"
-}
-
-variable "pcm_commons_branch" {
-  default = "1.0.0-er.2.0"
-}
-
-variable "pcm_branch" {
-  default = "1.0.0-er.2.1"
-}
-
-variable "product_delivery_branch" {
-  default = "1.0.0-er.2.0"
-}
-
-variable "bach_api_branch" {
-  default = "1.0.0-er.2.0"
-}
-
-variable "bach_ui_branch" {
-  default = "1.0.0-er.2.0"
-=======
   default = "1.0.0-er.3.0"
 }
 
@@ -217,7 +194,6 @@ variable "bach_api_branch" {
 
 variable "bach_ui_branch" {
   default = "1.0.0-er.3.0"
->>>>>>> develop
 }
 
 ###### Roles ########
