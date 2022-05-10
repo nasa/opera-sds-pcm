@@ -5,6 +5,7 @@
 
 import argparse
 import asyncio
+import itertools
 import json
 import logging
 import netrc
@@ -114,6 +115,11 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
         valuefunc=lambda url: url,
         reducefunc=set
     )
+
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to a single tile.")
+        tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
+
     logging.info(f"{tile_id_to_urls_map=}")
     job_submission_tasks = []
     loop = asyncio.get_event_loop()
@@ -150,6 +156,10 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
                         # NOTE: need to add dummy `isl_staging_area` param even though it is currently not used
                         {"name": "isl_staging_area", "value": "dummy", "from": "value"},
 
+                        # TODO chrisjrd: implement support
+                        # {"name": "smoke_run", "value": True, "from": "value"},
+                        # {"name": "dry_run", "value": True, "from": "value"},
+
                     ]
                 )
             )
@@ -175,16 +185,21 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
     if not downloads:
         return
 
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to a single file.")
+        args.tile_ids = args.tile_ids[:1]
+
     downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, downloads))
 
     download_urls = [to_url(download) for download in downloads]
     logging.info(f"{download_urls=}")
     session = SessionWithHeaderRedirection(username, password, NETLOC)
+
     # TODO chrisjrd: re-enable
-    # if args.transfer_protocol == "https":
-    #     upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
-    # else:
-    #     upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
+    if args.transfer_protocol == "https":
+        upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
+    else:
+        upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
 
 
 def submit_download_job(*, params: list[dict[str, str]]) -> str:
@@ -264,6 +279,8 @@ def create_parser():
                         help="The protocol used for retrieving data, HTTPS or default of S3")
 
     parser.add_argument("--tile-ids", nargs="*", dest="tile_ids")
+    parser.add_argument("--dry-run", dest="dry_run", action="store_true")
+    parser.add_argument("--smoke-run", dest="smoke_run", action="store_true")
 
     return parser
 
@@ -476,11 +493,14 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id)
                 logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
-                result = https_transfer(url, args.s3_bucket, session, token)
-                if "failed_download" in result:
-                    raise Exception(result["failed_download"])
+                if args.dry_run:
+                    logging.info(f"{args.dry_run=}. Skipping downloads.")
                 else:
-                    logging.debug(str(result))
+                    result = https_transfer(url, args.s3_bucket, session, token)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
 
                 ES_CONN.mark_product_as_downloaded(url, job_id)
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
@@ -552,11 +572,14 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
                 logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
-                result = s3_transfer(url, args.s3_bucket, s3, tmp_dir)
-                if "failed_download" in result:
-                    raise Exception(result["failed_download"])
+                if args.dry_run:
+                    logging.info(f"{args.dry_run=}. Skipping downloads.")
                 else:
-                    logging.debug(str(result))
+                    result = s3_transfer(url, args.s3_bucket, s3, tmp_dir)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
 
                 ES_CONN.mark_product_as_downloaded(url, job_id)
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
