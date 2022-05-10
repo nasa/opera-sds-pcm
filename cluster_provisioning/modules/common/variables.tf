@@ -232,8 +232,12 @@ variable "lambda_timer_handler_package_name" {
   default = "lambda-timer-handler"
 }
 
-variable "lambda_data-subscriber_handler_package_name" {
-  default = "lambda-data-subscriber-handler"
+variable "lambda_data-subscriber-download_handler_package_name" {
+  default = "lambda-data-subscriber-download-handler"
+}
+
+variable "lambda_data-subscriber-query_handler_package_name" {
+  default = "lambda-data-subscriber-query-handler"
 }
 
 variable "lambda_report_handler_package_name" {
@@ -327,7 +331,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_names" {
-  default = "opera_pge-l3_dswx_hls"
+  default = "opera_pge-dswx_hls"
 }
 
 variable "docker_registry_bucket" {
@@ -335,20 +339,24 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220208-R1.0.0"
+  default = "20220401-1.0.0-er.3.0"
 }
 
 variable "pge_release" {
-  default = "R1.0.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "crid" {
   default = "D00100"
 }
 
-variable "obs_acct_report_timer_trigger_frequency" {}
+variable "hls_download_timer_trigger_frequency" {}
 
-variable "data_subscriber_timer_trigger_frequency" {}
+variable "hlsl30_query_timer_trigger_frequency" {}
+
+variable "hlss30_query_timer_trigger_frequency" {}
+
+variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
 

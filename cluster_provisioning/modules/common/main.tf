@@ -47,6 +47,8 @@ locals {
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
   enable_timer = var.cluster_type == "reprocessing" ? false : true
+
+  delete_old_job_catalog = true
 }
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
