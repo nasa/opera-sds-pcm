@@ -192,7 +192,7 @@ def submit_download_job(*, params: list[dict[str, str]]) -> str:
         hysdsio={
             "id": "test_id",
             "params": params,
-            "job-specification": "job-data_subscriber_query:issue_85",  # TODO chrisjrd: TBD
+            "job-specification": "job-data_subscriber_download:issue_85",  # TODO chrisjrd: TBD
         }
     )
 
