@@ -145,6 +145,11 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
                         {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
                         {"name": "start_time", "value": args.startDate, "from": "value"},
                         {"name": "end_time", "value": args.endDate, "from": "value"},
+
+                        # TODO chrisjrd: remove this if possible
+                        # NOTE: need to add dummy `isl_staging_area` param even though it is currently not used
+                        {"name": "isl_staging_area", "value": "dummy", "from": "value"},
+
                     ]
                 )
             )
