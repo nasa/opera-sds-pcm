@@ -1326,11 +1326,6 @@ resource "null_resource" "install_pcm_and_pges" {
       "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
       "    sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
       "    rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-<<<<<<< HEAD
-=======
-#      "    sds pkg import container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
-#      "    rm -rf container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
->>>>>>> develop
       "else",
       "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
       "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
