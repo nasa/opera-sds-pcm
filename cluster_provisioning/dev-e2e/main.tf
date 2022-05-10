@@ -73,7 +73,8 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  data_subscriber_timer_trigger_frequency = var.data_subscriber_timer_trigger_frequency
+  data_download_timer_trigger_frequency   = var.data_download_timer_trigger_frequency
+  data_query_timer_trigger_frequency      = var.data_query_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
@@ -198,6 +199,53 @@ resource "null_resource" "mozart" {
       "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
     ]
   }
+
+#  provisioner "remote-exec" {
+#    inline = [
+#      "set -ex",
+#      "if [ \"${var.run_smoke_test}\" = true ]; then",
+#      "  cat /tmp/datasets.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/datasets.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_scnm_s_messages.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_scnm_s_messages.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_cnm_s_passthru.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_cnm_s_passthru.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_cnm_r_passthru.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_cnm_r_passthru.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_stamped_dataset_result.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_stamped_dataset_result.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_cloudwatch_logs.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_cloudwatch_logs.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_tile_predict.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_tile_predict.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "  cat /tmp/check_crex_report.txt",
+#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_crex_report.txt)",
+#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "cat /tmp/bach_ui_status_code.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/bach_ui_status_code.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "cat /tmp/bach_api_status_code.txt",
+#      "SUCCESS=$(grep -c ^SUCCESS /tmp/bach_api_status_code.txt)",
+#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
+#      "fi",
+#      "if [ \"${var.promote_artifacts}\" = true ]; then",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/adaptation/${var.swot_pcm_branch}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/adaptation/${var.swot_pcm_branch}\"",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/product_delivery/${var.product_delivery_branch}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/product_delivery/${var.product_delivery_branch}\"",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/pcm_commons/${var.pcm_commons_branch}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/pcm_commons/${var.pcm_commons_branch}\"",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/lambdas/${var.lambda_package_release}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/lambdas/${var.lambda_package_release}\"",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_api/${var.swot_bach_api_branch}/swot_bach_api-${var.swot_bach_api_branch}.tar.gz?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_api/${var.swot_bach_api_branch}/swot_bach_api-${var.swot_bach_api_branch}.tar.gz\"",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_ui/${var.swot_bach_ui_branch}/swot_bach_ui-${var.swot_bach_ui_branch}.tar.gz?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_ui/${var.swot_bach_ui_branch}/swot_bach_ui-${var.swot_bach_ui_branch}.tar.gz\"",
+#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/docker-develop-local/gov/nasa/jpl/swot/sds/pcm/container-iems-sds_swot-pcm/${var.swot_pcm_branch}?to=/docker-stage-local/gov/nasa/jpl/swot/sds/pcm/container-iems-sds_swot-pcm/${var.swot_pcm_branch}\"",
+#      "fi",
+#    ]
+#  }
 
   provisioner "local-exec" {
     command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"

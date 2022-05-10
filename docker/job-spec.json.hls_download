@@ -1,14 +1,14 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/tools/daac_data_subscriber.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls_download.sh",
   "disk_usage":"1GB",
-  "soft_time_limit": 600,
-  "time_limit": 660,
+  "soft_time_limit": 3600,
+  "time_limit": 3660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "factotum-job_worker-small" ],
+  "recommended-queues": [ "opera-job_worker-small" ],
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {

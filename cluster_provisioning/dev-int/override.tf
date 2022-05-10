@@ -161,7 +161,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "R1.0.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "hysds_release" {
@@ -169,27 +169,27 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "v1.0.0-er.2.0"
+  default = "v1.0.0-er.3.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "pcm_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "product_delivery_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "bach_api_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "bach_ui_branch" {
-  default = "v1.0.0-er.2.0"
+  default = "1.0.0-er.3.0"
 }
 
 ###### Roles ########

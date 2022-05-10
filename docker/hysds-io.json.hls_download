@@ -1,0 +1,28 @@
+{
+  "label": "Download HLS data",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "start_time",
+      "from": "submitter",
+      "placeholder": "YYYY-MM-DDThh:mm:ssZ"
+    },
+    {
+      "name": "end_time",
+      "from": "submitter",
+      "placeholder": "YYYY-MM-DDThh:mm:ssZ"
+    },
+    {
+      "name": "isl_bucket_name",
+      "from": "submitter",
+      "placeholder": "ISL Bucket Name"
+    },
+    {
+      "name": "isl_staging_area",
+      "from": "submitter",
+      "placeholder": "ISL staging area",
+      "optional": true
+    }
+  ]
+}

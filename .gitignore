@@ -47,7 +47,6 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-
 ######################################################################
 # Python
 ######################################################################
@@ -203,7 +202,7 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-.idea/
+#.idea/
 
 ######################################################################
 # JetBrains IDEs
@@ -286,6 +285,12 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+
+.idea/inspectionProfiles/
+.idea/opera-sds-pcm.iml
+.idea/opera-pcm.iml
+.idea/misc.xml
 
 ######################################################################
 # Deployment/Development specific files

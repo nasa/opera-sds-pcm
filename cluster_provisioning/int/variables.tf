@@ -205,7 +205,7 @@ variable "cnm_r_allowed_account" {
 
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:337765570207:daac-proxy-for-opera-int"
 }
 
 variable "use_daac_cnm" {
@@ -330,7 +330,11 @@ variable "cluster_type" {
   default = ""
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
+variable "data_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "data_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

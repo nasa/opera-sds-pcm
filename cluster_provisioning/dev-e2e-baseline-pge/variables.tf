@@ -354,11 +354,11 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220318-R1.0.0"
+  default = "20220401-1.0.0-er.3.0"
 }
 
 variable "pge_release" {
-  default = "R1.0.0"
+  default = "1.0.0-er.3.0"
 }
 
 variable "crid" {
@@ -369,7 +369,11 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "data_subscriber_timer_trigger_frequency" {
+variable "data_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "data_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
