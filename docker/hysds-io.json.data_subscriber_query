@@ -23,6 +23,16 @@
       "from": "submitter",
       "placeholder": "ISL staging area",
       "optional": true
+    },
+    {
+      "name": "chunk_size",
+      "from": "submitter",
+      "optional": true
+    },
+    {
+      "name": "job_release",
+      "from": "submitter",
+      "optional": true
     }
   ]
 }

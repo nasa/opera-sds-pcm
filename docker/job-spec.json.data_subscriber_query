@@ -26,6 +26,14 @@
     {
       "name": "isl_staging_area",
       "destination": "positional"
+    },
+    {
+      "name": "chunk_size",
+      "destination": "positional"
+    },
+    {
+      "name": "job_release",
+      "destination": "positional"
     }
   ]
 }

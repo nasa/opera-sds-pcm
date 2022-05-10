@@ -89,15 +89,12 @@ async def run(argv: list[str]):
     username, password = setup_earthdata_login_auth(EDL)
 
     with token_ctx(TOKEN_URL, IP_ADDR, EDL) as token:
-        if args.index_mode == "query":
+        if args.index_mode == "query" or args.index_mode == "query-only":
             results = await run_query(args, token, ES_CONN, CMR, job_id)
-        elif args.index_mode == "query-and-something":
-            results = await run_query(args, token, ES_CONN, CMR, job_id)
-            # TODO chridjrd: implement meee
         elif args.index_mode == "download":
             results = run_download(args, token, ES_CONN, NETLOC, username, password, job_id)
         else:
-            raise Exception(f"Unsupported operation. {args.index_mode=}")  # TODO chrisjrd: implement
+            raise Exception(f"Unsupported operation. {args.index_mode=}")
     logging.info("END")
     return results
 
@@ -109,6 +106,10 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
 
     update_es_index(ES_CONN, download_urls, job_id)
 
+    if args.index_mode == "query-only":
+        logging.info(f"{args.index_mode=}. Skipping download job submission.")
+        return
+
     tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=url_to_tile_id,
@@ -117,18 +118,14 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
     )
 
     if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to a single tile.")
+        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
 
     logging.info(f"{tile_id_to_urls_map=}")
     job_submission_tasks = []
     loop = asyncio.get_event_loop()
-    # TODO chrisjrd: finalize chunk size
-    #  chunk_size=1 means 1 tile per job
-    # chunk_size>1 means multiple (N) tiles per job
-    chunk_size = 2
-    logging.info(f"{chunk_size=}")
-    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=chunk_size):
+    logging.info(f"{args.chunk_size=}")
+    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=args.chunk_size):
         chunk_id = str(uuid.uuid4())
         logging.info(f"{chunk_id=}")
 
@@ -146,6 +143,7 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
                 executor=None,
                 func=partial(
                     submit_download_job,
+                    release_version=args.release_version,
                     params=[
                         {"name": "tile_ids", "value": " ".join(chunk_tile_ids), "from": "value"},
                         {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
@@ -186,14 +184,13 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
         return
 
     if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to a single tile.")
+        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.tile_ids = args.tile_ids[:1]
 
     downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, downloads))
 
     session = SessionWithHeaderRedirection(username, password, NETLOC)
 
-    # TODO chrisjrd: re-enable
     if args.transfer_protocol == "https":
         download_urls = [to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
@@ -204,12 +201,12 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
         upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
 
 
-def submit_download_job(*, params: list[dict[str, str]]) -> str:
+def submit_download_job(*, release_version=None, params: list[dict[str, str]]) -> str:
     return submit_mozart_job_minimal(
         hysdsio={
-            "id": "test_id",
+            "id": str(uuid.uuid4()),
             "params": params,
-            "job-specification": "job-data_subscriber_download:issue_85",  # TODO chrisjrd: TBD
+            "job-specification": f"job-data_subscriber_download:{release_version}",
         }
     )
 
@@ -219,14 +216,14 @@ def submit_mozart_job_minimal(*, hysdsio: dict) -> str:
         hysdsio=hysdsio,
         product={},
         rule={
-            "rule_name": "trigger_data_subscriber_download_TBD",  # TODO chrisjrd: TBD
-            "queue": "opera-job_worker-small",  # TODO chrisjrd: TBD
+            "rule_name": "trigger_data_subscriber_download",
+            "queue": "opera-job_worker-small",
             "priority": "0",
             "kwargs": "{}",
             "enable_dedup": True
         },
         queue=None,
-        job_name="job_TBD",  # TODO chrisjrd: TBD
+        job_name="job-WF-data_subscriber_download",
         payload_hash=None,
         enable_dedup=None,
         soft_time_limit=None,
@@ -294,9 +291,16 @@ def create_parser():
     parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                         help="The protocol used for retrieving data, HTTPS or default of S3")
 
-    parser.add_argument("--tile-ids", nargs="*", dest="tile_ids")
-    parser.add_argument("--dry-run", dest="dry_run", action="store_true")
-    parser.add_argument("--smoke-run", dest="smoke_run", action="store_true")
+    parser.add_argument("--chunk-size", dest="chunk_size", default=2,
+                        help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
+    parser.add_argument("--release-version", dest="release_version",
+                        help="The release version of the download job-spec.")
+    parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
+                        help="A list of target tile IDs pending download.")
+    parser.add_argument("--dry-run", dest="dry_run", action="store_true",
+                        help="Toggle for skipping physical downloads.")
+    parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
+                        help="Toggle for processing a single tile.")
 
     return parser
 
