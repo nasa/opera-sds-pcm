@@ -228,15 +228,13 @@ def url_to_tile_id(url: str):
     return tile_id
 
 
-def to_url(dl_doc: dict[str, Any]) -> str:
-    if dl_doc["_source"].get("url"):
-        return dl_doc["_source"]["url"]
-    elif dl_doc["_source"].get("https_url"):
-        return dl_doc["_source"]["https_url"]
-    elif dl_doc["_source"].get("s3_url"):
-        return dl_doc["_source"]["s3_url"]
+def to_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    elif dl_dict.get("s3_url"):
+        return dl_dict["s3_url"]
     else:
-        raise Exception("Couldn't find any URL in the document.")
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
 def create_parser():
