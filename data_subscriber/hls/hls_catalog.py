@@ -24,6 +24,7 @@ class HLSProductCatalog(ElasticsearchUtility):
         self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
+                                             "granule_id": {"type": "keyword"},
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "index_datetime": {"type": "date"},
