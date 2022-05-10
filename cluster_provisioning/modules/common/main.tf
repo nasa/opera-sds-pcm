@@ -1,35 +1,37 @@
 locals {
-  counter                        = var.counter != "" ? var.counter : random_id.counter.hex
-  default_dataset_bucket         = "${var.project}-${var.environment}-rs-fwd-${var.venue}"
-  dataset_bucket                 = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
-  default_code_bucket            = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
-  code_bucket                    = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
-  default_isl_bucket             = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
-  isl_bucket                     = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
-  default_osl_bucket             = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
-  osl_bucket                     = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
-  default_triage_bucket          = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
-  triage_bucket                  = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
-  default_lts_bucket             = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
-  lts_bucket                     = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
-  key_name                       = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
-  sns_count                      = var.cnm_r_event_trigger == "sns" ? 1 : 0
-  kinesis_count                  = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
-  sqs_count                      = var.cnm_r_event_trigger == "sqs" ? 1 : 0
-  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  daac_delivery_event_type       = split(":", var.daac_delivery_proxy)[2]
-  daac_delivery_region           = split(":", var.daac_delivery_proxy)[3]
-  daac_delivery_account          = split(":", var.daac_delivery_proxy)[4]
-  daac_delivery_resource_name    = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url        = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pge_snapshots/${var.pge_snapshots_date}"
-  pge_artifactory_release_url    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pge/"
-  daac_proxy_cnm_r_sns_count     = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
-  maturity                       = split("-", var.daac_delivery_proxy)[5]
-  timer_handler_job_type         = "timer_handler"
-  accountability_report_job_type = "accountability_report"
-  data_subscriber_job_type       = "data_subscriber"
-  use_s3_uri_structure           = var.use_s3_uri_structure
-  grq_es_url                     = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+  counter                           = var.counter != "" ? var.counter : random_id.counter.hex
+  default_dataset_bucket            = "${var.project}-${var.environment}-rs-fwd-${var.venue}"
+  dataset_bucket                    = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
+  default_code_bucket               = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
+  code_bucket                       = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
+  default_isl_bucket                = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
+  isl_bucket                        = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
+  default_osl_bucket                = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
+  osl_bucket                        = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
+  default_triage_bucket             = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
+  triage_bucket                     = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
+  default_lts_bucket                = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
+  lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
+  key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
+  sns_count                         = var.cnm_r_event_trigger == "sns" ? 1 : 0
+  kinesis_count                     = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
+  sqs_count                         = var.cnm_r_event_trigger == "sqs" ? 1 : 0
+  lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  daac_delivery_event_type          = split(":", var.daac_delivery_proxy)[2]
+  daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
+  daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
+  daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+  pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+  daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  maturity                          = split("-", var.daac_delivery_proxy)[5]
+  timer_handler_job_type            = "timer_handler"
+  accountability_report_job_type    = "accountability_report"
+  hls_download_job_type             = "hls_download"
+  hlsl30_query_job_type             = "hlsl30_query"
+  hlss30_query_job_type             = "hlss30_query"
+  use_s3_uri_structure              = var.use_s3_uri_structure
+  grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
 
   cnm_response_queue_name = {
@@ -67,11 +69,11 @@ resource "null_resource" "download_lambdas" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
-    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
   }
-#  provisioner "local-exec" {
-#    command = "curl ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip -o ${var.lambda_data_subscriber_handler_package_name}-${var.lambda_package_release}.zip"
-#  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  }
 }
 
 resource "null_resource" "is_cnm_r_event_trigger_value_valid" {
@@ -1003,7 +1005,6 @@ resource "aws_instance" "mozart" {
       "echo >> ~/.sds/config",
 
       "echo GIT_OAUTH_TOKEN: ${var.git_auth_key} >> ~/.sds/config",
-#	  "echo PUT_GIT_OAUTH_TOKEN: ${var.pub_git_auth_key} >> ~/.sds/config",
       "echo >> ~/.sds/config",
 
       "echo PROVES_URL: https://prov-es.jpl.nasa.gov/beta >> ~/.sds/config",
@@ -1071,7 +1072,6 @@ resource "aws_instance" "mozart" {
       "  ./install.sh mozart -d",
       "  rm -rf ~/mozart/pkgs/hysds-verdi-latest.tar.gz",
       "else",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
@@ -1134,6 +1134,35 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  # To test HySDS core development (feature branches), uncomment this block
+  # and add lines to perform the mods to test them. Three examples have been
+  # left as described below:
+  #provisioner "remote-exec" {
+  #  inline = [
+  #    "set -ex",
+  #    "source ~/.bash_profile",
+
+  # Example 1: test a single file update from an sdscli feature branch named hotfix-sighup
+  #    "cd ~/mozart/ops/sdscli/sdscli/adapters/hysds",
+  #    "mv fabfile.py fabfile.py.bak",
+  #    "wget https://raw.githubusercontent.com/sdskit/sdscli/hotfix-sighup/sdscli/adapters/hysds/fabfile.py",
+
+  # Example 2: test an entire feature branch (need HYSDS_RELEASE=develop terraform variable)
+  #    "cd ~/mozart/ops/hysds",
+  #    "git checkout <dustins_branch>",
+  #    "pip install -e .",
+
+  # Example 3: test a custom verdi docker image on the ASGs (need HYSDS_RELEASE=develop terraform variable)
+  #    "cd ~/mozart/pkgs",
+  #    "mv hysds-verdi-develop.tar.gz hysds-verdi-develop.tar.gz.bak",
+  #    "docker pull hysds/verdi:<dustins_branch>",
+  #    "docker tag hysds/verdi:<dustins_branch> hysds/verdi:develop",
+  #    "docker save hysds/verdi:develop > hysds-verdi-develop.tar",
+  #    "pigz hysds-verdi-develop.tar",
+
+  #  ]
+  #}
+
   provisioner "remote-exec" {
     inline = [
       "set -ex",
@@ -1170,19 +1199,42 @@ resource "aws_instance" "mozart" {
       "pip install --progress-bar off -e .",
       "cd ~/mozart/ops/opera-pcm",
       "pip install --progress-bar off -e .",
-      "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url}",
+      #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
+      # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
+      # create the data subscriber catalog elasticsearch index, delete the existing catalog first
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      #"fi",
+
+      # create accountability Elasticsearch index
+      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py --delete_old_catalog",
       "else",
-      # TODO chrisjrd: remove
-#      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_release_url}",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      "fi",
+
+      # create data subscriber Elasticsearch index
+      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
+      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
+      "else",
+      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py",
+      "fi",
+
+      # deploy PGE for R1 (DSWx_HLS)
+      "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" \\",
+      "    --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url} \\",
+      "    --username ${var.artifactory_fn_user} --api_key ${var.artifactory_fn_api_key}",
+      "else",
       # TODO chrisjrd: extract vars as needed
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
-      "    --image_names opera_pge-dswx_hls \\",
-      "    --pge_release \"1.0.0-er.2.0\" \\",
+      "    --image_names ${var.pge_names} \\",
+#      "    --image_names opera_pge-dswx_hls \\",
+      "    --pge_release \"${var.pge_release}\" \\",
       "    --sds_config ~/.sds/config \\",
-      "    --processes 4 \\",
-      "    --force \\",
-      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
+      "    --processes 4 --force \\",
+      "    --artifactory_url ${local.pge_artifactory_release_url} \\",
+#      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
       "    --username ${var.artifactory_fn_user} \\",
       "    --api_key ${var.artifactory_fn_api_key}",
       "fi",
@@ -1226,52 +1278,62 @@ resource "aws_instance" "mozart" {
       "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*",
     ]
   }
+
+  // Initialize data subscriber ES index
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py"
+    ]
+  }
 }
 
 # Resource to install PCM and its dependencies
-#resource "null_resource" "install_pcm_and_pges" {
-#  depends_on = [
-#    aws_instance.mozart
-#  ]
+resource "null_resource" "install_pcm_and_pges" {
+  depends_on = [
+    aws_instance.mozart
+  ]
 
-#  connection {
-#    type = "ssh"
-#    host = aws_instance.mozart.private_ip
-#    user = "hysdsops"
-#    private_key = file(var.private_key_file)
-#  }
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
 
-#  provisioner "remote-exec" {
-#    inline = [
-#      "set -ex",
-#      "source ~/.bash_profile",
-#      # build/import opera-pcm
-#      "echo Build container",
-#      "if [ \"${var.use_artifactory}\" = true ]; then",
-#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-#      "    sds pkg import container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
-#      "    rm -rf container-nasa_${project}-pcm-${pcm_branch}.sdspkg.tar",
-#      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
-#      "else",
-#      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
-#      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-#      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-#      "fi",
-#      # build/import CNM product delivery
-#      "if [ \"${var.use_artifactory}\" = true ]; then",
-#      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-#      "    sds pkg import container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
-#      "    rm -rf container-iems-sds_${var.project}-pcm-${var.product_delivery_branch}.sdspkg.tar",
-#      "else",
-#      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
-#      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-#      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-#      "fi",
-#      "echo Set up trigger rules",
-#      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
-#    ]
-#  }
-#}
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "source ~/.bash_profile",
+      # build/import opera-pcm
+      "echo Build container",
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
+      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
+      "else",
+      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
+      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
+      "fi",
+      # build/import CNM product delivery
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "    sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "    rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
+      "else",
+      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
+      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
+      "fi",
+      "echo Set up trigger rules",
+      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
+    ]
+  }
+}
 
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
@@ -1372,8 +1434,7 @@ resource "aws_launch_template" "launch_template" {
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
-  #user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
-  user_data              = base64encode(data.template_file.launch_template_user_data[each.key].rendered)
+  user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
   vpc_security_group_ids = [var.verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
@@ -1438,11 +1499,11 @@ resource "aws_autoscaling_group" "autoscaling_group" {
       value               = "${var.project}-${var.venue}-${local.counter}-${each.key}"
       propagate_at_launch = true
     },
-    {
-      key                 = "Venue"
-      value               = "${var.project}-${var.venue}-${local.counter}"
-      propagate_at_launch = true
-    },
+#    {
+#      key                 = "Venue"
+#      value               = "${var.project}-${var.venue}-${local.counter}"
+#      propagate_at_launch = true
+#    },
     {
       key                 = "Queue"
       value               = each.key
@@ -1500,7 +1561,6 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
         name  = "Queue"
         value = each.key
       }
-#      metric_name = "JobsWaitingPerInstance-${var.project}-${var.venue}-${local.counter}-${each.key}"
       metric_name = "${lookup(each.value, "total_jobs_metric", false) ? "JobsPerInstance" : "JobsWaitingPerInstance"}-${var.project}-${var.venue}-${local.counter}-${each.key}"
       unit        = "None"
       namespace   = "HySDS"
@@ -1537,7 +1597,6 @@ resource "aws_instance" "metrics" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1569,14 +1628,12 @@ resource "aws_instance" "metrics" {
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz\"",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz",
       "fi"
@@ -1609,7 +1666,6 @@ resource "aws_instance" "grq" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1641,14 +1697,12 @@ resource "aws_instance" "grq" {
     inline = [
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz",
@@ -1691,7 +1745,6 @@ resource "aws_instance" "factotum" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -1735,14 +1788,12 @@ resource "aws_instance" "factotum" {
     inline = [
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-#     "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
       "  mkdir -p ~/conda",
       "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
       "  export PATH=$HOME/conda/bin:$PATH",
       "  conda-unpack",
       "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-#      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
       "  tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz",
       "  rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz",
@@ -1947,7 +1998,6 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 #    variables = {
 #      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
 #      "JOB_QUEUE": "${var.project}-job_worker-small",
-#      #"JOB_QUEUE": "opera-job_worker-small",
 #      "JOB_TYPE": local.accountability_report_job_type,
 #      "JOB_RELEASE": var.pcm_branch,
 #      "REPORT_NAME": "ObservationAccountabilityReport",
@@ -1988,13 +2038,67 @@ resource "aws_lambda_permission" "event-misfire_lambda" {
 #  function_name = aws_lambda_function.observation_accountability_report_timer.function_name
 #}
 
-# Resources to provision the Data Subscriber timer
-# Lambda function to submit a job to create the Data Subscriber
-resource "aws_lambda_function" "data_subscriber_timer" {
+# Resources to provision the Data Subscriber timers
+resource "aws_lambda_function" "hls_download_timer" {
   depends_on = [null_resource.download_lambdas]
-  filename = "${var.lambda_data-subscriber_handler_package_name}-${var.lambda_package_release}.zip"
+  filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will create a Data Subscriber"
-  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-timer"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.7"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+	    "JOB_QUEUE": "${var.project}-job_worker-small",
+      "JOB_TYPE": local.hls_download_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "ISL_STAGING_AREA": var.isl_staging_area,
+      "USER_START_TIME": "",
+      "USER_END_TIME": ""
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "hls_download_timer" {
+  depends_on = [aws_lambda_function.hls_download_timer]
+  name = "/aws/lambda/${aws_lambda_function.hls_download_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+resource "aws_cloudwatch_event_rule" "hls_download_timer" {
+  name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.hls_download_timer_trigger_frequency
+  is_enabled = local.enable_timer
+}
+
+resource "aws_cloudwatch_event_target" "hls_download_timer" {
+  rule = aws_cloudwatch_event_rule.hls_download_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.hls_download_timer.arn
+}
+
+resource "aws_lambda_permission" "hls_download_timer" {
+  statement_id = aws_cloudwatch_event_rule.hls_download_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.hls_download_timer.arn
+  function_name = aws_lambda_function.hls_download_timer.function_name
+}
+
+resource "aws_lambda_function" "hlsl30_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query HLSL30 data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-hlsl30-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
   runtime = "python3.7"
@@ -2007,7 +2111,38 @@ resource "aws_lambda_function" "data_subscriber_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.data_subscriber_job_type,
+      "JOB_TYPE": local.hlsl30_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "ISL_STAGING_AREA": var.isl_staging_area,
+      "USER_START_TIME": "",
+      "USER_END_TIME": ""
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
+  depends_on = [aws_lambda_function.hlsl30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlsl30_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_lambda_function" "hlss30_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query HLSS30 data"
+  function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.7"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
@@ -2017,30 +2152,50 @@ resource "aws_lambda_function" "data_subscriber_timer" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "data_subscriber_timer" {
-  depends_on = [aws_lambda_function.data_subscriber_timer]
-  name = "/aws/lambda/${aws_lambda_function.data_subscriber_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
-resource "aws_cloudwatch_event_rule" "data_subscriber_timer" {
-  name = "${aws_lambda_function.data_subscriber_timer.function_name}-Trigger"
+resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
+  name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.data_subscriber_timer_trigger_frequency
+  schedule_expression = var.hlsl30_query_timer_trigger_frequency
   is_enabled = local.enable_timer
 }
 
-resource "aws_cloudwatch_event_target" "data_subscriber_timer" {
-  rule = aws_cloudwatch_event_rule.data_subscriber_timer.name
+resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
+  rule = aws_cloudwatch_event_rule.hlsl30_query_timer.name
   target_id = "Lambda"
-  arn = aws_lambda_function.data_subscriber_timer.arn
+  arn = aws_lambda_function.hlsl30_query_timer.arn
 }
 
-resource "aws_lambda_permission" "data_subscriber_timer" {
-  statement_id = aws_cloudwatch_event_rule.data_subscriber_timer.name
+resource "aws_lambda_permission" "hlsl30_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.hlsl30_query_timer.name
   action = "lambda:InvokeFunction"
   principal = "events.amazonaws.com"
-  source_arn = aws_cloudwatch_event_rule.data_subscriber_timer.arn
-  function_name = aws_lambda_function.data_subscriber_timer.function_name
+  source_arn = aws_cloudwatch_event_rule.hlsl30_query_timer.arn
+  function_name = aws_lambda_function.hlsl30_query_timer.function_name
+}
+
+resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
+  depends_on = [aws_lambda_function.hlss30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlss30_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
+  name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.hlss30_query_timer_trigger_frequency
+  is_enabled = local.enable_timer
+}
+
+resource "aws_cloudwatch_event_target" "hlss30_query_timer" {
+  rule = aws_cloudwatch_event_rule.hlss30_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.hlss30_query_timer.arn
+}
+
+resource "aws_lambda_permission" "hlss30_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.hlss30_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.hlss30_query_timer.arn
+  function_name = aws_lambda_function.hlss30_query_timer.function_name
 }
