@@ -149,7 +149,8 @@ def create_parser():
 
 
 def validate(args):
-    validate_bounds(args.bbox)
+    if args.bbox:
+        validate_bounds(args.bbox)
 
     if args.startDate:
         validate_date(args.startDate, "start")
