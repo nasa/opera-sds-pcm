@@ -27,14 +27,12 @@
     {
       "name": "chunk_size",
       "from": "submitter",
-      "optional": true,
-      "default": "2"
+      "optional": true
     },
     {
       "name": "job_release",
       "from": "submitter",
-      "optional": true,
-      "default": "issue_85"
+      "optional": true
     }
   ]
 }
