@@ -28,7 +28,7 @@
       "name": "chunk_size",
       "from": "submitter",
       "optional": true,
-      "default": 2
+      "default": "2"
     },
     {
       "name": "job_release",
