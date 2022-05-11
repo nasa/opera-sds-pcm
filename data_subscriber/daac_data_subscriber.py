@@ -291,7 +291,7 @@ def create_parser():
     parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                         help="The protocol used for retrieving data, HTTPS or default of S3")
 
-    parser.add_argument("--chunk-size", dest="chunk_size", default=2,
+    parser.add_argument("--chunk-size", dest="chunk_size", type=int, default=2,
                         help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     parser.add_argument("--release-version", dest="release_version",
                         help="The release version of the download job-spec.")
