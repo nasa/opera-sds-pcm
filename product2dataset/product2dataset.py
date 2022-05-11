@@ -186,6 +186,9 @@ def process_outputs(product_dir, expected_outputs):
         for output_file in output_files:
             match = pattern.search(output_file)
             if match:
+                logger.info(
+                    f"Found optional file {output_file} with regex pattern {pattern.pattern}"
+                )
                 products[OPTIONAL_KEY][output_file] = optional_patterns[pattern]
 
     return products
