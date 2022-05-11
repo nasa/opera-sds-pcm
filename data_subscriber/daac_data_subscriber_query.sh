@@ -25,9 +25,6 @@ else
   DRY_RUN=""
 fi
 
-# TODO chrisjrd: remove after testing
-exit 1
-
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
 export PYTHONPATH=$BASE_PATH:$OPERA_HOME:$PYTHONPATH
