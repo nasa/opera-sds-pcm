@@ -3,7 +3,7 @@ from pathlib import Path
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-ES_INDEX = "data_subscriber_product_catalog"  # TODO chrisjrd: rename index
+ES_INDEX = "data_subscriber_product_catalog"
 
 
 class DataSubscriberProductCatalog(ElasticsearchUtility):
@@ -32,8 +32,8 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
                                          "properties": {
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
-                                             "index_datetime": {"type": "date"},  # TODO chrisjrd: record creation time
-                                             "download_datetime": {"type": "date"}, # TODO when chrisjrd: record is downloaded/updated
+                                             "index_datetime": {"type": "date"},
+                                             "download_datetime": {"type": "date"},
                                              "downloaded": {"type": "boolean"}}}},
                                index=ES_INDEX)
         if self.logger:
