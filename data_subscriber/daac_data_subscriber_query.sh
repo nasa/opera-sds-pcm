@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "args: $*"
+
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
@@ -8,6 +10,23 @@ STAGING_AREA=$2
 CHUNK_SIZE="${3}"
 CHUNK_SIZE="${CHUNK_SIZE:=2}"
 JOB_RELEASE="${4:=issue_85}"
+
+SMOKE_RUN="${5:=false}"
+if [ $SMOKE_RUN = "true" ]; then
+  SMOKE_RUN="--smoke-run"
+else
+  SMOKE_RUN=""
+fi
+
+DRY_RUN="${6:=false}"
+if [ DRY_RUN = "true" ]; then
+  DRY_RUN="--dry-run"
+else
+  DRY_RUN=""
+fi
+
+# TODO chrisjrd: remove after testing
+exit 1
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -33,7 +52,8 @@ python $BASE_PATH/daac_data_subscriber.py \
 --index-mode query \
 --chunk-size=$CHUNK_SIZE \
 --release-version=$JOB_RELEASE \
---smoke-run \
+$SMOKE_RUN \
+$DRY_RUN \
 2>&1
 STATUS_L30=$?
 
@@ -46,7 +66,8 @@ python $BASE_PATH/daac_data_subscriber.py \
 --index-mode query \
 --chunk-size=$CHUNK_SIZE \
 --release-version=$JOB_RELEASE \
---smoke-run \
+$SMOKE_RUN \
+$DRY_RUN \
 2>&1
 STATUS_S30=$?
 

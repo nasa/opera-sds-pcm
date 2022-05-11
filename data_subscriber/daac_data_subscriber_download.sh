@@ -1,11 +1,30 @@
 #!/bin/bash
 
+echo "args: $*"
+
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 ISL_BUCKET_NAME=$1
 STAGING_AREA=$2
 TILE_IDS="${3}"
+
+SMOKE_RUN="${4:=false}"
+if [ $SMOKE_RUN = "true" ]; then
+  SMOKE_RUN="--smoke-run"
+else
+  SMOKE_RUN=""
+fi
+
+DRY_RUN="${5:=false}"
+if [ DRY_RUN = "true" ]; then
+  DRY_RUN="--dry-run"
+else
+  DRY_RUN=""
+fi
+
+# TODO chrisjrd: remove after testing
+exit 1
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -28,7 +47,8 @@ python $BASE_PATH/daac_data_subscriber.py \
 -s $ISL_BUCKET_NAME \
 --index-mode=download \
 --tile-ids $TILE_IDS \
---smoke-run \
+$SMOKE_RUN \
+$DRY_RUN \
 2>&1
 STATUS=$?
 

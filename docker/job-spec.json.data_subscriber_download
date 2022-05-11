@@ -30,6 +30,14 @@
     {
       "name": "tile_ids",
       "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
     }
   ]
 }

@@ -27,6 +27,16 @@
     {
       "name": "tile_ids",
       "from": "submitter"
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "optional": true
     }
   ]
 }

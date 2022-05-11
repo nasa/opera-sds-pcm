@@ -33,6 +33,16 @@
       "name": "job_release",
       "from": "submitter",
       "optional": true
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "optional": true
     }
   ]
 }

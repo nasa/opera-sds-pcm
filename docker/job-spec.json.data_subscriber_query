@@ -34,6 +34,14 @@
     {
       "name": "job_release",
       "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
     }
   ]
 }
