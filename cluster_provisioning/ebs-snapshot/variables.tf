@@ -67,15 +67,16 @@ variable "pcm_verdi_role" {
 variable "verdi" {
   type = map(string)
   default = {
-    name               = "verdi"
-	  ami                = "ami-0caed57c920d65ea8"   # verdi v4.11 v4.0.1-beta.8-oraclelinux
-    instance_type      = "t3.medium"
-    device_name        = "/dev/sda1"
-    device_size        = 50
+    name = "verdi"
+    ami = "ami-0caed57c920d65ea8"
+    # verdi v4.11 v4.0.1-beta.8-oraclelinux
+    instance_type = "t3.medium"
+    device_name = "/dev/sda1"
+    device_size = 50
     docker_device_name = "/dev/sdf"
     docker_device_size = 25
-    private_ip         = ""
-    public_ip          = ""
+    private_ip = ""
+    public_ip = ""
   }
 }
 
@@ -122,3 +123,9 @@ variable "artifactory_fn_user" {
 variable "artifactory_fn_api_key" {
   default = ""
 }
+
+variable "hls_download_timer_trigger_frequency" {}
+
+variable "hlsl30_query_timer_trigger_frequency" {}
+
+variable "hlss30_query_timer_trigger_frequency" {}
