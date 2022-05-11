@@ -66,7 +66,6 @@ def run():
     TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
     HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
-    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
 
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
@@ -79,29 +78,28 @@ def run():
 
     temporal_range = None
 
-    if args.subparser_name == "download":
-        downloads = HLS_CONN.get_all_undownloaded()
-        granules = []
-    else:
-        downloads, temporal_range, granules = query_cmr(args, token, CMR)
+    if args.subparser_name != "download":
+        HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+        granules, temporal_range = query_cmr(args, token, CMR)
+        for granule in granules:
+            update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"))
+            update_granule_index(HLS_SPATIAL_CONN, granules)
 
-    if downloads != []:
-        update_es_index(HLS_CONN, HLS_SPATIAL_CONN, downloads, granules)
+    if args.subparser_name != "query":
+        urls = HLS_CONN.get_all_undownloaded()
+        session = SessionWithHeaderRedirection(username, password, NETLOC)
 
-        if args.subparser_name != "query":
-            session = SessionWithHeaderRedirection(username, password, NETLOC)
+        if args.transfer_protocol.lower() == "https":
+            upload_url_list_from_https(session, HLS_CONN, urls, args, token)
+        else:
+            upload_url_list_from_s3(session, HLS_CONN, urls, args)
 
-            if args.transfer_protocol.lower() == "https":
-                upload_url_list_from_https(session, HLS_CONN, downloads, args, token)
-            else:
-                upload_url_list_from_s3(session, HLS_CONN, downloads, args)
-
-    delete_token(TOKEN_URL, token)
+        logging.info(f"Total files updated: {len(urls)}")
 
     if temporal_range:
         logging.info(f"Temporal range: {temporal_range}")
 
-    logging.info(f"Total files updated: {len(downloads)}")
+    delete_token(TOKEN_URL, token)
     logging.info("END")
 
 
@@ -264,9 +262,6 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
 
 def query_cmr(args, token, CMR):
     PAGE_SIZE = 2000
-    EXTENSION_LIST_MAP = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                          "TIF": ["tif"]}
     time_range_is_defined = args.startDate or args.endDate
 
     data_within_last_timestamp = args.startDate if time_range_is_defined else (
@@ -290,37 +285,17 @@ def query_cmr(args, token, CMR):
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-    product_urls, product_granules, search_after = request_search(request_url, params)
+    product_granules, search_after = request_search(request_url, params)
 
     while search_after:
-        urls, granules, search_after = request_search(request_url, params, search_after=search_after)
-        product_urls.extend(urls)
+        granules, search_after = request_search(request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
-    logging.info(f"Found {str(len(product_urls))} total files")
+    logging.info(f"Found {str(len(product_granules))} total granules")
+    for granule in product_granules:
+        granule['filtered_urls'] = filter_on_extension(granule, args)
 
-    # filter list based on extension
-    filter_extension = "TIF"
-    for extension in EXTENSION_LIST_MAP:
-        if extension.upper() in args.collection.upper():
-            filter_extension = extension.upper()
-            break
-
-    filtered_urls = [f
-                     for f in product_urls
-                     for extension in EXTENSION_LIST_MAP.get(filter_extension)
-                     if extension in f]
-
-    logging.info(f"Found {str(len(filtered_urls))} relevant bandwidth files")
-
-    granule = {
-        "granule_id": "",
-        "bounding_box": "",
-        "short_name": "",
-        "production_datetime": ""
-    }
-
-    return filtered_urls, temporal_range, granule
+    return product_granules, temporal_range
 
 
 def get_temporal_range(start, end, now):
@@ -344,12 +319,36 @@ def request_search(request_url, params, search_after=None):
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
 
-    if items and items[0].get('umm'):
-        return [meta.get('URL') for item in items for meta in item.get('umm').get('RelatedUrls')], \
-               [meta.get('GRANULE_ID') for item in items for meta in item.get('umm').get('GRANULE_ETC')], \
-               next_search_after
+    if items and 'umm' in items[0]:
+        return [{"granule_id": item.get("umm").get("GranuleUR"),
+                 "provider": item.get("meta").get("provider-id"),
+                 "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
+                 "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
+                 "bounding_box": [geo_item
+                                  for geo_item
+                                  in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
+                                      .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
+                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
+                for item in items], next_search_after
     else:
-        return [], [], None
+        return [], None
+
+
+def filter_on_extension(granule, args):
+    EXTENSION_LIST_MAP = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+                          "TIF": ["tif"]}
+    filter_extension = "TIF"
+
+    for extension in EXTENSION_LIST_MAP:
+        if extension.upper() in args.collection.upper():
+            filter_extension = extension.upper()
+            break
+
+    return [f
+            for f in granule.get("related_urls")
+            for extension in EXTENSION_LIST_MAP.get(filter_extension)
+            if extension in f]
 
 
 def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
@@ -358,13 +357,13 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_es_index(ES_CONN, ES_SPATIAL_CONN, downloads, granules):
-    for url in downloads:
-        ES_CONN.process_url(url)
+def update_url_index(ES_CONN, urls, granule_id):
+    for url in urls:
+        ES_CONN.process_url(url, granule_id)
 
-    if granules != []:
-        for granule in granules:
-            ES_SPATIAL_CONN.process_granule(granule)
+
+def update_granule_index(ES_SPATIAL_CONN, granule):
+    ES_SPATIAL_CONN.process_granule(granule)
 
 
 def upload_url_list_from_https(session, ES_CONN, downloads, args, token):

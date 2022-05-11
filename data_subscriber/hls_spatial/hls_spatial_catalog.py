@@ -24,7 +24,7 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
         self.es.indices.create(body={"settings": {},
                                      "mappings": {
                                          "properties": {
-                                             "bounding_box": {"type": "object"},
+                                             "bounding_box": {"type": "geo_point"},
                                              "short_name": {"type": "keyword"},
                                              "production_datetime": {"type": "date"},
                                              "index_datetime": {"type": "date"}}}},
@@ -42,9 +42,10 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
 
         if not result:
             doc = {
-                "bounding_box": granule["bounding_box"],
-                "short_name": granule["short_name"],
+                "provider": granule["provider"],
                 "production_datetime": granule["production_datetime"],
+                "short_name": granule["short_name"],
+                "bounding_box": granule["bounding_box"],
                 "index_datetime": datetime.now()
             }
 

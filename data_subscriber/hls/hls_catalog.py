@@ -44,10 +44,11 @@ class HLSProductCatalog(ElasticsearchUtility):
         return [{"s3_url": result['_source']['s3_url'], "https_url": result['_source']['https_url']}
                 for result in undownloaded]
 
-    def process_url(self, url):
+    def process_url(self, url, granule_id):
         filename = url.split('/')[-1]
         result = self._query_existence(filename)
-        doc = {"index_datetime": datetime.now()}
+        doc = {"granule_id": granule_id,
+               "index_datetime": datetime.now()}
 
         if "https://" in url:
             doc["https_url"] = url
