@@ -1203,18 +1203,19 @@ resource "aws_instance" "mozart" {
       #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
       # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
       # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py"
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py",
       #"fi",
 
-      # create accountability Elasticsearch index
+      # create data subscriber Elasticsearch indexes
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py --delete_old_catalog",
-      "else",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py",
       "fi",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py",
 
-      # create data subscriber Elasticsearch index
+      # create accountability Elasticsearch index
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
       "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
       "else",
@@ -1285,15 +1286,6 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  // Initialize data subscriber ES index
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py"
-    ]
-  }
 }
 
 # Resource to install PCM and its dependencies
