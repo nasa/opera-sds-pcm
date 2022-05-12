@@ -19,7 +19,7 @@ else
   SMOKE_RUN=""
 fi
 
-DRY_RUN="${6:=false}"
+DRY_RUN="${7:=false}"
 if [ DRY_RUN = "true" ]; then
   DRY_RUN="--dry-run"
 else
