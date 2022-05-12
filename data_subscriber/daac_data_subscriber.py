@@ -12,11 +12,13 @@ import shutil
 import sys
 from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
+from multiprocessing.pool import ThreadPool
 from urllib import request
 from urllib.parse import urlparse
 
 import boto3
 import requests
+from smart_open import open
 
 from data_subscriber.es_connection import get_data_subscriber_connection
 
@@ -68,20 +70,35 @@ def run():
     logging.basicConfig(level=LOGLEVEL)
     logging.info("Log level set to " + LOGLEVEL)
 
-    logging.debug(f"sys.argv = {sys.argv}")
+    logging.info(f"sys.argv = {sys.argv}")
 
     username, password = setup_earthdata_login_auth(EDL)
     token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
 
-    downloads = get_all_undownloaded(ES_CONN) if args.index_mode.lower() == "download" else query_cmr(args, token, CMR)
+    temporal_range = None
+
+    if args.index_mode.lower() == "download":
+        downloads = ES_CONN.get_all_undownloaded()
+    else:
+        downloads, temporal_range = query_cmr(args, token, CMR)
 
     if downloads != []:
-        if args.index_mode.lower() == "query":
-            update_es_index(ES_CONN, downloads)
-        else:
-            upload_url_list(username, password, NETLOC, ES_CONN, downloads, args)
+        update_es_index(ES_CONN, downloads)
+
+        if args.index_mode.lower() != "query":
+            session = SessionWithHeaderRedirection(username, password, NETLOC)
+
+            if args.transfer_protocol.lower() == "https":
+                upload_url_list_from_https(session, ES_CONN, downloads, args, token)
+            else:
+                upload_url_list_from_s3(session, ES_CONN, downloads, args)
 
     delete_token(TOKEN_URL, token)
+
+    if temporal_range:
+        logging.info(f"Temporal range: {temporal_range}")
+
+    logging.info(f"Total files updated: {len(downloads)}")
     logging.info("END")
 
 
@@ -107,6 +124,8 @@ def create_parser():
                         help="Specify a provider for collection search. Default is LPCLOUD.")
     parser.add_argument("-i", "--index-mode", dest="index_mode", default="Disabled",
                         help="-i \"query\" will execute the query and update the ES index without downloading files. -i \"download\" will download all files from the ES index marked as not yet downloaded.")
+    parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
+                        help="The protocol used for retrieving data, HTTPS or default of S3")
 
     return parser
 
@@ -221,11 +240,6 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     return token
 
 
-def get_all_undownloaded(ES_CONN):
-    undownloaded = ES_CONN.query_undownloaded()
-    return [result['_source']['url'] for result in undownloaded]
-
-
 def query_cmr(args, token, CMR):
     PAGE_SIZE = 2000
     EXTENSION_LIST_MAP = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
@@ -248,14 +262,12 @@ def query_cmr(args, token, CMR):
         'bounding_box': args.bbox,
     }
 
+    temporal_range = get_temporal_range(data_within_last_timestamp, args.endDate,
+                                        datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
     if time_range_is_defined:
-        temporal_range = get_temporal_range(args.startDate, args.endDate,
-                                            datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-    logging.info("Provider: " + args.provider)
-    logging.info("Updated Since: " + data_within_last_timestamp)
 
     product_urls, search_after = request_search(url, params)
 
@@ -263,15 +275,17 @@ def query_cmr(args, token, CMR):
         results, search_after = request_search(url, params, search_after=search_after)
         product_urls.extend(results)
 
+    logging.info(f"Found {str(len(product_urls))} total files")
+
     # filter list based on extension
     filtered_urls = [f
                      for f in product_urls
                      for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
                      if extension in f]
 
-    logging.info(f"Found {str(len(filtered_urls))} total files")
+    logging.info(f"Found {str(len(filtered_urls))} relevant bandwidth files")
 
-    return filtered_urls
+    return filtered_urls, temporal_range
 
 
 def get_temporal_range(start, end, now):
@@ -301,28 +315,6 @@ def request_search(url, params, search_after=None):
         return [], None
 
 
-def product_is_duplicate(es_conn, filename, url):
-    result = product_exists_in_es(es_conn, filename)
-
-    if not result:
-        create_product_in_es(es_conn, filename, url)
-        return False
-
-    return product_is_downloaded(result)
-
-
-def product_exists_in_es(es_conn, filename):
-    return es_conn.query_existence(filename)
-
-
-def create_product_in_es(es_conn, filename, url):
-    es_conn.post(id=filename, url=url)
-
-
-def product_is_downloaded(result):
-    return result["_source"]["downloaded"]
-
-
 def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     if isinstance(datetime_obj, datetime):
         return datetime_obj.strftime(strformat)
@@ -330,15 +322,78 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
 
 
 def update_es_index(ES_CONN, downloads):
-    filtered_downloads = [f for f in downloads if "s3://" in f]
+    for url in downloads:
+        ES_CONN.process_url(url)  # Implicitly adds new product to index
+
+
+def upload_url_list_from_https(session, ES_CONN, downloads, args, token):
+    num_successes = num_failures = num_skipped = 0
+    filtered_downloads = [f for f in downloads if "https://" in f]
 
     for url in filtered_downloads:
-        filename = url.split('/')[-1]
-        product_is_duplicate(ES_CONN, filename, url)  # Implicitly adds new product to index
+        try:
+            if ES_CONN.product_is_downloaded(url):
+                logging.info(f"SKIPPING: {url}")
+                num_skipped = num_skipped + 1
+            else:
+                result = https_transfer(url, args.s3_bucket, session, token)
+                if "failed_download" in result:
+                    raise Exception(result["failed_download"])
+                else:
+                    logging.debug(str(result))
+
+                ES_CONN.mark_product_as_downloaded(url)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
+        except Exception as e:
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
+            num_failures = num_failures + 1
+            logging.error(e)
+
+    logging.info(f"Files downloaded: {str(num_successes)}")
+    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
+    logging.info(f"Files failed to download: {str(num_failures)}")
 
 
-def upload_url_list(username, password, NETLOC, ES_CONN, downloads, args):
-    session = SessionWithHeaderRedirection(username, password, NETLOC)
+def https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
+    file_name = os.path.basename(url)
+    bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+
+    key = os.path.join(staging_area, file_name)
+    upload_start_time = datetime.utcnow()
+    headers = {"Echo-Token": token}
+
+    try:
+        with session.get(url, headers=headers, stream=True) as r:
+            if r.status_code != 200:
+                r.raise_for_status()
+            logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+            with open("s3://{}/{}".format(bucket, key), "wb") as out:
+                pool = ThreadPool(processes=10)
+                pool.map(upload_chunk,
+                         [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
+                pool.close()
+                pool.join()
+        upload_end_time = datetime.utcnow()
+        upload_duration = upload_end_time - upload_start_time
+        upload_stats = {
+            "file_name": file_name,
+            "file_size (in bytes)": r.headers.get('Content-Length'),
+            "upload_duration (in seconds)": upload_duration.total_seconds(),
+            "upload_start_time": convert_datetime(upload_start_time),
+            "upload_end_time": convert_datetime(upload_end_time)
+        }
+        return upload_stats
+    except (ConnectionResetError, requests.exceptions.HTTPError) as e:
+        return {"failed_download": e}
+
+
+def upload_chunk(chunk_dict):
+    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
+    chunk_dict['out'].write(chunk_dict['chunk'])
+
+
+def upload_url_list_from_s3(session, ES_CONN, downloads, args):
     aws_creds = get_aws_creds(session)
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
@@ -353,8 +408,7 @@ def upload_url_list(username, password, NETLOC, ES_CONN, downloads, args):
 
     for url in filtered_downloads:
         try:
-            filename = url.split('/')[-1]
-            if product_is_duplicate(ES_CONN, filename, url):
+            if ES_CONN.product_is_downloaded(url):
                 logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
@@ -364,7 +418,7 @@ def upload_url_list(username, password, NETLOC, ES_CONN, downloads, args):
                 else:
                     logging.debug(str(result))
 
-                mark_product_as_downloaded(ES_CONN, filename)
+                ES_CONN.mark_product_as_downloaded(url)
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
                 num_successes = num_successes + 1
         except Exception as e:
@@ -372,10 +426,11 @@ def upload_url_list(username, password, NETLOC, ES_CONN, downloads, args):
             num_failures = num_failures + 1
             logging.error(e)
 
-    shutil.rmtree(tmp_dir)
     logging.info(f"Files downloaded: {str(num_successes)}")
     logging.info(f"Duplicate files skipped: {str(num_skipped)}")
     logging.info(f"Files failed to download: {str(num_failures)}")
+
+    shutil.rmtree(tmp_dir)
 
 
 def get_aws_creds(session):
@@ -405,10 +460,6 @@ def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
         return {"successful_download": target_key}
     except Exception as e:
         return {"failed_download": e}
-
-
-def mark_product_as_downloaded(es_conn, filename):
-    es_conn.mark_downloaded(filename)
 
 
 def delete_token(url: str, token: str) -> None:

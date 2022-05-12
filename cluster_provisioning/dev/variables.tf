@@ -365,11 +365,15 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "data_download_timer_trigger_frequency" {
+variable "hls_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "data_query_timer_trigger_frequency" {
+variable "hlsl30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "hlss30_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

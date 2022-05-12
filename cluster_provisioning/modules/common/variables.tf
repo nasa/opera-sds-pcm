@@ -350,9 +350,11 @@ variable "crid" {
   default = "D00100"
 }
 
-variable "data_download_timer_trigger_frequency" {}
+variable "hls_download_timer_trigger_frequency" {}
 
-variable "data_query_timer_trigger_frequency" {}
+variable "hlsl30_query_timer_trigger_frequency" {}
+
+variable "hlss30_query_timer_trigger_frequency" {}
 
 variable "obs_acct_report_timer_trigger_frequency" {}
 
