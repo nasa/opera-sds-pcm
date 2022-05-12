@@ -2027,7 +2027,7 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
@@ -2042,7 +2042,9 @@ resource "aws_lambda_function" "data_subscriber_download_timer" {
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
       "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "USER_END_TIME": "",
+      "SMOKE_RUN": "true",
+      "DRY_RUN": "true"
     }
   }
 }
@@ -2058,7 +2060,8 @@ resource "aws_cloudwatch_event_rule" "data_subscriber_download_timer" {
   name = "${aws_lambda_function.data_subscriber_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.data_download_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = false
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "data_subscriber_download_timer" {
@@ -2082,7 +2085,7 @@ resource "aws_lambda_function" "data_subscriber_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
@@ -2097,7 +2100,11 @@ resource "aws_lambda_function" "data_subscriber_query_timer" {
       "ISL_BUCKET_NAME": local.isl_bucket,
       "ISL_STAGING_AREA": var.isl_staging_area,
       "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "USER_END_TIME": "",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-small",
+      "CHUNK_SIZE": "2",
+      "SMOKE_RUN": "true",
+      "DRY_RUN": "true"
     }
   }
 }
@@ -2112,7 +2119,8 @@ resource "aws_cloudwatch_event_rule" "data_subscriber_query_timer" {
   name = "${aws_lambda_function.data_subscriber_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.data_query_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = false
+  depends_on = [null_resource.install_pcm_and_pges]
 
 }
 
