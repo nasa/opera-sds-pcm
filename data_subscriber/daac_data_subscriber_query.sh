@@ -20,7 +20,7 @@ else
 fi
 
 DRY_RUN="${7:=false}"
-if [ DRY_RUN = "true" ]; then
+if [ $DRY_RUN = "true" ]; then
   DRY_RUN="--dry-run"
 else
   DRY_RUN=""
