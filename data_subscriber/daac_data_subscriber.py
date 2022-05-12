@@ -77,7 +77,7 @@ def run():
 
     temporal_range = None
 
-    if args.index_mode.lower() == "download":
+    if args.subparser_name == "download":
         downloads = ES_CONN.get_all_undownloaded()
     else:
         downloads, temporal_range = query_cmr(args, token, CMR)
@@ -85,7 +85,7 @@ def run():
     if downloads != []:
         update_es_index(ES_CONN, downloads)
 
-        if args.index_mode.lower() != "query":
+        if args.subparser_name != "query":
             session = SessionWithHeaderRedirection(username, password, NETLOC)
 
             if args.transfer_protocol.lower() == "https":
@@ -104,34 +104,53 @@ def run():
 
 def create_parser():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
-                        help="The collection shortname for which you want to retrieve data.")
-    parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                        help="The s3 bucket where data products will be downloaded.")
-    parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
-                        help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
-                        help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
-    parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
-                        help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
-    parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
-                        help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    parser.add_argument("-e", "--extension_list", dest="extension_list", default="TIF",
-                        help="The file extension mapping of products to download (band/mask). Defaults to all .tif files.")
+    subparsers = parser.add_subparsers(dest="subparser_name", required=True)
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
-    parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                        help="Specify a provider for collection search. Default is LPCLOUD.")
-    parser.add_argument("-i", "--index-mode", dest="index_mode", default="Disabled",
-                        help="-i \"query\" will execute the query and update the ES index without downloading files. -i \"download\" will download all files from the ES index marked as not yet downloaded.")
-    parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
-                        help="The protocol used for retrieving data, HTTPS or default of S3")
+
+    full_parser = subparsers.add_parser("full")
+    full_parser.add_argument("-c", "--collection", dest="collection", required=True,
+                              help="The collection for which you want to retrieve data.")
+    full_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
+    full_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
+    full_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
+                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
+    full_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
+                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
+    full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
+                              help="Specify a provider for collection search. Default is LPCLOUD.")
+    full_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
+                                 help="The s3 bucket where data products will be downloaded.")
+    full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
+                                 help="The protocol used for retrieving data, HTTPS or default of S3")
+
+    query_parser = subparsers.add_parser("query")
+    query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
+                              help="The collection shortname for which you want to retrieve data.")
+    query_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
+    query_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
+    query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
+                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
+    query_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
+                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
+    query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
+                              help="Specify a provider for collection search. Default is LPCLOUD.")
+
+    download_parser = subparsers.add_parser("download")
+    download_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
+                                 help="The s3 bucket where data products will be downloaded.")
+    download_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
+                                 help="The protocol used for retrieving data, HTTPS or default of S3")
 
     return parser
 
 
 def validate(args):
-    validate_bounds(args.bbox)
+    if args.bbox:
+        validate_bounds(args.bbox)
 
     if args.startDate:
         validate_date(args.startDate, "start")
@@ -268,7 +287,6 @@ def query_cmr(args, token, CMR):
         params['temporal'] = temporal_range
         logging.debug("Temporal Range: " + temporal_range)
 
-
     product_urls, search_after = request_search(url, params)
 
     while search_after:
@@ -278,9 +296,15 @@ def query_cmr(args, token, CMR):
     logging.info(f"Found {str(len(product_urls))} total files")
 
     # filter list based on extension
+    filter_extension = "TIF"
+    for extension in EXTENSION_LIST_MAP:
+        if extension.upper() in args.collection.upper():
+            filter_extension = extension.upper()
+            break
+
     filtered_urls = [f
                      for f in product_urls
-                     for extension in EXTENSION_LIST_MAP.get(args.extension_list.upper())
+                     for extension in EXTENSION_LIST_MAP.get(filter_extension)
                      if extension in f]
 
     logging.info(f"Found {str(len(filtered_urls))} relevant bandwidth files")

@@ -93,7 +93,7 @@ variable "jenkins_host" {
 }
 
 variable "jenkins_enabled" {
-  type    = bool
+  type = bool
   default = false
 }
 
@@ -129,7 +129,7 @@ variable "az" {
 }
 
 variable "grq_aws_es" {
-  type    = bool
+  type = bool
   default = false
 }
 
@@ -209,7 +209,7 @@ variable "daac_delivery_proxy" {
 }
 
 variable "use_daac_cnm" {
-  type    = bool
+  type = bool
   default = false
 }
 
@@ -218,7 +218,7 @@ variable "daac_endpoint_url" {
 }
 # asg vars
 variable "asg_use_role" {
-  type    = bool
+  type = bool
   default = true
 }
 
@@ -243,7 +243,7 @@ variable "job_catalog_url" {
 }
 
 variable "delete_old_job_catalog" {
-  type    = bool
+  type = bool
   default = false
 }
 
@@ -292,7 +292,7 @@ variable "autoscale" {
 }
 
 variable "use_artifactory" {
-  type    = bool
+  type = bool
   default = true
 }
 
@@ -301,12 +301,12 @@ variable "event_misfire_trigger_frequency" {
 }
 
 variable "event_misfire_delay_threshold_seconds" {
-  type    = number
+  type = number
   default = 60
 }
 
 variable "lambda_log_retention_in_days" {
-  type    = number
+  type = number
   default = 30
 }
 
@@ -334,13 +334,11 @@ variable "cluster_type" {
   default = ""
 }
 
-variable "data_download_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
+variable "hls_download_timer_trigger_frequency" {}
 
-variable "data_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
+variable "hlsl30_query_timer_trigger_frequency" {}
+
+variable "hlss30_query_timer_trigger_frequency" {}
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
@@ -379,22 +377,22 @@ variable "osl_report_staging_area" {
 }
 
 variable "use_s3_uri_structure" {
-  type    = bool
+  type = bool
   default = true
 }
 
 variable "inactivity_threshold" {
-  type    = number
+  type = number
   default = 1800
 }
 
 variable "run_smoke_test" {
-  type    = bool
+  type = bool
   default = true
 }
 
 variable "purge_es_snapshot" {
-  type    = bool
+  type = bool
   default = false
 }
 
@@ -421,45 +419,68 @@ variable "earthdata_pass" {
 variable "queues" {
   default = {
     "opera-job_worker-gpu" = {
-      "instance_type"     = ["p2.xlarge", "p3.2xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
+      "instance_type" = [
+        "p2.xlarge",
+        "p3.2xlarge"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-small" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 100
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
       "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 100
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
       "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 100
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
       "total_jobs_metric" = true
     }
     "opera-job_worker-rcv_cnm_notify" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 100
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
       "total_jobs_metric" = true
     }
     "opera-workflow_profiler" = {
-      "instance_type"     = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "max_size"          = 10
+      "instance_type" = [
+        "p2.xlarge",
+        "p3.2xlarge",
+        "r5.2xlarge",
+        "r5.4xlarge",
+        "r5.8xlarge",
+        "r5.12xlarge",
+        "r5.16xlarge",
+        "r5.24xlarge",
+        "r5.metal"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 10
       "total_jobs_metric" = true
     }
   }

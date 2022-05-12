@@ -8,17 +8,9 @@
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-small" ],
+  "recommended-queues": [ "opera-job_worker-data_subscriber" ],
   "post": [ "hysds.utils.triage" ],
   "params" : [
-    {
-      "name": "start_time",
-      "destination": "context"
-    },
-    {
-      "name": "end_time",
-      "destination": "context"
-    },
     {
       "name": "isl_bucket_name",
       "destination": "positional"
