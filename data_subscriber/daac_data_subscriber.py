@@ -87,14 +87,18 @@ def run():
 
     if args.subparser_name != "query":
         urls = HLS_CONN.get_all_undownloaded()
-        session = SessionWithHeaderRedirection(username, password, NETLOC)
 
-        if args.transfer_protocol.lower() == "https":
-            upload_url_list_from_https(session, HLS_CONN, urls, args, token)
+        if urls:
+            session = SessionWithHeaderRedirection(username, password, NETLOC)
+
+            if args.transfer_protocol.lower() == "https":
+                upload_url_list_from_https(session, HLS_CONN, urls, args, token)
+            else:
+                upload_url_list_from_s3(session, HLS_CONN, urls, args)
+
+            logging.info(f"Total files updated: {len(urls)}")
         else:
-            upload_url_list_from_s3(session, HLS_CONN, urls, args)
-
-        logging.info(f"Total files updated: {len(urls)}")
+            logging.info(f"No undownloaded files found in index.")
 
     if temporal_range:
         logging.info(f"Temporal range: {temporal_range}")
