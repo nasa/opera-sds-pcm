@@ -2118,7 +2118,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.hlsl30_query_job_type,
+      "JOB_TYPE": local.hlss30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "MINUTES": var.hls_download_timer_trigger_frequency
     }
