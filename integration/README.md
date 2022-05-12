@@ -33,4 +33,6 @@ RS_BUCKET = opera-foo-rs-fwd-bar
 L30_INPUT_DIR = ~/Downloads/test_datasets/l30_greenland/input_files_hls_v2.0
 S30_INPUT_DIR = ~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0
 
+DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
+
 ```

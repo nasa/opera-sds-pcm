@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 
 import conftest
@@ -9,8 +10,31 @@ from int_test_util import \
     wait_for_cnm_r_success, \
     wait_for_l2, \
     wait_for_l3
+from integration.subscriber_util import \
+    wait_for_query_job, \
+    wait_for_download_jobs, \
+    invoke_subscriber_query_lambda
 
 config = conftest.config
+
+
+def test_subscriber():
+    logging.info("TRIGGERING DATA SUBSCRIBE")
+
+    response = invoke_subscriber_query_lambda()
+    assert response["StatusCode"] == 200
+
+    job_id = response["Payload"].read().decode().strip("\"")
+    logging.info(f"{job_id=}")
+
+    logging.info("Sleeping for query job execution...")
+    sleep_for(10)
+
+    wait_for_query_job(job_id)
+
+    logging.info("Sleeping for download job execution...")
+    sleep_for(180)
+    wait_for_download_jobs(job_id)
 
 
 def test_l30():
@@ -31,6 +55,9 @@ def test_l30():
         upload_file(filepath=input_filepath)
 
     logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
+
+    logging.info("Sleeping for L2 ingest...")
+    sleep_for(30)
 
     response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_1_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B02"
@@ -54,15 +81,27 @@ def test_l30():
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
+
+    logging.info("Sleeping for PGE execution...")
+    sleep_for(60)
+
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
+
+    logging.info("Sleeping for CNM-S execution...")
+    sleep_for(60)
+
     response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
     mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0")
+
+    logging.info("Sleeping for CNM-R execution...")
+    sleep_for(30)
+
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
 
     assert_cnm_r_success(response)
@@ -87,6 +126,9 @@ def test_s30():
 
     logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
+    logging.info("Sleeping for L2 ingest...")
+    sleep_for(30)
+
     response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_1_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B02"
 
@@ -109,14 +151,26 @@ def test_s30():
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
+
+    logging.info("Sleeping for PGE execution...")
+    sleep_for(60)
+
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
+
+    logging.info("Sleeping for CNM-S execution...")
+    sleep_for(60)
+
     response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+
+    logging.info("Sleeping for CNM-R execution...")
+    sleep_for(30)
+
     mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0")
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
 
@@ -140,3 +194,9 @@ def assert_cnm_r_success(response):
     # CNM-R ingestion metadata
     assert response.hits.hits[0]["_source"]["daac_catalog_id"] is not None
     assert response.hits.hits[0]["_source"]["daac_catalog_url"] is not None
+
+
+def sleep_for(sec=None):
+    logging.info(f"Sleeping for {sec} seconds...")
+    time.sleep(sec)
+    logging.info("Done sleeping.")
