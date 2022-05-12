@@ -28,11 +28,15 @@
       "destination": "positional"
     },
     {
-      "name": "chunk_size",
+      "name": "download_job_release",
       "destination": "positional"
     },
     {
-      "name": "job_release",
+      "name": "download_job_queue",
+      "destination": "positional"
+    },
+    {
+      "name": "chunk_size",
       "destination": "positional"
     },
     {

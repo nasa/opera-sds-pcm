@@ -7,11 +7,12 @@ BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 ISL_BUCKET_NAME=$1
 STAGING_AREA=$2
-CHUNK_SIZE="${3}"
+DOWNLOAD_JOB_RELEASE="${3:=issue_85}"
+DOWNLOAD_JOB_QUEUE="${4}"
+CHUNK_SIZE="${5}"
 CHUNK_SIZE="${CHUNK_SIZE:=2}"
-JOB_RELEASE="${4:=issue_85}"
 
-SMOKE_RUN="${5:=false}"
+SMOKE_RUN="${6:=false}"
 if [ $SMOKE_RUN = "true" ]; then
   SMOKE_RUN="--smoke-run"
 else
@@ -47,8 +48,9 @@ python $BASE_PATH/daac_data_subscriber.py \
 -s $ISL_BUCKET_NAME \
 -e L30 \
 --index-mode query \
+--release-version=$DOWNLOAD_JOB_RELEASE \
+--job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \
---release-version=$JOB_RELEASE \
 $SMOKE_RUN \
 $DRY_RUN \
 2>&1
@@ -61,8 +63,9 @@ python $BASE_PATH/daac_data_subscriber.py \
 -s $ISL_BUCKET_NAME \
 -e S30 \
 --index-mode query \
+--release-version=$DOWNLOAD_JOB_RELEASE \
+--job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \
---release-version=$JOB_RELEASE \
 $SMOKE_RUN \
 $DRY_RUN \
 2>&1

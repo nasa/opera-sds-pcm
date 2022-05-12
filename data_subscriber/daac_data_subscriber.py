@@ -154,11 +154,11 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
                         # NOTE: need to add dummy `isl_staging_area` param even though it is currently not used
                         {"name": "isl_staging_area", "value": "dummy", "from": "value"},
 
-                        # TODO chrisjrd: implement support
-                        # {"name": "smoke_run", "value": True, "from": "value"},
-                        # {"name": "dry_run", "value": True, "from": "value"},
+                        {"name": "smoke_run", "value": args.smoke_run, "from": "value"},
+                        {"name": "dry_run", "value": args.dry_run, "from": "value"},
 
-                    ]
+                    ],
+                    job_queue=args.job_queue
                 )
             )
         )
@@ -201,23 +201,24 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
         upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
 
 
-def submit_download_job(*, release_version=None, params: list[dict[str, str]]) -> str:
+def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
     return submit_mozart_job_minimal(
         hysdsio={
             "id": str(uuid.uuid4()),
             "params": params,
             "job-specification": f"job-data_subscriber_download:{release_version}",
-        }
+        },
+        job_queue=job_queue
     )
 
 
-def submit_mozart_job_minimal(*, hysdsio: dict) -> str:
+def submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
     return submit_mozart_job(
         hysdsio=hysdsio,
         product={},
         rule={
-            "rule_name": "trigger_data_subscriber_download",
-            "queue": "opera-job_worker-small",
+            "rule_name": "trigger-data_subscriber_download",
+            "queue": job_queue,
             "priority": "0",
             "kwargs": "{}",
             "enable_dedup": True
@@ -291,10 +292,12 @@ def create_parser():
     parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                         help="The protocol used for retrieving data, HTTPS or default of S3")
 
-    parser.add_argument("--chunk-size", dest="chunk_size", type=int, default=2,
-                        help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     parser.add_argument("--release-version", dest="release_version",
                         help="The release version of the download job-spec.")
+    parser.add_argument("--job-queue", dest="job_queue",
+                        help="The queue to use for the scheduled download job.")
+    parser.add_argument("--chunk-size", dest="chunk_size", type=int, default=2,
+                        help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
                         help="A list of target tile IDs pending download.")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true",
