@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -318,8 +318,12 @@ variable "pge_snapshots_date" {
   default = ""
 }
 
+variable "pge_names" {
+  default = "opera_pge-dswx_hls"
+}
+
 variable "pge_release" {
-  default = ""
+  default = "beta_prep"
 }
 
 variable "crid" {

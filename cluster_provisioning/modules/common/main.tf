@@ -820,12 +820,12 @@ resource "aws_instance" "mozart" {
 
   provisioner "file" {
     content     = data.template_file.q_config.rendered
-    destination = "~/q_config"
+    destination = "q_config"
   }
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1223,19 +1223,23 @@ resource "aws_instance" "mozart" {
 
       # deploy PGE for R1 (DSWx_HLS)
       "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" \\",
-      "    --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url} \\",
-      "    --username ${var.artifactory_fn_user} --api_key ${var.artifactory_fn_api_key}",
-      "else",
-      # TODO chrisjrd: extract vars as needed
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
       "    --image_names ${var.pge_names} \\",
-#      "    --image_names opera_pge-dswx_hls \\",
       "    --pge_release \"${var.pge_release}\" \\",
       "    --sds_config ~/.sds/config \\",
-      "    --processes 4 --force \\",
+      "    --processes 4 \\",
+      "    --force \\",
+      "    --artifactory_url ${local.pge_artifactory_dev_url}",
+      "    --username ${var.artifactory_fn_user} \\",
+      "    --api_key ${var.artifactory_fn_api_key}",
+      "else",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
+      "    --image_names ${var.pge_names} \\",
+      "    --pge_release ${var.pge_release} \\",
+      "    --sds_config ~/.sds/config \\",
+      "    --processes 4 \\",
+      "    --force \\",
       "    --artifactory_url ${local.pge_artifactory_release_url} \\",
-#      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
       "    --username ${var.artifactory_fn_user} \\",
       "    --api_key ${var.artifactory_fn_api_key}",
       "fi",
@@ -1609,7 +1613,7 @@ resource "aws_instance" "metrics" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1675,7 +1679,7 @@ resource "aws_instance" "grq" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1762,7 +1766,7 @@ resource "aws_instance" "factotum" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {

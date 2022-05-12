@@ -349,8 +349,12 @@ variable "pge_snapshots_date" {
   default = "20220401-1.0.0-er.3.0"
 }
 
+variable "pge_names" {
+  default = "opera_pge-dswx_hls"
+}
+
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "beta_prep"
 }
 
 variable "crid" {

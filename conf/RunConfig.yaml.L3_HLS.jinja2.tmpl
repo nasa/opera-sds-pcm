@@ -1,5 +1,5 @@
 RunConfig:
-  Name: OPERA-DSWX-HLS-PGE-SAMPLE-CONFIG
+  Name: OPERA-DSWX-HLS-PGE-CONFIG
   Groups:
     PGE:
       PGENameGroup:
@@ -15,14 +15,15 @@ RunConfig:
         ProductCounter: 001
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
-        SASOutputFile: {{ data.product_path_group.sas_output_file }}
       PrimaryExecutable:
         ProductIdentifier: DSWX_HLS
         ProgramPath: python3
         ProgramOptions:
-            - DSWx-HLS-0.1/bin/dswx_hls.py
+          - proteus-0.1/bin/dswx_hls.py
+          - --full-log-format
         ErrorCodeBase: 100000
         SchemaPath: dswx_hls_sas_schema.yaml
+        IsoTemplatePath: OPERA_ISO_metadata_L3_DSWx_HLS_template.xml.jinja2
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -43,15 +44,40 @@ RunConfig:
               {%- endfor %}
           dynamic_ancillary_file_group:
             {%- for type in data.dynamic_ancillary_file_group.keys() %}
-             {%- if data.dynamic_ancillary_file_group[type] is not none %}
-              {{ type }}: {{ data.dynamic_ancillary_file_group[type] }}
-             {%- else %}
-              {{ type }}:
-             {%- endif %}
+            {%- if data.dynamic_ancillary_file_group[type] is not none %}
+            {{ type }}: {{ data.dynamic_ancillary_file_group[type] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
             {%- endfor %}
+          primary_executable:
+            product_type: DSWX_HLS
           product_path_group:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
-            sas_output_file: {{ data.product_path_group.product_path }}/{{ data.product_path_group.sas_output_file }}
-          primary_executable:
-            product_type: DSWX_HLS
+            output_dir: {{ data.product_path_group.product_path }}
+            product_id: dswx_hls
+            save_wtr: True    # Layer 1 - WTR
+            save_bwtr: True   # Layer 2 - BWTR
+            save_conf: True   # Layer 3 - CONF
+            save_diag: True   # Layer 4 - DIAG
+            save_wtr_1: True  # Layer 5 - WTR-1
+            save_wtr_2: True  # Layer 6 - WTR-2
+            save_land: True   # Layer 7 - LAND
+            save_shad: True   # Layer 8 - SHAD
+            save_cloud: True  # Layer 9 - CLOUD
+            save_dem: True    # Layer 10 - DEM
+            save_rgb: False   # Reflectance RGB color composition
+            save_infrared_rgb: False  # SWIR-1, NIR, and Red reflectance color composition
+          hls_thresholds:
+            wigt: 0.0124         # Modified Normalized Difference Wetness Index (MNDWI) Threshold
+            awgt: 0.0            # Automated Water Extent Shadow Threshold
+            pswt_1_mndwi: -0.44  # Partial Surface Water Test-1 MNDWI Threshold
+            pswt_1_nir: 1500     # Partial Surface Water Test-1 NIR Threshold
+            pswt_1_swir1: 900    # Partial Surface Water Test-1 SWIR1 Threshold
+            pswt_1_ndvi: 0.7     # Partial Surface Water Test-1 NDVI Threshold
+            pswt_2_mndwi: -0.5   # Partial Surface Water Test-2 MNDWI Threshold
+            pswt_2_blue: 1000    # Partial Surface Water Test-2 Blue Threshold
+            pswt_2_nir: 2500     # Partial Surface Water Test-2 NIR Threshold
+            pswt_2_swir1: 3000   # Partial Surface Water Test-2 SWIR1 Threshold
+            pswt_2_swir2: 1000   # Partial Surface Water Test-2 SWIR2 Threshold

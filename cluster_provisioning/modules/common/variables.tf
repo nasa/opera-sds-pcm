@@ -3,7 +3,7 @@ variable "artifactory_base_url" {
 }
 
 variable "artifactory_repo" {
-  default = "general-develop"
+  default = "general"
 }
 
 variable "artifactory_mirror_url" {
@@ -343,7 +343,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "beta_prep"
 }
 
 variable "crid" {

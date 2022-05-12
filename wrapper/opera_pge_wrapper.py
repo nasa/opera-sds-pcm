@@ -76,14 +76,13 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.debug(f"PGE Config: {to_json(pge_config)}")
 
     # Run the PGE
-    logger.info("Running PGE.")
     should_simulate_pge = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
-    logger.info(f"{should_simulate_pge=}")
 
     if should_simulate_pge:
         logger.info("Simulating PGE run....")
         pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
     else:
+        logger.info("Running PGE...")
         exec_pge_command(
             context=context,
             work_dir=work_dir,
@@ -91,7 +90,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
             runconfig_dir=runconfig_dir,
             output_dir=output_dir
         )
-    logger.info(f"{os.listdir(output_dir)=}")
+    logger.debug(f"{os.listdir(output_dir)=}")
 
     extra_met = {
         "lineage": lineage_metadata,
@@ -131,6 +130,7 @@ def job_param_by_name(context: Dict, name: str):
         if param["name"] == name:
             return param["value"]
     raise Exception(f"param ({name}) not found in _context.json")
+
 
 def exec_pge_command(context: Dict, work_dir: str, input_hls_dir: str, runconfig_dir: str, output_dir: str):
     logger.info("Preparing PGE docker command.")
