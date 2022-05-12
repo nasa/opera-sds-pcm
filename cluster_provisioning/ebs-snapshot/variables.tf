@@ -123,9 +123,3 @@ variable "artifactory_fn_user" {
 variable "artifactory_fn_api_key" {
   default = ""
 }
-
-variable "hls_download_timer_trigger_frequency" {}
-
-variable "hlsl30_query_timer_trigger_frequency" {}
-
-variable "hlss30_query_timer_trigger_frequency" {}

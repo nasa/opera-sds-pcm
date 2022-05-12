@@ -74,9 +74,6 @@ module "common" {
   pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
-  hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
-  hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
-  hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
   dataset_bucket                          = var.dataset_bucket
