@@ -6,7 +6,7 @@
     {
       "name": "minutes",
       "from": "submitter",
-      "placeholder": "60",
+      "placeholder": "60"
     },
     {
       "name": "bounding_box",
