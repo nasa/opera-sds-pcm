@@ -21,6 +21,8 @@ aws_lambda: LambdaClient = boto3.client("lambda")
 
 
 def invoke_subscriber_query_lambda():
+    logging.info("Invoking data subscriber query timer lambda")
+
     dummy_payload_cloudwatch_scheduled_event = b"""
         {
           "id": "cdc73f9d-aea9-11e3-9d5a-835b769c0d9c",
@@ -51,6 +53,8 @@ def invoke_subscriber_query_lambda():
     interval=30,
 )
 def wait_for_query_job(job_id):
+    logging.info(f"Checking query job status. {job_id=}")
+
     response: Response = requests.get(
         f"https://{get_es_host()}/mozart/api/v0.1/job/status?id={job_id}",
         verify=False,
@@ -69,6 +73,8 @@ def wait_for_query_job(job_id):
     interval=30,
 )
 def wait_for_download_jobs(job_id):
+    logging.info(f"Checking download job status. {job_id=}")
+
     response: elasticsearch_dsl.response.Response = Search(using=get_es_client(), index="data_subscriber_product_catalog") \
         .query("match", query_job_id=job_id) \
         .query("match", downloaded=True) \
