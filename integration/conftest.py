@@ -56,6 +56,7 @@ def clear_pcm_test_state():
         es_index_delete, \
         delete_output_files
 
+    es_index_delete("data_subscriber_product_catalog")
     es_index_delete("grq_1_l2_hls_l30")
     es_index_delete("grq_1_l2_hls_s30")
     es_index_delete("grq_1_opera_state_config")
