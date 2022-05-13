@@ -12,11 +12,7 @@
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {
-      "name": "start_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "end_datetime",
+      "name": "minutes",
       "destination": "positional"
     },
     {
