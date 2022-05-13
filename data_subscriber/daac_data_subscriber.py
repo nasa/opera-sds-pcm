@@ -83,7 +83,7 @@ def run():
         granules, temporal_range = query_cmr(args, token, CMR)
         for granule in granules:
             update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"))
-            update_granule_index(HLS_SPATIAL_CONN, granules)
+            update_granule_index(HLS_SPATIAL_CONN, granule)
 
     if args.subparser_name != "query":
         urls = HLS_CONN.get_all_undownloaded()
