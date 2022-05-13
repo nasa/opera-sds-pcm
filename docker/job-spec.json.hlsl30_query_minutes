@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query_minutes.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 600,
   "time_limit": 660,

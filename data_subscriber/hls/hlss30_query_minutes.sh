@@ -3,16 +3,16 @@
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
-START_DATETIME=$1
-END_DATETIME=$2
+MINUTES=$1
+
+if [ ! -z "$2" ]; then
+  BOUNDING_BOX="-b ${2}"
+fi
 
 if [ ! -z "$3" ]; then
-  BOUNDING_BOX="-b ${3}"
+  PROVIDER="-p ${3}"
 fi
 
-if [ ! -z "$4" ]; then
-  PROVIDER="-p ${4}"
-fi
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -25,12 +25,12 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to query LPDAAC HLSL30 data"
+echo "Running job to query LPDAAC HLSS30 data"
 date
 
 # Forward processing use case; query previous 60 minutes
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -sd $START_DATETIME -ed $END_DATETIME -c HLSL30 $BOUNDING_BOX $PROVIDER"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -sd $START_DATETIME -ed $END_DATETIME -c HLSL30 $BOUNDING_BOX $PROVIDER
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -c HLSS30 ${BOUNDING_BOX} ${PROVIDER}"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -c HLSS30 ${BOUNDING_BOX} ${PROVIDER}
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
