@@ -3,7 +3,7 @@
     {
       "enabled": true,
       "job_type": "hysds-io-send_notify_msg:__TAG__",
-      "kwargs": "{\"provider_name\":\"JPL-OPERA\",\"checksum_type\":\"md5\",\"publisher_arn\":\"{{ DAAC_PROXY }}\",\"sqs_queue_url\":\"{{ DAAC_SQS_URL }}\",\"sqs_endpoint_url\":\"{{ DAAC_ENDPOINT_URL }}\",\"staged_data_types\":{\"data\":[\"*.tif\"],\"metadata\":[\"*.log\",\"*.catalog.json\",\"*.iso.xml\",\"*.md5\"]},\"use_s3_uri_structure\": \"{{ USE_S3_URI }}\",\"product_type_key\": \"ProductType\"}",
+      "kwargs": "{\"provider_name\":\"JPL-OPERA\",\"checksum_type\":\"md5\",\"publisher_arn\":\"{{ DAAC_PROXY }}\",\"sqs_queue_url\":\"{{ DAAC_SQS_URL }}\",\"sqs_endpoint_url\":\"{{ DAAC_ENDPOINT_URL }}\",\"staged_data_types\":{\"data\":[\"*.tif\"],\"metadata\":[\"*.log\",\"*.catalog.json\",\"*.iso.xml\",\"*.md5\"]},\"use_s3_uri_structure\": \"{{ USE_S3_URI }}\",\"product_type_key\": \"daac_product_type\",\"data_version\":\"0.0\",\"schema_version\":\"1.5\"}",
       "passthru_query": false,
       "priority": 0,
       "query_all": false,

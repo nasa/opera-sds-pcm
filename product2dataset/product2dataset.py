@@ -100,7 +100,7 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         dataset_met_json["FileSize"] = combined_file_size
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
-        dataset_met_json["CollectionName"] = "OPERA_L3_DSWX_HLS_0.0"   # added by Hyun 5-5-22 (for collection in cnm msg)
+        #dataset_met_json["CollectionName"] = "OPERA_L3_DSWX_HLS_0.0"   # added by Hyun 5-5-22 (for collection in cnm msg)
         dataset_met_json.update(extra_met)
 
         dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")

@@ -12,6 +12,8 @@ class OperaChimeraConstants(ChimeraConstants):
     PATTERN = "Pattern"
     FORCE_INGEST = "FORCE_INGEST"
 
+    CNM_VERSION = "CNM_VERSION"
+
     # processing mode key
     PROCESSING_MODE_KEY = "processing_mode"
 
@@ -44,6 +46,8 @@ class OperaChimeraConstants(ChimeraConstants):
     GET_HARDCODED_METADATA = "get_hardcoded_metadata"
 
     SET_PCM_RETRIEVAL_ID = "set_pcm_retrieval_id"
+
+    SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
 
     TBD_PRECONDITIONS = "undefinedPreconditions"
 

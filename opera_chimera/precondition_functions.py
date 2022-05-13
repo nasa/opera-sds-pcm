@@ -61,6 +61,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {oc_const.COMPOSITE_RELEASE_ID: crid}
         return rc_params
 
+    def get_cnm_version(self):
+	    # we may need to choose different CNM data version for diffrent product types
+		# for now, it is set as CNM_VERSION in settings.yaml
+        cnm_version = self._settings.get(oc_const.CNM_VERSION)
+        print("cnm_version: {}".format(cnm_version))
+        return {"cnm_version": cnm_version}
+
     def __get_run_config_metadata(self, run_config_key, context):
         value = None
         for key in run_config_key.split("."):
@@ -899,3 +906,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
         return {"L2_HLS": product_paths}
+
+    def set_daac_product_type(self):
+        """
+        Sets the DAAC product type
+        :return: a DAAC product type that will use to populate collection value in CNM-S msg
+        """
+        logger.info("Calling function {} function".format(oc_const.SET_DAAC_PRODUCT_TYPE))
+        template = self._pge_config.get(oc_const.SET_DAAC_PRODUCT_TYPE, {}).get(
+            "template", None
+        )
+
+        if template:
+            daac_product_type = template.format(**self._job_params)
+            print("daac_product_type: {}".format(daac_product_type))
+            return {product_metadata.DAAC_PRODUCT_TYPE: daac_product_type}
+        else:
+            raise RuntimeError(
+                "Must define a 'template' field for the {} function".format(
+                    oc_const.SET_DAAC_PRODUCT_TYPE
+                )
+            )
