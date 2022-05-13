@@ -71,7 +71,6 @@ module "common" {
   use_daac_cnm                            = var.use_daac_cnm
   pge_names                               = var.pge_names
   pge_snapshots_date                      = var.pge_snapshots_date
-  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
