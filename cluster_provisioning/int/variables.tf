@@ -323,7 +323,7 @@ variable "pge_names" {
 }
 
 variable "pge_release" {
-  default = "beta_prep"
+  default = "1.0.0-er.4.0"
 }
 
 variable "crid" {
