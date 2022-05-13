@@ -15,6 +15,7 @@ setup(
         'subscriber': [
             'boto3==1.22.3',
             'elasticsearch==7.13.4',
+            'elasticsearch[async]>=7.13.4',
             'more-itertools==8.13.0',
             'requests==2.27.1',
         ],
@@ -33,6 +34,7 @@ setup(
             # 'GDAL==3.4.2',  # install native gdal first. `brew install gdal` on macOS.
             'Shapely',
             'elasticsearch==7.13.4',
+            'elasticsearch[async]>=7.13.4',
             'requests==2.27.1',
             'pytest==7.1.1',
             'pytest-cov==3.0.0'
