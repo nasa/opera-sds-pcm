@@ -11,11 +11,6 @@ setup(
         'pandas',
         'h5py'
     ],
-    setup_requires=['pytest-runner'],
-    tests_require=[
-        'pytest==7.1.1',
-        "pytest-asyncio==0.18.3",
-    ],
     extras_require={
         'subscriber': [
             'boto3==1.22.3',

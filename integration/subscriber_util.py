@@ -1,8 +1,8 @@
 import logging
 
+import backoff
 import boto3
 import elasticsearch_dsl.response
-import backoff
 import elasticsearch_dsl.response
 import mypy_boto3_lambda
 import requests
@@ -16,6 +16,8 @@ from int_test_util import \
 from integration import conftest
 
 config = conftest.config
+
+aws_lambda: LambdaClient = boto3.client("lambda")
 
 
 def invoke_subscriber_query_lambda():
@@ -33,7 +35,6 @@ def invoke_subscriber_query_lambda():
           "detail": {}
         }
     """
-    aws_lambda: LambdaClient = boto3.client("lambda")
     response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["DATA_SUBSCRIBER_QUERY_LAMBDA"],
         Payload=dummy_payload_cloudwatch_scheduled_event
@@ -62,7 +63,7 @@ def wait_for_query_job(job_id):
 @backoff.on_predicate(
     backoff.constant,
     lambda is_truthy_status: not is_truthy_status,
-    max_time=60*1,
+    max_time=60*10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
     interval=30,
