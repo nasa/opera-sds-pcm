@@ -101,11 +101,9 @@ async def test_query_smoke_run(monkeypatch):
 async def test_download_by_tile(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.upload_url_list_from_s3.__name__,
-        lambda *args, **kwargs: None
-    )
+    mock_get_aws_creds(monkeypatch)
+    mock_s3_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
 
     args = "dummy.py " \
            "--s3bucket=dummy_bucket " \
@@ -113,6 +111,7 @@ async def test_download_by_tile(monkeypatch):
            "--verbose " \
            "--index-mode=download " \
            "--tile-ids=T00000 " \
+           "--transfer-protocol=not-https " \
            "".split()
 
     # ACT
@@ -126,11 +125,9 @@ async def test_download_by_tile(monkeypatch):
 async def test_download_by_tiles(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.upload_url_list_from_s3.__name__,
-        lambda *args, **kwargs: None
-    )
+    mock_get_aws_creds(monkeypatch)
+    mock_s3_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
 
     args = "dummy.py " \
            "--s3bucket=dummy_bucket " \
@@ -148,14 +145,36 @@ async def test_download_by_tiles(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_download_https(monkeypatch):
+    # ARRANGE
+    patch_subscriber(monkeypatch)
+    mock_get_aws_creds(monkeypatch)
+    mock_https_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
+
+    args = "dummy.py " \
+           "--s3bucket=dummy_bucket " \
+           "--collection-shortname=dummy_collection_shortname " \
+           "--verbose " \
+           "--index-mode=download " \
+           "--tile-ids=T00000 " \
+           "--transfer-protocol=https " \
+           "".split()
+
+    # ACT
+    results = await data_subscriber.daac_data_subscriber.run(args)
+
+    # ASSERT
+    assert results is None
+
+
+@pytest.mark.asyncio
 async def test_download_by_tiles_smoke_run(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.upload_url_list_from_s3.__name__,
-        lambda *args, **kwargs: None
-    )
+    mock_get_aws_creds(monkeypatch)
+    mock_s3_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
 
     args = "dummy.py " \
            "--s3bucket=dummy_bucket " \
@@ -177,11 +196,9 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
 async def test_download_by_tiles_dry_run(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.upload_url_list_from_s3.__name__,
-        lambda *args, **kwargs: None
-    )
+    mock_get_aws_creds(monkeypatch)
+    mock_s3_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
 
     args = "dummy.py " \
            "--s3bucket=dummy_bucket " \
@@ -242,6 +259,49 @@ def patch_subscriber(monkeypatch):
     )
 
 
+def mock_get_aws_creds(monkeypatch):
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.get_aws_creds.__name__,
+        lambda *args, **kwargs: {
+            "accessKeyId": None,
+            "secretAccessKey": None,
+            "sessionToken": None
+        }
+    )
+
+
+def mock_https_transfer(monkeypatch):
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.https_transfer.__name__,
+        lambda *args, **kwargs: {}
+    )
+
+
+def mock_s3_transfer(monkeypatch):
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.s3_transfer.__name__,
+        lambda *args, **kwargs: {}
+    )
+
+
+def mock_boto3(monkeypatch):
+    class MockSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def client(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.boto3,
+        data_subscriber.daac_data_subscriber.boto3.Session.__name__,
+        MockSession
+    )
+
+
 class MockDataSubscriberProductCatalog:
     def get_all_undownloaded(self):
         return [
@@ -262,3 +322,9 @@ class MockDataSubscriberProductCatalog:
                 "s3_url": "s3://example/T00002.B01.tif"
             },
         ]
+
+    def product_is_downloaded(self, *args, **kwargs):
+        return False
+
+    def mark_product_as_downloaded(self, *args, **kwargs):
+        pass

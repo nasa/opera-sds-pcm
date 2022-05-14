@@ -92,7 +92,7 @@ async def run(argv: list[str]):
         if args.index_mode == "query" or args.index_mode == "query-only":
             results = await run_query(args, token, ES_CONN, CMR, job_id)
         elif args.index_mode == "download":
-            results = run_download(args, token, ES_CONN, NETLOC, username, password, job_id)
+            results = await run_download(args, token, ES_CONN, NETLOC, username, password, job_id)
         else:
             raise Exception(f"Unsupported operation. {args.index_mode=}")
     logging.info("END")
@@ -177,7 +177,7 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
     }
 
 
-def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
+async def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
     downloads: Iterable[dict] = ES_CONN.get_all_undownloaded()
     logging.info(f"{downloads=}")
     if not downloads:
@@ -194,11 +194,11 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
     if args.transfer_protocol == "https":
         download_urls = [to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
+        await upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
     else:
         download_urls = [to_s3_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
+        await upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
 
 
 def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
@@ -506,10 +506,12 @@ def update_es_index(ES_CONN, download_urls, job_id):
         ES_CONN.process_url(url, job_id)  # Implicitly adds new product to index
 
 
-def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id):
+async def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
+    es_update_tasks = []
+    loop = asyncio.get_event_loop()
     for url in filtered_downloads:
         try:
             if ES_CONN.product_is_downloaded(url):
@@ -525,7 +527,16 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id)
                     else:
                         logging.debug(str(result))
 
-                ES_CONN.mark_product_as_downloaded(url, job_id)
+                    es_update_tasks.append(
+                        loop.run_in_executor(
+                            executor=None,
+                            func=partial(
+                                ES_CONN.mark_product_as_downloaded,
+                                url,
+                                job_id
+                            )
+                        )
+                    )
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
                 num_successes = num_successes + 1
         except Exception as e:
@@ -536,6 +547,12 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id)
     logging.info(f"Files downloaded: {str(num_successes)}")
     logging.info(f"Duplicate files skipped: {str(num_skipped)}")
     logging.info(f"Files failed to download: {str(num_failures)}")
+
+    es_update_results = await asyncio.gather(*es_update_tasks, return_exceptions=True)
+    exceptional_results = list(filter(lambda r: isinstance(r, Exception), es_update_results))
+    if len(exceptional_results) > 0:
+        logging.error(f"{len(exceptional_results)=}")
+        logging.error(f"{exceptional_results=}")
 
 
 def https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
@@ -576,7 +593,7 @@ def upload_chunk(chunk_dict):
     chunk_dict['out'].write(chunk_dict['chunk'])
 
 
-def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
+async def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
     aws_creds = get_aws_creds(session)
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
@@ -589,6 +606,8 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "s3://" in f]
 
+    es_update_tasks = []
+    loop = asyncio.get_event_loop()
     for url in filtered_downloads:
         try:
             if ES_CONN.product_is_downloaded(url):
@@ -604,7 +623,16 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
                     else:
                         logging.debug(str(result))
 
-                ES_CONN.mark_product_as_downloaded(url, job_id)
+                    es_update_tasks.append(
+                        loop.run_in_executor(
+                            executor=None,
+                            func=partial(
+                                ES_CONN.mark_product_as_downloaded,
+                                url,
+                                job_id
+                            )
+                        )
+                    )
                 logging.info(f"{str(datetime.now())} SUCCESS: {url}")
                 num_successes = num_successes + 1
         except Exception as e:
@@ -615,6 +643,12 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
     logging.info(f"Files downloaded: {str(num_successes)}")
     logging.info(f"Duplicate files skipped: {str(num_skipped)}")
     logging.info(f"Files failed to download: {str(num_failures)}")
+
+    es_update_results = await asyncio.gather(*es_update_tasks, return_exceptions=True)
+    exceptional_results = list(filter(lambda r: isinstance(r, Exception), es_update_results))
+    if len(exceptional_results) > 0:
+        logging.error(f"{len(exceptional_results)=}")
+        logging.error(f"{exceptional_results=}")
 
     shutil.rmtree(tmp_dir)
 
