@@ -104,7 +104,7 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
     if not download_urls:
         return
 
-    await update_es_index(ES_CONN, download_urls, job_id)
+    update_es_index(ES_CONN, download_urls, job_id)
 
     if args.index_mode == "query-only":
         logging.info(f"{args.index_mode=}. Skipping download job submission.")
@@ -501,22 +501,9 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-async def update_es_index(ES_CONN, download_urls, job_id):
-    update_es_index_tasks = []
-    loop = asyncio.get_event_loop()
+def update_es_index(ES_CONN, download_urls, job_id):
     for url in download_urls:
         ES_CONN.process_url(url, job_id)  # Implicitly adds new product to index
-        update_es_index_tasks.append(
-            loop.run_in_executor(
-                executor=None,
-                func=partial(
-                    ES_CONN.process_url,  # Implicitly adds new product to index
-                    url,
-                    job_id
-                )
-            )
-        )
-    await asyncio.gather(*update_es_index_tasks, return_exceptions=True)
 
 
 async def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id):
