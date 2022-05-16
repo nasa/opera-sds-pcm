@@ -45,8 +45,6 @@ python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
 -m $MINUTES \
 -c HLSL30 \
 -s $ISL_BUCKET_NAME \
--e L30 \
---index-mode query \
 --release-version=$DOWNLOAD_JOB_RELEASE \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \

@@ -4,6 +4,24 @@ BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 MINUTES=$1
+DOWNLOAD_JOB_RELEASE="${2:=issue_85}"
+DOWNLOAD_JOB_QUEUE="${3}"
+CHUNK_SIZE="${4}"
+CHUNK_SIZE="${CHUNK_SIZE:=2}"
+
+SMOKE_RUN="${5:=false}"
+if [ $SMOKE_RUN = "true" ]; then
+  SMOKE_RUN="--smoke-run"
+else
+  SMOKE_RUN=""
+fi
+
+DRY_RUN="${6:=false}"
+if [ $DRY_RUN = "true" ]; then
+  DRY_RUN="--dry-run"
+else
+  DRY_RUN=""
+fi
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -21,7 +39,15 @@ date
 
 # Forward processing use case; query previous 60 minutes
 echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -c HLSS30"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -c HLSS30
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
+-m $MINUTES \
+-c HLSS30 \
+-s $ISL_BUCKET_NAME \
+--release-version=$DOWNLOAD_JOB_RELEASE \
+--job-queue=$DOWNLOAD_JOB_QUEUE \
+--chunk-size=$CHUNK_SIZE \
+$SMOKE_RUN \
+$DRY_RUN
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
