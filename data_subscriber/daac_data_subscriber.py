@@ -88,30 +88,6 @@ async def run(argv: list[str]):
     job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
-    username, password = setup_earthdata_login_auth(EDL)
-    token = get_token(TOKEN_URL, 'daac-subscriber', IP_ADDR, EDL)
-
-    temporal_range = None
-    downloads = ES_CONN.get_all_undownloaded() if args.index_mode.lower() == "download" else query_cmr(args, token, CMR)
-
-    if args.subparser_name != "download":
-        HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
-        granules, temporal_range = query_cmr(args, token, CMR)
-        for granule in granules:
-            update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"))
-            update_granule_index(HLS_SPATIAL_CONN, granules)
-
-    if args.subparser_name != "query":
-        urls = HLS_CONN.get_all_undownloaded()
-        session = SessionWithHeaderRedirection(username, password, NETLOC)
-
-        if args.transfer_protocol.lower() == "https":
-            upload_url_list_from_https(session, HLS_CONN, urls, args, token)
-        else:
-            upload_url_list_from_s3(session, HLS_CONN, urls, args)
-
-        logging.info(f"Total files updated: {len(urls)}")
-
     logging.info(f"{argv=}")
 
     with open("_job.json", "r+") as job:
@@ -124,29 +100,32 @@ async def run(argv: list[str]):
     username, password = setup_earthdata_login_auth(EDL)
 
     with token_ctx(TOKEN_URL, IP_ADDR, EDL) as token:
-        if args.index_mode == "query" or args.index_mode == "query-only":
-            results = await run_query(args, token, ES_CONN, CMR, job_id)
-        elif args.index_mode == "download":
-            results = run_download(args, token, ES_CONN, NETLOC, username, password, job_id)
+        logging.info(f"{args.subparser_name=}")
+        if args.subparser_name == "query":
+            results = await run_query(args, token, HLS_CONN, CMR, job_id)
+        elif args.subparser_name == "download":
+            results = run_download(args, token, HLS_CONN, NETLOC, username, password, job_id)
+
         else:
             raise Exception(f"Unsupported operation. {args.index_mode=}")
     logging.info("END")
     return results
 
-    if temporal_range:
-        logging.info(f"Temporal range: {temporal_range}")
 
+async def run_query(args, token, HLS_CONN, CMR, job_id):
+    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+    granules, temporal_range = query_cmr(args, token, CMR)
 
-async def run_query(args, token, ES_CONN, CMR, job_id):
-    download_urls: list[str] = query_cmr(args, token, CMR)
-    if not download_urls:
-        return
+    download_urls: list[str] = []
+    for granule in granules:
+        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
+        update_granule_index(HLS_SPATIAL_CONN, granules)
+        download_urls.extend(granule.get("filtered_urls"))
 
-    update_es_index(ES_CONN, download_urls, job_id)
-
-    if args.index_mode == "query-only":
-        logging.info(f"{args.index_mode=}. Skipping download job submission.")
-        return
+    # TODO chrisjrdL fixme
+    # if args.index_mode == "query-only":
+    #     logging.info(f"{args.index_mode=}. Skipping download job submission.")
+    #     return
 
     tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
@@ -184,9 +163,6 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
                     release_version=args.release_version,
                     params=[
                         {"name": "tile_ids", "value": " ".join(chunk_tile_ids), "from": "value"},
-                        {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
-                        {"name": "start_time", "value": args.startDate, "from": "value"},
-                        {"name": "end_time", "value": args.endDate, "from": "value"},
 
                         # TODO chrisjrd: remove this if possible
                         # NOTE: need to add dummy `isl_staging_area` param even though it is currently not used
@@ -215,8 +191,10 @@ async def run_query(args, token, ES_CONN, CMR, job_id):
     }
 
 
-def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
-    downloads: Iterable[dict] = ES_CONN.get_all_undownloaded()
+def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
+    all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
+    logging.info(f"{all_pending_downloads=}")
+    downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
     logging.info(f"{downloads=}")
     if not downloads:
         return
@@ -225,18 +203,18 @@ def run_download(args, token, ES_CONN, NETLOC, username, password, job_id):
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.tile_ids = args.tile_ids[:1]
 
-    downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, downloads))
-
     session = SessionWithHeaderRedirection(username, password, NETLOC)
 
     if args.transfer_protocol == "https":
         download_urls = [to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_https(session, ES_CONN, download_urls, args, token, job_id)
+        upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
     else:
         download_urls = [to_s3_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_s3(session, ES_CONN, download_urls, args, job_id)
+        upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
+
+    logging.info(f"Total files updated: {len(downloads)}")
 
 
 def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
@@ -339,40 +317,43 @@ def create_parser():
                               help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
     query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                               help="Specify a provider for collection search. Default is LPCLOUD.")
+    query_parser.add_argument("--release-version", dest="release_version",
+                              help="The release version of the download job-spec.")
+    query_parser.add_argument("--job-queue", dest="job_queue",
+                              help="The queue to use for the scheduled download job.")
+    query_parser.add_argument("--chunk-size", dest="chunk_size", type=int, default=2,
+                              help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
+    query_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
+                             help="Toggle for skipping physical downloads.")
+    query_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
+                             help="Toggle for processing a single tile.")
 
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
                                  help="The s3 bucket where data products will be downloaded.")
     download_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                                  help="The protocol used for retrieving data, HTTPS or default of S3")
-
-    query_parser.add_argument("--release-version", dest="release_version",
-                        help="The release version of the download job-spec.")
-    query_parser.add_argument("--job-queue", dest="job_queue",
-                        help="The queue to use for the scheduled download job.")
-    query_parser.add_argument("--chunk-size", dest="chunk_size", type=int, default=2,
-                        help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     download_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
-                        help="A list of target tile IDs pending download.")
-    full_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                        help="Toggle for skipping physical downloads.")
-    full_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                        help="Toggle for processing a single tile.")
+                                 help="A list of target tile IDs pending download.")
+    download_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
+                             help="Toggle for skipping physical downloads.")
+    download_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
+                             help="Toggle for processing a single tile.")
 
     return parser
 
 
 def validate(args):
-    if args.bbox:
+    if hasattr(args, "bbox"):
         validate_bounds(args.bbox)
 
-    if args.startDate:
+    if hasattr(args, "startDate"):
         validate_date(args.startDate, "start")
 
-    if args.endDate:
+    if hasattr(args, "endDate"):
         validate_date(args.endDate, "end")
 
-    if args.minutes:
+    if hasattr(args, "minutes"):
         validate_minutes(args.minutes)
 
 
@@ -572,9 +553,9 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_url_index(ES_CONN, urls, granule_id, job_id):
-    for url in download_urls:
-        ES_CONN.process_url(url, job_id)
+def update_url_index(HLS_CONN, urls, granule_id, job_id):
+    for url in urls:
+        HLS_CONN.process_url(url, granule_id, job_id)
 
 
 def update_granule_index(ES_SPATIAL_CONN, granule):
@@ -742,8 +723,7 @@ def delete_token(url: str, token: str) -> None:
         else:
             logging.warning("CMR token deleting failed.")
     except Exception as e:
-        logging.error("Error deleting the token")
-        raise e
+        logging.warning("Error deleting the token")
 
 
 if __name__ == '__main__':
