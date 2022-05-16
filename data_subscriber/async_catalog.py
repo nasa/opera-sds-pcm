@@ -3,7 +3,7 @@ from pathlib import Path
 
 from data_subscriber.AsyncElasticsearchUtility import AsyncElasticsearchUtility
 
-ES_INDEX = "data_subscriber_product_catalog"
+ES_INDEX = "hls_catalog"
 
 
 class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
