@@ -272,7 +272,8 @@ variable "cnm_r_job_queue" {
 }
 
 variable "cnm_r_event_trigger" {
-  default = "sqs"
+  #default = "sqs"
+  default = "sns"
 }
 
 variable "cnm_r_allowed_account" {
@@ -281,8 +282,10 @@ variable "cnm_r_allowed_account" {
 
 #The value of daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+# need to get SNS arn from PO DAAC and define
 variable "daac_delivery_proxy" {
   default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-response-sns"
 }
 
 variable "use_daac_cnm" {
