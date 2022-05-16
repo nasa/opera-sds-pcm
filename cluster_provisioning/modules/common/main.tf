@@ -2055,7 +2055,6 @@ resource "aws_cloudwatch_event_rule" "hls_download_timer" {
   name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hls_download_timer_trigger_frequency
-  is_enabled = local.enable_timer
   is_enabled = false
   depends_on = [null_resource.install_pcm_and_pges]
 }
