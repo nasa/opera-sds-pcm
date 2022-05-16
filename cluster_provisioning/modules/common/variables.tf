@@ -356,6 +356,10 @@ variable "crid" {
   default = "D00100"
 }
 
+variable "hls_provider" {
+  default = "LPCLOUD"
+}
+
 variable "hls_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }

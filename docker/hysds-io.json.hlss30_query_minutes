@@ -9,15 +9,14 @@
       "placeholder": "60"
     },
     {
-      "name": "bounding_box",
-      "from": "submitter",
-      "placeholder": "-180,-90,180,90",
-      "optional": true
-    },
-    {
       "name": "provider",
       "from": "submitter",
       "placeholder": "LPCLOUD",
+    },
+    {
+      "name": "bounding_box",
+      "from": "submitter",
+      "placeholder": "-180,-90,180,90",
       "optional": true
     }
   ]

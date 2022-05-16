@@ -5,14 +5,12 @@ BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 START_DATETIME=$1
 END_DATETIME=$2
-
-if [ ! -z "$3" ]; then
-  BOUNDING_BOX="-b ${3}"
-fi
+PROVIDER=$3
 
 if [ ! -z "$4" ]; then
-  PROVIDER="-p ${4}"
+  BOUNDING_BOX="-b ${4}"
 fi
+
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -29,8 +27,8 @@ echo "Running job to query LPDAAC HLSL30 data"
 date
 
 # Forward processing use case; query previous 60 minutes
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -sd $START_DATETIME -ed $END_DATETIME -c HLSL30 $BOUNDING_BOX $PROVIDER"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -sd $START_DATETIME -ed $END_DATETIME -c HLSL30 $BOUNDING_BOX $PROVIDER
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -s $START_DATETIME -e $END_DATETIME -p $PROVIDER -c HLSL30 $BOUNDING_BOX"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -s $START_DATETIME -e $END_DATETIME -p $PROVIDER -c HLSL30 $BOUNDING_BOX
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

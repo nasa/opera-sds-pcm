@@ -16,11 +16,11 @@
       "destination": "positional"
     },
     {
-      "name": "bounding_box",
+      "name": "provider",
       "destination": "positional"
     },
     {
-      "name": "provider",
+      "name": "bounding_box",
       "destination": "positional"
     }
   ]
