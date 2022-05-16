@@ -63,8 +63,7 @@ async def run(argv: list[str]):
     parser = create_parser()
     args = parser.parse_args(argv[1:])
     try:
-        # validate(args)  # TODO chrisjrd: fixme
-        pass
+        validate(args)
     except ValueError as v:
         logging.error(v)
         exit()
@@ -115,7 +114,7 @@ async def run(argv: list[str]):
 
 async def run_query(args, token, HLS_CONN, CMR, job_id):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
-    granules, temporal_range = query_cmr(args, token, CMR)
+    granules = query_cmr(args, token, CMR)
 
     download_urls: list[str] = []
     for granule in granules:
@@ -309,9 +308,9 @@ def create_parser():
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
                               help="The collection shortname for which you want to retrieve data.")
-    query_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+    query_parser.add_argument("-sd", "--start-date", dest="startDate",
                               help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+    query_parser.add_argument("-ed", "--end-date", dest="endDate",
                               help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
                               help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
@@ -349,13 +348,13 @@ def validate(args):
     if hasattr(args, "bbox"):
         validate_bounds(args.bbox)
 
-    if hasattr(args, "startDate"):
+    if hasattr(args, "startDate") and args.startDate:
         validate_date(args.startDate, "start")
 
-    if hasattr(args, "endDate"):
+    if hasattr(args, "endDate") and args.endDate:
         validate_date(args.endDate, "end")
 
-    if hasattr(args, "minutes"):
+    if hasattr(args, "minutes") and args.minutes:
         validate_minutes(args.minutes)
 
 
@@ -460,10 +459,12 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
 
 def query_cmr(args, token, CMR):
     PAGE_SIZE = 2000
-    time_range_is_defined = args.startDate or args.endDate
+    now = datetime.utcnow()
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    data_within_last_timestamp = args.startDate if time_range_is_defined else (
-            datetime.utcnow() - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    start_date = args.startDate if args.startDate else now_minus_minutes_date
+    end_date = args.endDate if args.endDate else now_date
 
     request_url = f"https://{CMR}/search/granules.umm_json"
     params = {
@@ -472,16 +473,16 @@ def query_cmr(args, token, CMR):
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,
-        'updated_since': data_within_last_timestamp,
+        'updated_since': start_date,
         'token': token,
         'bounding_box': args.bbox,
     }
 
-    temporal_range = get_temporal_range(data_within_last_timestamp, args.endDate,
-                                        datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+    time_range_is_defined = args.startDate or args.endDate
     if time_range_is_defined:
+        temporal_range = get_temporal_range(start_date, end_date, now_date)
+        logging.info("Temporal Range: " + temporal_range)
         params['temporal'] = temporal_range
-        logging.debug("Temporal Range: " + temporal_range)
 
     product_granules, search_after = request_search(request_url, params)
 
@@ -493,7 +494,7 @@ def query_cmr(args, token, CMR):
     for granule in product_granules:
         granule['filtered_urls'] = filter_on_extension(granule, args)
 
-    return product_granules, temporal_range
+    return product_granules
 
 
 def get_temporal_range(start, end, now):

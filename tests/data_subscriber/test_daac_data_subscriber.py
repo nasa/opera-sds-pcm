@@ -217,12 +217,12 @@ def patch_subscriber(monkeypatch):
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.query_cmr.__name__,
+        data_subscriber.daac_data_subscriber.request_search.__name__,
         lambda *args, **kwargs: (
             [
                 {
                     "granule_id": "dummy_granule_id",
-                    "filtered_urls": [
+                    "related_urls": [
                         "https://example.com/T00000.B01.tif",
                         "https://example.com/T00001.B01.tif",
                         "https://example.com/T00001.B02.tif",
@@ -230,7 +230,7 @@ def patch_subscriber(monkeypatch):
                     ]
                 }
             ],
-            None
+            False  # search_after
         )
     )
     monkeypatch.setattr(
