@@ -63,7 +63,8 @@ async def run(argv: list[str]):
     parser = create_parser()
     args = parser.parse_args(argv[1:])
     try:
-        validate(args)
+        # validate(args)  # TODO chrisjrd: fixme
+        pass
     except ValueError as v:
         logging.error(v)
         exit()

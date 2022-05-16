@@ -38,8 +38,6 @@ async def test_query(monkeypatch):
 
     args = "dummy.py query " \
            "--collection-shortname=dummy_collection_shortname " \
-           "--start-date=1970-01-01T00:00:00Z " \
-           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -58,8 +56,6 @@ async def ignore_test_query_only(monkeypatch):
     args = "dummy.py query " \
            "--s3bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
-           "--start-date=1970-01-01T00:00:00Z " \
-           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
