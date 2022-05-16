@@ -308,9 +308,9 @@ def create_parser():
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
                               help="The collection shortname for which you want to retrieve data.")
-    query_parser.add_argument("-sd", "--start-date", dest="startDate",
+    query_parser.add_argument("--start-date", dest="startDate",
                               help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-ed", "--end-date", dest="endDate",
+    query_parser.add_argument("--end-date", dest="endDate",
                               help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
                               help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")

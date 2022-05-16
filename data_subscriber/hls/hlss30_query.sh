@@ -26,7 +26,7 @@ else
 fi
 
 # source PGE env
-export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
+export OPERA_HOME=$(pwd)
 export PYTHONPATH=$BASE_PATH:$OPERA_HOME:$PYTHONPATH
 export PATH=$BASE_PATH:$PATH
 export PYTHONDONTWRITEBYTECODE=1
@@ -44,7 +44,6 @@ echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUT
 python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
 -m $MINUTES \
 -c HLSS30 \
--s $ISL_BUCKET_NAME \
 --release-version=$DOWNLOAD_JOB_RELEASE \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \

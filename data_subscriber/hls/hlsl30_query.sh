@@ -44,7 +44,6 @@ echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUT
 python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
 -m $MINUTES \
 -c HLSL30 \
--s $ISL_BUCKET_NAME \
 --release-version=$DOWNLOAD_JOB_RELEASE \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \
