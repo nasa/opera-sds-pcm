@@ -26,7 +26,7 @@ else
 fi
 
 # source PGE env
-export OPERA_HOME=$(pwd)
+export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
 export PYTHONPATH=$BASE_PATH:$OPERA_HOME:$PYTHONPATH
 export PATH=$BASE_PATH:$PATH
 export PYTHONDONTWRITEBYTECODE=1
