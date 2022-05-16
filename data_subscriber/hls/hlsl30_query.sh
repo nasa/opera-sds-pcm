@@ -5,21 +5,20 @@ echo "args: $*"
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
-ISL_BUCKET_NAME=$1
-STAGING_AREA=$2
-DOWNLOAD_JOB_RELEASE="${3:=issue_85}"
-DOWNLOAD_JOB_QUEUE="${4}"
-CHUNK_SIZE="${5}"
+MINUTES=$1
+DOWNLOAD_JOB_RELEASE="${2:=issue_85}"
+DOWNLOAD_JOB_QUEUE="${3}"
+CHUNK_SIZE="${4}"
 CHUNK_SIZE="${CHUNK_SIZE:=2}"
 
-SMOKE_RUN="${6:=false}"
+SMOKE_RUN="${5:=false}"
 if [ $SMOKE_RUN = "true" ]; then
   SMOKE_RUN="--smoke-run"
 else
   SMOKE_RUN=""
 fi
 
-DRY_RUN="${7:=false}"
+DRY_RUN="${6:=false}"
 if [ $DRY_RUN = "true" ]; then
   DRY_RUN="--dry-run"
 else
@@ -37,13 +36,13 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to query LPDAAC data"
+echo "Running job to query LPDAAC HLSL30 data"
 date
 
 # Forward processing use case; query previous 60 minutes
-echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSL30 -s $ISL_BUCKET_NAME -e L30 --index-mode query"
-python $BASE_PATH/daac_data_subscriber.py \
--m 60 \
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -c HLSL30"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
+-m $MINUTES \
 -c HLSL30 \
 -s $ISL_BUCKET_NAME \
 -e L30 \
@@ -52,26 +51,9 @@ python $BASE_PATH/daac_data_subscriber.py \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \
 $SMOKE_RUN \
-$DRY_RUN \
-2>&1
-STATUS_L30=$?
+$DRY_RUN
 
-echo "python $BASE_PATH/daac_data_subscriber.py -m 60 -c HLSS30 -s $ISL_BUCKET_NAME -e S30 --index-mode query"
-python $BASE_PATH/daac_data_subscriber.py \
--m 60 \
--c HLSS30 \
--s $ISL_BUCKET_NAME \
--e S30 \
---index-mode query \
---release-version=$DOWNLOAD_JOB_RELEASE \
---job-queue=$DOWNLOAD_JOB_QUEUE \
---chunk-size=$CHUNK_SIZE \
-$SMOKE_RUN \
-$DRY_RUN \
-2>&1
-STATUS_S30=$?
-
-if [ $STATUS_S30 -eq 0 ] && [ $STATUS_L30 -eq 0 ]; then
+if [ $? -eq 0 ]; then
   echo "Finished running job"
   date
   exit 0

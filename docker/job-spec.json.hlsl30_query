@@ -1,34 +1,30 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/daac_data_subscriber_download.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query.sh",
   "disk_usage":"1GB",
-  "soft_time_limit": 3600,
-  "time_limit": 3660,
+  "soft_time_limit": 600,
+  "time_limit": 660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-small" ],
+  "recommended-queues": [ "factotum-job_worker-small" ],
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {
-      "name": "start_time",
-      "destination": "context"
-    },
-    {
-      "name": "end_time",
-      "destination": "context"
-    },
-    {
-      "name": "isl_bucket_name",
+      "name": "minutes",
       "destination": "positional"
     },
     {
-      "name": "isl_staging_area",
+      "name": "download_job_release",
       "destination": "positional"
     },
     {
-      "name": "tile_ids",
+      "name": "download_job_queue",
+      "destination": "positional"
+    },
+    {
+      "name": "chunk_size",
       "destination": "positional"
     },
     {

@@ -3,7 +3,6 @@ PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
 
 # Settings to set the latency period for various jobs
-# Settings to set the latency period for various jobs
 NOMINAL_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
 #   RRST_EVALUATOR: 60
@@ -33,7 +32,7 @@ PRODUCT_TYPES:
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Pattern: !!python/regexp '(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -57,7 +56,7 @@ PRODUCT_TYPES:
         # See naming convention documentation (https://lpdaac.usgs.gov/data/get-started-data/collection-overview/missions/harmonized-landsat-sentinel-2-hls-overview/#hls-naming-conventions)
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif))$'
+        Pattern: !!python/regexp '(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -76,12 +75,12 @@ PRODUCT_TYPES:
 
     L3_DWSx_HLS:
         # Pattern for parsing filenames such as:
-        # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0.tif"
-        # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0.tif"
+        # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001_B01_WTF.tif"
+        # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001_B09_CLOUD.tif"
         # This pattern groups the metadata information in the filename using named groups.
         #
         # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)[.](?P<ext>tif))$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx_(?P<source>HLS))_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\W_]{5})_(?P<datetime>(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))_(?P<collection_version>v\d+[.]\d+)_(?P<product_counter>\d{3}))_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG|WTR-1|WTR-2|LAND|SHAD|CLOUD|DEM)[.](?P<ext>tif)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:

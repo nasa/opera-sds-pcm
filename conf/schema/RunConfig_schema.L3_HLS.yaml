@@ -1,18 +1,22 @@
 RunConfig:
   Name: str()
+
   Groups:
     PGE:
       PGENameGroup:
         PGEName: str(required=True)
+
       InputFilesGroup:
         InputFilePaths: list(str(), min=1, required=True)
+
       DynamicAncillaryFilesGroup:
         AncillaryFileMap: map(str(), key=str(), min=0)
+
       ProductPathGroup:
         ProductCounter: int(min=1, max=999, required=False)
         OutputProductPath: str(required=True)
         ScratchPath: str(required=True)
-        SASOutputFile: str(required=True)
+
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
         ProgramPath: str(required=True)
@@ -20,10 +24,12 @@ RunConfig:
         ErrorCodeBase: int(required=True)
         SchemaPath: str(required=True)
         IsoTemplatePath: str(required=False)
+
       QAExecutable:
         Enabled: bool(required=True)
         ProgramPath: str(required=False)
         ProgramOptions: list(str(), min=0, required=False)
+
       DebugLevelGroup:
         DebugSwitch: bool(required=False)
         ExecuteViaShell: bool(required=False)
@@ -46,8 +52,8 @@ RunConfig:
             # Land cover map
             landcover_file: str(required=False)
 
-            # Built-up land map
-            built_up_cover_fraction_file: str(required=False)
+          primary_executable:
+            product_type: enum('DSWX_HLS')
 
           product_path_group:
             # Directory where PGE will place results
@@ -56,10 +62,88 @@ RunConfig:
             # Directory where SAS can write temporary data
             scratch_path: str()
 
-            # Intermediate file name. SAS writes the output product to the following file
-            # After the SAS completes, the PGE wrapper renames the product file
-            # according to proper file naming conventions.
-            sas_output_file: str()
+            # SAS writes DSWx-HLS products as a set of GeoTIFF layers
+            # All files are saved within the output_directory following
+            # the scheme:
+            # {output_dir}/{product_id}_{layer_name}.tif
+            # If the field product_id is left empty, the prefix "dswx_hls"
+            # will be used instead
 
-          primary_executable:
-            product_type: enum('DSWX_HLS')
+            output_dir: str()
+            product_id: str()
+
+            # Layer 1 - WTR
+            save_wtr: bool(required=False)
+
+            # Layer 2 - BWTR
+            save_bwtr: bool(required=False)
+
+            # Layer 3 - CONF
+            save_conf: bool(required=False)
+
+            # Layer 4 - DIAG
+            save_diag: bool(required=False)
+
+            # Layer 5 - WTR-1
+            save_wtr_1: bool(required=False)
+
+            # Layer 6 - WTR-2
+            save_wtr_2: bool(required=False)
+
+            # Layer 7 - LAND
+            save_land: bool(required=False)
+
+            # Layer 8 - SHAD
+            save_shad: bool(required=False)
+
+            # Layer 9 - CLOUD
+            save_cloud: bool(required=False)
+
+            # Layer 10 - DEM
+            save_dem: bool(required=False)
+
+            # Reflectance RGB color composition
+            save_rgb: bool(required=False)
+
+            # SWIR-1, NIR, and Red reflectance color composition
+            save_infrared_rgb: bool(required=False)
+
+          hls_thresholds: include('hls_thresholds_options', required=False)
+
+---
+
+hls_thresholds_options:
+
+  # Modified Normalized Difference Wetness Index (MNDWI) Threshold
+  wigt: num(required=False)
+
+  # Automated Water Extent Shadow Threshold
+  awgt: num(required=False)
+
+  # Partial Surface Water Test-1 MNDWI Threshold
+  pswt_1_mndwi: num(required=False)
+
+  # Partial Surface Water Test-1 NIR Threshold
+  pswt_1_nir: num(required=False)
+
+  # Partial Surface Water Test-1 SWIR1 Threshold
+  pswt_1_swir1: num(required=False)
+
+  # Partial Surface Water Test-1 NDVI Threshold
+  pswt_1_ndvi: num(required=False)
+
+  # Partial Surface Water Test-2 MNDWI Threshold
+  pswt_2_mndwi: num(required=False)
+
+  # Partial Surface Water Test-2 Blue Threshold
+  pswt_2_blue: num(required=False)
+
+  # Partial Surface Water Test-2 NIR Threshold
+  pswt_2_nir: num(required=False)
+
+  # Partial Surface Water Test-2 SWIR1 Threshold
+  pswt_2_swir1: num(required=False)
+
+  # Partial Surface Water Test-2 SWIR2 Threshold
+  pswt_2_swir2: num(required=False)
+

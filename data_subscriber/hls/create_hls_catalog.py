@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from data_subscriber.es_connection import get_data_subscriber_connection
+from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 
 logging.basicConfig(level=logging.INFO)  # Set up logging
 LOGGER = logging.getLogger(__name__)
@@ -25,5 +25,5 @@ if __name__ == "__main__":
     if args.delete_old_catalog:
         delete_old_catalog = True
 
-    data_subscriber_catalog = get_data_subscriber_connection(LOGGER)
+    data_subscriber_catalog = get_hls_catalog_connection(LOGGER)
     data_subscriber_catalog.create_index(delete_old_index=delete_old_catalog)

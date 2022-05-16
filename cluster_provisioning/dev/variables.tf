@@ -349,8 +349,12 @@ variable "pge_snapshots_date" {
   default = "20220401-1.0.0-er.3.0"
 }
 
+variable "pge_names" {
+  default = "opera_pge-dswx_hls"
+}
+
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-er.4.0"
 }
 
 variable "crid" {
@@ -361,13 +365,6 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "data_download_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "data_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"

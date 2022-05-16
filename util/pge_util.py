@@ -8,19 +8,32 @@ from commons.logger import logger
 
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
+DSWX_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
+                   'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
+"""
+List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
+PGE.
+"""
+
 
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
+    pge_name: str = pge_config['pge_name']
     output_base_name: str = pge_config['output_base_name']
     input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
 
-    match = None
     for input_file_base_name_regex in input_file_base_name_regexes:
         pattern = re.compile(input_file_base_name_regex)
         match = pattern.match(get_input_dataset_id(context))
         if match:
             break
+    else:
+        raise RuntimeError(
+            f"Could not match dataset ID '{get_input_dataset_id(context)}' to any "
+            f"input file base name regex in the PGE configuration yaml file."
+        )
 
     output_types = pge_config.get(oc_const.OUTPUT_TYPES)
+
     for output_type in output_types.keys():
         product_shortname = match.groupdict()['product_shortname']
         if product_shortname == 'HLS.L30':
@@ -35,10 +48,11 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             tile_id=match.groupdict()['tile_id'],
             # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
             datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            collection_version=match.groupdict()['collection_version']
+            collection_version=match.groupdict()['collection_version'],
+            product_counter="001",
         )
         metadata = {}
-        simulate_output(metadata, base_name, output_dir, output_types[output_type])
+        simulate_output(pge_name, metadata, base_name, output_dir, output_types[output_type])
 
 
 def get_input_dataset_id(context: Dict) -> str:
@@ -49,7 +63,7 @@ def get_input_dataset_id(context: Dict) -> str:
     raise
 
 
-def simulate_output(metadata: Dict, base_name: str, output_dir: str, extensions: str):
+def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: str, extensions: str):
     logger.info('Simulating PGE output generation....')
 
     for extension in extensions:
@@ -58,6 +72,14 @@ def simulate_output(metadata: Dict, base_name: str, output_dir: str, extensions:
             logger.info(f'Simulating met {met_file}')
             with open(met_file, 'w') as outfile:
                 json.dump(metadata, outfile, indent=2)
+        elif extension.endswith('tif') and pge_name == 'L3_HLS':
+            # Simulate the multiple output tif files created by this PGE
+
+            for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
+                output_file = os.path.join(output_dir, f'{base_name}_B{band_idx:02}_{band_name}.{extension}')
+                logger.info(f'Simulating output {output_file}')
+                with open(output_file, 'wb') as f:
+                    f.write(os.urandom(1024))
         else:
             output_file = os.path.join(output_dir, f'{base_name}.{extension}')
             logger.info(f'Simulating output {output_file}')

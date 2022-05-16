@@ -3,10 +3,10 @@ from pathlib import Path
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-ES_INDEX = "data_subscriber_product_catalog"
+ES_INDEX = "hls_catalog"
 
 
-class DataSubscriberProductCatalog(ElasticsearchUtility):
+class HLSProductCatalog(ElasticsearchUtility):
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -30,6 +30,7 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
+                                             "granule_id": {"type": "keyword"},
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "index_datetime": {"type": "date"},
@@ -53,13 +54,13 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
             } for result in undownloaded
         ]
 
-    def process_url(self, url, job_id):
+    def process_url(self, url, granule_id, job_id):
         filename = Path(url).name
         result = self._query_existence(filename)
         doc = {
+            "granule_id": granule_id,
             "index_datetime": datetime.now(),
             "query_job_id": job_id,
-
         }
 
         if "https://" in url:
@@ -71,7 +72,7 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
         if not result:
             doc["downloaded"] = False
-            self._post(id=filename, body=doc)
+            self._post(filename=filename, body=doc)
             return False
         else:
             self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
@@ -104,22 +105,22 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
-    def _post(self, id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=id)
+    def _post(self, filename, body):
+        result = self.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, id, index=ES_INDEX):
+    def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=id)
+            result = self.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
             if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
+                self.logger.debug(f"{filename} does not exist in {index}")
 
         return result
 
@@ -132,7 +133,5 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
         except:
             result = None
-            if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
 
         return result

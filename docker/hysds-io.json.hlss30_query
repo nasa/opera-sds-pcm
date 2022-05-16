@@ -1,0 +1,12 @@
+{
+  "label": "Query HLSS30 data",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "minutes",
+      "from": "submitter",
+      "placeholder": "60"
+    }
+  ]
+}

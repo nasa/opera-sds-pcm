@@ -6,17 +6,16 @@ BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 ISL_BUCKET_NAME=$1
-STAGING_AREA=$2
-TILE_IDS="${3}"
+TILE_IDS="${2}"
 
-SMOKE_RUN="${4:=false}"
+SMOKE_RUN="${3:=false}"
 if [ $SMOKE_RUN = "true" ]; then
   SMOKE_RUN="--smoke-run"
 else
   SMOKE_RUN=""
 fi
 
-DRY_RUN="${5:=false}"
+DRY_RUN="${4:=false}"
 if [ $DRY_RUN = "true" ]; then
   DRY_RUN="--dry-run"
 else
@@ -34,26 +33,23 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to download data"
+echo "Running job to download LPDAAC HLS data"
 date
 
 # Forward processing use case; download all undownloaded files from ES index
-echo "python $BASE_PATH/daac_data_subscriber.py -c ALL -s $ISL_BUCKET_NAME --index-mode download"
-python $BASE_PATH/daac_data_subscriber.py \
--c ALL \
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -s $ISL_BUCKET_NAME"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download \
 -s $ISL_BUCKET_NAME \
---index-mode=download \
 --tile-ids $TILE_IDS \
 $SMOKE_RUN \
 $DRY_RUN \
-2>&1
-STATUS=$?
 
-if [ $STATUS -eq 0 ]; then
+if [ $? -eq 0 ]; then
   echo "Finished running job"
+  date
+  exit 0
 else
   echo "Failed to run daac_data_subscriber.py"
+  date
+  exit 1
 fi
-
-date
-exit $STATUS
