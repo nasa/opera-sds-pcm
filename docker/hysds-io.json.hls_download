@@ -15,16 +15,6 @@
       "optional": true
     },
     {
-      "name": "download_job_release",
-      "from": "submitter",
-      "optional": true
-    },
-    {
-      "name": "download_job_queue",
-      "from": "submitter",
-      "optional": true
-    },
-    {
       "name": "chunk_size",
       "from": "submitter",
       "optional": true

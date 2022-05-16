@@ -14,6 +14,26 @@
     {
       "name": "minutes",
       "destination": "positional"
+    },
+    {
+      "name": "download_job_release",
+      "destination": "positional"
+    },
+    {
+      "name": "download_job_queue",
+      "destination": "positional"
+    },
+    {
+      "name": "chunk_size",
+      "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
     }
   ]
 }
