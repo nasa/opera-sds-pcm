@@ -119,7 +119,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     download_urls: list[str] = []
     for granule in granules:
         update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
-        update_granule_index(HLS_SPATIAL_CONN, granules)
+        update_granule_index(HLS_SPATIAL_CONN, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
     # TODO chrisjrdL fixme
