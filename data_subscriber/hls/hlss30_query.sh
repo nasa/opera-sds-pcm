@@ -48,7 +48,8 @@ python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
 --chunk-size=$CHUNK_SIZE \
 $SMOKE_RUN \
-$DRY_RUN
+$DRY_RUN \
+2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

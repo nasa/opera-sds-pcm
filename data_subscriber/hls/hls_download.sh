@@ -43,6 +43,7 @@ python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download \
 --tile-ids $TILE_IDS \
 $SMOKE_RUN \
 $DRY_RUN \
+2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
