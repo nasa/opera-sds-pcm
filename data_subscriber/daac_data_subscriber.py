@@ -227,6 +227,7 @@ def submit_download_job(*, release_version=None, params: list[dict[str, str]], j
         job_queue=job_queue
     )
 
+
 def submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
     return submit_mozart_job(
         hysdsio=hysdsio,
