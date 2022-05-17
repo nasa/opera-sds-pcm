@@ -139,6 +139,12 @@ def es_index_delete(index):
         Index(name=index, using=get_es_client()).delete()
 
 
+def mozart_es_index_delete(index):
+    logging.info(f"Deleting {index=}")
+    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
+        Index(name=index, using=get_mozart_es_client()).delete()
+
+
 def get(response: Response, key: str):
     try:
         return response.hits.hits[0]["_source"][key]
@@ -151,6 +157,17 @@ def get(response: Response, key: str):
 def get_es_client():
     return Elasticsearch(
         hosts=[f"https://{get_es_host()}/grq_es/"],
+        http_auth=(config["ES_USER"], config["ES_PASSWORD"]),
+        connection_class=RequestsHttpConnection,
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False
+    )
+
+
+def get_mozart_es_client():
+    return Elasticsearch(
+        hosts=[f"https://{get_es_host()}/mozart_es/"],
         http_auth=(config["ES_USER"], config["ES_PASSWORD"]),
         connection_class=RequestsHttpConnection,
         use_ssl=True,

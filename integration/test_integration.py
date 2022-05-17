@@ -13,15 +13,35 @@ from int_test_util import \
 from integration.subscriber_util import \
     wait_for_query_job, \
     wait_for_download_jobs, \
-    invoke_subscriber_query_lambda
+    invoke_l30_subscriber_query_lambda, \
+    invoke_s30_subscriber_query_lambda
 
 config = conftest.config
 
 
-def test_subscriber():
+def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
-    response = invoke_subscriber_query_lambda()
+    response = invoke_l30_subscriber_query_lambda()
+    assert response["StatusCode"] == 200
+
+    job_id = response["Payload"].read().decode().strip("\"")
+    logging.info(f"{job_id=}")
+
+    logging.info("Sleeping for query job execution...")
+    sleep_for(10)
+
+    wait_for_query_job(job_id)
+
+    logging.info("Sleeping for download job execution...")
+    sleep_for(180)
+    wait_for_download_jobs(job_id)
+
+
+def test_subscriber_s30():
+    logging.info("TRIGGERING DATA SUBSCRIBE")
+
+    response = invoke_s30_subscriber_query_lambda()
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")

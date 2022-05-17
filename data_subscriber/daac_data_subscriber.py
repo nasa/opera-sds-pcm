@@ -65,8 +65,7 @@ async def run(argv: list[str]):
     try:
         validate(args)
     except ValueError as v:
-        logging.error(v)
-        exit()
+        raise v
 
     IP_ADDR = "127.0.0.1"
     EDL = "urs.earthdata.nasa.gov"

@@ -20,11 +20,21 @@ config = conftest.config
 aws_lambda: LambdaClient = boto3.client("lambda")
 
 
-def invoke_subscriber_query_lambda():
+def invoke_l30_subscriber_query_lambda():
     logging.info("Invoking data subscriber query timer lambda")
 
     response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
-        FunctionName=config["DATA_SUBSCRIBER_QUERY_LAMBDA"],
+        FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"],
+        Payload=generate_dummy_payload_cloudwatch_scheduled_event()
+    )
+    return response
+
+
+def invoke_s30_subscriber_query_lambda():
+    logging.info("Invoking data subscriber query timer lambda")
+
+    response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
+        FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"],
         Payload=generate_dummy_payload_cloudwatch_scheduled_event()
     )
     return response
@@ -62,7 +72,7 @@ def wait_for_download_jobs(job_id):
     logging.info(f"Checking download job status. {job_id=}")
 
     response: elasticsearch_dsl.response.Response = Search(using=get_es_client(),
-                                                           index="data_subscriber_product_catalog") \
+                                                           index="hls_catalog") \
         .query("match", query_job_id=job_id) \
         .query("match", downloaded=True) \
         .execute()
