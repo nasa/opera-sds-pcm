@@ -20,6 +20,11 @@
       "optional": true
     },
     {
+      "name": "isl_bucket_name",
+      "from": "submitter",
+      "placeholder": "ISL Bucket Name"
+    },
+    {
       "name": "chunk_size",
       "name": "download_job_release",
       "from": "submitter",
