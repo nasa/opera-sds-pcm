@@ -9,12 +9,6 @@
       "placeholder": "ISL Bucket Name"
     },
     {
-      "name": "isl_staging_area",
-      "from": "submitter",
-      "placeholder": "ISL staging area",
-      "optional": true
-    },
-    {
       "name": "tile_ids",
       "from": "submitter",
       "optional": true
