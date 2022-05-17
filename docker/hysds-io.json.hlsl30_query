@@ -16,7 +16,7 @@
     {
       "name": "provider",
       "from": "submitter",
-      "placeholder": "LPCLOUD",
+      "placeholder": "LPCLOUD"
     },
     {
       "name": "bounding_box",
