@@ -328,8 +328,8 @@ def request_search(request_url, params, search_after=None):
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
-                 "bounding_box": [geo_item
-                                  for geo_item
+                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
+                                  for point
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
