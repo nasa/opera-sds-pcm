@@ -52,10 +52,9 @@ python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
 -p $PROVIDER \
 -c HLSL30 \
 $BOUNDING_BOX \
--c HLSL30 \
 --release-version=$DOWNLOAD_JOB_RELEASE \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
---s3bucket=$ISL_BUCKET_NAME \
+--isl-bucket=$ISL_BUCKET_NAME \
 --chunk-size=$CHUNK_SIZE \
 $SMOKE_RUN \
 $DRY_RUN \

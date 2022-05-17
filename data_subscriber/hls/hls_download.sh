@@ -39,7 +39,7 @@ date
 # Forward processing use case; download all undownloaded files from ES index
 echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -s $ISL_BUCKET_NAME"
 python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download \
--s $ISL_BUCKET_NAME \
+--isl-bucket=$ISL_BUCKET_NAME \
 --tile-ids $TILE_IDS \
 $SMOKE_RUN \
 $DRY_RUN \
