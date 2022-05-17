@@ -37,6 +37,7 @@ async def test_query(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
+           "--s3bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
            "".split()
 
@@ -71,6 +72,7 @@ async def test_query_smoke_run(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
+           "--s3bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \

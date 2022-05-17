@@ -8,17 +8,18 @@ BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 MINUTES=$1
 DOWNLOAD_JOB_RELEASE="${2:=issue_85}"
 DOWNLOAD_JOB_QUEUE="${3}"
-CHUNK_SIZE="${4}"
+ISL_BUCKET_NAME="${4}"
+CHUNK_SIZE="${5}"
 CHUNK_SIZE="${CHUNK_SIZE:=2}"
 
-SMOKE_RUN="${5:=false}"
+SMOKE_RUN="${6:=false}"
 if [ $SMOKE_RUN = "true" ]; then
   SMOKE_RUN="--smoke-run"
 else
   SMOKE_RUN=""
 fi
 
-DRY_RUN="${6:=false}"
+DRY_RUN="${7:=false}"
 if [ $DRY_RUN = "true" ]; then
   DRY_RUN="--dry-run"
 else
@@ -46,6 +47,7 @@ python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query \
 -c HLSL30 \
 --release-version=$DOWNLOAD_JOB_RELEASE \
 --job-queue=$DOWNLOAD_JOB_QUEUE \
+--s3bucket=$ISL_BUCKET_NAME \
 --chunk-size=$CHUNK_SIZE \
 $SMOKE_RUN \
 $DRY_RUN \

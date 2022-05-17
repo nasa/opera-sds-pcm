@@ -163,11 +163,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
                     release_version=args.release_version,
                     params=[
                         {"name": "tile_ids", "value": " ".join(chunk_tile_ids), "from": "value"},
-
-                        # TODO chrisjrd: remove this if possible
-                        # NOTE: need to add dummy `isl_staging_area` param even though it is currently not used
-                        {"name": "isl_staging_area", "value": "dummy", "from": "value"},
-
+                        {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
                         {"name": "smoke_run", "value": args.smoke_run, "from": "value"},
                         {"name": "dry_run", "value": args.dry_run, "from": "value"},
 
@@ -318,6 +314,8 @@ def create_parser():
                               help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
     query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                               help="Specify a provider for collection search. Default is LPCLOUD.")
+    query_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
+                             help="The s3 bucket where data products will be downloaded.")
     query_parser.add_argument("--release-version", dest="release_version",
                               help="The release version of the download job-spec.")
     query_parser.add_argument("--job-queue", dest="job_queue",
