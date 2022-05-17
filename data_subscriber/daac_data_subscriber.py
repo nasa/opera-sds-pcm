@@ -87,15 +87,6 @@ async def run(argv: list[str]):
     job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
-    logging.info(f"{argv=}")
-
-    with open("_job.json", "r+") as job:
-        logging.info("job_path: {}".format(job))
-        local_job_json = json.load(job)
-        logging.info(f"{local_job_json=!s}")
-    job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
-    logging.info(f"{job_id=}")
-
     username, password = setup_earthdata_login_auth(EDL)
 
     with token_ctx(TOKEN_URL, IP_ADDR, EDL) as token:
