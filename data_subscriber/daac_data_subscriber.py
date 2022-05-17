@@ -222,7 +222,7 @@ def submit_download_job(*, release_version=None, params: list[dict[str, str]], j
         hysdsio={
             "id": str(uuid.uuid4()),
             "params": params,
-            "job-specification": f"job-data_subscriber_download:{release_version}",
+            "job-specification": f"job-hls_download:{release_version}",
         },
         job_queue=job_queue
     )
@@ -233,14 +233,14 @@ def submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
         hysdsio=hysdsio,
         product={},
         rule={
-            "rule_name": "trigger-data_subscriber_download",
+            "rule_name": "trigger-hls_download",
             "queue": job_queue,
             "priority": "0",
             "kwargs": "{}",
             "enable_dedup": True
         },
         queue=None,
-        job_name="job-WF-data_subscriber_download",
+        job_name="job-WF-hls_download",
         payload_hash=None,
         enable_dedup=None,
         soft_time_limit=None,
