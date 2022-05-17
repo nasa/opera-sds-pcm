@@ -1,8 +1,7 @@
 VENUE: '{{VENUE}}'
 PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
-DSWX_CNM_VERSION: "0.0"
-CNM_VERSION: "1.0"
+DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_0.0"
 
 # Settings to set the latency period for various jobs
 NOMINAL_LATENCY:
