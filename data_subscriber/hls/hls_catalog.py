@@ -51,7 +51,7 @@ class HLSProductCatalog(ElasticsearchUtility):
             {
                 "s3_url": result['_source']['s3_url'],
                 "https_url": result['_source']['https_url']
-            } for result in undownloaded (undownloaded or [])
+            } for result in (undownloaded or [])
         ]
 
     def process_url(self, url, granule_id, job_id):
