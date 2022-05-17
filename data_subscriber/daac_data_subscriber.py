@@ -162,7 +162,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
                     release_version=args.release_version,
                     params=[
                         {"name": "tile_ids", "value": " ".join(chunk_tile_ids), "from": "value"},
-                        {"name": "isl_bucket_name", "value": args.s3_bucket, "from": "value"},
+                        {"name": "isl_bucket_name", "value": args.isl_bucket, "from": "value"},
                         {"name": "smoke_run", "value": args.smoke_run, "from": "value"},
                         {"name": "dry_run", "value": args.dry_run, "from": "value"},
 
@@ -192,6 +192,7 @@ def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
     downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
     logging.info(f"{downloads=}")
     if not downloads:
+        logging.info(f"No undownloaded files found in index.")
         return
 
     if args.smoke_run:
@@ -283,29 +284,29 @@ def create_parser():
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
 
     full_parser = subparsers.add_parser("full")
+    full_parser.add_argument("-p", "--provider", dest="provider", required=True,
+                             help="Specify a provider for collection search.")
     full_parser.add_argument("-c", "--collection", dest="collection", required=True,
                              help="The collection for which you want to retrieve data.")
-    full_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+    full_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    full_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+    full_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     full_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
     full_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                             help="Specify a provider for collection search. Default is LPCLOUD.")
-    full_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                             help="The s3 bucket where data products will be downloaded.")
+    full_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
+                             help="The incoming storage location s3 bucket where data products will be downloaded.")
     full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                              help="The protocol used for retrieving data, HTTPS or default of S3")
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
                               help="The collection shortname for which you want to retrieve data.")
-    query_parser.add_argument("--start-date", dest="startDate",
+    query_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
                               help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("--end-date", dest="endDate",
+    query_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
                               help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
                               help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
@@ -313,8 +314,8 @@ def create_parser():
                               help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
     query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                               help="Specify a provider for collection search. Default is LPCLOUD.")
-    query_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                             help="The s3 bucket where data products will be downloaded.")
+    query_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
+                             help="The incoming storage location s3 bucket where data products will be downloaded.")
     query_parser.add_argument("--release-version", dest="release_version",
                               help="The release version of the download job-spec.")
     query_parser.add_argument("--job-queue", dest="job_queue",
@@ -327,8 +328,8 @@ def create_parser():
                              help="Toggle for processing a single tile.")
 
     download_parser = subparsers.add_parser("download")
-    download_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                                 help="The s3 bucket where data products will be downloaded.")
+    download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
+                                 help="The incoming storage location s3 bucket where data products will be downloaded.")
     download_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                                  help="The protocol used for retrieving data, HTTPS or default of S3")
     download_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
@@ -342,7 +343,7 @@ def create_parser():
 
 
 def validate(args):
-    if hasattr(args, "bbox"):
+    if hasattr(args, "bbox") and args.bbox:
         validate_bounds(args.bbox)
 
     if hasattr(args, "startDate") and args.startDate:
@@ -520,8 +521,8 @@ def request_search(request_url, params, search_after=None):
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
-                 "bounding_box": [geo_item
-                                  for geo_item
+                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
+                                  for point
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
@@ -553,9 +554,9 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_url_index(HLS_CONN, urls, granule_id, job_id):
+def update_url_index(ES_CONN, urls, granule_id, job_id):
     for url in urls:
-        HLS_CONN.process_url(url, granule_id, job_id)
+        ES_CONN.process_url(url, granule_id, job_id)
 
 
 def update_granule_index(ES_SPATIAL_CONN, granule):
@@ -575,7 +576,7 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id)
                 if args.dry_run:
                     logging.info(f"{args.dry_run=}. Skipping downloads.")
                 else:
-                    result = https_transfer(url, args.s3_bucket, session, token)
+                    result = https_transfer(url, args.isl_bucket, session, token)
                     if "failed_download" in result:
                         raise Exception(result["failed_download"])
                     else:
@@ -654,7 +655,7 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
                 if args.dry_run:
                     logging.info(f"{args.dry_run=}. Skipping downloads.")
                 else:
-                    result = s3_transfer(url, args.s3_bucket, s3, tmp_dir)
+                    result = s3_transfer(url, args.isl_bucket, s3, tmp_dir)
                     if "failed_download" in result:
                         raise Exception(result["failed_download"])
                     else:

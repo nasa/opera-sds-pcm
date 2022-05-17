@@ -1,12 +1,28 @@
 {
-  "label": "Query HLSS30 data",
+  "label": "Query HLSS30 data with datetime range",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
     {
-      "name": "minutes",
+      "name": "start_datetime",
       "from": "submitter",
-      "placeholder": "60"
+      "placeholder": "1900-01-01T00:00:00Z"
+    },
+    {
+      "name": "end_datetime",
+      "from": "submitter",
+      "placeholder": "2022-12-31T23:59:59Z"
+    },
+    {
+      "name": "provider",
+      "from": "submitter",
+      "placeholder": "LPCLOUD",
+    },
+    {
+      "name": "bounding_box",
+      "from": "submitter",
+      "placeholder": "-180,-90,180,90",
+      "optional": true
     },
     {
       "name": "download_job_queue",

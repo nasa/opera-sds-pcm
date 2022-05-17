@@ -355,11 +355,15 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "beta_prep"
+  default = "1.0.0-er.4.0"
 }
 
 variable "crid" {
   default = "D00100"
+}
+
+variable "hls_provider" {
+  default = "LPCLOUD"
 }
 
 variable "hls_download_timer_trigger_frequency" {

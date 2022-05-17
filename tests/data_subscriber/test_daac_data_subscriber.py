@@ -37,7 +37,7 @@ async def test_query(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
            "".split()
 
@@ -55,7 +55,7 @@ async def ignore_test_query_only(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
            "".split()
 
@@ -72,7 +72,7 @@ async def test_query_smoke_run(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -96,7 +96,7 @@ async def test_download_by_tile(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
            "--transfer-protocol=not-https " \
            "".split()
@@ -117,7 +117,7 @@ async def test_download_by_tiles(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
            "".split()
 
@@ -137,7 +137,7 @@ async def test_download_https(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
            "--transfer-protocol=https " \
            "".split()
@@ -158,7 +158,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
            "--smoke-run " \
            "".split()
@@ -179,7 +179,7 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--s3bucket=dummy_bucket " \
+           "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
            "--dry-run " \
            "".split()
