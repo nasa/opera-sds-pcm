@@ -41,11 +41,9 @@ class HLSProductCatalog(ElasticsearchUtility):
 
     def get_all_undownloaded(self):
         undownloaded = self._query_undownloaded()
-        if undownloaded:
-            return [{"s3_url": result['_source']['s3_url'], "https_url": result['_source']['https_url']}
-                    for result in undownloaded]
-        else:
-            return None
+
+        return [{"s3_url": result['_source']['s3_url'], "https_url": result['_source']['https_url']}
+                for result in (undownloaded or [])]
 
     def process_url(self, url, granule_id):
         filename = url.split('/')[-1]

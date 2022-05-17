@@ -3,8 +3,13 @@
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
-ISL_BUCKET_NAME=$1
-# STAGING_AREA=$2
+MINUTES=$1
+PROVIDER=$2
+
+if [ ! -z "$3" ]; then
+  BOUNDING_BOX="-b ${3}"
+fi
+
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -17,12 +22,12 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to download LPDAAC HLS data"
+echo "Running job to query LPDAAC HLSS30 data"
 date
 
-# Forward processing use case; download all undownloaded files from ES index
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -i $ISL_BUCKET_NAME"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -i $ISL_BUCKET_NAME
+# Forward processing use case; query previous 60 minutes
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -p $PROVIDER -c HLSS30 $BOUNDING_BOX"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -m $MINUTES -p $PROVIDER -c HLSS30 $BOUNDING_BOX
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
@@ -33,3 +38,4 @@ else
   date
   exit 1
 fi
+

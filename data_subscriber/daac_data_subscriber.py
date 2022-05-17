@@ -83,7 +83,7 @@ def run():
         granules, temporal_range = query_cmr(args, token, CMR)
         for granule in granules:
             update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"))
-            update_granule_index(HLS_SPATIAL_CONN, granules)
+            update_granule_index(HLS_SPATIAL_CONN, granule)
 
     if args.subparser_name != "query":
         urls = HLS_CONN.get_all_undownloaded()
@@ -113,40 +113,40 @@ def create_parser():
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
 
     full_parser = subparsers.add_parser("full")
+    full_parser.add_argument("-p", "--provider", dest="provider", required=True,
+                             help="Specify a provider for collection search.")
     full_parser.add_argument("-c", "--collection", dest="collection", required=True,
                              help="The collection for which you want to retrieve data.")
-    full_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+    full_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    full_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+    full_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     full_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
     full_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                             help="Specify a provider for collection search. Default is LPCLOUD.")
-    full_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                             help="The s3 bucket where data products will be downloaded.")
+    full_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
+                             help="The incoming storage location s3 bucket where data products will be downloaded.")
     full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                              help="The protocol used for retrieving data, HTTPS or default of S3")
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
                               help="The collection shortname for which you want to retrieve data.")
-    query_parser.add_argument("-sd", "--start-date", dest="startDate", default=False,
+    query_parser.add_argument("-p", "--provider", dest="provider", required=True,
+                              help="Specify a provider for collection search.")
+    query_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
                               help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-ed", "--end-date", dest="endDate", default=False,
+    query_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
                               help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
     query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
                               help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
     query_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
                               help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                              help="Specify a provider for collection search. Default is LPCLOUD.")
 
     download_parser = subparsers.add_parser("download")
-    download_parser.add_argument("-s", "--s3bucket", dest="s3_bucket", required=True,
-                                 help="The s3 bucket where data products will be downloaded.")
+    download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
+                                 help="The incoming storage location s3 bucket where data products will be downloaded.")
     download_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                                  help="The protocol used for retrieving data, HTTPS or default of S3")
 
@@ -328,8 +328,8 @@ def request_search(request_url, params, search_after=None):
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
-                 "bounding_box": [geo_item
-                                  for geo_item
+                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
+                                  for point
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
@@ -380,7 +380,7 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token):
                 logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
-                result = https_transfer(url, args.s3_bucket, session, token)
+                result = https_transfer(url, args.isl_bucket, session, token)
                 if "failed_download" in result:
                     raise Exception(result["failed_download"])
                 else:
@@ -456,7 +456,7 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args):
                 logging.info(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
-                result = s3_transfer(url, args.s3_bucket, s3, tmp_dir)
+                result = s3_transfer(url, args.isl_bucket, s3, tmp_dir)
                 if "failed_download" in result:
                     raise Exception(result["failed_download"])
                 else:

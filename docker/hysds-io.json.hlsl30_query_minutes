@@ -1,17 +1,12 @@
 {
-  "label": "Query HLSS30 data with datetime range",
+  "label": "Query HLSL30 data with minutes elapsed",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
     {
-      "name": "start_datetime",
+      "name": "minutes",
       "from": "submitter",
-      "placeholder": "1900-01-01T00:00:00Z"
-    },
-    {
-      "name": "end_datetime",
-      "from": "submitter",
-      "placeholder": "2022-12-31T23:59:59Z"
+      "placeholder": "60"
     },
     {
       "name": "provider",

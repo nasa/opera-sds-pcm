@@ -2088,7 +2088,8 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_QUEUE": "factotum-job_worker-small",
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
-      "MINUTES": var.hls_download_timer_trigger_frequency
+      "MINUTES": var.hlsl30_query_timer_trigger_frequency,
+      "PROVIDER": var.hls_provider
     }
   }
 }
@@ -2116,7 +2117,8 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "JOB_QUEUE": "factotum-job_worker-small",
       "JOB_TYPE": local.hlss30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
-      "MINUTES": var.hls_download_timer_trigger_frequency
+      "MINUTES": var.hlss30_query_timer_trigger_frequency,
+      "PROVIDER": var.hls_provider
     }
   }
 }

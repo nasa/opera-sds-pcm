@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlss30_query.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query_minutes.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 600,
   "time_limit": 660,
@@ -12,11 +12,7 @@
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {
-      "name": "start_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "end_datetime",
+      "name": "minutes",
       "destination": "positional"
     },
     {

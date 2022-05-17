@@ -353,9 +353,6 @@ variable "pge_names" {
   default = "opera_pge-dswx_hls"
 }
 
-variable "pge_release" {
-  default = "1.0.0-er.4.0"
-}
 
 variable "crid" {
   default = "D00100"
