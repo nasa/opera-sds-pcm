@@ -21,7 +21,7 @@
     },
     {
       "name": "bounding_box",
-      "destination": "positional"
+      "destination": "context"
     },
     {
       "name": "download_job_release",
