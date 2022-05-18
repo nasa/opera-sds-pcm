@@ -20,14 +20,14 @@
       "optional": true
     },
     {
+      "name": "download_job_release",
+      "from": "submitter",
+      "placeholder": "The tag or branch of the download job spec to use. (ex. \"--release-version=develop\")"
+    },
+    {
       "name": "download_job_queue",
       "from": "submitter",
       "placeholder": "The queue to handle download jobs created by this job. (ex. \"--job-queue=opera-job_worker-data_subscriber_download\")"
-    },
-    {
-      "name": "job_release",
-      "from": "submitter",
-      "placeholder": "The tag or branch of the download job spec to use. (ex. \"--release-version=develop\")"
     },
     {
       "name": "isl_bucket_name",
