@@ -16,7 +16,7 @@
     {
       "name": "bounding_box",
       "from": "submitter",
-      "placeholder": "(ex. \"--bounding-box=-180,-90,180,90\")",
+      "placeholder": "(ex. \"--bounds=-180,-90,180,90\")",
       "optional": true
     },
     {

@@ -6,49 +6,51 @@
     {
       "name": "minutes",
       "from": "submitter",
-      "placeholder": "60"
+      "placeholder": "(ex. \"-m 60\")"
     },
     {
       "name": "provider",
       "from": "submitter",
-      "placeholder": "LPCLOUD"
+      "placeholder": "(ex. \"-p LPCLOUD\")"
     },
     {
       "name": "bounding_box",
       "from": "submitter",
-      "placeholder": "-180,-90,180,90",
+      "placeholder": "(ex. \"--bounds=-180,-90,180,90\")",
       "optional": true
+    },
+    {
+      "name": "download_job_release",
+      "from": "submitter",
+      "placeholder": "(ex. \"--release-version=<release_version>\")"
     },
     {
       "name": "download_job_queue",
       "from": "submitter",
-      "optional": true
-    },
-    {
-      "name": "job_release",
-      "name": "chunk_size",
-      "from": "submitter",
-      "optional": true
+      "placeholder": "(ex. \"--job-queue=<job_queue>\")"
     },
     {
       "name": "isl_bucket_name",
       "from": "submitter",
-      "placeholder": "ISL Bucket Name"
+      "placeholder": "(ex. \"--isl-bucket=<isl_bucket>\")"
     },
     {
       "name": "chunk_size",
-      "name": "download_job_release",
       "from": "submitter",
-      "optional": true
+      "placeholder": "(ex. \"--chunk-size=<chunk_size>\")",
+      "type": "text",
+      "default": "--chunk-size=80"
     },
     {
       "name": "smoke_run",
       "from": "submitter",
+      "placeholder": "(ex. \"--smoke-run\")",
       "optional": true
     },
     {
       "name": "dry_run",
       "from": "submitter",
+      "placeholder": "(ex. \"--dry-run\")",
       "optional": true
     }
   ]
