@@ -6,50 +6,50 @@
     {
       "name": "minutes",
       "from": "submitter",
-      "placeholder": "-m 60"
+      "placeholder": "(ex. \"-m 60\")"
     },
     {
       "name": "provider",
       "from": "submitter",
-      "placeholder": "-p LPCLOUD"
+      "placeholder": "(ex. \"-p LPCLOUD\")"
     },
     {
       "name": "bounding_box",
       "from": "submitter",
-      "placeholder": "--bounding-box=-180,-90,180,90",
+      "placeholder": "(ex. \"--bounding-box=-180,-90,180,90\")",
       "optional": true
     },
     {
       "name": "download_job_release",
       "from": "submitter",
-      "placeholder": "The tag or branch of the download job spec to use. (ex. \"--release-version=develop\")"
+      "placeholder": "(ex. \"--release-version=<release_version>\")"
     },
     {
       "name": "download_job_queue",
       "from": "submitter",
-      "placeholder": "The queue to handle download jobs created by this job. (ex. \"--job-queue=opera-job_worker-data_subscriber_download\")"
+      "placeholder": "(ex. \"--job-queue=<job_queue>\")"
     },
     {
       "name": "isl_bucket_name",
       "from": "submitter",
-      "placeholder": "ISL Bucket Name. (ex. \"--isl-bucket=opera-isl-fwd\")"
+      "placeholder": "(ex. \"--isl-bucket=<isl_bucket>\")"
     },
     {
       "name": "chunk_size",
       "from": "submitter",
-      "placeholder": "Number of tiles to assign to a download job. 8 tiles are approx. 1 GB. (ex. \"--chunk-size=8\")",
-      "defaut": "--chunk-size=80"
+      "placeholder": "(ex. \"--chunk-size=<chunk_size>\")",
+      "default": "--chunk-size=80"
     },
     {
       "name": "smoke_run",
       "from": "submitter",
-      "placeholder": "Restrict downloads to 1 tile. (ex. \"--smoke-run\")",
+      "placeholder": "(ex. \"--smoke-run\")",
       "optional": true
     },
     {
       "name": "dry_run",
       "from": "submitter",
-      "placeholder": "Skip physical downloads. (ex. \"--dry-run\")",
+      "placeholder": "(ex. \"--dry-run\")",
       "optional": true
     }
   ]
