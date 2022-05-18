@@ -196,16 +196,20 @@ variable "cnm_r_job_queue" {
 }
 
 variable "cnm_r_event_trigger" {
-  default = "sqs"
+  default = "sns"
 }
 
 variable "cnm_r_allowed_account" {
   default = "*"
 }
 
+variable "cnm_r_venue" {
+  default = "dev"
+}
+
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:337765570207:daac-proxy-for-opera-int"
+  default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
 }
 
 variable "use_daac_cnm" {

@@ -198,6 +198,9 @@ variable "cnm_r_event_trigger_values_list" {
 variable "cnm_r_allowed_account" {
 }
 
+variable "cnm_r_venue" {
+}
+
 variable "daac_delivery_proxy" {
 }
 
