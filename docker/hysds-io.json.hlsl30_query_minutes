@@ -39,7 +39,8 @@
       "from": "submitter",
       "placeholder": "e.g. --chunk-size=<chunk_size>",
       "type": "text",
-      "default": "--chunk-size=80"
+      "default": "--chunk-size=80",
+      "optional": true
     },
     {
       "name": "smoke_run",

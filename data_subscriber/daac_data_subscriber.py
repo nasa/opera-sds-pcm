@@ -311,7 +311,7 @@ def create_parser():
                               help="The release version of the download job-spec.")
     query_parser.add_argument("--job-queue", dest="job_queue",
                               help="The queue to use for the scheduled download job.")
-    query_parser.add_argument("--chunk-size", dest="chunk_size", type=int, default=2,
+    query_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
                               help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     query_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
                              help="Toggle for skipping physical downloads.")

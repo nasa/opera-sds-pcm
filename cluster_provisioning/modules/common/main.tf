@@ -2094,7 +2094,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "MINUTES": var.hls_download_timer_trigger_frequency,
       "PROVIDER": var.hls_provider,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
-      "CHUNK_SIZE": "2",
+      "CHUNK_SIZE": "80",
       "SMOKE_RUN": "true",
       "DRY_RUN": "true"
     }
@@ -2128,7 +2128,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "PROVIDER": var.hls_provider,
       "MINUTES": var.hls_download_timer_trigger_frequency,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
-      "CHUNK_SIZE": "2",
+      "CHUNK_SIZE": "80",
       "SMOKE_RUN": "true",
       "DRY_RUN": "true"
     }
