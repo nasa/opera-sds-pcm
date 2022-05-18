@@ -38,6 +38,7 @@
       "name": "chunk_size",
       "from": "submitter",
       "placeholder": "(ex. \"--chunk-size=<chunk_size>\")",
+      "type": "text",
       "default": "--chunk-size=80"
     },
     {
