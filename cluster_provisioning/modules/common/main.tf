@@ -1814,7 +1814,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
 #  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-  name  = "${var.project}-dev-daac-cnm-response"
+  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
+#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
