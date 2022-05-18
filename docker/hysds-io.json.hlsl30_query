@@ -16,44 +16,46 @@
     {
       "name": "provider",
       "from": "submitter",
-      "placeholder": "LPCLOUD"
+      "placeholder": "e.g. -p LPCLOUD"
     },
     {
       "name": "bounding_box",
       "from": "submitter",
-      "placeholder": "-180,-90,180,90",
+      "placeholder": "e.g. --bounds=-180,-90,180,90",
       "optional": true
+    },
+    {
+      "name": "download_job_release",
+      "from": "submitter",
+      "placeholder": "e.g. --release-version=<release_version>"
     },
     {
       "name": "download_job_queue",
       "from": "submitter",
-      "optional": true
-    },
-    {
-      "name": "job_release",
-      "name": "chunk_size",
-      "from": "submitter",
-      "optional": true
+      "placeholder": "e.g. --job-queue=<job_queue>"
     },
     {
       "name": "isl_bucket_name",
       "from": "submitter",
-      "placeholder": "ISL Bucket Name"
+      "placeholder": "e.g. --isl-bucket=<isl_bucket>"
     },
     {
       "name": "chunk_size",
-      "name": "download_job_release",
       "from": "submitter",
-      "optional": true
+      "placeholder": "e.g. --chunk-size=<chunk_size>",
+      "type": "text",
+      "default": "--chunk-size=80"
     },
     {
       "name": "smoke_run",
       "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
       "optional": true
     },
     {
       "name": "dry_run",
       "from": "submitter",
+      "placeholder": "e.g. --dry-run",
       "optional": true
     }
   ]
