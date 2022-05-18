@@ -28,8 +28,8 @@ locals {
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   hls_download_job_type             = "hls_download"
-  hlsl30_query_job_type             = "hlsl30_query"
-  hlss30_query_job_type             = "hlss30_query"
+  hlsl30_query_job_type             = "hlsl30_query_minutes"
+  hlss30_query_job_type             = "hlss30_query_minutes"
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
