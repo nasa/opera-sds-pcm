@@ -50,13 +50,14 @@ async def test_query(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def ignore_test_query_only(monkeypatch):
+async def test_query_only(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
+           "--no-download " \
            "".split()
 
     # ACT

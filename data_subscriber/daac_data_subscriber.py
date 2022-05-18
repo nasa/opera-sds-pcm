@@ -112,10 +112,9 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         update_granule_index(HLS_SPATIAL_CONN, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
-    # TODO chrisjrdL fixme
-    # if args.index_mode == "query-only":
-    #     logging.info(f"{args.index_mode=}. Skipping download job submission.")
-    #     return
+    if args.no_download:
+        logging.info(f"{args.no_download=}. Skipping download job submission.")
+        return
 
     tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
@@ -317,6 +316,8 @@ def create_parser():
                              help="Toggle for skipping physical downloads.")
     query_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
                              help="Toggle for processing a single tile.")
+    query_parser.add_argument("--no-download", dest="no_download", action="store_true",
+                             help="Toggle for query only operation (no downloads).")
 
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,

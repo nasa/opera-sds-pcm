@@ -6,12 +6,12 @@
     {
       "name": "start_datetime",
       "from": "submitter",
-      "placeholder": "1900-01-01T00:00:00Z"
+      "placeholder": "e.g. --start-date=1970-01-01T00:00:00Z"
     },
     {
       "name": "end_datetime",
       "from": "submitter",
-      "placeholder": "2022-12-31T23:59:59Z"
+      "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z"
     },
     {
       "name": "provider",
@@ -57,6 +57,12 @@
       "name": "dry_run",
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "query_only",
+      "from": "submitter",
+      "placeholder": "e.g. --query-only",
       "optional": true
     }
   ]

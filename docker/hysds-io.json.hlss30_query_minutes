@@ -53,6 +53,12 @@
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
       "optional": true
+    },
+    {
+      "name": "query_only",
+      "from": "submitter",
+      "placeholder": "e.g. --query-only",
+      "optional": true
     }
   ]
 }
