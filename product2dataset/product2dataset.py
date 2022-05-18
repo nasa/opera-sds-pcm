@@ -101,7 +101,7 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
 
-        if ( "dswx_hls" in dataset_id.lower())
+        if "dswx_hls" in dataset_id.lower():
             collection_name = settings.get("DSWX_COLLECTION_NAME")
             dataset_met_json["CollectionName"] = collection_name
             logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
