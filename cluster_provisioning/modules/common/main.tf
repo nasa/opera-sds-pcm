@@ -556,12 +556,14 @@ POLICY
 resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
   count                     = local.sqs_count
   name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
+#  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
 }
 
 resource "aws_sqs_queue" "cnm_response" {
   count                      = local.sqs_count
   name                       = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#  name                       = "${var.project}-dev-daac-cnm-response"
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue[count.index].arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -1811,7 +1813,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
-  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  name  = "${var.project}-dev-daac-cnm-response"
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
