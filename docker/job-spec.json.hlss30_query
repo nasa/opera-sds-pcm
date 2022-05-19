@@ -24,11 +24,11 @@
       "destination": "positional"
     },
     {
-      "name": "no_schedule_download",
+      "name": "bounding_box",
       "destination": "positional"
     },
     {
-      "name": "bounding_box",
+      "name": "no_schedule_download",
       "destination": "positional"
     },
     {
