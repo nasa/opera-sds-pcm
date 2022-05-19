@@ -3,6 +3,8 @@ Class that contains the precondition evaluation steps used in the various PGEs
 that are part of the OPERA PCM pipeline.
 
 """
+
+import argparse
 import copy
 import inspect
 import json
@@ -18,25 +20,16 @@ from chimera.precondition_functions import PreConditionFunctions
 from commons.constants import product_metadata
 from commons.es_connection import get_grq_es
 from commons.logger import logger
+from commons.logger import LogLevels
+from hysds.utils import get_disk_usage
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.common_util import convert_datetime
 from util.type_util import set_type
-
-try:
-    from tools.stage_dem import main as stage_dem
-except Exception:
-    pass
+from tools.stage_dem import main as stage_dem
 
 ancillary_es = get_grq_es(logger)
-
-#OE_TYPES = [
-#    "POE",
-#    "MOE",
-#    "NOE",
-#    "FOE",
-#]  # Orbit Ephemeris types in order from best to worst
 
 
 class OperaPreConditionFunctions(PreConditionFunctions):
@@ -61,8 +54,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return rc_params
 
     def get_cnm_version(self):
-	    # we may need to choose different CNM data version for diffrent product types
-		# for now, it is set as CNM_VERSION in settings.yaml
+        # we may need to choose different CNM data version for different product types
+        # for now, it is set as CNM_VERSION in settings.yaml
         cnm_version = self._settings.get(oc_const.CNM_VERSION)
         print("cnm_version: {}".format(cnm_version))
         return {"cnm_version": cnm_version}
@@ -768,82 +761,82 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_dems(self):
         """
-        Input : bbox : min_lon minn_lat max_lon max_lat
-        Input : polygon : GeoJSON polygon
-        This function downloads dems over the bbox or polygon
+        This function downloads dems over the bbox provided in the PGE yaml config,
+        or derives the appropriate bbox based on the tile code of the product's
+        metadata (if available).
         """
-        import argparse
-        from shapely.geometry import shape
-        from hysds.utils import get_disk_usage
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         pge_metrics = {"download": [], "upload": []}
 
+        # read in SciFlo work unit json file and extract the working directory
         work_unit_file = os.path.abspath("workunit.json")
+
         with open(work_unit_file) as f:
             work_unit = json.load(f)
-        wd = os.path.dirname(work_unit['args'][0])
 
-        print("get_dems : wd : {}".format(wd))
-        get_dems_param = self._pge_config.get(
-            oc_const.GET_DEMS, {})
-        if not get_dems_param:
-            raise RuntimeError("Missing {} area in the PGE config".format(
-                oc_const.GET_DEMS))
+        working_dir = os.path.dirname(work_unit['args'][0])
+
+        logger.info("working_dir : {}".format(working_dir))
 
         # get bbox param
-        bbox = None
-        if 'bbox' in get_dems_param:
-            bbox_param = get_dems_param.get("bbox")
-            if isinstance(bbox_param, list):
-                bbox = bbox_param
-            else:
-                bbox = list(map(float, bbox_param.split()))
+        bbox = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.DEM_BBOX)
 
-        # get polygon key param
-        polygon_key = get_dems_param.get("polygon_key", None)
+        if bbox:
+            # Convert to list if we were given a space-delimited string
+            if not isinstance(bbox, list):
+                bbox = list(map(float, bbox.split()))
+
+            logger.info(f"Got bbox from PGE config: {bbox}")
+
+        # get MGRS tile code, if available from product metadata
+        tile_code = None
+        product_metadata = self._context["product_metadata"]["metadata"]
+
+        for band_or_qa, product_path in product_metadata.items():
+            if band_or_qa != '@timestamp':
+                product_filename = product_path.split('/')[-1]
+                tile_code = product_filename.split('.')[2]
+                logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
+                break
+        else:
+            logger.warning('Could not determine a tile code from product metadata')
 
         # do checks
-        if bbox is not None and polygon_key is not None:
+        if bbox is None and tile_code is None:
             raise RuntimeError(
-                "Cannot set both 'bbox' and 'polygon_key' "
-                "parameters in {} area in the PGE config".format(oc_const.GET_DEMS)
-            )
-        if bbox is None and polygon_key is None:
-            raise RuntimeError(
-                "Set either the 'bbox' or 'polygon_key' "
-                "parameter in {} area in the PGE config".format(oc_const.GET_DEMS)
+                f"Can not determine a region to obtain DEM for.\n"
+                f"The product metadata must specify an MGRS tile code, "
+                f"or the 'bbox' parameter must be provided in the '{oc_const.GET_DEMS}' "
+                f"area of the PGE config"
             )
 
-        # get bbox from bounding polygon
-        if bbox is None:
-            polygon = eval(f"product_metadata.{polygon_key}")
-            bounding_polygon = self._job_params.get(polygon)
-            if isinstance(bounding_polygon, str):
-                bounding_polygon = json.loads(bounding_polygon)
+        dem_file = os.path.join(working_dir, 'dem.vrt')
 
-            # extract bounding polygon bounds
-            bbox = list(shape(bounding_polygon).bounds)
-
-        print("bbox : {}".format(bbox))
-
-        dem_file = os.path.join(wd, 'dem.vrt')
-
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
         args = argparse.Namespace()
-        args.product = None
-        args.filepath = wd
         args.outfile = dem_file
-        args.margin = 5
+        args.filepath = None
+        args.margin = 5  # KM
+        args.log_level = LogLevels.INFO.value
+
+        # Provide both the bounding box and tile code, stage_dem.py should
+        # give preference to the tile code over the bbox if both are provided.
         args.bbox = bbox
+        args.tile_code = tile_code
 
         loc_t1 = datetime.utcnow()
+
         try:
             stage_dem(args)
-            print("get_dems : dem_file : {}".format(dem_file))
+            logger.info(f"Created DEM file : {dem_file}")
         except Exception as e:
             trace = traceback.format_exc()
             error = str(e)
             raise RuntimeError(
-                "Failed to download dem_file: {}\n{}".format(error, trace)
+                f"Failed to download DEM file, reason: {error}\n{trace}"
             )
 
         loc_t2 = datetime.utcnow()
@@ -863,13 +856,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
         logger.info(json.dumps(pge_metrics, indent=2))
 
-        with open(os.path.join(wd, "pge_metrics.json"), "x") as f:
+        with open(os.path.join(working_dir, "pge_metrics.json"), "x") as f:
             json.dump(pge_metrics, f, indent=2)
 
         rc_params = {
             oc_const.DEM_FILE: dem_file
         }
-        logger.info("get_dems : rc_params : {}".format(rc_params))
+
+        logger.info(f"rc_params : {rc_params}")
+
         return rc_params
 
     def cast_string_to_int(self):
@@ -896,7 +891,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return results
 
     def get_input_filepaths_from_state_config(self) -> Dict:
-        """Returns a partial RunConfig containing the s3 paths of the published L2_HLS_DSWx products."""
+        """Returns a partial RunConfig containing the s3 paths of the published L2_HLS products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]

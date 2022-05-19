@@ -21,7 +21,7 @@ locals {
   daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge/"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
   daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                          = split("-", var.daac_delivery_proxy)[5]

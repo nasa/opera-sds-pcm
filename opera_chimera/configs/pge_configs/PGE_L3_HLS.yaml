@@ -16,12 +16,13 @@ runconfig:
   input_file_group:
     input_file_path: []
   dynamic_ancillary_file_group:
-    dem_file:  # Digital elevation model
-    landcover_file:  # Copernicus Land Cover Layer (CLCL)
+    # Digital elevation model
+    dem_file:  __CHIMERA_VAL__
+    # Copernicus Land Cover Layer (CLCL)
+    landcover_file:
   product_path_group:
     product_path: output_dir
     scratch_path: scratch_dir
-    sas_output_file: dswx_hls.tif
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -33,8 +34,7 @@ preconditions:
   - get_input_filepaths_from_state_config
   - get_cnm_version
   - set_daac_product_type
-#  - get_dems
-#  - get_product_counter
+  - get_dems
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess: [update_product_accountability]
@@ -75,7 +75,9 @@ primary_output: "L3_DSWx"
 # List the groups that Chimera will need to localize
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
-localize_groups: [product_paths]
+localize_groups:
+  - product_paths
+  - dynamic_ancillary_file_group
 
 
 #######################################################################
