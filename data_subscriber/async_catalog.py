@@ -6,7 +6,7 @@ from data_subscriber.AsyncElasticsearchUtility import AsyncElasticsearchUtility
 ES_INDEX = "hls_catalog"
 
 
-class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
+class AsyncHLSProductCatalog(AsyncElasticsearchUtility):
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -30,6 +30,7 @@ class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
         await self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
+                                             "granule_id": {"type": "keyword"},
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "index_datetime": {"type": "date"},
@@ -50,13 +51,14 @@ class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
             {
                 "s3_url": result['_source']['s3_url'],
                 "https_url": result['_source']['https_url']
-            } for result in undownloaded
+            } for result in (undownloaded or [])
         ]
 
-    async def process_url(self, url, job_id):
+    async def process_url(self, url, granule_id, job_id):
         filename = Path(url).name
         result = await self._query_existence(filename)
         doc = {
+            "granule_id": granule_id,
             "index_datetime": datetime.now(),
             "query_job_id": job_id,
 
@@ -71,7 +73,7 @@ class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
 
         if not result:
             doc["downloaded"] = False
-            await self._post(id=filename, body=doc)
+            await self._post(filename=filename, body=doc)
             return False
         else:
             await self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
@@ -104,22 +106,22 @@ class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
-    async def _post(self, id, body):
-        result = await self.index_document(index=ES_INDEX, body=body, id=id)
+    async def _post(self, filename, body):
+        result = await self.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    async def _query_existence(self, id, index=ES_INDEX):
+    async def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = await self.get_by_id(index=index, id=id)
+            result = await self.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
             if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
+                self.logger.debug(f"{filename} does not exist in {index}")
 
         return result
 
@@ -132,7 +134,5 @@ class ASyncDataSubscriberProductCatalog(AsyncElasticsearchUtility):
 
         except:
             result = None
-            if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
 
         return result
