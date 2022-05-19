@@ -1,5 +1,5 @@
 {
-  "label": "Query HLSL30 data",
+  "label": "Query HLSL30 data with datetime range",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
