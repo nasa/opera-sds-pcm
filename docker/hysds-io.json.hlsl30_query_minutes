@@ -55,9 +55,9 @@
       "optional": true
     },
     {
-      "name": "query_only",
+      "name": "no_download",
       "from": "submitter",
-      "placeholder": "e.g. --query-only",
+      "placeholder": "e.g. --no-download",
       "optional": true
     }
   ]

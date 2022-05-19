@@ -46,6 +46,10 @@
     {
       "name": "dry_run",
       "destination": "positional"
+    },
+    {
+      "name": "no_download",
+      "destination": "positional"
     }
   ]
 }

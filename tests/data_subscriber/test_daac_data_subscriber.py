@@ -45,18 +45,37 @@ async def test_query(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert len(results["success"]) > 0
-    assert len(results["fail"]) == 0
+    assert results is None
 
 
 @pytest.mark.asyncio
-async def test_query_only(monkeypatch):
+async def test_query_chunked(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
+           "--chunk-size=1 " \
+           "".split()
+
+    # ACT
+    results = await data_subscriber.daac_data_subscriber.run(args)
+
+    # ASSERT
+    assert len(results["success"]) > 0
+    assert len(results["fail"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_query_no_download(monkeypatch):
+    # ARRANGE
+    patch_subscriber(monkeypatch)
+
+    args = "dummy.py query " \
+           "--isl-bucket=dummy_bucket " \
+           "--collection-shortname=dummy_collection_shortname " \
+           "--chunk-size=1 " \
            "--no-download " \
            "".split()
 
@@ -77,6 +96,7 @@ async def test_query_smoke_run(monkeypatch):
            "--collection-shortname=dummy_collection_shortname " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
+           "--chunk-size=1 " \
            "--smoke-run " \
            "".split()
 
@@ -86,6 +106,26 @@ async def test_query_smoke_run(monkeypatch):
     # ASSERT
     assert len(results["success"]) == 1
     assert len(results["fail"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_download(monkeypatch):
+    # ARRANGE
+    patch_subscriber(monkeypatch)
+    mock_get_aws_creds(monkeypatch)
+    mock_s3_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
+
+    args = "dummy.py download " \
+           "--isl-bucket=dummy_bucket " \
+           "--transfer-protocol=not-https " \
+           "".split()
+
+    # ACT
+    results = await data_subscriber.daac_data_subscriber.run(args)
+
+    # ASSERT
+    assert results is None
 
 
 @pytest.mark.asyncio

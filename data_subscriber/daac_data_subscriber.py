@@ -116,6 +116,10 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         logging.info(f"{args.no_download=}. Skipping download job submission.")
         return
 
+    if not args.chunk_size:
+        logging.info(f"{args.chunk_size=}. Skipping download job submission.")
+        return
+
     tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=url_to_tile_id,
@@ -151,10 +155,26 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
                     submit_download_job,
                     release_version=args.release_version,
                     params=[
-                        {"name": "tile_ids", "value": " ".join(chunk_tile_ids), "from": "value"},
-                        {"name": "isl_bucket_name", "value": args.isl_bucket, "from": "value"},
-                        {"name": "smoke_run", "value": args.smoke_run, "from": "value"},
-                        {"name": "dry_run", "value": args.dry_run, "from": "value"},
+                        {
+                            "name": "isl_bucket_name",
+                            "value": f"--isl-bucket={args.isl_bucket}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "tile_ids",
+                            "value": "--tile-ids " + " ".join(chunk_tile_ids) if chunk_tile_ids else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "smoke_run",
+                            "value": "--smoke-run" if args.smoke_run else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "dry_run",
+                            "value": "--dry-run" if args.dry_run else "",
+                            "from": "value"
+                        },
 
                     ],
                     job_queue=args.job_queue
@@ -179,8 +199,13 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
 def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
     all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
     logging.info(f"{all_pending_downloads=}")
-    downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
-    logging.info(f"{downloads=}")
+
+    downloads = all_pending_downloads
+    if args.tile_ids:
+        logging.info(f"Filtering pending downloads by {args.tile_ids=}")
+        downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
+        logging.info(f"{downloads=}")
+
     if not downloads:
         logging.info(f"No undownloaded files found in index.")
         return
