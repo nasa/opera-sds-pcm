@@ -68,7 +68,7 @@ async def test_query_chunked(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_query_no_download(monkeypatch):
+async def test_query_no_schedule_download(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
 
@@ -76,7 +76,7 @@ async def test_query_no_download(monkeypatch):
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=dummy_collection_shortname " \
            "--chunk-size=1 " \
-           "--no-download " \
+           "--no-schedule-download " \
            "".split()
 
     # ACT

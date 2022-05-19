@@ -24,6 +24,10 @@
       "destination": "positional"
     },
     {
+      "name": "no_schedule_download",
+      "destination": "positional"
+    },
+    {
       "name": "download_job_release",
       "destination": "positional"
     },
@@ -45,10 +49,6 @@
     },
     {
       "name": "dry_run",
-      "destination": "positional"
-    },
-    {
-      "name": "no_download",
       "destination": "positional"
     }
   ]

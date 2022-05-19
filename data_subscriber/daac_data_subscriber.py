@@ -112,8 +112,8 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         update_granule_index(HLS_SPATIAL_CONN, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
-    if args.no_download:
-        logging.info(f"{args.no_download=}. Skipping download job submission.")
+    if args.no_schedule_download:
+        logging.info(f"{args.no_schedule_download=}. Skipping download job submission.")
         return
 
     if not args.chunk_size:
@@ -329,20 +329,20 @@ def create_parser():
                               help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
     query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                               help="Specify a provider for collection search. Default is LPCLOUD.")
-    query_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                             help="The incoming storage location s3 bucket where data products will be downloaded.")
+    query_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
+                             help="Toggle for query only operation (no downloads).")
     query_parser.add_argument("--release-version", dest="release_version",
                               help="The release version of the download job-spec.")
     query_parser.add_argument("--job-queue", dest="job_queue",
                               help="The queue to use for the scheduled download job.")
+    query_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
+                             help="The incoming storage location s3 bucket where data products will be downloaded.")
     query_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
                               help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     query_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
                              help="Toggle for skipping physical downloads.")
     query_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
                              help="Toggle for processing a single tile.")
-    query_parser.add_argument("--no-download", dest="no_download", action="store_true",
-                             help="Toggle for query only operation (no downloads).")
 
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,

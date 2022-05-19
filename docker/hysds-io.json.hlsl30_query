@@ -25,6 +25,12 @@
       "optional": true
     },
     {
+      "name": "no_schedule_download",
+      "from": "submitter",
+      "placeholder": "e.g. --no-schedule-download",
+      "optional": true
+    },
+    {
       "name": "download_job_release",
       "from": "submitter",
       "placeholder": "e.g. --release-version=<release_version>"
@@ -57,12 +63,6 @@
       "name": "dry_run",
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
-      "optional": true
-    },
-    {
-      "name": "no_download",
-      "from": "submitter",
-      "placeholder": "e.g. --no-download",
       "optional": true
     }
   ]
