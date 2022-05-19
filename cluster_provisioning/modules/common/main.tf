@@ -2096,7 +2096,8 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "true",
-      "DRY_RUN": "true"
+      "DRY_RUN": "true",
+      "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
 }
@@ -2130,7 +2131,8 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "true",
-      "DRY_RUN": "true"
+      "DRY_RUN": "true",
+      "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
 }
