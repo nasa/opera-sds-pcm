@@ -18,14 +18,14 @@ The tests require a `.env` configuration file. Modify the sample below as needed
 # .env
 
 # Elasticsearch connection
-ES_HOST = 100.104.40.225
-ES_BASE_URL = https://100.104.40.225/grq_es/ # Elasticsearch URL
+ES_HOST = 123.123.123.123
+ES_BASE_URL = https://${ES_HOST}/grq_es/ # Elasticsearch URL
 ES_USER = foo # Elasticsearch username
 ES_PASSWORD = bar # Elasticsearch password
 
 # GRQ (Elasticsearch)
-GRQ_HOST = 100.104.40.225
-GRQ_BASE_URL = https://100.104.40.225/grq/api/v0.1
+GRQ_HOST = 123.123.123.123
+GRQ_BASE_URL = https://${GRQ_HOST}/grq/api/v0.1
 GRQ_USER = foo
 GRQ_PASSWORD = bar
 

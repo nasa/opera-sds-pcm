@@ -6,7 +6,10 @@ import pytest
 from dotenv import dotenv_values
 from filelock import FileLock
 
-config = dotenv_values(".env")
+config = {
+    **dotenv_values(".env"),
+    **os.environ
+}
 
 logging.getLogger("elasticsearch").setLevel("WARN")
 logging.getLogger("botocore").setLevel("WARN")
@@ -52,27 +55,28 @@ def setup_session(tmp_path_factory, worker_id):
 
 
 def clear_pcm_test_state():
-    from int_test_util import \
-        es_index_delete, \
-        delete_output_files, \
-        mozart_es_index_delete
-
-    # clear job index to prevent job duplicates
-    #  job duplicates are likely to happen
-    #  when executing subscriber query jobs frequently
-    mozart_es_index_delete("job_status-current")
-
-    # clear data subscriber indexes
-    es_index_delete("hls_catalog")
-    es_index_delete("hls_spatial_catalog")
-
-    # clear ingest data indexes
-    es_index_delete("grq_1_l2_hls_l30")
-    es_index_delete("grq_1_l2_hls_s30")
-    es_index_delete("grq_1_opera_state_config")
-
-    # clear PGE indexes
-    es_index_delete("grq_1_l3_dswx_hls")
-
-    # empty out S3 to make it easier to inspect test outputs and side effects
-    delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")
+    pass
+    # from int_test_util import \
+    #     es_index_delete, \
+    #     delete_output_files, \
+    #     mozart_es_index_delete
+    #
+    # # clear job index to prevent job duplicates
+    # #  job duplicates are likely to happen
+    # #  when executing subscriber query jobs frequently
+    # mozart_es_index_delete("job_status-current")
+    #
+    # # clear data subscriber indexes
+    # es_index_delete("hls_catalog")
+    # es_index_delete("hls_spatial_catalog")
+    #
+    # # clear ingest data indexes
+    # es_index_delete("grq_1_l2_hls_l30")
+    # es_index_delete("grq_1_l2_hls_s30")
+    # es_index_delete("grq_1_opera_state_config")
+    #
+    # # clear PGE indexes
+    # es_index_delete("grq_1_l3_dswx_hls")
+    #
+    # # empty out S3 to make it easier to inspect test outputs and side effects
+    # delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")

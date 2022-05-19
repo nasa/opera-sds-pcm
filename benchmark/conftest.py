@@ -6,7 +6,10 @@ import pytest
 from dotenv import dotenv_values
 from filelock import FileLock
 
-config = dotenv_values(".env")
+config = {
+    **dotenv_values(".env"),
+    **os.environ
+}
 
 logging.getLogger("elasticsearch").setLevel("WARN")
 logging.getLogger("botocore").setLevel("WARN")
