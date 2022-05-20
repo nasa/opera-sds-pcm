@@ -252,6 +252,8 @@ resource "null_resource" "mozart" {
 }
 
 resource "null_resource" "smoke_test" {
+  depends_on = [null_resource.mozart]
+
   provisioner "local-exec" {
     working_dir = "../.."
     command = <<-EOF
