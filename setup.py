@@ -42,6 +42,7 @@ setup(
         'integration': [
             'pytest==7.1.1',
             'boto3==1.22.3',
+            "boto3-stubs-lite[essential]",
             "elasticsearch==7.13.4",
             "elasticsearch-dsl==7.3.0",
             "requests==2.27.1",
