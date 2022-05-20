@@ -10,7 +10,7 @@ from int_test_util import \
     wait_for_cnm_r_success, \
     wait_for_l2, \
     wait_for_l3
-from integration.subscriber_util import \
+from subscriber_util import \
     wait_for_query_job, \
     wait_for_download_jobs, \
     invoke_l30_subscriber_query_lambda, \
@@ -105,24 +105,24 @@ def test_l30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(60)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0"
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001", index="grq_1_l3_dswx_hls")
+    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(60)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0")
+    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(30)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0", index="grq_1_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001", index="grq_1_l3_dswx_hls")
 
     assert_cnm_r_success(response)
 
@@ -175,15 +175,15 @@ def test_s30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(60)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0"
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001", index="grq_1_l3_dswx_hls")
+    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(60)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
@@ -191,8 +191,8 @@ def test_s30():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(30)
 
-    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0")
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0", index="grq_1_l3_dswx_hls")
+    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001")
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001", index="grq_1_l3_dswx_hls")
 
     assert_cnm_r_success(response)
 

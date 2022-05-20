@@ -177,12 +177,13 @@ def get_mozart_es_client():
 
 
 def get_es_host() -> str:
-    result = subprocess.run([
-        "terraform output mozart_pub_ip"],
+    result = subprocess.run(
+        ["terraform output mozart_pub_ip"],
         cwd=Path.cwd() / "cluster_provisioning/dev",
         stdout=subprocess.PIPE,
         shell=True,
-        text=True
+        text=True,
+        check=True
     )
 
     es_host = result.stdout.strip().strip("\"")

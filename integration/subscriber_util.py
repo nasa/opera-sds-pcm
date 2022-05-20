@@ -13,7 +13,7 @@ from requests import Response
 
 from int_test_util import \
     success_handler, raise_, get_es_host, get_es_client
-from integration import conftest
+import conftest
 
 config = conftest.config
 
