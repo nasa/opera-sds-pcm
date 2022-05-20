@@ -15,11 +15,11 @@ output "large_queue_name" {
 }
 
 output "hlsl30_query_timer" {
-  value = "${var.project}-${var.venue}-${module.common.counter}-hlsl30_query_timer"
+  value = module.common.hlsl30_query_timer.function_name
 }
 
 output "hlss30_query_timer" {
-  value = "${var.project}-${var.venue}-${module.common.counter}-hlss30_query_timer"
+  value = module.common.hlss30_query_timer.function_name
 }
 
 output "cnm_notify_asg_name" {

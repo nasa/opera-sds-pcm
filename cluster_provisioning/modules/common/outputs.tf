@@ -97,3 +97,11 @@ output "aws_cloudwatch_event_rule_hlsl30_query_timer" {
 output "aws_cloudwatch_event_rule_hlss30_query_timer" {
   value = aws_cloudwatch_event_rule.hlss30_query_timer
 }
+
+output "hlsl30_query_timer" {
+  value = aws_lambda_function.hlsl30_query_timer
+}
+
+output "hlss30_query_timer" {
+  value = aws_lambda_function.hlss30_query_timer
+}
