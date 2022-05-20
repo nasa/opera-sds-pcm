@@ -1,7 +1,6 @@
 import contextlib
 import logging
 import os
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Union
@@ -177,17 +176,7 @@ def get_mozart_es_client():
 
 
 def get_es_host() -> str:
-    result = subprocess.run(
-        ["terraform output mozart_pub_ip"],
-        cwd=Path.cwd() / "cluster_provisioning/dev",
-        stdout=subprocess.PIPE,
-        shell=True,
-        text=True,
-        check=True
-    )
-
-    es_host = result.stdout.strip().strip("\"")
-    return es_host
+    return config["ES_HOST"]
 
 
 def upload_file(filepath: Union[Path, str], bucket=config["ISL_BUCKET"], object_name=None):
