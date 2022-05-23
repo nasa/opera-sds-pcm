@@ -292,6 +292,12 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
+    "opera-job_worker-data_subscriber_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 80
+    }
     "opera-workflow_profiler" = {
       "instance_type" = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
       "root_dev_size" = 50

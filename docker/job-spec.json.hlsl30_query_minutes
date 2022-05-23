@@ -22,6 +22,34 @@
     {
       "name": "bounding_box",
       "destination": "positional"
+    },
+    {
+      "name": "no_schedule_download",
+      "destination": "positional"
+    },
+    {
+      "name": "download_job_release",
+      "destination": "positional"
+    },
+    {
+      "name": "download_job_queue",
+      "destination": "positional"
+    },
+    {
+      "name": "isl_bucket_name",
+      "destination": "positional"
+    },
+    {
+      "name": "chunk_size",
+      "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
     }
   ]
 }

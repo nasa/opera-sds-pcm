@@ -1,10 +1,9 @@
 #!/bin/bash
 
+echo "args: $*"
+
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
-
-ISL_BUCKET_NAME=$1
-# STAGING_AREA=$2
 
 # source PGE env
 export OPERA_HOME=/home/ops/verdi/ops/opera-pcm
@@ -21,8 +20,8 @@ echo "Running job to download LPDAAC HLS data"
 date
 
 # Forward processing use case; download all undownloaded files from ES index
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -i $ISL_BUCKET_NAME"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -i $ISL_BUCKET_NAME
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download $* 2>&1"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download $* 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

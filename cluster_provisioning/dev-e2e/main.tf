@@ -251,3 +251,53 @@ resource "null_resource" "mozart" {
     command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
   }
 }
+
+resource "null_resource" "smoke_test" {
+  depends_on = [null_resource.mozart]
+
+  provisioner "local-exec" {
+    working_dir = "../.."
+    command = <<-EOF
+              if [ "${var.run_smoke_test}" = true ]; then
+                set -e
+                echo Running smoke tests
+
+                echo Downloading test data
+                if [[ ! -f hls_l2.tar.gz ]]; then
+                  curl -H "X-JFrog-Art-Api:${var.artifactory_fn_api_key}" -O ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz
+                else
+                  echo test data previously downloaded. Skipping re-download
+                fi
+                  rm -rf hls_l2
+                  mkdir -p hls_l2
+                  tar xfz hls_l2.tar.gz -C hls_l2
+
+                echo Executing integration tests. This can take at least 20 minutes...
+                python -m venv venv
+                source venv/bin/activate
+                pip install '.[integration]'
+
+                set +e
+                pytest --maxfail=1 integration/
+                set -e
+              fi
+    EOF
+    environment = {
+      "ES_HOST": module.common.mozart.private_ip,
+      "ES_BASE_URL": "https://${module.common.mozart.private_ip}/grq_es/",
+      "ES_USER": var.es_user,
+      "ES_PASSWORD": var.es_pass,
+      "GRQ_HOST": module.common.mozart.private_ip,
+      "GRQ_BASE_URL": "https://${module.common.mozart.private_ip}/grq/api/v0.1",
+      "GRQ_USER": var.es_user,
+      "GRQ_PASSWORD": var.es_pass,
+      "CNMR_QUEUE": "https://sqs.us-west-2.amazonaws.com/${var.aws_account_id}/${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response",
+      "ISL_BUCKET": "${var.project}-dev-isl-fwd-${var.venue}",
+      "RS_BUCKET": "${var.project}-dev-rs-fwd-${var.venue}",
+      "L30_INPUT_DIR": "hls_l2/l30_greenland",
+      "S30_INPUT_DIR": "hls_l2/s30_louisiana",
+      "L30_DATA_SUBSCRIBER_QUERY_LAMBDA": module.common.hlsl30_query_timer.function_name,
+      "S30_DATA_SUBSCRIBER_QUERY_LAMBDA": module.common.hlss30_query_timer.function_name
+    }
+  }
+}

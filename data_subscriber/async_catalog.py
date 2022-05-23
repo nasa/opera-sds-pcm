@@ -1,12 +1,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+from data_subscriber.AsyncElasticsearchUtility import AsyncElasticsearchUtility
 
 ES_INDEX = "hls_catalog"
 
 
-class HLSProductCatalog(ElasticsearchUtility):
+class AsyncHLSProductCatalog(AsyncElasticsearchUtility):
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -21,13 +21,13 @@ class HLSProductCatalog(ElasticsearchUtility):
         update_document
     """
 
-    def create_index(self, index=ES_INDEX, delete_old_index=False):
+    async def create_index(self, index=ES_INDEX, delete_old_index=False):
         if delete_old_index is True:
-            self.es.indices.delete(index=index, ignore=404)
+            await self.es.indices.delete(index=index, ignore=404)
             if self.logger:
                 self.logger.info("Deleted old index: {}".format(index))
 
-        self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
+        await self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
@@ -40,13 +40,13 @@ class HLSProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
-    def delete_index(self):
-        self.es.indices.delete(index=ES_INDEX, ignore=404)
+    async def delete_index(self):
+        await self.es.indices.delete(index=ES_INDEX, ignore=404)
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
-    def get_all_undownloaded(self):
-        undownloaded = self._query_undownloaded()
+    async def get_all_undownloaded(self):
+        undownloaded = await self._query_undownloaded()
         return [
             {
                 "s3_url": result['_source']['s3_url'],
@@ -54,13 +54,14 @@ class HLSProductCatalog(ElasticsearchUtility):
             } for result in (undownloaded or [])
         ]
 
-    def process_url(self, url, granule_id, job_id):
+    async def process_url(self, url, granule_id, job_id):
         filename = Path(url).name
-        result = self._query_existence(filename)
+        result = await self._query_existence(filename)
         doc = {
             "granule_id": granule_id,
             "index_datetime": datetime.now(),
             "query_job_id": job_id,
+
         }
 
         if "https://" in url:
@@ -72,24 +73,24 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         if not result:
             doc["downloaded"] = False
-            self._post(filename=filename, body=doc)
+            await self._post(filename=filename, body=doc)
             return False
         else:
-            self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
+            await self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
             return True
 
-    def product_is_downloaded(self, url):
+    async def product_is_downloaded(self, url):
         filename = url.split('/')[-1]
-        result = self._query_existence(filename)
+        result = await self._query_existence(filename)
 
         if result:
             return result["_source"]["downloaded"]
         else:
             return False
 
-    def mark_product_as_downloaded(self, url, job_id):
+    async def mark_product_as_downloaded(self, url, job_id):
         filename = url.split('/')[-1]
-        result = self.update_document(
+        result = await self.update_document(
             id=filename,
             body={
                 "doc_as_upsert": True,
@@ -105,15 +106,15 @@ class HLSProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
-    def _post(self, filename, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=filename)
+    async def _post(self, filename, body):
+        result = await self.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, filename, index=ES_INDEX):
+    async def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=filename)
+            result = await self.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
@@ -124,9 +125,9 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         return result
 
-    def _query_undownloaded(self, index=ES_INDEX):
+    async def _query_undownloaded(self, index=ES_INDEX):
         try:
-            result = self.query(index=index,
+            result = await self.query(index=index,
                                 body={"sort": [{"index_datetime": "asc"}], "query": {"match": {"downloaded": False}}})
             if self.logger:
                 self.logger.debug(f"Query result: {result}")

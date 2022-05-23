@@ -459,3 +459,8 @@ variable "amis" {
     autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
   }
 }
+
+variable "es_user" {}
+
+variable "es_pass" {}
+

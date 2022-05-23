@@ -28,8 +28,8 @@ locals {
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   hls_download_job_type             = "hls_download"
-  hlsl30_query_job_type             = "hlsl30_query"
-  hlss30_query_job_type             = "hlss30_query"
+  hlsl30_query_job_type             = "hlsl30_query_minutes"
+  hlss30_query_job_type             = "hlss30_query_minutes"
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -46,7 +46,8 @@ locals {
   }
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  enable_timer = var.cluster_type == "reprocessing" ? false : true
+  enable_query_timer = var.cluster_type == "reprocessing" ? false : true
+  enable_download_timer = false
 
   delete_old_job_catalog = true
 }
@@ -2027,7 +2028,7 @@ resource "aws_lambda_function" "hls_download_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
@@ -2036,11 +2037,12 @@ resource "aws_lambda_function" "hls_download_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-	    "JOB_QUEUE": "${var.project}-job_worker-small",
+      "JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
       "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area
+      "SMOKE_RUN": "true",
+      "DRY_RUN": "true"
     }
   }
 }
@@ -2056,7 +2058,8 @@ resource "aws_cloudwatch_event_rule" "hls_download_timer" {
   name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hls_download_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "hls_download_timer" {
@@ -2092,8 +2095,14 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_QUEUE": "factotum-job_worker-small",
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
-      "MINUTES": var.hlsl30_query_timer_trigger_frequency,
-      "PROVIDER": var.hls_provider
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "MINUTES": var.hls_download_timer_trigger_frequency,
+      "PROVIDER": var.hls_provider,
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "CHUNK_SIZE": "80",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
 }
@@ -2109,7 +2118,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
@@ -2121,8 +2130,14 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "JOB_QUEUE": "factotum-job_worker-small",
       "JOB_TYPE": local.hlss30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
-      "MINUTES": var.hlss30_query_timer_trigger_frequency,
-      "PROVIDER": var.hls_provider
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "PROVIDER": var.hls_provider,
+      "MINUTES": var.hls_download_timer_trigger_frequency,
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "CHUNK_SIZE": "80",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
 }
@@ -2131,7 +2146,8 @@ resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlsl30_query_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
@@ -2158,7 +2174,8 @@ resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlss30_query_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "hlss30_query_timer" {

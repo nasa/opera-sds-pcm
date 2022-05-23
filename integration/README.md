@@ -18,7 +18,8 @@ The tests require a `.env` configuration file. Modify the sample below as needed
 # .env
 
 # Elasticsearch connection
-ES_HOST = https://123.123.123.123/grq_es/ # Elasticsearch URL
+ES_HOST = 123.123.123.123
+ES_BASE_URL = https://${ES_HOST}/grq_es/ # Elasticsearch URL
 ES_USER = foo # Elasticsearch username
 ES_PASSWORD = bar # Elasticsearch password
 
@@ -33,4 +34,8 @@ RS_BUCKET = opera-foo-rs-fwd-bar
 L30_INPUT_DIR = ~/Downloads/test_datasets/l30_greenland/input_files_hls_v2.0
 S30_INPUT_DIR = ~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0
 
+# Data subscriber feature
+DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
+L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
+S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
 ```

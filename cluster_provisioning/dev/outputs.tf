@@ -14,6 +14,14 @@ output "large_queue_name" {
   value = "${var.project}-job_worker-large"
 }
 
+output "hlsl30_query_timer" {
+  value = module.common.hlsl30_query_timer.function_name
+}
+
+output "hlss30_query_timer" {
+  value = module.common.hlss30_query_timer.function_name
+}
+
 output "cnm_notify_asg_name" {
   value = "${var.project}-${var.venue}-${module.common.counter}-${var.project}-job_worker-cnm_notify"
 }
