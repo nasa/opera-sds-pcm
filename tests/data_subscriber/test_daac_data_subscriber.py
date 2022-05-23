@@ -32,6 +32,29 @@ def teardown_module():
 
 
 @pytest.mark.asyncio
+async def test_full(monkeypatch):
+    # ARRANGE
+    patch_subscriber(monkeypatch)
+    mock_get_aws_creds(monkeypatch)
+    mock_s3_transfer(monkeypatch)
+    mock_boto3(monkeypatch)
+
+    args = "dummy.py full " \
+           "--isl-bucket=dummy_bucket " \
+           "--collection-shortname=dummy_collection_shortname " \
+           "--isl-bucket=dummy_bucket " \
+           "--transfer-protocol=not-https " \
+           "".split()
+
+    # ACT
+    results = await data_subscriber.daac_data_subscriber.run(args)
+
+    # ASSERT
+    assert results["query"] is None
+    assert results["download"] is None
+
+
+@pytest.mark.asyncio
 async def test_query(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
@@ -45,7 +68,7 @@ async def test_query(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["query"] is None
 
 
 @pytest.mark.asyncio
@@ -63,8 +86,8 @@ async def test_query_chunked(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert len(results["success"]) > 0
-    assert len(results["fail"]) == 0
+    assert len(results["query"]["success"]) > 0
+    assert len(results["query"]["fail"]) == 0
 
 
 @pytest.mark.asyncio
@@ -83,7 +106,7 @@ async def test_query_no_schedule_download(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["query"] is None
 
 
 @pytest.mark.asyncio
@@ -104,8 +127,8 @@ async def test_query_smoke_run(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert len(results["success"]) == 1
-    assert len(results["fail"]) == 0
+    assert len(results["query"]["success"]) == 1
+    assert len(results["query"]["fail"]) == 0
 
 
 @pytest.mark.asyncio
@@ -125,7 +148,7 @@ async def test_download(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["download"] is None
 
 
 @pytest.mark.asyncio
@@ -146,7 +169,7 @@ async def test_download_by_tile(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["download"] is None
 
 
 @pytest.mark.asyncio
@@ -166,7 +189,7 @@ async def test_download_by_tiles(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["download"] is None
 
 
 @pytest.mark.asyncio
@@ -187,7 +210,7 @@ async def test_download_https(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["download"] is None
 
 
 @pytest.mark.asyncio
@@ -208,7 +231,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["download"] is None
 
 
 @pytest.mark.asyncio
@@ -229,7 +252,7 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     results = await data_subscriber.daac_data_subscriber.run(args)
 
     # ASSERT
-    assert results is None
+    assert results["download"] is None
 
 
 @contextmanager

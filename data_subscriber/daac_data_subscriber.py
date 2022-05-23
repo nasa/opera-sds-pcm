@@ -96,13 +96,19 @@ async def run(argv: list[str]):
 
     with token_ctx(TOKEN_URL, IP_ADDR, EDL) as token:
         logging.info(f"{args.subparser_name=}")
-        if args.subparser_name == "query":
-            results = await run_query(args, token, HLS_CONN, CMR, job_id)
-        elif args.subparser_name == "download":
-            results = run_download(args, token, HLS_CONN, NETLOC, username, password, job_id)
+        if not (
+                args.subparser_name == "query"
+                or args.subparser_name == "download"
+                or args.subparser_name == "full"
+        ):
+            raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
-        else:
-            raise Exception(f"Unsupported operation. {args.index_mode=}")
+        results = {}
+        if args.subparser_name == "query" or args.subparser_name == "full":
+            results["query"] = await run_query(args, token, HLS_CONN, CMR, job_id)
+        if args.subparser_name == "download" or args.subparser_name == "full":
+            results["download"] = run_download(args, token, HLS_CONN, NETLOC, username, password, job_id)
+    logging.info(f"{results=}")
     logging.info("END")
     return results
 
@@ -116,6 +122,10 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
         update_granule_index(HLS_SPATIAL_CONN, granule)
         download_urls.extend(granule.get("filtered_urls"))
+
+    if args.subparser_name == "full":
+        logging.info(f"{args.subparser_name=}. Skipping download job submission.")
+        return
 
     if args.no_schedule_download:
         logging.info(f"{args.no_schedule_download=}. Skipping download job submission.")
@@ -304,10 +314,10 @@ def create_parser():
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
 
     full_parser = subparsers.add_parser("full")
-    full_parser.add_argument("-p", "--provider", dest="provider", required=True,
-                             help="Specify a provider for collection search.")
-    full_parser.add_argument("-c", "--collection", dest="collection", required=True,
-                             help="The collection for which you want to retrieve data.")
+    full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
+                             help="Specify a provider for collection search. Default is LPCLOUD.")
+    full_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
+                             help="The collection shortname for which you want to retrieve data.")
     full_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
     full_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
@@ -320,6 +330,23 @@ def create_parser():
                              help="The incoming storage location s3 bucket where data products will be downloaded.")
     full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
                              help="The protocol used for retrieving data, HTTPS or default of S3")
+
+    full_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
+                             help="Toggle for skipping physical downloads.")
+    full_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
+                             help="Toggle for processing a single tile.")
+
+    full_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
+                             help="Toggle for query only operation (no downloads).")
+    full_parser.add_argument("--release-version", dest="release_version",
+                              help="The release version of the download job-spec.")
+    full_parser.add_argument("--job-queue", dest="job_queue",
+                              help="The queue to use for the scheduled download job.")
+    full_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
+                              help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
+
+    full_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
+                                 help="A list of target tile IDs pending download.")
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
