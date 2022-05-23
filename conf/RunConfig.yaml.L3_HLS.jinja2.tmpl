@@ -10,7 +10,12 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
-        AncillaryFileMap: {}
+        AncillaryFileMap:
+          {%- for type in data.dynamic_ancillary_file_group.keys() %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}
+          {%- endfor %}
       ProductPathGroup:
         ProductCounter: 001
         OutputProductPath: {{ data.product_path_group.product_path }}

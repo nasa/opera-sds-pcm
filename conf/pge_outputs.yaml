@@ -38,4 +38,6 @@ L3_HLS:
     Optional: []
       # Pattern for optional output product filenames
 
-  Missing_Metadata: {}
+  Missing_Metadata: {
+  # "daac_product_type": "OPERA_L3_DSWX_HLS_0.0"
+  }

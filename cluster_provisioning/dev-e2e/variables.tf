@@ -272,11 +272,15 @@ variable "cnm_r_job_queue" {
 }
 
 variable "cnm_r_event_trigger" {
-  default = "sqs"
+  default = "sns"
 }
 
 variable "cnm_r_allowed_account" {
   default = "*"
+}
+
+variable "cnm_r_venue" {
+  default = "dev"
 }
 
 #The value of daac_delivery_proxy can be
@@ -354,7 +358,7 @@ variable "pge_names" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.4.0"
+  default = "1.0.0-er.4.1"
 }
 
 variable "crid" {

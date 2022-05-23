@@ -2,6 +2,7 @@
 OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -26,7 +27,7 @@ def main(context_file: str, workdir: str):
     logger.debug(f"context={to_json(context)}")
 
     # set additional files to triage
-    jc.set('_triage_additional_globs', ["output", "RunConfig.yaml"])
+    jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
     jc.save()
 
     run_pipeline(context=context, work_dir=workdir)
@@ -54,12 +55,17 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
 
+    # Copy the DEM(s) downloaded for this job to the pge input directory
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
     logger.info("Copying input files to input directories.")
     for local_input_filepath in lineage_metadata:
         shutil.copy(local_input_filepath, input_hls_dir)
 
     logger.info("Updating run config for use with PGE.")
     run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = '/home/conda/input_dir/dem.vrt'
 
     # create RunConfig.yaml
     logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")

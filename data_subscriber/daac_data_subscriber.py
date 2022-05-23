@@ -112,7 +112,6 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
-
 async def run_query(args, token, HLS_CONN, CMR, job_id):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
     granules = query_cmr(args, token, CMR)

@@ -51,6 +51,7 @@ module "common" {
   cnm_r_job_queue                         = var.cnm_r_job_queue
   cnm_r_event_trigger                     = var.cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
+  cnm_r_venue                             = var.cnm_r_venue
   daac_delivery_proxy                     = var.daac_delivery_proxy
   daac_endpoint_url                       = var.daac_endpoint_url
   asg_use_role                            = var.asg_use_role
