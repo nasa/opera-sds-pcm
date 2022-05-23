@@ -80,11 +80,16 @@ async def run(argv: list[str]):
 
     logging.info(f"{argv=}")
 
-    with open("_job.json", "r+") as job:
-        logging.info("job_path: {}".format(job))
-        local_job_json = json.load(job)
-        logging.info(f"{local_job_json=!s}")
-    job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
+    is_running_outside_verdi_worker_context = not Path("_job.json").exists()
+    if is_running_outside_verdi_worker_context:
+        logging.info("Running outside of job context. Generating random job ID")
+        job_id = uuid.uuid4()
+    else:
+        with open("_job.json", "r+") as job:
+            logging.info("job_path: {}".format(job))
+            local_job_json = json.load(job)
+            logging.info(f"{local_job_json=!s}")
+        job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
     username, password = setup_earthdata_login_auth(EDL)

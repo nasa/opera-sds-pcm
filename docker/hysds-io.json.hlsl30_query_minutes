@@ -2,6 +2,7 @@
   "label": "Query HLSL30 data with minutes elapsed",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
+  "enable_dedup": false,
   "params": [
     {
       "name": "minutes",

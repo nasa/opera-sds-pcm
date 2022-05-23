@@ -46,7 +46,8 @@ locals {
   }
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  enable_timer = var.cluster_type == "reprocessing" ? false : true
+  enable_query_timer = var.cluster_type == "reprocessing" ? false : true
+  enable_download_timer = false
 
   delete_old_job_catalog = true
 }
@@ -2053,7 +2054,7 @@ resource "aws_cloudwatch_event_rule" "hls_download_timer" {
   name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hls_download_timer_trigger_frequency
-  is_enabled = false
+  is_enabled = local.enable_download_timer
   depends_on = [null_resource.install_pcm_and_pges]
 }
 
@@ -2095,8 +2096,8 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "PROVIDER": var.hls_provider,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
       "CHUNK_SIZE": "80",
-      "SMOKE_RUN": "true",
-      "DRY_RUN": "true",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
@@ -2130,8 +2131,8 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "MINUTES": var.hls_download_timer_trigger_frequency,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
       "CHUNK_SIZE": "80",
-      "SMOKE_RUN": "true",
-      "DRY_RUN": "true",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
@@ -2141,7 +2142,7 @@ resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlsl30_query_timer_trigger_frequency
-  is_enabled = false
+  is_enabled = local.enable_download_timer
   depends_on = [null_resource.install_pcm_and_pges]
 }
 
@@ -2169,7 +2170,7 @@ resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlss30_query_timer_trigger_frequency
-  is_enabled = false
+  is_enabled = local.enable_download_timer
   depends_on = [null_resource.install_pcm_and_pges]
 }
 
