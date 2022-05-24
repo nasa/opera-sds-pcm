@@ -9,7 +9,7 @@ USER ops
 COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
- && pip uninstall gdal \
+ && sudo /opt/conda/bin/conda uninstall -y gdal \
  && sudo /opt/conda/bin/conda install -y gdal \
  && pip install -U more-itertools \
  && pip install -U mgrs pyproj gdal \
