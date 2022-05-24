@@ -29,6 +29,7 @@ setup(
             'backoff',
             'yamale',
             'jinja2',
+			'mgrs',
             'boto3==1.22.3',
             'click==8.1.3',
             # 'GDAL==3.4.2',  # install native gdal first. `brew install gdal` on macOS.
