@@ -31,7 +31,7 @@ setup(
             'jinja2',
             'boto3==1.22.3',
             'click==8.1.3',
-            # 'GDAL==3.4.2',  # install native gdal first. `brew install gdal` on macOS.
+            # 'GDAL==3.5.0',  # install native gdal first. `brew install gdal` on macOS.
             'Shapely',
             'elasticsearch==7.13.4',
             'elasticsearch[async]>=7.13.4',
