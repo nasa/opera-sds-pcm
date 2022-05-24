@@ -12,6 +12,7 @@ RUN set -ex \
  && pip install -U more-itertools \
  && pip install -U pytest scripttest mock mockito flake8 pytest-cov flake8-junit-report flake8-string-format xmltodict yamale==3.0.6 ruamel.yaml elasticmock geopandas smart_open \
  && pip install -U pytest-asyncio elasticsearch[async] \
+ && pip install -U mgrs \
  && sudo chown -R ops:ops /home/ops/verdi/ops/opera-pcm \
  && cd /home/ops/verdi/ops \
  && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git \
