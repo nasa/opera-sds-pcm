@@ -198,6 +198,9 @@ variable "cnm_r_event_trigger_values_list" {
 variable "cnm_r_allowed_account" {
 }
 
+variable "cnm_r_venue" {
+}
+
 variable "daac_delivery_proxy" {
 }
 
@@ -331,9 +334,9 @@ variable "use_daac_cnm" {
 variable "daac_cnm_sqs_arn" {
   type = map(string)
   default = {
-    dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    test = "arn:aws:sqs:us-west-2:399787141461:opera-test-daac-cnm-response"
-    int  = "arn:aws:sqs:us-west-2:681612454726:opera-int-daac-cnm-response"
+    dev  = "arn:aws:sns:us-west-2:681612454726:opera-dev-daac-cnm-response"
+    test = "arn:aws:sns:us-west-2:399787141461:opera-test-daac-cnm-response"
+    int  = "arn:aws:sns:us-west-2:681612454726:opera-int-daac-cnm-response"
   }
 }
 
@@ -355,7 +358,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.4.0"
+  default = "1.0.0-er.4.1"
 }
 
 variable "crid" {

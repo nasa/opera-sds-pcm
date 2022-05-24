@@ -12,6 +12,8 @@ class OperaChimeraConstants(ChimeraConstants):
     PATTERN = "Pattern"
     FORCE_INGEST = "FORCE_INGEST"
 
+    CNM_VERSION = "CNM_VERSION"
+
     # processing mode key
     PROCESSING_MODE_KEY = "processing_mode"
 
@@ -45,6 +47,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     SET_PCM_RETRIEVAL_ID = "set_pcm_retrieval_id"
 
+    SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
+
     TBD_PRECONDITIONS = "undefinedPreconditions"
 
     ATTRIBUTE_NAMES_KEY = "attribute_names"
@@ -75,7 +79,7 @@ class OperaChimeraConstants(ChimeraConstants):
     MOCK_METADATA = "mock_metadata"
     BASE_NAME = "base_name"
 
-    DEM_FILE = "DEMFile"
+    DEM_FILE = "dem_file"
 
     PLANNED_OBSERVATION_ID = "PlannedObservationId"
     PLANNED_OBSERVATION_TIMESTAMP = "PlannedObservationTimestamp"
@@ -137,6 +141,7 @@ class OperaChimeraConstants(ChimeraConstants):
     FILE_NAMES_KEY = "file_names_key"
 
     CAST_STRING_TO_INT = "cast_string_to_int"
+    DEM_BBOX = "bbox"
     GET_DEM_BBOX = "get_dem_bbox"
     GET_DEMS = "get_dems"
 

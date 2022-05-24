@@ -216,11 +216,13 @@ cython_debug/
 .idea/**/markdown.xml
 .idea/**/misc.xml
 .idea/**/workspace.xml
+.idea/**/vcs.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
 .idea/**/inspectionProfiles
+.idea/**/modules.xml
 
 # AWS User-specific
 .idea/**/aws.xml
