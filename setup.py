@@ -13,7 +13,7 @@ setup(
     ],
     extras_require={
         'subscriber': [
-            'boto3==1.23.52',
+            'boto3==1.23.7',
             'elasticsearch==7.13.4',
             'elasticsearch[async]>=7.13.4',
             'more-itertools==8.13.0',
@@ -29,7 +29,7 @@ setup(
             'backoff',
             'yamale',
             'jinja2',
-            'boto3==1.23.52',
+            'boto3==1.23.7',
             'click==8.1.3',
             # 'GDAL==3.5.0',  # install native gdal first. `brew install gdal` on macOS.
             'Shapely',
@@ -44,7 +44,7 @@ setup(
         ],
         'integration': [
             'pytest==7.1.1',
-            'boto3==1.23.52',
+            'boto3==1.23.7',
             "boto3-stubs-lite[essential]",
             "elasticsearch==7.13.4",
             "elasticsearch-dsl==7.3.0",
