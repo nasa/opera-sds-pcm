@@ -9,9 +9,9 @@ USER ops
 COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
- && sudo /opt/conda/bin/conda install -y gdal==3.4.1 \
+ && sudo /opt/conda/bin/conda install -y -c conda-forge gdal==3.5.0 \
  && pip install -U more-itertools \
- && pip install -U mgrs pyproj gdal==3.4.1 \
+ && pip install -U mgrs pyproj gdal==3.5.0 \
  && pip install -U pytest scripttest mock mockito flake8 pytest-cov flake8-junit-report flake8-string-format xmltodict yamale==3.0.6 ruamel.yaml elasticmock geopandas smart_open \
  && pip install -U pytest-asyncio elasticsearch[async] \
  && sudo chown -R ops:ops /home/ops/verdi/ops/opera-pcm \
