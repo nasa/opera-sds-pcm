@@ -1200,6 +1200,7 @@ resource "aws_instance" "mozart" {
       "cd ~/mozart/ops/pcm_commons",
       "pip install --progress-bar off -e .",
       "cd ~/mozart/ops/opera-pcm",
+      "pip install '.[subscriber]'",  # download dependencies for CLI execution of daac_data_subscriber.py
       "pip install --progress-bar off -e .",
       #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
       # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
