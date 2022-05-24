@@ -10,6 +10,7 @@ COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
  && pip install -U more-itertools \
+ && pip install -U mgrs pyproj gdal \
  && pip install -U pytest scripttest mock mockito flake8 pytest-cov flake8-junit-report flake8-string-format xmltodict yamale==3.0.6 ruamel.yaml elasticmock geopandas smart_open \
  && pip install -U pytest-asyncio elasticsearch[async] \
  && sudo chown -R ops:ops /home/ops/verdi/ops/opera-pcm \

@@ -38,7 +38,9 @@ setup(
             'requests==2.27.1',
             'pytest==7.1.1',
             'pytest-asyncio==0.18.3',
-            'pytest-cov==3.0.0'
+            'pytest-cov==3.0.0',
+            'mgrs',
+            'pyproj'
         ],
         'integration': [
             'pytest==7.1.1',

@@ -32,6 +32,10 @@ mock_job_utils = types.ModuleType('hysds_commons.job_utils')
 sys.modules['hysds_commons.job_utils'] = mock_job_utils
 mock_job_utils.submit_mozart_job = submit_mozart_job
 
+mock_commons_es_connection = types.ModuleType('commons.es_connection')
+sys.modules['commons.es_connection'] = mock_commons_es_connection
+mock_commons_es_connection.get_grq_es = lambda *args, **kwargs: None
+
 
 @pytest.fixture(autouse=True)
 def deny_network_requests(monkeypatch):
