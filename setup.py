@@ -13,7 +13,7 @@ setup(
     ],
     extras_require={
         'subscriber': [
-            'boto3==1.22.3',
+            'boto3',
             'elasticsearch==7.13.4',
             'elasticsearch[async]>=7.13.4',
             'more-itertools==8.13.0',
@@ -29,21 +29,22 @@ setup(
             'backoff',
             'yamale',
             'jinja2',
-			'mgrs',
-            'boto3==1.22.3',
+            'boto3',
             'click==8.1.3',
-            # 'GDAL==3.4.2',  # install native gdal first. `brew install gdal` on macOS.
+            # 'GDAL==3.5.0',  # install native gdal first. `brew install gdal` on macOS.
             'Shapely',
             'elasticsearch==7.13.4',
             'elasticsearch[async]>=7.13.4',
             'requests==2.27.1',
             'pytest==7.1.1',
             'pytest-asyncio==0.18.3',
-            'pytest-cov==3.0.0'
+            'pytest-cov==3.0.0',
+            'mgrs',
+            'pyproj'
         ],
         'integration': [
             'pytest==7.1.1',
-            'boto3==1.22.3',
+            'boto3',
             "boto3-stubs-lite[essential]",
             "elasticsearch==7.13.4",
             "elasticsearch-dsl==7.3.0",

@@ -12,10 +12,10 @@ RUN set -ex \
  && pip install -U more-itertools \
  && pip install -U pytest scripttest mock mockito flake8 \
     pytest-cov flake8-junit-report flake8-string-format \
-	xmltodict yamale==3.0.6 ruamel.yaml elasticmock \
-	geopandas smart_open \
+    xmltodict yamale==3.0.6 ruamel.yaml elasticmock \
+    geopandas smart_open \
  && pip install -U pytest-asyncio elasticsearch[async] \
- && pip install -U mgrs \
+ && pip install -U mgrs pyproj \
  && sudo /opt/conda/bin/conda install -y gdal cffi \
  # TODO: remove the following kludge once this issue has been resolved:
  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
