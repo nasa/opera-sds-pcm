@@ -1,7 +1,6 @@
 import contextlib
 import logging
 import os
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Union
@@ -139,6 +138,12 @@ def es_index_delete(index):
         Index(name=index, using=get_es_client()).delete()
 
 
+def mozart_es_index_delete(index):
+    logging.info(f"Deleting {index=}")
+    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
+        Index(name=index, using=get_mozart_es_client()).delete()
+
+
 def get(response: Response, key: str):
     try:
         return response.hits.hits[0]["_source"][key]
@@ -159,17 +164,19 @@ def get_es_client():
     )
 
 
-def get_es_host() -> str:
-    result = subprocess.run([
-        "terraform output mozart_pub_ip"],
-        cwd=Path.cwd() / "cluster_provisioning/dev",
-        stdout=subprocess.PIPE,
-        shell=True,
-        text=True
+def get_mozart_es_client():
+    return Elasticsearch(
+        hosts=[f"https://{get_es_host()}/mozart_es/"],
+        http_auth=(config["ES_USER"], config["ES_PASSWORD"]),
+        connection_class=RequestsHttpConnection,
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False
     )
 
-    es_host = result.stdout.strip().strip("\"")
-    return es_host
+
+def get_es_host() -> str:
+    return config["ES_HOST"]
 
 
 def upload_file(filepath: Union[Path, str], bucket=config["ISL_BUCKET"], object_name=None):

@@ -15,7 +15,7 @@
 
     <sf:processes>
       <!-- input preprocessor -->
-      <sf:process id="input_preprocesor_L3_HLS">
+      <sf:process id="input_preprocessor_L3_HLS">
         <sf:inputs>
           <sf_context/>
           <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
@@ -36,7 +36,7 @@
       <sf:process id="L3_HLS_PGE">
         <sf:inputs>
           <sf_context/>
-          <PGE_L3_HLS_job_params from="@#input_preprocesor_L3_HLS"/>
+          <PGE_L3_HLS_job_params from="@#input_preprocessor_L3_HLS"/>
           <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_HLS.yaml</pge_config_file>
           <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
           <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>

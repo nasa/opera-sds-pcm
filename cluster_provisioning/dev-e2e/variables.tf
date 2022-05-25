@@ -40,7 +40,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "develop"
+  default = "opera_delivery"
 }
 
 variable "bach_api_repo" {
@@ -272,11 +272,15 @@ variable "cnm_r_job_queue" {
 }
 
 variable "cnm_r_event_trigger" {
-  default = "sqs"
+  default = "sns"
 }
 
 variable "cnm_r_allowed_account" {
   default = "*"
+}
+
+variable "cnm_r_venue" {
+  default = "dev"
 }
 
 #The value of daac_delivery_proxy can be
@@ -349,8 +353,12 @@ variable "pge_snapshots_date" {
   default = "20220401-1.0.0-er.3.0"
 }
 
+variable "pge_names" {
+  default = "opera_pge-dswx_hls"
+}
+
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-er.4.1"
 }
 
 variable "crid" {
@@ -463,3 +471,8 @@ variable "amis" {
     autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
   }
 }
+
+variable "es_user" {}
+
+variable "es_pass" {}
+

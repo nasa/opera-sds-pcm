@@ -2,9 +2,13 @@
 Code to convert PGE outputs to HySDS-style datasets.
 
 @author: mcayanan
+Adapted for OPERA PCM by Scott Collins
+
 """
 from __future__ import print_function
 
+import glob
+import json
 import os
 import sys
 import shutil
@@ -22,19 +26,12 @@ PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
 OPTIONAL_KEY = "Optional"
 DEFAULT_HASH_ALGO = "sha256"
-
 DATASETS_DIR_NAME = "datasets"
 
 
-def convert(
-    product_dir,
-    pge_name,
-    rc_file=None,
-    pge_output_conf_file=None,
-    settings_conf_file=None,
-    extra_met=None
-):
-    created_datasets = []
+def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
+            settings_conf_file=None, extra_met=None):
+    created_datasets = set()
 
     pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
     pge_config = pge_outputs_cfg[pge_name]
@@ -51,83 +48,113 @@ def convert(
 
     settings = SettingsConf(settings_conf_file).cfg
 
-    """ Create the datasets """
+    # Create the datasets
     output_types = [PRIMARY_KEY, OPTIONAL_KEY]
+
     for output_type in output_types:
         for product in products[output_type].keys():
-            logger.info("Converting {} to a dataset".format(product))
+            logger.info(f"Converting {product} to a dataset")
+
             dataset_dir = extract.extract(
                 os.path.join(product_dir, product),
                 settings[extract.PRODUCT_TYPES_KEY],
                 os.path.join(product_dir, DATASETS_DIR_NAME),
                 extra_met=extra_met,
             )
-            hashcheck = False
-            if "hashcheck" in products[output_type][product]:
-                hashcheck = products[output_type][product]["hashcheck"]
+
+            hashcheck = products[output_type][product].get("hashcheck", False)
 
             if hashcheck:
-                hash_algo = DEFAULT_HASH_ALGO
-                if "hash_algo" in products[output_type][product]:
-                    hash_algo = products[output_type][product]["hash_algo"]
-                print("hash_algo : {}".format(hash_algo))
-
+                hash_algo = products[output_type][product].get("hash_algo", DEFAULT_HASH_ALGO)
                 create_dataset_checksums(os.path.join(dataset_dir, product), hash_algo)
-            created_datasets.append(dataset_dir)
 
-    # Rename RunConfig to its dataset
-    if rc_file:
-        renamed_rc_file = os.path.join(product_dir, "{}.rc.yaml".format(os.path.basename(created_datasets[0])))
-        logger.info("Copying RunConfig file to {}".format(renamed_rc_file))
-        shutil.copyfile(rc_file, renamed_rc_file)
-        products[SECONDARY_KEY][os.path.basename(renamed_rc_file)] = {"hashcheck": False}
+            created_datasets.add(dataset_dir)
 
     for dataset in created_datasets:
-        #  TODO: Do we append all Secondary Products to each dataset???
+        dataset_id = dataset.split(os.sep)[-1]
+
+        # Merge all created .met.json files into a single one for use with accountability reporting
+        dataset_met_json = {"Files": []}
+        combined_file_size = 0
+
+        for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
+            with open(met_json_file, 'r') as infile:
+                met_json = json.load(infile)
+                file_key = os.path.splitext(met_json["FileName"])[0]
+                combined_file_size += int(met_json["FileSize"])
+
+                # Extract a copy of the "Product*" key/values to include at the top level
+                # They should be the same values for each file in the dataset
+                product_keys = list(filter(lambda key: key.startswith("Product"), met_json.keys()))
+
+                for product_key in product_keys:
+                    extra_met[product_key] = met_json[product_key]
+                    met_json.pop(product_key)
+
+                dataset_met_json["Files"].append(met_json)
+
+            # Remove the individual .met.json files after they've been merged
+            os.unlink(met_json_file)
+
+        # Add fields to the top-level of the .met.json file
+        dataset_met_json["FileSize"] = combined_file_size
+        dataset_met_json["FileName"] = dataset_id
+        dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
+
+        if "dswx_hls" in dataset_id.lower():
+            collection_name = settings.get("DSWX_COLLECTION_NAME")
+            dataset_met_json["CollectionName"] = collection_name
+            logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
+
+        dataset_met_json.update(extra_met)
+        dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")
+
+        logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
+        with open(dataset_met_json_path, 'w') as outfile:
+            json.dump(dataset_met_json, outfile, indent=2)
+
+        # Rename RunConfig to its dataset
+        if rc_file:
+            renamed_rc_file = os.path.join(product_dir, f"{os.path.basename(dataset)}.rc.yaml")
+            logger.info(f"Copying RunConfig file to {renamed_rc_file}")
+            shutil.copyfile(rc_file, renamed_rc_file)
+            products[SECONDARY_KEY][os.path.basename(renamed_rc_file)] = {"hashcheck": False}
 
         for secondary_product in products[SECONDARY_KEY].keys():
-            if secondary_product.endswith("met"):
-                logger.info(
-                    "No need to copy met file, {}, into dataset, {}, as the extractor already did that for us".format(
-                        secondary_product, dataset
-                    )
-                )
-            else:
-                source = os.path.join(product_dir, secondary_product)
-                target = os.path.join(dataset, secondary_product)
-                logger.info("Copying {} to {}".format(source, target))
-                shutil.copy(source, target)
+            source = os.path.join(product_dir, secondary_product)
+            target = os.path.join(dataset, secondary_product)
+            logger.info(f"Copying {source} to {target}")
+            shutil.copy(source, target)
 
-                hashcheck = False
-                if "hashcheck" in products[SECONDARY_KEY][secondary_product]:
-                    hashcheck = products[SECONDARY_KEY][secondary_product]["hashcheck"]
-                    print("hashcheck : {}".format(hashcheck))
-                if hashcheck:
-                    hash_algo = DEFAULT_HASH_ALGO
-                    if "hash_algo" in products[SECONDARY_KEY][secondary_product]:
-                        hash_algo = products[SECONDARY_KEY][secondary_product][
-                            "hash_algo"
-                        ]
-                    print("hash_algo : {}".format(hash_algo))
-                    create_dataset_checksums(target, hash_algo)
-    return created_datasets
+            hashcheck = products[SECONDARY_KEY][secondary_product].get("hashcheck", False)
+
+            if hashcheck:
+                hash_algo = products[SECONDARY_KEY][secondary_product].get("hash_algo", DEFAULT_HASH_ALGO)
+                create_dataset_checksums(target, hash_algo)
+
+    return list(created_datasets)
 
 
 def get_patterns(pattern_obj_array):
     patterns = {}
+
     for pattern_obj in pattern_obj_array:
         hashcheck = False
+
         if "regex" in pattern_obj:
             if "verify" in pattern_obj:
                 hashcheck = pattern_obj["verify"]
+
             if "hash" in pattern_obj:
                 hash_algo = pattern_obj["hash"]
             else:
                 hash_algo = DEFAULT_HASH_ALGO
+
             patterns[pattern_obj["regex"]] = {
                 "hashcheck": hashcheck,
                 "hash_algo": hash_algo,
             }
+
     return patterns
 
 
@@ -147,9 +174,7 @@ def process_outputs(product_dir, expected_outputs):
             if match:
                 found_it = True
                 logger.info(
-                    "Found file {} with regex pattern {}".format(
-                        output_file, pattern.pattern
-                    )
+                    f"Found file {output_file} with regex pattern {pattern.pattern}"
                 )
                 if pattern in primary_patterns.keys():
                     products[PRIMARY_KEY][output_file] = primary_patterns[pattern]
@@ -158,14 +183,16 @@ def process_outputs(product_dir, expected_outputs):
 
         if found_it is False:
             raise IOError(
-                "Could not find expected output product "
-                "with the pattern '{}'".format(pattern.pattern)
+                f"Could not find expected output product with the pattern '{pattern.pattern}'"
             )
 
     for pattern in optional_patterns.keys():
         for output_file in output_files:
             match = pattern.search(output_file)
             if match:
+                logger.info(
+                    f"Found optional file {output_file} with regex pattern {pattern.pattern}"
+                )
                 products[OPTIONAL_KEY][output_file] = optional_patterns[pattern]
 
     return products

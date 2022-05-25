@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hlsl30_query.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 600,
   "time_limit": 660,
@@ -12,19 +12,47 @@
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {
-      "name": "start_time",
-      "destination": "context"
+      "name": "start_datetime",
+      "destination": "positional"
     },
     {
-      "name": "end_time",
-      "destination": "context"
+      "name": "end_datetime",
+      "destination": "positional"
+    },
+    {
+      "name": "provider",
+      "destination": "positional"
+    },
+    {
+      "name": "bounding_box",
+      "destination": "positional"
+    },
+    {
+      "name": "no_schedule_download",
+      "destination": "positional"
+    },
+    {
+      "name": "download_job_release",
+      "destination": "positional"
+    },
+    {
+      "name": "download_job_queue",
+      "destination": "positional"
     },
     {
       "name": "isl_bucket_name",
       "destination": "positional"
     },
     {
-      "name": "isl_staging_area",
+      "name": "chunk_size",
+      "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
       "destination": "positional"
     }
   ]

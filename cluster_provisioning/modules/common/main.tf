@@ -21,15 +21,15 @@ locals {
   daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
   daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
   daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
-  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge/"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
   daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
   maturity                          = split("-", var.daac_delivery_proxy)[5]
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   hls_download_job_type             = "hls_download"
-  hlsl30_query_job_type             = "hlsl30_query"
-  hlss30_query_job_type             = "hlss30_query"
+  hlsl30_query_job_type             = "hlsl30_query_minutes"
+  hlss30_query_job_type             = "hlss30_query_minutes"
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -46,7 +46,8 @@ locals {
   }
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  enable_timer = var.cluster_type == "reprocessing" ? false : true
+  enable_query_timer = var.cluster_type == "reprocessing" ? false : true
+  enable_download_timer = false
 
   delete_old_job_catalog = true
 }
@@ -556,12 +557,14 @@ POLICY
 resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
   count                     = local.sqs_count
   name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
+#  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
 }
 
 resource "aws_sqs_queue" "cnm_response" {
   count                      = local.sqs_count
   name                       = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#  name                       = "${var.project}-dev-daac-cnm-response"
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue[count.index].arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -821,12 +824,12 @@ resource "aws_instance" "mozart" {
 
   provisioner "file" {
     content     = data.template_file.q_config.rendered
-    destination = "~/q_config"
+    destination = "q_config"
   }
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1200,22 +1203,24 @@ resource "aws_instance" "mozart" {
       "cd ~/mozart/ops/pcm_commons",
       "pip install --progress-bar off -e .",
       "cd ~/mozart/ops/opera-pcm",
+      "pip install '.[subscriber]'",  # download dependencies for CLI execution of daac_data_subscriber.py
       "pip install --progress-bar off -e .",
       #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
       # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
       # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py"
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py"
+      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py",
       #"fi",
 
-      # create accountability Elasticsearch index
+      # create data subscriber Elasticsearch indexes
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py --delete_old_catalog",
-      "else",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py",
       "fi",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py",
 
-      # create data subscriber Elasticsearch index
+      # create accountability Elasticsearch index
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
       "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
       "else",
@@ -1224,19 +1229,23 @@ resource "aws_instance" "mozart" {
 
       # deploy PGE for R1 (DSWx_HLS)
       "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py --pge_release \"${var.pge_release}\" \\",
-      "    --image_names ${var.pge_names} --sds_config ~/.sds/config --processes 4 --force --artifactory_url ${local.pge_artifactory_dev_url} \\",
-      "    --username ${var.artifactory_fn_user} --api_key ${var.artifactory_fn_api_key}",
-      "else",
-      # TODO chrisjrd: extract vars as needed
       "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
       "    --image_names ${var.pge_names} \\",
-#      "    --image_names opera_pge-dswx_hls \\",
       "    --pge_release \"${var.pge_release}\" \\",
       "    --sds_config ~/.sds/config \\",
-      "    --processes 4 --force \\",
+      "    --processes 4 \\",
+      "    --force \\",
+      "    --artifactory_url ${local.pge_artifactory_dev_url}",
+      "    --username ${var.artifactory_fn_user} \\",
+      "    --api_key ${var.artifactory_fn_api_key}",
+      "else",
+      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
+      "    --image_names ${var.pge_names} \\",
+      "    --pge_release ${var.pge_release} \\",
+      "    --sds_config ~/.sds/config \\",
+      "    --processes 4 \\",
+      "    --force \\",
       "    --artifactory_url ${local.pge_artifactory_release_url} \\",
-#      "    --artifactory_url https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge \\",
       "    --username ${var.artifactory_fn_user} \\",
       "    --api_key ${var.artifactory_fn_api_key}",
       "fi",
@@ -1281,15 +1290,6 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  // Initialize data subscriber ES index
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/delete_catalog.py",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/create_catalog.py"
-    ]
-  }
 }
 
 # Resource to install PCM and its dependencies
@@ -1622,7 +1622,7 @@ resource "aws_instance" "metrics" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1692,7 +1692,7 @@ resource "aws_instance" "grq" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1783,7 +1783,7 @@ resource "aws_instance" "factotum" {
 
   provisioner "file" {
     source      = "${path.module}/../../../tools/download_artifact.sh"
-    destination = "~/download_artifact.sh"
+    destination = "download_artifact.sh"
   }
 
   provisioner "remote-exec" {
@@ -1836,7 +1836,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
-  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
@@ -2048,7 +2049,7 @@ resource "aws_lambda_function" "hls_download_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
@@ -2057,13 +2058,12 @@ resource "aws_lambda_function" "hls_download_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-	    "JOB_QUEUE": "${var.project}-job_worker-small",
+      "JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
       "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "SMOKE_RUN": "true",
+      "DRY_RUN": "true"
     }
   }
 }
@@ -2079,7 +2079,8 @@ resource "aws_cloudwatch_event_rule" "hls_download_timer" {
   name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hls_download_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "hls_download_timer" {
@@ -2116,9 +2117,13 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "MINUTES": var.hls_download_timer_trigger_frequency,
+      "PROVIDER": var.hls_provider,
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "CHUNK_SIZE": "80",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
 }
@@ -2134,7 +2139,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
@@ -2144,12 +2149,16 @@ resource "aws_lambda_function" "hlss30_query_timer" {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE": "factotum-job_worker-small",
-      "JOB_TYPE": local.hlsl30_query_job_type,
+      "JOB_TYPE": local.hlss30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "ISL_STAGING_AREA": var.isl_staging_area,
-      "USER_START_TIME": "",
-      "USER_END_TIME": ""
+      "PROVIDER": var.hls_provider,
+      "MINUTES": var.hls_download_timer_trigger_frequency,
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "CHUNK_SIZE": "80",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false"
     }
   }
 }
@@ -2158,7 +2167,8 @@ resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlsl30_query_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
@@ -2185,7 +2195,8 @@ resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlss30_query_timer_trigger_frequency
-  is_enabled = local.enable_timer
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
 }
 
 resource "aws_cloudwatch_event_target" "hlss30_query_timer" {

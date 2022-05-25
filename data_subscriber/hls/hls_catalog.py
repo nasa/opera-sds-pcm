@@ -1,11 +1,12 @@
 from datetime import datetime
+from pathlib import Path
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-ES_INDEX = "data_subscriber_product_catalog"
+ES_INDEX = "hls_catalog"
 
 
-class DataSubscriberProductCatalog(ElasticsearchUtility):
+class HLSProductCatalog(ElasticsearchUtility):
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -20,10 +21,16 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         update_document
     """
 
-    def create_index(self):
+    def create_index(self, index=ES_INDEX, delete_old_index=False):
+        if delete_old_index is True:
+            self.es.indices.delete(index=index, ignore=404)
+            if self.logger:
+                self.logger.info("Deleted old index: {}".format(index))
+
         self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
+                                             "granule_id": {"type": "keyword"},
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "index_datetime": {"type": "date"},
@@ -40,22 +47,32 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
     def get_all_undownloaded(self):
         undownloaded = self._query_undownloaded()
-        return [{"s3_url": result['_source']['s3_url'], "https_url": result['_source']['https_url']}
-                for result in undownloaded]
+        return [
+            {
+                "s3_url": result['_source']['s3_url'],
+                "https_url": result['_source']['https_url']
+            } for result in (undownloaded or [])
+        ]
 
-    def process_url(self, url):
-        filename = url.split('/')[-1]
+    def process_url(self, url, granule_id, job_id):
+        filename = Path(url).name
         result = self._query_existence(filename)
-        doc = {"index_datetime": datetime.now()}
+        doc = {
+            "granule_id": granule_id,
+            "index_datetime": datetime.now(),
+            "query_job_id": job_id,
+        }
 
         if "https://" in url:
             doc["https_url"] = url
-        if "s3://" in url:
+        elif "s3://" in url:
             doc["s3_url"] = url
+        else:
+            raise Exception(f"Unrecognized URL format. {url=}")
 
         if not result:
             doc["downloaded"] = False
-            self._post(id=filename, body=doc)
+            self._post(filename=filename, body=doc)
             return False
         else:
             self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
@@ -70,32 +87,40 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
         else:
             return False
 
-    def mark_product_as_downloaded(self, url):
+    def mark_product_as_downloaded(self, url, job_id):
         filename = url.split('/')[-1]
-        result = self.update_document(id=filename,
-                                      body={"doc_as_upsert": True,
-                                            "doc": {"downloaded": True, "download_datetime": datetime.now()}},
-                                      index=ES_INDEX)
+        result = self.update_document(
+            id=filename,
+            body={
+                "doc_as_upsert": True,
+                "doc": {
+                    "downloaded": True,
+                    "download_datetime": datetime.now(),
+                    "download_job_id": job_id,
+                }
+            },
+            index=ES_INDEX
+        )
 
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
-    def _post(self, id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=id)
+    def _post(self, filename, body):
+        result = self.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, id, index=ES_INDEX):
+    def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=id)
+            result = self.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
             if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
+                self.logger.debug(f"{filename} does not exist in {index}")
 
         return result
 
@@ -108,7 +133,5 @@ class DataSubscriberProductCatalog(ElasticsearchUtility):
 
         except:
             result = None
-            if self.logger:
-                self.logger.debug(f"{id} does not exist in {index}")
 
         return result

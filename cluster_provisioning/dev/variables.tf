@@ -40,7 +40,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "develop"
+  default = "opera_delivery"
 }
 
 variable "bach_api_repo" {
@@ -272,17 +272,23 @@ variable "cnm_r_job_queue" {
 }
 
 variable "cnm_r_event_trigger" {
-  default = "sqs"
+  default = "sns"
 }
 
 variable "cnm_r_allowed_account" {
   default = "*"
 }
 
+variable "cnm_r_venue" {
+  default = "dev"
+}
+
 #The value of daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+# need to get SNS arn from PO DAAC and define
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-response-sns"
 }
 
 variable "use_daac_cnm" {
@@ -349,8 +355,12 @@ variable "pge_snapshots_date" {
   default = "20220401-1.0.0-er.3.0"
 }
 
+variable "pge_names" {
+  default = "opera_pge-dswx_hls"
+}
+
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-er.4.1"
 }
 
 variable "crid" {
@@ -361,17 +371,6 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "hls_download_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "hlsl30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "hlss30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"

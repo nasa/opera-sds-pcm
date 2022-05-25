@@ -51,6 +51,7 @@ module "common" {
   cnm_r_job_queue                         = var.cnm_r_job_queue
   cnm_r_event_trigger                     = var.cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
+  cnm_r_venue                             = var.cnm_r_venue
   daac_delivery_proxy                     = var.daac_delivery_proxy
   daac_endpoint_url                       = var.daac_endpoint_url
   asg_use_role                            = var.asg_use_role
@@ -69,8 +70,8 @@ module "common" {
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   use_daac_cnm                            = var.use_daac_cnm
+  pge_names                               = var.pge_names
   pge_snapshots_date                      = var.pge_snapshots_date
-  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
@@ -87,9 +88,6 @@ module "common" {
   artifactory_fn_api_key                  = var.artifactory_fn_api_key
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
-  hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
-  hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
-  hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
 }
 
 locals {

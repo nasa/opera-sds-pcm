@@ -3,7 +3,7 @@ variable "artifactory_base_url" {
 }
 
 variable "artifactory_repo" {
-  default = "general-develop"
+  default = "general"
 }
 
 variable "artifactory_mirror_url" {
@@ -129,8 +129,8 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux (May 9, 2022)
-	mozart    = "ami-0fa479c6b7aa52fa7"  # mozart v4.16
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (May 9, 2022)
+    mozart    = "ami-0fa479c6b7aa52fa7"  # mozart v4.16
     factotum  = "ami-01375c270e2050d4e"  # factotum v4.12
     grq       = "ami-000a2e36534e0e89d"  # grq v4.12
     metrics   = "ami-0010049f0a8ca0386"  # metrics v4.11
@@ -196,6 +196,9 @@ variable "cnm_r_event_trigger_values_list" {
 }
 
 variable "cnm_r_allowed_account" {
+}
+
+variable "cnm_r_venue" {
 }
 
 variable "daac_delivery_proxy" {
@@ -283,6 +286,18 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
+    "opera-job_worker-data_subscriber" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+    }
+    "opera-job_worker-data_subscriber_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 80
+    }
     "opera-workflow_profiler" = {
       "instance_type" = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
       "root_dev_size" = 50
@@ -319,9 +334,9 @@ variable "use_daac_cnm" {
 variable "daac_cnm_sqs_arn" {
   type = map(string)
   default = {
-    dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    test = "arn:aws:sqs:us-west-2:399787141461:opera-test-daac-cnm-response"
-    int  = "arn:aws:sqs:us-west-2:681612454726:opera-int-daac-cnm-response"
+    dev  = "arn:aws:sns:us-west-2:681612454726:opera-dev-daac-cnm-response"
+    test = "arn:aws:sns:us-west-2:399787141461:opera-test-daac-cnm-response"
+    int  = "arn:aws:sns:us-west-2:681612454726:opera-int-daac-cnm-response"
   }
 }
 
@@ -343,18 +358,28 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-er.4.1"
 }
 
 variable "crid" {
   default = "D00100"
 }
 
-variable "hls_download_timer_trigger_frequency" {}
+variable "hls_provider" {
+  default = "LPCLOUD"
+}
 
-variable "hlsl30_query_timer_trigger_frequency" {}
+variable "hls_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
 
-variable "hlss30_query_timer_trigger_frequency" {}
+variable "hlsl30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "hlss30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
 
 variable "obs_acct_report_timer_trigger_frequency" {}
 

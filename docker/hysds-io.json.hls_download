@@ -4,24 +4,26 @@
   "allowed_accounts": [ "ops" ],
   "params": [
     {
-      "name": "start_time",
-      "from": "submitter",
-      "placeholder": "YYYY-MM-DDThh:mm:ssZ"
-    },
-    {
-      "name": "end_time",
-      "from": "submitter",
-      "placeholder": "YYYY-MM-DDThh:mm:ssZ"
-    },
-    {
       "name": "isl_bucket_name",
       "from": "submitter",
-      "placeholder": "ISL Bucket Name"
+      "placeholder": "e.g. --isl-bucket=<isl_bucket>"
     },
     {
-      "name": "isl_staging_area",
+      "name": "tile_ids",
       "from": "submitter",
-      "placeholder": "ISL staging area",
+      "placeholder": "e.g. --tile-ids T00001 T00002",
+      "optional": true
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "placeholder": "e.g. --dry-run",
       "optional": true
     }
   ]

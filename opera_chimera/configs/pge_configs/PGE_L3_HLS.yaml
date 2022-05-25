@@ -16,33 +16,53 @@ runconfig:
   input_file_group:
     input_file_path: []
   dynamic_ancillary_file_group:
-    dem_file:  # Digital elevation model
-    landcover_file:  # Copernicus Land Cover Layer (CLCL)
-    built_up_cover_fraction_file:  # Copernicus Human Settlement Layer (GHSL)
+    # Digital elevation model
+    dem_file:  __CHIMERA_VAL__
+    # Copernicus Land Cover Layer (CLCL)
+    landcover_file:
   product_path_group:
     product_path: output_dir
     scratch_path: scratch_dir
-    sas_output_file: dswx_hls.tif
+  cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
     # references an output dict entry of a precondition function to pass remote product URL onto localization phase.
     L2_HLS: __CHIMERA_VAL__
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
-preconditions: [get_input_filepaths_from_state_config]
+preconditions:
+  - get_input_filepaths_from_state_config
+  - get_cnm_version
+  - set_daac_product_type
+  - get_dems
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess: [update_product_accountability]
 
+#get_dems:
+  # Can take bbox as before or product metadata key containing the GeoJSON polygon
+  #bbox: "-122.121 36.321 -121.84 36.556"
+#  polygon_key: BOUNDING_POLYGON
+
+
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here
+
+set_daac_product_type:
+  template: OPERA_L3_DSWX_HLS_{cnm_version}
+
+# This function will add to the PGE output metadata when product to dataset conversion is performed
+set_extra_pge_output_metadata:
+   daac_product_type: daac_product_type
 
 # List the extensions that the PGE generates
 output_types:
   L3_DSWx:
     - tif
-    - met
+    - catalog.json
+    - iso.xml
     - log
+    - qa.log
 
 # The PGE name
 # This must MATCH the corresponding entry in pge_outputs.yaml
@@ -55,7 +75,9 @@ primary_output: "L3_DSWx"
 # List the groups that Chimera will need to localize
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
-localize_groups: [product_paths]
+localize_groups:
+  - product_paths
+  - dynamic_ancillary_file_group
 
 
 #######################################################################
@@ -67,4 +89,4 @@ localize_groups: [product_paths]
 input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
     - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
     - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
-output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_{collection_version}
+output_base_name: OPERA_L3_DSWx_HLS_{sensor}_{tile_id}_{datetime}_{collection_version}_{product_counter}
