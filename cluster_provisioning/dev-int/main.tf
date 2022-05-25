@@ -91,6 +91,9 @@ module "common" {
   artifactory_fn_user                     = var.artifactory_fn_user
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
+  hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
+  hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
+  hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
   purge_es_snapshot                       = var.purge_es_snapshot
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
@@ -152,7 +155,6 @@ resource "null_resource" "mozart" {
       "  ${var.use_daac_cnm} \\",
       "  ${local.crid} \\",
       "  ${var.cluster_type}  || :",
-#      "  \"${var.data_download_timer_trigger_frequency}\" || :",
       "fi",
     ]
   }
