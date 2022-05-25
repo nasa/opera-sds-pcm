@@ -777,8 +777,9 @@ resource "aws_instance" "mozart" {
   user_data            = <<-EOF
               GRQIP=${aws_instance.grq.private_ip}
               METRICSIP=${aws_instance.metrics.private_ip}
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
               EOF
-
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
     Bravo = "pcm"
@@ -1422,6 +1423,15 @@ data "aws_subnet_ids" "asg_vpc" {
   vpc_id = var.asg_vpc
 }
 
+data "template_file" "launch_template_user_data" {
+  for_each = var.queues
+  template = <<-EOF
+        BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2
+        PROJECT=${var.project}
+        ENVIRONMENT=${var.environment}
+        EOF
+}
+
 resource "aws_launch_template" "launch_template" {
   for_each               = var.queues
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
@@ -1577,6 +1587,10 @@ resource "aws_instance" "metrics" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.metrics["private_ip"] != "" ? var.metrics["private_ip"] : null
+  user_data              = <<-EOF
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+              EOF
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
     Bravo = "pcm"
@@ -1642,6 +1656,10 @@ resource "aws_instance" "grq" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.grq["private_ip"] != "" ? var.grq["private_ip"] : null
+  user_data              = <<-EOF
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+              EOF
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
     Bravo = "pcm"
@@ -1717,6 +1735,10 @@ resource "aws_instance" "factotum" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.factotum["private_ip"] != "" ? var.factotum["private_ip"] : null
+  user_data              = <<-EOF
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+              EOF
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
     Bravo = "pcm"
@@ -1817,7 +1839,6 @@ resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
 #  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
-#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
