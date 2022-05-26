@@ -44,19 +44,23 @@ def create_parser():
 #TODO:
 # Carry over other optional parameters into the daac_data_subscriber code
 
+_python_and_subs = '/export/home/hysdsops/mozart/bin/python /export/home/hysdsops/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py'
+
 parser = create_parser()
 args = parser.parse_args()
 
-date_format_str = "%Y-%m-%dT%H:%M:%Sz"
+date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 increment_mins = args.job_period * args.multiplier
 
-start_dt = datetime.now() + timedelta(minutes=1)
-job_dt = start_dt
+start_dt = datetime.strptime(args.start_date, date_format_str)
+job_dt = datetime.now() + timedelta(minutes=1)
 for i in range(0, args.job_count):
     start = start_dt + timedelta(minutes=i*increment_mins)
+    start_str = start.strftime(date_format_str)
     stop = start_dt + timedelta(minutes=(i+1)*increment_mins)
-    cron = f"{job_dt.minute} {job_dt.hour} {job_dt.day} {job_dt.month} {job_dt.year}"
-    print(f" {cron} python3 daac_data_subscriber.py -sd {start} -ed {stop} -c {args.collection} -s {args.s3_bucket}")
+    stop_str = stop.strftime(date_format_str)
+    cron = f"{job_dt.minute} {job_dt.hour} {job_dt.day} {job_dt.month} *"
+    print(f" {cron} {_python_and_subs} -sd {start_str} -ed {stop_str} -c {args.collection} -s {args.s3_bucket}")
 
     job_dt = job_dt + timedelta(minutes = args.job_period)
 
