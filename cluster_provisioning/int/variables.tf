@@ -210,6 +210,7 @@ variable "cnm_r_venue" {
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-response-sns"
 }
 
 variable "use_daac_cnm" {
