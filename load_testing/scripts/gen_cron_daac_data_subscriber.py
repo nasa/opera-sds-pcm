@@ -53,7 +53,7 @@ date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 increment_mins = args.job_period * args.multiplier
 
 start_dt = datetime.strptime(args.start_date, date_format_str)
-job_dt = datetime.now() + timedelta(minutes=1)
+job_dt = datetime.now() + timedelta(minutes=2) # Put two minute delay in the cron start so that you have some time between generation and running. Could make this a parameter.
 for i in range(0, args.job_count):
     start = start_dt + timedelta(minutes=i*increment_mins)
     start_str = start.strftime(date_format_str)
