@@ -25,6 +25,7 @@ from urllib import request
 from urllib.parse import urlparse
 
 import boto3
+import yaml
 import requests
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
@@ -67,11 +68,14 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
+    with open('daac_environments.yaml', 'r') as file:
+        daac_env_yaml = yaml.safe_load(file)
+
     IP_ADDR = "127.0.0.1"
-    EDL = "urs.earthdata.nasa.gov"
-    CMR = "cmr.earthdata.nasa.gov"
-    TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
-    NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
+    EDL = daac_env_yaml['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
+    CMR = daac_env_yaml['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
+    TOKEN_URL = f"{CMR}/legacy-services/rest/tokens"
+    NETLOC = urlparse(f"{EDL}").netloc
     HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
 
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
@@ -112,293 +116,123 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
-async def run_query(args, token, HLS_CONN, CMR, job_id):
-    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
-    granules = query_cmr(args, token, CMR)
-
-    download_urls: list[str] = []
-    for granule in granules:
-        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
-        update_granule_index(HLS_SPATIAL_CONN, granule)
-        download_urls.extend(granule.get("filtered_urls"))
-
-    if args.subparser_name == "full":
-        logging.info(f"{args.subparser_name=}. Skipping download job submission.")
-        return
-
-    if args.no_schedule_download:
-        logging.info(f"{args.no_schedule_download=}. Skipping download job submission.")
-        return
-
-    if not args.chunk_size:
-        logging.info(f"{args.chunk_size=}. Skipping download job submission.")
-        return
-
-    tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
-        iterable=download_urls,
-        keyfunc=url_to_tile_id,
-        valuefunc=lambda url: url,
-        reducefunc=set
-    )
-
-    if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
-        tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
-
-    logging.info(f"{tile_id_to_urls_map=}")
-    job_submission_tasks = []
-    loop = asyncio.get_event_loop()
-    logging.info(f"{args.chunk_size=}")
-    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=args.chunk_size):
-        chunk_id = str(uuid.uuid4())
-        logging.info(f"{chunk_id=}")
-
-        chunk_tile_ids = []
-        chunk_urls = []
-        for tile_id, urls in tile_chunk:
-            chunk_tile_ids.append(tile_id)
-            chunk_urls.extend(urls)
-
-        logging.info(f"{chunk_tile_ids=}")
-        logging.info(f"{chunk_urls=}")
-
-        job_submission_tasks.append(
-            loop.run_in_executor(
-                executor=None,
-                func=partial(
-                    submit_download_job,
-                    release_version=args.release_version,
-                    params=[
-                        {
-                            "name": "isl_bucket_name",
-                            "value": f"--isl-bucket={args.isl_bucket}",
-                            "from": "value"
-                        },
-                        {
-                            "name": "tile_ids",
-                            "value": "--tile-ids " + " ".join(chunk_tile_ids) if chunk_tile_ids else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "smoke_run",
-                            "value": "--smoke-run" if args.smoke_run else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "dry_run",
-                            "value": "--dry-run" if args.dry_run else "",
-                            "from": "value"
-                        },
-
-                    ],
-                    job_queue=args.job_queue
-                )
-            )
-        )
-
-    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
-    logging.info(f"{len(results)=}")
-    logging.info(f"{results=}")
-
-    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
-    logging.info(f"{succeeded=}")
-    failed = [e for e in results if isinstance(e, Exception)]
-    logging.info(f"{failed=}")
-    return {
-        "success": succeeded,
-        "fail": failed
-    }
-
-
-def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
-    all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
-    logging.info(f"{all_pending_downloads=}")
-
-    downloads = all_pending_downloads
-    if args.tile_ids:
-        logging.info(f"Filtering pending downloads by {args.tile_ids=}")
-        downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
-        logging.info(f"{downloads=}")
-
-    if not downloads:
-        logging.info(f"No undownloaded files found in index.")
-        return
-
-    if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
-        args.tile_ids = args.tile_ids[:1]
-
-    session = SessionWithHeaderRedirection(username, password, NETLOC)
-
-    if args.transfer_protocol == "https":
-        download_urls = [to_https_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
-        upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
-    else:
-        download_urls = [to_s3_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
-        upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
-
-    logging.info(f"Total files updated: {len(downloads)}")
-
-
-def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
-    return submit_mozart_job_minimal(
-        hysdsio={
-            "id": str(uuid.uuid4()),
-            "params": params,
-            "job-specification": f"job-hls_download:{release_version}",
-        },
-        job_queue=job_queue
-    )
-
-
-def submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
-    return submit_mozart_job(
-        hysdsio=hysdsio,
-        product={},
-        rule={
-            "rule_name": "trigger-hls_download",
-            "queue": job_queue,
-            "priority": "0",
-            "kwargs": "{}",
-            "enable_dedup": True
-        },
-        queue=None,
-        job_name="job-WF-hls_download",
-        payload_hash=None,
-        enable_dedup=None,
-        soft_time_limit=None,
-        time_limit=None,
-        component=None
-    )
-
-
-def to_tile_id(dl_doc: dict[str, Any]):
-    return url_to_tile_id(to_url(dl_doc))
-
-
-def url_to_tile_id(url: str):
-    input_filename = Path(url).name
-    tile_id: str = re.findall(r"T\w{5}", input_filename)[0]
-    return tile_id
-
-
-def to_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    elif dl_dict.get("s3_url"):
-        return dl_dict["s3_url"]
-    else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")
-
-
-def to_https_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")
-
-
-def to_s3_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("s3_url"):
-        return dl_dict["s3_url"]
-    else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")
-
 
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
 
+    endpoint = {"positionals": ["--endpoint"],
+                "kwargs": {"dest": "endpoint",
+                           "default": "OPS",
+                           "help": "Specify DAAC endpoint to use from daac_environments.yaml. Defaults to OPS."}}
+
+    provider = {"positionals": ["-p", "--provider"],
+                "kwargs": {"dest": "provider",
+                           "default": 'LPCLOUD',
+                           "help": "Specify a provider for collection search. Default is LPCLOUD."}}
+
+    collection = {"positionals": ["-c", "--collection-shortname"],
+                  "kwargs": {"dest": "collection",
+                             "required": True,
+                             "help": "The collection shortname for which you want to retrieve data."}}
+
+    start_date = {"positionals": ["-s", "--start-date"],
+                  "kwargs": {"dest": "start_date",
+                             "default": False,
+                             "help": "The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z"}}
+
+    end_date = {"positionals": ["-e", "--end-date"],
+                "kwargs": {"dest": "end_date",
+                           "default": False,
+                           "help": "The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z"}}
+
+    bbox = {"positionals": ["-b", "--bounds"],
+            "kwargs": {"dest": "bbox",
+                       "default": "-180,-90,180,90",
+                       "help": "The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\"."}}
+
+    minutes = {"positionals": ["-m", "--minutes"],
+               "kwargs": {"dest": "minutes",
+                          "type": int,
+                          "default": 60,
+                          "help": "How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes)."}}
+
+    isl_bucket = {"positionals": ["-i", "--isl-bucket"],
+                  "kwargs": {"dest": "isl_bucket",
+                             "required": True,
+                             "help": "The incoming storage location s3 bucket where data products will be downloaded."}}
+
+    transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
+                         "kwargs": {"dest": "transfer_protocol",
+                                    "default": "s3",
+                                    "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
+
+    dry_run = {"positionals": ["--dry-run"],
+               "kwargs": {"dest": "dry_run",
+                          "action": "store_true",
+                          "help": "Toggle for skipping physical downloads."}}
+
+    smoke_run = {"positionals": ["--smoke-run"],
+                 "kwargs": {"dest": "smoke_run",
+                            "action": "store_true",
+                            "help": "Toggle for processing a single tile."}}
+
+    no_schedule_download = {"positionals": ["--no-schedule-download"],
+                            "kwargs": {"dest": "no_schedule_download",
+                                       "action": "store_true",
+                                       "help": "Toggle for query only operation (no downloads)."}}
+
+    release_version = {"positionals": ["--release-version"],
+                       "kwargs": {"dest": "release_version",
+                                  "help": "The release version of the download job-spec."}}
+
+    job_queue = {"positionals": ["--job-queue"],
+                 "kwargs": {"dest": "job_queue",
+                            "help": "The queue to use for the scheduled download job."}}
+
+    chunk_size = {"positionals": ["--chunk-size"],
+                  "kwargs": {"dest": "chunk_size",
+                             "type": int,
+                             "help": "chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job"}}
+
+    tile_ids = {"positionals": ["--tile-ids"],
+                "kwargs": {"dest": "tile_ids",
+                           "nargs": "*",
+                           "help": "A list of target tile IDs pending download."}}
+
     full_parser = subparsers.add_parser("full")
-    full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                             help="Specify a provider for collection search. Default is LPCLOUD.")
-    full_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
-                             help="The collection shortname for which you want to retrieve data.")
-    full_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
-                             help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    full_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
-                             help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
-    full_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
-                             help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
-    full_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
-                             help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    full_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                             help="The incoming storage location s3 bucket where data products will be downloaded.")
-    full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
-                             help="The protocol used for retrieving data, HTTPS or default of S3")
-
-    full_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                             help="Toggle for skipping physical downloads.")
-    full_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                             help="Toggle for processing a single tile.")
-
-    full_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
-                             help="Toggle for query only operation (no downloads).")
-    full_parser.add_argument("--release-version", dest="release_version",
-                              help="The release version of the download job-spec.")
-    full_parser.add_argument("--job-queue", dest="job_queue",
-                              help="The queue to use for the scheduled download job.")
-    full_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
-                              help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
-
-    full_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
-                                 help="A list of target tile IDs pending download.")
+    full_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
+                            transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
+                            chunk_size, tile_ids]
+    add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
-    query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
-                              help="The collection shortname for which you want to retrieve data.")
-    query_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
-                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
-                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
-                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
-    query_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
-                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                              help="Specify a provider for collection search. Default is LPCLOUD.")
-    query_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
-                             help="Toggle for query only operation (no downloads).")
-    query_parser.add_argument("--release-version", dest="release_version",
-                              help="The release version of the download job-spec.")
-    query_parser.add_argument("--job-queue", dest="job_queue",
-                              help="The queue to use for the scheduled download job.")
-    query_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                             help="The incoming storage location s3 bucket where data products will be downloaded.")
-    query_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
-                              help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
-    query_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                             help="Toggle for skipping physical downloads.")
-    query_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                             help="Toggle for processing a single tile.")
+    query_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket, dry_run,
+                             smoke_run, no_schedule_download, release_version, job_queue]
+    add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                                 help="The incoming storage location s3 bucket where data products will be downloaded.")
-    download_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
-                                 help="The protocol used for retrieving data, HTTPS or default of S3")
-    download_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
-                                 help="A list of target tile IDs pending download.")
-    download_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                             help="Toggle for skipping physical downloads.")
-    download_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                             help="Toggle for processing a single tile.")
+    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids]
+    add_arguments(download_parser, download_parser_arg_list)
 
     return parser
+
+
+def add_arguments(parser, arg_list):
+    for argument in arg_list:
+        parser.add_argument(*argument["positionals"], **argument["kwargs"])
 
 
 def validate(args):
     if hasattr(args, "bbox") and args.bbox:
         validate_bounds(args.bbox)
 
-    if hasattr(args, "startDate") and args.startDate:
-        validate_date(args.startDate, "start")
+    if hasattr(args, "start_date") and args.start_date:
+        validate_date(args.start_date, "start")
 
-    if hasattr(args, "endDate") and args.endDate:
-        validate_date(args.endDate, "end")
+    if hasattr(args, "end_date") and args.end_date:
+        validate_date(args.end_date, "end")
 
     if hasattr(args, "minutes") and args.minutes:
         validate_minutes(args.minutes)
@@ -509,8 +343,8 @@ def query_cmr(args, token, CMR):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    start_date = args.startDate if args.startDate else now_minus_minutes_date
-    end_date = args.endDate if args.endDate else now_date
+    start_date = args.start_date if args.start_date else now_minus_minutes_date
+    end_date = args.end_date if args.end_date else now_date
 
     request_url = f"https://{CMR}/search/granules.umm_json"
     params = {
@@ -524,7 +358,7 @@ def query_cmr(args, token, CMR):
         'bounding_box': args.bbox,
     }
 
-    time_range_is_defined = args.startDate or args.endDate
+    time_range_is_defined = args.start_date or args.end_date
     if time_range_is_defined:
         temporal_range = get_temporal_range(start_date, end_date, now_date)
         logging.info("Temporal Range: " + temporal_range)
@@ -773,6 +607,201 @@ def delete_token(url: str, token: str) -> None:
             logging.warning("CMR token deleting failed.")
     except Exception as e:
         logging.warning("Error deleting the token")
+
+
+async def run_query(args, token, HLS_CONN, CMR, job_id):
+    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+    granules = query_cmr(args, token, CMR)
+
+    download_urls: list[str] = []
+    for granule in granules:
+        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
+        update_granule_index(HLS_SPATIAL_CONN, granule)
+        download_urls.extend(granule.get("filtered_urls"))
+
+    if args.subparser_name == "full":
+        logging.info(f"{args.subparser_name=}. Skipping download job submission.")
+        return
+
+    if args.no_schedule_download:
+        logging.info(f"{args.no_schedule_download=}. Skipping download job submission.")
+        return
+
+    if not args.chunk_size:
+        logging.info(f"{args.chunk_size=}. Skipping download job submission.")
+        return
+
+    tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
+        iterable=download_urls,
+        keyfunc=url_to_tile_id,
+        valuefunc=lambda url: url,
+        reducefunc=set
+    )
+
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
+        tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
+
+    logging.info(f"{tile_id_to_urls_map=}")
+    job_submission_tasks = []
+    loop = asyncio.get_event_loop()
+    logging.info(f"{args.chunk_size=}")
+    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=args.chunk_size):
+        chunk_id = str(uuid.uuid4())
+        logging.info(f"{chunk_id=}")
+
+        chunk_tile_ids = []
+        chunk_urls = []
+        for tile_id, urls in tile_chunk:
+            chunk_tile_ids.append(tile_id)
+            chunk_urls.extend(urls)
+
+        logging.info(f"{chunk_tile_ids=}")
+        logging.info(f"{chunk_urls=}")
+
+        job_submission_tasks.append(
+            loop.run_in_executor(
+                executor=None,
+                func=partial(
+                    submit_download_job,
+                    release_version=args.release_version,
+                    params=[
+                        {
+                            "name": "isl_bucket_name",
+                            "value": f"--isl-bucket={args.isl_bucket}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "tile_ids",
+                            "value": "--tile-ids " + " ".join(chunk_tile_ids) if chunk_tile_ids else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "smoke_run",
+                            "value": "--smoke-run" if args.smoke_run else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "dry_run",
+                            "value": "--dry-run" if args.dry_run else "",
+                            "from": "value"
+                        },
+
+                    ],
+                    job_queue=args.job_queue
+                )
+            )
+        )
+
+    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+    logging.info(f"{len(results)=}")
+    logging.info(f"{results=}")
+
+    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+    logging.info(f"{succeeded=}")
+    failed = [e for e in results if isinstance(e, Exception)]
+    logging.info(f"{failed=}")
+    return {
+        "success": succeeded,
+        "fail": failed
+    }
+
+
+def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
+    all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
+    logging.info(f"{all_pending_downloads=}")
+
+    downloads = all_pending_downloads
+    if args.tile_ids:
+        logging.info(f"Filtering pending downloads by {args.tile_ids=}")
+        downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
+        logging.info(f"{downloads=}")
+
+    if not downloads:
+        logging.info(f"No undownloaded files found in index.")
+        return
+
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
+        args.tile_ids = args.tile_ids[:1]
+
+    session = SessionWithHeaderRedirection(username, password, NETLOC)
+
+    if args.transfer_protocol == "https":
+        download_urls = [to_https_url(download) for download in downloads]
+        logging.info(f"{download_urls=}")
+        upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
+    else:
+        download_urls = [to_s3_url(download) for download in downloads]
+        logging.info(f"{download_urls=}")
+        upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
+
+    logging.info(f"Total files updated: {len(downloads)}")
+
+
+def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
+    return submit_mozart_job_minimal(
+        hysdsio={
+            "id": str(uuid.uuid4()),
+            "params": params,
+            "job-specification": f"job-hls_download:{release_version}",
+        },
+        job_queue=job_queue
+    )
+
+
+def submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
+    return submit_mozart_job(
+        hysdsio=hysdsio,
+        product={},
+        rule={
+            "rule_name": "trigger-hls_download",
+            "queue": job_queue,
+            "priority": "0",
+            "kwargs": "{}",
+            "enable_dedup": True
+        },
+        queue=None,
+        job_name="job-WF-hls_download",
+        payload_hash=None,
+        enable_dedup=None,
+        soft_time_limit=None,
+        time_limit=None,
+        component=None
+    )
+
+
+def to_tile_id(dl_doc: dict[str, Any]):
+    return url_to_tile_id(to_url(dl_doc))
+
+
+def url_to_tile_id(url: str):
+    input_filename = Path(url).name
+    tile_id: str = re.findall(r"T\w{5}", input_filename)[0]
+    return tile_id
+
+
+def to_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    elif dl_dict.get("s3_url"):
+        return dl_dict["s3_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+
+
+def to_https_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+
+
+def to_s3_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("s3_url"):
+        return dl_dict["s3_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
 if __name__ == '__main__':
