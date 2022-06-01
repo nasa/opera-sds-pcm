@@ -8,6 +8,7 @@ from typing import Union
 import backoff
 import boto3
 import elasticsearch
+from botocore.config import Config
 
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch_dsl import Search, Index
@@ -17,8 +18,8 @@ import conftest
 
 config = conftest.config
 
-s3_client = boto3.client("s3")
-sqs_client = boto3.client("sqs")
+s3_client = boto3.client("s3", config=(Config(max_pool_connections=30)))
+sns_client = boto3.client("sns", config=(Config(max_pool_connections=30)))
 
 
 def index_not_found(e: elasticsearch.exceptions.NotFoundError):
@@ -100,10 +101,10 @@ def wait_for_cnm_r_success(_id, index):
 def mock_cnm_r_success(id):
     logging.info(f"Mocking CNM-R success ({id=})")
 
-    sqs_client.send_message(
-        QueueUrl=config["CNMR_QUEUE"],
+    sns_client.publish(
+        TopicArn=config["CNMR_TOPIC"],
         # body text is dynamic, so we can skip any de-dupe logic
-        MessageBody=f"""{{
+        Message=f"""{{
             "version": "1.0",
             "provider": "JPL-OPERA",
             "collection": "SWOT_Prod_l2:1",

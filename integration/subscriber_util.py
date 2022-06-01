@@ -6,6 +6,7 @@ import elasticsearch_dsl.response
 import elasticsearch_dsl.response
 import mypy_boto3_lambda
 import requests
+from botocore.config import Config
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response import Hit
 from mypy_boto3_lambda import LambdaClient
@@ -17,7 +18,7 @@ import conftest
 
 config = conftest.config
 
-aws_lambda: LambdaClient = boto3.client("lambda")
+aws_lambda: LambdaClient = boto3.client("lambda", config=(Config(max_pool_connections=30)))
 
 
 def invoke_l30_subscriber_query_lambda():
