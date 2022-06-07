@@ -17,7 +17,7 @@ RunConfig:
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        ProductCounter: 001
+        ProductCounter: {{ data.product_path_group.ProductCounter }}
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:

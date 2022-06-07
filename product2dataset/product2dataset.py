@@ -101,6 +101,10 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
 
+        pcm_retrieval_id, product_counter = dataset_id.rsplit('_', maxsplit=1)
+        dataset_met_json["PCMRetrievalID"] = pcm_retrieval_id
+        dataset_met_json["ProductCounter"] = product_counter
+
         if "dswx_hls" in dataset_id.lower():
             collection_name = settings.get("DSWX_COLLECTION_NAME")
             dataset_met_json["CollectionName"] = collection_name

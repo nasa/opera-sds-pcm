@@ -87,62 +87,72 @@ class OperaPreConditionFunctions(PreConditionFunctions):
     def get_hardcoded_metadata(self):
         return self._pge_config.get(oc_const.GET_HARDCODED_METADATA, {})
 
-    def get_product_counter(self, testmode=None):
+    def get_product_counter(self):
         """
-        To get the product counter
+        Retrieves the last used product counter for the dataset about to be
+        processed, and increments it for use with the current job to support
+        reprocessing of previously seen datasets.
 
-        :return:
+        If this is the first time processing this dataset, the counter defaults
+        to 1.
         """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
         counter = 1
 
-        if testmode is None:
+        # Use a hardcoded value from the PGE config, if specified
+        if "value" in self._pge_config.get(oc_const.GET_PRODUCT_COUNTER, {}):
+            return {
+                oc_const.PRODUCT_COUNTER: self._pge_config.get(
+                    oc_const.GET_PRODUCT_COUNTER
+                ).get("value")
+            }
 
-            if "value" in self._pge_config.get(oc_const.GET_PRODUCT_COUNTER, {}):
-                return {
-                    oc_const.PRODUCT_COUNTER: self._pge_config.get(
-                        oc_const.GET_PRODUCT_COUNTER
-                    ).get("value")
-                }
+        # Otherwise, look up the metadata for the current dataset to see if a
+        # previous product counter can be retrieved
+        primary_output = self._pge_config.get(oc_const.PRIMARY_OUTPUT)
+        index = "grq_*_{}".format(primary_output.lower())
+        clauses = []
 
-            primary_output = self._pge_config.get(oc_const.PRIMARY_OUTPUT)
-            index = "grq_*_{}".format(primary_output.lower())
-            clauses = []
-            pc_key = self._pge_config.get(oc_const.GET_PRODUCT_COUNTER, {})
-            for term, job_params_key in pc_key.items():
-                value = self.__get_converted_data(
-                    self.__get_run_config_metadata(job_params_key, self._job_params)
+        pc_key = self._pge_config.get(oc_const.GET_PRODUCT_COUNTER, {})
+        for term, job_params_key in pc_key.items():
+            value = self.__get_converted_data(
+                self.__get_run_config_metadata(job_params_key, self._job_params)
+            )
+            if value:
+                clauses.append({"match": {term: value}})
+            else:
+                raise RuntimeError(
+                    "{} does not exist in the job_params.".format(job_params_key)
                 )
-                if value:
-                    clauses.append({"match": {term: value}})
-                else:
-                    raise RuntimeError(
-                        "{} does not exist in the job_params.".format(job_params_key)
-                    )
 
-            query = {"query": {"bool": {"must": clauses}}}
-            sort_clause = "metadata.{}:desc".format(product_metadata.PRODUCT_COUNTER)
-            try:
-                result = ancillary_es.search(
-                    body=query, index=index, sort=sort_clause)
-                hits = result.get("hits", {}).get("hits", [])
-                logger.info("hits count : {}".format(len(hits)))
-                if len(hits) > 0:
-                    counter = int(
-                        hits[0]
-                        .get("_source")
-                        .get("metadata", {})
-                        .get(product_metadata.PRODUCT_COUNTER)
-                    )
-                    logger.debug("existing count : {}".format(counter))
-                    counter = counter + 1
-            except Exception:
-                logger.warn(
-                    "Exception caught in getting product counter: {}".format(
-                        traceback.format_exc()
-                    )
+        query = {"query": {"bool": {"must": clauses}}}
+        sort_clause = "metadata.{}:desc".format(product_metadata.PRODUCT_COUNTER)
+
+        logger.debug(f"get_product_counter query: {query}")
+
+        try:
+            result = ancillary_es.search(body=query, index=index, sort=sort_clause)
+            hits = result.get("hits", {}).get("hits", [])
+            logger.debug("hits count : {}".format(len(hits)))
+
+            if len(hits) > 0:
+                counter = int(
+                    hits[0]
+                    .get("_source")
+                    .get("metadata", {})
+                    .get(product_metadata.PRODUCT_COUNTER)
                 )
-                logger.warn("Setting product counter to 1")
-        logger.info("Setting product counter: {}".format(str(counter).zfill(3)))
+                logger.debug("existing count : {}".format(counter))
+                counter = counter + 1
+        except Exception as err:
+            logger.warning(
+                f"Exception caught in getting product counter, reason: {str(err)}"
+            )
+            logger.warning("Setting product counter to 1")
+
+        logger.info(f"Setting incremented product counter: {str(counter).zfill(3)}")
+
         return {oc_const.PRODUCT_COUNTER: counter}
 
     def get_products(self):
@@ -890,7 +900,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info("Adding the following to the job params: {}".format(json.dumps(results)))
         return results
 
-    def get_input_filepaths_from_state_config(self) -> Dict:
+    def get_input_hls_filepaths_from_state_config(self) -> Dict:
         """Returns a partial RunConfig containing the s3 paths of the published L2_HLS products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -900,6 +910,58 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
         return {"L2_HLS": product_paths}
+
+    def set_hls_input_filename_metadata(self) -> Dict:
+        """Extracts HLS metadata from the name of one of the input files"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        input_hls_filepaths = self._job_params.get("L2_HLS")
+
+        if input_hls_filepaths is None:
+            raise RuntimeError(f"List of input HLS filepaths have not been set "
+                               f"under the L2_HLS key.\n"
+                               f"Ensure the get_input_hls_filepaths_from_state_config "
+                               f"precondition function has been run prior to this one.")
+
+        if not input_hls_filepaths:
+            raise RuntimeError("List of input HLS filepaths is empty.")
+
+        sample_hls_filename = os.path.basename(input_hls_filepaths[0])
+
+        try:
+            (product,
+             short_name,
+             tile_id,
+             acquisition_doy,
+             version,
+             subversion,
+             band_idx,
+             ext) = sample_hls_filename.split('.')
+
+            # Convert short name to spacecraft name
+            spacecraft_name = {'L30': 'LANDSAT-8', 'S30': 'SENTINEL-2A'}[short_name]
+
+            # Recombine collection version
+            collection_version = '.'.join([version, subversion])
+
+            # Convert Julian timestamp to full isoformat
+            julian_time = acquisition_doy.split('T')
+            julian_time[0] = str(datetime.strptime(julian_time[0], '%Y%j').date()).replace('-', '')
+            acquisition_time = 'T'.join(julian_time)
+        except Exception as err:
+            raise RuntimeError(
+                f"Failed to parse metadata from sample HLS file {sample_hls_filename}, "
+                f"reason: {str(err)}"
+            )
+
+        hls_input_filename_metadata = {
+            'spacecraft_name': spacecraft_name,
+            'tile_id': tile_id,
+            'acquisition_time': acquisition_time,
+            'collection_version': collection_version
+        }
+
+        return hls_input_filename_metadata
 
     def set_daac_product_type(self):
         """

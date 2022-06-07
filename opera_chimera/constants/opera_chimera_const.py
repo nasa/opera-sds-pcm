@@ -75,6 +75,9 @@ class OperaChimeraConstants(ChimeraConstants):
     OBSERVATION = "Observation"
     OBSERVATIONS = "Observations"
     FRAME_NUMBER = "FrameNumber"
+
+    PGE_NAME = "pge_name"
+
     PGE_JOB_NAME = "pge_job_name"
     MOCK_METADATA = "mock_metadata"
     BASE_NAME = "base_name"

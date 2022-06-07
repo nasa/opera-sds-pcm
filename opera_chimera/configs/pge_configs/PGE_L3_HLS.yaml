@@ -22,7 +22,10 @@ runconfig:
     landcover_file:
   product_path_group:
     product_path: output_dir
-    scratch_path: scratch_dir
+    # Scratch path is defined relative to output_dir to avoid file system permission issues
+    scratch_path: output_dir/scratch_dir
+    # Product counter used to distinguish between multiple jobs using the same inputs
+    ProductCounter: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -31,9 +34,12 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
-  - get_input_filepaths_from_state_config
+  - get_input_hls_filepaths_from_state_config
+  - set_hls_input_filename_metadata
   - get_cnm_version
   - set_daac_product_type
+  - set_pcm_retrieval_id
+  - get_product_counter
   - get_dems
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
@@ -47,6 +53,12 @@ postprocess: [update_product_accountability]
 
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here
+
+set_pcm_retrieval_id:
+  template: OPERA_L3_DSWx_HLS_{spacecraft_name}_{tile_id}_{acquisition_time}_{collection_version}
+
+get_product_counter:
+  metadata.PCMRetrievalID: "PCMRetrievalID"
 
 set_daac_product_type:
   template: OPERA_L3_DSWX_HLS_{cnm_version}
