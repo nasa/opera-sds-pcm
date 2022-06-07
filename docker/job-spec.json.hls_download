@@ -12,6 +12,10 @@
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {
+      "name": "endpoint",
+      "destination": "positional"
+    },
+    {
       "name": "isl_bucket_name",
       "destination": "positional"
     },
