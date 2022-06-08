@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from http.cookiejar import CookieJar
 from multiprocessing.pool import ThreadPool
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Iterable
 from urllib import request
 from urllib.parse import urlparse
@@ -33,6 +33,7 @@ from smart_open import open
 
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
+from util.conf_util import SettingsConf
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -68,15 +69,10 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
-    try:
-        with open('daac_environments.yaml', 'r') as file:
-            daac_env_yaml = yaml.safe_load(file)
-    except FileNotFoundError as f:
-        raise f
-
+    SETTINGS = SettingsConf().cfg
     IP_ADDR = "127.0.0.1"
-    EDL = daac_env_yaml['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
-    CMR = daac_env_yaml['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
+    EDL = SETTINGS['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
+    CMR = SETTINGS['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
     TOKEN_URL = f"{CMR}/legacy-services/rest/tokens"
     NETLOC = urlparse(f"{EDL}").netloc
     HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
@@ -129,7 +125,7 @@ def create_parser():
                 "kwargs": {"dest": "endpoint",
                            "choices": ["OPS", "UAT"],
                            "default": "OPS",
-                           "help": "Specify DAAC endpoint to use from daac_environments.yaml. Defaults to OPS."}}
+                           "help": "Specify DAAC endpoint to use. Defaults to OPS."}}
 
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
@@ -482,10 +478,10 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id)
 
 
 def https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
-    file_name = os.path.basename(url)
+    file_name = PurePath(url).name
     bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
 
-    key = os.path.join(staging_area, file_name)
+    key = Path(staging_area, file_name)
     upload_start_time = datetime.utcnow()
     headers = {"Echo-Token": token}
 
@@ -571,14 +567,14 @@ def get_aws_creds(session):
 
 
 def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
-    file_name = os.path.basename(url)
+    file_name = PurePath(url).name
 
     source = url[len("s3://"):].partition('/')
     source_bucket = source[0]
     source_key = source[2]
 
     target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-    target_key = os.path.join(staging_area, file_name)
+    target_key = Path(staging_area, file_name)
 
     try:
         s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
