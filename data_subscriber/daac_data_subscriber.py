@@ -25,7 +25,6 @@ from urllib import request
 from urllib.parse import urlparse
 
 import boto3
-import yaml
 import requests
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
