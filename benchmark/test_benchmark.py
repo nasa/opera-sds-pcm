@@ -57,7 +57,7 @@ async def test_s30(event_loop: AbstractEventLoop):
     # NOTE:
     #  total number of PGE jobs should not exceed max job queue size (dev=10) as to not affect EBS timers
     #  e.g. assert num_runs * len(instance_type_queues) <= 10
-    run_start_index = 420
+    run_start_index = 2030  # a YYYY year. Note that the sample set already uses 2021
     num_runs = 10
 
     input_filenames = [
