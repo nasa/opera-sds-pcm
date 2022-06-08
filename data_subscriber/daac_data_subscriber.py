@@ -68,8 +68,11 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
-    with open('daac_environments.yaml', 'r') as file:
-        daac_env_yaml = yaml.safe_load(file)
+    try:
+        with open('daac_environments.yaml', 'r') as file:
+            daac_env_yaml = yaml.safe_load(file)
+    except FileNotFoundError as f:
+        raise f
 
     IP_ADDR = "127.0.0.1"
     EDL = daac_env_yaml['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
@@ -124,6 +127,7 @@ def create_parser():
 
     endpoint = {"positionals": ["--endpoint"],
                 "kwargs": {"dest": "endpoint",
+                           "choices": ["OPS", "UAT"],
                            "default": "OPS",
                            "help": "Specify DAAC endpoint to use from daac_environments.yaml. Defaults to OPS."}}
 
