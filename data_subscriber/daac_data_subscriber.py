@@ -354,7 +354,7 @@ def query_cmr(args, token, cmr):
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
-    request_url = f"https://{cmr}/search/granules.umm_json"
+    request_url = f"{cmr}/search/granules.umm_json"
     params = {
         'scroll': "false",
         'page_size': page_size,
