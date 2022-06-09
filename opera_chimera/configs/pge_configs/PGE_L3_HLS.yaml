@@ -18,11 +18,14 @@ runconfig:
   dynamic_ancillary_file_group:
     # Digital elevation model
     dem_file:  __CHIMERA_VAL__
-    # Copernicus Land Cover Layer (CLCL)
-    landcover_file:
+    # Copernicus Global Land Service (CGLS) Land Cover Layer file
+    landcover_file: __CHIMERA_VAL__
+    # ESA WorldCover map file
+    worldcover_file: __CHIMERA_VAL__
   product_path_group:
     product_path: output_dir
-    scratch_path: scratch_dir
+    # Scratch path is defined relative to output_dir to avoid file system permission issues
+    scratch_path: output_dir/scratch_dir
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -35,18 +38,43 @@ preconditions:
   - get_cnm_version
   - set_daac_product_type
   - get_dems
+  - get_landcover
+  - get_worldcover
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
-postprocess: [update_product_accountability]
-
-#get_dems:
-  # Can take bbox as before or product metadata key containing the GeoJSON polygon
-  #bbox: "-122.121 36.321 -121.84 36.556"
-#  polygon_key: BOUNDING_POLYGON
-
+postprocess:
+  - update_product_accountability
 
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here
+
+get_dems:
+  # Specify a specific bounding box to obtain the corresponding DEM for.
+  # If not provided, the bounding box will be determined based on the tile code
+  # of the HLS dataset to be processed
+  #bbox: [-122.121, 36.321, -121.84, 36.556]
+  bbox: []
+  # The s3 bucket containing the global DEM(s) to download regions from
+  s3_bucket: "opera-dem"
+
+get_landcover:
+  # The s3 location of the global landcover file to use with each DSWx-HLS job
+  s3_bucket: "opera-land-cover"
+  s3_key: "PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif"
+
+get_worldcover:
+  # Specify a specific bounding box to obtain the corresponding Worldcover map for.
+  # If not provided, the bounding box will be determined based on the tile code
+  # of the HLS dataset to be processed
+  #bbox: [-122.121, 36.321, -121.84, 36.556]
+  bbox: []
+  # The s3 bucket containing the full Worldcover file to download regions from
+  s3_bucket: "opera-world-cover"
+  # Parameters used to select the Worldcover version and year to download from
+  # These become parts of the s3 key used to lookup the Worldcover file in S3
+  # They should only be changed when updated Worldcover files are available (yearly)
+  worldcover_version: "v100"
+  worldcover_year: "2020"
 
 set_daac_product_type:
   template: OPERA_L3_DSWX_HLS_{cnm_version}

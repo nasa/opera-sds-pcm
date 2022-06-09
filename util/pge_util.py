@@ -16,6 +16,20 @@ PGE.
 """
 
 
+def write_pge_metrics(metrics_path, pge_metrics):
+    # Merge any existing metrics with the metrics about to be written
+    if os.path.exists(metrics_path):
+        with open(metrics_path, "r") as infile:
+            old_pge_metrics = json.load(infile)
+
+        pge_metrics["download"].extend(old_pge_metrics["download"])
+        pge_metrics["upload"].extend(old_pge_metrics["upload"])
+
+    # Commit the new metrics to disk
+    with open(metrics_path, "w") as f:
+        json.dump(pge_metrics, f, indent=2)
+
+
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
     pge_name: str = pge_config['pge_name']
     output_base_name: str = pge_config['output_base_name']
@@ -61,6 +75,19 @@ def get_input_dataset_id(context: Dict) -> str:
         if param['name'] == 'input_dataset_id':
             return param['value']
     raise
+
+
+def get_input_dataset_tile_code(context: Dict) -> str:
+    tile_code = None
+    product_metadata = context["product_metadata"]["metadata"]
+
+    for band_or_qa, product_path in product_metadata.items():
+        if band_or_qa != '@timestamp':
+            product_filename = product_path.split('/')[-1]
+            tile_code = product_filename.split('.')[2]
+            break
+
+    return tile_code
 
 
 def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: str, extensions: str):
