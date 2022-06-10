@@ -51,9 +51,9 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     for output_type in output_types.keys():
         product_shortname = match.groupdict()['product_shortname']
         if product_shortname == 'HLS.L30':
-            sensor = 'LANDSAT-8'
+            sensor = 'L8'
         elif product_shortname == 'HLS.S30':
-            sensor = 'SENTINEL-2A'
+            sensor = 'S2A'
         else:
             raise
 
@@ -61,7 +61,9 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             sensor=sensor,
             tile_id=match.groupdict()['tile_id'],
             # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
-            datetime=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+            acquisition_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+            # make creation time a duplicate of the acquisition time for ease of testing
+            creation_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
             collection_version=match.groupdict()['collection_version'],
             product_counter="001",
         )
@@ -99,7 +101,7 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
             logger.info(f'Simulating met {met_file}')
             with open(met_file, 'w') as outfile:
                 json.dump(metadata, outfile, indent=2)
-        elif extension.endswith('tif') and pge_name == 'L3_HLS':
+        elif extension.endswith('tiff') and pge_name == 'L3_HLS':
             # Simulate the multiple output tif files created by this PGE
 
             for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
