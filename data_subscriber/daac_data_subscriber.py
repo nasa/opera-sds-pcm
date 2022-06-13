@@ -217,7 +217,7 @@ def create_parser():
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket, dry_run,
-                             smoke_run, no_schedule_download, release_version, job_queue]
+                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size]
     add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
