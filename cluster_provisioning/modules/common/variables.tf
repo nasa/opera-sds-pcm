@@ -130,10 +130,10 @@ variable "amis" {
   type = map(string)
   default = {
     # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (May 9, 2022)
-    mozart    = "ami-019da35cc507d1dbf"  # mozart v4.17
+    mozart    = "ami-00f898f3f2f930aa4"  # mozart v4.17
     factotum  = "ami-0d0e97c6690f612d7"  # factotum v4.13
-    grq       = "ami-00fb78593e1e430aa"  # grq v4.13
-    metrics   = "ami-0ed3503c102d37164"  # metrics v4.12
+    grq       = "ami-0a4ab3a778c395194"  # grq v4.13
+    metrics   = "ami-0d5c253305b866dc0"  # metrics v4.12
     autoscale = "ami-0d5a7f80daf236d93"  # verdi v4.12
 	ci        = "ami-0d5a7f80daf236d93"  # verdi v4.12
   }
