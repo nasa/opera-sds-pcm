@@ -775,6 +775,7 @@ resource "aws_instance" "mozart" {
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.mozart["private_ip"] != "" ? var.mozart["private_ip"] : null
   user_data            = <<-EOF
+              FACTOTUMIP=${aws_instance.factotum.private_ip}
               GRQIP=${aws_instance.grq.private_ip}
               METRICSIP=${aws_instance.metrics.private_ip}
               PROJECT=${var.project}
