@@ -155,9 +155,15 @@ def get(response: Response, key: str):
 
 
 def get_es_client():
+    if config.get("ES_USER") and config.get("ES_PASSWORD"):
+        http_auth = (config.get("ES_USER"), config.get("ES_PASSWORD"))
+    else:
+        # attempt no-cred connection. typically when running within the cluster
+        http_auth = None
+
     return Elasticsearch(
         hosts=[f"https://{get_es_host()}/grq_es/"],
-        http_auth=(config["ES_USER"], config["ES_PASSWORD"]),
+        http_auth=http_auth,
         connection_class=RequestsHttpConnection,
         use_ssl=True,
         verify_certs=False,
@@ -166,9 +172,15 @@ def get_es_client():
 
 
 def get_mozart_es_client():
+    if config.get("ES_USER") and config.get("ES_PASSWORD"):
+        http_auth = (config.get("ES_USER"), config.get("ES_PASSWORD"))
+    else:
+        # attempt no-cred connection. typically when running within the cluster
+        http_auth = None
+
     return Elasticsearch(
         hosts=[f"https://{get_es_host()}/mozart_es/"],
-        http_auth=(config["ES_USER"], config["ES_PASSWORD"]),
+        http_auth=http_auth,
         connection_class=RequestsHttpConnection,
         use_ssl=True,
         verify_certs=False,
