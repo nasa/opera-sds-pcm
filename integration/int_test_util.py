@@ -170,7 +170,7 @@ def get_es_client():
         http_auth = None
 
         return Elasticsearch(
-            hosts=[f"http://{get_es_host()}/grq_es/"],
+            hosts=[f"https://{get_es_host()}/grq_es/"],
             http_auth=http_auth,
             connection_class=RequestsHttpConnection
         )
