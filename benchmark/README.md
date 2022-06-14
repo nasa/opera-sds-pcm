@@ -34,7 +34,7 @@ RABBITMQ_USER = foo
 RABBITMQ_PASSWORD = bar
 
 # CNM-R queue
-CNMR_QUEUE = https://sqs.us-west-2.amazonaws.com/123456789012/opera-foo-1-daac-cnm-response
+CNMR_TOPIC = arn:aws:sns:us-west-2:123456789012:opera-foo-1-daac-cnm-response
 
 # S3 storage
 ISL_BUCKET = opera-foo-isl-fwd-bar
