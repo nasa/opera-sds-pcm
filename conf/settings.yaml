@@ -74,7 +74,7 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    L3_DWSx_HLS:
+    L3_DSWx_HLS:
         # Pattern for parsing filenames such as:
         # * "OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001_B01_WTF.tif"
         # * "OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_20210907T163901_v2.0_001_B09_CLOUD.tif"
