@@ -72,7 +72,7 @@ async def run(argv: list[str]):
     ip_addr = "127.0.0.1"
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
-    token_url = f"{cmr}/legacy-services/rest/tokens"
+    token_url = f"http://{cmr}/legacy-services/rest/tokens"
     netloc = urlparse(f"{edl}").netloc
     hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
 
