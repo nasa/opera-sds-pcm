@@ -2059,7 +2059,7 @@ resource "aws_lambda_function" "hls_download_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
@@ -2114,13 +2114,13 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_QUEUE": "opera-job_worker-hls_data_query",
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "MINUTES": var.hls_download_timer_trigger_frequency,
       "PROVIDER": var.hls_provider,
-      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
@@ -2149,13 +2149,13 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_QUEUE": "opera-job_worker-hls_data_query",
       "JOB_TYPE": local.hlss30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "PROVIDER": var.hls_provider,
       "MINUTES": var.hls_download_timer_trigger_frequency,
-      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
