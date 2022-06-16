@@ -1837,8 +1837,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
-  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
+#  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
@@ -1855,13 +1855,13 @@ data "aws_iam_policy_document" "sns_topic_policy" {
   statement {
     actions = [
       "SNS:Publish",
-      "SNS:RemovePermission",
+#      "SNS:RemovePermission",
       "SNS:SetTopicAttributes",
-      "SNS:DeleteTopic",
+#      "SNS:DeleteTopic",
       "SNS:ListSubscriptionsByTopic",
       "SNS:GetTopicAttributes",
       "SNS:Receive",
-      "SNS:AddPermission",
+#      "SNS:AddPermission",
       "SNS:Subscribe"
     ]
     condition {
@@ -1874,7 +1874,10 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = ["*"]
+	  identifiers = [
+          "arn:aws:iam::681612454726:root",
+          "arn:aws:iam::638310961674:root"
+      ]
     }
     resources = [
       aws_sns_topic.cnm_response[count.index].arn
