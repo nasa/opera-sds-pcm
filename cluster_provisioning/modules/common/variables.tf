@@ -274,6 +274,12 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
+    "opera-job_worker-sciflo-l3_dswx_hls" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
@@ -286,13 +292,13 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-data_subscriber" = {
+    "opera-job_worker-hls_data_query" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-data_subscriber_download" = {
+    "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
@@ -336,7 +342,7 @@ variable "daac_cnm_sqs_arn" {
   default = {
     dev  = "arn:aws:sns:us-west-2:681612454726:opera-dev-daac-cnm-response"
     test = "arn:aws:sns:us-west-2:399787141461:opera-test-daac-cnm-response"
-    int  = "arn:aws:sns:us-west-2:681612454726:opera-int-daac-cnm-response"
+    int  = "arn:aws:sns:us-west-2:337765570207:opera-int-daac-cnm-response"
   }
 }
 
@@ -358,7 +364,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.4.1"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "crid" {

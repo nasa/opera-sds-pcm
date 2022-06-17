@@ -286,7 +286,7 @@ variable "cnm_r_venue" {
 #The value of daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {
@@ -358,7 +358,7 @@ variable "pge_names" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.4.1"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "crid" {

@@ -285,7 +285,7 @@ variable "cnm_r_venue" {
 
 variable "daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-response-sns"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
 variable "use_daac_cnm" {

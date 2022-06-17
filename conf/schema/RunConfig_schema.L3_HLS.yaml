@@ -52,6 +52,9 @@ RunConfig:
             # Land cover map
             landcover_file: str(required=False)
 
+            # ESA worldcover map
+            worldcover_file: str(required=False)
+
           primary_executable:
             product_type: enum('DSWX_HLS')
 

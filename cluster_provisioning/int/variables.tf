@@ -210,7 +210,7 @@ variable "cnm_r_venue" {
 ####### CNM Response job vars #######
 variable "daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-response-sns"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
 variable "use_daac_cnm" {
@@ -328,7 +328,7 @@ variable "pge_names" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.4.1"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "crid" {
