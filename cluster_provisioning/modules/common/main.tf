@@ -1837,8 +1837,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
-  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
+#  name  = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
@@ -1855,13 +1855,13 @@ data "aws_iam_policy_document" "sns_topic_policy" {
   statement {
     actions = [
       "SNS:Publish",
-      "SNS:RemovePermission",
+#      "SNS:RemovePermission",
       "SNS:SetTopicAttributes",
-      "SNS:DeleteTopic",
+#      "SNS:DeleteTopic",
       "SNS:ListSubscriptionsByTopic",
       "SNS:GetTopicAttributes",
       "SNS:Receive",
-      "SNS:AddPermission",
+#      "SNS:AddPermission",
       "SNS:Subscribe"
     ]
     condition {
@@ -1874,7 +1874,10 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = ["*"]
+	  identifiers = [
+          "arn:aws:iam::681612454726:root",
+          "arn:aws:iam::638310961674:root"
+      ]
     }
     resources = [
       aws_sns_topic.cnm_response[count.index].arn
@@ -2059,7 +2062,7 @@ resource "aws_lambda_function" "hls_download_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
@@ -2114,13 +2117,13 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_QUEUE": "opera-job_worker-hls_data_query",
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "MINUTES": var.hls_download_timer_trigger_frequency,
+      "MINUTES": var.hlsl30_query_timer_trigger_frequency,
       "PROVIDER": var.hls_provider,
-      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
@@ -2149,13 +2152,13 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   environment {
     variables = {
       "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE": "factotum-job_worker-small",
+      "JOB_QUEUE": "opera-job_worker-hls_data_query",
       "JOB_TYPE": local.hlss30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "PROVIDER": var.hls_provider,
       "MINUTES": var.hls_download_timer_trigger_frequency,
-      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-data_subscriber_download",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",

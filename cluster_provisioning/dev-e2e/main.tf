@@ -256,11 +256,40 @@ resource "null_resource" "mozart" {
 }
 
 resource "null_resource" "smoke_test" {
-  depends_on = [null_resource.mozart]
+  depends_on = [module.common]
 
-  provisioner "local-exec" {
-    working_dir = "../.."
-    command = <<-EOF
+  triggers = {
+    private_ip       = module.common.mozart.private_ip
+    private_key_file = var.private_key_file
+    code_bucket      = module.common.code_bucket
+    dataset_bucket   = module.common.dataset_bucket
+    triage_bucket    = module.common.triage_bucket
+    lts_bucket       = module.common.lts_bucket
+  }
+
+  connection {
+    type        = "ssh"
+    host        = self.triggers.private_ip
+    user        = "hysdsops"
+    private_key = file(self.triggers.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOF
+              cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+
+              export ES_HOST=${module.common.mozart.private_ip}
+              export ES_BASE_URL="https://${module.common.mozart.private_ip}/grq_es/"
+              export GRQ_HOST="grq:9200"
+              export GRQ_BASE_URL="https://${module.common.mozart.private_ip}/grq/api/v0.1"
+              export CNMR_TOPIC="arn:aws:sns:us-west-2:${var.aws_account_id}:${var.project}-${var.venue}-${var.counter}-daac-cnm-response"
+              export ISL_BUCKET="${var.project}-dev-isl-fwd-${var.venue}"
+              export RS_BUCKET="${var.project}-dev-rs-fwd-${var.venue}"
+              export L30_INPUT_DIR="hls_l2/l30_greenland"
+              export S30_INPUT_DIR="hls_l2/s30_louisiana"
+              export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlsl30_query_timer.function_name}
+              export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlss30_query_timer.function_name}
+
               if [ "${var.run_smoke_test}" = true ]; then
                 set -e
                 echo Running smoke tests
@@ -281,26 +310,11 @@ resource "null_resource" "smoke_test" {
                 pip install '.[integration]'
 
                 set +e
-                pytest --maxfail=1 integration/
+                pytest --maxfail=1 integration/test_integration.py::test_l30
+                pytest --maxfail=1 integration/test_integration.py::test_s30
                 set -e
               fi
     EOF
-    environment = {
-      "ES_HOST": module.common.mozart.private_ip,
-      "ES_BASE_URL": "https://${module.common.mozart.private_ip}/grq_es/",
-      "ES_USER": var.es_user,
-      "ES_PASSWORD": var.es_pass,
-      "GRQ_HOST": module.common.mozart.private_ip,
-      "GRQ_BASE_URL": "https://${module.common.mozart.private_ip}/grq/api/v0.1",
-      "GRQ_USER": var.es_user,
-      "GRQ_PASSWORD": var.es_pass,
-      "CNMR_QUEUE": "https://sqs.us-west-2.amazonaws.com/${var.aws_account_id}/${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response",
-      "ISL_BUCKET": "${var.project}-dev-isl-fwd-${var.venue}",
-      "RS_BUCKET": "${var.project}-dev-rs-fwd-${var.venue}",
-      "L30_INPUT_DIR": "hls_l2/l30_greenland",
-      "S30_INPUT_DIR": "hls_l2/s30_louisiana",
-      "L30_DATA_SUBSCRIBER_QUERY_LAMBDA": module.common.hlsl30_query_timer.function_name,
-      "S30_DATA_SUBSCRIBER_QUERY_LAMBDA": module.common.hlss30_query_timer.function_name
-    }
+    ]
   }
 }

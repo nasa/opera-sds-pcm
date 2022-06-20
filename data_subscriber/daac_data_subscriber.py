@@ -115,7 +115,6 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
-
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
@@ -443,16 +442,16 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
         return datetime_obj.strftime(strformat)
     return datetime.strptime(str(datetime_obj), strformat)
 
-
+  
 def update_url_index(es_conn, urls, granule_id, job_id):
     for url in urls:
         es_conn.process_url(url, granule_id, job_id)
 
-
+        
 def update_granule_index(es_spatial_conn, granule):
     es_spatial_conn.process_granule(granule)
 
-
+    
 def upload_url_list_from_https(session, es_conn, downloads, args, token, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
