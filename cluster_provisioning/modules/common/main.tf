@@ -2121,7 +2121,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_TYPE": local.hlsl30_query_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
-      "MINUTES": var.hls_download_timer_trigger_frequency,
+      "MINUTES": var.hlsl30_query_timer_trigger_frequency,
       "PROVIDER": var.hls_provider,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",

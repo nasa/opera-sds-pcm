@@ -114,11 +114,12 @@ async def run(argv: list[str]):
 
 async def run_query(args, token, HLS_CONN, CMR, job_id):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+    query_dt = datetime.now()
     granules = query_cmr(args, token, CMR)
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
+        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
         update_granule_index(HLS_SPATIAL_CONN, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
@@ -602,9 +603,9 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_url_index(ES_CONN, urls, granule_id, job_id):
+def update_url_index(ES_CONN, urls, granule_id, job_id, query_dt):
     for url in urls:
-        ES_CONN.process_url(url, granule_id, job_id)
+        ES_CONN.process_url(url, granule_id, job_id, query_dt)
 
 
 def update_granule_index(ES_SPATIAL_CONN, granule):

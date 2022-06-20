@@ -54,8 +54,12 @@ def setup_function():
 
 @pytest.mark.asyncio
 async def test_s30(event_loop: AbstractEventLoop):
+    # NOTE:
+    #  total number of PGE jobs should not exceed max job queue size (dev=10) as to not affect EBS timers
+    #  e.g. assert num_runs * len(instance_type_queues) <= 10
+    run_start_index = 2030  # a YYYY year. Note that the sample set already uses 2021
+    num_runs = 10
 
-    input_files_dir = Path(config["S30_INPUT_DIR"]).expanduser()
     input_filenames = [
         "HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif",
         "HLS.S30.T15SXR.2021250T163901.v2.0.B03.tif",
@@ -65,8 +69,9 @@ async def test_s30(event_loop: AbstractEventLoop):
         "HLS.S30.T15SXR.2021250T163901.v2.0.B8A.tif",
         "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif"  # can submit Fmask separately to treat as signal file
     ]
-    old_tile_id: str = re.findall(r"T\w{5}", input_filenames[0])[0]
+    old_ts = '2021'
 
+    # input_files_dir = Path(config["S30_INPUT_DIR"]).expanduser()
     # reupload_input_files(input_files_dir, input_filenames)
     copy_and_submit_input_files_s30 = partial(
         copy_and_submit_input_files,
@@ -75,20 +80,14 @@ async def test_s30(event_loop: AbstractEventLoop):
     )
 
     grq_user_rule_name = "trigger-SCIFLO_L3_DSWx_HLS_S30"
-
-    # NOTE:
-    #  total number of PGE jobs should not exceed max job queue size (dev=10) as to not affect EBS timers
-    #  e.g. assert num_runs * len(instance_type_queues) < 10
-    tile_id_start_index = 420
-    num_runs = 10
-    tile_id_stop_index = tile_id_start_index + num_runs
+    run_stop_index = run_start_index + num_runs
     for new_instance_type_queue_name in instance_type_queues:
         swap_instance_type(grq_user_rule_name, new_instance_type_queue_name)
-        await copy_and_submit_input_files_s30(input_filenames, old_tile_id, tile_id_start_index, tile_id_stop_index)
+        await copy_and_submit_input_files_s30(input_filenames, old_ts, run_start_index, run_stop_index)
 
         # update indexes for next iteration
-        tile_id_start_index = tile_id_stop_index
-        tile_id_stop_index = tile_id_start_index + num_runs
+        run_start_index = run_stop_index
+        run_stop_index = run_start_index + num_runs
 
 
 def create_job_queues(queues):
@@ -146,7 +145,7 @@ def swap_instance_type(grq_user_rule, instance_type_queue):
 
         "id": res["rule"]["_id"],
         "rule_name": res["rule"]["rule_name"],
-        "tags": res["rule"]["tags"],
+        "tags": res["rule"].get("tags"),
         "query_string": res["rule"]["query_string"],
         "priority": res["rule"]["priority"],
         "workflow": res["rule"]["workflow"],
@@ -179,7 +178,7 @@ def swap_instance_type(grq_user_rule, instance_type_queue):
 
 async def copy_and_submit_input_files(
         input_filenames,
-        old_tile_id,
+        old_ts,
         tile_id_start_index: int,
         tile_id_stop_index: int,
         l2_index: str,
@@ -191,16 +190,16 @@ async def copy_and_submit_input_files(
     copy_tasks = []
 
     runs = range(tile_id_start_index, tile_id_stop_index)
-    new_tile_ids = []
+    new_tss = []
     for run in runs:
-        new_tile_id = f"T{run:05d}"
-        new_tile_ids.append(new_tile_id)
-        logging.info(f"Copying files for run (tile ID) {new_tile_id}")
+        new_ts = f"{run:04d}"  # generate a new year
+        new_tss.append(new_ts)
+        logging.info(f"Copying files for run (tile ID) {new_ts}")
 
         for i, input_filename in enumerate(input_filenames):
             logging.info(f"Copying file {i + 1} of {len(input_filenames)}")
             copy_tasks.append(event_loop.run_in_executor(
-                func=partial(copy_s3_file, input_filename=input_filename, old_tile_id=old_tile_id, new_tile_id=new_tile_id),
+                func=partial(copy_s3_file, input_filename=input_filename, old_ts=old_ts, new_ts=new_ts),
                 executor=None,
             ))
 
@@ -210,11 +209,11 @@ async def copy_and_submit_input_files(
     sleep_for(180)
 
     # check that all input files were ingested
-    for new_tile_id in new_tile_ids:
+    for new_ts in new_tss:
         l2_tasks = []
         ids = []
         for i, input_filename in enumerate(input_filenames):
-            id = get_l2_id(input_filename, old_tile_id, new_tile_id)
+            id = get_l2_id(input_filename, old_ts, new_ts)
             ids.append(id)
             l2_tasks.append(event_loop.run_in_executor(
                 func=partial(wait_for_l2, _id=id, index=l2_index),
@@ -231,8 +230,8 @@ async def copy_and_submit_input_files(
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
     l3_tasks = []
     ids = []
-    for new_tile_id in new_tile_ids:
-        id = get_l3_id(new_tile_id)
+    for new_ts in new_tss:
+        id = get_l3_id(new_ts)
         ids.append(id)
         l3_tasks.append(event_loop.run_in_executor(
             func=partial(wait_for_l3, _id=id, index="grq_1_l3_dswx_hls"),
@@ -244,23 +243,23 @@ async def copy_and_submit_input_files(
         assert response.hits[0]["id"] in ids
 
 
-def copy_s3_file(input_filename, old_tile_id, new_tile_id):
+def copy_s3_file(input_filename, old_ts, new_ts):
     copy_source = {"Bucket": config["ISL_BUCKET"], "Key": input_filename}
-    destination = f"{input_filename.replace(old_tile_id, new_tile_id)}"
+    destination = f"{input_filename.replace(old_ts, new_ts)}"
     logging.info(f'Copying s3://.../{copy_source["Key"]} to s3://.../{destination}')
     s3_client.copy(copy_source, copy_source["Bucket"], destination)
 
 
-def get_l2_id(input_filename, old_tile_id, new_tile_id):
-    return input_filename.replace(old_tile_id, new_tile_id).removesuffix(".tif")
+def get_l2_id(input_filename, old_ts, new_ts):
+    return input_filename.replace(old_ts, new_ts).removesuffix(".tif")
 
 
-def get_l3_s30_id(new_tile_id):
-    return f"OPERA_L3_DSWx_HLS_SENTINEL-2A_{new_tile_id}_20210907T163901_v2.0"
+def get_l3_s30_id(new_ts):
+    return f"OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_{new_ts}0907T163901_v2.0_001"
 
 
-def get_l3_l30_id(new_tile_id):
-    return f"OPERA_L3_DSWx_HLS_LANDSAT-8_{new_tile_id}_20210907T163901_v2.0"
+def get_l3_l30_id(new_ts):
+    return f"OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_{new_ts}0907T163901_v2.0_001"
 
 
 def sleep_for(sec=None):

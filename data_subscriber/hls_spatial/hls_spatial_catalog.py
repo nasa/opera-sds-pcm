@@ -27,7 +27,7 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
                                              "bounding_box": {"type": "geo_point"},
                                              "short_name": {"type": "keyword"},
                                              "production_datetime": {"type": "date"},
-                                             "index_datetime": {"type": "date"}}}},
+                                             "creation_timestamp": {"type": "date"}}}},
                                index=ES_INDEX)
         if self.logger:
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
@@ -42,11 +42,12 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
 
         if not result:
             doc = {
+                "id": granule['granule_id'],
                 "provider": granule["provider"],
                 "production_datetime": granule["production_datetime"],
                 "short_name": granule["short_name"],
                 "bounding_box": granule["bounding_box"],
-                "index_datetime": datetime.now()
+                "creation_timestamp": datetime.now()
             }
 
             self._post(granule['granule_id'], doc)
