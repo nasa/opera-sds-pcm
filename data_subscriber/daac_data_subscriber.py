@@ -694,7 +694,11 @@ async def run_query(args, token, hls_conn, cmr, job_id):
                             "value": "--dry-run" if args.dry_run else "",
                             "from": "value"
                         },
-
+                        {
+                            "name": "endpoint",
+                            "value": "--endpoint" if args.endpoint else "",
+                            "from": "value"
+                        },
                     ],
                     job_queue=args.job_queue
                 )
