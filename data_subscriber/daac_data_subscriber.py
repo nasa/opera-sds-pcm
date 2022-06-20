@@ -696,7 +696,7 @@ async def run_query(args, token, hls_conn, cmr, job_id):
                         },
                         {
                             "name": "endpoint",
-                            "value": "--endpoint" if args.endpoint else "",
+                            "value": f"--endpoint={args.endpoint}",
                             "from": "value"
                         },
                     ],
