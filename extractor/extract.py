@@ -32,7 +32,7 @@ PRODUCT_TYPES_KEY = "PRODUCT_TYPES"
 STRIP_FILE_EXTENSION_KEY = "Strip_File_Extension"
 IS_COMPRESSED = "IsCompressed"
 
-MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DWSx_HLS']
+MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DSWx_HLS']
 """
 List of the product types (from settings.yaml) which produce multiple output files
 which should all be bundled in the same dataset.

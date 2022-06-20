@@ -55,9 +55,15 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
 
-    # Copy the DEM(s) downloaded for this job to the pge input directory
+    # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
     lineage_metadata.extend(local_dem_filepaths)
+
+    local_landcover_filepath = os.path.join(work_dir, "landcover.tif")
+    lineage_metadata.append(local_landcover_filepath)
+
+    local_worldcover_filepaths = glob.glob(os.path.join(work_dir, "worldcover*.*"))
+    lineage_metadata.extend(local_worldcover_filepaths)
 
     logger.info("Copying input files to input directories.")
     for local_input_filepath in lineage_metadata:
@@ -66,6 +72,8 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info("Updating run config for use with PGE.")
     run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
     run_config["dynamic_ancillary_file_group"]["dem_file"] = '/home/conda/input_dir/dem.vrt'
+    run_config["dynamic_ancillary_file_group"]["landcover_file"] = '/home/conda/input_dir/landcover.tif'
+    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = '/home/conda/input_dir/worldcover.vrt'
 
     # create RunConfig.yaml
     logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")

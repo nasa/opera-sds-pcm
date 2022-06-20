@@ -115,7 +115,6 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
-
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)

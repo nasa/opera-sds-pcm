@@ -7,14 +7,17 @@ class OperaChimeraConstants(ChimeraConstants):
         ChimeraConstants.__init__(self)
 
     GET_PRODUCT_COUNTER = "get_product_counter"
+
     CRID = "CRID"
+
     PRODUCT_TYPES = "PRODUCT_TYPES"
+
     PATTERN = "Pattern"
+
     FORCE_INGEST = "FORCE_INGEST"
 
     CNM_VERSION = "CNM_VERSION"
 
-    # processing mode key
     PROCESSING_MODE_KEY = "processing_mode"
 
     GET_PRODUCT_METADATA = "get_product_metadata"
@@ -59,65 +62,114 @@ class OperaChimeraConstants(ChimeraConstants):
 
     # Run Config attribute names
     ALGORITHM_VERSION_ID = "AlgorithmVersionID"
+
     PARAMETER_VERSION_ID = "ParameterVersionID"
+
     COMPOSITE_RELEASE_ID = "CompositeReleaseID"
+
     SW_VERSION_ID = "SWVersionID"
+
     INPUT_FILE_PATH = "InputFilePath"
+
     INPUT_FILE_GROUP = "InputFileGroup"
+
     STATIC_ANCILLARY_FILE_GROUP = "StaticAncillaryFileGroup"
+
     DYNAMIC_ANCILLARY_FILE_GROUP = "DynamicAncillaryFileGroup"
+
     PRODUCTION_DATE_TIME = "ProductionDateTime"
+
     PRODUCT_PATH = "ProductPath"
+
     DEBUG_PATH = "DebugPath"
+
     PRODUCT_COUNTER = "ProductCounter"
+
     FILE_NAME = "FileName"
+
     ORBIT_EPHEMERIS_FILE = "OrbitEphemerisFile"
+
     OBSERVATION = "Observation"
+
     OBSERVATIONS = "Observations"
+
     FRAME_NUMBER = "FrameNumber"
+
     PGE_JOB_NAME = "pge_job_name"
+
     MOCK_METADATA = "mock_metadata"
+
     BASE_NAME = "base_name"
 
     DEM_FILE = "dem_file"
 
+    LANDCOVER_FILE = "landcover_file"
+
+    WORLDCOVER_FILE = "worldcover_file"
+
+    WORLDCOVER_VER = "worldcover_version"
+
+    WORLDCOVER_YEAR = "worldcover_year"
+
     PLANNED_OBSERVATION_ID = "PlannedObservationId"
+
     PLANNED_OBSERVATION_TIMESTAMP = "PlannedObservationTimestamp"
+
     IS_URGENT_OBSERVATION = "IsUrgentObservation"
+
     CONFIGURATION_ID = "ConfigurationId"
+
     MISSION_CYCLE = "MissionCycle"
+
     START_TIME = "StartTime"
+
     END_TIME = "EndTime"
+
     IS_URGENT = "is_urgent"
+
     URGENT_RESPONSE_FIELD = "is_urgent_response"
 
     ORBIT = "Orbit"
-    ABSOLUTE_ORBIT_NUMBER = "AbsoluteOrbitNumber"
-    RELATIVE_ORBIT_NUMBER = "RelativeOrbitNumber"
-    ORBIT_DIRECTION = "OrbitDirection"
-    LOOK_DIRECTION = "LookDirection"
 
+    ABSOLUTE_ORBIT_NUMBER = "AbsoluteOrbitNumber"
+
+    RELATIVE_ORBIT_NUMBER = "RelativeOrbitNumber"
+
+    ORBIT_DIRECTION = "OrbitDirection"
+
+    LOOK_DIRECTION = "LookDirection"
 
     SCLKSCET = "sclkscet"
 
     REFINED_POINTING = "Pointing"
+
     ANT_PATTERN = "AntennaPattern"
+
     WAVEFORM = "Waveform"
 
     EXT_CALIBRATION = "ExternalCalibration"
+
     INT_CALIBRATION = "InternalCalibration"
+
     POL_CALIBRATION = "PolarimetricCalibration"
+
     BOOK_CALIBRATION = "BookendCalibration"
 
     PROCESSINGTYPE = "ProcessingType"
+
     PROCESSING_TYPE = "processing_type"
 
     FILE_SIZE_LIMIT = "FILE_SIZE_LIMIT"
+
     FILESIZELIMIT = "FileSizeLimit"
 
     NUMBEROFTHREADS = "NumberOfThreads"
 
     GPU_ENABLED = "gpu_enabled"
+
+    S3_BUCKET = "s3_bucket"
+
+    S3_KEY = "s3_key"
 
     # PGE names
     #L3_DSWX_HLS = "L3_DSWX_HLS"
@@ -126,23 +178,39 @@ class OperaChimeraConstants(ChimeraConstants):
     JOB_ACCOUNTABILITY_INDEX = job_accountability_index
 
     TASK_INDEX = "task_status-current"
+
     TASK_ID_FIELD = "task_id"
+
     JOB_INDEX = "job_status-current"
+
     JOB_ID_FIELD = "job_id"
+
     OUTPUT_DATASETS = "output_datasets"
+
     LAST_MOD = "last_modified"
+
     PRIMARY_INPUT = "primary_input"
+
     PRIMARY_OUTPUT = "primary_output"
 
     EXTRA_PGE_OUTPUT_METADATA = "extra_pge_output_metadata"
 
     GET_PRODUCTS = "get_products"
+
     IS_STATE_CONFIG_TRIGGER = "is_state_config_trigger"
+
     FILE_NAMES_KEY = "file_names_key"
 
     CAST_STRING_TO_INT = "cast_string_to_int"
-    DEM_BBOX = "bbox"
+
+    BBOX = "bbox"
+
     GET_DEM_BBOX = "get_dem_bbox"
+
     GET_DEMS = "get_dems"
+
+    GET_LANDCOVER = "get_landcover"
+
+    GET_WORLDCOVER = "get_worldcover"
 
     GET_PGE_SETTINGS_VALUES = "get_pge_settings_values"

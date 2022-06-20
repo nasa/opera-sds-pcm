@@ -41,6 +41,18 @@ def get_product_metadata(product_metadata):
     return metadata
 
 
+def get_working_dir(work_unit_filename="workunit.json"):
+    # read in SciFlo work unit json file and extract the working directory
+    work_unit_file = os.path.abspath(work_unit_filename)
+
+    with open(work_unit_file) as f:
+        work_unit = json.load(f)
+
+    working_dir = os.path.dirname(work_unit['args'][0])
+
+    return working_dir
+
+
 def lower_keys(x):
     if isinstance(x, list):
         return [lower_keys(v) for v in x]
