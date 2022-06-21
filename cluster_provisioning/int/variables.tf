@@ -204,7 +204,7 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "cnm_r_venue" {
-  default = "dev"
+  default = "int"
 }
 
 ####### CNM Response job vars #######
@@ -215,7 +215,8 @@ variable "daac_delivery_proxy" {
 
 variable "use_daac_cnm" {
   type = bool
-  default = false
+#  default = false
+  default = true
 }
 
 variable "daac_endpoint_url" {
@@ -458,6 +459,12 @@ variable "queues" {
       "max_size" = 100
       "total_jobs_metric" = true
     }
+    "opera-job_worker-sciflo-l3_dswx_hls" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
+    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = [
         "t2.medium",
@@ -477,6 +484,18 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size" = 100
       "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+    }
+    "opera-job_worker-hls_data_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
     }
     "opera-workflow_profiler" = {
       "instance_type" = [

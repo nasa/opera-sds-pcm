@@ -129,13 +129,13 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (May 9, 2022)
-    mozart    = "ami-00f898f3f2f930aa4"  # mozart v4.17
-    factotum  = "ami-0d0e97c6690f612d7"  # factotum v4.13
-    grq       = "ami-0a4ab3a778c395194"  # grq v4.13
-    metrics   = "ami-0d5c253305b866dc0"  # metrics v4.12
-    autoscale = "ami-0d5a7f80daf236d93"  # verdi v4.12
-	ci        = "ami-0d5a7f80daf236d93"  # verdi v4.12
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
+	grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
+    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610
+    mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
+    factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12
   }
 }
 
