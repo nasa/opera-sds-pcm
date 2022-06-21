@@ -60,6 +60,10 @@ def clear_pcm_test_state():
         delete_output_files, \
         mozart_es_index_delete
 
+    if not config.get("CLEAR_DATA"):
+        logging.info(f'Skipping data reset. {config.get("CLEAR_DATA")=}')
+        return
+
     # clear job index to prevent job duplicates
     #  job duplicates are likely to happen
     #  when executing subscriber query jobs frequently

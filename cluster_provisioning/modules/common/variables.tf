@@ -292,13 +292,13 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-data_subscriber" = {
+    "opera-job_worker-hls_data_query" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-data_subscriber_download" = {
+    "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25

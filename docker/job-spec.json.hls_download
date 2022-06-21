@@ -4,11 +4,11 @@
   "soft_time_limit": 3600,
   "time_limit": 3660,
   "imported_worker_files": {
-    "$HOME/.netrc": "/home/ops/verdi/ops/opera-pcm/conf/sds/files/netrc"
+    "$HOME/.netrc": "/home/ops/verdi/ops/opera-pcm/conf/sds/files/netrc",
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-data_subscriber_download" ],
+  "recommended-queues": [ "opera-job_worker-hls_data_download" ],
   "post": [ "hysds.utils.triage" ],
   "params" : [
     {

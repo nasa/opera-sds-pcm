@@ -84,7 +84,7 @@ PRODUCT_TYPES:
             Date_Time_Keys: ['acquisition_ts']
         Dataset_Keys: {}
 
-    L3_DWSx_HLS:
+    L3_DSWx_HLS:
         # Pattern for parsing filenames such as:
         # * "OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20220105T143156Z_v0.1_001_B01_WTF.tiff"
         # * "OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20220207T163901Z_v0.1_001_B09_CLOUD.tiff"

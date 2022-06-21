@@ -115,7 +115,6 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
-
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
@@ -444,9 +443,9 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     return datetime.strptime(str(datetime_obj), strformat)
 
 
-def update_url_index(es_conn, urls, granule_id, job_id):
+def update_url_index(es_conn, urls, granule_id, job_id, query_dt):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id)
+        es_conn.process_url(url, granule_id, job_id, query_dt)
 
 
 def update_granule_index(es_spatial_conn, granule):
@@ -619,11 +618,12 @@ def delete_token(url: str, token: str) -> None:
 
 async def run_query(args, token, hls_conn, cmr, job_id):
     hls_spatial_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+    query_dt = datetime.now()
     granules = query_cmr(args, token, cmr)
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id)
+        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
         update_granule_index(hls_spatial_conn, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
@@ -694,7 +694,11 @@ async def run_query(args, token, hls_conn, cmr, job_id):
                             "value": "--dry-run" if args.dry_run else "",
                             "from": "value"
                         },
-
+                        {
+                            "name": "endpoint",
+                            "value": f"--endpoint={args.endpoint}",
+                            "from": "value"
+                        },
                     ],
                     job_queue=args.job_queue
                 )
