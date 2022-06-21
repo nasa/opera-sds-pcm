@@ -270,8 +270,8 @@ variable "common_ci" {
   type = map(string)
   default = {
     name       = "ci"
-    private_ip = "100.104.40.248"
-    public_ip  = "100.104.40.248"
+    private_ip = "100.104.41.51"
+    public_ip  = "100.104.41.51"
   }
 }
 
@@ -332,7 +332,7 @@ variable "cnm_r_venue" {
 #The value of daac_delivery_proxy can be
 #  arn:aws:sqs:us-east-1:871271927522:asf-cumulus-dev-opera-workflow-queue
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm" {

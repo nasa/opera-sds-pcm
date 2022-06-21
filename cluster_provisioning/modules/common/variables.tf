@@ -129,13 +129,13 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (May 9, 2022)
-    mozart    = "ami-0fa479c6b7aa52fa7"  # mozart v4.16
-    factotum  = "ami-01375c270e2050d4e"  # factotum v4.12
-    grq       = "ami-000a2e36534e0e89d"  # grq v4.12
-    metrics   = "ami-0010049f0a8ca0386"  # metrics v4.11
-    autoscale = "ami-0d70c577504c9ad63"  # verdi v4.12
-	ci        = "ami-0d70c577504c9ad63"  # verdi v4.12
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
+	grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
+    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610
+    mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
+    factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12
   }
 }
 
@@ -274,6 +274,12 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
+    "opera-job_worker-sciflo-l3_dswx_hls" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
@@ -286,13 +292,13 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-data_subscriber" = {
+    "opera-job_worker-hls_data_query" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
     }
-    "opera-job_worker-data_subscriber_download" = {
+    "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
@@ -336,7 +342,7 @@ variable "daac_cnm_sqs_arn" {
   default = {
     dev  = "arn:aws:sns:us-west-2:681612454726:opera-dev-daac-cnm-response"
     test = "arn:aws:sns:us-west-2:399787141461:opera-test-daac-cnm-response"
-    int  = "arn:aws:sns:us-west-2:681612454726:opera-int-daac-cnm-response"
+    int  = "arn:aws:sns:us-west-2:337765570207:opera-int-daac-cnm-response"
   }
 }
 
@@ -358,7 +364,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.4.1"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "crid" {

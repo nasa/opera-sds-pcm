@@ -224,8 +224,8 @@ variable "common_ci" {
   type = map(string)
   default = {
     name       = "ci"
-    private_ip = "100.104.40.248"
-    public_ip  = "100.104.40.248"
+    private_ip = "100.104.41.51"
+    public_ip  = "100.104.41.51"
   }
 }
 
@@ -284,7 +284,8 @@ variable "cnm_r_venue" {
 }
 
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
 variable "use_daac_cnm" {

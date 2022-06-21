@@ -23,8 +23,8 @@ ES_BASE_URL = https://${ES_HOST}/grq_es/ # Elasticsearch URL
 ES_USER = foo # Elasticsearch username
 ES_PASSWORD = bar # Elasticsearch password
 
-# CNM-R queue
-CNMR_QUEUE = https://sqs.us-west-2.amazonaws.com/123456789012/opera-foo-1-daac-cnm-response
+# CNM-R
+CNMR_TOPIC = arn:aws:sns:us-west-2:123456789012:opera-foo-1-daac-cnm-response
 
 # S3 storage
 ISL_BUCKET = opera-foo-isl-fwd-bar
