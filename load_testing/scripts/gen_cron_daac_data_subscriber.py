@@ -30,6 +30,8 @@ def create_parser():
                              help="Floating point multiplier factor for the time window. Each line item in the crontab runs every hour. If the multiplier is 1, each cronjob will cover 1 hour worth of data. If it's 0.5, it will cover 30 mins-worth. If it's 2 it will cover 2-hr worth. There is no overlap in data being fetched; the time-covered for the data will span NUM_HOURS * MULTIPLIER (default: 1.0).")
     parser.add_argument("-pass", "--pass-through", dest="pass_through", type=str, required=False,
                              help="Options to pass through to the daac_data_subscriber script directly")
+    parser.add_argument("-o", "--output-file", dest="output_file", type=str, required=True,
+                             help="Location of output file to send stdout to")      
 
     return parser
 
@@ -47,13 +49,14 @@ increment_mins = args.job_period * args.multiplier
 
 start_dt = datetime.strptime(args.start_date, date_format_str)
 job_dt = datetime.now() + timedelta(minutes=2) # Put two minute delay in the cron start so that you have some time between generation and running. Could make this a parameter.
-for i in range(0, args.job_count):
+output_file_str = args.output_file
+for i in range(0, args.job_count): 
     start = start_dt + timedelta(minutes=i*increment_mins)
     start_str = start.strftime(date_format_str)
     stop = start_dt + timedelta(minutes=(i+1)*increment_mins)
     stop_str = stop.strftime(date_format_str)
     cron = f"{job_dt.minute} {job_dt.hour} {job_dt.day} {job_dt.month} *"
-    print(f" {cron} {_python_and_subs} {args.mode} -s {start_str} -e {stop_str} {args.pass_through}")
+    print(f" {cron} (time {_python_and_subs} {args.mode} -s {start_str} -e {stop_str} {args.pass_through}) >> {output_file_str} 2>&1")
 
     job_dt = job_dt + timedelta(minutes = args.job_period)
 
