@@ -27,13 +27,13 @@ class AsyncHLSProductCatalog(AsyncElasticsearchUtility):
             if self.logger:
                 self.logger.info("Deleted old index: {}".format(index))
 
-        await self.es.indices.create(body={"settings": {"index": {"sort.field": "index_datetime", "sort.order": "asc"}},
+        await self.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
-                                             "index_datetime": {"type": "date"},
+                                             "creation_timestamp": {"type": "date"},
                                              "download_datetime": {"type": "date"},
                                              "downloaded": {"type": "boolean"}}}},
                                index=ES_INDEX)
@@ -54,14 +54,15 @@ class AsyncHLSProductCatalog(AsyncElasticsearchUtility):
             } for result in (undownloaded or [])
         ]
 
-    async def process_url(self, url, granule_id, job_id):
+    async def process_url(self, url, granule_id, job_id, query_dt: datetime):
         filename = Path(url).name
         result = await self._query_existence(filename)
         doc = {
+            "id": filename,
             "granule_id": granule_id,
-            "index_datetime": datetime.now(),
+            "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
-
+            "query_datetime": query_dt
         }
 
         if "https://" in url:
@@ -128,7 +129,7 @@ class AsyncHLSProductCatalog(AsyncElasticsearchUtility):
     async def _query_undownloaded(self, index=ES_INDEX):
         try:
             result = await self.query(index=index,
-                                body={"sort": [{"index_datetime": "asc"}], "query": {"match": {"downloaded": False}}})
+                                body={"sort": [{"creation_timestamp": "asc"}], "query": {"match": {"downloaded": False}}})
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 

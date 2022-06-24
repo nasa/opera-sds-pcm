@@ -14,6 +14,7 @@ import traceback
 from datetime import datetime
 from typing import Dict, List
 
+import boto3
 import psutil
 from chimera.precondition_functions import PreConditionFunctions
 
@@ -25,9 +26,11 @@ from hysds.utils import get_disk_usage
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
-from util.common_util import convert_datetime
+from util.common_util import convert_datetime, get_working_dir
+from util.pge_util import get_input_dataset_tile_code, write_pge_metrics
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
+from tools.stage_worldcover import main as stage_worldcover
 
 ancillary_es = get_grq_es(logger)
 
@@ -767,20 +770,18 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        pge_metrics = {"download": [], "upload": []}
-
-        # read in SciFlo work unit json file and extract the working directory
-        work_unit_file = os.path.abspath("workunit.json")
-
-        with open(work_unit_file) as f:
-            work_unit = json.load(f)
-
-        working_dir = os.path.dirname(work_unit['args'][0])
+        # get the working directory
+        working_dir = get_working_dir()
 
         logger.info("working_dir : {}".format(working_dir))
 
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
+
+        # get s3_bucket param
+        s3_bucket = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.S3_BUCKET)
+
         # get bbox param
-        bbox = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.DEM_BBOX)
+        bbox = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.BBOX)
 
         if bbox:
             # Convert to list if we were given a space-delimited string
@@ -790,15 +791,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             logger.info(f"Got bbox from PGE config: {bbox}")
 
         # get MGRS tile code, if available from product metadata
-        tile_code = None
-        product_metadata = self._context["product_metadata"]["metadata"]
+        tile_code = get_input_dataset_tile_code(self._context)
 
-        for band_or_qa, product_path in product_metadata.items():
-            if band_or_qa != '@timestamp':
-                product_filename = product_path.split('/')[-1]
-                tile_code = product_filename.split('.')[2]
-                logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
-                break
+        if tile_code:
+            logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
         else:
             logger.warning('Could not determine a tile code from product metadata')
 
@@ -811,13 +807,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 f"area of the PGE config"
             )
 
-        dem_file = os.path.join(working_dir, 'dem.vrt')
-
         # Set up arguments to stage_dem.py
         # Note that since we provide an argparse.Namespace directly,
         # all arguments must be specified, even if it's only with a null value
         args = argparse.Namespace()
-        args.outfile = dem_file
+        args.s3_bucket = s3_bucket
+        args.outfile = output_filepath
         args.filepath = None
         args.margin = 5  # KM
         args.log_level = LogLevels.INFO.value
@@ -827,26 +822,67 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.bbox = bbox
         args.tile_code = tile_code
 
+        pge_metrics = self.get_dswx_ancillary(ancillary_type='DEM',
+                                              output_filepath=output_filepath,
+                                              staging_func=stage_dem,
+                                              staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.DEM_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_landcover(self):
+        """
+        Copies the static landcover file configured for use with a DSWx-HLS job
+        to the job's local working area.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        output_filepath = os.path.join(working_dir, 'landcover.tif')
+
+        s3_bucket = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_KEY)
+
+        if not s3_bucket or not s3_key:
+            raise RuntimeError(
+                f"Incomplete S3 location for Landcover file.\n"
+                f"Values must be provided for both the '{oc_const.S3_BUCKET}' "
+                f"and the '{oc_const.S3_KEY}' fields within the {oc_const.GET_LANDCOVER} "
+                f"section of the PGE config."
+            )
+
+        s3 = boto3.resource('s3')
+
+        pge_metrics = {"download": [], "upload": []}
+
         loc_t1 = datetime.utcnow()
 
         try:
-            stage_dem(args)
-            logger.info(f"Created DEM file : {dem_file}")
-        except Exception as e:
-            trace = traceback.format_exc()
-            error = str(e)
-            raise RuntimeError(
-                f"Failed to download DEM file, reason: {error}\n{trace}"
-            )
+            logger.info(f'Downloading Landcover file s3://{s3_bucket}/{s3_key} to {output_filepath}')
+            s3.Object(s3_bucket, s3_key).download_file(output_filepath)
+        except Exception as err:
+            errmsg = f'Failed to download Landcover file from S3, reason: {str(err)}'
+            raise RuntimeError(errmsg)
 
         loc_t2 = datetime.utcnow()
         loc_dur = (loc_t2 - loc_t1).total_seconds()
-        path_disk_usage = get_disk_usage(dem_file)
+        path_disk_usage = get_disk_usage(output_filepath)
 
         pge_metrics["download"].append(
             {
-                "url": dem_file,
-                "path": dem_file,
+                "url": output_filepath,
+                "path": output_filepath,
                 "disk_usage": path_disk_usage,
                 "time_start": loc_t1.isoformat() + "Z",
                 "time_end": loc_t2.isoformat() + "Z",
@@ -856,16 +892,129 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
         logger.info(json.dumps(pge_metrics, indent=2))
 
-        with open(os.path.join(working_dir, "pge_metrics.json"), "x") as f:
-            json.dump(pge_metrics, f, indent=2)
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
         rc_params = {
-            oc_const.DEM_FILE: dem_file
+            oc_const.LANDCOVER_FILE: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
+
+    def get_worldcover(self):
+        """
+        This function downloads a Worldcover map over the bbox provided in the
+        PGE yaml config, or derives the appropriate bbox based on the tile code
+        of the product's metadata (if available).
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        output_filepath = os.path.join(working_dir, 'worldcover.vrt')
+
+        # get s3 bucket/key params
+        s3_bucket = self._pge_config.get(oc_const.GET_WORLDCOVER, {}).get(oc_const.S3_BUCKET)
+        worldcover_ver = self._pge_config.get(oc_const.GET_WORLDCOVER, {}).get(oc_const.WORLDCOVER_VER)
+        worldcover_year = self._pge_config.get(oc_const.GET_WORLDCOVER, {}).get(oc_const.WORLDCOVER_YEAR)
+
+        # get bbox param
+        bbox = self._pge_config.get(oc_const.GET_WORLDCOVER, {}).get(oc_const.BBOX)
+
+        if bbox:
+            # Convert to list if we were given a space-delimited string
+            if not isinstance(bbox, list):
+                bbox = list(map(float, bbox.split()))
+
+            logger.info(f"Got bbox from PGE config: {bbox}")
+
+        # get MGRS tile code, if available from product metadata
+        tile_code = get_input_dataset_tile_code(self._context)
+
+        if tile_code:
+            logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
+        else:
+            logger.warning('Could not determine a tile code from product metadata')
+
+        if bbox is None and tile_code is None:
+            raise RuntimeError(
+                f"Can not determine a region to obtain a Worldcover map for.\n"
+                f"The product metadata must specify an MGRS tile code, "
+                f"or the '{oc_const.BBOX}' parameter must be provided in the "
+                f"'{oc_const.GET_WORLDCOVER}' area of the PGE config"
+            )
+
+        # Set up arguments to stage_worldcover.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.worldcover_ver = worldcover_ver
+        args.worldcover_year = worldcover_year
+        args.outfile = output_filepath
+        args.margin = 5  # KM
+        args.log_level = LogLevels.INFO.value
+
+        # Provide both the bounding box and tile code, stage_worldcover.py should
+        # give preference to the tile code over the bbox if both are provided.
+        args.bbox = bbox
+        args.tile_code = tile_code
+
+        pge_metrics = self.get_dswx_ancillary(ancillary_type='Worldcover',
+                                              output_filepath=output_filepath,
+                                              staging_func=stage_worldcover,
+                                              staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.WORLDCOVER_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
+        """
+        Handles common operations for obtaining ancillary data used with DSWx-HLS processing
+        """
+        pge_metrics = {"download": [], "upload": []}
+
+        loc_t1 = datetime.utcnow()
+
+        try:
+            staging_func(staging_func_args)
+            logger.info(f"Created {ancillary_type} file : {output_filepath}")
+        except Exception as e:
+            trace = traceback.format_exc()
+            error = str(e)
+            raise RuntimeError(
+                f"Failed to download {ancillary_type} file, reason: {error}\n{trace}"
+            )
+
+        loc_t2 = datetime.utcnow()
+        loc_dur = (loc_t2 - loc_t1).total_seconds()
+        path_disk_usage = get_disk_usage(output_filepath)
+
+        pge_metrics["download"].append(
+            {
+                "url": output_filepath,
+                "path": output_filepath,
+                "disk_usage": path_disk_usage,
+                "time_start": loc_t1.isoformat() + "Z",
+                "time_end": loc_t2.isoformat() + "Z",
+                "duration": loc_dur,
+                "transfer_rate": path_disk_usage / loc_dur,
+            }
+        )
+        logger.info(json.dumps(pge_metrics, indent=2))
+
+        return pge_metrics
 
     def cast_string_to_int(self):
         logger.info("Calling {} pre-condition".format(oc_const.CAST_STRING_TO_INT))

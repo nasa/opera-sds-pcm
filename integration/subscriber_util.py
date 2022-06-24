@@ -6,6 +6,7 @@ import elasticsearch_dsl.response
 import elasticsearch_dsl.response
 import mypy_boto3_lambda
 import requests
+from botocore.config import Config
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response import Hit
 from mypy_boto3_lambda import LambdaClient
@@ -17,7 +18,7 @@ import conftest
 
 config = conftest.config
 
-aws_lambda: LambdaClient = boto3.client("lambda")
+aws_lambda: LambdaClient = boto3.client("lambda", config=(Config(max_pool_connections=30)))
 
 
 def invoke_l30_subscriber_query_lambda():
@@ -51,11 +52,16 @@ def invoke_s30_subscriber_query_lambda():
 def wait_for_query_job(job_id):
     logging.info(f"Checking query job status. {job_id=}")
 
-    response: Response = requests.get(
-        f"https://{get_es_host()}/mozart/api/v0.1/job/status?id={job_id}",
-        verify=False,
-        auth=(config["ES_USER"], config["ES_PASSWORD"])
-    )
+    response: Response
+    if config.get("ES_USER") and config.get("ES_PASSWORD"):
+        response = requests.get(
+            f"https://{get_es_host()}/mozart/api/v0.1/job/status?id={job_id}",
+            verify=False,
+            auth=(config["ES_USER"], config["ES_PASSWORD"])
+        )
+    else:
+        # attempt no-cred connection. typically when running within the cluster
+        response = requests.get(f"https://{get_es_host()}/mozart/api/v0.1/job/status?id={job_id}", verify=False)
     job_status = response.json()
     return job_status
 

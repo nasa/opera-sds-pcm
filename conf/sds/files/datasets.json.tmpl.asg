@@ -220,7 +220,7 @@
       "ipath": "hysds::data/L3_DSWx_HLS",
       "level": "L3",
       "type": "L3_DSWx_HLS",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)_(?P<source>HLS)_(?P<sensor>SENTINEL-2A|SENTINEL-2B|LANDSAT-8)_(?P<tile_id>T[^\\W_]{5})_(?P<datetime>(?P<year>\\d{4})(?P<month>\\d{2})(?P<day>\\d{2})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))_(?P<collection_version>v\\d+[.]\\d+)_(?P<product_counter>\\d{3}))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx_(?P<source>HLS))_(?P<sensor>S2A|S2B|L8)_(?P<spacing>30)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<collection_version>v\\d+[.]\\d+)_(?P<product_counter>\\d{3}))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {

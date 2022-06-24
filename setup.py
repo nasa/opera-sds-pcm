@@ -30,6 +30,7 @@ setup(
             'yamale',
             'jinja2',
             'boto3',
+            "botocore",
             'click==8.1.3',
             # 'GDAL==3.5.0',  # install native gdal first. `brew install gdal` on macOS.
             'Shapely',
