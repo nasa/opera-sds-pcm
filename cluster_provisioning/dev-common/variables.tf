@@ -60,10 +60,11 @@ variable "bach_ui_branch" {
 }
 
 variable "venue" {
+  default = "dev"
 }
 
 variable "counter" {
-  default = ""
+  default = "fwd"
 }
 
 variable "private_key_file" {
@@ -268,7 +269,7 @@ variable "daac_delivery_proxy" {
 #}
 
 variable "use_daac_cnm" {
-  default = false
+  default = true
 }
 
 variable "daac_endpoint_url" {
