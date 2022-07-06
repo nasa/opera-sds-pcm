@@ -130,12 +130,16 @@ variable "amis" {
   type = map(string)
   default = {
     # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
-	grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
-    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610
+    grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
+    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610A
     mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
     factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+
+#   metrics   = "ami-066e4c781f68ac943" # OL8 All-project metrics v4.11 - 220620
+#   mozart    = "ami-066e4c781f68ac943" # OL8 All-project mozart v4.16 - 220620
+#	factotum  = "ami-065d977daa59b442d" # OL8 All-project factotum v4.12 - 220620
   }
 }
 
@@ -167,7 +171,8 @@ variable "lambda_role_arn" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-es-role"
+  default = "arn:aws:iam::681612454726:role/am-es-role"
+#  default = "arn:aws:iam::271039147104:role/am-es-role"
 }
 
 variable "es_snapshot_bucket" {
@@ -335,6 +340,7 @@ variable "event_misfire_delay_threshold_seconds" {
 }
 
 variable "use_daac_cnm" {
+  default = true
 }
 
 variable "daac_cnm_sqs_arn" {
@@ -360,7 +366,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20220609-1.0.0-rc.1.0"
 }
 
 variable "pge_release" {

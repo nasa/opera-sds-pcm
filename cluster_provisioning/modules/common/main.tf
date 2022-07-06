@@ -33,7 +33,6 @@ locals {
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
-
   cnm_response_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response"
     "int"  = "${var.project}-int-daac-cnm-response"
@@ -1837,6 +1836,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
+#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
+#  name = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   name = var.use_daac_cnm == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
 }
 
@@ -1854,22 +1855,19 @@ data "aws_iam_policy_document" "sns_topic_policy" {
   statement {
     actions = [
       "SNS:Publish",
-#      "SNS:RemovePermission",
       "SNS:SetTopicAttributes",
-#      "SNS:DeleteTopic",
       "SNS:ListSubscriptionsByTopic",
       "SNS:GetTopicAttributes",
       "SNS:Receive",
-#      "SNS:AddPermission",
       "SNS:Subscribe"
     ]
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceOwner"
-      values = [
-        var.aws_account_id
-      ]
-    }
+#    condition {
+#      test     = "StringEquals"
+#      variable = "AWS:SourceOwner"
+#      values = [
+#        var.aws_account_id
+#      ]
+#    }
     effect = "Allow"
     principals {
       type        = "AWS"
