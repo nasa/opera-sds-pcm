@@ -3,9 +3,8 @@
 L3 DSWx state config upserter job
 """
 import json
+import time
 from functools import partial
-
-import backoff
 
 from commons.es_connection import get_grq_es
 from commons.logger import logger
@@ -22,7 +21,7 @@ to_json = partial(json.dumps, indent=2)
 def evaluate():
     jc = JobContext("_context.json")
     job_context: dict = jc.ctx
-    logger.debug(f"job_context={to_json(job_context)}")
+    logger.debug(f"{to_json(job_context)=}")
 
     metadata: dict = job_context["product_metadata"]["metadata"]
 
@@ -34,6 +33,9 @@ def evaluate():
     upsert_state_config(state_config, state_config_doc_id)
 
     merged_state_config = get_updated_state_config(state_config_doc_id)
+
+    # jitter for publishing dataset to help avoid race condition
+    time.sleep(10 * len(merged_state_config))
 
     # NOTE republishing a dataset will clobber the old document
     create_state_config_dataset(merged_state_config, state_config_doc_id)
@@ -51,11 +53,12 @@ def upsert_state_config(state_config: dict, state_config_doc_id: str):
         index="grq_1_opera_state_config",
         id=state_config_doc_id,
         body=to_update_doc(state_config),
+        refresh=True,  # see doc comment
         #  setting to an arbitrary number greater than the number of expected input files, even if 1 retry would suffice
         retry_on_conflict=20
     )
 
-    logger.info(f"state_config_doc_update_result={to_json(state_config_doc_update_result)}")
+    logger.info(f"{to_json(state_config_doc_update_result)=}")
 
 
 def to_update_doc(input_dict: dict) -> dict:
@@ -72,7 +75,6 @@ def get_updated_state_config(state_config_doc_id: str) -> dict:
 
 
 # adding backoff because query results can be empty
-@backoff.on_exception(backoff.expo, IndexError, max_time=60*1)
 def get_updated_state_config_doc(state_config_doc_id: str) -> dict:
     state_config_docs_query_results: list[dict] = grq_es.query(
         index="grq_1_opera_state_config",
