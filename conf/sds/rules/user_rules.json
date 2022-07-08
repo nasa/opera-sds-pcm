@@ -8,7 +8,7 @@
       "priority": 0,
       "query_all": false,
       "query_string": "{\n  \"bool\": {\n    \"must\": [\n      {\n        \"exists\": {\n          \"field\": \"metadata.ISL_urls\"\n        }\n      }\n    ]\n  }\n}",
-      "queue": "opera-job_worker-small",
+      "queue": "opera-job_worker-purge_isl",
       "rule_name": "trigger-purge-ISL",
       "username": "hysdsops",
       "workflow": "hysds-io-purge_ISL:__TAG__",
