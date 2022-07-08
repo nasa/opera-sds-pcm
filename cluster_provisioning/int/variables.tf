@@ -429,33 +429,39 @@ variable "earthdata_pass" {
 
 variable "queues" {
   default = {
-    "opera-job_worker-gpu" = {
-      "instance_type" = [
-        "p2.xlarge",
-        "p3.2xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size" = 10
-      "total_jobs_metric" = true
-    }
     "opera-job_worker-small" = {
-      "instance_type" = [
-        "t2.medium",
-        "t3a.medium",
-        "t3.medium"]
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 100
       "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
-      "instance_type" = [
-        "t2.medium",
-        "t3a.medium",
-        "t3.medium"]
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 100
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_ingest" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-purge_isl" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-l3_dswx_hls_state_config" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
@@ -465,20 +471,14 @@ variable "queues" {
       "max_size"      = 100
     }
     "opera-job_worker-send_cnm_notify" = {
-      "instance_type" = [
-        "t2.medium",
-        "t3a.medium",
-        "t3.medium"]
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 100
       "total_jobs_metric" = true
     }
     "opera-job_worker-rcv_cnm_notify" = {
-      "instance_type" = [
-        "t2.medium",
-        "t3a.medium",
-        "t3.medium"]
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 100
@@ -495,22 +495,6 @@ variable "queues" {
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 100
-    }
-    "opera-workflow_profiler" = {
-      "instance_type" = [
-        "p2.xlarge",
-        "p3.2xlarge",
-        "r5.2xlarge",
-        "r5.4xlarge",
-        "r5.8xlarge",
-        "r5.12xlarge",
-        "r5.16xlarge",
-        "r5.24xlarge",
-        "r5.metal"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size" = 10
-      "total_jobs_metric" = true
     }
   }
 }
