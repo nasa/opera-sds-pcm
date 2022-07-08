@@ -128,6 +128,7 @@ def create_parser():
 
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
+                           "choices": ["LPCLOUD", "ASF"],
                            "default": 'LPCLOUD',
                            "help": "Specify a provider for collection search. Default is LPCLOUD."}}
 
@@ -171,6 +172,7 @@ def create_parser():
 
     transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
                          "kwargs": {"dest": "transfer_protocol",
+                                    "choices": ["s3", "https"],
                                     "default": "s3",
                                     "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
 
@@ -739,7 +741,7 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.transfer_protocol == "https":
+    if args.transfer_protocol == "https" or args.provider == "ASF":
         download_urls = [to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
         upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
