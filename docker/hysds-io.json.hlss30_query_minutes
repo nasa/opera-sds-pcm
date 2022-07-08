@@ -5,6 +5,12 @@
   "enable_dedup": false,
   "params": [
     {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+      "optional": true
+    },
+    {
       "name": "minutes",
       "from": "submitter",
       "placeholder": "e.g. -m 60"

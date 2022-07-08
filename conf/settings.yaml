@@ -3,6 +3,16 @@ PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
 DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_0.0"
 
+# Base API urls and login endpoints for the different DAAC environments.
+DAAC_ENVIRONMENTS:
+  OPS:
+    BASE_URL: cmr.earthdata.nasa.gov
+    EARTHDATA_LOGIN: urs.earthdata.nasa.gov
+
+  UAT:
+    BASE_URL: cmr.uat.earthdata.nasa.gov
+    EARTHDATA_LOGIN: uat.urs.earthdata.nasa.gov
+
 # Settings to set the latency period for various jobs
 NOMINAL_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
