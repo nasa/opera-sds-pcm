@@ -1,0 +1,150 @@
+{
+  "label": "SCIFLO_L3_HLS_on_demand",
+  "allowed_accounts": [ "ops" ],
+  "submission_type": "individual",
+  "enable_dedup": true,
+  "params": [
+    {
+      "name": "module_path",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm"
+    },
+    {
+      "name": "wf_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+    },
+    {
+      "name": "wf_name",
+      "from": "value",
+      "type": "text",
+      "value": "L3_HLS"
+    },
+    {
+      "name": "accountability_module_path",
+      "from": "value",
+      "type": "text",
+      "value": "opera_chimera.accountability"
+    },
+    {
+      "name": "accountability_class",
+      "from": "value",
+      "type": "text",
+      "value": "OperaAccountability"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_runconfig_dir"
+    },
+    {
+      "name": "pge_input_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_input_dir"
+    },
+    {
+      "name": "pge_output_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_output_dir"
+    },
+    {
+      "name":"input_dataset_id",
+      "from":"submitter",
+      "type":"text",
+      "optional": false
+    },
+    {
+      "name": "wigt",
+      "from": "submitter",
+      "type": "number",
+      "default": "0.0124",
+      "optional": true,
+      "placeholder": "0.0124"
+    },
+    {
+      "name": "awgt",
+      "from": "submitter",
+      "type": "number",
+      "default": "0.0",
+      "optional": true,
+      "placeholder": "0.0"
+    },
+    {
+      "name": "pswt_1_mndwi",
+      "from": "submitter",
+      "type": "number",
+      "default": "-0.44",
+      "optional": true,
+      "placeholder": "-0.44"
+    },
+    {
+      "name": "pswt_1_nir",
+      "from": "submitter",
+      "type": "number",
+      "default": "1500",
+      "optional": true,
+      "placeholder": "1500"
+    },
+    {
+      "name": "pswt_1_swir1",
+      "from": "submitter",
+      "type": "number",
+      "default": "900",
+      "optional": true,
+      "placeholder": "900"
+    },
+    {
+      "name": "pswt_1_ndvi",
+      "from": "submitter",
+      "type": "number",
+      "default": "0.7",
+      "optional": true,
+      "placeholder": "0.7"
+    },
+    {
+      "name": "pswt_2_mndwi",
+      "from": "submitter",
+      "type": "number",
+      "default": "-0.5",
+      "optional": true,
+      "placeholder": "-0.5"
+    },
+    {
+      "name": "pswt_2_blue",
+      "from": "submitter",
+      "type": "number",
+      "default": "1000",
+      "optional": true,
+      "placeholder": "1000"
+    },
+    {
+      "name": "pswt_2_nir",
+      "from": "submitter",
+      "type": "number",
+      "default": "2500",
+      "optional": true,
+      "placeholder": "2500"
+    },
+    {
+      "name": "pswt_2_swir1",
+      "from": "submitter",
+      "type": "number",
+      "default": "3000",
+      "optional": true,
+      "placeholder": "3000"
+    },
+    {
+      "name": "pswt_2_swir2",
+      "from": "submitter",
+      "type": "number",
+      "default": "1000",
+      "optional": true,
+      "placeholder": "1000"
+    }
+  ]
+}
