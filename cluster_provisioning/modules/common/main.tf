@@ -1217,9 +1217,11 @@ resource "aws_instance" "mozart" {
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
       "    python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py",
       "    python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py",
+      "    python ~/mozart/ops/opera-pcm/data_subscriber/slc/delete_slc_catalog.py",
       "fi",
       "python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py",
       "python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py",
+      "python ~/mozart/ops/opera-pcm/data_subscriber/slc/create_slc_catalog.py",
 
       # create accountability Elasticsearch index
       "if [ \"${local.delete_old_job_catalog}\" = true ]; then",

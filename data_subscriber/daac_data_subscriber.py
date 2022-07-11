@@ -32,6 +32,7 @@ from smart_open import open
 
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
+from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from util.conf_util import SettingsConf
 
 
@@ -74,7 +75,11 @@ async def run(argv: list[str]):
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
     token_url = f"http://{cmr}/legacy-services/rest/tokens"
     netloc = urlparse(f"{edl}").netloc
-    hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+
+    if args.provider == "LPCLOUD":
+        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+    elif args.provider == "ASF":
+        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
 
     loglevel = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=loglevel)
@@ -107,10 +112,13 @@ async def run(argv: list[str]):
 
         results = {}
         if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token, hls_conn, cmr, job_id)
+            if args.provider == "LPCLOUD":
+                results["query"] = await run_hls_query(args, token, es_conn, cmr, job_id)
+            else:
+                results["query"] = await run_query(args, token, es_conn, cmr, job_id)
         if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token, hls_conn, netloc, username, password,
-                                               job_id)  # no return value
+            results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)
+            # no return value
     logging.info(f"{results=}")
     logging.info("END")
     return results
@@ -134,6 +142,7 @@ def create_parser():
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
+                             "choices": ["L30", "S30", "SENTINEL-1A_SLC"],
                              "required": True,
                              "help": "The collection shortname for which you want to retrieve data."}}
 
@@ -425,12 +434,13 @@ def request_search(request_url, params, search_after=None):
 def filter_on_extension(granule, args):
     extension_list_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
                           "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                          "TIF": ["tif"]}
-    filter_extension = "TIF"
+                          "SENTINEL-1A_SLC": ["zip"],
+                          "DEFAULT": ["tif"]}
+    filter_extension = "DEFAULT"
 
     for extension in extension_list_map:
-        if extension.upper() in args.collection.upper():
-            filter_extension = extension.upper()
+        if extension in args.collection:
+            filter_extension = extension
             break
 
     return [f
@@ -618,14 +628,14 @@ def delete_token(url: str, token: str) -> None:
         logging.warning(f"Error deleting the token: {e}")
 
 
-async def run_query(args, token, hls_conn, cmr, job_id):
+async def run_hls_query(args, token, es_conn, cmr, job_id):
     hls_spatial_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
     query_dt = datetime.now()
     granules = query_cmr(args, token, cmr)
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
+        update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
         update_granule_index(hls_spatial_conn, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
@@ -720,9 +730,108 @@ async def run_query(args, token, hls_conn, cmr, job_id):
         "fail": failed
     }
 
+async def run_query(args, token, es_conn, cmr, job_id):
+    query_dt = datetime.now()
+    granules = query_cmr(args, token, cmr)
 
-def run_download(args, token, hls_conn, netloc, username, password, job_id):
-    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded()
+    download_urls: list[str] = []
+    for granule in granules:
+        update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
+        download_urls.extend(granule.get("filtered_urls"))
+
+    if args.subparser_name == "full":
+        logging.info(f"{args.subparser_name=}. Skipping download job submission.")
+        return
+
+    if args.no_schedule_download:
+        logging.info(f"{args.no_schedule_download=}. Skipping download job submission.")
+        return
+
+    if not args.chunk_size:
+        logging.info(f"{args.chunk_size=}. Skipping download job submission.")
+        return
+
+    tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
+        iterable=download_urls,
+        keyfunc=url_to_tile_id,
+        valuefunc=lambda url: url,
+        reducefunc=set
+    )
+
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
+        tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
+
+    logging.info(f"{tile_id_to_urls_map=}")
+    job_submission_tasks = []
+    loop = asyncio.get_event_loop()
+    logging.info(f"{args.chunk_size=}")
+    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=args.chunk_size):
+        chunk_id = str(uuid.uuid4())
+        logging.info(f"{chunk_id=}")
+
+        chunk_tile_ids = []
+        chunk_urls = []
+        for tile_id, urls in tile_chunk:
+            chunk_tile_ids.append(tile_id)
+            chunk_urls.extend(urls)
+
+        logging.info(f"{chunk_tile_ids=}")
+        logging.info(f"{chunk_urls=}")
+
+        job_submission_tasks.append(
+            loop.run_in_executor(
+                executor=None,
+                func=partial(
+                    submit_download_job,
+                    release_version=args.release_version,
+                    params=[
+                        {
+                            "name": "isl_bucket_name",
+                            "value": f"--isl-bucket={args.isl_bucket}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "tile_ids",
+                            "value": "--tile-ids " + " ".join(chunk_tile_ids) if chunk_tile_ids else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "smoke_run",
+                            "value": "--smoke-run" if args.smoke_run else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "dry_run",
+                            "value": "--dry-run" if args.dry_run else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "endpoint",
+                            "value": f"--endpoint={args.endpoint}",
+                            "from": "value"
+                        },
+                    ],
+                    job_queue=args.job_queue
+                )
+            )
+        )
+
+    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+    logging.info(f"{len(results)=}")
+    logging.info(f"{results=}")
+
+    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+    logging.info(f"{succeeded=}")
+    failed = [e for e in results if isinstance(e, Exception)]
+    logging.info(f"{failed=}")
+    return {
+        "success": succeeded,
+        "fail": failed
+    }
+
+def run_download(args, token, es_conn, netloc, username, password, job_id):
+    all_pending_downloads: Iterable[dict] = es_conn.get_all_undownloaded()
     logging.info(f"{all_pending_downloads=}")
 
     downloads = all_pending_downloads
@@ -744,11 +853,11 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     if args.transfer_protocol == "https" or args.provider == "ASF":
         download_urls = [to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
+        upload_url_list_from_https(session, es_conn, download_urls, args, token, job_id)
     else:
         download_urls = [to_s3_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
+        upload_url_list_from_s3(session, es_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(downloads)}")
 
