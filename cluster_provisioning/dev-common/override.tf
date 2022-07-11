@@ -15,7 +15,7 @@ variable "venue" {
 }
 
 variable "environment" {
-  default = "int"
+  default = "dev"
 }
 
 variable "counter" {

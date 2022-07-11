@@ -235,7 +235,7 @@ startsecs=10
 {% set queue = q['QUEUE_NAME'] | trim -%}
 [program:sync_ec2_target_tracking_metric-{{ queue }}]
 directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
-command={{ OPS_HOME }}/mozart/ops/hysds/scripts/sync_ec2_target_tracking_metric.py --interval 60 -u {{ MOZART_RABBIT_USER }} -p {{ MOZART_RABBIT_PASSWORD }} {{ queue }} {{ VENUE }}-{{ queue }}
+command={{ OPS_HOME }}/mozart/ops/hysds/scripts/sync_ec2_target_tracking_metric.py --interval 60 -u {{ MOZART_RABBIT_USER }} -p {{ MOZART_RABBIT_PASSWORD }} {% if use_job_total == True %}--total_jobs {% endif %}{{ queue }} {{ VENUE }}-{{ queue }}
 process_name=%(program_name)s
 priority=1
 numprocs=1

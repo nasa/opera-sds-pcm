@@ -469,6 +469,7 @@ variable "queues" {
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 100
+      "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
@@ -481,7 +482,7 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size" = 100
+      "max_size"      = 100
       "total_jobs_metric" = true
     }
     "opera-job_worker-hls_data_query" = {
@@ -489,12 +490,21 @@ variable "queues" {
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 100
+      "total_jobs_metric" = true
+    }
+	"opera-job_worker-timer" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 100
+      "max_size"      = 10
+      "total_jobs_metric" = false
     }
   }
 }
