@@ -40,6 +40,7 @@ async def test_full(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py full " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=S30 " \
            "--isl-bucket=dummy_bucket " \
@@ -60,6 +61,7 @@ async def test_query(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=S30 " \
            "".split()
@@ -77,6 +79,7 @@ async def test_query_chunked(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=S30 " \
            "--chunk-size=1 " \
@@ -96,6 +99,7 @@ async def test_query_no_schedule_download(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=S30 " \
            "--chunk-size=1 " \
@@ -115,6 +119,7 @@ async def test_query_smoke_run(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=S30 " \
            "--start-date=1970-01-01T00:00:00Z " \
@@ -140,6 +145,7 @@ async def test_download(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=not-https " \
            "".split()
@@ -160,6 +166,7 @@ async def test_download_by_tile(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
            "--transfer-protocol=not-https " \
@@ -181,6 +188,7 @@ async def test_download_by_tiles(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
            "".split()
@@ -201,6 +209,7 @@ async def test_download_https(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
            "--transfer-protocol=https " \
@@ -222,6 +231,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
            "--smoke-run " \
@@ -243,6 +253,7 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
+           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
            "--dry-run " \
