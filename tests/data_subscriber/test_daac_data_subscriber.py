@@ -41,7 +41,7 @@ async def test_full(monkeypatch):
 
     args = "dummy.py full " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=S30 " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=not-https " \
            "".split()
@@ -61,7 +61,7 @@ async def test_query(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=S30 " \
            "".split()
 
     # ACT
@@ -78,7 +78,7 @@ async def test_query_chunked(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=S30 " \
            "--chunk-size=1 " \
            "".split()
 
@@ -97,7 +97,7 @@ async def test_query_no_schedule_download(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=S30 " \
            "--chunk-size=1 " \
            "--no-schedule-download " \
            "".split()
@@ -116,7 +116,7 @@ async def test_query_smoke_run(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=S30 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--chunk-size=1 " \
