@@ -14,13 +14,16 @@ from subscriber_util import \
     wait_for_query_job, \
     wait_for_download_jobs, \
     invoke_l30_subscriber_query_lambda, \
-    invoke_s30_subscriber_query_lambda
+    invoke_s30_subscriber_query_lambda, \
+    update_env_vars_l30_subscriber_query_lambda
 
 config = conftest.config
 
 
 def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
+
+    update_env_vars_l30_subscriber_query_lambda()
 
     response = invoke_l30_subscriber_query_lambda()
     assert response["StatusCode"] == 200
@@ -40,6 +43,8 @@ def test_subscriber_l30():
 
 def test_subscriber_s30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
+
+    update_env_vars_l30_subscriber_query_lambda()
 
     response = invoke_s30_subscriber_query_lambda()
     assert response["StatusCode"] == 200

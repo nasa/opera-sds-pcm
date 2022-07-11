@@ -41,6 +41,57 @@ def invoke_s30_subscriber_query_lambda():
     return response
 
 
+def update_env_vars_l30_subscriber_query_lambda():
+    logging.info("updating data subscriber query timer lambda environment variables")
+    update_env_vars_subscriber_query_lambda(FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def update_env_vars_s30_subscriber_query_lambda():
+    logging.info("updating data subscriber query timer lambda environment variables")
+    update_env_vars_subscriber_query_lambda(FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def update_env_vars_subscriber_query_lambda(FunctionName: str):
+    response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    environment_variables: dict = response["Environment"]["Variables"]
+
+    environment_variables["SMOKE_RUN"] = "true"
+    environment_variables["DRY_RUN"] = "false"
+    environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
+    environment_variables["MINUTES"] = "rate(60 minutes)"
+
+    aws_lambda.update_function_configuration(
+        FunctionName=FunctionName,
+        Environment={"Variables": environment_variables}
+    )
+
+
+def reset_env_vars_l30_subscriber_query_lambda():
+    logging.info("reseting data subscriber query timer lambda environment variables")
+    reset_env_vars_subscriber_query_lambda(FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def reset_env_vars_s30_subscriber_query_lambda():
+    logging.info("reseting data subscriber query timer lambda environment variables")
+    reset_env_vars_subscriber_query_lambda(FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def reset_env_vars_subscriber_query_lambda(FunctionName: str):
+    response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    environment_variables: dict = response["Environment"]["Variables"]
+
+    environment_variables["SMOKE_RUN"] = "false"
+    environment_variables["DRY_RUN"] = "false"
+    environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
+    environment_variables["MINUTES"] = "rate(60 minutes)"
+
+    aws_lambda.update_function_configuration(
+        FunctionName=FunctionName,
+        Environment={"Variables": environment_variables}
+    )
+
+
+
 @backoff.on_predicate(
     backoff.constant,
     lambda job_status: job_status["success"] is not True or job_status["status"] != "job-completed",
