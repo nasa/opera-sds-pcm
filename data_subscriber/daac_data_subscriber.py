@@ -75,6 +75,7 @@ async def run(argv: list[str]):
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
     token_url = f"http://{cmr}/legacy-services/rest/tokens"
     netloc = urlparse(f"{edl}").netloc
+    es_conn = None
 
     if not args.subparser_name == "download":
         if args.provider == "LPCLOUD":
