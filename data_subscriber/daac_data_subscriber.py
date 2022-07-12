@@ -76,10 +76,11 @@ async def run(argv: list[str]):
     token_url = f"http://{cmr}/legacy-services/rest/tokens"
     netloc = urlparse(f"{edl}").netloc
 
-    if args.provider == "LPCLOUD":
-        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
-    elif args.provider == "ASF":
-        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+    if not args.subparser_name == "download":
+        if args.provider == "LPCLOUD":
+            es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+        elif args.provider == "ASF":
+            es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
 
     loglevel = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=loglevel)
