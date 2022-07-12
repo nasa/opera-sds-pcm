@@ -44,7 +44,7 @@ async def test_full(monkeypatch):
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=S30 " \
            "--isl-bucket=dummy_bucket " \
-           "--transfer-protocol=not-https " \
+           "--transfer-protocol=s3 " \
            "".split()
 
     # ACT
@@ -146,7 +146,7 @@ async def test_download(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--transfer-protocol=not-https " \
+           "--transfer-protocol=s3 " \
            "".split()
 
     # ACT
@@ -167,7 +167,7 @@ async def test_download_by_tile(monkeypatch):
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
-           "--transfer-protocol=not-https " \
+           "--transfer-protocol=s3 " \
            "".split()
 
     # ACT
