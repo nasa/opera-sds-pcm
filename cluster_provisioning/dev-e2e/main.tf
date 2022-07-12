@@ -282,9 +282,9 @@ resource "null_resource" "smoke_test" {
               export ES_BASE_URL="https://${module.common.mozart.private_ip}/grq_es/"
               export GRQ_HOST="grq:9200"
               export GRQ_BASE_URL="https://${module.common.mozart.private_ip}/grq/api/v0.1"
-              export CNMR_TOPIC="arn:aws:sns:us-west-2:${var.aws_account_id}:${var.project}-${var.venue}-${var.counter}-daac-cnm-response"
-              export ISL_BUCKET="${var.project}-dev-isl-fwd-${var.venue}"
-              export RS_BUCKET="${var.project}-dev-rs-fwd-${var.venue}"
+              export CNMR_TOPIC="${module.common.cnm_response_topic_arn}"
+              export ISL_BUCKET="${var.isl_bucket}"
+              export RS_BUCKET="${var.dataset_bucket}"
               export L30_INPUT_DIR="hls_l2/l30_greenland"
               export S30_INPUT_DIR="hls_l2/s30_louisiana"
               export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlsl30_query_timer.function_name}
@@ -312,6 +312,8 @@ resource "null_resource" "smoke_test" {
                 set +e
                 pytest --maxfail=1 integration/test_integration.py::test_l30
                 pytest --maxfail=1 integration/test_integration.py::test_s30
+                pytest --maxfail=1 integration/test_integration.py::test_subscriber_l30
+                pytest --maxfail=1 integration/test_integration.py::test_subscriber_s30
                 set -e
               fi
     EOF
