@@ -9,7 +9,8 @@ from int_test_util import \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
     wait_for_l2, \
-    wait_for_l3
+    wait_for_l3,\
+    wait_for_state_config
 from subscriber_util import \
     wait_for_query_job, \
     wait_for_download_jobs, \
@@ -105,6 +106,11 @@ def test_l30():
     response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask", index="grq_1_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
 
+    logging.info("Sleeping for state-config execution...")
+    sleep_for(30)
+    response = wait_for_state_config(_id="HLS.L30.T22VEQ.2021248T143156.v2.0_state_config", index="grq_1_l2_hls_l30-state-config")
+    assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0_state_config"
+
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
@@ -174,6 +180,11 @@ def test_s30():
 
     response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.Fmask", index="grq_1_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
+
+    logging.info("Sleeping for state-config execution...")
+    sleep_for(30)
+    response = wait_for_state_config(_id="HLS.S30.T15SXR.2021250T163901.v2.0_state_config", index="grq_1_l2_hls_s30-state-config")
+    assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0_state_config"
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
