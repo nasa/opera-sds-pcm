@@ -9,14 +9,17 @@ from int_test_util import \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
     wait_for_l2, \
-    wait_for_l3,\
+    wait_for_l3, \
     wait_for_state_config
 from subscriber_util import \
     wait_for_query_job, \
     wait_for_download_jobs, \
     invoke_l30_subscriber_query_lambda, \
     invoke_s30_subscriber_query_lambda, \
-    update_env_vars_l30_subscriber_query_lambda
+    update_env_vars_l30_subscriber_query_lambda, \
+    reset_env_vars_l30_subscriber_query_lambda, \
+    reset_env_vars_s30_subscriber_query_lambda, \
+    update_env_vars_s30_subscriber_query_lambda
 
 config = conftest.config
 
@@ -25,8 +28,8 @@ def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_l30_subscriber_query_lambda()
-
     response = invoke_l30_subscriber_query_lambda()
+    reset_env_vars_l30_subscriber_query_lambda()
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
@@ -45,9 +48,9 @@ def test_subscriber_l30():
 def test_subscriber_s30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
-    update_env_vars_l30_subscriber_query_lambda()
-
+    update_env_vars_s30_subscriber_query_lambda()
     response = invoke_s30_subscriber_query_lambda()
+    reset_env_vars_s30_subscriber_query_lambda()
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
