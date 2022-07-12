@@ -33,12 +33,12 @@ def test_subscriber_l30():
     logging.info(f"{job_id=}")
 
     logging.info("Sleeping for query job execution...")
-    sleep_for(10)
+    sleep_for(300)
 
     wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
-    sleep_for(180)
+    sleep_for(300)
     wait_for_download_jobs(job_id)
 
 
@@ -54,12 +54,12 @@ def test_subscriber_s30():
     logging.info(f"{job_id=}")
 
     logging.info("Sleeping for query job execution...")
-    sleep_for(10)
+    sleep_for(300)
 
     wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
-    sleep_for(180)
+    sleep_for(300)
     wait_for_download_jobs(job_id)
 
 

@@ -95,7 +95,7 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str):
 @backoff.on_predicate(
     backoff.constant,
     lambda job_status: job_status["success"] is not True or job_status["status"] != "job-completed",
-    max_time=60 * 1,
+    max_time=60 * 5,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
     interval=30,
