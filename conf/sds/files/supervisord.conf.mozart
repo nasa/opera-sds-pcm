@@ -233,6 +233,7 @@ startsecs=10
 # target tracking metrics
 {% for q in QUEUES %}
 {% set queue = q['QUEUE_NAME'] | trim -%}
+{% set use_job_total = q.get('TOTAL_JOBS_METRIC', False) -%}
 [program:sync_ec2_target_tracking_metric-{{ queue }}]
 directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
 command={{ OPS_HOME }}/mozart/ops/hysds/scripts/sync_ec2_target_tracking_metric.py --interval 60 -u {{ MOZART_RABBIT_USER }} -p {{ MOZART_RABBIT_PASSWORD }} {% if use_job_total == True %}--total_jobs {% endif %}{{ queue }} {{ VENUE }}-{{ queue }}
