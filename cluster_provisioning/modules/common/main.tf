@@ -1568,7 +1568,8 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
       namespace   = "HySDS"
       statistic   = "Maximum"
     }
-    target_value     = 1.0
+   # target_value     = 1.0
+	target_value     = lookup(each.value, "total_jobs_metric_target_value", 1.0)
     disable_scale_in = true
   }
 
