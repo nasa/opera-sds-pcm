@@ -125,6 +125,7 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
+
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
@@ -384,13 +385,16 @@ def query_cmr(args, token, cmr):
         logging.info("Temporal Range: " + temporal_range)
         params['temporal'] = temporal_range
 
-    product_granules, search_after = request_search(request_url, params)
+    product_granules, search_after, total_granules = request_search(request_url, params)
+    logging.info(f"Found {total_granules=}")
 
     while search_after:
-        granules, search_after = request_search(request_url, params, search_after=search_after)
+        granules, search_after, _ = request_search(request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
-    logging.info(f"Found {str(len(product_granules))} total granules")
+    if len(product_granules) != int(total_granules):
+        raise ValueError(f"Granules retrieved do not equal granules expected. {product_granules=} != {total_granules=}")
+
     for granule in product_granules:
         granule['filtered_urls'] = filter_on_extension(granule, args)
 
@@ -417,6 +421,7 @@ def request_search(request_url, params, search_after=None):
     results = response.json()
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
+    total_granules = response.headers.get('CMR-Hits')
 
     if items and 'umm' in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
@@ -428,9 +433,9 @@ def request_search(request_url, params, search_after=None):
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
-                for item in items], next_search_after
+                for item in items], next_search_after, total_granules
     else:
-        return [], None
+        return [], None, total_granules
 
 
 def filter_on_extension(granule, args):
@@ -732,6 +737,7 @@ async def run_hls_query(args, token, es_conn, cmr, job_id):
         "fail": failed
     }
 
+
 async def run_query(args, token, es_conn, cmr, job_id):
     query_dt = datetime.now()
     granules = query_cmr(args, token, cmr)
@@ -831,6 +837,7 @@ async def run_query(args, token, es_conn, cmr, job_id):
         "success": succeeded,
         "fail": failed
     }
+
 
 def run_download(args, token, es_conn, netloc, username, password, job_id):
     all_pending_downloads: Iterable[dict] = es_conn.get_all_undownloaded()
