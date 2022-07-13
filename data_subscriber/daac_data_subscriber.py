@@ -75,7 +75,6 @@ async def run(argv: list[str]):
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
     token_url = f"http://{cmr}/legacy-services/rest/tokens"
     netloc = urlparse(f"{edl}").netloc
-    es_conn = None
 
     loglevel = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=loglevel)
@@ -107,12 +106,16 @@ async def run(argv: list[str]):
             raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
         results = {}
+
+        if args.provider == "LPCLOUD":
+            es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+        else:
+            es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+
         if args.subparser_name == "query" or args.subparser_name == "full":
             if args.provider == "LPCLOUD":
-                es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
                 results["query"] = await run_hls_query(args, token, es_conn, cmr, job_id)
             else:
-                es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
                 results["query"] = await run_query(args, token, es_conn, cmr, job_id)
         if args.subparser_name == "download" or args.subparser_name == "full":
             results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)
@@ -230,7 +233,7 @@ def create_parser():
     add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids]
+    download_parser_arg_list = [endpoint, provider, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids]
     add_arguments(download_parser, download_parser_arg_list)
 
     return parser
