@@ -8,7 +8,7 @@
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "factotum-job_worker-small" ],
+  "recommended-queues": [ "opera-job_worker-hls_data_ingest" ],
   "params": [
     {   
       "name": "id",

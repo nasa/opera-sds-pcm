@@ -15,7 +15,7 @@ GRQ_ES = None
 MOZART_ES = None
 
 
-def get_grq_es(logger=None):
+def get_grq_es(logger=None) -> AncillaryUtility:
     global GRQ_ES
 
     if GRQ_ES is None:

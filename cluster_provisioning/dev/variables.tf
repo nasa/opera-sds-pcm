@@ -291,6 +291,11 @@ variable "daac_delivery_proxy" {
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
+#variable "daac_response_name" {
+#  default = "opera-dev-daac-cnm-response"
+#  default = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#}
+
 variable "use_daac_cnm" {
   default = false
 }

@@ -17,7 +17,6 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
-  default = ""
 }
 
 variable "pcm_repo" {
@@ -25,15 +24,15 @@ variable "pcm_repo" {
 }
 
 variable "pcm_branch" {
-  default = ""
+  default = "develop"
 }
 
 variable "pcm_commons_repo" {
-  default = ""
+  default = "github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git"
 }
 
 variable "pcm_commons_branch" {
-  default = ""
+  default = "develop"
 }
 
 variable "product_delivery_repo" {
@@ -41,7 +40,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = ""
+  default = "opera_delivery"
 }
 
 variable "bach_api_repo" {
@@ -49,7 +48,7 @@ variable "bach_api_repo" {
 }
 
 variable "bach_api_branch" {
-  default = ""
+  default = "develop"
 }
 
 variable "bach_ui_repo" {
@@ -57,23 +56,21 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-  default = ""
+  default = "develop"
 }
 
 variable "venue" {
-  default = ""
+  default = "dev"
 }
 
 variable "counter" {
-  default = ""
+  default = "fwd"
 }
 
 variable "private_key_file" {
-  default = ""
 }
 
 variable "git_auth_key" {
-  default = ""
 }
 
 variable "jenkins_api_user" {
@@ -85,60 +82,48 @@ variable "keypair_name" {
 }
 
 variable "jenkins_api_key" {
-  default = ""
-}
-
-variable "jenkins_host" {
-  default = ""
-}
-
-variable "jenkins_enabled" {
-  type = bool
-  default = false
 }
 
 variable "artifactory_fn_api_key" {
-  default = ""
 }
 
 variable "ops_password" {
-  default = ""
+  default = "hysdsops"
 }
 
 variable "shared_credentials_file" {
-  default = ""
+  default = "~/.aws/credentials"
 }
 
 #
 # "default" links to [default] profile in "shared_credentials_file" above
 #
 variable "profile" {
-  default = ""
+  default = "saml-pub"
 }
 
 variable "project" {
-  default = ""
+  default = "opera"
 }
 
 variable "region" {
-  default = ""
+  default = "us-west-2"
 }
 
 variable "az" {
-  default = ""
+  default = "us-west-2a"
 }
 
 variable "grq_aws_es" {
-  type = bool
   default = false
 }
 
 variable "grq_aws_es_host" {
-  default = ""
+  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
 variable "grq_aws_es_host_private_verdi" {
-  default = ""
+  default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
 variable "grq_aws_es_port" {
@@ -146,35 +131,98 @@ variable "grq_aws_es_port" {
 }
 
 variable "use_grq_aws_es_private_verdi" {
-  default = ""
+  default = true
 }
 
 variable "subnet_id" {
-  default = ""
+  default = "subnet-000eb551ad06392c7"
 }
 
 variable "verdi_security_group_id" {
-  default = ""
 }
 
 variable "cluster_security_group_id" {
-  default = ""
 }
 
 variable "pcm_cluster_role" {
+  default = {
+    name = "am-pcm-dev-cluster-role"
+    path = "/"
+  }
 }
 
 variable "pcm_verdi_role" {
+  default = {
+    name = "am-pcm-dev-verdi-role"
+    path = "/"
+  }
+}
+
+# mozart vars
+variable "mozart" {
+
+}
+
+# metrics vars
+variable "metrics" {
+
+}
+
+# grq vars
+variable "grq" {
+
+}
+
+# factotum vars
+variable "factotum" {
+
+}
+
+# ci vars
+variable "ci" {
+  type = map(string)
+  default = {
+    name          = "ci"
+    instance_type = "c5.xlarge"
+    data          = "/data"
+    data_dev      = "/dev/xvdb"
+    data_dev_size = 100
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+variable "common_ci" {
+  type = map(string)
+  default = {
+    name       = "ci"
+    private_ip = "100.104.41.51"
+    public_ip  = "100.104.41.51"
+  }
+}
+
+# autoscale vars
+variable "autoscale" {
+  type = map(string)
+  default = {
+    name          = "autoscale"
+    instance_type = "t2.micro"
+    data          = "/data"
+    data_dev      = "/dev/xvdb"
+    data_dev_size = 300
+    private_ip    = ""
+    public_ip     = ""
+  }
 }
 
 # staging area vars
 
 variable "lambda_vpc" {
-  default = ""
+  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
-  default = ""
+  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
 }
 
 variable "lambda_job_type" {
@@ -204,44 +252,49 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "cnm_r_venue" {
-  default = "int"
+  default = "dev"
 }
 
-####### CNM Response job vars #######
+#The value of daac_delivery_proxy can be
+#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+# need to get SNS arn from PO DAAC and define
 variable "daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
+  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
+#variable "daac_response_name" {
+#  default = "opera-dev-daac-cnm-response"
+#  default = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#}
+
 variable "use_daac_cnm" {
-  type = bool
-#  default = false
   default = true
 }
 
 variable "daac_endpoint_url" {
   default = ""
 }
+
 # asg vars
 variable "asg_use_role" {
-  type = bool
-  default = true
+  default = "true"
 }
 
 variable "asg_role" {
-  default = ""
+  default = "am-pcm-dev-verdi-role"
 }
 
 variable "asg_vpc" {
-  default = ""
+  default = "vpc-b5a983cd"
 }
 
 variable "aws_account_id" {
-  default = ""
+  default = "681612454726"
 }
 
 variable "lambda_package_release" {
-  default = ""
+  default = "develop"
 }
 
 variable "job_catalog_url" {
@@ -249,56 +302,16 @@ variable "job_catalog_url" {
 }
 
 variable "delete_old_job_catalog" {
-  type = bool
+  type    = bool
   default = false
 }
 
 variable "environment" {
-  default = ""
-}
-
-# ami vars
-variable "amis" {
-
-}
-
-# mozart vars
-variable "mozart" {
-
-}
-
-# metrics vars
-variable "metrics" {
-
-}
-
-# grq vars
-variable "grq" {
-
-}
-
-# factotum vars
-variable "factotum" {
-
-}
-
-# ci vars
-variable "ci" {
-
-}
-
-variable "common_ci" {
-
-}
-
-# autoscale vars
-variable "autoscale" {
-
+  default = "dev"
 }
 
 variable "use_artifactory" {
-  type = bool
-  default = true
+  default = false
 }
 
 variable "event_misfire_trigger_frequency" {
@@ -306,21 +319,17 @@ variable "event_misfire_trigger_frequency" {
 }
 
 variable "event_misfire_delay_threshold_seconds" {
-  type = number
+  type    = number
   default = 60
 }
 
 variable "lambda_log_retention_in_days" {
-  type = number
+  type    = number
   default = 30
 }
 
-variable "docker_registry_bucket" {
-  default = ""
-}
-
 variable "pge_snapshots_date" {
-  default = ""
+  default = "20220401-1.0.0-er.3.0"
 }
 
 variable "pge_names" {
@@ -332,24 +341,13 @@ variable "pge_release" {
 }
 
 variable "crid" {
-  default = ""
+  default = "D00100"
 }
 
 variable "cluster_type" {
-  default = ""
+  default = "reprocessing"
 }
 
-variable "hls_download_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "hlsl30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "hlss30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
@@ -383,36 +381,26 @@ variable "osl_bucket" {
   default = ""
 }
 
-variable "osl_report_staging_area" {
-  default = ""
-}
-
 variable "use_s3_uri_structure" {
-  type = bool
   default = true
 }
 
 variable "inactivity_threshold" {
-  type = number
-  default = 1800
+  type    = number
+  default = 600
 }
 
 variable "run_smoke_test" {
-  type = bool
+  type    = bool
   default = true
 }
 
 variable "purge_es_snapshot" {
-  type = bool
-  default = false
+  default = true
 }
 
 variable "es_snapshot_bucket" {
-  default = ""
-}
-
-variable "es_bucket_role_arn" {
-  default = ""
+  default = "opera-dev-es-bucket"
 }
 
 variable "artifactory_fn_user" {
@@ -427,62 +415,79 @@ variable "earthdata_pass" {
   default = ""
 }
 
+# ami vars
+variable "amis" {
+
+}
+
 variable "queues" {
   default = {
     "opera-job_worker-small" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size" = 100
+      "max_size" = 50
       "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 100
       "total_jobs_metric" = true
     }
-    "opera-job_worker-hls_data_ingest" = {
+	"opera-job_worker-hls_data_ingest" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 10
+      "max_size"      = 50
       "total_jobs_metric" = true
     }
     "opera-job_worker-purge_isl" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 10
+      "max_size"      = 50
       "total_jobs_metric" = true
     }
     "opera-job_worker-l3_dswx_hls_state_config" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 10
+      "max_size"      = 50
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "instance_type" = ["t2.large", "t3a.large", "t3.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 100
+      "max_size"      = 400
       "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size" = 100
+      "max_size" = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-rcv_cnm_notify" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 100
+      "max_size" = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-hls_data_query" = {
@@ -490,14 +495,14 @@ variable "queues" {
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
-      "total_jobs_metric" = true
+      "total_job_metric" = true
     }
     "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
-      "max_size"      = 100
-      "total_jobs_metric" = true
+      "max_size"      = 10
+      "total_job_metric" = true
     }
 	"opera-job_worker-timer" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
@@ -508,3 +513,4 @@ variable "queues" {
     }
   }
 }
+
