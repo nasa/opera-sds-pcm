@@ -67,12 +67,17 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
+    HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
+    if args.file:
+        with open(args.file, "r") as f:
+            update_url_index(HLS_CONN, f.readlines(), None, None)
+        exit(0)
+
     IP_ADDR = "127.0.0.1"
     EDL = "urs.earthdata.nasa.gov"
     CMR = "cmr.earthdata.nasa.gov"
     TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
     NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
-    HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
 
     LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=LOGLEVEL)
@@ -111,6 +116,7 @@ async def run(argv: list[str]):
     logging.info(f"{results=}")
     logging.info("END")
     return results
+
 
 async def run_query(args, token, HLS_CONN, CMR, job_id):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
@@ -312,6 +318,8 @@ def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
+    parser.add_argument("-f", "--file", dest="file",
+                        help="Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later).")
 
     full_parser = subparsers.add_parser("full")
     full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
@@ -339,14 +347,14 @@ def create_parser():
     full_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
                              help="Toggle for query only operation (no downloads).")
     full_parser.add_argument("--release-version", dest="release_version",
-                              help="The release version of the download job-spec.")
+                             help="The release version of the download job-spec.")
     full_parser.add_argument("--job-queue", dest="job_queue",
-                              help="The queue to use for the scheduled download job.")
+                             help="The queue to use for the scheduled download job.")
     full_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
-                              help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
+                             help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
 
     full_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
-                                 help="A list of target tile IDs pending download.")
+                             help="A list of target tile IDs pending download.")
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
@@ -362,19 +370,19 @@ def create_parser():
     query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
                               help="Specify a provider for collection search. Default is LPCLOUD.")
     query_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
-                             help="Toggle for query only operation (no downloads).")
+                              help="Toggle for query only operation (no downloads).")
     query_parser.add_argument("--release-version", dest="release_version",
                               help="The release version of the download job-spec.")
     query_parser.add_argument("--job-queue", dest="job_queue",
                               help="The queue to use for the scheduled download job.")
     query_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                             help="The incoming storage location s3 bucket where data products will be downloaded.")
+                              help="The incoming storage location s3 bucket where data products will be downloaded.")
     query_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
                               help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
     query_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                             help="Toggle for skipping physical downloads.")
+                              help="Toggle for skipping physical downloads.")
     query_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                             help="Toggle for processing a single tile.")
+                              help="Toggle for processing a single tile.")
 
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
@@ -384,9 +392,9 @@ def create_parser():
     download_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
                                  help="A list of target tile IDs pending download.")
     download_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                             help="Toggle for skipping physical downloads.")
+                                 help="Toggle for skipping physical downloads.")
     download_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                             help="Toggle for processing a single tile.")
+                                 help="Toggle for processing a single tile.")
 
     return parser
 
