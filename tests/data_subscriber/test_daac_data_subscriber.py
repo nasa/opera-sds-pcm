@@ -278,6 +278,11 @@ def patch_subscriber(monkeypatch):
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.get_slc_catalog_connection.__name__,
+        lambda *args, **kwargs: MockDataSubscriberProductCatalog()
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.setup_earthdata_login_auth.__name__,
         lambda *args: ("test_username", "test_password")
     )
@@ -298,10 +303,11 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00001.B01.tif",
                         "https://example.com/T00001.B02.tif",
                         "https://example.com/T00002.B01.tif",
-                    ]
+                    ],
                 }
-            ],
-            False  # search_after
+            ], # product_granules
+            False,  # search_after
+            1 # total_granules
         )
     )
     monkeypatch.setattr(

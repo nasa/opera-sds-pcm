@@ -77,12 +77,6 @@ async def run(argv: list[str]):
     netloc = urlparse(f"{edl}").netloc
     es_conn = None
 
-    if not args.subparser_name == "download":
-        if args.provider == "LPCLOUD":
-            es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
-        elif args.provider == "ASF":
-            es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
-
     loglevel = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=loglevel)
     logging.info("Log level set to " + loglevel)
@@ -115,8 +109,10 @@ async def run(argv: list[str]):
         results = {}
         if args.subparser_name == "query" or args.subparser_name == "full":
             if args.provider == "LPCLOUD":
+                es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
                 results["query"] = await run_hls_query(args, token, es_conn, cmr, job_id)
             else:
+                es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
                 results["query"] = await run_query(args, token, es_conn, cmr, job_id)
         if args.subparser_name == "download" or args.subparser_name == "full":
             results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)
