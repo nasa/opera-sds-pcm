@@ -98,7 +98,7 @@ resource "aws_volume_attachment" "volume_attachment" {
       "fi",
 #      "  curl -O \"https://artifactory-fn.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-dswx_hls-${var.pge_release}.tar.gz\"",
 
-      "  curl -O \"https://artifactory-fn.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pge/dswx_hls/opera_pge-dswx_hls-${var.pge_release}.tar.gz\"",
+      "  curl -O \"https://artifactory-fn.jpl.nasa.gov:443/artifactory/general/gov/nasa/jpl/opera/sds/pge/dswx_hls/opera_pge-dswx_hls-${var.pge_release}.tar.gz\"",
       "  --header 'Authorization: Basic ${base64encode(format("%s:%s", var.artifactory_fn_user, var.artifactory_fn_api_key))}'",
       "  docker load -i opera_pge-dswx_hls-${var.pge_release}.tar.gz",
 # TODO chrisjrd: extract variables
