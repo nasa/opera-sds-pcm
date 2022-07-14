@@ -97,7 +97,8 @@ variable "artifactory_base_url" {
 }
 
 variable "artifactory_repo" {
-  default = "general-develop"
+#  default = "general-develop"
+  default = "general"
 }
 
 variable "artifactory_mirror_url" {
