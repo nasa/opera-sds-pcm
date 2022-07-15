@@ -130,7 +130,7 @@ echo Running smoke tests
 
 echo Downloading test data
 if [[ ! -f hls_l2.tar.gz ]]; then
-  curl -H "X-JFrog-Art-Api:${var.artifactory_fn_api_key}" -O ${sample_data_artifactory_dir}/hls_l2.tar.gz
+  curl -H "X-JFrog-Art-Api:${artifactory_fn_api_key}" -O ${sample_data_artifactory_dir}/hls_l2.tar.gz
 else
   echo test data previously downloaded. Skipping re-download
 fi

@@ -276,45 +276,21 @@ resource "null_resource" "smoke_test" {
 
   provisioner "remote-exec" {
     inline = [<<-EOF
-              cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
-
-              export ES_HOST=${module.common.mozart.private_ip}
-              export ES_BASE_URL="https://${module.common.mozart.private_ip}/grq_es/"
-              export GRQ_HOST="grq:9200"
-              export GRQ_BASE_URL="https://${module.common.mozart.private_ip}/grq/api/v0.1"
-              export CNMR_TOPIC="${module.common.cnm_response_topic_arn}"
-              export ISL_BUCKET="${var.isl_bucket}"
-              export RS_BUCKET="${var.dataset_bucket}"
-              export L30_INPUT_DIR="hls_l2/l30_greenland"
-              export S30_INPUT_DIR="hls_l2/s30_louisiana"
-              export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlsl30_query_timer.function_name}
-              export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlss30_query_timer.function_name}
-
               if [ "${var.run_smoke_test}" = true ]; then
-                set -e
-                echo Running smoke tests
+                cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
 
-                echo Downloading test data
-                if [[ ! -f hls_l2.tar.gz ]]; then
-                  curl -H "X-JFrog-Art-Api:${var.artifactory_fn_api_key}" -O ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz
-                else
-                  echo test data previously downloaded. Skipping re-download
-                fi
-                  rm -rf hls_l2
-                  mkdir -p hls_l2
-                  tar xfz hls_l2.tar.gz -C hls_l2
-
-                echo Executing integration tests. This can take at least 20 minutes...
-                python -m venv venv
-                source venv/bin/activate
-                pip install '.[integration]'
-
-                set +e
-                pytest --maxfail=1 integration/test_integration.py::test_l30
-                pytest --maxfail=1 integration/test_integration.py::test_s30
-                pytest --maxfail=1 integration/test_integration.py::test_subscriber_l30
-                pytest --maxfail=1 integration/test_integration.py::test_subscriber_s30
-                set -e
+                ./run_opera_smoke_tests.sh \
+                --mozart-ip=${module.common.mozart.private_ip} \
+                --grq-host="grq:9200" \
+                --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+                --isl-bucket="${module.common.isl_bucket}" \
+                --rs-bucket="${module.common.dataset_bucket}" \
+                --L30-input-dir="hls_l2/l30_greenland" \
+                --S30-input-dir="hls_l2/s30_louisiana" \
+                --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
+                --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
+                --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
+                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0"
               fi
     EOF
     ]
