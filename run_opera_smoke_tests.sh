@@ -144,7 +144,7 @@ source venv/bin/activate
 pip install '.[integration]'
 
 set +e
-pytest --maxfail=1 --numprocesses=auto \
+pytest --maxfail=2 --numprocesses=auto \
   integration/test_integration.py::test_l30 \
   integration/test_integration.py::test_s30 \
   integration/test_integration.py::test_subscriber_l30 \

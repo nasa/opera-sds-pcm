@@ -36,12 +36,12 @@ def test_subscriber_l30():
     logging.info(f"{job_id=}")
 
     logging.info("Sleeping for query job execution...")
-    sleep_for(300)
+    sleep_for(150)
 
     wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
-    sleep_for(300)
+    sleep_for(150)
     wait_for_download_jobs(job_id)
 
 
@@ -57,12 +57,12 @@ def test_subscriber_s30():
     logging.info(f"{job_id=}")
 
     logging.info("Sleeping for query job execution...")
-    sleep_for(300)
+    sleep_for(150)
 
     wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
-    sleep_for(300)
+    sleep_for(150)
     wait_for_download_jobs(job_id)
 
 
@@ -86,7 +86,7 @@ def test_l30():
     logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
     logging.info("Sleeping for L2 ingest...")
-    sleep_for(30)
+    sleep_for(150)
 
     response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_1_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B02"
@@ -110,14 +110,14 @@ def test_l30():
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
 
     logging.info("Sleeping for state-config execution...")
-    sleep_for(30)
+    sleep_for(150)
     response = wait_for_state_config(_id="HLS.L30.T22VEQ.2021248T143156.v2.0_state_config", index="grq_1_l2_hls_l30-state-config")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0_state_config"
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
-    sleep_for(60)
+    sleep_for(150)
 
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001"
@@ -125,7 +125,7 @@ def test_l30():
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
-    sleep_for(60)
+    sleep_for(150)
 
     response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
@@ -134,7 +134,7 @@ def test_l30():
     mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001")
 
     logging.info("Sleeping for CNM-R execution...")
-    sleep_for(30)
+    sleep_for(150)
 
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001", index="grq_1_l3_dswx_hls")
 
@@ -161,7 +161,7 @@ def test_s30():
     logging.info("CHECKING FOR L2 ENTRIES, INDICATING SUCCESSFUL DATA INGEST")
 
     logging.info("Sleeping for L2 ingest...")
-    sleep_for(30)
+    sleep_for(150)
 
     response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_1_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B02"
@@ -185,14 +185,14 @@ def test_s30():
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
 
     logging.info("Sleeping for state-config execution...")
-    sleep_for(30)
+    sleep_for(150)
     response = wait_for_state_config(_id="HLS.S30.T15SXR.2021250T163901.v2.0_state_config", index="grq_1_l2_hls_s30-state-config")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0_state_config"
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
-    sleep_for(60)
+    sleep_for(150)
 
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001"
@@ -200,7 +200,7 @@ def test_s30():
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
-    sleep_for(60)
+    sleep_for(150)
 
     response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001", index="grq_1_l3_dswx_hls")
     assert_cnm_s_success(response)
@@ -208,7 +208,7 @@ def test_s30():
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
 
     logging.info("Sleeping for CNM-R execution...")
-    sleep_for(30)
+    sleep_for(150)
 
     mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001")
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001", index="grq_1_l3_dswx_hls")
