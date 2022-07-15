@@ -46,7 +46,14 @@ variable "cluster_type" {
 }
 
 ###### Security  ########
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+  # fwd security group
+  default = "sg-0e60f417ff3c769fb"
+  # pop1 security group
+  #default = "sg-06bf23a69b4d83f66"
+}
+
+variable "private_verdi_security_group_id" {
   # fwd security group
   default = "sg-0869719f04e735bd6"
   # pop1 security group
@@ -95,9 +102,12 @@ variable "lambda_vpc" {
   default = "vpc-07cd74102c0dfd9ab"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
   default = "vpc-07cd74102c0dfd9ab"
-  #default = "vpc-c1e0dab9"
+}
+
+variable "private_asg_vpc" {
+  default = "vpc-c1e0dab9"
 }
 
 ##### Bucket Names #########

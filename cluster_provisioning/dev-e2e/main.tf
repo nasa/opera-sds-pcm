@@ -32,7 +32,8 @@ module "common" {
   region                                  = var.region
   az                                      = var.az
   subnet_id                               = var.subnet_id
-  verdi_security_group_id                 = var.verdi_security_group_id
+  public_verdi_security_group_id          = var.public_verdi_security_group_id
+  private_verdi_security_group_id         = var.private_verdi_security_group_id
   cluster_security_group_id               = var.cluster_security_group_id
   pcm_cluster_role                        = var.pcm_cluster_role
   pcm_verdi_role                          = var.pcm_verdi_role
@@ -56,7 +57,8 @@ module "common" {
   daac_endpoint_url                       = var.daac_endpoint_url
   asg_use_role                            = var.asg_use_role
   asg_role                                = var.asg_role
-  asg_vpc                                 = var.asg_vpc
+  public_asg_vpc                          = var.public_asg_vpc
+  private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
