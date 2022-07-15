@@ -119,7 +119,7 @@ def test_l30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_20210905T143156_v2.0_001", index="grq_1_l3_dswx_hls")
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001", index="grq_1_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
