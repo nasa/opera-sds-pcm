@@ -99,7 +99,7 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str):
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30,
+    interval=30
 )
 @backoff.on_exception(
     backoff.expo,
@@ -130,7 +130,7 @@ def wait_for_query_job(job_id):
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30,
+    interval=30
 )
 @backoff.on_exception(
     backoff.expo,

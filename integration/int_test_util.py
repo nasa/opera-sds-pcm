@@ -41,13 +41,13 @@ def raise_(ex: Exception):
     max_time=60*10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30,
+    interval=30
 )
 @backoff.on_exception(
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60*10,
-    giveup=index_not_found,
+    giveup=index_not_found
 )
 def wait_for_l2(_id, index):
     return search_es(index, _id)
@@ -59,13 +59,13 @@ def wait_for_l2(_id, index):
     max_time=60*10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30,
+    interval=30
 )
 @backoff.on_exception(
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60*10,
-    giveup=index_not_found,
+    giveup=index_not_found
 )
 def wait_for_state_config(_id, index):
     return search_es(index, _id)
@@ -110,7 +110,7 @@ def wait_for_cnm_s_success(_id, index):
     max_time=60*10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=60,
+    interval=60
 )
 def wait_for_cnm_r_success(_id, index):
     logging.info(f"Waiting for CNM-R success ({_id=})")
