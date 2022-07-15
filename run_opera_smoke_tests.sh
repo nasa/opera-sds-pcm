@@ -67,11 +67,11 @@ for i in "$@"; do
       cnm_r_topic_arn="${i#*=}"
       shift
       ;;
-    --isl-bucket =*)
+    --isl-bucket=*)
       isl_bucket="${i#*=}"
       shift
       ;;
-    --rs-bucket =*)
+    --rs-bucket=*)
       rs_bucket="${i#*=}"
       shift
       ;;
