@@ -94,6 +94,7 @@ def wait_for_l3(_id, index):
     lambda r: get(r, "daac_CNM_S_status") != "SUCCESS",
     # 60 seconds to queue, 300 seconds to start, 180 seconds to finish
     max_time=60*10,
+    on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
     interval=60
 )
@@ -107,6 +108,7 @@ def wait_for_cnm_s_success(_id, index):
     backoff.constant,
     lambda r: get(r, "daac_delivery_status") != "SUCCESS",
     max_time=60*10,
+    on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
     interval=60,
 )
