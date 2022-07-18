@@ -344,7 +344,7 @@ variable "lambda_job_type" {
 }
 
 variable "lambda_job_queue" {
-  default = "opera-job_worker-small"
+  default = "opera-job_worker-hls_data_ingest"
 }
 
 # CNM Response job vars
