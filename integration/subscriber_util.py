@@ -2,6 +2,7 @@ import logging
 
 import backoff
 import boto3
+import elasticsearch
 import elasticsearch_dsl.response
 import elasticsearch_dsl.response
 import mypy_boto3_lambda
@@ -12,9 +13,9 @@ from elasticsearch_dsl.response import Hit
 from mypy_boto3_lambda import LambdaClient
 from requests import Response
 
-from int_test_util import \
-    success_handler, raise_, get_es_host, get_es_client
 import conftest
+from int_test_util import \
+    success_handler, raise_, get_es_host, get_es_client, index_not_found
 
 config = conftest.config
 
@@ -41,13 +42,70 @@ def invoke_s30_subscriber_query_lambda():
     return response
 
 
+def update_env_vars_l30_subscriber_query_lambda():
+    logging.info("updating data subscriber query timer lambda environment variables")
+    update_env_vars_subscriber_query_lambda(FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def update_env_vars_s30_subscriber_query_lambda():
+    logging.info("updating data subscriber query timer lambda environment variables")
+    update_env_vars_subscriber_query_lambda(FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def update_env_vars_subscriber_query_lambda(FunctionName: str):
+    response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    environment_variables: dict = response["Environment"]["Variables"]
+
+    environment_variables["SMOKE_RUN"] = "true"
+    environment_variables["DRY_RUN"] = "false"
+    environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
+    environment_variables["MINUTES"] = "rate(60 minutes)"
+
+    aws_lambda.update_function_configuration(
+        FunctionName=FunctionName,
+        Environment={"Variables": environment_variables}
+    )
+
+
+def reset_env_vars_l30_subscriber_query_lambda():
+    logging.info("reseting data subscriber query timer lambda environment variables")
+    reset_env_vars_subscriber_query_lambda(FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def reset_env_vars_s30_subscriber_query_lambda():
+    logging.info("reseting data subscriber query timer lambda environment variables")
+    reset_env_vars_subscriber_query_lambda(FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+
+
+def reset_env_vars_subscriber_query_lambda(FunctionName: str):
+    response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    environment_variables: dict = response["Environment"]["Variables"]
+
+    environment_variables["SMOKE_RUN"] = "false"
+    environment_variables["DRY_RUN"] = "false"
+    environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
+    environment_variables["MINUTES"] = "rate(60 minutes)"
+
+    aws_lambda.update_function_configuration(
+        FunctionName=FunctionName,
+        Environment={"Variables": environment_variables}
+    )
+
+
+
 @backoff.on_predicate(
     backoff.constant,
     lambda job_status: job_status["success"] is not True or job_status["status"] != "job-completed",
-    max_time=60 * 1,
+    max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30,
+    interval=30
+)
+@backoff.on_exception(
+    backoff.expo,
+    elasticsearch.exceptions.NotFoundError,
+    max_time=60 * 10,
+    giveup=index_not_found
 )
 def wait_for_query_job(job_id):
     logging.info(f"Checking query job status. {job_id=}")
@@ -72,7 +130,13 @@ def wait_for_query_job(job_id):
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30,
+    interval=30
+)
+@backoff.on_exception(
+    backoff.expo,
+    elasticsearch.exceptions.NotFoundError,
+    max_time=60 * 10,
+    giveup=index_not_found
 )
 def wait_for_download_jobs(job_id):
     logging.info(f"Checking download job status. {job_id=}")

@@ -123,6 +123,10 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     query_dt = datetime.now()
     granules = query_cmr(args, token, CMR)
 
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
+        granules = granules[:1]
+
     download_urls: list[str] = []
     for granule in granules:
         update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
@@ -147,10 +151,6 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         valuefunc=lambda url: url,
         reducefunc=set
     )
-
-    if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
-        tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
 
     logging.info(f"{tile_id_to_urls_map=}")
     job_submission_tasks = []
@@ -219,7 +219,6 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
 
 def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
     all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
-    logging.info(f"{all_pending_downloads=}")
 
     downloads = all_pending_downloads
     if args.tile_ids:
@@ -512,7 +511,7 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     return token
 
 
-def query_cmr(args, token, CMR):
+def query_cmr(args, token, CMR) -> list:
     PAGE_SIZE = 2000
     now = datetime.utcnow()
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")

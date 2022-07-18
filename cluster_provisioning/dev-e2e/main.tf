@@ -131,77 +131,83 @@ resource "null_resource" "mozart" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "echo \"use_daac_cnm is ${var.use_daac_cnm}\"",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \\",
-      "  ${var.project} \\",
-      "  ${var.environment} \\",
-      "  ${var.venue} \\",
-      "  ${module.common.counter} \\",
-      "  ${var.use_artifactory} \\",
-      "  ${var.artifactory_base_url} \\",
-      "  ${var.artifactory_repo} \\",
-      "  ${var.artifactory_mirror_url} \\",
-      "  ${var.pcm_repo} \\",
-      "  ${var.pcm_branch} \\",
-      "  ${var.product_delivery_repo} \\",
-      "  ${var.product_delivery_branch} \\",
-      "  ${module.common.mozart.private_ip} \\",
-      "  ${module.common.isl_bucket} \\",
-      "  ${local.source_event_arn} \\",
-      "  ${var.daac_delivery_proxy} \\",
-      "  ${var.use_daac_cnm} \\",
-      "  ${local.crid} \\",
-      "  ${var.cluster_type} || :",
-      "fi",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              echo "use_daac_cnm is ${var.use_daac_cnm}"
+              if [ "${var.run_smoke_test}" = true ]; then
+                ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \
+                ${var.project} \
+                ${var.environment} \
+                ${var.venue} \
+                ${module.common.counter} \
+                ${var.use_artifactory} \
+                ${var.artifactory_base_url} \
+                ${var.artifactory_repo} \
+                ${var.artifactory_mirror_url} \
+                ${var.pcm_repo} \
+                ${var.pcm_branch} \
+                ${var.product_delivery_repo} \
+                ${var.product_delivery_branch} \
+                ${module.common.mozart.private_ip} \
+                ${module.common.isl_bucket} \
+                ${local.source_event_arn} \
+                ${var.daac_delivery_proxy} \
+                ${var.use_daac_cnm} \
+                ${local.crid} \
+                ${var.cluster_type} || :
+              fi
+    EOF
     ]
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "  ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
-      "fi",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              if [ "${var.run_smoke_test}" = true ]; then
+                ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888
+              fi
+    EOF
     ]
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:",
-      "fi",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              if [ "${var.run_smoke_test}" = true ]; then
+                pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:
+              fi
+    EOF
     ]
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "python ~/mozart/ops/pcm_commons/pcm_commons/tools/trigger_snapshot.py \\",
-      "  --mozart-es http://${module.common.mozart.private_ip}:9200 \\",
-      "  --grq-es ${local.grq_es_url} \\",
-      "  --metrics-es http://${module.common.metrics.private_ip}:9200 \\",
-      "  --repository snapshot-repository \\",
-      "  --policy-id hourly-snapshot",
-      "fi",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              if [ "${var.run_smoke_test}" = true ]; then
+                python ~/mozart/ops/pcm_commons/pcm_commons/tools/trigger_snapshot.py \
+                  --mozart-es http://${module.common.mozart.private_ip}:9200 \
+                  --grq-es ${local.grq_es_url} \
+                  --metrics-es http://${module.common.metrics.private_ip}:9200 \
+                  --repository snapshot-repository \
+                  --policy-id hourly-snapshot
+              fi
+    EOF
     ]
   }
 
   provisioner "remote-exec" {
     when = destroy
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
+              ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
+
+    EOF
     ]
   }
 
@@ -278,43 +284,22 @@ resource "null_resource" "smoke_test" {
 
   provisioner "remote-exec" {
     inline = [<<-EOF
-              cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
-
-              export ES_HOST=${module.common.mozart.private_ip}
-              export ES_BASE_URL="https://${module.common.mozart.private_ip}/grq_es/"
-              export GRQ_HOST="grq:9200"
-              export GRQ_BASE_URL="https://${module.common.mozart.private_ip}/grq/api/v0.1"
-              export CNMR_TOPIC="arn:aws:sns:us-west-2:${var.aws_account_id}:${var.project}-${var.venue}-${var.counter}-daac-cnm-response"
-              export ISL_BUCKET="${var.project}-dev-isl-fwd-${var.venue}"
-              export RS_BUCKET="${var.project}-dev-rs-fwd-${var.venue}"
-              export L30_INPUT_DIR="hls_l2/l30_greenland"
-              export S30_INPUT_DIR="hls_l2/s30_louisiana"
-              export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlsl30_query_timer.function_name}
-              export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${module.common.hlss30_query_timer.function_name}
-
               if [ "${var.run_smoke_test}" = true ]; then
-                set -e
-                echo Running smoke tests
+                cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
 
-                echo Downloading test data
-                if [[ ! -f hls_l2.tar.gz ]]; then
-                  curl -H "X-JFrog-Art-Api:${var.artifactory_fn_api_key}" -O ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz
-                else
-                  echo test data previously downloaded. Skipping re-download
-                fi
-                  rm -rf hls_l2
-                  mkdir -p hls_l2
-                  tar xfz hls_l2.tar.gz -C hls_l2
-
-                echo Executing integration tests. This can take at least 20 minutes...
-                python -m venv venv
-                source venv/bin/activate
-                pip install '.[integration]'
-
-                set +e
-                pytest --maxfail=1 integration/test_integration.py::test_l30
-                pytest --maxfail=1 integration/test_integration.py::test_s30
-                set -e
+                chmod +x ./cluster_provisioning/run_opera_smoke_tests.sh
+                ./cluster_provisioning/run_opera_smoke_tests.sh \
+                --mozart-ip=${module.common.mozart.private_ip} \
+                --grq-host="grq:9200" \
+                --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+                --isl-bucket="${module.common.isl_bucket}" \
+                --rs-bucket="${module.common.dataset_bucket}" \
+                --L30-input-dir="hls_l2/l30_greenland" \
+                --S30-input-dir="hls_l2/s30_louisiana" \
+                --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
+                --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
+                --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
+                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0"
               fi
     EOF
     ]
