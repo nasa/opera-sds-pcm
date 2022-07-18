@@ -4,6 +4,12 @@
   "allowed_accounts": [ "ops" ],
   "params": [
     {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+      "optional": true
+    },
+    {
       "name": "isl_bucket_name",
       "from": "submitter",
       "placeholder": "e.g. --isl-bucket=<isl_bucket>"
