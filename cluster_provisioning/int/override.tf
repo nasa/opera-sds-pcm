@@ -46,7 +46,14 @@ variable "cluster_type" {
 }
 
 ###### Security  ########
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+  # fwd security group
+  default = "sg-0e60f417ff3c769fb"
+  # pop1 security group
+  #default = "sg-06bf23a69b4d83f66"
+}
+
+variable "private_verdi_security_group_id" {
   # fwd security group
   default = "sg-0869719f04e735bd6"
   # pop1 security group
@@ -95,9 +102,12 @@ variable "lambda_vpc" {
   default = "vpc-07cd74102c0dfd9ab"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
   default = "vpc-07cd74102c0dfd9ab"
-  #default = "vpc-c1e0dab9"
+}
+
+variable "private_asg_vpc" {
+  default = "vpc-c1e0dab9"
 }
 
 ##### Bucket Names #########
@@ -149,23 +159,23 @@ variable "artifactory_repo" {
 variable "amis" {
   type = map(string)
   default = {
-	# HySDS v4.0.1-beta8-oraclelinuxA
-    mozart    = ""  # opera int mozart - ol8
-    metrics   = ""  # opera int metrics - ol8
-    grq       = ""  # opera int grq - ol8
-    factotum  = ""  # opera int factotum - ol8
-    ci        = ""  # OL8 All-project verdi v4.12
-    autoscale = ""  # OL8 All-project verdi v4.12
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
+    grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
+    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610A
+    mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
+    factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20220609-1.0.0-rc.1.0"
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "hysds_release" {
@@ -173,27 +183,27 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "pcm_branch" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "product_delivery_branch" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "bach_api_branch" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 variable "bach_ui_branch" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.1.0"
 }
 
 ###### Roles ########
@@ -220,12 +230,12 @@ variable "pcm_verdi_role" {
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::399787141461:role/am-pcm-lambda-role"
+  default = "arn:aws:iam::337765570207:role/am-pcm-lambda-role"
 }
 
 ##### ES ######
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::399787141461:role/am-es-role"
+  default = "arn:aws:iam::337765570207:role/am-es-role"
 }
 
 variable "grq_aws_es_host" {

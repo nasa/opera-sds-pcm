@@ -10,7 +10,7 @@
   },
   "recommended-queues": [ "opera-job_worker-hls_data_download" ],
   "post": [ "hysds.utils.triage" ],
-  "params" : [
+  "params": [
     {
       "name": "endpoint",
       "destination": "positional"

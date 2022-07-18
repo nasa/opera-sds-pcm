@@ -33,7 +33,6 @@ locals {
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
-
   cnm_response_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response"
     "int"  = "${var.project}-int-daac-cnm-response"
@@ -981,11 +980,6 @@ resource "aws_instance" "mozart" {
       "echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config",
       "echo '  USE_ROLE: ${var.asg_use_role}' >> ~/.sds/config",
       "echo '  ROLE: ${var.asg_role}' >> ~/.sds/config",
-      "echo '  SECURITY_GROUPS:' >> ~/.sds/config",
-      "echo '    - ${var.verdi_security_group_id}' >> ~/.sds/config",
-      "echo '    - ${var.verdi_security_group_id}' >> ~/.sds/config",
-      "echo '  VPC: ${var.asg_vpc}' >> ~/.sds/config",
-      "echo >> ~/.sds/config",
 
       "echo STAGING_AREA: >> ~/.sds/config",
       "echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config",
@@ -1057,7 +1051,7 @@ resource "aws_instance" "mozart" {
       "mv ~/.sds ~/.sds.bak",
       "rm -rf ~/mozart",
       "if [ \"${var.hysds_release}\" = \"develop\" ]; then",
-      "  git clone --single-branch -b ${var.hysds_release} https://${var.git_auth_key}@github.jpl.nasa.gov/IEMS-SDS/pcm-releaser.git",
+      "  git clone --quiet --single-branch -b ${var.hysds_release} https://${var.git_auth_key}@github.jpl.nasa.gov/IEMS-SDS/pcm-releaser.git",
       "  cd pcm-releaser",
       "  export release=${var.hysds_release}",
       "  export conda_dir=$HOME/conda",
@@ -1070,7 +1064,7 @@ resource "aws_instance" "mozart" {
       "  ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.grq.private_ip} 'mkdir -p ~/conda; tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda; export PATH=$HOME/conda/bin:$PATH; conda-unpack; rm -rf hysds-conda_env-${var.hysds_release}.tar.gz'",
       "  scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.factotum.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz",
       "  ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.factotum.private_ip} 'mkdir -p ~/conda; tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda; export PATH=$HOME/conda/bin:$PATH; conda-unpack; rm -rf hysds-conda_env-${var.hysds_release}.tar.gz'",
-      "  git clone https://github.com/hysds/hysds-framework",
+      "  git clone --quiet https://github.com/hysds/hysds-framework",
       "  cd hysds-framework",
       "  git fetch",
       "  git fetch --tags",
@@ -1115,11 +1109,11 @@ resource "aws_instance" "mozart" {
       "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui",
       "  rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
-      "  git clone --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
-      "  git clone --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
-      "  git clone --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui",
+      "  git clone --quiet --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
+      "  git clone --quiet --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
+      "  git clone --quiet --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
+      "  git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
+      "  git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui",
       "fi",
       "export PATH=~/conda/bin:$PATH",
       "cp -rp ${var.project}-pcm/conf/sds ~/.sds",
@@ -1419,8 +1413,11 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
 # Autoscaling Group related
 ############################
 
-data "aws_subnet_ids" "asg_vpc" {
-  vpc_id = var.asg_vpc
+data "aws_subnet_ids" "private_asg_vpc" {
+  vpc_id = var.private_asg_vpc
+}
+data "aws_subnet_ids" "public_asg_vpc" {
+  vpc_id = var.public_asg_vpc
 }
 
 data "template_file" "launch_template_user_data" {
@@ -1440,7 +1437,7 @@ resource "aws_launch_template" "launch_template" {
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
   user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
-  vpc_security_group_ids = [var.verdi_security_group_id]
+  vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
   block_device_mappings {
@@ -1486,7 +1483,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   health_check_grace_period = 300
   health_check_type         = "EC2"
   protect_from_scale_in     = false
-  vpc_zone_identifier       = data.aws_subnet_ids.asg_vpc.ids
+  vpc_zone_identifier       = lookup(each.value, "use_private_vpc", true) ? data.aws_subnet_ids.private_asg_vpc.ids : data.aws_subnet_ids.public_asg_vpc.ids
   metrics_granularity       = "1Minute"
   enabled_metrics = [
     "GroupMinSize",
@@ -1571,7 +1568,8 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
       namespace   = "HySDS"
       statistic   = "Maximum"
     }
-    target_value     = 1.0
+   # target_value     = 1.0
+	target_value     = lookup(each.value, "total_jobs_metric_target_value", 1.0)
     disable_scale_in = true
   }
 
@@ -1718,7 +1716,7 @@ resource "aws_instance" "grq" {
       "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api",
       "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
       "else",
-      "  git clone --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
+      "  git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
       "fi"
     ]
   }
@@ -1839,6 +1837,8 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 
 resource "aws_sns_topic" "cnm_response" {
   count = local.sns_count
+#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
+#  name = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   name = var.use_daac_cnm == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
 }
 
@@ -1856,22 +1856,19 @@ data "aws_iam_policy_document" "sns_topic_policy" {
   statement {
     actions = [
       "SNS:Publish",
-#      "SNS:RemovePermission",
       "SNS:SetTopicAttributes",
-#      "SNS:DeleteTopic",
       "SNS:ListSubscriptionsByTopic",
       "SNS:GetTopicAttributes",
       "SNS:Receive",
-#      "SNS:AddPermission",
       "SNS:Subscribe"
     ]
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceOwner"
-      values = [
-        var.aws_account_id
-      ]
-    }
+#    condition {
+#      test     = "StringEquals"
+#      variable = "AWS:SourceOwner"
+#      values = [
+#        var.aws_account_id
+#      ]
+#    }
     effect = "Allow"
     principals {
       type        = "AWS"

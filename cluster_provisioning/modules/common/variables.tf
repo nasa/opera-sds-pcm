@@ -93,7 +93,10 @@ variable "az" {
 variable "subnet_id" {
 }
 
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
 }
 
 variable "cluster_security_group_id" {
@@ -130,12 +133,20 @@ variable "amis" {
   type = map(string)
   default = {
     # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
-	grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
-    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610
+    grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
+    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610A
     mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
     factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+
+    # AMI given by Susan on June 24, 2022
+#    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
+#    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
+#    grq       = "ami-0b3852a0f65efed65" # grq v4.13
+#    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
+#    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+#    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 
@@ -167,7 +178,8 @@ variable "lambda_role_arn" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::271039147104:role/am-es-role"
+  default = "arn:aws:iam::681612454726:role/am-es-role"
+#  default = "arn:aws:iam::271039147104:role/am-es-role"
 }
 
 variable "es_snapshot_bucket" {
@@ -213,7 +225,10 @@ variable "asg_use_role" {
 variable "asg_role" {
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+}
+
+variable "private_asg_vpc" {
 }
 
 variable "aws_account_id" {
@@ -256,65 +271,84 @@ variable "lambda_package_release" {
 
 variable "queues" {
   default = {
-    "opera-job_worker-gpu" = {
-      "instance_type" = ["p2.xlarge", "p3.2xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
     "opera-job_worker-small" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_ingest" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-purge_isl" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-l3_dswx_hls_state_config" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "instance_type" = ["t2.large", "t3a.large", "t3.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-rcv_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-hls_data_query" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = false
+      "use_private_vpc" = false
     }
     "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 80
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
     }
-    "opera-workflow_profiler" = {
-      "instance_type" = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    },
     "opera-job_worker-timer" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 100
       "max_size"      = 10
+      "total_jobs_metric" = false
     }
   }
 }
@@ -335,6 +369,7 @@ variable "event_misfire_delay_threshold_seconds" {
 }
 
 variable "use_daac_cnm" {
+  default = true
 }
 
 variable "daac_cnm_sqs_arn" {
@@ -360,7 +395,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20220609-1.0.0-rc.1.0"
 }
 
 variable "pge_release" {

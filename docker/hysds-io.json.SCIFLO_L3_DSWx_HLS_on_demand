@@ -1,6 +1,7 @@
 {
-  "label": "SCIFLO_L3_HLS",
+  "label": "SCIFLO_L3_HLS_on_demand",
   "allowed_accounts": [ "ops" ],
+  "submission_type": "individual",
   "enable_dedup": true,
   "params": [
     {
@@ -20,21 +21,6 @@
       "from": "value",
       "type": "text",
       "value": "L3_HLS"
-    },
-    {
-      "name":"dataset_type",
-      "type":"text",
-      "from":"dataset_jpath:_source.dataset"
-    },
-    {
-      "name":"input_dataset_id",
-      "type":"text",
-      "from":"dataset_jpath:_id"
-    },
-    {
-     "name": "product_metadata",
-     "from": "dataset_jpath:_source",
-     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
     },
     {
       "name": "accountability_module_path",
@@ -67,70 +53,98 @@
       "value": "pge_output_dir"
     },
     {
+      "name":"input_dataset_id",
+      "from":"submitter",
+      "type":"text",
+      "optional": false
+    },
+    {
       "name": "wigt",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "0.0124"
+      "default": "0.0124",
+      "optional": true,
+      "placeholder": "0.0124"
     },
     {
       "name": "awgt",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "0.0"
+      "default": "0.0",
+      "optional": true,
+      "placeholder": "0.0"
     },
     {
       "name": "pswt_1_mndwi",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "-0.44"
+      "default": "-0.44",
+      "optional": true,
+      "placeholder": "-0.44"
     },
     {
       "name": "pswt_1_nir",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "1500"
+      "default": "1500",
+      "optional": true,
+      "placeholder": "1500"
     },
     {
       "name": "pswt_1_swir1",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "900"
+      "default": "900",
+      "optional": true,
+      "placeholder": "900"
     },
     {
       "name": "pswt_1_ndvi",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "0.7"
+      "default": "0.7",
+      "optional": true,
+      "placeholder": "0.7"
     },
     {
       "name": "pswt_2_mndwi",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "-0.5"
+      "default": "-0.5",
+      "optional": true,
+      "placeholder": "-0.5"
     },
     {
       "name": "pswt_2_blue",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "1000"
+      "default": "1000",
+      "optional": true,
+      "placeholder": "1000"
     },
     {
       "name": "pswt_2_nir",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "2500"
+      "default": "2500",
+      "optional": true,
+      "placeholder": "2500"
     },
     {
       "name": "pswt_2_swir1",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "3000"
+      "default": "3000",
+      "optional": true,
+      "placeholder": "3000"
     },
     {
       "name": "pswt_2_swir2",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "1000"
+      "default": "1000",
+      "optional": true,
+      "placeholder": "1000"
     }
   ]
 }

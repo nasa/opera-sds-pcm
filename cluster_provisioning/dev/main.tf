@@ -32,7 +32,8 @@ module "common" {
   region                                  = var.region
   az                                      = var.az
   subnet_id                               = var.subnet_id
-  verdi_security_group_id                 = var.verdi_security_group_id
+  public_verdi_security_group_id          = var.public_verdi_security_group_id
+  private_verdi_security_group_id         = var.private_verdi_security_group_id
   cluster_security_group_id               = var.cluster_security_group_id
   pcm_cluster_role                        = var.pcm_cluster_role
   pcm_verdi_role                          = var.pcm_verdi_role
@@ -56,7 +57,8 @@ module "common" {
   daac_endpoint_url                       = var.daac_endpoint_url
   asg_use_role                            = var.asg_use_role
   asg_role                                = var.asg_role
-  asg_vpc                                 = var.asg_vpc
+  public_asg_vpc                          = var.public_asg_vpc
+  private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
@@ -114,12 +116,13 @@ resource "null_resource" "mozart" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "cd ~/.sds/files",
-      "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force",
-      "echo Your cluster has been provisioned!",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              cd ~/.sds/files
+              ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
+              echo Your cluster has been provisioned!
+    EOF
     ]
   }
 }

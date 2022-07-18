@@ -92,47 +92,84 @@ variable "ops_password" {
 
 variable "queues" {
   default = {
-    "opera-job_worker-gpu" = {
-      "instance_type" = ["p2.xlarge", "p3.2xlarge"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-    }
     "opera-job_worker-small" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 50
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_ingest" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-purge_isl" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-l3_dswx_hls_state_config" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-sciflo-l3_dswx_hls" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
+      "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-rcv_cnm_notify" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
-    "opera-workflow_profiler" = {
-      "instance_type" = ["p2.xlarge", "p3.2xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge", "r5.metal"]
+    "opera-job_worker-hls_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
-    },
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-hls_data_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
     "opera-job_worker-timer" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size"      = 10
+      "total_jobs_metric" = true
     }
   }
 }
@@ -183,7 +220,10 @@ variable "subnet_id" {
   default = "subnet-000eb551ad06392c7"
 }
 
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
 }
 
 variable "cluster_security_group_id" {
@@ -304,7 +344,7 @@ variable "lambda_job_type" {
 }
 
 variable "lambda_job_queue" {
-  default = "opera-job_worker-small"
+  default = "opera-job_worker-hls_data_ingest"
 }
 
 # CNM Response job vars
@@ -352,7 +392,11 @@ variable "asg_role" {
   default = "am-pcm-dev-verdi-role"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+  default = "vpc-02676637ea26098a7"
+}
+
+variable "private_asg_vpc" {
   default = "vpc-b5a983cd"
 }
 

@@ -48,7 +48,7 @@ def raise_(ex: Exception):
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60*10,
-    giveup=index_not_found,
+    giveup=index_not_found
 )
 def wait_for_l2(_id, index):
     return search_es(index, _id)
