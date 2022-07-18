@@ -298,6 +298,8 @@ fabric.properties
 .idea/opera-pcm.iml
 .idea/misc.xml
 
+.idea/scopes/
+
 ######################################################################
 # Deployment/Development specific files
 ######################################################################

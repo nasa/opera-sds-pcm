@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from http.cookiejar import CookieJar
 from multiprocessing.pool import ThreadPool
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Iterable
 from urllib import request
 from urllib.parse import urlparse
@@ -32,6 +32,7 @@ from smart_open import open
 
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
+from util.conf_util import SettingsConf
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -67,21 +68,22 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
-    HLS_CONN = get_hls_catalog_connection(logging.getLogger(__name__))
+    settings = SettingsConf().cfg
+    ip_addr = "127.0.0.1"
+    edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
+    cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
+    token_url = f"http://{cmr}/legacy-services/rest/tokens"
+    netloc = urlparse(f"{edl}").netloc
+    hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+
     if args.file:
         with open(args.file, "r") as f:
-            update_url_index(HLS_CONN, f.readlines(), None, None)
+            update_url_index(hls_conn, f.readlines(), None, None)
         exit(0)
 
-    IP_ADDR = "127.0.0.1"
-    EDL = "urs.earthdata.nasa.gov"
-    CMR = "cmr.earthdata.nasa.gov"
-    TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
-    NETLOC = urlparse("https://urs.earthdata.nasa.gov").netloc
-
-    LOGLEVEL = 'DEBUG' if args.verbose else 'INFO'
-    logging.basicConfig(level=LOGLEVEL)
-    logging.info("Log level set to " + LOGLEVEL)
+    loglevel = 'DEBUG' if args.verbose else 'INFO'
+    logging.basicConfig(level=loglevel)
+    logging.info("Log level set to " + loglevel)
 
     logging.info(f"{argv=}")
 
@@ -97,9 +99,9 @@ async def run(argv: list[str]):
         job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
-    username, password = setup_earthdata_login_auth(EDL)
+    username, password = setup_earthdata_login_auth(edl)
 
-    with token_ctx(TOKEN_URL, IP_ADDR, EDL) as token:
+    with token_ctx(token_url, ip_addr, edl) as token:
         logging.info(f"{args.subparser_name=}")
         if not (
                 args.subparser_name == "query"
@@ -110,27 +112,528 @@ async def run(argv: list[str]):
 
         results = {}
         if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token, HLS_CONN, CMR, job_id)
+            results["query"] = await run_query(args, token, hls_conn, cmr, job_id)
         if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token, HLS_CONN, NETLOC, username, password, job_id)
+            results["download"] = run_download(args, token, hls_conn, netloc, username, password,
+                                               job_id)  # no return value
     logging.info(f"{results=}")
     logging.info("END")
     return results
 
 
-async def run_query(args, token, HLS_CONN, CMR, job_id):
-    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
-    query_dt = datetime.now()
-    granules = query_cmr(args, token, CMR)
 
-    if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
-        granules = granules[:1]
+def create_parser():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="subparser_name", required=True)
+    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
+    parser.add_argument("-f", "--file", dest="file",
+                        help="Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later).")
+
+    endpoint = {"positionals": ["--endpoint"],
+                "kwargs": {"dest": "endpoint",
+                           "choices": ["OPS", "UAT"],
+                           "default": "OPS",
+                           "help": "Specify DAAC endpoint to use. Defaults to OPS."}}
+
+    provider = {"positionals": ["-p", "--provider"],
+                "kwargs": {"dest": "provider",
+                           "default": 'LPCLOUD',
+                           "help": "Specify a provider for collection search. Default is LPCLOUD."}}
+
+    collection = {"positionals": ["-c", "--collection-shortname"],
+                  "kwargs": {"dest": "collection",
+                             "required": True,
+                             "help": "The collection shortname for which you want to retrieve data."}}
+
+    start_date = {"positionals": ["-s", "--start-date"],
+                  "kwargs": {"dest": "start_date",
+                             "default": False,
+                             "help": "The ISO date time after which data should be retrieved. For Example, "
+                                     "--start-date 2021-01-14T00:00:00Z"}}
+
+    end_date = {"positionals": ["-e", "--end-date"],
+                "kwargs": {"dest": "end_date",
+                           "default": False,
+                           "help": "The ISO date time before which data should be retrieved. For Example, --end-date "
+                                   "2021-01-14T00:00:00Z"}}
+
+    bbox = {"positionals": ["-b", "--bounds"],
+            "kwargs": {"dest": "bbox",
+                       "default": "-180,-90,180,90",
+                       "help": "The bounding rectangle to filter result in. Format is W Longitude,S Latitude,"
+                               "E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, "
+                               "to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from "
+                               "the command line. Default: \"-180,-90,180,90\"."}}
+
+    minutes = {"positionals": ["-m", "--minutes"],
+               "kwargs": {"dest": "minutes",
+                          "type": int,
+                          "default": 60,
+                          "help": "How far back in time, in minutes, should the script look for data. If running this "
+                                  "script as a cron, this value should be equal to or greater than how often your "
+                                  "cron runs (default: 60 minutes)."}}
+
+    isl_bucket = {"positionals": ["-i", "--isl-bucket"],
+                  "kwargs": {"dest": "isl_bucket",
+                             "required": True,
+                             "help": "The incoming storage location s3 bucket where data products will be downloaded."}}
+
+    transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
+                         "kwargs": {"dest": "transfer_protocol",
+                                    "default": "s3",
+                                    "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
+
+    dry_run = {"positionals": ["--dry-run"],
+               "kwargs": {"dest": "dry_run",
+                          "action": "store_true",
+                          "help": "Toggle for skipping physical downloads."}}
+
+    smoke_run = {"positionals": ["--smoke-run"],
+                 "kwargs": {"dest": "smoke_run",
+                            "action": "store_true",
+                            "help": "Toggle for processing a single tile."}}
+
+    no_schedule_download = {"positionals": ["--no-schedule-download"],
+                            "kwargs": {"dest": "no_schedule_download",
+                                       "action": "store_true",
+                                       "help": "Toggle for query only operation (no downloads)."}}
+
+    release_version = {"positionals": ["--release-version"],
+                       "kwargs": {"dest": "release_version",
+                                  "help": "The release version of the download job-spec."}}
+
+    job_queue = {"positionals": ["--job-queue"],
+                 "kwargs": {"dest": "job_queue",
+                            "help": "The queue to use for the scheduled download job."}}
+
+    chunk_size = {"positionals": ["--chunk-size"],
+                  "kwargs": {"dest": "chunk_size",
+                             "type": int,
+                             "help": "chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles "
+                                     "per job"}}
+
+    tile_ids = {"positionals": ["--tile-ids"],
+                "kwargs": {"dest": "tile_ids",
+                           "nargs": "*",
+                           "help": "A list of target tile IDs pending download."}}
+
+    full_parser = subparsers.add_parser("full")
+    full_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
+                            transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
+                            chunk_size, tile_ids]
+    add_arguments(full_parser, full_parser_arg_list)
+
+    query_parser = subparsers.add_parser("query")
+    query_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket, dry_run,
+                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size]
+    add_arguments(query_parser, query_parser_arg_list)
+
+    download_parser = subparsers.add_parser("download")
+    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids]
+    add_arguments(download_parser, download_parser_arg_list)
+
+    return parser
+
+
+def add_arguments(parser, arg_list):
+    for argument in arg_list:
+        parser.add_argument(*argument["positionals"], **argument["kwargs"])
+
+
+def validate(args):
+    if hasattr(args, "bbox") and args.bbox:
+        validate_bounds(args.bbox)
+
+    if hasattr(args, "start_date") and args.start_date:
+        validate_date(args.start_date, "start")
+
+    if hasattr(args, "end_date") and args.end_date:
+        validate_date(args.end_date, "end")
+
+    if hasattr(args, "minutes") and args.minutes:
+        validate_minutes(args.minutes)
+
+
+def validate_bounds(bbox):
+    bounds = bbox.split(',')
+    value_error = ValueError(
+        f"Error parsing bounds: {bbox}. Format is <W Longitude>,<S Latitude>,<E Longitude>,<N Latitude> without spaces")
+
+    if len(bounds) != 4:
+        raise value_error
+
+    for b in bounds:
+        try:
+            float(b)
+        except ValueError:
+            raise value_error
+
+
+def validate_date(date, prefix='start'):
+    try:
+        datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')
+    except ValueError:
+        raise ValueError(
+            f"Error parsing {prefix} date: {date}. Format must be like 2021-01-14T00:00:00Z")
+
+
+def validate_minutes(minutes):
+    try:
+        int(minutes)
+    except ValueError:
+        raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
+
+
+def setup_earthdata_login_auth(endpoint):
+    # ## Authentication setup
+    #
+    # This function will allow Python scripts to log into any Earthdata Login
+    # application programmatically.  To avoid being prompted for
+    # credentials every time you run and also allow clients such as curl to log in,
+    # you can add the following to a `.netrc` (`_netrc` on Windows) file in
+    # your home directory:
+    #
+    # ```
+    # machine urs.earthdata.nasa.gov
+    #     login <your username>
+    #     password <your password>
+    # ```
+    #
+    # Make sure that this file is only readable by the current user,
+    # or you will receive an error stating
+    # "netrc access too permissive."
+    #
+    # `$ chmod 0600 ~/.netrc`
+    #
+    # You'll need to authenticate using the netrc method when running from
+    # command line with [`papermill`](https://papermill.readthedocs.io/en/latest/).
+    # You can log in manually by executing the cell below when running in the
+    # notebook client in your browser.*
+
+    """
+    Set up the request library so that it authenticates against the given
+    Earthdata Login endpoint and is able to track cookies between requests.
+    This looks in the .netrc file first and if no credentials are found,
+    it prompts for them.
+
+    Valid endpoints include:
+        urs.earthdata.nasa.gov - Earthdata Login production
+    """
+    try:
+        username, _, password = netrc.netrc().authenticators(endpoint)
+    except FileNotFoundError as e:
+        logging.error("There's no .netrc file")
+        raise e
+    except TypeError as e:
+        logging.error("The endpoint isn't in the netrc file")
+        raise e
+
+    manager = request.HTTPPasswordMgrWithDefaultRealm()
+    manager.add_password(None, endpoint, username, password)
+    auth = request.HTTPBasicAuthHandler(manager)
+
+    jar = CookieJar()
+    processor = request.HTTPCookieProcessor(jar)
+    opener = request.build_opener(auth, processor)
+    opener.addheaders = [('User-agent', 'daac-subscriber')]
+    request.install_opener(opener)
+
+    return username, password
+
+
+def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
+    username, _, password = netrc.netrc().authenticators(endpoint)
+    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password>" \
+          f"<client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token> "
+    headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
+    resp = requests.post(url, headers=headers, data=xml)
+    response_content = json.loads(resp.content)
+    token = response_content['token']['id']
+
+    return token
+
+
+def query_cmr(args, token, cmr) -> list:
+    PAGE_SIZE = 2000
+    now = datetime.utcnow()
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    start_date = args.start_date if args.start_date else now_minus_minutes_date
+    end_date = args.end_date if args.end_date else now_date
+
+    request_url = f"https://{cmr}/search/granules.umm_json"
+    params = {
+        'scroll': "false",
+        'page_size': PAGE_SIZE,
+        'sort_key': "-start_date",
+        'provider': args.provider,
+        'ShortName': args.collection,
+        'updated_since': start_date,
+        'token': token,
+        'bounding_box': args.bbox,
+    }
+
+    time_range_is_defined = args.start_date or args.end_date
+    if time_range_is_defined:
+        temporal_range = get_temporal_range(start_date, end_date, now_date)
+        logging.info("Temporal Range: " + temporal_range)
+        params['temporal'] = temporal_range
+
+    product_granules, search_after = request_search(request_url, params)
+
+    while search_after:
+        granules, search_after = request_search(request_url, params, search_after=search_after)
+        product_granules.extend(granules)
+
+    logging.info(f"Found {str(len(product_granules))} total granules")
+    for granule in product_granules:
+        granule['filtered_urls'] = filter_on_extension(granule, args)
+
+    return product_granules
+
+
+def get_temporal_range(start, end, now):
+    start = start if start is not False else None
+    end = end if end is not False else None
+
+    if start is not None and end is not None:
+        return "{},{}".format(start, end)
+    if start is not None and end is None:
+        return "{},{}".format(start, now)
+    if start is None and end is not None:
+        return "1900-01-01T00:00:00Z,{}".format(end)
+
+    raise ValueError("One of start-date or end-date must be specified.")
+
+
+def request_search(request_url, params, search_after=None):
+    response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
+        if search_after else requests.get(request_url, params=params)
+    results = response.json()
+    items = results.get('items')
+    next_search_after = response.headers.get('CMR-Search-After')
+
+    if items and 'umm' in items[0]:
+        return [{"granule_id": item.get("umm").get("GranuleUR"),
+                 "provider": item.get("meta").get("provider-id"),
+                 "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
+                 "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
+                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
+                                  for point
+                                  in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
+                                      .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
+                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
+                for item in items], next_search_after
+    else:
+        return [], None
+
+
+def filter_on_extension(granule, args):
+    extension_list_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+                          "TIF": ["tif"]}
+    filter_extension = "TIF"
+
+    for extension in extension_list_map:
+        if extension.upper() in args.collection.upper():
+            filter_extension = extension.upper()
+            break
+
+    return [f
+            for f in granule.get("related_urls")
+            for extension in extension_list_map.get(filter_extension)
+            if extension in f]
+
+
+def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
+    if isinstance(datetime_obj, datetime):
+        return datetime_obj.strftime(strformat)
+    return datetime.strptime(str(datetime_obj), strformat)
+
+
+def update_url_index(es_conn, urls, granule_id, job_id, query_dt):
+    for url in urls:
+        es_conn.process_url(url, granule_id, job_id, query_dt)
+
+
+def update_granule_index(es_spatial_conn, granule):
+    es_spatial_conn.process_granule(granule)
+
+
+def upload_url_list_from_https(session, es_conn, downloads, args, token, job_id):
+    num_successes = num_failures = num_skipped = 0
+    filtered_downloads = [f for f in downloads if "https://" in f]
+
+    for url in filtered_downloads:
+        try:
+            if es_conn.product_is_downloaded(url):
+                logging.info(f"SKIPPING: {url}")
+                num_skipped = num_skipped + 1
+            else:
+                if args.dry_run:
+                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                else:
+                    result = https_transfer(url, args.isl_bucket, session, token)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
+
+                es_conn.mark_product_as_downloaded(url, job_id)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
+        except Exception as e:
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
+            num_failures = num_failures + 1
+            logging.error(e)
+
+    logging.info(f"Files downloaded: {str(num_successes)}")
+    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
+    logging.info(f"Files failed to download: {str(num_failures)}")
+
+
+def https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
+    file_name = PurePath(url).name
+    bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+
+    key = Path(staging_area, file_name)
+    upload_start_time = datetime.utcnow()
+    headers = {"Echo-Token": token}
+
+    try:
+        with session.get(url, headers=headers, stream=True) as r:
+            if r.status_code != 200:
+                r.raise_for_status()
+            logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+            with open("s3://{}/{}".format(bucket, key), "wb") as out:
+                pool = ThreadPool(processes=10)
+                pool.map(upload_chunk,
+                         [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
+                pool.close()
+                pool.join()
+        upload_end_time = datetime.utcnow()
+        upload_duration = upload_end_time - upload_start_time
+        upload_stats = {
+            "file_name": file_name,
+            "file_size (in bytes)": r.headers.get('Content-Length'),
+            "upload_duration (in seconds)": upload_duration.total_seconds(),
+            "upload_start_time": convert_datetime(upload_start_time),
+            "upload_end_time": convert_datetime(upload_end_time)
+        }
+        return upload_stats
+    except (ConnectionResetError, requests.exceptions.HTTPError) as e:
+        return {"failed_download": e}
+
+
+def upload_chunk(chunk_dict):
+    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
+    chunk_dict['out'].write(chunk_dict['chunk'])
+
+
+def upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
+    aws_creds = get_aws_creds(session)
+    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                       aws_secret_access_key=aws_creds['secretAccessKey'],
+                       aws_session_token=aws_creds['sessionToken'],
+                       region_name='us-west-2').client("s3")
+
+    tmp_dir = "/tmp/data_subscriber"
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    num_successes = num_failures = num_skipped = 0
+    filtered_downloads = [f for f in downloads if "s3://" in f]
+
+    for url in filtered_downloads:
+        try:
+            if es_conn.product_is_downloaded(url):
+                logging.info(f"SKIPPING: {url}")
+                num_skipped = num_skipped + 1
+            else:
+                if args.dry_run:
+                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                else:
+                    result = s3_transfer(url, args.isl_bucket, s3, tmp_dir)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
+
+                es_conn.mark_product_as_downloaded(url, job_id)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
+        except Exception as e:
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
+            num_failures = num_failures + 1
+            logging.error(e)
+
+    logging.info(f"Files downloaded: {str(num_successes)}")
+    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
+    logging.info(f"Files failed to download: {str(num_failures)}")
+
+    shutil.rmtree(tmp_dir)
+
+
+def get_aws_creds(session):
+    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+        if r.status_code != 200:
+            r.raise_for_status()
+
+        return r.json()
+
+
+def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
+    file_name = PurePath(url).name
+
+    source = url[len("s3://"):].partition('/')
+    source_bucket = source[0]
+    source_key = source[2]
+
+    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+    target_key = Path(staging_area, file_name)
+
+    try:
+        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+
+        target_s3 = boto3.resource("s3")
+        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
+
+        return {"successful_download": target_key}
+    except Exception as e:
+        return {"failed_download": e}
+
+
+@contextmanager
+def token_ctx(token_url, ip_addr, edl):
+    token = get_token(token_url, 'daac-subscriber', ip_addr, edl)
+    try:
+        yield token
+    finally:
+        delete_token(token_url, token)
+
+
+def delete_token(url: str, token: str) -> None:
+    try:
+        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
+        url = '{}/{}'.format(url, token)
+        resp = requests.request('DELETE', url, headers=headers)
+        if resp.status_code == 204:
+            logging.info("CMR token successfully deleted")
+        else:
+            logging.warning("CMR token deleting failed.")
+    except Exception as e:
+        logging.warning(f"Error deleting the token: {e}")
+
+
+async def run_query(args, token, hls_conn, cmr, job_id):
+    hls_spatial_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+    query_dt = datetime.now()
+    granules = query_cmr(args, token, cmr)
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
-        update_granule_index(HLS_SPATIAL_CONN, granule)
+        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
+        update_granule_index(hls_spatial_conn, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
     if args.subparser_name == "full":
@@ -151,6 +654,10 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         valuefunc=lambda url: url,
         reducefunc=set
     )
+
+    if args.smoke_run:
+        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
+        tile_id_to_urls_map = dict(itertools.islice(tile_id_to_urls_map.items(), 1))
 
     logging.info(f"{tile_id_to_urls_map=}")
     job_submission_tasks = []
@@ -196,7 +703,11 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
                             "value": "--dry-run" if args.dry_run else "",
                             "from": "value"
                         },
-
+                        {
+                            "name": "endpoint",
+                            "value": f"--endpoint={args.endpoint}",
+                            "from": "value"
+                        },
                     ],
                     job_queue=args.job_queue
                 )
@@ -217,8 +728,9 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     }
 
 
-def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
-    all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
+def run_download(args, token, hls_conn, netloc, username, password, job_id):
+    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded()
+    logging.info(f"{all_pending_downloads=}")
 
     downloads = all_pending_downloads
     if args.tile_ids:
@@ -234,16 +746,16 @@ def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.tile_ids = args.tile_ids[:1]
 
-    session = SessionWithHeaderRedirection(username, password, NETLOC)
+    session = SessionWithHeaderRedirection(username, password, netloc)
 
     if args.transfer_protocol == "https":
         download_urls = [to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
+        upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
     else:
         download_urls = [to_s3_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
+        upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(downloads)}")
 
@@ -311,476 +823,6 @@ def to_s3_url(dl_dict: dict[str, Any]) -> str:
         return dl_dict["s3_url"]
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
-
-
-def create_parser():
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest="subparser_name", required=True)
-    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
-    parser.add_argument("-f", "--file", dest="file",
-                        help="Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later).")
-
-    full_parser = subparsers.add_parser("full")
-    full_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                             help="Specify a provider for collection search. Default is LPCLOUD.")
-    full_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
-                             help="The collection shortname for which you want to retrieve data.")
-    full_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
-                             help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    full_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
-                             help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
-    full_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
-                             help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
-    full_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
-                             help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    full_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                             help="The incoming storage location s3 bucket where data products will be downloaded.")
-    full_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
-                             help="The protocol used for retrieving data, HTTPS or default of S3")
-
-    full_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                             help="Toggle for skipping physical downloads.")
-    full_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                             help="Toggle for processing a single tile.")
-
-    full_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
-                             help="Toggle for query only operation (no downloads).")
-    full_parser.add_argument("--release-version", dest="release_version",
-                             help="The release version of the download job-spec.")
-    full_parser.add_argument("--job-queue", dest="job_queue",
-                             help="The queue to use for the scheduled download job.")
-    full_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
-                             help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
-
-    full_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
-                             help="A list of target tile IDs pending download.")
-
-    query_parser = subparsers.add_parser("query")
-    query_parser.add_argument("-c", "--collection-shortname", dest="collection", required=True,
-                              help="The collection shortname for which you want to retrieve data.")
-    query_parser.add_argument("-s", "--start-date", dest="startDate", default=False,
-                              help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-e", "--end-date", dest="endDate", default=False,
-                              help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z")
-    query_parser.add_argument("-b", "--bounds", dest="bbox", default="-180,-90,180,90",
-                              help="The bounding rectangle to filter result in. Format is W Longitude,S Latitude,E Longitude,N Latitude without spaces. Due to an issue with parsing arguments, to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from the command line. Default: \"-180,-90,180,90\".")
-    query_parser.add_argument("-m", "--minutes", dest="minutes", type=int, default=60,
-                              help="How far back in time, in minutes, should the script look for data. If running this script as a cron, this value should be equal to or greater than how often your cron runs (default: 60 minutes).")
-    query_parser.add_argument("-p", "--provider", dest="provider", default='LPCLOUD',
-                              help="Specify a provider for collection search. Default is LPCLOUD.")
-    query_parser.add_argument("--no-schedule-download", dest="no_schedule_download", action="store_true",
-                              help="Toggle for query only operation (no downloads).")
-    query_parser.add_argument("--release-version", dest="release_version",
-                              help="The release version of the download job-spec.")
-    query_parser.add_argument("--job-queue", dest="job_queue",
-                              help="The queue to use for the scheduled download job.")
-    query_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                              help="The incoming storage location s3 bucket where data products will be downloaded.")
-    query_parser.add_argument("--chunk-size", dest="chunk_size", type=int,
-                              help="chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles per job")
-    query_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                              help="Toggle for skipping physical downloads.")
-    query_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                              help="Toggle for processing a single tile.")
-
-    download_parser = subparsers.add_parser("download")
-    download_parser.add_argument("-i", "--isl-bucket", dest="isl_bucket", required=True,
-                                 help="The incoming storage location s3 bucket where data products will be downloaded.")
-    download_parser.add_argument("-x", "--transfer-protocol", dest="transfer_protocol", default='s3',
-                                 help="The protocol used for retrieving data, HTTPS or default of S3")
-    download_parser.add_argument("--tile-ids", nargs="*", dest="tile_ids",
-                                 help="A list of target tile IDs pending download.")
-    download_parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                                 help="Toggle for skipping physical downloads.")
-    download_parser.add_argument("--smoke-run", dest="smoke_run", action="store_true",
-                                 help="Toggle for processing a single tile.")
-
-    return parser
-
-
-def validate(args):
-    if hasattr(args, "bbox") and args.bbox:
-        validate_bounds(args.bbox)
-
-    if hasattr(args, "startDate") and args.startDate:
-        validate_date(args.startDate, "start")
-
-    if hasattr(args, "endDate") and args.endDate:
-        validate_date(args.endDate, "end")
-
-    if hasattr(args, "minutes") and args.minutes:
-        validate_minutes(args.minutes)
-
-
-def validate_bounds(bbox):
-    bounds = bbox.split(',')
-    value_error = ValueError(
-        f"Error parsing bounds: {bbox}. Format is <W Longitude>,<S Latitude>,<E Longitude>,<N Latitude> without spaces ")
-
-    if len(bounds) != 4:
-        raise value_error
-
-    for b in bounds:
-        try:
-            float(b)
-        except ValueError:
-            raise value_error
-
-
-def validate_date(date, type='start'):
-    try:
-        datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')
-    except ValueError:
-        raise ValueError(
-            f"Error parsing {type} date: {date}. Format must be like 2021-01-14T00:00:00Z")
-
-
-def validate_minutes(minutes):
-    try:
-        int(minutes)
-    except ValueError:
-        raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
-
-
-def setup_earthdata_login_auth(endpoint):
-    # ## Authentication setup
-    #
-    # This function will allow Python scripts to log into any Earthdata Login
-    # application programmatically.  To avoid being prompted for
-    # credentials every time you run and also allow clients such as curl to log in,
-    # you can add the following to a `.netrc` (`_netrc` on Windows) file in
-    # your home directory:
-    #
-    # ```
-    # machine urs.earthdata.nasa.gov
-    #     login <your username>
-    #     password <your password>
-    # ```
-    #
-    # Make sure that this file is only readable by the current user
-    # or you will receive an error stating
-    # "netrc access too permissive."
-    #
-    # `$ chmod 0600 ~/.netrc`
-    #
-    # You'll need to authenticate using the netrc method when running from
-    # command line with [`papermill`](https://papermill.readthedocs.io/en/latest/).
-    # You can log in manually by executing the cell below when running in the
-    # notebook client in your browser.*
-
-    """
-    Set up the request library so that it authenticates against the given
-    Earthdata Login endpoint and is able to track cookies between requests.
-    This looks in the .netrc file first and if no credentials are found,
-    it prompts for them.
-
-    Valid endpoints include:
-        urs.earthdata.nasa.gov - Earthdata Login production
-    """
-    username = password = ""
-    try:
-        username, _, password = netrc.netrc().authenticators(endpoint)
-    except FileNotFoundError as e:
-        logging.error("There's no .netrc file")
-        raise e
-    except TypeError as e:
-        logging.error("The endpoint isn't in the netrc file")
-        raise e
-
-    manager = request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(None, endpoint, username, password)
-    auth = request.HTTPBasicAuthHandler(manager)
-
-    jar = CookieJar()
-    processor = request.HTTPCookieProcessor(jar)
-    opener = request.build_opener(auth, processor)
-    opener.addheaders = [('User-agent', 'daac-subscriber')]
-    request.install_opener(opener)
-
-    return username, password
-
-
-def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
-    username, _, password = netrc.netrc().authenticators(endpoint)
-    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password><client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token>"
-    headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
-    resp = requests.post(url, headers=headers, data=xml)
-    response_content = json.loads(resp.content)
-    token = response_content['token']['id']
-
-    return token
-
-
-def query_cmr(args, token, CMR) -> list:
-    PAGE_SIZE = 2000
-    now = datetime.utcnow()
-    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    start_date = args.startDate if args.startDate else now_minus_minutes_date
-    end_date = args.endDate if args.endDate else now_date
-
-    request_url = f"https://{CMR}/search/granules.umm_json"
-    params = {
-        'scroll': "false",
-        'page_size': PAGE_SIZE,
-        'sort_key': "-start_date",
-        'provider': args.provider,
-        'ShortName': args.collection,
-        'updated_since': start_date,
-        'token': token,
-        'bounding_box': args.bbox,
-    }
-
-    time_range_is_defined = args.startDate or args.endDate
-    if time_range_is_defined:
-        temporal_range = get_temporal_range(start_date, end_date, now_date)
-        logging.info("Temporal Range: " + temporal_range)
-        params['temporal'] = temporal_range
-
-    product_granules, search_after = request_search(request_url, params)
-
-    while search_after:
-        granules, search_after = request_search(request_url, params, search_after=search_after)
-        product_granules.extend(granules)
-
-    logging.info(f"Found {str(len(product_granules))} total granules")
-    for granule in product_granules:
-        granule['filtered_urls'] = filter_on_extension(granule, args)
-
-    return product_granules
-
-
-def get_temporal_range(start, end, now):
-    start = start if start is not False else None
-    end = end if end is not False else None
-
-    if start is not None and end is not None:
-        return "{},{}".format(start, end)
-    if start is not None and end is None:
-        return "{},{}".format(start, now)
-    if start is None and end is not None:
-        return "1900-01-01T00:00:00Z,{}".format(end)
-
-    raise ValueError("One of start-date or end-date must be specified.")
-
-
-def request_search(request_url, params, search_after=None):
-    response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
-        if search_after else requests.get(request_url, params=params)
-    results = response.json()
-    items = results.get('items')
-    next_search_after = response.headers.get('CMR-Search-After')
-
-    if items and 'umm' in items[0]:
-        return [{"granule_id": item.get("umm").get("GranuleUR"),
-                 "provider": item.get("meta").get("provider-id"),
-                 "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
-                 "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
-                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
-                                  for point
-                                  in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
-                                      .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
-                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
-                for item in items], next_search_after
-    else:
-        return [], None
-
-
-def filter_on_extension(granule, args):
-    EXTENSION_LIST_MAP = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                          "TIF": ["tif"]}
-    filter_extension = "TIF"
-
-    for extension in EXTENSION_LIST_MAP:
-        if extension.upper() in args.collection.upper():
-            filter_extension = extension.upper()
-            break
-
-    return [f
-            for f in granule.get("related_urls")
-            for extension in EXTENSION_LIST_MAP.get(filter_extension)
-            if extension in f]
-
-
-def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
-    if isinstance(datetime_obj, datetime):
-        return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat)
-
-
-def update_url_index(ES_CONN, urls, granule_id, job_id, query_dt):
-    for url in urls:
-        ES_CONN.process_url(url, granule_id, job_id, query_dt)
-
-
-def update_granule_index(ES_SPATIAL_CONN, granule):
-    ES_SPATIAL_CONN.process_granule(granule)
-
-
-def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id):
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "https://" in f]
-
-    for url in filtered_downloads:
-        try:
-            if ES_CONN.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
-                else:
-                    result = https_transfer(url, args.isl_bucket, session, token)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                ES_CONN.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
-
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
-
-
-def https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
-    file_name = os.path.basename(url)
-    bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-
-    key = os.path.join(staging_area, file_name)
-    upload_start_time = datetime.utcnow()
-    headers = {"Echo-Token": token}
-
-    try:
-        with session.get(url, headers=headers, stream=True) as r:
-            if r.status_code != 200:
-                r.raise_for_status()
-            logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
-            with open("s3://{}/{}".format(bucket, key), "wb") as out:
-                pool = ThreadPool(processes=10)
-                pool.map(upload_chunk,
-                         [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
-                pool.close()
-                pool.join()
-        upload_end_time = datetime.utcnow()
-        upload_duration = upload_end_time - upload_start_time
-        upload_stats = {
-            "file_name": file_name,
-            "file_size (in bytes)": r.headers.get('Content-Length'),
-            "upload_duration (in seconds)": upload_duration.total_seconds(),
-            "upload_start_time": convert_datetime(upload_start_time),
-            "upload_end_time": convert_datetime(upload_end_time)
-        }
-        return upload_stats
-    except (ConnectionResetError, requests.exceptions.HTTPError) as e:
-        return {"failed_download": e}
-
-
-def upload_chunk(chunk_dict):
-    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
-    chunk_dict['out'].write(chunk_dict['chunk'])
-
-
-def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
-    aws_creds = get_aws_creds(session)
-    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
-                       aws_secret_access_key=aws_creds['secretAccessKey'],
-                       aws_session_token=aws_creds['sessionToken'],
-                       region_name='us-west-2').client("s3")
-
-    tmp_dir = "/tmp/data_subscriber"
-    os.makedirs(tmp_dir, exist_ok=True)
-
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "s3://" in f]
-
-    for url in filtered_downloads:
-        try:
-            if ES_CONN.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
-                else:
-                    result = s3_transfer(url, args.isl_bucket, s3, tmp_dir)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                ES_CONN.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
-
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
-
-    shutil.rmtree(tmp_dir)
-
-
-def get_aws_creds(session):
-    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
-        if r.status_code != 200:
-            r.raise_for_status()
-
-        return r.json()
-
-
-def s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
-    file_name = os.path.basename(url)
-
-    source = url[len("s3://"):].partition('/')
-    source_bucket = source[0]
-    source_key = source[2]
-
-    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-    target_key = os.path.join(staging_area, file_name)
-
-    try:
-        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
-
-        target_s3 = boto3.resource("s3")
-        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
-
-        return {"successful_download": target_key}
-    except Exception as e:
-        return {"failed_download": e}
-
-
-@contextmanager
-def token_ctx(token_url, ip_addr, edl):
-    token = get_token(token_url, 'daac-subscriber', ip_addr, edl)
-    try:
-        yield token
-    finally:
-        delete_token(token_url, token)
-
-
-def delete_token(url: str, token: str) -> None:
-    try:
-        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
-        url = '{}/{}'.format(url, token)
-        resp = requests.request('DELETE', url, headers=headers)
-        if resp.status_code == 204:
-            logging.info("CMR token successfully deleted")
-        else:
-            logging.warning("CMR token deleting failed.")
-    except Exception as e:
-        logging.warning("Error deleting the token")
 
 
 if __name__ == '__main__':
