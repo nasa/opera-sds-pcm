@@ -133,9 +133,17 @@ async def run(argv: list[str]):
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
-    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
-    parser.add_argument("-f", "--file", dest="file",
-                        help="Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later).")
+
+    verbose = {"positionals": ["-v", "--verbose"],
+               "kwargs": {
+                   "dest": "verbose",
+                   "action": "store_true",
+                   "help": "Verbose mode."}}
+
+    file = {"positionals": ["-f", "--file"],
+            "kwargs": {
+                "dest": "file",
+                "help": "Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later)."}}
 
     endpoint = {"positionals": ["--endpoint"],
                 "kwargs": {"dest": "endpoint",
@@ -227,6 +235,9 @@ def create_parser():
                 "kwargs": {"dest": "tile_ids",
                            "nargs": "*",
                            "help": "A list of target tile IDs pending download."}}
+
+    parser_arg_list = [verbose, file, provider]
+    add_arguments(parser, parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,

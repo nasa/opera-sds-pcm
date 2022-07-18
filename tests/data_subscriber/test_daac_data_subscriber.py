@@ -323,7 +323,7 @@ def patch_subscriber(monkeypatch):
                 }
             ], # product_granules
             False,  # search_after
-            1 # total_granules
+            3 # total_granules
         )
     )
     monkeypatch.setattr(
