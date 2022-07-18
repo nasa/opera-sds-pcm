@@ -307,6 +307,11 @@ cluster_provisioning/**/*.xml
 cluster_provisioning/**/*.zip
 cluster_provisioning/**/*.tf
 
+# Include override files you do wish to add to version control using negated pattern
+#
+# !cluster_provisioning/run_opera_smoke_tests.sh
+!cluster_provisioning/run_opera_smoke_tests.sh
+
 ######################################################################
 # MacOS files
 ######################################################################
