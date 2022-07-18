@@ -46,7 +46,10 @@ variable "cluster_type" {
 }
 
 ###### Security  ########
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
 }
 
 variable "cluster_security_group_id" {
@@ -86,7 +89,11 @@ variable "lambda_vpc" {
   default = "vpc-02676637ea26098a7"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+  default = "vpc-02676637ea26098a7"
+}
+
+variable "private_asg_vpc" {
   default = "vpc-b5a983cd"
 }
 

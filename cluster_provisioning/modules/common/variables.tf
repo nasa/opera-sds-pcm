@@ -93,7 +93,10 @@ variable "az" {
 variable "subnet_id" {
 }
 
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
 }
 
 variable "cluster_security_group_id" {
@@ -222,7 +225,10 @@ variable "asg_use_role" {
 variable "asg_role" {
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+}
+
+variable "private_asg_vpc" {
 }
 
 variable "aws_account_id" {
@@ -327,6 +333,7 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
       "total_jobs_metric" = false
+      "use_private_vpc" = false
     }
     "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
@@ -334,6 +341,7 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 80
       "total_jobs_metric" = true
+      "use_private_vpc" = false
     }
     "opera-job_worker-timer" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]

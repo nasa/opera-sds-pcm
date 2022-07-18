@@ -154,6 +154,7 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 10
       "total_jobs_metric" = true
+      "use_private_vpc" = false
     }
     "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
@@ -161,6 +162,7 @@ variable "queues" {
       "data_dev_size" = 25
       "max_size"      = 100
       "total_jobs_metric" = true
+      "use_private_vpc" = false
     }
     "opera-job_worker-timer" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
@@ -218,7 +220,10 @@ variable "subnet_id" {
   default = "subnet-000eb551ad06392c7"
 }
 
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
 }
 
 variable "cluster_security_group_id" {
@@ -387,7 +392,11 @@ variable "asg_role" {
   default = "am-pcm-dev-verdi-role"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+  default = "vpc-02676637ea26098a7"
+}
+
+variable "private_asg_vpc" {
   default = "vpc-b5a983cd"
 }
 
