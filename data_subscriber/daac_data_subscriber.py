@@ -135,15 +135,13 @@ def create_parser():
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
     verbose = {"positionals": ["-v", "--verbose"],
-               "kwargs": {
-                   "dest": "verbose",
-                   "action": "store_true",
-                   "help": "Verbose mode."}}
+               "kwargs": {"dest": "verbose",
+                          "action": "store_true",
+                          "help": "Verbose mode."}}
 
     file = {"positionals": ["-f", "--file"],
-            "kwargs": {
-                "dest": "file",
-                "help": "Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later)."}}
+            "kwargs": {"dest": "file",
+                       "help": "Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later)."}}
 
     endpoint = {"positionals": ["--endpoint"],
                 "kwargs": {"dest": "endpoint",
