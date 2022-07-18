@@ -6,7 +6,8 @@
     {
       "name": "endpoint",
       "from": "submitter",
-      "placeholder": "e.g. --endpoint=OPS",
+	  "placeholder": "e.g. --endpoint=OPS",
+      "default": "--endpoint=OPS",
       "optional": true
     },
     {
