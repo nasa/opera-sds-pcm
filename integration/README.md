@@ -2,7 +2,7 @@
 
 Install test dependencies with `pip install '.[integration]'`
 
-Execute with `pytest integration/`
+Execute with `pytest integration/`. See prerequisites below.
 
 To run the tests in parallel (recommended), execute `pytest -n auto integration/`. 
 
@@ -39,3 +39,19 @@ DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
 L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
 S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
 ```
+
+### CLEAR_DATA
+
+This env entry cleans the test system.
+* It drops the relevant Elasticsearch indexes from GRQ and Mozart.
+* It removes all products from rolling storage.
+
+Add `CLEAR_DATA = true` to `.env` to toggle on. Omit entirely to toggle off.
+
+# Prerequisites
+
+The system under test must meet the following conditions:
+
+* The query timer EventBridge rules MUST be disabled. This is to prevent irrelevant jobs from running during testing.
+* The query trigger lambdas MUST have SMOKE_RUN enabled. This is to prevent extra data from being downloaded from the input DAAC, LP.DAAC.
+* OPERA SDS MUST have PGE_SIMULATION_MODE enabled. The timeouts the tests employ, though modifiable, are based on the mock PGE runtime for a particular sample data set.

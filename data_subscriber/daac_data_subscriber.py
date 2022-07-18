@@ -76,6 +76,11 @@ async def run(argv: list[str]):
     netloc = urlparse(f"{edl}").netloc
     hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
 
+    if args.file:
+        with open(args.file, "r") as f:
+            update_url_index(hls_conn, f.readlines(), None, None)
+        exit(0)
+
     loglevel = 'DEBUG' if args.verbose else 'INFO'
     logging.basicConfig(level=loglevel)
     logging.info("Log level set to " + loglevel)
@@ -115,10 +120,14 @@ async def run(argv: list[str]):
     logging.info("END")
     return results
 
+
+
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode.")
+    parser.add_argument("-f", "--file", dest="file",
+                        help="Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later).")
 
     endpoint = {"positionals": ["--endpoint"],
                 "kwargs": {"dest": "endpoint",
@@ -344,8 +353,8 @@ def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     return token
 
 
-def query_cmr(args, token, cmr):
-    page_size = 2000
+def query_cmr(args, token, cmr) -> list:
+    PAGE_SIZE = 2000
     now = datetime.utcnow()
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -356,7 +365,7 @@ def query_cmr(args, token, cmr):
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
         'scroll': "false",
-        'page_size': page_size,
+        'page_size': PAGE_SIZE,
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,

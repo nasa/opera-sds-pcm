@@ -980,11 +980,6 @@ resource "aws_instance" "mozart" {
       "echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config",
       "echo '  USE_ROLE: ${var.asg_use_role}' >> ~/.sds/config",
       "echo '  ROLE: ${var.asg_role}' >> ~/.sds/config",
-      "echo '  SECURITY_GROUPS:' >> ~/.sds/config",
-      "echo '    - ${var.verdi_security_group_id}' >> ~/.sds/config",
-      "echo '    - ${var.verdi_security_group_id}' >> ~/.sds/config",
-      "echo '  VPC: ${var.asg_vpc}' >> ~/.sds/config",
-      "echo >> ~/.sds/config",
 
       "echo STAGING_AREA: >> ~/.sds/config",
       "echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config",
@@ -1416,8 +1411,11 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
 # Autoscaling Group related
 ############################
 
-data "aws_subnet_ids" "asg_vpc" {
-  vpc_id = var.asg_vpc
+data "aws_subnet_ids" "private_asg_vpc" {
+  vpc_id = var.private_asg_vpc
+}
+data "aws_subnet_ids" "public_asg_vpc" {
+  vpc_id = var.public_asg_vpc
 }
 
 data "template_file" "launch_template_user_data" {
@@ -1437,7 +1435,7 @@ resource "aws_launch_template" "launch_template" {
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
   user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
-  vpc_security_group_ids = [var.verdi_security_group_id]
+  vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
   block_device_mappings {
@@ -1483,7 +1481,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   health_check_grace_period = 300
   health_check_type         = "EC2"
   protect_from_scale_in     = false
-  vpc_zone_identifier       = data.aws_subnet_ids.asg_vpc.ids
+  vpc_zone_identifier       = lookup(each.value, "use_private_vpc", true) ? data.aws_subnet_ids.private_asg_vpc.ids : data.aws_subnet_ids.public_asg_vpc.ids
   metrics_granularity       = "1Minute"
   enabled_metrics = [
     "GroupMinSize",
