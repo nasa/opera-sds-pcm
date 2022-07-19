@@ -233,7 +233,7 @@ variable "lambda_job_type" {
 }
 
 variable "lambda_job_queue" {
-  default = "opera-job_worker-small"
+  default = "opera-job_worker-hls_data_ingest"
 }
 
 # CNM Response job vars
@@ -430,20 +430,14 @@ variable "amis" {
 variable "queues" {
   default = {
     "opera-job_worker-small" = {
-      "instance_type" = [
-        "t2.medium",
-        "t3a.medium",
-        "t3.medium"]
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 50
       "total_jobs_metric" = true
     }
     "opera-job_worker-large" = {
-      "instance_type" = [
-        "t2.medium",
-        "t3a.medium",
-        "t3.medium"]
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "max_size" = 100
