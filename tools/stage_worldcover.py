@@ -14,9 +14,7 @@ from shapely.geometry import box
 from commons.logger import logger
 from commons.logger import LogLevels
 from util.geo_util import (check_dateline,
-                           epsg_from_polygon,
-                           polygon_from_mgrs_tile,
-                           transform_polygon_coords_to_epsg)
+                           polygon_from_mgrs_tile)
 
 # Enable exceptions
 gdal.UseExceptions()
@@ -137,7 +135,7 @@ def translate_worldcover(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     )
 
 
-def download_worldcover(polys, epsgs, worldcover_bucket, worldcover_ver,
+def download_worldcover(polys, worldcover_bucket, worldcover_ver,
                         worldcover_year, margin, outfile):
     """
     Download a Worldcover map from the esa-worldcover bucket.
@@ -146,8 +144,6 @@ def download_worldcover(polys, epsgs, worldcover_bucket, worldcover_ver,
     ----------
     polys: list of shapely.geometry.Polygon
         List of shapely polygons.
-    epsgs: list of str
-        List of EPSG codes corresponding to polys.
     worldcover_bucket : str
         Name of the S3 bucket containing the full Worldcover map to download from.
     worldcover_ver : str
@@ -162,32 +158,14 @@ def download_worldcover(polys, epsgs, worldcover_bucket, worldcover_ver,
         Path to the where the output Worldcover file is to be staged.
 
     """
-    if 3031 in epsgs:
-        epsgs = [3031] * len(epsgs)
-        polys = transform_polygon_coords_to_epsg(polys, epsgs)
-
-        # Need one EPSG as in polar stereo we have one big polygon
-        epsgs = [3031]
-        margin = margin * 1000
-    elif 3413 in epsgs:
-        epsgs = [3413] * len(epsgs)
-        polys = transform_polygon_coords_to_epsg(polys, epsgs)
-
-        # Need one EPSG as in polar stereo we have one big polygon
-        epsgs = [3413]
-        margin = margin * 1000
-    else:
-        # set epsg to 4326 for each element in the list
-        epsgs = [4326] * len(epsgs)
-
-        # convert margin to degree (approx formula)
-        margin = margin / 40000 * 360
+    # convert margin to degree (approx formula)
+    margin = margin / 40000 * 360
 
     # Download Worldcover map for each polygon/epsg
     file_prefix = os.path.splitext(outfile)[0]
     wc_list = []
 
-    for idx, (epsg, poly) in enumerate(zip(epsgs, polys)):
+    for idx, poly in enumerate(polys):
         vrt_filename = (
             f'/vsis3/{worldcover_bucket}/{worldcover_ver}/{worldcover_year}/'
             f'ESA_WorldCover_10m_{worldcover_year}_{worldcover_ver}_Map_AWS.vrt'
@@ -278,15 +256,8 @@ def main(opts):
 
     check_aws_connection(opts.s3_bucket)
 
-    # Determine EPSG code
-    logger.info("Determining EPSG code(s) for region polygon(s)")
-
-    epsgs = epsg_from_polygon(polys)
-
-    logger.debug(f'Derived the following EPSG codes: {epsgs}')
-
     # Download Worldcover map(s)
-    download_worldcover(polys, epsgs, opts.s3_bucket, opts.worldcover_ver,
+    download_worldcover(polys, opts.s3_bucket, opts.worldcover_ver,
                         opts.worldcover_year, opts.margin, opts.outfile)
 
     logger.info(f'Done, Worldcover map stored locally to {opts.outfile}')
