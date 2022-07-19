@@ -7,18 +7,23 @@
     {
       "name": "endpoint",
       "from": "submitter",
-      "placeholder": "e.g. --endpoint=OPS",
-      "optional": true
+	  "placeholder": "e.g. --endpoint=OPS",
+	  "type": "text",
+      "default": "--endpoint=OPS"
     },
     {
       "name": "minutes",
       "from": "submitter",
-      "placeholder": "e.g. -m 60"
+      "placeholder": "e.g. -m 60",
+      "type": "text",
+	  "default": "-m 60"
     },
     {
       "name": "provider",
       "from": "submitter",
-      "placeholder": "e.g. -p LPCLOUD"
+      "placeholder": "e.g. -p LPCLOUD",
+      "type": "text",
+	  "default": "-p LPCLOUD"
     },
     {
       "name": "bounding_box",
@@ -40,7 +45,9 @@
     {
       "name": "download_job_queue",
       "from": "submitter",
-      "placeholder": "e.g. --job-queue=<job_queue>"
+      "placeholder": "e.g. --job-queue=<job_queue>",
+	  "type": "text",
+	  "default": "--job-queue=opera-job_worker-hls_data_download"
     },
     {
       "name": "isl_bucket_name",

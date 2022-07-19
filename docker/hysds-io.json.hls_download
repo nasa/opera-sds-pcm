@@ -6,8 +6,9 @@
     {
       "name": "endpoint",
       "from": "submitter",
-      "placeholder": "e.g. --endpoint=OPS",
-      "optional": true
+	  "placeholder": "e.g. --endpoint=OPS",
+	  "type": "text",
+      "default": "--endpoint=OPS"
     },
     {
       "name": "isl_bucket_name",
