@@ -6,6 +6,7 @@
 import argparse
 import asyncio
 import itertools
+import socket
 import json
 import logging
 import netrc
@@ -73,7 +74,7 @@ async def run(argv: list[str]):
             update_url_index(HLS_CONN, f.readlines(), None, None)
         exit(0)
 
-    IP_ADDR = "127.0.0.1"
+    IP_ADDR = socket.gethostbyname(socket.gethostname())
     EDL = "urs.earthdata.nasa.gov"
     CMR = "cmr.earthdata.nasa.gov"
     TOKEN_URL = f"https://{CMR}/legacy-services/rest/tokens"
