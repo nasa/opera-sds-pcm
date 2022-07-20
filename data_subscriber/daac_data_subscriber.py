@@ -70,12 +70,15 @@ async def run(argv: list[str]):
         raise v
 
     settings = SettingsConf().cfg
-    ip_addr = "127.0.0.1"
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
     token_url = f"http://{cmr}/legacy-services/rest/tokens"
     netloc = urlparse(f"{edl}").netloc
     hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+
+    ip_addr = socket.gethostbyname(socket.gethostname())
+    if type(ip_addr) is list:
+        ip_addr = ip_addr[0]
 
     if args.file:
         with open(args.file, "r") as f:
