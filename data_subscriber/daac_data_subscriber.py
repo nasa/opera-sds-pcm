@@ -6,6 +6,7 @@
 import argparse
 import asyncio
 import itertools
+import socket
 import json
 import logging
 import netrc
