@@ -69,6 +69,7 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
+    ip_addr = socket.gethostbyname(socket.gethostname())
     settings = SettingsConf().cfg
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
@@ -76,9 +77,6 @@ async def run(argv: list[str]):
     netloc = urlparse(f"{edl}").netloc
     hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
 
-    ip_addr = socket.gethostbyname(socket.gethostname())
-    if type(ip_addr) is list:
-        ip_addr = ip_addr[0]
 
     if args.file:
         with open(args.file, "r") as f:
