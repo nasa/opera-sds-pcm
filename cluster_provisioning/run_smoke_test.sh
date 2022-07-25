@@ -20,10 +20,7 @@ if [ "$#" -eq 19 ]; then
   source_event_arn=${15}
   daac_delivery_proxy=${16}
   use_daac_cnm=${17}
-  crid=${18}
-  cluster_type=${19}
-#  data_query_timer_trigger_frequency=${20}
-#  data_download_timer_trigger_frequency=${21}
+  cluster_type=${18}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1

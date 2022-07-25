@@ -24,12 +24,8 @@ variable "logstash_release" {
   default = "7.9.3"
 }
 
-variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
-}
-
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.2.0"
 }
 
 variable "private_key_file" {

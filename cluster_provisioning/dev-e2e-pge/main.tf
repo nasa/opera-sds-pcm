@@ -74,9 +74,7 @@ module "common" {
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   queues                                  = var.queues
-  pge_snapshots_date                      = var.pge_snapshots_date
   pge_release                             = var.pge_release
-  crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
@@ -102,7 +100,6 @@ locals {
   daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
   source_event_arn         = local.default_source_event_arn
   lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  crid                     = lower(var.crid)
   default_isl_bucket       = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
   isl_bucket               = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
 }
@@ -152,7 +149,6 @@ resource "null_resource" "mozart" {
       "  ${local.source_event_arn} \\",
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
-      "  ${local.crid} \\",
       "  ${var.cluster_type}  \\",
       "  \"${var.pge_test_package}\" || :",
       "fi",

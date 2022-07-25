@@ -72,7 +72,6 @@ module "common" {
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   use_daac_cnm                            = var.use_daac_cnm
-  crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
@@ -100,7 +99,6 @@ locals {
   artifactory_fn_user      = var.artifactory_fn_user
   artifactory_fn_api_key   = var.artifactory_fn_api_key
   lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  crid                     = lower(var.crid)
 }
 
 resource "null_resource" "mozart" {
@@ -147,7 +145,6 @@ resource "null_resource" "mozart" {
       "  ${local.source_event_arn} \\",
       "  ${var.daac_delivery_proxy} \\",
       "  ${var.use_daac_cnm} \\",
-      "  ${local.crid} \\",
       "  ${var.cluster_type} || :",
     ]
   }

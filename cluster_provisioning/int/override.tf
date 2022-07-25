@@ -23,10 +23,6 @@ variable "counter" {
   #default = "pop1"
 }
 
-variable "crid" {
-  default = "T00100"
-}
-
 variable "project" {
   default = "opera"
 }
@@ -170,12 +166,8 @@ variable "amis" {
 }
 
 ####### Release Branches #############
-variable "pge_snapshots_date" {
-  default = "20220609-1.0.0-rc.1.0"
-}
-
 variable "pge_release" {
-  default = "1.0.0-rc.1.0"
+  default = "1.0.0-rc.2.0"
 }
 
 variable "hysds_release" {

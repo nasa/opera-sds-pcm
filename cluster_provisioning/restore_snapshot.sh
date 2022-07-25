@@ -8,8 +8,7 @@ METRICS_ES_URL=$3
 SNAPSHOT_BUCKET=$4
 BUCKET_PATH=$5
 ROLE_ARN=$6
-CRID=$7
-CLUSTER_TYPE=$8
+CLUSTER_TYPE=$7
 
 RESTORE_REPOSITORY=restore-repository
 TIME_SLEEP=30
@@ -49,12 +48,12 @@ echo "[$(date -u +"%Y-%m-%d %H:%M:%S")] sleeping ${TIME_SLEEP} seconds before st
 sleep ${TIME_SLEEP}
 
 # dataset check
-if [[ "${CLUSTER_TYPE}" = "forward" ]]; then
-  ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --max_time=2700 --crid=${CRID} datasets_e2e.json 1,2,3,4,L0A_FWD,5,L0B_FWD,NETWORK_PAIR_FWD /tmp/datasets.txt
-  ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --max_time=600 --crid=${CRID} datasets_e2e.json OBS_REPORT /tmp/report_datasets.txt
-else
-  ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --max_time=2700 --crid=${CRID} datasets_e2e.json 1,2,3,4,L0A_REPROC,5,L0B_REPROC,NETWORK_PAIR_REPROC /tmp/datasets.txt
-fi
+#if [[ "${CLUSTER_TYPE}" = "forward" ]]; then
+#  ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --max_time=2700 --crid=${CRID} datasets_e2e.json 1,2,3,4,L0A_FWD,5,L0B_FWD,NETWORK_PAIR_FWD /tmp/datasets.txt
+#  ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --max_time=600 --crid=${CRID} datasets_e2e.json OBS_REPORT /tmp/report_datasets.txt
+#else
+#  ~/mozart/ops/nisar-pcm/conf/sds/files/test/check_datasets_file.py --max_time=2700 --crid=${CRID} datasets_e2e.json 1,2,3,4,L0A_REPROC,5,L0B_REPROC,NETWORK_PAIR_REPROC /tmp/datasets.txt
+#fi
 
 
 # open the indices

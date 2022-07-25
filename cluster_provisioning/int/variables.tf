@@ -327,20 +327,12 @@ variable "docker_registry_bucket" {
   default = ""
 }
 
-variable "pge_snapshots_date" {
-  default = ""
-}
-
 variable "pge_names" {
-  default = "opera_pge-dswx_hls"
+  default = "dswx_hls"
 }
 
 variable "pge_release" {
-  default = "1.0.0-rc.1.0"
-}
-
-variable "crid" {
-  default = ""
+  default = "1.0.0-rc.2.0"
 }
 
 variable "cluster_type" {

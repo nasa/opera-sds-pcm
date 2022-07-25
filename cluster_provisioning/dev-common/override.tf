@@ -22,10 +22,6 @@ variable "counter" {
   default = "fwd"
 }
 
-variable "crid" {
-  default = "D00100"
-}
-
 variable "project" {
   default = "opera"
 }

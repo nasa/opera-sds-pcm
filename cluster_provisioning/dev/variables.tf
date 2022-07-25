@@ -363,26 +363,17 @@ variable "lambda_log_retention_in_days" {
   default = 30
 }
 
-variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
-}
-
 variable "pge_names" {
-  default = "opera_pge-dswx_hls"
+  default = "dswx_hls"
 }
 
 variable "pge_release" {
-  default = "1.0.0-rc.1.0"
-}
-
-variable "crid" {
-  default = "D00100"
+  default = "1.0.0-rc.2.0"
 }
 
 variable "cluster_type" {
   default = "reprocessing"
 }
-
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"

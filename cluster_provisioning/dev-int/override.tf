@@ -22,10 +22,6 @@ variable "counter" {
   default = "6"
 }
 
-variable "crid" {
-  default = "D00100"
-}
-
 variable "project" {
   default = "opera"
 }
@@ -163,12 +159,8 @@ variable "daac_endpoint_url" {
 }
 
 ####### Release Branches #############
-variable "pge_snapshots_date" {
-  default = "20220502-RC1.0"
-}
-
 variable "pge_release" {
-  default = "1.0.0-rc.1.0"
+  default = "1.0.0-rc.2.0"
 }
 
 variable "hysds_release" {

@@ -73,8 +73,6 @@ module "common" {
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   use_daac_cnm                            = var.use_daac_cnm
   pge_names                               = var.pge_names
-  pge_snapshots_date                      = var.pge_snapshots_date
-  crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration

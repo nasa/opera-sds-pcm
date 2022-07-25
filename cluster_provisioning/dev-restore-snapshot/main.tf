@@ -73,9 +73,7 @@ module "common" {
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   use_daac_cnm                            = var.use_daac_cnm
-  pge_snapshots_date                      = var.pge_snapshots_date
   pge_release                             = var.pge_release
-  crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
@@ -98,7 +96,6 @@ module "common" {
 
 locals {
   lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  crid        = lower(var.crid)
   grq_es_url  = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : module.common.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 }
 
@@ -133,7 +130,6 @@ resource "null_resource" "mozart" {
       "   ${var.es_snapshot_bucket} \\",
       "   ${var.es_snapshot_restore_bucket_path} \\",
       "   ${var.es_bucket_role_arn} \\",
-      "   ${local.crid} \\",
       "   ${var.cluster_type} || :",
       "echo Your cluster has been provisioned!",
     ]

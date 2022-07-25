@@ -350,10 +350,6 @@ variable "event_misfire_delay_threshold_seconds" {
   default = 60
 }
 
-variable "crid" {
-  default = "D00100"
-}
-
 variable "cluster_type" {
   default = "reprocessing"
 }

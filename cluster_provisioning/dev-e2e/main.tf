@@ -73,9 +73,7 @@ module "common" {
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
   use_daac_cnm                            = var.use_daac_cnm
   pge_names                               = var.pge_names
-  pge_snapshots_date                      = var.pge_snapshots_date
   pge_release                             = var.pge_release
-  crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
@@ -107,7 +105,6 @@ locals {
   source_event_arn         = local.default_source_event_arn
   grq_es_url               = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : module.common.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
   lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  crid                     = lower(var.crid)
 }
 
 resource "null_resource" "mozart" {
@@ -154,7 +151,6 @@ resource "null_resource" "mozart" {
                 ${local.source_event_arn} \
                 ${var.daac_delivery_proxy} \
                 ${var.use_daac_cnm} \
-                ${local.crid} \
                 ${var.cluster_type} || :
               fi
     EOF
