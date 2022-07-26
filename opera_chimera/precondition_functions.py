@@ -1044,7 +1044,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
-        product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
+        product_paths: List[str] = [product_info["product_path"] for band_or_qa, product_info in metadata.items() if band_or_qa != '@timestamp']
 
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
