@@ -235,7 +235,9 @@ def create_dataset_json(product_metadata, ds_met, alt_ds_met):
     """
     dataset_info = {}
 
-    if "CompositeReleaseID" in product_metadata:
+    if "dataset_version" in product_metadata:
+        version = str(product_metadata["dataset_version"])
+    elif "CompositeReleaseID" in product_metadata:
         version = product_metadata["CompositeReleaseID"].lower()
     elif "VersionID" in product_metadata:
         version = str(product_metadata["VersionID"])
