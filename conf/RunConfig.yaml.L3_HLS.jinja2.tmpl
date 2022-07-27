@@ -17,7 +17,6 @@ RunConfig:
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        ProductCounter: 001
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
@@ -27,8 +26,8 @@ RunConfig:
           - proteus-0.1/bin/dswx_hls.py
           - --full-log-format
         ErrorCodeBase: 100000
-        SchemaPath: dswx_hls_sas_schema.yaml
-        IsoTemplatePath: OPERA_ISO_metadata_L3_DSWx_HLS_template.xml.jinja2
+        SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
+        IsoTemplatePath: /home/conda/opera/pge/dswx_hls/templates/OPERA_ISO_metadata_L3_DSWx_HLS_template.xml.jinja2
       QAExecutable:
         Enabled: False
         ProgramPath:

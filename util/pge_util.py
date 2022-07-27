@@ -64,8 +64,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             acquisition_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
             # make creation time a duplicate of the acquisition time for ease of testing
             creation_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            collection_version=match.groupdict()['collection_version'],
-            product_counter="001",
+            collection_version=match.groupdict()['collection_version']
         )
         metadata = {}
         simulate_output(pge_name, metadata, base_name, output_dir, output_types[output_type])
