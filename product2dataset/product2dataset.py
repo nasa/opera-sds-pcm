@@ -15,6 +15,8 @@ import shutil
 
 import traceback
 import subprocess
+from pathlib import PurePath
+from typing import Dict, List
 
 from commons.logger import logger
 
@@ -29,28 +31,39 @@ DEFAULT_HASH_ALGO = "sha256"
 DATASETS_DIR_NAME = "datasets"
 
 
-def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
-            settings_conf_file=None, extra_met=None):
-    created_datasets = set()
+def convert(
+        product_dir: str,
+        pge_name: str,
+        rc_file: str = None,
+        pge_output_conf_file:str = None,
+        settings_conf_file: str = None,
+        extra_met: Dict = None,
+        **kwargs
+) -> List:
+    """Convert a product (directory of files) into a list of datasets.
 
-    pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
-    pge_config = pge_outputs_cfg[pge_name]
-
-    product_dir = os.path.abspath(product_dir)
+    :param product_dir: Local filepath to the product.
+    :param pge_name: PGE outputs config entry key. See `PGEOutputsConf`.
+    :param rc_file: Local filepath to the RunConfig file.
+    :param pge_output_conf_file: Local filepath to the `pge_output.yaml` file.
+    :param settings_conf_file: Local filepath to the `settings.yaml` file.
+    :param extra_met: Extra metadata to include in *each* created dataset.
+    """
+    extra_met = extra_met if extra_met else {}
 
     # Check to see if all expected outputs were generated
+    product_dir = os.path.abspath(product_dir)
+    pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
+    pge_config = pge_outputs_cfg[pge_name]
     products = process_outputs(product_dir, pge_config["Outputs"])
 
-    if extra_met:
-        extra_met.update({"tags": ["PGE"]})
-    else:
-        extra_met = {"tags": ["PGE"]}
+    extra_met.update({"tags": ["PGE"]})
 
     settings = SettingsConf(settings_conf_file).cfg
 
     # Create the datasets
+    created_datasets = set()
     output_types = [PRIMARY_KEY, OPTIONAL_KEY]
-
     for output_type in output_types:
         for product in products[output_type].keys():
             logger.info(f"Converting {product} to a dataset")
@@ -71,16 +84,14 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
             created_datasets.add(dataset_dir)
 
     for dataset in created_datasets:
-        dataset_id = dataset.split(os.sep)[-1]
+        dataset_id = PurePath(dataset).name
 
         # Merge all created .met.json files into a single one for use with accountability reporting
         dataset_met_json = {"Files": []}
         combined_file_size = 0
-
         for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
             with open(met_json_file, 'r') as infile:
                 met_json = json.load(infile)
-                file_key = os.path.splitext(met_json["FileName"])[0]
                 combined_file_size += int(met_json["FileSize"])
 
                 # Extract a copy of the "Product*" key/values to include at the top level
@@ -99,10 +110,24 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         # Add fields to the top-level of the .met.json file
         dataset_met_json["FileSize"] = combined_file_size
         dataset_met_json["FileName"] = dataset_id
-        dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
+        dataset_met_json["id"] = dataset_id
+
+        if pge_name == "L3_HLS":
+            logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
+            state_config_product_metadata: Dict = {key: value for key, value in kwargs["state_config_product_metadata"].items() if key != "@timestamp"}
+
+            first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
+            first_product_info: Dict = state_config_product_metadata[first_product_info_key]
+            dataset_met_json["input_granule_id"] = PurePath(first_product_info["id"]).stem  # strip band from ID to get granule ID
+            dataset_met_json["product_urls"] = [
+                f'https://{settings["DATASET_BUCKET"]}.{settings["DATASET_S3_ENDPOINT"]}/products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]]
+            dataset_met_json["product_s3_paths"] = [
+                f'products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]]
 
         if "dswx_hls" in dataset_id.lower():
-            collection_name = settings.get("DSWX_COLLECTION_NAME")
+            collection_name: str = settings.get("DSWX_COLLECTION_NAME")
             dataset_met_json["CollectionName"] = collection_name
             logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
