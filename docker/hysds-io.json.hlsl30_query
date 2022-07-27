@@ -4,6 +4,13 @@
   "allowed_accounts": [ "ops" ],
   "params": [
     {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+	  "type": "text",
+	  "default": "--endpoint=OPS"
+    },
+    {
       "name": "start_datetime",
       "from": "submitter",
       "placeholder": "e.g. --start-date=1970-01-01T00:00:00Z"
@@ -16,7 +23,9 @@
     {
       "name": "provider",
       "from": "submitter",
-      "placeholder": "e.g. -p LPCLOUD"
+      "placeholder": "e.g. -p LPCLOUD",
+      "type": "text",
+	  "default": "-p LPCLOUD"
     },
     {
       "name": "bounding_box",
@@ -38,7 +47,9 @@
     {
       "name": "download_job_queue",
       "from": "submitter",
-      "placeholder": "e.g. --job-queue=<job_queue>"
+      "placeholder": "e.g. --job-queue=<job_queue>",
+      "type": "text",
+	  "default": "--job-queue=opera-job_worker-hls_data_download"
     },
     {
       "name": "isl_bucket_name",
