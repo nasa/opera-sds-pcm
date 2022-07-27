@@ -345,8 +345,7 @@ def setup_earthdata_login_auth(endpoint):
 
 def get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
     username, _, password = netrc.netrc().authenticators(endpoint)
-    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password>" \
-          f"<client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token> "
+    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password><client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token>"
     headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
     resp = requests.post(url, headers=headers, data=xml)
     response_content = json.loads(resp.content)
