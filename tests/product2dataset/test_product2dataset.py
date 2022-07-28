@@ -35,6 +35,7 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
             "FileName": "dummy_product_filename"
         }
     """))
+    mocker.patch("product2dataset.product2dataset.os.path.abspath", lambda _: f"/{_}")
     mocker.patch("product2dataset.product2dataset.os.unlink", Mock())
 
     # ACT
