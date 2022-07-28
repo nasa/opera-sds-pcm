@@ -14,7 +14,7 @@ RUN set -ex \
     pytest-cov flake8-junit-report flake8-string-format \
     xmltodict yamale==3.0.6 ruamel.yaml elasticmock \
     geopandas smart_open \
- && pip install -U pytest-asyncio elasticsearch[async] \
+ && pip install -U pytest-asyncio pytest-mock elasticsearch[async] \
  && pip install -U mgrs pyproj \
  && sudo /opt/conda/bin/conda install -y gdal cffi \
  # TODO: remove the following kludge once this issue has been resolved:
