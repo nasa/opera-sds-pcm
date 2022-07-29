@@ -115,3 +115,11 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
             logger.info(f'Simulating output {output_file}')
             with open(output_file, 'wb') as f:
                 f.write(os.urandom(1024))
+
+
+def get_product_metadata(job_json_dict: Dict) -> Dict:
+    params = job_json_dict['job_specification']['params']
+    for param in params:
+        if param['name'] == 'product_metadata':
+            return param['value']['metadata']
+    raise
