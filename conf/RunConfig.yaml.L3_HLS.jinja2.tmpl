@@ -17,7 +17,6 @@ RunConfig:
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        ProductCounter: 001
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
@@ -27,8 +26,8 @@ RunConfig:
           - proteus-0.1/bin/dswx_hls.py
           - --full-log-format
         ErrorCodeBase: 100000
-        SchemaPath: dswx_hls_sas_schema.yaml
-        IsoTemplatePath: OPERA_ISO_metadata_L3_DSWx_HLS_template.xml.jinja2
+        SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
+        IsoTemplatePath: /home/conda/opera/pge/dswx_hls/templates/OPERA_ISO_metadata_L3_DSWx_HLS_template.xml.jinja2
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -75,14 +74,14 @@ RunConfig:
             save_rgb: False   # Reflectance RGB color composition
             save_infrared_rgb: False  # SWIR-1, NIR, and Red reflectance color composition
           hls_thresholds:
-            wigt: 0.0124         # Modified Normalized Difference Wetness Index (MNDWI) Threshold
-            awgt: 0.0            # Automated Water Extent Shadow Threshold
-            pswt_1_mndwi: -0.44  # Partial Surface Water Test-1 MNDWI Threshold
-            pswt_1_nir: 1500     # Partial Surface Water Test-1 NIR Threshold
-            pswt_1_swir1: 900    # Partial Surface Water Test-1 SWIR1 Threshold
-            pswt_1_ndvi: 0.7     # Partial Surface Water Test-1 NDVI Threshold
-            pswt_2_mndwi: -0.5   # Partial Surface Water Test-2 MNDWI Threshold
-            pswt_2_blue: 1000    # Partial Surface Water Test-2 Blue Threshold
-            pswt_2_nir: 2500     # Partial Surface Water Test-2 NIR Threshold
-            pswt_2_swir1: 3000   # Partial Surface Water Test-2 SWIR1 Threshold
-            pswt_2_swir2: 1000   # Partial Surface Water Test-2 SWIR2 Threshold
+            wigt: {{ data.hls_thresholds.wigt or 0.0124 }}         # Modified Normalized Difference Wetness Index (MNDWI) Threshold
+            awgt: {{ data.hls_thresholds.awgt or 0.0 }}            # Automated Water Extent Shadow Threshold
+            pswt_1_mndwi: {{ data.hls_thresholds.pswt_1_mndwi or -0.44 }}  # Partial Surface Water Test-1 MNDWI Threshold
+            pswt_1_nir: {{ data.hls_thresholds.pswt_1_nir or 1500 }}     # Partial Surface Water Test-1 NIR Threshold
+            pswt_1_swir1: {{ data.hls_thresholds.pswt_1_swir1 or 900 }}    # Partial Surface Water Test-1 SWIR1 Threshold
+            pswt_1_ndvi: {{ data.hls_thresholds.pswt_1_ndvi or 0.7 }}     # Partial Surface Water Test-1 NDVI Threshold
+            pswt_2_mndwi: {{ data.hls_thresholds.pswt_2_mndwi or -0.5 }}   # Partial Surface Water Test-2 MNDWI Threshold
+            pswt_2_blue: {{ data.hls_thresholds.pswt_2_blue or 1000 }}    # Partial Surface Water Test-2 Blue Threshold
+            pswt_2_nir: {{ data.hls_thresholds.pswt_2_nir or 2500 }}     # Partial Surface Water Test-2 NIR Threshold
+            pswt_2_swir1: {{ data.hls_thresholds.pswt_2_swir1 or 3000 }}   # Partial Surface Water Test-2 SWIR1 Threshold
+            pswt_2_swir2: {{ data.hls_thresholds.pswt_2_swir2 or 1000 }}   # Partial Surface Water Test-2 SWIR2 Threshold

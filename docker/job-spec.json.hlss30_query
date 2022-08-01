@@ -10,7 +10,7 @@
   },
   "recommended-queues": [ "opera-job_worker-hls_data_query" ],
   "post": [ "hysds.utils.triage" ],
-  "params" : [
+  "params": [
     {
       "name": "start_datetime",
       "destination": "positional"

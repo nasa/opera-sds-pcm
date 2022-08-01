@@ -29,7 +29,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "private_key_file" {
@@ -53,7 +53,11 @@ variable "region" {
   default = "us-west-2"
 }
 
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+  default = "sg-008b5ba6ecb1b95b8"
+}
+
+variable "private_verdi_security_group_id" {
   default = "sg-08d98b1b7b66f7dea"
 }
 
@@ -84,7 +88,11 @@ variable "asg_use_role" {
   default = "true"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+  default = "vpc-02676637ea26098a7"
+}
+
+variable "private_asg_vpc" {
   default = "vpc-b5a983cd"
 }
 
@@ -98,6 +106,7 @@ variable "artifactory_base_url" {
 
 variable "artifactory_repo" {
   default = "general-develop"
+#  default = "general"
 }
 
 variable "artifactory_mirror_url" {

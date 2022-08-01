@@ -1,5 +1,5 @@
 {
-  "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
+  "command": "/home/ops/verdi/ops/opera-pcm/on_demand/run_on_demand.sh",
   "disk_usage":"10GB",
   "soft_time_limit": 3600,
   "time_limit": 3660,
@@ -23,26 +23,14 @@
   "params": [
     {
       "name": "module_path",
-      "destination": "positional"
+      "destination": "context"
     },
     {
       "name": "wf_dir",
-      "destination": "positional"
+      "destination": "context"
     },
     {
       "name": "wf_name",
-      "destination": "positional"
-    },
-    {
-      "name": "dataset_type",
-      "destination": "context"
-    },
-    {
-      "name":"input_dataset_id",
-      "destination": "context"
-    },
-    {
-      "name": "product_metadata",
       "destination": "context"
     },
     {
@@ -63,6 +51,10 @@
     },
     {
       "name": "pge_output_dir",
+      "destination": "context"
+    },
+    {
+      "name":"input_dataset_id",
       "destination": "context"
     },
     {

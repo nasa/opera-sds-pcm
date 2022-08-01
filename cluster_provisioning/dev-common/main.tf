@@ -25,7 +25,6 @@ module "common" {
   jenkins_api_user                        = var.jenkins_api_user
   keypair_name                            = var.keypair_name
   jenkins_api_key                         = var.jenkins_api_key
-  artifactory_fn_api_key                  = var.artifactory_fn_api_key
   ops_password                            = var.ops_password
   shared_credentials_file                 = var.shared_credentials_file
   profile                                 = var.profile
@@ -70,12 +69,11 @@ module "common" {
   grq_aws_es                              = var.grq_aws_es
   grq_aws_es_host                         = var.grq_aws_es_host
   grq_aws_es_port                         = var.grq_aws_es_port
-  use_daac_cnm                            = var.use_daac_cnm
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
-  queues                                  = var.queues
+  use_daac_cnm                            = var.use_daac_cnm
+  pge_names                               = var.pge_names
   pge_snapshots_date                      = var.pge_snapshots_date
-  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
@@ -88,23 +86,14 @@ module "common" {
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
-  run_smoke_test                          = var.run_smoke_test
   artifactory_fn_user                     = var.artifactory_fn_user
+  artifactory_fn_api_key                  = var.artifactory_fn_api_key
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
-  hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
-  hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
-  hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
 }
 
 locals {
-  default_source_event_arn = "arn:aws:${var.cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
-  daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
-  source_event_arn         = local.default_source_event_arn
-  lambda_repo              = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  crid                     = lower(var.crid)
-  default_isl_bucket       = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
-  isl_bucket               = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
+  lambda_repo = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
 }
 
 resource "null_resource" "mozart" {
@@ -117,7 +106,6 @@ resource "null_resource" "mozart" {
     dataset_bucket   = module.common.dataset_bucket
     triage_bucket    = module.common.triage_bucket
     lts_bucket       = module.common.lts_bucket
-    osl_bucket       = module.common.osl_bucket
   }
 
   connection {
@@ -131,65 +119,10 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "echo \"use_daac_cnm is ${var.use_daac_cnm}\"",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test-pge.sh \\",
-      "  ${var.project} \\",
-      "  ${var.environment} \\",
-      "  ${var.venue} \\",
-      "  ${module.common.counter} \\",
-      "  ${var.use_artifactory} \\",
-      "  ${var.artifactory_base_url} \\",
-      "  ${var.artifactory_repo} \\",
-      "  ${var.artifactory_mirror_url} \\",
-      "  ${var.pcm_repo} \\",
-      "  ${var.pcm_branch} \\",
-      "  ${var.product_delivery_repo} \\",
-      "  ${var.product_delivery_branch} \\",
-	  "  ${var.delete_old_job_catalog} \\",
-      "  ${module.common.mozart.private_ip} \\",
-      "  ${module.common.isl_bucket} \\",
-      "  ${local.source_event_arn} \\",
-      "  ${var.daac_delivery_proxy} \\",
-      "  ${var.use_daac_cnm} \\",
-      "  ${local.crid} \\",
-      "  ${var.cluster_type}  \\",
-      "  \"${var.pge_test_package}\" || :",
-      "fi",
+      "cd ~/.sds/files",
+      "~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force",
+      "echo Your cluster has been provisioned!",
     ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
-      "fi",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    when = destroy
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e-pge/check_pcm.py ||:",
-      "fi",
-    ]
-  }
-
-  provisioner "local-exec" {
-    command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
   }
 }
+

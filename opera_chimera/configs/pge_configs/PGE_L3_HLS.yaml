@@ -26,6 +26,18 @@ runconfig:
     product_path: output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: output_dir/scratch_dir
+  hls_thresholds:
+    wigt: __CHIMERA_VAL__           # Modified Normalized Difference Wetness Index (MNDWI) Threshold
+    awgt: __CHIMERA_VAL__           # Automated Water Extent Shadow Threshold
+    pswt_1_mndwi: __CHIMERA_VAL__   # Partial Surface Water Test-1 MNDWI Threshold
+    pswt_1_nir: __CHIMERA_VAL__     # Partial Surface Water Test-1 NIR Threshold
+    pswt_1_swir1: __CHIMERA_VAL__   # Partial Surface Water Test-1 SWIR1 Threshold
+    pswt_1_ndvi: __CHIMERA_VAL__    # Partial Surface Water Test-1 NDVI Threshold
+    pswt_2_mndwi: __CHIMERA_VAL__   # Partial Surface Water Test-2 MNDWI Threshold
+    pswt_2_blue: __CHIMERA_VAL__    # Partial Surface Water Test-2 Blue Threshold
+    pswt_2_nir: __CHIMERA_VAL__     # Partial Surface Water Test-2 NIR Threshold
+    pswt_2_swir1: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR1 Threshold
+    pswt_2_swir2: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR2 Threshold
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -34,6 +46,7 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
+  - get_metadata
   - get_input_filepaths_from_state_config
   - get_cnm_version
   - set_daac_product_type
@@ -47,6 +60,19 @@ postprocess:
 
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here
+get_metadata:
+  keys:
+    - wigt
+    - awgt
+    - pswt_1_mndwi
+    - pswt_1_nir
+    - pswt_1_swir1
+    - pswt_1_ndvi
+    - pswt_2_mndwi
+    - pswt_2_blue
+    - pswt_2_nir
+    - pswt_2_swir1
+    - pswt_2_swir2
 
 get_dems:
   # Specify a specific bounding box to obtain the corresponding DEM for.
@@ -117,4 +143,4 @@ localize_groups:
 input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
     - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
     - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
-output_base_name: OPERA_L3_DSWx_HLS_{sensor}_30_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{collection_version}_{product_counter}
+output_base_name: OPERA_L3_DSWx_HLS_{sensor}_30_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{collection_version}

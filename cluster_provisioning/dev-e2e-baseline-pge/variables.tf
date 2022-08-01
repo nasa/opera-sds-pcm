@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -145,7 +145,10 @@ variable "subnet_id" {
   default = "subnet-000eb551ad06392c7"
 }
 
-variable "verdi_security_group_id" {
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
 }
 
 variable "cluster_security_group_id" {
@@ -266,7 +269,7 @@ variable "lambda_job_type" {
 }
 
 variable "lambda_job_queue" {
-  default = "opera-job_worker-small"
+  default = "opera-job_worker-hls_data_ingest"
 }
 
 # CNM Response job vars
@@ -314,7 +317,11 @@ variable "asg_role" {
   default = "am-pcm-dev-verdi-role"
 }
 
-variable "asg_vpc" {
+variable "public_asg_vpc" {
+  default = "vpc-02676637ea26098a7"
+}
+
+variable "private_asg_vpc" {
   default = "vpc-b5a983cd"
 }
 
@@ -362,7 +369,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-er.2.0"
 }
 
 variable "crid" {

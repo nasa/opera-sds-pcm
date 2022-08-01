@@ -13,7 +13,6 @@ RunConfig:
         AncillaryFileMap: map(str(), key=str(), min=0)
 
       ProductPathGroup:
-        ProductCounter: int(min=1, max=999, required=False)
         OutputProductPath: str(required=True)
         ScratchPath: str(required=True)
 

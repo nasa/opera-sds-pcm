@@ -60,10 +60,11 @@ variable "bach_ui_branch" {
 }
 
 variable "venue" {
+  default = "dev"
 }
 
 variable "counter" {
-  default = ""
+  default = "fwd"
 }
 
 variable "private_key_file" {
@@ -90,89 +91,6 @@ variable "ops_password" {
   default = "hysdsops"
 }
 
-variable "queues" {
-  default = {
-    "opera-job_worker-small" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 50
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-large" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-hls_data_ingest" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-l3_dswx_hls_state_config" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-send_cnm_notify" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-rcv_cnm_notify" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-hls_data_query" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-      "use_private_vpc" = false
-    }
-    "opera-job_worker-hls_data_download" = {
-      "instance_type" = ["c5n.large", "m5dn.large"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
-      "total_jobs_metric" = true
-      "use_private_vpc" = false
-    }
-    "opera-job_worker-timer" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-  }
-}
 variable "shared_credentials_file" {
   default = "~/.aws/credentials"
 }
@@ -245,51 +163,22 @@ variable "pcm_verdi_role" {
 
 # mozart vars
 variable "mozart" {
-  type = map(string)
-  default = {
-    name          = "mozart"
-    instance_type = "r5.4xlarge"
-    root_dev_size = 200
-    private_ip    = ""
-    public_ip     = ""
-  }
+
 }
 
 # metrics vars
 variable "metrics" {
-  type = map(string)
-  default = {
-    name          = "metrics"
-    instance_type = "r5.xlarge"
-    private_ip    = ""
-    public_ip     = ""
-  }
+
 }
 
 # grq vars
 variable "grq" {
-  type = map(string)
-  default = {
-    name          = "grq"
-    instance_type = "r5.xlarge"
-    private_ip    = ""
-    public_ip     = ""
-  }
+
 }
 
 # factotum vars
 variable "factotum" {
-  type = map(string)
-  default = {
-    name          = "factotum"
-    instance_type = "c5.xlarge"
-    root_dev_size = 50
-    data          = "/data"
-    data_dev      = "/dev/xvdb"
-    data_dev_size = 300
-    private_ip    = ""
-    public_ip     = ""
-  }
+
 }
 
 # ci vars
@@ -370,13 +259,20 @@ variable "cnm_r_venue" {
 }
 
 #The value of daac_delivery_proxy can be
-#  arn:aws:sqs:us-east-1:871271927522:asf-cumulus-dev-opera-workflow-queue
+#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+# need to get SNS arn from PO DAAC and define
 variable "daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
+#variable "daac_response_name" {
+#  default = "opera-dev-daac-cnm-response"
+#  default = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+#}
+
 variable "use_daac_cnm" {
-  default = false
+  default = true
 }
 
 variable "daac_endpoint_url" {
@@ -443,8 +339,12 @@ variable "pge_snapshots_date" {
   default = "20220401-1.0.0-er.3.0"
 }
 
+variable "pge_names" {
+  default = "opera_pge-dswx_hls"
+}
+
 variable "pge_release" {
-  default = "1.0.0-er.2.0"
+  default = "1.0.0-rc.2.0"
 }
 
 variable "crid" {
@@ -455,17 +355,6 @@ variable "cluster_type" {
   default = "reprocessing"
 }
 
-variable "hls_download_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "hlsl30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
-variable "hlss30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
@@ -513,6 +402,14 @@ variable "run_smoke_test" {
   default = true
 }
 
+variable "purge_es_snapshot" {
+  default = true
+}
+
+variable "es_snapshot_bucket" {
+  default = "opera-dev-es-bucket"
+}
+
 variable "artifactory_fn_user" {
   default = ""
 }
@@ -525,6 +422,98 @@ variable "earthdata_pass" {
   default = ""
 }
 
-variable "pge_test_package" {
-  default = "testdata_R1.0.0"
+# ami vars
+variable "amis" {
+
 }
+
+variable "queues" {
+  default = {
+    "opera-job_worker-small" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 50
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-large" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
+      "total_jobs_metric" = true
+    }
+	"opera-job_worker-hls_data_ingest" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 50
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-purge_isl" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 50
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-l3_dswx_hls_state_config" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 50
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-sciflo-l3_dswx_hls" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 400
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-send_cnm_notify" = {
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-rcv_cnm_notify" = {
+      "instance_type" = [
+        "t2.medium",
+        "t3a.medium",
+        "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-hls_data_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+	"opera-job_worker-timer" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 100
+      "max_size"      = 10
+      "total_jobs_metric" = false
+    }
+  }
+}
+
