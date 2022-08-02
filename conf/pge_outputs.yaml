@@ -5,7 +5,7 @@
 # Outputs - This area defines the different file name patterns for the
 # expected outputs:
 #
-# Primary - Refers to the primary output product, which is usually the image (*.tif)
+# Primary - Refers to the primary output product, which is usually the image (*.tiff)
 # files. Any product found here will be converted to a HySDS style
 # dataset.
 #
@@ -20,7 +20,7 @@
 # Missing_Metadata - Defines a list of metadata to fill in the .met.json.
 
 # Key name MUST match the corresponding RunConfig jinja2 template filename.
-L3_HLS:
+L3_DSWx_HLS:
   Outputs:
     Primary:
       # Pattern for parsing output image filenames, such as:

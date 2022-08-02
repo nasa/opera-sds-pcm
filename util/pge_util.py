@@ -101,7 +101,7 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
             logger.info(f'Simulating met {met_file}')
             with open(met_file, 'w') as outfile:
                 json.dump(metadata, outfile, indent=2)
-        elif extension.endswith('tiff') and pge_name == 'L3_HLS':
+        elif extension.endswith('tiff') and pge_name == 'L3_DSWx_HLS':
             # Simulate the multiple output tif files created by this PGE
 
             for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
