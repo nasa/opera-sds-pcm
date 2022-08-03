@@ -5,7 +5,6 @@
 
 import argparse
 import asyncio
-import itertools
 import socket
 import json
 import logging
@@ -73,8 +72,8 @@ async def run(argv: list[str]):
     settings = SettingsConf().cfg
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
-    token_url = f"http://{cmr}/legacy-services/rest/tokens"
-    netloc = urlparse(f"{edl}").netloc
+    token_url = f"https://{cmr}/legacy-services/rest/tokens"
+    netloc = urlparse(f"https://{edl}").netloc
     hls_conn = get_hls_catalog_connection(logging.getLogger(__name__))
 
     if args.file:
@@ -115,8 +114,7 @@ async def run(argv: list[str]):
         if args.subparser_name == "query" or args.subparser_name == "full":
             results["query"] = await run_query(args, token, hls_conn, cmr, job_id)
         if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token, hls_conn, netloc, username, password,
-                                               job_id)  # no return value
+            results["download"] = run_download(args, token, hls_conn, netloc, username, password, job_id) # return None
     logging.info(f"{results=}")
     logging.info("END")
     return results
@@ -613,8 +611,8 @@ def _url_to_tile_id(url: str):
     return tile_id
 
 
-def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
-    all_pending_downloads: Iterable[dict] = HLS_CONN.get_all_undownloaded()
+def run_download(args, token, hls_conn, netloc, username, password, job_id):
+    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded()
 
     downloads = all_pending_downloads
     if args.tile_ids:
@@ -630,16 +628,16 @@ def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.tile_ids = args.tile_ids[:1]
 
-    session = SessionWithHeaderRedirection(username, password, NETLOC)
+    session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.transfer_protocol == "https":
+    if args.transfer_protocol.lower() == "https":
         download_urls = [_to_https_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        _upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
+        _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads]
         logging.info(f"{download_urls=}")
-        _upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
+        _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(downloads)}")
 
