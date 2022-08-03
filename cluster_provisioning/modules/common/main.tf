@@ -834,6 +834,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "chmod 755 ~/download_artifact.sh",
       "chmod 400 ~/.ssh/${basename(var.private_key_file)}",
@@ -1047,6 +1048,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "mv ~/.sds ~/.sds.bak",
       "rm -rf ~/mozart",
@@ -1165,6 +1167,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "source ~/.bash_profile",
       "if [ \"${var.hysds_release}\" = \"develop\" ]; then",
@@ -1256,6 +1259,7 @@ resource "aws_instance" "mozart" {
   # Get test data from the artifactory and put into tests directory
   provisioner "remote-exec" {
     inline = [
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "source ~/.bash_profile",
       "mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
@@ -1269,6 +1273,7 @@ resource "aws_instance" "mozart" {
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
     inline = [
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "source ~/.bash_profile",
       // grq
@@ -1302,6 +1307,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "source ~/.bash_profile",
       # build/import opera-pcm
@@ -1355,6 +1361,7 @@ resource "null_resource" "destroy_es_snapshots" {
   provisioner "remote-exec" {
     when = destroy
     inline = [
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "set -ex",
       "source ~/.bash_profile",
       "if [ \"${self.triggers.purge_es_snapshot}\" = true ]; then",
@@ -1626,6 +1633,7 @@ resource "aws_instance" "metrics" {
 
   provisioner "remote-exec" {
     inline = [
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
@@ -1696,6 +1704,7 @@ resource "aws_instance" "grq" {
 
   provisioner "remote-exec" {
     inline = [
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
@@ -1787,6 +1796,7 @@ resource "aws_instance" "factotum" {
 
   provisioner "remote-exec" {
     inline = [
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
