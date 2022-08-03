@@ -88,25 +88,25 @@ def test_l30():
     logging.info("Sleeping for L2 ingest...")
     sleep_for(150)
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B02"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B03", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B03", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B03"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B04", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B04", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B04"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B05", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B05", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B05"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B06", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B06", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B06"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B07", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B07", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B07"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
 
     logging.info("Sleeping for state-config execution...")
@@ -163,25 +163,25 @@ def test_s30():
     logging.info("Sleeping for L2 ingest...")
     sleep_for(150)
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B02"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B03", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B03", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B03"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B04", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B04", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B04"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B11", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B11", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B11"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B12", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B12", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B12"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B8A", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B8A", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B8A"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.Fmask", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.Fmask", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
 
     logging.info("Sleeping for state-config execution...")
