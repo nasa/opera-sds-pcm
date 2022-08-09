@@ -48,24 +48,18 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
 
     output_types = pge_config.get(oc_const.OUTPUT_TYPES)
 
-    for output_type in output_types.keys():
-        product_shortname = match.groupdict()['product_shortname']
-        if product_shortname == 'HLS.L30':
-            sensor = 'L8'
-        elif product_shortname == 'HLS.S30':
-            sensor = 'S2A'
-        else:
-            raise
+    # Generate the output file base name specific to the PGE to be simulated
+    base_name_map = {
+        'L3_DSWx_HLS': get_dswx_hls_simulated_output_basename
+    }
 
-        base_name = output_base_name.format(
-            tile_id=match.groupdict()['tile_id'],
-            # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
-            acquisition_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            # make creation time a duplicate of the acquisition time for ease of testing
-            creation_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            sensor=sensor,
-            collection_version=match.groupdict()['collection_version']
-        )
+    try:
+        output_basename_function = base_name_map[pge_name]
+    except KeyError as err:
+        raise RuntimeError(f'No basename function available for PGE {str(err)}')
+
+    for output_type in output_types.keys():
+        base_name = output_basename_function(match, output_base_name)
         metadata = {}
         simulate_output(pge_name, metadata, base_name, output_dir, output_types[output_type])
 
@@ -76,6 +70,29 @@ def get_input_dataset_id(context: Dict) -> str:
         if param['name'] == 'input_dataset_id':
             return param['value']
     raise
+
+
+def get_dswx_hls_simulated_output_basename(dataset_match, base_name_template):
+    """Generates the output basename for simulated DSWx-HLS PGE runs"""
+    product_shortname = dataset_match.groupdict()['product_shortname']
+    if product_shortname == 'HLS.L30':
+        sensor = 'L8'
+    elif product_shortname == 'HLS.S30':
+        sensor = 'S2A'
+    else:
+        raise
+
+    base_name = base_name_template.format(
+        tile_id=dataset_match.groupdict()['tile_id'],
+        # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
+        acquisition_ts=datetime.strptime(dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+        # make creation time a duplicate of the acquisition time for ease of testing
+        creation_ts=datetime.strptime(dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+        sensor=sensor,
+        collection_version=dataset_match.groupdict()['collection_version']
+    )
+
+    return base_name
 
 
 def get_input_dataset_tile_code(context: Dict) -> str:
