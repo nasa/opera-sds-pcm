@@ -9,7 +9,9 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
-from .pge_functions import (dswx_hls_lineage_metadata,
+from .pge_functions import (cslc_s1_lineage_metadata,
+                            dswx_hls_lineage_metadata,
+                            update_cslc_s1_runconfig,
                             update_dswx_hls_runconfig)
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
@@ -22,10 +24,12 @@ from util.exec_util import exec_wrapper, call_noerr
 to_json = partial(json.dumps, indent=2)
 
 lineage_metadata_functions = {
+    'L2_CSLC_S1': cslc_s1_lineage_metadata,
     'L3_DSWx_HLS': dswx_hls_lineage_metadata
 }
 
 runconfig_update_functions = {
+    'L2_CSLC_S1': update_cslc_s1_runconfig,
     'L3_DSWx_HLS': update_dswx_hls_runconfig
 }
 
@@ -62,7 +66,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
 
     try:
-        lineage_metadata = lineage_metadata_functions[pge_name](context, work_dir)
+        lineage_metadata = lineage_metadata_functions[pge_name](job_json_dict, work_dir)
     except KeyError as err:
         raise RuntimeError(f'No lineage metadata function available for PGE {str(err)}')
 
@@ -72,7 +76,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     if pge_name in runconfig_update_functions:
         logger.info("Updating run config for use with PGE.")
-        run_config = runconfig_update_functions[pge_name](context, work_dir)
+        run_config = runconfig_update_functions[pge_name](job_json_dict, work_dir)
 
     # create RunConfig.yaml
     logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")

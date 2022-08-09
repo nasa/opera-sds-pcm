@@ -3,7 +3,28 @@ PGE-specific functions for use with the OPERA PGE Wrapper
 """
 import glob
 import os
+from os.path import basename
 from typing import Dict
+
+
+def cslc_s1_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the CSLC-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    for input_filepath in run_config["input_file_group"].values():
+        # By now Chimera has localized any files from S3, so we need to modify
+        # s3 URI's to point to the local location on disk
+        if input_filepath.startswith('s3://'):
+            input_filepath = os.path.join(work_dir, basename(input_filepath))
+
+        lineage_metadata.append(input_filepath)
+
+    for input_ancillary_path in run_config["dynamic_ancillary_file_group"].values():
+        lineage_metadata.append(input_ancillary_path)
+
+    return lineage_metadata
 
 
 def dswx_hls_lineage_metadata(context, work_dir):
@@ -14,7 +35,7 @@ def dswx_hls_lineage_metadata(context, work_dir):
     # capture the inputs, so we can store the lineage in the output dataset metadata
     lineage_metadata = []
     for s3_input_filepath in run_config["product_paths"]["L2_HLS"]:
-        local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
 
     # Copy the ancillaries downloaded for this job to the pge input directory
@@ -28,6 +49,21 @@ def dswx_hls_lineage_metadata(context, work_dir):
     lineage_metadata.extend(local_worldcover_filepaths)
 
     return lineage_metadata
+
+
+def update_cslc_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the CSLC-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+
+    safe_file_path = run_config["input_file_group"]["safe_file_path"]
+    orbit_file_path = run_config["input_file_group"]["orbit_file_path"]
+    run_config["input_file_group"]["safe_file_path"] = f'/home/compass_user/input_dir/{basename(safe_file_path)}'
+    run_config["input_file_group"]["orbit_file_path"] = f'/home/compass_user/input_dir/{basename(orbit_file_path)}'
+
+    # TODO: update once DEM staging is implemented for CSLC-S1
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = '/home/compass_user/input_dir/dem_4326.tiff'
+
+    return run_config
 
 
 def update_dswx_hls_runconfig(context, work_dir):
