@@ -799,7 +799,7 @@ def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     source_key = source[2]
 
     target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-    target_key = Path(staging_area, file_name)
+    target_key = str(Path(staging_area, file_name))
 
     try:
         s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
