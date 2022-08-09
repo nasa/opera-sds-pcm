@@ -2,7 +2,6 @@
 OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import argparse
-import glob
 import json
 import os
 import shutil
@@ -10,6 +9,8 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
+from .pge_functions import (dswx_hls_lineage_metadata,
+                            update_dswx_hls_runconfig)
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
@@ -19,6 +20,14 @@ from util.ctx_util import JobContext, DockerParams
 from util.exec_util import exec_wrapper, call_noerr
 
 to_json = partial(json.dumps, indent=2)
+
+lineage_metadata_functions = {
+    'L3_DSWx_HLS': dswx_hls_lineage_metadata
+}
+
+runconfig_update_functions = {
+    'L3_DSWx_HLS': update_dswx_hls_runconfig
+}
 
 
 @exec_wrapper
@@ -46,41 +55,28 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info(f"Preparing Working Directory: {work_dir}")
     logger.info(f"{list(Path(work_dir).iterdir())=}")
 
-    input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
+    input_dir, output_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
 
     run_config: Dict = job_json_dict.get("run_config")
+    pge_config: Dict = job_json_dict.get("pge_config")
+    pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
 
-    # We need to convert the S3 urls specified in the run config to local paths and also
-    # capture the inputs, so we can store the lineage in the output dataset metadata
-    lineage_metadata = []
-    for s3_input_filepath in run_config["product_paths"]["L2_HLS"]:
-        local_input_filepath = os.path.join(work_dir, os.path.basename(s3_input_filepath))
-        lineage_metadata.append(local_input_filepath)
+    try:
+        lineage_metadata = lineage_metadata_functions[pge_name](context, work_dir)
+    except KeyError as err:
+        raise RuntimeError(f'No lineage metadata function available for PGE {str(err)}')
 
-    # Copy the ancillaries downloaded for this job to the pge input directory
-    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
-    lineage_metadata.extend(local_dem_filepaths)
-
-    local_landcover_filepath = os.path.join(work_dir, "landcover.tif")
-    lineage_metadata.append(local_landcover_filepath)
-
-    local_worldcover_filepaths = glob.glob(os.path.join(work_dir, "worldcover*.*"))
-    lineage_metadata.extend(local_worldcover_filepaths)
-
-    logger.info("Copying input files to input directories.")
+    logger.info("Moving input files to input directories.")
     for local_input_filepath in lineage_metadata:
-        shutil.copy(local_input_filepath, input_hls_dir)
+        shutil.move(local_input_filepath, input_dir)
 
-    logger.info("Updating run config for use with PGE.")
-    run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = '/home/conda/input_dir/dem.vrt'
-    run_config["dynamic_ancillary_file_group"]["landcover_file"] = '/home/conda/input_dir/landcover.tif'
-    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = '/home/conda/input_dir/worldcover.vrt'
+    if pge_name in runconfig_update_functions:
+        logger.info("Updating run config for use with PGE.")
+        run_config = runconfig_update_functions[pge_name](context, work_dir)
 
     # create RunConfig.yaml
     logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")
-    pge_config: Dict = job_json_dict.get("pge_config")
-    pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
+
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
@@ -102,7 +98,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
         exec_pge_command(
             context=job_json_dict,
             work_dir=work_dir,
-            input_hls_dir=input_hls_dir,
+            input_hls_dir=input_dir,
             runconfig_dir=runconfig_dir,
             output_dir=output_dir
         )
@@ -123,19 +119,19 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
 
 def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str, str]:
-    """Creates the requisite directories per PGE-PCM ICS for L3_DSWx_HLS."""
+    """Creates the requisite directories per the PGE-PCM ICS"""
     logger.info("Creating directories for PGE.")
 
     runconfig_dir = os.path.join(work_dir, job_param_by_name(context, "pge_runconfig_dir"))
     os.makedirs(runconfig_dir, 0o755, exist_ok=True)
 
-    input_hls_dir = os.path.join(work_dir, job_param_by_name(context, "pge_input_dir"))
-    os.makedirs(input_hls_dir, 0o755, exist_ok=True)
+    input_dir = os.path.join(work_dir, job_param_by_name(context, "pge_input_dir"))
+    os.makedirs(input_dir, 0o755, exist_ok=True)
 
     output_dir = os.path.join(work_dir, job_param_by_name(context, "pge_output_dir"))
     os.makedirs(output_dir, 0o755, exist_ok=True)
 
-    return input_hls_dir, output_dir, runconfig_dir
+    return input_dir, output_dir, runconfig_dir
 
 
 def job_param_by_name(context: Dict, name: str):
