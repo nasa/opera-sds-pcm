@@ -20,6 +20,7 @@ config = conftest.config
 
 s3_client = boto3.client("s3", config=(Config(max_pool_connections=30)))
 sns_client = boto3.client("sns", config=(Config(max_pool_connections=30)))
+sqs_client = boto3.client("sqs", config=(Config(max_pool_connections=30)))
 
 
 def index_not_found(e: elasticsearch.exceptions.NotFoundError):
@@ -44,10 +45,11 @@ def raise_(ex: Exception):
     interval=30
 )
 @backoff.on_exception(
-    backoff.expo,
+    backoff.constant,
     elasticsearch.exceptions.NotFoundError,
     max_time=60*10,
-    giveup=index_not_found
+    giveup=index_not_found,
+    interval=30
 )
 def wait_for_l2(_id, index):
     return search_es(index, _id)
@@ -62,10 +64,11 @@ def wait_for_l2(_id, index):
     interval=30
 )
 @backoff.on_exception(
-    backoff.expo,
+    backoff.constant,
     elasticsearch.exceptions.NotFoundError,
     max_time=60*10,
-    giveup=index_not_found
+    giveup=index_not_found,
+    interval=30
 )
 def wait_for_state_config(_id, index):
     return search_es(index, _id)
@@ -74,16 +77,17 @@ def wait_for_state_config(_id, index):
 @backoff.on_predicate(
     backoff.constant,
     lambda r: len(r) != 1,
-    max_time=60*15,
+    max_time=60*20,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
     interval=30
 )
 @backoff.on_exception(
-    backoff.expo,
+    backoff.constant,
     elasticsearch.exceptions.NotFoundError,
-    max_time=60*15,
-    giveup=index_not_found
+    max_time=60*20,
+    giveup=index_not_found,
+    interval=30
 )
 def wait_for_l3(_id, index):
     return search_es(index, _id)
@@ -121,10 +125,10 @@ def wait_for_cnm_r_success(_id, index):
 def mock_cnm_r_success(id):
     logging.info(f"Mocking CNM-R success ({id=})")
 
-    sns_client.publish(
-        TopicArn=config["CNMR_TOPIC"],
+    sqs_client.send_message(
+        QueueUrl=config["CNMR_QUEUE"],
         # body text is dynamic, so we can skip any de-dupe logic
-        Message=f"""{{
+        MessageBody=f"""{{
             "version": "1.0",
             "provider": "JPL-OPERA",
             "collection": "SWOT_Prod_l2:1",
