@@ -77,12 +77,9 @@ module "common" {
   grq_aws_es_port                         = var.grq_aws_es_port
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
-
   use_daac_cnm_r                          = var.use_daac_cnm_r
-
-  pge_names                               = var.pge_names
+  pge_releases                            = var.pge_releases
   pge_snapshots_date                      = var.pge_snapshots_date
-  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency

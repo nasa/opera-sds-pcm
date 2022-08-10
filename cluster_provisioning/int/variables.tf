@@ -344,12 +344,12 @@ variable "pge_snapshots_date" {
   default = ""
 }
 
-variable "pge_names" {
-  default = "opera_pge-dswx_hls"
-}
-
-variable "pge_release" {
-  default = "1.0.0-rc.3.0"
+variable "pge_releases" {
+  type = map(string)
+  default = {
+    "dswx_hls" = "1.0.0-rc.3.0"
+    "cslc_s1" = "2.0.0-er.2.0"
+  }
 }
 
 variable "crid" {
