@@ -50,11 +50,17 @@ module "common" {
   lambda_job_queue                        = var.lambda_job_queue
   cnm_r_handler_job_type                  = var.cnm_r_handler_job_type
   cnm_r_job_queue                         = var.cnm_r_job_queue
-  cnm_r_event_trigger                     = var.cnm_r_event_trigger
+  po_daac_cnm_r_event_trigger             = var.po_daac_cnm_r_event_trigger
+  asf_daac_cnm_r_event_trigger            = var.asf_daac_cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
   cnm_r_venue                             = var.cnm_r_venue
-  daac_delivery_proxy                     = var.daac_delivery_proxy
-  daac_endpoint_url                       = var.daac_endpoint_url
+
+  po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
+  po_daac_endpoint_url                    = var.po_daac_endpoint_url
+
+  asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
+  asf_daac_endpoint_url                   = var.asf_daac_endpoint_url
+
   asg_use_role                            = var.asg_use_role
   asg_role                                = var.asg_role
   public_asg_vpc                          = var.public_asg_vpc
@@ -71,7 +77,9 @@ module "common" {
   grq_aws_es_port                         = var.grq_aws_es_port
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
-  use_daac_cnm                            = var.use_daac_cnm
+
+  use_daac_cnm_r                          = var.use_daac_cnm_r
+
   pge_names                               = var.pge_names
   pge_snapshots_date                      = var.pge_snapshots_date
   pge_release                             = var.pge_release
@@ -134,7 +142,7 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              echo "use_daac_cnm is ${var.use_daac_cnm}"
+              echo "use_daac_cnm is ${var.use_daac_cnm_r}"
               if [ "${var.run_smoke_test}" = true ]; then
                 ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \
                 ${var.project} \
@@ -152,8 +160,8 @@ resource "null_resource" "mozart" {
                 ${module.common.mozart.private_ip} \
                 ${module.common.isl_bucket} \
                 ${local.source_event_arn} \
-                ${var.daac_delivery_proxy} \
-                ${var.use_daac_cnm} \
+                ${var.po_daac_delivery_proxy} \
+                ${var.use_daac_cnm_r} \
                 ${local.crid} \
                 ${var.cluster_type} || :
               fi

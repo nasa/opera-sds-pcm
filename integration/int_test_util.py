@@ -122,7 +122,32 @@ def wait_for_cnm_r_success(_id, index):
     return response
 
 
-def mock_cnm_r_success(id):
+def mock_cnm_r_success_sns(id):
+    logging.info(f"Mocking CNM-R success ({id=})")
+
+    sns_client.publish(
+        TopicArn=config["CNMR_TOPIC"],
+        # body text is dynamic, so we can skip any de-dupe logic
+        Message=f"""{{
+            "version": "1.0",
+            "provider": "JPL-OPERA",
+            "collection": "SWOT_Prod_l2:1",
+            "processCompleteTime": "{datetime.now().isoformat()}Z",
+            "submissionTime": "2017-09-30T03:42:29.791198Z",
+            "receivedTime": "2017-09-30T03:42:31.634552Z",
+            "identifier": "{id}",
+            "response": {{
+                "status": "SUCCESS",
+                "ingestionMetadata": {{
+                  "catalogId": "G1238611022-POCUMULUS",
+                  "catalogUrl": "https://cmr.uat.earthdata.nasa.gov/search/granules.json?concept_id=G1238611022-POCUMULUS"
+                }}
+            }}
+        }}"""
+    )
+
+
+def mock_cnm_r_success_sqs(id):
     logging.info(f"Mocking CNM-R success ({id=})")
 
     sqs_client.send_message(

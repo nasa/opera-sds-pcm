@@ -149,16 +149,16 @@ variable "amis" {
 }
 
 ####### CNM Response job vars #######
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   default = false
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
   default = ""
 }
 
