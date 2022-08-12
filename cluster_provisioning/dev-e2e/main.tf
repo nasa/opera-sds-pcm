@@ -291,7 +291,7 @@ resource "null_resource" "smoke_test" {
   }
 
   provisioner "remote-exec" {
-    inline = [<<-EOF
+    inline = [<<-EOT
               if [ "${var.run_smoke_test}" = true ]; then
                 cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
 
@@ -309,7 +309,7 @@ resource "null_resource" "smoke_test" {
                 --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
                 --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0"
               fi
-    EOF
+    EOT
     ]
   }
 }

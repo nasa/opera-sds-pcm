@@ -156,4 +156,5 @@ pytest --maxfail=2 --numprocesses=auto \
   integration/test_integration.py::test_s30 \
   integration/test_integration.py::test_subscriber_l30 \
   integration/test_integration.py::test_subscriber_s30
+cp -f target/reports/junit/junit.xml /tmp/junit.xml
 set -e
