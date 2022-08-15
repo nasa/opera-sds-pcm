@@ -484,12 +484,13 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
-    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
-    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
-    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
-    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
-    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
+    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
+    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
+    grq       = "ami-0b3852a0f65efed65" # grq v4.13
+    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 
