@@ -29,7 +29,7 @@ resource "aws_instance" "verdi" {
     ignore_changes = [tags]
   }
   subnet_id              = var.subnet_id
-  vpc_security_group_ids = [var.verdi_security_group_id]
+  vpc_security_group_ids = [var.public_verdi_security_group_id]
 
   ebs_block_device {
     device_name           = var.verdi["device_name"]
