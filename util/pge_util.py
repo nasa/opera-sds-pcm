@@ -50,6 +50,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
 
     # Generate the output file base name specific to the PGE to be simulated
     base_name_map = {
+        'L2_CSLC_S1': get_cslc_s1_simulated_output_basename,
         'L3_DSWx_HLS': get_dswx_hls_simulated_output_basename
     }
 
@@ -70,6 +71,20 @@ def get_input_dataset_id(context: Dict) -> str:
         if param['name'] == 'input_dataset_id':
             return param['value']
     raise
+
+
+def get_cslc_s1_simulated_output_basename(dataset_match, base_name_template):
+    """Generates the output basename for simulated CSLC-S1 PGE runs"""
+
+    base_name = base_name_template.format(
+        burst_id='T64-135524-IW2',
+        pol='VV',
+        acquisition_ts=dataset_match.groupdict()['start_ts'],
+        product_version='v0.1',
+        creation_ts=dataset_match.groupdict()['stop_ts']
+    )
+
+    return base_name
 
 
 def get_dswx_hls_simulated_output_basename(dataset_match, base_name_template):
