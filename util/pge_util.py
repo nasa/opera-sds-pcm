@@ -4,7 +4,10 @@ import json
 import re
 from typing import Dict, List
 
+import boto3
+
 from commons.logger import logger
+from hysds.utils import get_disk_usage
 
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
@@ -14,6 +17,49 @@ DSWX_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
 List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
 PGE.
 """
+
+
+def download_ancillary_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
+    """Helper function to download an arbitrary ancillary file from S3"""
+    if not s3_bucket or not s3_key:
+        raise RuntimeError(
+            f"Incomplete S3 location for {filetype} file.\n"
+            f"Values must be provided for both the '{oc_const.S3_BUCKET}' "
+            f"and the '{oc_const.S3_KEY}' fields within the appropriate "
+            f"section of the PGE config."
+        )
+
+    s3 = boto3.resource('s3')
+
+    pge_metrics = {"download": [], "upload": []}
+
+    loc_t1 = datetime.utcnow()
+
+    try:
+        logger.info(f'Downloading {filetype} file s3://{s3_bucket}/{s3_key} to {output_filepath}')
+        s3.Object(s3_bucket, s3_key).download_file(output_filepath)
+    except Exception as err:
+        errmsg = f'Failed to download {filetype} file from S3, reason: {str(err)}'
+        raise RuntimeError(errmsg)
+
+    loc_t2 = datetime.utcnow()
+    loc_dur = (loc_t2 - loc_t1).total_seconds()
+    path_disk_usage = get_disk_usage(output_filepath)
+
+    pge_metrics["download"].append(
+        {
+            "url": output_filepath,
+            "path": output_filepath,
+            "disk_usage": path_disk_usage,
+            "time_start": loc_t1.isoformat() + "Z",
+            "time_end": loc_t2.isoformat() + "Z",
+            "duration": loc_dur,
+            "transfer_rate": path_disk_usage / loc_dur,
+        }
+    )
+    logger.info(json.dumps(pge_metrics, indent=2))
+
+    return pge_metrics
 
 
 def write_pge_metrics(metrics_path, pge_metrics):

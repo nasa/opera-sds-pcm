@@ -27,7 +27,9 @@ from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.common_util import convert_datetime, get_working_dir
-from util.pge_util import get_input_dataset_tile_code, write_pge_metrics
+from util.pge_util import (download_ancillary_from_s3,
+                           get_input_dataset_tile_code,
+                           write_pge_metrics)
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
 from tools.stage_worldcover import main as stage_worldcover
@@ -854,43 +856,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         s3_bucket = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_BUCKET)
         s3_key = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_KEY)
 
-        if not s3_bucket or not s3_key:
-            raise RuntimeError(
-                f"Incomplete S3 location for Landcover file.\n"
-                f"Values must be provided for both the '{oc_const.S3_BUCKET}' "
-                f"and the '{oc_const.S3_KEY}' fields within the {oc_const.GET_LANDCOVER} "
-                f"section of the PGE config."
-            )
-
-        s3 = boto3.resource('s3')
-
-        pge_metrics = {"download": [], "upload": []}
-
-        loc_t1 = datetime.utcnow()
-
-        try:
-            logger.info(f'Downloading Landcover file s3://{s3_bucket}/{s3_key} to {output_filepath}')
-            s3.Object(s3_bucket, s3_key).download_file(output_filepath)
-        except Exception as err:
-            errmsg = f'Failed to download Landcover file from S3, reason: {str(err)}'
-            raise RuntimeError(errmsg)
-
-        loc_t2 = datetime.utcnow()
-        loc_dur = (loc_t2 - loc_t1).total_seconds()
-        path_disk_usage = get_disk_usage(output_filepath)
-
-        pge_metrics["download"].append(
-            {
-                "url": output_filepath,
-                "path": output_filepath,
-                "disk_usage": path_disk_usage,
-                "time_start": loc_t1.isoformat() + "Z",
-                "time_end": loc_t2.isoformat() + "Z",
-                "duration": loc_dur,
-                "transfer_rate": path_disk_usage / loc_dur,
-            }
+        pge_metrics = download_ancillary_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Landcover"
         )
-        logger.info(json.dumps(pge_metrics, indent=2))
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
