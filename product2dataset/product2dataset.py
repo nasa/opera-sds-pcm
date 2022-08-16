@@ -148,7 +148,13 @@ def convert(
         if "dswx_hls" in dataset_id.lower():
             collection_name: str = settings.get("DSWX_COLLECTION_NAME")
             dataset_met_json["CollectionName"] = collection_name
-            logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
+        elif "cslc_s1" in dataset_id.lower():
+            collection_name = settings.get("CSLC_COLLECTION_NAME")
+            dataset_met_json["CollectionName"] = collection_name
+        else:
+            collection_name = "Unknown"
+
+        logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
         dataset_met_json.update(extra_met)
         dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")
