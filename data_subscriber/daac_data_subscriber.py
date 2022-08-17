@@ -496,7 +496,6 @@ def query_cmr(args, token, cmr) -> list:
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
-        'scroll': "false",
         'page_size': PAGE_SIZE,
         'sort_key': "-start_date",
         'provider': args.provider,
