@@ -32,7 +32,26 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
             "dummy_met_json_entry_key": "dummy_met_json_entry_value",
             "FileSize": 0,
             "id": "dummy_product_id",
-            "FileName": "dummy_product_filename"
+            "FileName": "dummy_product_filename",
+            "params": [
+                {
+                  "destination": "context",
+                  "name": "dataset_type",
+                  "value": "L2_HLS_S30-state-config"
+                }
+            ],
+            "datasets": [
+              {
+                "type": "L2_HLS_S30",
+                "publish": {
+                  "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+                  "urls": [
+                    "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
+                    "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+                  ]
+                }
+               }
+            ]
         }
     """))
     mocker.patch("product2dataset.product2dataset.os.path.abspath", lambda _: f"/{_}")
