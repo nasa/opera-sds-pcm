@@ -274,8 +274,12 @@ variable "cnm_r_job_queue" {
   default = "opera-job_worker-rcv_cnm_notify"
 }
 
-variable "cnm_r_event_trigger" {
+variable "po_daac_cnm_r_event_trigger" {
   default = "sns"
+}
+
+variable "asf_daac_cnm_r_event_trigger" {
+  default = "sqs"
 }
 
 variable "cnm_r_allowed_account" {
@@ -286,17 +290,27 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
-#The value of daac_delivery_proxy can be
+#The value of po_daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   default = false
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
+  default = ""
+}
+
+#The value of asf_daac_delivery_proxy can be
+#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+variable "asf_daac_delivery_proxy" {
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+}
+
+variable "asf_daac_endpoint_url" {
   default = ""
 }
 
@@ -470,12 +484,13 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
-    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
-    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
-    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
-    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
-    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
+    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
+    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
+    grq       = "ami-0b3852a0f65efed65" # grq v4.13
+    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 

@@ -29,7 +29,7 @@ resource "aws_instance" "verdi" {
     ignore_changes = [tags]
   }
   subnet_id              = var.subnet_id
-  vpc_security_group_ids = [var.verdi_security_group_id]
+  vpc_security_group_ids = [var.public_verdi_security_group_id]
 
   ebs_block_device {
     device_name           = var.verdi["device_name"]
@@ -96,15 +96,10 @@ resource "aws_volume_attachment" "volume_attachment" {
       "  docker load < docker-registry-${var.registry_release}.tar.gz",
       "  rm docker-registry-${var.registry_release}.tar.gz",
       "fi",
-#      "  curl -O \"https://artifactory-fn.jpl.nasa.gov:443/artifactory/${var.artifactory_repo}/gov/nasa/jpl/opera/sds/pcm/pge_snapshots/${var.pge_snapshots_date}/opera_pge-dswx_hls-${var.pge_release}.tar.gz\"",
 
       "  curl -O \"https://artifactory-fn.jpl.nasa.gov:443/artifactory/general/gov/nasa/jpl/opera/sds/pge/dswx_hls/opera_pge-dswx_hls-${var.pge_release}.tar.gz\" \\",
       "  --header 'Authorization: Basic ${base64encode(format("%s:%s", var.artifactory_fn_user, var.artifactory_fn_api_key))}'",
       "  docker load -i opera_pge-dswx_hls-${var.pge_release}.tar.gz",
-# TODO chrisjrd: extract variables
-#      "  curl -O \"https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge/opera_pge-dswx_hls-1.0.0-er.2.0.tar.gz\" \\",
-#      "  --header 'Authorization: Basic ${base64encode(format("%s:%s", var.artifactory_fn_user, var.artifactory_fn_api_key))}'",
-#      "  docker load -i opera_pge-dswx_hls-1.0.0-er.2.0.tar.gz",
 
       "docker tag hysds/verdi:${var.verdi_release} hysds/verdi:latest",
       "/etc/systemd/system/start-verdi.d/start-verdi.sh",
@@ -138,7 +133,6 @@ resource "aws_ebs_snapshot" "verdi_docker_snapshot" {
     Verdi    = var.verdi_release
     Registry = var.registry_release
     Logstash = var.logstash_release
-    l0a      = var.pge_release
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {

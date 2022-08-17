@@ -12,24 +12,35 @@ locals {
   triage_bucket                     = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
   default_lts_bucket                = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
   lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
+
   key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
-  sns_count                         = var.cnm_r_event_trigger == "sns" ? 1 : 0
-  kinesis_count                     = var.cnm_r_event_trigger == "kinesis" ? 1 : 0
-  sqs_count                         = var.cnm_r_event_trigger == "sqs" ? 1 : 0
+
+  cnm_r_kinesis_count               = 0
+
   lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  daac_delivery_event_type          = split(":", var.daac_delivery_proxy)[2]
-  daac_delivery_region              = split(":", var.daac_delivery_proxy)[3]
-  daac_delivery_account             = split(":", var.daac_delivery_proxy)[4]
-  daac_delivery_resource_name       = split(":", var.daac_delivery_proxy)[5]
+
+  po_daac_delivery_event_type       = split(":", var.po_daac_delivery_proxy)[2]
+  po_daac_delivery_region           = split(":", var.po_daac_delivery_proxy)[3]
+  po_daac_delivery_account          = split(":", var.po_daac_delivery_proxy)[4]
+  po_daac_delivery_resource_name    = split(":", var.po_daac_delivery_proxy)[5]
+
+  asf_daac_delivery_event_type      = split(":", var.asf_daac_delivery_proxy)[2]
+  asf_daac_delivery_region          = split(":", var.asf_daac_delivery_proxy)[3]
+  asf_daac_delivery_account         = split(":", var.asf_daac_delivery_proxy)[4]
+  asf_daac_delivery_resource_name   = split(":", var.asf_daac_delivery_proxy)[5]
+
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge/"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
-  daac_proxy_cnm_r_sns_count        = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
-  maturity                          = split("-", var.daac_delivery_proxy)[5]
+
+  po_daac_delivery_proxy_maturity   = split("-", var.po_daac_delivery_proxy)[5]
+  asf_daac_delivery_proxy_maturity   = split("-", var.asf_daac_delivery_proxy)[5]
+
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   hls_download_job_type             = "hls_download"
   hlsl30_query_job_type             = "hlsl30_query_minutes"
   hlss30_query_job_type             = "hlss30_query_minutes"
+
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -78,8 +89,12 @@ resource "null_resource" "download_lambdas" {
   }
 }
 
-resource "null_resource" "is_cnm_r_event_trigger_value_valid" {
-  count = contains(var.cnm_r_event_trigger_values_list, var.cnm_r_event_trigger) ? 0 : "ERROR: The cnm_r_event_trigger value can only be: sns or kinesis"
+resource "null_resource" "is_po_daac_cnm_r_event_trigger_value_valid" {
+  count = contains(var.cnm_r_event_trigger_values_list, var.po_daac_cnm_r_event_trigger) ? 0 : "ERROR: Invalid po_daac_cnm_r_event_trigger value"
+}
+
+resource "null_resource" "is_asf_daac_cnm_r_event_trigger_value_valid" {
+  count = contains(var.cnm_r_event_trigger_values_list, var.asf_daac_cnm_r_event_trigger) ? 0 : "ERROR: Invalid asf_daac_cnm_r_event_trigger value"
 }
 
 resource "null_resource" "is_cluster_type_valid" {
@@ -417,7 +432,6 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
-  count                     = local.sqs_count
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart CNM-R dead letter queue"
   depends_on                = [aws_sqs_queue.cnm_response_dead_letter_queue]
   comparison_operator       = "GreaterThanOrEqualToThreshold"
@@ -431,7 +445,7 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   insufficient_data_actions = []
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
-    QueueName = aws_sqs_queue.cnm_response_dead_letter_queue[count.index].name
+    QueueName = aws_sqs_queue.cnm_response_dead_letter_queue.name
   }
 }
 
@@ -554,36 +568,31 @@ POLICY
 }
 
 resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
-  count                     = local.sqs_count
   name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
 #  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
 }
 
 resource "aws_sqs_queue" "cnm_response" {
-  count                      = local.sqs_count
   name                       = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
 #  name                       = "${var.project}-dev-daac-cnm-response"
-  redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue[count.index].arn}\", \"maxReceiveCount\": 2}"
+  redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
 }
 
 data "aws_sqs_queue" "cnm_response" {
-  count      = local.sqs_count
   depends_on = [aws_sqs_queue.cnm_response]
-  name       = aws_sqs_queue.cnm_response[count.index].name
+  name       = aws_sqs_queue.cnm_response.name
 }
 
-resource "aws_lambda_event_source_mapping" "cnm_response" {
-  depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.cnm_response_handler]
-  count            = local.sqs_count
-  event_source_arn = var.use_daac_cnm == true ? var.daac_cnm_sqs_arn[local.maturity] : aws_sqs_queue.cnm_response[count.index].arn
-  function_name    = aws_lambda_function.cnm_response_handler.arn
+resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
+  depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
+  function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
 
 data "aws_iam_policy_document" "cnm_response" {
-  count     = local.daac_proxy_cnm_r_sns_count
   policy_id = "SQSDefaultPolicy"
   statement {
     actions = [
@@ -595,16 +604,15 @@ data "aws_iam_policy_document" "cnm_response" {
       identifiers = ["*"]
     }
     resources = [
-      data.aws_sqs_queue.cnm_response[count.index].arn
+      data.aws_sqs_queue.cnm_response.arn
     ]
     sid = "Sid1571258347580"
   }
 }
 
 resource "aws_sqs_queue_policy" "cnm_response" {
-  count     = local.daac_proxy_cnm_r_sns_count
-  queue_url = data.aws_sqs_queue.cnm_response[count.index].url
-  policy    = data.aws_iam_policy_document.cnm_response[count.index].json
+  queue_url = data.aws_sqs_queue.cnm_response.url
+  policy    = data.aws_iam_policy_document.cnm_response.json
 }
 
 resource "aws_sqs_queue" "isl_queue" {
@@ -833,216 +841,230 @@ resource "aws_instance" "mozart" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "chmod 755 ~/download_artifact.sh",
-      "chmod 400 ~/.ssh/${basename(var.private_key_file)}",
-      "mkdir ~/.sds",
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      chmod 755 ~/download_artifact.sh
+      chmod 400 ~/.ssh/${basename(var.private_key_file)}
+      mkdir ~/.sds
 
-      "for i in {1..18}; do",
-        "if [[ `grep \"redis single-password\" ~/.creds` != \"\" ]]; then",
-          "echo \"redis password found in ~/.creds\"",
-          "break",
-        "else",
-          "echo \"redis password NOT found in ~/.creds, sleeping 10 sec.\"",
-          "sleep 10",
-        "fi",
-      "done",
+      for i in {1..18}; do
+        if [[ `grep "redis single-password" ~/.creds` != "" ]]; then
+          echo "redis password found in ~/.creds"
+          break
+        else
+          echo "redis password NOT found in ~/.creds, sleeping 10 sec."
+          sleep 10
+        fi
+      done
 
-      "scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip}:~/.creds ~/.creds_metrics",
-      "echo TYPE: hysds > ~/.sds/config",
-      "echo >> ~/.sds/config",
+      scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip}:~/.creds ~/.creds_metrics
+      echo TYPE: hysds > ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo MOZART_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo MOZART_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config",
-      "echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config
+      echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_REDIS_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_REDIS_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo MOZART_ES_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_ES_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo MOZART_ES_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config",
-      "echo OPS_USER: hysdsops >> ~/.sds/config",
-      "echo OPS_HOME: $${HOME} >> ~/.sds/config",
-      "echo OPS_PASSWORD_HASH: $(echo -n ${var.ops_password} | sha224sum |awk '{ print $1}') >> ~/.sds/config",
-      "echo LDAP_GROUPS: ${var.project}-pcm-dev >> ~/.sds/config",
-      "echo KEY_FILENAME: $${HOME}/.ssh/${basename(var.private_key_file)} >> ~/.sds/config",
-      "echo JENKINS_USER: jenkins >> ~/.sds/config",
-      "echo JENKINS_DIR: /var/lib/jenkins >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo MOZART_ES_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_ES_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_ES_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo OPS_USER: hysdsops >> ~/.sds/config
+      echo OPS_HOME: $${HOME} >> ~/.sds/config
+      echo OPS_PASSWORD_HASH: $(echo -n ${var.ops_password} | sha224sum |awk '{ print $1}') >> ~/.sds/config
+      echo LDAP_GROUPS: ${var.project}-pcm-dev >> ~/.sds/config
+      echo KEY_FILENAME: $${HOME}/.ssh/${basename(var.private_key_file)} >> ~/.sds/config
+      echo JENKINS_USER: jenkins >> ~/.sds/config
+      echo JENKINS_DIR: /var/lib/jenkins >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo METRICS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo METRICS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_REDIS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_REDIS_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds_metrics) >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_REDIS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_REDIS_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds_metrics) >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo METRICS_ES_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_ES_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo METRICS_ES_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo METRICS_ES_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_ES_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_ES_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo GRQ_PVT_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config",
-      "echo GRQ_PUB_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config",
-      "echo GRQ_FQDN: ${aws_instance.grq.private_ip} >> ~/.sds/config",
-      "echo GRQ_PORT: 8878 >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo GRQ_PVT_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_PUB_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_FQDN: ${aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_PORT: 8878 >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo GRQ_AWS_ES: ${var.grq_aws_es ? var.grq_aws_es : false} >> ~/.sds/config",
-      "echo GRQ_ES_PROTOCOL: ${var.grq_aws_es ? "https" : "http"} >> ~/.sds/config",
-      "echo GRQ_ES_PVT_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config",
-      "echo GRQ_ES_PUB_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config",
-      "echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config",
-      "echo GRQ_ES_PORT: ${var.grq_aws_es ? var.grq_aws_es_port : 9200} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo GRQ_AWS_ES: ${var.grq_aws_es ? var.grq_aws_es : false} >> ~/.sds/config
+      echo GRQ_ES_PROTOCOL: ${var.grq_aws_es ? "https" : "http"} >> ~/.sds/config
+      echo GRQ_ES_PVT_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_ES_PUB_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_ES_PORT: ${var.grq_aws_es ? var.grq_aws_es_port : 9200} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "if [ \"${var.grq_aws_es}\" = true ] && [ \"${var.use_grq_aws_es_private_verdi}\" = true ]; then",
-      "  echo GRQ_AWS_ES_PRIVATE_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
-      "  echo GRQ_ES_PVT_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
-      "  echo GRQ_ES_PUB_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
-      "  echo GRQ_ES_FQDN_PVT_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config",
-      "  echo ARTIFACTORY_REPO: ${var.artifactory_repo} >> ~/.sds/config",
-      "  echo >> ~/.sds/config",
-      "fi",
+      if [ "${var.grq_aws_es}" = true ] && [ "${var.use_grq_aws_es_private_verdi}" = true ]; then
+        echo GRQ_AWS_ES_PRIVATE_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config
+        echo GRQ_ES_PVT_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config
+        echo GRQ_ES_PUB_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config
+        echo GRQ_ES_FQDN_PVT_IP_VERDI: ${var.grq_aws_es_host_private_verdi} >> ~/.sds/config
+        echo ARTIFACTORY_REPO: ${var.artifactory_repo} >> ~/.sds/config
+        echo >> ~/.sds/config
+      fi
 
-      "echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config",
-      "echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config",
-      "echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
+      echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
+      echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo CI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-      "echo CI_PUB_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-      "echo CI_FQDN: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo CI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config
+      echo CI_PUB_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config
+      echo CI_FQDN: ${var.common_ci["private_ip"]} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo JENKINS_HOST: ${var.jenkins_host} >> ~/.sds/config",
-      "echo JENKINS_ENABLED: ${var.jenkins_enabled} >> ~/.sds/config",
-      "echo JENKINS_API_USER: ${var.jenkins_api_user != "" ? var.jenkins_api_user : var.venue} >> ~/.sds/config",
-      "echo JENKINS_API_KEY: ${var.jenkins_api_key} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo JENKINS_HOST: ${var.jenkins_host} >> ~/.sds/config
+      echo JENKINS_ENABLED: ${var.jenkins_enabled} >> ~/.sds/config
+      echo JENKINS_API_USER: ${var.jenkins_api_user != "" ? var.jenkins_api_user : var.venue} >> ~/.sds/config
+      echo JENKINS_API_KEY: ${var.jenkins_api_key} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo VERDI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-      "echo VERDI_PUB_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-      "echo VERDI_FQDN: ${var.common_ci["private_ip"]} >> ~/.sds/config",
-      "echo OTHER_VERDI_HOSTS: >> ~/.sds/config",
-      "echo '  - VERDI_PVT_IP:' >> ~/.sds/config",
-      "echo '    VERDI_PUB_IP:' >> ~/.sds/config",
-      "echo '    VERDI_FQDN:' >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo VERDI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config
+      echo VERDI_PUB_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config
+      echo VERDI_FQDN: ${var.common_ci["private_ip"]} >> ~/.sds/config
+      echo OTHER_VERDI_HOSTS: >> ~/.sds/config
+      echo '  - VERDI_PVT_IP:' >> ~/.sds/config
+      echo '    VERDI_PUB_IP:' >> ~/.sds/config
+      echo '    VERDI_FQDN:' >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo DAV_SERVER: None >> ~/.sds/config",
-      "echo DAV_USER: None >> ~/.sds/config",
-      "echo DAV_PASSWORD: None >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo DAV_SERVER: None >> ~/.sds/config
+      echo DAV_USER: None >> ~/.sds/config
+      echo DAV_PASSWORD: None >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo DATASET_AWS_REGION: us-west-2 >> ~/.sds/config",
-      "echo DATASET_AWS_ACCESS_KEY: >> ~/.sds/config",
-      "echo DATASET_AWS_SECRET_KEY: >> ~/.sds/config",
-      "echo DATASET_S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config",
-      "echo DATASET_S3_WEBSITE_ENDPOINT: s3-website-us-west-2.amazonaws.com >> ~/.sds/config",
-      "echo DATASET_BUCKET: ${local.dataset_bucket} >> ~/.sds/config",
-      "echo OSL_BUCKET: ${local.osl_bucket} >> ~/.sds/config",
-      "echo TRIAGE_BUCKET: ${local.triage_bucket} >> ~/.sds/config",
-      "echo LTS_BUCKET: ${local.lts_bucket} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo DATASET_AWS_REGION: us-west-2 >> ~/.sds/config
+      echo DATASET_AWS_ACCESS_KEY: >> ~/.sds/config
+      echo DATASET_AWS_SECRET_KEY: >> ~/.sds/config
+      echo DATASET_S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config
+      echo DATASET_S3_WEBSITE_ENDPOINT: s3-website-us-west-2.amazonaws.com >> ~/.sds/config
+      echo DATASET_BUCKET: ${local.dataset_bucket} >> ~/.sds/config
+      echo OSL_BUCKET: ${local.osl_bucket} >> ~/.sds/config
+      echo TRIAGE_BUCKET: ${local.triage_bucket} >> ~/.sds/config
+      echo LTS_BUCKET: ${local.lts_bucket} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo AWS_REGION: us-west-2 >> ~/.sds/config",
-      "echo AWS_ACCESS_KEY: >> ~/.sds/config",
-      "echo AWS_SECRET_KEY: >> ~/.sds/config",
-      "echo S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config",
-      "echo CODE_BUCKET: ${local.code_bucket} >> ~/.sds/config",
-      "echo VERDI_PRIMER_IMAGE: s3://${local.code_bucket}/hysds-verdi-${var.hysds_release}.tar.gz >> ~/.sds/config",
-      "echo VERDI_TAG: ${var.hysds_release} >> ~/.sds/config",
-      "echo VERDI_UID: 1002 >> ~/.sds/config",
-      "echo VERDI_GID: 1002 >> ~/.sds/config",
-      "echo VENUE: ${var.project}-${var.venue}-${local.counter} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo AWS_REGION: us-west-2 >> ~/.sds/config
+      echo AWS_ACCESS_KEY: >> ~/.sds/config
+      echo AWS_SECRET_KEY: >> ~/.sds/config
+      echo S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config
+      echo CODE_BUCKET: ${local.code_bucket} >> ~/.sds/config
+      echo VERDI_PRIMER_IMAGE: s3://${local.code_bucket}/hysds-verdi-${var.hysds_release}.tar.gz >> ~/.sds/config
+      echo VERDI_TAG: ${var.hysds_release} >> ~/.sds/config
+      echo VERDI_UID: 1002 >> ~/.sds/config
+      echo VERDI_GID: 1002 >> ~/.sds/config
+      echo VENUE: ${var.project}-${var.venue}-${local.counter} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo ASG: >> ~/.sds/config",
-      "echo '  AMI: ${var.amis["autoscale"]}' >> ~/.sds/config",
-      "echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config",
-      "echo '  USE_ROLE: ${var.asg_use_role}' >> ~/.sds/config",
-      "echo '  ROLE: ${var.asg_role}' >> ~/.sds/config",
+      echo ASG: >> ~/.sds/config
+      echo '  AMI: ${var.amis["autoscale"]}' >> ~/.sds/config
+      echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config
+      echo '  USE_ROLE: ${var.asg_use_role}' >> ~/.sds/config
+      echo '  ROLE: ${var.asg_role}' >> ~/.sds/config
 
-      "echo STAGING_AREA: >> ~/.sds/config",
-      "echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config",
-      "echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config",
-      "echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config",
-      "echo '  LAMBDA_ROLE: \"${var.lambda_role_arn}\"' >> ~/.sds/config",
-      "echo '  JOB_TYPE: ${var.lambda_job_type}' >> ~/.sds/config",
-      "echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config",
-      "echo '  JOB_QUEUE: ${var.lambda_job_queue}' >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo STAGING_AREA: >> ~/.sds/config
+      echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config
+      echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config
+      echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config
+      echo '  LAMBDA_ROLE: "${var.lambda_role_arn}"' >> ~/.sds/config
+      echo '  JOB_TYPE: ${var.lambda_job_type}' >> ~/.sds/config
+      echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config
+      echo '  JOB_QUEUE: ${var.lambda_job_queue}' >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo CNM_RESPONSE_HANDLER: >> ~/.sds/config",
-      "echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config",
-      "echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config",
-      "echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config",
-      "echo '  LAMBDA_ROLE: \"${var.lambda_role_arn}\"' >> ~/.sds/config",
-      "echo '  JOB_TYPE: \"${var.cnm_r_handler_job_type}\"' >> ~/.sds/config",
-      "echo '  JOB_RELEASE: ${var.product_delivery_branch}' >> ~/.sds/config",
-      "echo '  JOB_QUEUE: ${var.cnm_r_job_queue}' >> ~/.sds/config",
-      "echo '  EVENT_TRIGGER: ${var.cnm_r_event_trigger}' >> ~/.sds/config",
-      "echo '  PRODUCT_TAG: true' >> ~/.sds/config",
-      "echo '  ALLOWED_ACCOUNT: \"${var.cnm_r_allowed_account}\"' >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo CNM_RESPONSE_HANDLER: >> ~/.sds/config
+      echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config
+      echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config
+      echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config
+      echo '  LAMBDA_ROLE: "${var.lambda_role_arn}"' >> ~/.sds/config
+      echo '  JOB_TYPE: "${var.cnm_r_handler_job_type}"' >> ~/.sds/config
+      echo '  JOB_RELEASE: ${var.product_delivery_branch}' >> ~/.sds/config
+      echo '  JOB_QUEUE: ${var.cnm_r_job_queue}' >> ~/.sds/config
+      echo '  PO_DAAC_CNM_R_EVENT_TRIGGER: ${var.po_daac_cnm_r_event_trigger}' >> ~/.sds/config
+      echo '  ASF_DAAC_CNM_R_EVENT_TRIGGER: ${var.asf_daac_cnm_r_event_trigger}' >> ~/.sds/config
+      echo '  PRODUCT_TAG: true' >> ~/.sds/config
+      echo '  ALLOWED_ACCOUNT: "${var.cnm_r_allowed_account}"' >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo GIT_OAUTH_TOKEN: ${var.git_auth_key} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo GIT_OAUTH_TOKEN: ${var.git_auth_key} >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo PROVES_URL: https://prov-es.jpl.nasa.gov/beta >> ~/.sds/config",
-      "echo PROVES_IMPORT_URL: https://prov-es.jpl.nasa.gov/beta/api/v0.1/prov_es/import/json >> ~/.sds/config",
-      "echo DATASETS_CFG: $${HOME}/verdi/etc/datasets.json >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo PROVES_URL: https://prov-es.jpl.nasa.gov/beta >> ~/.sds/config
+      echo PROVES_IMPORT_URL: https://prov-es.jpl.nasa.gov/beta/api/v0.1/prov_es/import/json >> ~/.sds/config
+      echo DATASETS_CFG: $${HOME}/verdi/etc/datasets.json >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo SYSTEM_JOBS_QUEUE: system-jobs-queue >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo SYSTEM_JOBS_QUEUE: system-jobs-queue >> ~/.sds/config
+      echo >> ~/.sds/config
 
-      "echo MOZART_ES_CLUSTER: resource_cluster >> ~/.sds/config",
-      "echo METRICS_ES_CLUSTER: metrics_cluster >> ~/.sds/config",
-      "echo DATASET_QUERY_INDEX: grq >> ~/.sds/config",
-      "echo USER_RULES_DATASET_INDEX: user_rules >> ~/.sds/config",
-      "echo EXTRACTOR_HOME: /home/ops/verdi/ops/${var.project}-pcm/extractor >> ~/.sds/config",
-      "echo CONTAINER_REGISTRY: localhost:5050 >> ~/.sds/config",
-      "echo CONTAINER_REGISTRY_BUCKET: ${var.docker_registry_bucket} >> ~/.sds/config",
-      "echo DAAC_PROXY: \"${var.daac_delivery_proxy}\" >> ~/.sds/config",
-      "echo USE_S3_URI: \"${var.use_s3_uri_structure}\" >> ~/.sds/config",
-      "if [ \"${local.daac_delivery_event_type}\" = \"sqs\" ]; then",
-      "  echo DAAC_SQS_URL: \"https://sqs.${local.daac_delivery_region}.amazonaws.com/${local.daac_delivery_account}/${local.daac_delivery_resource_name}\" >> ~/.sds/config",
-      "  echo DAAC_ENDPOINT_URL: \"${var.daac_endpoint_url}\" >> ~/.sds/config",
-      "else",
-      "  echo DAAC_SQS_URL: \"\" >> ~/.sds/config",
-      "fi",
-      "echo PCM_COMMONS_REPO: \"${var.pcm_commons_repo}\" >> ~/.sds/config",
-      "echo PCM_COMMONS_BRANCH: \"${var.pcm_commons_branch}\" >> ~/.sds/config",
-      "echo CRID: \"${var.crid}\" >> ~/.sds/config",
-      "cat ~/q_config >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo MOZART_ES_CLUSTER: resource_cluster >> ~/.sds/config
+      echo METRICS_ES_CLUSTER: metrics_cluster >> ~/.sds/config
+      echo DATASET_QUERY_INDEX: grq >> ~/.sds/config
+      echo USER_RULES_DATASET_INDEX: user_rules >> ~/.sds/config
+      echo EXTRACTOR_HOME: /home/ops/verdi/ops/${var.project}-pcm/extractor >> ~/.sds/config
+      echo CONTAINER_REGISTRY: localhost:5050 >> ~/.sds/config
+      echo CONTAINER_REGISTRY_BUCKET: ${var.docker_registry_bucket} >> ~/.sds/config
 
-      "echo INACTIVITY_THRESHOLD: ${var.inactivity_threshold} >> ~/.sds/config",
-      "echo >> ~/.sds/config",
+      echo USE_S3_URI: "${var.use_s3_uri_structure}" >> ~/.sds/config
 
-      "echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config",
-      "echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config",
-      "echo >> ~/.sds/config"
+      echo PO_DAAC_PROXY: "${var.po_daac_delivery_proxy}" >> ~/.sds/config
+      if [ "${local.po_daac_delivery_event_type}" = "sqs" ]; then
+        echo PO_DAAC_SQS_URL: "https://sqs.${local.po_daac_delivery_region}.amazonaws.com/${local.po_daac_delivery_account}/${local.po_daac_delivery_resource_name}" >> ~/.sds/config
+        echo PO_DAAC_ENDPOINT_URL: "${var.po_daac_endpoint_url}" >> ~/.sds/config
+      else
+        echo PO_DAAC_SQS_URL: "" >> ~/.sds/config
+      fi
+
+      echo ASF_DAAC_PROXY: "${var.asf_daac_delivery_proxy}" >> ~/.sds/config
+
+      if [ "${local.asf_daac_delivery_event_type}" = "sqs" ]; then
+        echo ASF_DAAC_SQS_URL: "https://sqs.${local.asf_daac_delivery_region}.amazonaws.com/${local.asf_daac_delivery_account}/${local.asf_daac_delivery_resource_name}" >> ~/.sds/config
+        echo ASF_DAAC_ENDPOINT_URL: "${var.asf_daac_endpoint_url}" >> ~/.sds/config
+      else
+        echo ASF_DAAC_SQS_URL: "" >> ~/.sds/config
+      fi
+
+      echo PCM_COMMONS_REPO: "${var.pcm_commons_repo}" >> ~/.sds/config
+      echo PCM_COMMONS_BRANCH: "${var.pcm_commons_branch}" >> ~/.sds/config
+      echo CRID: "${var.crid}" >> ~/.sds/config
+      cat ~/q_config >> ~/.sds/config
+      echo >> ~/.sds/config
+
+      echo INACTIVITY_THRESHOLD: ${var.inactivity_threshold} >> ~/.sds/config
+      echo >> ~/.sds/config
+
+      echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config
+      echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config
+      echo >> ~/.sds/config
+    EOT
     ]
   }
 
@@ -1813,11 +1835,11 @@ resource "aws_instance" "factotum" {
   }
 }
 
-resource "aws_lambda_function" "cnm_response_handler" {
+resource "aws_lambda_function" "sns_cnm_response_handler" {
   depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda function to process CNM Response messages"
-  function_name = "${var.project}-${var.venue}-${local.counter}-daac-cnm_response-handler"
+  function_name = "${var.project}-${var.venue}-${local.counter}-daac-sns-cnm_response-handler"
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
@@ -1828,7 +1850,32 @@ resource "aws_lambda_function" "cnm_response_handler" {
   }
   environment {
     variables = {
-      "EVENT_TRIGGER" = var.cnm_r_event_trigger
+      "EVENT_TRIGGER" = "sns"
+      "JOB_TYPE"      = var.cnm_r_handler_job_type
+      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_QUEUE"     = var.cnm_r_job_queue
+      "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
+      "PRODUCT_TAG"   = "true"
+    }
+  }
+}
+
+resource "aws_lambda_function" "sqs_cnm_response_handler" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to process CNM Response messages"
+  function_name = "${var.project}-${var.venue}-${local.counter}-sqs-daac-cnm_response-handler"
+  handler       = "lambda_function.lambda_handler"
+  timeout       = 300
+  role          = var.lambda_role_arn
+  runtime       = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  environment {
+    variables = {
+      "EVENT_TRIGGER" = "sqs"
       "JOB_TYPE"      = var.cnm_r_handler_job_type
       "JOB_RELEASE"   = var.product_delivery_branch
       "JOB_QUEUE"     = var.cnm_r_job_queue
@@ -1844,22 +1891,22 @@ resource "aws_cloudwatch_log_group" "cnm_response_handler" {
 }
 
 resource "aws_sns_topic" "cnm_response" {
-  count = local.sns_count
-#  name = "${var.project}-${var.cnm_r_venue}-daac-cnm-response"
-#  name = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-  name = var.use_daac_cnm == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+}
+
+data "aws_sns_topic" "cnm_response" {
+  depends_on = [aws_sns_topic.cnm_response]
+  name       = aws_sns_topic.cnm_response.name
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
   depends_on = [aws_sns_topic.cnm_response, data.aws_iam_policy_document.sns_topic_policy]
-  count      = local.sns_count
-  arn        = aws_sns_topic.cnm_response[count.index].arn
-  policy     = data.aws_iam_policy_document.sns_topic_policy[count.index].json
+  arn        = aws_sns_topic.cnm_response.arn
+  policy     = data.aws_iam_policy_document.sns_topic_policy.json
 }
 
 data "aws_iam_policy_document" "sns_topic_policy" {
   depends_on = [aws_sns_topic.cnm_response]
-  count      = local.sns_count
   policy_id  = "__default_policy_ID"
   statement {
     actions = [
@@ -1886,40 +1933,38 @@ data "aws_iam_policy_document" "sns_topic_policy" {
       ]
     }
     resources = [
-      aws_sns_topic.cnm_response[count.index].arn
+      aws_sns_topic.cnm_response.arn
     ]
     sid = "__default_statement_ID"
   }
 }
 
 resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
-  depends_on = [aws_sns_topic.cnm_response, aws_lambda_function.cnm_response_handler]
-  count      = local.sns_count
-  topic_arn  = aws_sns_topic.cnm_response[count.index].arn
+  depends_on = [aws_sns_topic.cnm_response, aws_lambda_function.sns_cnm_response_handler]
+  topic_arn  = aws_sns_topic.cnm_response.arn
   protocol   = "lambda"
-  endpoint   = aws_lambda_function.cnm_response_handler.arn
+  endpoint   = aws_lambda_function.sns_cnm_response_handler.arn
 }
 
 resource "aws_lambda_permission" "allow_sns_cnm_r" {
-  count         = local.sns_count
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.cnm_response_handler.function_name
+  function_name = aws_lambda_function.sns_cnm_response_handler.function_name
   principal     = "sns.amazonaws.com"
   statement_id  = "ID-1"
-  source_arn    = aws_sns_topic.cnm_response[count.index].arn
+  source_arn    = aws_sns_topic.cnm_response.arn
 }
 
 resource "aws_kinesis_stream" "cnm_response" {
-  count       = local.kinesis_count
+  count       = local.cnm_r_kinesis_count
   name        = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   shard_count = 1
 }
 
 resource "aws_lambda_event_source_mapping" "kinesis_event_source_mapping" {
-  depends_on        = [aws_kinesis_stream.cnm_response, aws_lambda_function.cnm_response_handler]
-  count             = local.kinesis_count
+  depends_on        = [aws_kinesis_stream.cnm_response, aws_lambda_function.sns_cnm_response_handler]
+  count             = local.cnm_r_kinesis_count
   event_source_arn  = aws_kinesis_stream.cnm_response[count.index].arn
-  function_name     = aws_lambda_function.cnm_response_handler.arn
+  function_name     = aws_lambda_function.sns_cnm_response_handler.arn
   starting_position = "TRIM_HORIZON"
 }
 
