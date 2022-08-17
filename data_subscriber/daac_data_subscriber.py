@@ -114,7 +114,7 @@ async def run(argv: list[str]):
         if args.subparser_name == "query" or args.subparser_name == "full":
             results["query"] = await run_query(args, token, hls_conn, cmr, job_id)
         if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token, hls_conn, netloc, username, password, job_id) # return None
+            results["download"] = run_download(args, token, hls_conn, netloc, username, password, job_id)  # return None
     logging.info(f"{results=}")
     logging.info("END")
     return results
@@ -518,9 +518,15 @@ def query_cmr(args, token, cmr) -> list:
         granules, search_after = _request_search(request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
+    if args.collection.upper() == "L30":
+        product_granules = [granule
+                            for granule in product_granules
+                            if granule['short_name'] == "LANDSAT-8"]
+
     logging.info(f"Found {str(len(product_granules))} total granules")
+
     for granule in product_granules:
-        granule['filtered_urls'] = _filter_on_extension(granule, args)
+        granule['filtered_urls'] = _filter_granules(granule, args)
 
     return product_granules
 
@@ -561,20 +567,20 @@ def _request_search(request_url, params, search_after=None):
         return [], None
 
 
-def _filter_on_extension(granule, args):
-    extension_list_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                          "TIF": ["tif"]}
+def _filter_granules(granule, args):
+    collection_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+                      "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+                      "TIF": ["tif"]}
     filter_extension = "TIF"
 
-    for extension in extension_list_map:
-        if extension.upper() in args.collection.upper():
-            filter_extension = extension.upper()
+    for collection in collection_map:
+        if collection.upper() in args.collection.upper():
+            filter_extension = collection.upper()
             break
 
     return [f
             for f in granule.get("related_urls")
-            for extension in extension_list_map.get(filter_extension)
+            for extension in collection_map.get(filter_extension)
             if extension in f]
 
 
