@@ -10,19 +10,18 @@ from __future__ import print_function
 import glob
 import json
 import os
-import sys
 import shutil
-
-import traceback
 import subprocess
-from pathlib import PurePath
+import sys
+import traceback
+from pathlib import Path, PurePath
 from typing import Dict, List
 
 from commons.logger import logger
-
 from extractor import extract
-from util.conf_util import SettingsConf, PGEOutputsConf
+from util import datasets_json_util
 from util.checksum_util import create_dataset_checksums
+from util.conf_util import SettingsConf, PGEOutputsConf
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -118,9 +117,26 @@ def convert(
 
             first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
             first_product_info: Dict = state_config_product_metadata[first_product_info_key]
+
+            logger.info(list(Path(".").iterdir()))
+            with open(PurePath("./_job.json")) as fp:
+                job_json_dict = json.load(fp)
+
+            with open(PurePath("./datasets.json")) as fp:
+                datasets_json_dict = json.load(fp)
+
+            dataset_type = job_json_dict["params"]["dataset_type"].split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
+
+            l2_hls_publish_s3_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
+
+            l2_hls_publish_s3_url = datasets_json_util.find_s3_url(datasets_json_dict, dataset_type)
+            l2_hls_publish_s3_url_parts = PurePath(l2_hls_publish_s3_url).parts
+
             dataset_met_json["input_granule_id"] = PurePath(first_product_info["id"]).stem  # strip band from ID to get granule ID
             dataset_met_json["product_urls"] = [
-                f'https://{settings["DATASET_BUCKET"]}.{settings["DATASET_S3_ENDPOINT"]}/products/{file["id"]}/{file["FileName"]}'
+                f'{l2_hls_publish_s3_url_parts[0]}'  # http:
+                f'//{l2_hls_publish_s3_url_parts[1]}'  # <bucket>.s3.<region>.amazonaws.com/<key>
+                f'/products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
             dataset_met_json["product_s3_paths"] = [
                 f'products/{file["id"]}/{file["FileName"]}'
