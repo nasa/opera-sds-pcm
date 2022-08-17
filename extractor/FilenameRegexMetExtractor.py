@@ -119,6 +119,8 @@ class FilenameRegexMetExtractor(CoreMetExtractor):
                         metadata[key] = int("20" + value)
                     else:
                         metadata[key] = int(value)
+                elif extractor_config.get("Dataset_Version_Key") and key == extractor_config.get("Dataset_Version_Key"):
+                    metadata["dataset_version"] = value
                 else:
                     if value:
                         metadata[key] = set_type(value)

@@ -258,9 +258,9 @@ resource "null_resource" "mozart" {
 #    ]
 #  }
 
-  provisioner "local-exec" {
-    command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
-  }
+#  provisioner "local-exec" {
+#    command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
+#  }
 }
 
 resource "null_resource" "smoke_test" {
