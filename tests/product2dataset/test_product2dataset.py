@@ -59,6 +59,7 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
 
     # ACT
     created_datasets = product2dataset.product2dataset.convert(
+        "dummy_work_dir",
         "dummy_product_dir",
         "L3_HLS",
         # kwargs below

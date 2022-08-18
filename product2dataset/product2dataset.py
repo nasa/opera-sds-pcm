@@ -31,6 +31,7 @@ DATASETS_DIR_NAME = "datasets"
 
 
 def convert(
+        work_dir: str,
         product_dir: str,
         pge_name: str,
         rc_file: str = None,
@@ -118,11 +119,10 @@ def convert(
             first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
             first_product_info: Dict = state_config_product_metadata[first_product_info_key]
 
-            logger.info(list(Path(".").iterdir()))
-            with open(PurePath("./_job.json")) as fp:
+            with open(PurePath(work_dir) / "_job.json") as fp:
                 job_json_dict = json.load(fp)
 
-            with open(PurePath("./datasets.json")) as fp:
+            with open(PurePath(work_dir) / "datasets.json") as fp:
                 datasets_json_dict = json.load(fp)
 
             dataset_type = job_json_util.find_param_value(job_json_dict, "dataset_type")

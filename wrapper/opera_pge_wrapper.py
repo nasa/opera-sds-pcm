@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 from functools import partial
+from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -43,6 +44,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     """
 
     logger.info(f"Preparing Working Directory: {work_dir}")
+    logger.info(f"{list(Path(work_dir).iterdir())=}")
 
     input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
 
