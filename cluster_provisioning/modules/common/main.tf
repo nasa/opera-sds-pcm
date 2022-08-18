@@ -1404,7 +1404,7 @@ locals {
       "Rules": [
         {
           "Expiration": {
-            "Days": var.rs_fwd_bucket_ingested_expiration
+            "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
           },
           "ID" : "RS Bucket Deletion",
           "Prefix": "products/",
