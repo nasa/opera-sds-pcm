@@ -1928,7 +1928,7 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     principals {
       type        = "AWS"
 	  identifiers = [
-          "arn:aws:iam::681612454726:root",
+          "arn:aws:iam::${var.aws_account_id}:root",
           "arn:aws:iam::638310961674:root"
       ]
     }
