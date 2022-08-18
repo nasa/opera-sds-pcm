@@ -33,13 +33,9 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
             "FileSize": 0,
             "id": "dummy_product_id",
             "FileName": "dummy_product_filename",
-            "params": [
-                {
-                  "destination": "context",
-                  "name": "dataset_type",
-                  "value": "L2_HLS_S30-state-config"
-                }
-            ],
+            "params": {
+                "dataset_type": "L2_HLS_S30-state-config"
+            },
             "datasets": [
               {
                 "type": "L2_HLS_S30",

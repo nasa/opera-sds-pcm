@@ -14,12 +14,12 @@ import shutil
 import subprocess
 import sys
 import traceback
-from pathlib import Path, PurePath
+from pathlib import PurePath
 from typing import Dict, List
 
 from commons.logger import logger
 from extractor import extract
-from util import datasets_json_util, job_json_util
+from util import datasets_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
 
@@ -42,6 +42,7 @@ def convert(
 ) -> List:
     """Convert a product (directory of files) into a list of datasets.
 
+    :param work_dir: The working directory (Verdi workspace) the worker executes jobs from.
     :param product_dir: Local filepath to the product.
     :param pge_name: PGE outputs config entry key. See `PGEOutputsConf`.
     :param rc_file: Local filepath to the RunConfig file.
@@ -125,7 +126,7 @@ def convert(
             with open(PurePath(work_dir) / "datasets.json") as fp:
                 datasets_json_dict = json.load(fp)
 
-            dataset_type = job_json_util.find_param_value(job_json_dict, "dataset_type")
+            dataset_type = job_json_dict["params"]["dataset_type"]
             dataset_type = dataset_type.split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
 
             l2_hls_publish_s3_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
