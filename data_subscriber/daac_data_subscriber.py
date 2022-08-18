@@ -153,13 +153,13 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
         reducefunc=set
     )
 
-    logging.info(f"{tile_id_to_urls_map=}")
+    logging.debug(f"{tile_id_to_urls_map=}")
     job_submission_tasks = []
     loop = asyncio.get_event_loop()
     logging.info(f"{args.chunk_size=}")
     for tile_chunk in chunked(tile_id_to_urls_map.items(), n=args.chunk_size):
         chunk_id = str(uuid.uuid4())
-        logging.info(f"{chunk_id=}")
+        logging.debug(f"{chunk_id=}")
 
         chunk_tile_ids = []
         chunk_urls = []
@@ -167,8 +167,8 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
             chunk_tile_ids.append(tile_id)
             chunk_urls.extend(urls)
 
-        logging.info(f"{chunk_tile_ids=}")
-        logging.info(f"{chunk_urls=}")
+        logging.debug(f"{chunk_tile_ids=}")
+        logging.debug(f"{chunk_urls=}")
 
         job_submission_tasks.append(
             loop.run_in_executor(
@@ -225,7 +225,8 @@ def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
     if args.tile_ids:
         logging.info(f"Filtering pending downloads by {args.tile_ids=}")
         downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
-        logging.info(f"{downloads=}")
+        logging.info(f"{len(downloads)=}")
+        logging.debug(f"{downloads=}")
 
     if not downloads:
         logging.info(f"No undownloaded files found in index.")
@@ -238,15 +239,15 @@ def run_download(args, token, HLS_CONN, NETLOC, username, password, job_id):
     session = SessionWithHeaderRedirection(username, password, NETLOC)
 
     if args.transfer_protocol == "https":
-        download_urls = [to_https_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
+        download_urls = [to_https_url(download) for download in downloads if has_url(download)]
+        logging.debug(f"{download_urls=}")
         upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
     else:
-        download_urls = [to_s3_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
+        download_urls = [to_s3_url(download) for download in downloads if has_url(download)]
+        logging.debug(f"{download_urls=}")
         upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
 
-    logging.info(f"Total files updated: {len(downloads)}")
+    logging.info(f"Total files updated: {len(download_urls)}")
 
 
 def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
@@ -300,18 +301,28 @@ def to_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
+def has_url(dl_dict: dict[str, Any]):
+    if dl_dict.get("https_url"):
+        return True
+    if dl_dict.get("s3_url"):
+        return True
+
+    logging.error(f"Couldn't find any URL in {dl_dict=}")
+    return False
+
+
 def to_https_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("https_url"):
         return dl_dict["https_url"]
     else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+        raise Exception(f"Couldn't find any https URL in {dl_dict=}")
 
 
 def to_s3_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("s3_url"):
         return dl_dict["s3_url"]
     else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+        raise Exception(f"Couldn't find any s3 URL in {dl_dict=}")
 
 
 def create_parser():
@@ -624,14 +635,17 @@ def upload_url_list_from_https(session, ES_CONN, downloads, args, token, job_id)
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
     for url in filtered_downloads:
         try:
             if ES_CONN.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
+                logging.debug(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    pass
                 else:
                     result = https_transfer(url, args.isl_bucket, session, token)
                     if "failed_download" in result:
@@ -664,7 +678,7 @@ def https_transfer(url, bucket_name, session, token, staging_area="", chunk_size
         with session.get(url, headers=headers, stream=True) as r:
             if r.status_code != 200:
                 r.raise_for_status()
-            logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
             with open("s3://{}/{}".format(bucket, key), "wb") as out:
                 pool = ThreadPool(processes=10)
                 pool.map(upload_chunk,
@@ -703,14 +717,17 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "s3://" in f]
 
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
     for url in filtered_downloads:
         try:
             if ES_CONN.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
+                logging.debug(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    pass
                 else:
                     result = s3_transfer(url, args.isl_bucket, s3, tmp_dir)
                     if "failed_download" in result:
@@ -719,7 +736,7 @@ def upload_url_list_from_s3(session, ES_CONN, downloads, args, job_id):
                         logging.debug(str(result))
 
                 ES_CONN.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                logging.debug(f"{str(datetime.now())} SUCCESS: {url}")
                 num_successes = num_successes + 1
         except Exception as e:
             logging.error(f"{str(datetime.now())} FAILURE: {url}")
