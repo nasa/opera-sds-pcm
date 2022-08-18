@@ -117,7 +117,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     state_config_product_metadata.pop("@timestamp")
 
     logger.info("Converting output product to HySDS-style datasets")
-    created_datasets = product2dataset.convert(output_dir, pge_name, rc_file, extra_met=extra_met, state_config_product_metadata=state_config_product_metadata)
+    created_datasets = product2dataset.convert(work_dir, output_dir, pge_name, rc_file, extra_met=extra_met, state_config_product_metadata=state_config_product_metadata)
 
     return created_datasets
 

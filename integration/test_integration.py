@@ -28,8 +28,13 @@ def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_l30_subscriber_query_lambda()
+    sleep_for(30)
+
     response = invoke_l30_subscriber_query_lambda()
+
     reset_env_vars_l30_subscriber_query_lambda()
+    sleep_for(30)
+
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
@@ -49,8 +54,13 @@ def test_subscriber_s30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_s30_subscriber_query_lambda()
+    sleep_for(30)
+
     response = invoke_s30_subscriber_query_lambda()
+
     reset_env_vars_s30_subscriber_query_lambda()
+    sleep_for(30)
+
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")

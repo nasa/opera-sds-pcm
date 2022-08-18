@@ -38,6 +38,8 @@ S30_INPUT_DIR = ~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0
 DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
 L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
 S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
+
+CLEAR_DATA = true
 ```
 
 ### CLEAR_DATA
@@ -45,8 +47,6 @@ S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
 This env entry cleans the test system.
 * It drops the relevant Elasticsearch indexes from GRQ and Mozart.
 * It removes all products from rolling storage.
-
-Add `CLEAR_DATA = true` to `.env` to toggle on. Omit entirely to toggle off.
 
 # Prerequisites
 
