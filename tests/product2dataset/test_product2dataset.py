@@ -47,7 +47,19 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
                   ]
                 }
                }
-            ]
+            ],
+            "context": {
+                "container_specification": {
+                    "version": "v1.2.3"
+                },
+                "job_specification": {
+                    "dependency_images": [
+                        {
+                            "container_image_name": "opera_pge/dswx_hls:1.0.0-rc.1.0"
+                        }
+                    ]
+                }
+            }
         }
     """))
     mocker.patch("product2dataset.product2dataset.os.path.abspath", lambda _: f"/{_}")

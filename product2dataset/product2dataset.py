@@ -19,7 +19,7 @@ from typing import Dict, List
 
 from commons.logger import logger
 from extractor import extract
-from util import datasets_json_util
+from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
 
@@ -97,7 +97,7 @@ def convert(
 
                 # Extract a copy of the "Product*" key/values to include at the top level
                 # They should be the same values for each file in the dataset
-                product_keys = list(filter(lambda key: key.startswith("Product"), met_json.keys()))
+                product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
 
                 for product_key in product_keys:
                     extra_met[product_key] = met_json[product_key]
@@ -141,6 +141,9 @@ def convert(
             dataset_met_json["product_s3_paths"] = [
                 f'products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
+
+            dataset_met_json["software_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
+            dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
             collection_name: str = settings.get("DSWX_COLLECTION_NAME")
