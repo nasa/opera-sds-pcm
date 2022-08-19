@@ -400,7 +400,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-rc.2.0"
+  default = "1.0.0-rc.3.0"
 }
 
 variable "crid" {
