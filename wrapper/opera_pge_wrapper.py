@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 from functools import partial
+from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
 from commons.logger import logger
@@ -21,32 +22,33 @@ to_json = partial(json.dumps, indent=2)
 
 
 @exec_wrapper
-def main(context_file: str, workdir: str):
-    jc = JobContext(context_file)
-    context = jc.ctx
-    logger.debug(f"context={to_json(context)}")
+def main(job_json_file: str, workdir: str):
+    jc = JobContext(job_json_file)
+    job_context = jc.ctx
+    logger.debug(f"job_context={to_json(job_context)}")
 
     # set additional files to triage
     jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
     jc.save()
 
-    run_pipeline(context=context, work_dir=workdir)
+    run_pipeline(job_json_dict=job_context, work_dir=workdir)
 
 
-def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
+def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     """
     Run the PGE in OPERA land
-    :param context: Path to HySDS _context.json
+    :param job_json_dict: HySDS _job.json
     :param work_dir: PGE working directory
 
     :return:
     """
 
     logger.info(f"Preparing Working Directory: {work_dir}")
+    logger.info(f"{list(Path(work_dir).iterdir())=}")
 
-    input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir, context)
+    input_hls_dir, output_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
 
-    run_config: Dict = context.get("run_config")
+    run_config: Dict = job_json_dict.get("run_config")
 
     # We need to convert the S3 urls specified in the run config to local paths and also
     # capture the inputs, so we can store the lineage in the output dataset metadata
@@ -77,7 +79,7 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     # create RunConfig.yaml
     logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")
-    pge_config: Dict = context.get("pge_config")
+    pge_config: Dict = job_json_dict.get("pge_config")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
@@ -90,15 +92,15 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.debug(f"PGE Config: {to_json(pge_config)}")
 
     # Run the PGE
-    should_simulate_pge = context.get(opera_chimera_const.SIMULATE_OUTPUTS)
+    should_simulate_pge = job_json_dict.get(opera_chimera_const.SIMULATE_OUTPUTS)
 
     if should_simulate_pge:
         logger.info("Simulating PGE run....")
-        pge_util.simulate_run_pge(run_config, pge_config, context, output_dir)
+        pge_util.simulate_run_pge(run_config, pge_config, job_json_dict, output_dir)
     else:
         logger.info("Running PGE...")
         exec_pge_command(
-            context=context,
+            context=job_json_dict,
             work_dir=work_dir,
             input_hls_dir=input_hls_dir,
             runconfig_dir=runconfig_dir,
@@ -111,8 +113,11 @@ def run_pipeline(context: Dict, work_dir: str) -> List[Union[bytes, str]]:
         "runconfig": run_config
     }
 
+    state_config_product_metadata: Dict = pge_util.get_product_metadata(job_json_dict)
+    state_config_product_metadata.pop("@timestamp")
+
     logger.info("Converting output product to HySDS-style datasets")
-    created_datasets = product2dataset.convert(output_dir, pge_name, rc_file, extra_met=extra_met)
+    created_datasets = product2dataset.convert(work_dir, output_dir, pge_name, rc_file, extra_met=extra_met, state_config_product_metadata=state_config_product_metadata)
 
     return created_datasets
 

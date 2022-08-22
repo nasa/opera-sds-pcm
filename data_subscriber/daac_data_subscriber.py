@@ -621,8 +621,9 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.tile_ids:
         logging.info(f"Filtering pending downloads by {args.tile_ids=}")
-        downloads = list(filter(lambda d: _to_tile_id(d) in args.tile_ids, all_pending_downloads))
-        logging.info(f"{downloads=}")
+        downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
+        logging.info(f"{len(downloads)=}")
+        logging.debug(f"{downloads=}")
 
     if not downloads:
         logging.info(f"No undownloaded files found in index.")
@@ -632,18 +633,19 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.tile_ids = args.tile_ids[:1]
 
-    session = SessionWithHeaderRedirection(username, password, netloc)
+    session = SessionWithHeaderRedirection(username, password, NETLOC)
 
-    if args.transfer_protocol.lower() == "https":
-        download_urls = [_to_https_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
-        _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
+    if args.transfer_protocol == "https":
+        download_urls = [to_https_url(download) for download in downloads if has_url(download)]
+        logging.debug(f"{download_urls=}")
+        upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
     else:
-        download_urls = [_to_s3_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
-        _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
+        download_urls = [to_s3_url(download) for download in downloads if has_url(download)]
+        logging.debug(f"{download_urls=}")
+        upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
 
-    logging.info(f"Total files updated: {len(downloads)}")
+    logging.info(f"Total files updated: {len(download_urls)}")
+    
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
@@ -658,6 +660,16 @@ def _to_url(dl_dict: dict[str, Any]) -> str:
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
+        
+def has_url(dl_dict: dict[str, Any]):
+    if dl_dict.get("https_url"):
+        return True
+    if dl_dict.get("s3_url"):
+        return True
+
+    logging.error(f"Couldn't find any URL in {dl_dict=}")
+    return False
+  
 
 def _to_https_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("https_url"):
@@ -670,14 +682,17 @@ def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
     for url in filtered_downloads:
         try:
             if es_conn.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
+                logging.debug(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    pass
                 else:
                     result = _https_transfer(url, args.isl_bucket, session, token)
                     if "failed_download" in result:
@@ -710,7 +725,7 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
         with session.get(url, headers=headers, stream=True) as r:
             if r.status_code != 200:
                 r.raise_for_status()
-            logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
             with open("s3://{}/{}".format(bucket, key), "wb") as out:
                 pool = ThreadPool(processes=10)
                 pool.map(_upload_chunk,
@@ -757,14 +772,18 @@ def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "s3://" in f]
 
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
     for url in filtered_downloads:
         try:
-            if es_conn.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
+            if ES_CONN.product_is_downloaded(url):
+                logging.debug(f"SKIPPING: {url}")
+
                 num_skipped = num_skipped + 1
             else:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    pass
                 else:
                     result = _s3_transfer(url, args.isl_bucket, s3, tmp_dir)
                     if "failed_download" in result:
@@ -772,8 +791,9 @@ def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
                     else:
                         logging.debug(str(result))
 
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                ES_CONN.mark_product_as_downloaded(url, job_id)
+                logging.debug(f"{str(datetime.now())} SUCCESS: {url}")
+
                 num_successes = num_successes + 1
         except Exception as e:
             logging.error(f"{str(datetime.now())} FAILURE: {url}")

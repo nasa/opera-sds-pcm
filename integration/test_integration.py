@@ -29,8 +29,13 @@ def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_l30_subscriber_query_lambda()
+    sleep_for(30)
+
     response = invoke_l30_subscriber_query_lambda()
+
     reset_env_vars_l30_subscriber_query_lambda()
+    sleep_for(30)
+
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
@@ -50,8 +55,13 @@ def test_subscriber_s30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_s30_subscriber_query_lambda()
+    sleep_for(30)
+
     response = invoke_s30_subscriber_query_lambda()
+
     reset_env_vars_s30_subscriber_query_lambda()
+    sleep_for(30)
+
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
@@ -138,7 +148,6 @@ def test_l30():
     sleep_for(150)
 
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0", index="grq_v2.0_l3_dswx_hls")
-
     assert_cnm_r_success(response)
 
 
@@ -212,6 +221,7 @@ def test_s30():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
+    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001")
     response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0", index="grq_v2.0_l3_dswx_hls")
 
     assert_cnm_r_success(response)

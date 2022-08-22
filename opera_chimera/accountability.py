@@ -70,8 +70,9 @@ class OperaAccountability(Accountability):
         self.trigger_dataset_id = context[oc_const.INPUT_DATASET_ID]
 
         metadata: Dict[str, str] = context["product_metadata"]["metadata"]
-        self.product_paths = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']  # TODO chrisjrd: improve dataset structure to avoid duplicating this logic from eval_state_config.py
-
+        # NOTE TO DEVELOPERS
+        #  updating this section may require an update to eval_state_config.py
+        self.product_paths: list[str] = [product_info["product_path"] for band_or_qa, product_info in metadata.items() if band_or_qa != '@timestamp']
         self.input_files_type = remove_suffix(self.trigger_dataset_type, "-state-config")
         self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
 
