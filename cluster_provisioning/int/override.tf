@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId, in int this is 1 
+# venue : userId, in int this is 1
 # counter : 1-n or version
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -175,7 +175,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-rc.2.0"
+  default = "1.0.0-rc.3.0"
 }
 
 variable "hysds_release" {
