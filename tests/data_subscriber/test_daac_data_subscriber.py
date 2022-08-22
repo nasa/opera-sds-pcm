@@ -283,7 +283,7 @@ def patch_subscriber(monkeypatch):
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.request_search.__name__,
+        data_subscriber.daac_data_subscriber._request_search.__name__,
         lambda *args, **kwargs: (
             [
                 {
@@ -324,7 +324,7 @@ def patch_subscriber(monkeypatch):
 def mock_get_aws_creds(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.get_aws_creds.__name__,
+        data_subscriber.daac_data_subscriber._get_aws_creds.__name__,
         lambda *args, **kwargs: {
             "accessKeyId": None,
             "secretAccessKey": None,
@@ -336,7 +336,7 @@ def mock_get_aws_creds(monkeypatch):
 def mock_https_transfer(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.https_transfer.__name__,
+        data_subscriber.daac_data_subscriber._https_transfer.__name__,
         lambda *args, **kwargs: {}
     )
 
@@ -344,7 +344,7 @@ def mock_https_transfer(monkeypatch):
 def mock_s3_transfer(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.s3_transfer.__name__,
+        data_subscriber.daac_data_subscriber._s3_transfer.__name__,
         lambda *args, **kwargs: {}
     )
 

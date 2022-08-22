@@ -79,11 +79,7 @@ output "factotum_pub_ip" {
 }
 
 output "cnm_response_topic_arn" {
-  value = aws_sns_topic.cnm_response[0].arn
-}
-
-output "daac_proxy_cnm_r_sns_count" {
-  value = local.daac_proxy_cnm_r_sns_count
+  value = aws_sns_topic.cnm_response.arn
 }
 
 output "e_misfire_metric_alarm_name" {

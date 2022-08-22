@@ -76,8 +76,8 @@ def clear_pcm_test_state():
     # clear ingest data indexes
     es_index_delete("grq_v2.0_l2_hls_l30")
     es_index_delete("grq_v2.0_l2_hls_s30")
-    es_index_delete("grq_1_l2_hls_l30-state-config")
-    es_index_delete("grq_1_l2_hls_s30-state-config")
+    es_index_delete("grq_v2.0_l2_hls_l30-state-config")
+    es_index_delete("grq_v2.0_l2_hls_s30-state-config")
     es_index_delete("grq_1_opera_state_config")
 
     # clear PGE indexes

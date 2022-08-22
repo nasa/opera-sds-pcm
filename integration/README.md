@@ -25,6 +25,7 @@ ES_PASSWORD = bar # Elasticsearch password
 
 # CNM-R
 CNMR_TOPIC = arn:aws:sns:us-west-2:123456789012:opera-foo-1-daac-cnm-response
+CNMR_QUEUE = https://sqs.us-west-2.amazonaws.com/123456789012/opera-foo-1-daac-cnm-response
 
 # S3 storage
 ISL_BUCKET = opera-foo-isl-fwd-bar

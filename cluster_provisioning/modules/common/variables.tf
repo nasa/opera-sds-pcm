@@ -132,21 +132,13 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
-    grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
-    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610A
-    mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
-    factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
+    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
+    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
+    grq       = "ami-0b3852a0f65efed65" # grq v4.13
+    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
     autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
     ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-
-    # AMI given by Susan on June 24, 2022
-#    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
-#    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
-#    grq       = "ami-0b3852a0f65efed65" # grq v4.13
-#    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
-#    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-#    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 
@@ -198,11 +190,14 @@ variable "cnm_r_handler_job_type" {
 variable "cnm_r_job_queue" {
 }
 
-variable "cnm_r_event_trigger" {
+variable "po_daac_cnm_r_event_trigger" {
+}
+
+variable "asf_daac_cnm_r_event_trigger" {
 }
 
 variable "cnm_r_event_trigger_values_list" {
-  description = "acceptable values for setting cnm_r_event_trigger"
+  description = "acceptable values for setting *_cnm_r_event_trigger"
   type        = list(string)
   default     = ["sns", "kinesis", "sqs"]
 }
@@ -213,10 +208,16 @@ variable "cnm_r_allowed_account" {
 variable "cnm_r_venue" {
 }
 
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
+}
+
+variable "asf_daac_delivery_proxy" {
+}
+
+variable "asf_daac_endpoint_url" {
 }
 
 variable "asg_use_role" {
@@ -368,16 +369,16 @@ variable "event_misfire_delay_threshold_seconds" {
   default = 60
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   default = true
 }
 
-variable "daac_cnm_sqs_arn" {
+variable "cnm_r_sqs_arn" {
   type = map(string)
   default = {
-    dev  = "arn:aws:sns:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    test = "arn:aws:sns:us-west-2:399787141461:opera-test-daac-cnm-response"
-    int  = "arn:aws:sns:us-west-2:337765570207:opera-int-daac-cnm-response"
+    dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
+    test = "arn:aws:sqs:us-west-2:399787141461:opera-test-daac-cnm-response"
+    int  = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
   }
 }
 
@@ -399,7 +400,7 @@ variable "pge_snapshots_date" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-rc.1.0"
+  default = "1.0.0-rc.3.0"
 }
 
 variable "crid" {
