@@ -621,7 +621,7 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.tile_ids:
         logging.info(f"Filtering pending downloads by {args.tile_ids=}")
-        downloads = list(filter(lambda d: to_tile_id(d) in args.tile_ids, all_pending_downloads))
+        downloads = list(filter(lambda d: _to_tile_id(d) in args.tile_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
 
