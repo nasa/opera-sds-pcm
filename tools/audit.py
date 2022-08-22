@@ -165,6 +165,45 @@ missing_pge = all_state_config - pge_input_products
 logging.info(f'Inputs Missing PGE: {len(missing_pge)=}')
 logging.debug(pstr(missing_pge))
 
+
+#######################################################################
+# GET L3 state-config products
+#######################################################################
+
+body = get_body()
+body["query"]["bool"]["must"].append(get_range("@timestamp"))
+search_results = list(helpers.scan(es, body, index="grq_*_opera_state_config", scroll="5m", size=10000))
+opera_state_config = {hit["_id"] for hit in search_results}
+logging.info(f'All opera_state_config: {len(opera_state_config)=}')
+
+body = get_body()
+body["query"]["bool"]["must"].append(get_range("production_datetime"))
+search_results = list(helpers.scan(es, body, index="hls_spatial_catalog", scroll="5m", size=10000))
+spatial_granules = {hit["_id"] for hit in search_results}
+logging.debug(pstr(spatial_granules))
+logging.info(f'Spatial Granules: {len(spatial_granules)=}')
+
+missing_opera_state_config = spatial_granules - opera_state_config
+logging.info(f'Missing opera_state_config: {len(missing_opera_state_config)=}')
+
+body = get_body()
+body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
+search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10000))
+
+pge_input_granules = {hit["_source"]["metadata"]["accountability"]["L3_DSWx"]["trigger_dataset_id"].removesuffix("_state_config") for hit in search_results}
+
+logging.info(f'Granules PGE Executed: {len(pge_input_granules)=}')
+logging.debug(pstr(pge_input_granules))
+
+missing_pge_granules = opera_state_config - pge_input_granules
+logging.info(f'Granules Missing PGE: {len(missing_pge_granules)=}\n')
+logging.debug(pstr(missing_pge_granules))
+
+
+#######################################################################
+# CNM-S & CNM-R
+#######################################################################
+
 cnm_s_input_products = {PurePath(input).name.removesuffix(".tif")
                         for hit in search_results
                         for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"}
