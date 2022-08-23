@@ -9,6 +9,9 @@ import json
 import boto3
 
 from urllib.parse import urlparse
+
+from more_itertools import always_iterable
+
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 
@@ -21,15 +24,16 @@ BASE_PATH = os.path.dirname(__file__)
 
 
 @exec_wrapper
+def checked_main():
+    main()
+
+
 def main():
     """Main."""
     jc = JobContext("_context.json")
     job_context = jc.ctx
     logger.info("job_context: {}".format(json.dumps(job_context, indent=2)))
-    isl_urls = job_context["isl_urls"]
-    # Convert to list if needed
-    if not isinstance(isl_urls, list):
-        isl_urls = [isl_urls]
+    isl_urls = list(always_iterable(job_context["isl_urls"]))
     for isl_url in isl_urls:
         if isl_url:
             logger.info("Purging ISL: {}".format(isl_url))
@@ -43,8 +47,8 @@ def main():
             response = s3.delete_object(Bucket=bucket, Key=key)
             logging.info("Delete object response: {}".format(response))
         else:
-            logger.info("Detected empty string in the list of ISLs to purge")
+            logger.warning("Detected empty string in the list of ISLs to purge")
 
 
 if __name__ == "__main__":
-    main()
+    checked_main()
