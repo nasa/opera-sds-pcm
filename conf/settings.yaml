@@ -3,6 +3,16 @@ PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
 DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_0.0"
 
+# Shortname filtering on input product types. RegEx strings ('.' == any single character)
+SHORTNAME_FILTERS:
+  L30:
+#   - L.07 # Landsat-7
+    - L.08 # Landsat-8
+    - L.09 # Landsat-9
+  S30:
+    - S1 # Sentinel-1
+#   - S2 # Sentinnel-2
+
 # Base API urls and login endpoints for the different DAAC environments.
 DAAC_ENVIRONMENTS:
   OPS:
