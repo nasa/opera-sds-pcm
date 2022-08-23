@@ -26,6 +26,7 @@ Options:
       --mozart-ip                                The private IP address of the PCM's mozart instance.
       --grq-host                                 The hostname and port of GRQ.
       --cnm-r-topic-arn                          The CNM-R SNS topic ARN.
+      --cnm-r-queue-url                          The CNM-R SQS queue URL.
       --isl-bucket                               The ISL S3 bucket name.
       --rs-bucket                                The RS S3 bucket name.
       --L30-input-dir                            The expected path to the directory containing THE sample L30 data after download.
@@ -66,6 +67,10 @@ for i in "$@"; do
       ;;
     --cnm-r-topic-arn=*)
       cnm_r_topic_arn="${i#*=}"
+      shift
+      ;;
+    --cnm-r-queue-url=*)
+      cnm_r_queue_url="${i#*=}"
       shift
       ;;
     --isl-bucket=*)
@@ -119,6 +124,7 @@ export ES_BASE_URL="https://${mozart_ip}/grq_es/"
 export GRQ_HOST=${grq_host}
 export GRQ_BASE_URL="https://${mozart_ip}/grq/api/v0.1"
 export CNMR_TOPIC=${cnm_r_topic_arn}
+export CNMR_QUEUE=${cnm_r_queue_url}
 export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
 export L30_INPUT_DIR=${L30_input_dir}
@@ -150,4 +156,5 @@ pytest --maxfail=2 --numprocesses=auto \
   integration/test_integration.py::test_s30 \
   integration/test_integration.py::test_subscriber_l30 \
   integration/test_integration.py::test_subscriber_s30
+cp -f target/reports/junit/junit.xml /tmp/junit.xml
 set -e

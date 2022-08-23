@@ -94,8 +94,12 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             "product_metadata": {
                 "metadata": {
                     "@timestamp": "2022-05-12T15:54:57.406535915Z",
-                    "B02": "products/HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif",
-                    "Fmask": "products/HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif"
+                    "B02": {
+                        "product_path": "products/HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif"
+                    },
+                    "Fmask": {
+                        "product_path": "products/HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif"
+                    }
                 }
             }
         }
@@ -182,8 +186,12 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             "product_metadata": {
                 "metadata": {
                     "@timestamp": "2022-05-12T15:54:57.406535915Z",
-                    "B02": "products/HLS.L30.T22VEQ.2021250T163901.v2.0.B02.tif",
-                    "Fmask": "products/HLS.L30.T22VEQ.2021250T163901.v2.0.Fmask.tif"
+                    "B02": {
+                        "product_path": "products/HLS.L30.T22VEQ.2021250T163901.v2.0.B02.tif"
+                    },
+                    "Fmask": {
+                        "product_path": "products/HLS.L30.T22VEQ.2021250T163901.v2.0.Fmask.tif"
+                    }
                 }
             }
         }

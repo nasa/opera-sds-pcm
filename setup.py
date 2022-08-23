@@ -47,7 +47,8 @@ setup(
         'integration': [
             'pytest==7.1.1',
             'boto3',
-            "boto3-stubs-lite[essential]",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
+            "boto3-stubs[sns]",
             "elasticsearch==7.13.4",
             "elasticsearch-dsl==7.3.0",
             "requests==2.27.1",
@@ -59,7 +60,7 @@ setup(
         ],
         "benchmark": [
             "boto3-stubs",
-            "boto3-stubs-lite[essential]",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "botocore",
             "elasticsearch[async]",
             "more-itertools==8.13.0",

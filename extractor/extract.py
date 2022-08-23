@@ -241,7 +241,7 @@ def create_dataset_json(product_metadata, ds_met, alt_ds_met):
         version = str(product_metadata["VersionID"])
     else:
         logger.info(
-            "CompositeReleaseID or VersionID could not be found in "
+            "Nor dataset_version nor CompositeReleaseID nor VersionID could not be found in "
             "the product metadata. Setting version to 1 in .dataset.json."
         )
         version = "1"

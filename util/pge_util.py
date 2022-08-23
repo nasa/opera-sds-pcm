@@ -58,12 +58,12 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             raise
 
         base_name = output_base_name.format(
-            sensor=sensor,
             tile_id=match.groupdict()['tile_id'],
             # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
             acquisition_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
             # make creation time a duplicate of the acquisition time for ease of testing
             creation_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+            sensor=sensor,
             collection_version=match.groupdict()['collection_version']
         )
         metadata = {}
@@ -82,8 +82,9 @@ def get_input_dataset_tile_code(context: Dict) -> str:
     tile_code = None
     product_metadata = context["product_metadata"]["metadata"]
 
-    for band_or_qa, product_path in product_metadata.items():
+    for band_or_qa, product_info in product_metadata.items():
         if band_or_qa != '@timestamp':
+            product_path = product_info["product_path"]  # see eval_state_config.py
             product_filename = product_path.split('/')[-1]
             tile_code = product_filename.split('.')[2]
             break
@@ -113,3 +114,11 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
             logger.info(f'Simulating output {output_file}')
             with open(output_file, 'wb') as f:
                 f.write(os.urandom(1024))
+
+
+def get_product_metadata(job_json_dict: Dict) -> Dict:
+    params = job_json_dict['job_specification']['params']
+    for param in params:
+        if param['name'] == 'product_metadata':
+            return param['value']['metadata']
+    raise

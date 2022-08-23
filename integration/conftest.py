@@ -60,7 +60,7 @@ def clear_pcm_test_state():
         delete_output_files, \
         mozart_es_index_delete
 
-    if not config.get("CLEAR_DATA"):
+    if not str2bool(config.get("CLEAR_DATA")):
         logging.info(f'Skipping data reset. {config.get("CLEAR_DATA")=}')
         return
 
@@ -74,14 +74,21 @@ def clear_pcm_test_state():
     es_index_delete("hls_spatial_catalog")
 
     # clear ingest data indexes
-    es_index_delete("grq_1_l2_hls_l30")
-    es_index_delete("grq_1_l2_hls_s30")
-    es_index_delete("grq_1_l2_hls_l30-state-config")
-    es_index_delete("grq_1_l2_hls_s30-state-config")
+    es_index_delete("grq_v2.0_l2_hls_l30")
+    es_index_delete("grq_v2.0_l2_hls_s30")
+    es_index_delete("grq_v2.0_l2_hls_l30-state-config")
+    es_index_delete("grq_v2.0_l2_hls_s30-state-config")
     es_index_delete("grq_1_opera_state_config")
 
     # clear PGE indexes
-    es_index_delete("grq_1_l3_dswx_hls")
+    es_index_delete("grq_v2.0_l3_dswx_hls")
 
     # empty out S3 to make it easier to inspect test outputs and side effects
     delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")
+
+
+def str2bool(s):
+    """Convert a string to a bool. None returns False."""
+    if s is None:
+        return False
+    return s.lower() in ["true", "false"]

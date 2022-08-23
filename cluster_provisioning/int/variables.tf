@@ -199,8 +199,12 @@ variable "cnm_r_job_queue" {
   default = "opera-job_worker-rcv_cnm_notify"
 }
 
-variable "cnm_r_event_trigger" {
-  default = "sns"
+variable "po_daac_cnm_r_event_trigger" {
+  default = "sqs"
+}
+
+variable "asf_daac_cnm_r_event_trigger" {
+  default = "sqs"
 }
 
 variable "cnm_r_allowed_account" {
@@ -212,20 +216,29 @@ variable "cnm_r_venue" {
 }
 
 ####### CNM Response job vars #######
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   type = bool
 #  default = false
   default = true
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
   default = ""
 }
+
+variable "asf_daac_delivery_proxy" {
+  default = "arn:aws:sqs:us-west-2:337765570207:daac-proxy-for-opera-int"
+}
+
+variable "asf_daac_endpoint_url" {
+  default = ""
+}
+
 # asg vars
 variable "asg_use_role" {
   type = bool
@@ -336,7 +349,7 @@ variable "pge_names" {
 }
 
 variable "pge_release" {
-  default = "1.0.0-rc.2.0"
+  default = "1.0.0-rc.3.0"
 }
 
 variable "crid" {
