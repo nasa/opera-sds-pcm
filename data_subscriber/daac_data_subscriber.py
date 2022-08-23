@@ -635,7 +635,7 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.transfer_protocol == "https":
+    if args.transfer_protocol.lower() == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
         _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
@@ -777,7 +777,7 @@ def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
 
     for url in filtered_downloads:
         try:
-            if ES_CONN.product_is_downloaded(url):
+            if es_conn.product_is_downloaded(url):
                 logging.debug(f"SKIPPING: {url}")
 
                 num_skipped = num_skipped + 1
@@ -791,7 +791,7 @@ def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
                     else:
                         logging.debug(str(result))
 
-                ES_CONN.mark_product_as_downloaded(url, job_id)
+                es_conn.mark_product_as_downloaded(url, job_id)
                 logging.debug(f"{str(datetime.now())} SUCCESS: {url}")
 
                 num_successes = num_successes + 1
