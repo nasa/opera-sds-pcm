@@ -633,16 +633,16 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.tile_ids = args.tile_ids[:1]
 
-    session = SessionWithHeaderRedirection(username, password, NETLOC)
+    session = SessionWithHeaderRedirection(username, password, netloc)
 
     if args.transfer_protocol == "https":
-        download_urls = [to_https_url(download) for download in downloads if has_url(download)]
+        download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        upload_url_list_from_https(session, HLS_CONN, download_urls, args, token, job_id)
+        _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
     else:
-        download_urls = [to_s3_url(download) for download in downloads if has_url(download)]
+        download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        upload_url_list_from_s3(session, HLS_CONN, download_urls, args, job_id)
+        _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
     
@@ -661,7 +661,7 @@ def _to_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
         
-def has_url(dl_dict: dict[str, Any]):
+def _has_url(dl_dict: dict[str, Any]):
     if dl_dict.get("https_url"):
         return True
     if dl_dict.get("s3_url"):
