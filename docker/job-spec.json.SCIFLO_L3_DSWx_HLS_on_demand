@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/dswx_hls:1.0.0-rc.2.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.0-rc.2.0.tar.gz",
+      "container_image_name": "opera_pge/dswx_hls:1.0.0-rc.3.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.0-rc.3.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
