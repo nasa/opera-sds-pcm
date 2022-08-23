@@ -112,7 +112,7 @@ async def run(argv: list[str]):
 
         results = {}
         if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token, hls_conn, cmr, job_id)
+            results["query"] = await run_query(args, token, hls_conn, cmr, job_id, settings)
         if args.subparser_name == "download" or args.subparser_name == "full":
             results["download"] = run_download(args, token, hls_conn, netloc, username, password, job_id)  # return None
     logging.info(f"{results=}")
@@ -381,10 +381,10 @@ def _delete_token(url: str, token: str) -> None:
         logging.warning(f"Error deleting the token: {e}")
 
 
-async def run_query(args, token, HLS_CONN, CMR, job_id):
+async def run_query(args, token, hls_conn, cmr, job_id, settings):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
     query_dt = datetime.now()
-    granules = query_cmr(args, token, CMR)
+    granules = query_cmr(args, token, cmr, settings)
 
     if args.smoke_run:
         logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
@@ -392,7 +392,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
+        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
         update_granule_index(HLS_SPATIAL_CONN, granule)
         download_urls.extend(granule.get("filtered_urls"))
 
@@ -485,7 +485,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     }
 
 
-def query_cmr(args, token, cmr) -> list:
+def query_cmr(args, token, cmr, settings) -> list:
     PAGE_SIZE = 2000
     now = datetime.utcnow()
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -512,21 +512,21 @@ def query_cmr(args, token, cmr) -> list:
         logging.info("Temporal Range: " + temporal_range)
         params['temporal'] = temporal_range
 
-    product_granules, search_after = _request_search(request_url, params)
+    product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
-        granules, search_after = _request_search(request_url, params, search_after=search_after)
+        granules, search_after = _request_search(args, request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
-    if args.collection.upper() == "L30":
+    if args.collection.upper() in settings['SHORTNAME_FILTERS']:
         product_granules = [granule
                             for granule in product_granules
-                            if granule['short_name'] == "LANDSAT-8"]
+                            if _match_identifier(settings, args, granule)]
 
-    logging.info(f"Found {str(len(product_granules))} total granules")
+        logging.info(f"Found {str(len(product_granules))} total granules")
 
-    for granule in product_granules:
-        granule['filtered_urls'] = _filter_granules(granule, args)
+        for granule in product_granules:
+            granule['filtered_urls'] = _filter_granules(granule, args)
 
     return product_granules
 
@@ -545,12 +545,16 @@ def _get_temporal_range(start, end, now):
     raise ValueError("One of start-date or end-date must be specified.")
 
 
-def _request_search(request_url, params, search_after=None):
+def _request_search(args, request_url, params, search_after=None):
     response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
         if search_after else requests.get(request_url, params=params)
+
     results = response.json()
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
+
+    collection_identifier_map = {"L30": "LANDSAT_PRODUCT_ID",
+                                 "S30": "PRODUCT_URI"}
 
     if items and 'umm' in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
@@ -561,7 +565,11 @@ def _request_search(request_url, params, search_after=None):
                                   for point
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
-                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
+                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")],
+                 "identifier": next(attr.get("Values")[0]
+                                    for attr in item.get("umm").get("AdditionalAttributes")
+                                    if attr.get("Name") == collection_identifier_map[
+                                        args.collection.upper()]) if args.collection.upper() in collection_identifier_map else None}
                 for item in items], next_search_after
     else:
         return [], None
@@ -582,6 +590,14 @@ def _filter_granules(granule, args):
             for f in granule.get("related_urls")
             for extension in collection_map.get(filter_extension)
             if extension in f]
+
+
+def _match_identifier(settings, args, granule) -> bool:
+    for filter in settings['SHORTNAME_FILTERS'][args.collection.upper()]:
+        if re.match(filter, granule['identifier']):
+            return True
+
+    return False
 
 
 def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
