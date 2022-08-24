@@ -5,7 +5,37 @@ from purge_ISL import purge_isl
 
 def test_main(mocker: MockerFixture):
     # ARRANGE
-    mocker.patch("builtins.open", mocker.mock_open(read_data="""{ "isl_urls": ["s3://s3-us-west-2.amazonaws.com/my-bucket/dir1/file1", "", null]}"""))
+    mocker.patch("builtins.open", mocker.mock_open(read_data="""
+    {
+        "isl_urls": [
+            "s3://s3-us-west-2.amazonaws.com/my-bucket/dir1/file1",
+            "",
+            null
+        ]
+    }
+    """))
+    mocker.patch("purge_ISL.purge_isl.get_cached_s3_client")
+
+    # ACT
+    purge_isl.main()
+
+    # ASSERT
+    pass
+
+
+def test_main_when_called_from_ingest_job(mocker: MockerFixture):
+    # ARRANGE
+    mocker.patch("builtins.open", mocker.mock_open(read_data="""
+    {
+        "prod_met": {
+            "ISL_urls" : [
+                "s3://s3-us-west-2.amazonaws.com/my-bucket/dir1/file1",
+                "",
+                null
+            ]
+        }
+    }
+    """))
     mocker.patch("purge_ISL.purge_isl.get_cached_s3_client")
 
     # ACT

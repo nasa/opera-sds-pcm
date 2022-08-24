@@ -36,7 +36,15 @@ def main():
     job_context = jc.ctx
     logger.info(f"job_context: {json.dumps(job_context, indent=2)}")
 
-    isl_urls = [isl_url for isl_url in always_iterable(job_context["isl_urls"]) if isl_url]
+    isl_urls = None
+    if job_context.get("isl_urls"):
+        isl_urls = job_context["isl_urls"]
+
+    if job_context.get("prod_met", {}).get("ISL_urls"):
+        # called from ingest job
+        isl_urls = job_context["prod_met"]["ISL_urls"]
+
+    isl_urls = [isl_url for isl_url in always_iterable(isl_urls) if isl_url]
     for isl_url in isl_urls:
         logger.info(f"Purging ISL: {isl_url}")
         parsed_url = urlparse(isl_url)
