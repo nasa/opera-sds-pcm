@@ -288,20 +288,20 @@ def patch_subscriber(monkeypatch):
             [
                 {
                     "granule_id": "dummy_granule_id",
-                    "related_urls": [
+                    "filtered_urls": [
                         "https://example.com/T00000.B01.tif",
                     ]
                 },
                 {
                     "granule_id": "dummy_granule_id_2",
-                    "related_urls": [
+                    "filtered_urls": [
                         "https://example.com/T00001.B01.tif",
                         "https://example.com/T00001.B02.tif",
                     ]
                 },
                 {
                     "granule_id": "dummy_granule_id_3",
-                    "related_urls": [
+                    "filtered_urls": [
                         "https://example.com/T00002.B01.tif",
                     ]
                 }

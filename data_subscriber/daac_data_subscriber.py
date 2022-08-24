@@ -394,7 +394,9 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
     for granule in granules:
         update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
         update_granule_index(HLS_SPATIAL_CONN, granule)
-        download_urls.extend(granule.get("filtered_urls"))
+
+        if granule.get("filtered_urls"):
+            download_urls.extend(granule.get("filtered_urls"))
 
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")
@@ -479,6 +481,7 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
     logging.info(f"{succeeded=}")
     failed = [e for e in results if isinstance(e, Exception)]
     logging.info(f"{failed=}")
+
     return {
         "success": succeeded,
         "fail": failed
@@ -667,7 +670,6 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
         _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
-    
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
@@ -682,7 +684,7 @@ def _to_url(dl_dict: dict[str, Any]) -> str:
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
-        
+
 def _has_url(dl_dict: dict[str, Any]):
     if dl_dict.get("https_url"):
         return True
@@ -691,7 +693,7 @@ def _has_url(dl_dict: dict[str, Any]):
 
     logging.error(f"Couldn't find any URL in {dl_dict=}")
     return False
-  
+
 
 def _to_https_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("https_url"):
