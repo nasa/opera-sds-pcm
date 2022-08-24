@@ -10,8 +10,10 @@ SHORTNAME_FILTERS:
     - L.08 # Landsat-8
     - L.09 # Landsat-9
   S30:
-    - S1 # Sentinel-1
-#   - S2 # Sentinel-2
+#   - S1 # Sentinel-1
+    - S2A # Sentinel-2A
+    - S2B # Sentinel-2B
+#   - S2C # Sentinel-2C
 
 # Base API urls and login endpoints for the different DAAC environments.
 DAAC_ENVIRONMENTS:
