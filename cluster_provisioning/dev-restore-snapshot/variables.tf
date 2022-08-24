@@ -227,8 +227,8 @@ variable "common_ci" {
   type = map(string)
   default = {
     name       = "ci"
-    private_ip = "100.64.122.201"
-    public_ip  = "100.64.122.201"
+    private_ip = "opera-pcm-ci.jpl.nasa.gov"
+    public_ip  = "opera-pcm-ci.jpl.nasa.gov"
   }
 }
 
