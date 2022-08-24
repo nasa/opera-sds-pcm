@@ -4,7 +4,7 @@
   "soft_time_limit": 600,
   "time_limit": 660,
   "recommended-queues": [ "opera-job_worker-timer" ],
-  "post": [ "hysds.triage.triage" ],
+  "post": [ "hysds.utils.triage" ],
   "params" : [
     {
       "name": "dataset_type",

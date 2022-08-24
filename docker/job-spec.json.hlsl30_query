@@ -9,7 +9,7 @@
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
   "recommended-queues": [ "opera-job_worker-hls_data_query" ],
-  "post": [ "hysds.triage.triage" ],
+  "post": [ "hysds.utils.triage" ],
   "params": [
     {
       "name": "endpoint",
