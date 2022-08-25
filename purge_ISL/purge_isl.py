@@ -7,6 +7,7 @@ import os
 import logging
 import json
 from functools import cache
+from typing import Union
 
 import boto3
 
@@ -39,13 +40,13 @@ def main():
     purge_isl_urls(job_context["isl_urls"])
 
 
-def purge_isl_urls(isl_urls):
+def purge_isl_urls(isl_urls: Union[str, list[str]]):
     isl_urls = [isl_url for isl_url in always_iterable(isl_urls) if isl_url]
     for isl_url in isl_urls:
         purge_isl_url(isl_url)
 
 
-def purge_isl_url(isl_url):
+def purge_isl_url(isl_url: str):
     logger.info(f"Purging ISL: {isl_url}")
 
     parsed_url = urlparse(isl_url)
