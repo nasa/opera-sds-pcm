@@ -91,4 +91,8 @@ def str2bool(s):
     """Convert a string to a bool. None returns False."""
     if s is None:
         return False
-    return s.lower() in ["true", "false"]
+
+    if s.lower() == "true":
+        return True
+    if s.lower() == "false":
+        return False
