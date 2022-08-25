@@ -36,28 +36,28 @@ def main():
     job_context = jc.ctx
     logger.info(f"job_context: {json.dumps(job_context, indent=2)}")
 
-    isl_urls = None
-    if job_context.get("isl_urls"):
-        isl_urls = job_context["isl_urls"]
+    purge_isl_urls(job_context["isl_urls"])
 
-    if job_context.get("prod_met", {}).get("ISL_urls"):
-        # called from ingest job
-        isl_urls = job_context["prod_met"]["ISL_urls"]
 
+def purge_isl_urls(isl_urls):
     isl_urls = [isl_url for isl_url in always_iterable(isl_urls) if isl_url]
     for isl_url in isl_urls:
-        logger.info(f"Purging ISL: {isl_url}")
-        parsed_url = urlparse(isl_url)
+        purge_isl_url(isl_url)
 
-        region = parsed_url.netloc.split(".", 1)[0].split("s3-")[1]
-        tokens = parsed_url.path.strip("/").split("/", 1)
-        bucket = tokens[0]
-        key = tokens[1]
-        logger.info(f"region={region}, bucket={bucket}, key={key}")
 
-        s3 = get_cached_s3_client(region)
-        response = s3.delete_object(Bucket=bucket, Key=key)
-        logging.info(f"Delete object response: {response}")
+def purge_isl_url(isl_url):
+    logger.info(f"Purging ISL: {isl_url}")
+
+    parsed_url = urlparse(isl_url)
+    region = parsed_url.netloc.split(".", 1)[0].split("s3-")[1]
+    tokens = parsed_url.path.strip("/").split("/", 1)
+    bucket = tokens[0]
+    key = tokens[1]
+    logger.info(f"region={region}, bucket={bucket}, key={key}")
+    s3 = get_cached_s3_client(region)
+
+    response = s3.delete_object(Bucket=bucket, Key=key)
+    logging.info(f"Delete object response: {response}")
 
 
 @cache

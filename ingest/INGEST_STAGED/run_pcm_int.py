@@ -96,7 +96,7 @@ def main(id, src_data):
         create_dataset_checksums(dataset_dir, "md5")
         logger.info("Created dataset: {}".format(dataset_dir))
 
-        purge_isl.main()
+        purge_isl.purge_isl_urls(job_context["prod_met"]["ISL_urls"])
     except subprocess.CalledProcessError as cpe:
         logger.error(
             "Error while trying to extract metadata from {}:\n{}".format(id, cpe.output)
