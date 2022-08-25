@@ -39,7 +39,11 @@ def test_main_when_called_from_ingest_job(mocker: MockerFixture):
     mocker.patch("purge_ISL.purge_isl.get_cached_s3_client")
 
     # ACT
-    purge_isl.main()
+    purge_isl.purge_isl_urls([
+        "s3://s3-us-west-2.amazonaws.com/my-bucket/dir1/file1",
+        "",
+        None
+    ])
 
     # ASSERT
     pass
