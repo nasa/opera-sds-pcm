@@ -27,10 +27,6 @@ BASE_PATH = os.path.dirname(__file__)
 
 
 @exec_wrapper
-def checked_main():
-    main()
-
-
 def main():
     """Main."""
     jc = JobContext("_context.json")
@@ -67,4 +63,4 @@ def get_cached_s3_client(region_name: str):
 
 
 if __name__ == "__main__":
-    checked_main()
+    main()
