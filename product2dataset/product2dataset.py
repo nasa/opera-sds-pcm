@@ -113,18 +113,18 @@ def convert(
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id
 
-        if pge_name == "L3_HLS":
+        with open(PurePath(work_dir) / "_job.json") as fp:
+            job_json_dict = json.load(fp)
+
+        with open(PurePath(work_dir) / "datasets.json") as fp:
+            datasets_json_dict = json.load(fp)
+
+        if pge_name == "L3_DSWx_HLS":
             logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
-            state_config_product_metadata: Dict = {key: value for key, value in kwargs["state_config_product_metadata"].items() if key != "@timestamp"}
+            state_config_product_metadata: Dict = kwargs["product_metadata"]
 
             first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
             first_product_info: Dict = state_config_product_metadata[first_product_info_key]
-
-            with open(PurePath(work_dir) / "_job.json") as fp:
-                job_json_dict = json.load(fp)
-
-            with open(PurePath(work_dir) / "datasets.json") as fp:
-                datasets_json_dict = json.load(fp)
 
             dataset_type = job_json_dict["params"]["dataset_type"]
             dataset_type = dataset_type.split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
@@ -142,8 +142,8 @@ def convert(
                 f'products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
 
-            dataset_met_json["software_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
-            dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
+        dataset_met_json["software_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
+        dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
             collection_name: str = settings.get("DSWX_COLLECTION_NAME")
