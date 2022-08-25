@@ -53,6 +53,12 @@
       "value": "pge_output_dir"
     },
     {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/conda"
+    },
+    {
       "name":"input_dataset_id",
       "from":"submitter",
       "type":"text",

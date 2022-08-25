@@ -54,6 +54,10 @@
       "destination": "context"
     },
     {
+      "name": "container_home",
+      "destination": "context"
+    },
+    {
       "name":"input_dataset_id",
       "destination": "context"
     },

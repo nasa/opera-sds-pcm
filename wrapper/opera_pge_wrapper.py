@@ -38,7 +38,6 @@ runconfig_update_functions = {
 def main(job_json_file: str, workdir: str):
     jc = JobContext(job_json_file)
     job_context = jc.ctx
-    logger.debug(f"job_context={to_json(job_context)}")
 
     # set additional files to triage
     jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
@@ -55,9 +54,10 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     :return:
     """
+    logger.info(f"Starting OPERA PGE wrapper with job_context={to_json(job_json_dict)}")
 
     logger.info(f"Preparing Working Directory: {work_dir}")
-    logger.info(f"{list(Path(work_dir).iterdir())=}")
+    logger.debug(f"{list(Path(work_dir).iterdir())=}")
 
     input_dir, output_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
 
@@ -79,7 +79,8 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
         run_config = runconfig_update_functions[pge_name](job_json_dict, work_dir)
 
     # create RunConfig.yaml
-    logger.debug(f"Run config to transform to YAML is: {to_json(run_config)}")
+    logger.info(f"Run config to transform to YAML is: {to_json(run_config)}")
+    logger.info(f"PGE Config: {to_json(pge_config)}")
 
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
@@ -87,9 +88,6 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     logger.info("Copying run config to run config input directory.")
     shutil.copy(rc_file, runconfig_dir)
-
-    logger.debug(f"Run Config: {to_json(run_config)}")
-    logger.debug(f"PGE Config: {to_json(pge_config)}")
 
     # Run the PGE
     should_simulate_pge = job_json_dict.get(opera_chimera_const.SIMULATE_OUTPUTS)
@@ -102,7 +100,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
         exec_pge_command(
             context=job_json_dict,
             work_dir=work_dir,
-            input_hls_dir=input_dir,
+            input_dir=input_dir,
             runconfig_dir=runconfig_dir,
             output_dir=output_dir
         )
@@ -151,19 +149,19 @@ def job_param_by_name(context: Dict, name: str):
     raise Exception(f"param ({name}) not found in _context.json")
 
 
-def exec_pge_command(context: Dict, work_dir: str, input_hls_dir: str, runconfig_dir: str, output_dir: str):
+def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir: str, output_dir: str):
     logger.info("Preparing PGE docker command.")
 
     # get dependency image
     dep_img = context.get('job_specification')['dependency_images'][0]
     dep_img_name = dep_img['container_image_name']
-    logger.info(f"{dep_img_name=}")
+    logger.debug(f"{dep_img_name=}")
 
     # get docker params
     docker_params_file = os.path.join(work_dir, "_docker_params.json")
     dp = DockerParams(docker_params_file)
     docker_params = dp.params
-    logger.info(f"docker_params={to_json(docker_params)}")
+    logger.debug(f"docker_params={to_json(docker_params)}")
     docker_img_params = docker_params[dep_img_name]
     uid = docker_img_params["uid"]
     gid = docker_img_params["gid"]
@@ -173,17 +171,20 @@ def exec_pge_command(context: Dict, work_dir: str, input_hls_dir: str, runconfig
 
     # create directory to house PGE's _docker_stats.json
     pge_stats_dir = os.path.join(work_dir, 'pge_stats')
-    logger.debug(f"Making PGE Stats Directory: {pge_stats_dir}")
+    logger.info(f"Making PGE Stats Directory: {pge_stats_dir}")
     os.makedirs(pge_stats_dir, 0o755)
+
+    # get the location of the home directory within the container
+    container_home = job_param_by_name(context, 'container_home')
 
     cmd = [
         f"docker run --init --rm -u {uid}:{gid}",
         " ".join(runtime_options),
-        f"-v {runconfig_dir}:/home/conda/runconfig:ro",
-        f"-v {input_hls_dir}:/home/conda/input_dir:ro",
-        f"-v {output_dir}:/home/conda/output_dir",
+        f"-v {runconfig_dir}:{container_home}/runconfig:ro",
+        f"-v {input_dir}:{container_home}/input_dir:ro",
+        f"-v {output_dir}:{container_home}/output_dir",
         dep_img_name,
-        f"--file /home/conda/runconfig/RunConfig.yaml",
+        f"--file {container_home}/runconfig/RunConfig.yaml",
     ]
 
     cmd_line = " ".join(cmd)

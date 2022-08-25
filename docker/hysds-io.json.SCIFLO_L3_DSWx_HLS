@@ -67,6 +67,12 @@
       "value": "pge_output_dir"
     },
     {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/conda"
+    },
+    {
       "name": "wigt",
       "from": "value",
       "type": "number",

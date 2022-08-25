@@ -66,6 +66,10 @@
       "destination": "context"
     },
     {
+      "name": "container_home",
+      "destination": "context"
+    },
+    {
       "name": "wigt",
       "destination": "context"
     },

@@ -68,6 +68,10 @@
     {
       "name": "pge_output_dir",
       "destination": "context"
+    },
+    {
+      "name": "container_home",
+      "destination": "context"
     }
   ]
 }
