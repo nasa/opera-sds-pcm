@@ -2117,6 +2117,7 @@ resource "aws_lambda_function" "hls_download_timer" {
       "JOB_TYPE": local.hls_download_job_type,
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
+	  "ENDPOINT": "OPS",
       "SMOKE_RUN": "true",
       "DRY_RUN": "true"
     }
@@ -2174,6 +2175,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "ISL_BUCKET_NAME": local.isl_bucket,
       "MINUTES": var.hlsl30_query_timer_trigger_frequency,
       "PROVIDER": var.hls_provider,
+	  "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",
       "SMOKE_RUN": "false",
@@ -2208,6 +2210,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "JOB_RELEASE": var.pcm_branch,
       "ISL_BUCKET_NAME": local.isl_bucket,
       "PROVIDER": var.hls_provider,
+	  "ENDPOINT": "OPS",
       "MINUTES": var.hls_download_timer_trigger_frequency,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "80",
