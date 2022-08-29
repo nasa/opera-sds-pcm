@@ -510,15 +510,18 @@ def get_query_timerange(args, now: datetime):
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
-    return DateTimeRange(start_date, end_date)
+    query_timerange = DateTimeRange(start_date, end_date)
+    logging.info(f"{query_timerange=}")
+    return query_timerange
 
 
 def get_download_timerange(args):
     start_date = args.start_date
     end_date = args.end_date
 
-    DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-    return DateTimeRange(start_date, end_date)
+    download_timerange = DateTimeRange(start_date, end_date)
+    logging.info(f"{download_timerange=}")
+    return download_timerange
 
 
 def query_cmr(args, token, cmr, timerange: DateTimeRange, now: datetime) -> list:
@@ -648,9 +651,10 @@ def _url_to_tile_id(url: str):
 
 
 def run_download(args, token, hls_conn, netloc, username, password, job_id):
+    download_timerange = get_download_timerange(args)
     all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded(
-        datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ"),
-        datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ")
+        datetime.strptime(download_timerange.start_date, "%Y-%m-%dT%H:%M:%SZ"),
+        datetime.strptime(download_timerange.end_date, "%Y-%m-%dT%H:%M:%SZ")
     )
 
     downloads = all_pending_downloads
