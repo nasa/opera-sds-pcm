@@ -547,6 +547,7 @@ def query_cmr(args, token, cmr, timerange: DateTimeRange, now: datetime) -> list
         logging.info("Temporal Range: " + temporal_range)
         params['temporal'] = temporal_range
 
+    logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(request_url, params)
 
     while search_after:
