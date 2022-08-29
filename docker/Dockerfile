@@ -10,7 +10,7 @@ COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
  && cd /home/ops/verdi/ops/opera-pcm \
- && pip install '.[docker]' \
+ && pip install -e '.[docker]' \
  && cd - \
  && sudo /opt/conda/bin/conda install -y gdal cffi \
  # TODO: remove the following kludge once this issue has been resolved:
