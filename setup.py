@@ -18,7 +18,8 @@ setup(
             "pytest",
             "scripttest",
             "mock",
-            "mockito flake8",
+            "mockito",
+            "flake8",
             "pytest-cov",
             "flake8-junit-report",
             "flake8-string-format",
@@ -31,13 +32,13 @@ setup(
 
             "pytest-asyncio",
             "pytest-mock",
-            "elasticsearch[async]"
+            "elasticsearch[async]",
             
             "mgrs",
             "pyproj",
 
             "python-dateutil"
-    ],
+        ],
         'subscriber': [
             'boto3',
             'python-dateutil',
