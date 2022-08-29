@@ -16,6 +16,8 @@ RUN set -ex \
     geopandas smart_open \
  && pip install -U pytest-asyncio pytest-mock elasticsearch[async] \
  && pip install -U mgrs pyproj \
+ && pip install -U python-dateutil \
+ && pip install '.[docker]' \
  && sudo /opt/conda/bin/conda install -y gdal cffi \
  # TODO: remove the following kludge once this issue has been resolved:
  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
