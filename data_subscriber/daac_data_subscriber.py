@@ -654,8 +654,8 @@ def _url_to_tile_id(url: str):
 def run_download(args, token, hls_conn, netloc, username, password, job_id):
     download_timerange = get_download_timerange(args)
     all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded(
-        datetime.strptime(download_timerange.start_date, "%Y-%m-%dT%H:%M:%SZ"),
-        datetime.strptime(download_timerange.end_date, "%Y-%m-%dT%H:%M:%SZ")
+        dateutil.parser.isoparse(download_timerange.start_date),
+        dateutil.parser.isoparse(download_timerange.end_date)
     )
 
     downloads = all_pending_downloads
