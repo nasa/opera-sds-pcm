@@ -474,12 +474,12 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
                             "from": "value"
                         },
                         {
-                            "name": "start_date",
+                            "name": "start_datetime",
                             "value": f"--start-date={query_timerange.start_date}",
                             "from": "value"
                         },
                         {
-                            "name": "end_date",
+                            "name": "end_datetime",
                             "value": f"--end-date={query_timerange.end_date}",
                             "from": "value"
                         }
