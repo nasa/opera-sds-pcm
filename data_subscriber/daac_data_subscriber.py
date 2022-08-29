@@ -26,6 +26,7 @@ from urllib import request
 from urllib.parse import urlparse
 
 import boto3
+import dateutil.parser
 import requests
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
@@ -401,7 +402,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     for granule in granules:
         update_granule_index(HLS_SPATIAL_CONN, granule)
         update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         production_dt=datetime.fromisoformat(granule["production_datetime"]))
+                         production_dt=dateutil.parser.isoparse(datetime.fromisoformat(granule["production_datetime"])))
         download_urls.extend(granule.get("filtered_urls"))
 
     if args.subparser_name == "full":
