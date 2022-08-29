@@ -127,7 +127,7 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         return result
 
-    def _query_undownloaded(self, *, index=ES_INDEX, start_dt: datetime, end_dt: datetime):
+    def _query_undownloaded(self, start_dt: datetime, end_dt: datetime, index=ES_INDEX):
         try:
             result = self.query(
                 index=index,
