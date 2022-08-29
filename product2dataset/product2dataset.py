@@ -252,13 +252,14 @@ def main():
     """
     Main entry point
     """
-    product_dir = sys.argv[1]
-    product_type = sys.argv[2]
+    work_dir = sys.argv[1]
+    product_dir = sys.argv[2]
+    product_type = sys.argv[3]
     rc_file = None
-    if len(sys.argv) == 4:
-        rc_file = sys.argv[3]
+    if len(sys.argv) == 5:
+        rc_file = sys.argv[4]
 
-    convert(product_dir, product_type, rc_file)
+    convert(work_dir, product_dir, product_type, rc_file)
 
 
 if __name__ == "__main__":
