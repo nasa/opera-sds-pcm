@@ -15,14 +15,7 @@ RUN set -ex \
  && sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2 \
  && sudo chown -R ops:ops /home/ops/verdi/ops/opera-pcm \
  && cd /home/ops/verdi/ops/opera-pcm \
- && pip install -U more-itertools \
- && pip install -U pytest scripttest mock mockito flake8 \
-    pytest-cov flake8-junit-report flake8-string-format \
-    xmltodict yamale==3.0.6 ruamel.yaml elasticmock \
-    geopandas smart_open \
- && pip install -U pytest-asyncio pytest-mock elasticsearch[async] \
- && pip install -U mgrs pyproj \
- && pip install -U python-dateutil \
+ && pip install -U -e '.[docker]' \
  && cd /home/ops/verdi/ops \
  && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git \
  && cd pcm_commons \
