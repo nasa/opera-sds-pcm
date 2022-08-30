@@ -15,7 +15,7 @@ setup(
         'docker': [
             "more-itertools",
 
-            "pytest",
+            'pytest==7.1.1',
             "scripttest",
             "mock",
             "mockito",
