@@ -1504,9 +1504,9 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   name                      = "${var.project}-${var.venue}-${local.counter}-${each.key}"
   depends_on                = [aws_launch_template.launch_template]
   max_size                  = lookup(each.value, "max_size")
-  min_size                  = 0
+  min_size                  = lookup(each.value, "min_size", 0)
   default_cooldown          = 60
-  desired_capacity          = 0
+  desired_capacity          = lookup(each.value, "min_size", 0)
   health_check_grace_period = 300
   health_check_type         = "EC2"
   protect_from_scale_in     = false

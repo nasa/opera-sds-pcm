@@ -143,7 +143,9 @@ class HLSProductCatalog(ElasticsearchUtility):
                                 {
                                     "match": {
                                         "downloaded": False
-                                    },
+                                    }
+                                },
+                                {
                                     "range": {
                                         "production_datetime": {
                                             "gte": start_dt.isoformat(),
