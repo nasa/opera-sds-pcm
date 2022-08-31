@@ -140,6 +140,7 @@ def create_parser():
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
+                             "choices": ["HLSL30", "HLSS30"],
                              "required": True,
                              "help": "The collection shortname for which you want to retrieve data."}}
 
@@ -520,15 +521,15 @@ def query_cmr(args, token, cmr, settings) -> list:
         granules, search_after = _request_search(args, request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
-    if args.collection.upper() in settings['SHORTNAME_FILTERS']:
+    if args.collection in settings['SHORTNAME_FILTERS']:
         product_granules = [granule
                             for granule in product_granules
                             if _match_identifier(settings, args, granule)]
 
         logging.info(f"Found {str(len(product_granules))} total granules")
 
-        for granule in product_granules:
-            granule['filtered_urls'] = _filter_granules(granule, args)
+    for granule in product_granules:
+        granule['filtered_urls'] = _filter_granules(granule, args)
 
     return product_granules
 
@@ -555,8 +556,8 @@ def _request_search(args, request_url, params, search_after=None):
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
 
-    collection_identifier_map = {"L30": "LANDSAT_PRODUCT_ID",
-                                 "S30": "PRODUCT_URI"}
+    collection_identifier_map = {"HLSL30": "LANDSAT_PRODUCT_ID",
+                                 "HLSS30": "PRODUCT_URI"}
 
     if items and 'umm' in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
@@ -571,21 +572,21 @@ def _request_search(args, request_url, params, search_after=None):
                  "identifier": next(attr.get("Values")[0]
                                     for attr in item.get("umm").get("AdditionalAttributes")
                                     if attr.get("Name") == collection_identifier_map[
-                                        args.collection.upper()]) if args.collection.upper() in collection_identifier_map else None}
+                                        args.collection]) if args.collection in collection_identifier_map else None}
                 for item in items], next_search_after
     else:
         return [], None
 
 
 def _filter_granules(granule, args):
-    collection_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                      "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+    collection_map = {"HLSL30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+                      "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
                       "TIF": ["tif"]}
     filter_extension = "TIF"
 
     for collection in collection_map:
-        if collection.upper() in args.collection.upper():
-            filter_extension = collection.upper()
+        if collection in args.collection:
+            filter_extension = collection
             break
 
     return [f
@@ -595,7 +596,7 @@ def _filter_granules(granule, args):
 
 
 def _match_identifier(settings, args, granule) -> bool:
-    for filter in settings['SHORTNAME_FILTERS'][args.collection.upper()]:
+    for filter in settings['SHORTNAME_FILTERS'][args.collection]:
         if re.match(filter, granule['identifier']):
             return True
 
