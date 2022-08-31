@@ -402,7 +402,7 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     for granule in granules:
         update_granule_index(HLS_SPATIAL_CONN, granule)
         update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         production_dt=dateutil.parser.isoparse(granule["production_datetime"]))
+                         temporal_range_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_range_extent_beginning_datetime"]))
         download_urls.extend(granule.get("filtered_urls"))
 
     if args.subparser_name == "full":
@@ -586,6 +586,7 @@ def _request_search(request_url, params, search_after=None):
         return [{"granule_id": item.get("umm").get("GranuleUR"),
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
+                 "temporal_range_extent_beginning_datetime": item["umm"]["TemporalRangeExtent"]["RangeDateTime"]["BeginningDateTime"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
                  "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
                                   for point

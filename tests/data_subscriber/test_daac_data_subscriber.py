@@ -313,7 +313,7 @@ def patch_subscriber(monkeypatch):
                     "related_urls": [
                         "https://example.com/T00000.B01.tif",
                     ],
-                    "production_datetime": datetime.now().isoformat()
+                    "temporal_range_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_2",
@@ -321,14 +321,14 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00001.B01.tif",
                         "https://example.com/T00001.B02.tif",
                     ],
-                    "production_datetime": datetime.now().isoformat()
+                    "temporal_range_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_3",
                     "related_urls": [
                         "https://example.com/T00002.B01.tif",
                     ],
-                    "production_datetime": datetime.now().isoformat()
+                    "temporal_range_extent_beginning_datetime": datetime.now().isoformat()
                 }
             ],
             False  # search_after

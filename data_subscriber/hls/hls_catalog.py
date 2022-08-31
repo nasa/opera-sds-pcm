@@ -54,7 +54,7 @@ class HLSProductCatalog(ElasticsearchUtility):
             } for result in (undownloaded or [])
         ]
 
-    def process_url(self, url: str, granule_id: str, job_id: str, query_dt: datetime, production_dt: datetime):
+    def process_url(self, url: str, granule_id: str, job_id: str, query_dt: datetime, temporal_range_extent_beginning_dt: datetime):
         filename = Path(url).name
         result = self._query_existence(filename)
         doc = {
@@ -63,7 +63,7 @@ class HLSProductCatalog(ElasticsearchUtility):
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
             "query_datetime": query_dt,
-            "production_datetime": production_dt
+            "temporal_range_extent_beginning_datetime": temporal_range_extent_beginning_dt
         }
 
         if "https://" in url:
@@ -147,7 +147,7 @@ class HLSProductCatalog(ElasticsearchUtility):
                                 },
                                 {
                                     "range": {
-                                        "production_datetime": {
+                                        "temporal_range_extent_beginning_datetime": {
                                             "gte": start_dt.isoformat(),
                                             "lt": end_dt.isoformat()
                                         }
