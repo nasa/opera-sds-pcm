@@ -286,9 +286,9 @@ def _validate_minutes(minutes):
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
 
-def update_url_index(es_conn, urls: list[str], granule_id: str, job_id: str, query_dt: datetime, production_dt: datetime):
+def update_url_index(es_conn, urls: list[str], granule_id: str, job_id: str, query_dt: datetime, temporal_extent_beginning_dt: datetime):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, production_dt)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt)
 
 
 def update_granule_index(es_spatial_conn, granule):
