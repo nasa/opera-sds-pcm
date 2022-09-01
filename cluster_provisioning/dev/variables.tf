@@ -385,6 +385,11 @@ variable "pge_release" {
   default = "1.0.0-rc.3.0"
 }
 
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
+}
+
 variable "crid" {
   default = "D00100"
 }

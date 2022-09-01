@@ -82,6 +82,7 @@ module "common" {
 
   pge_names                               = var.pge_names
   pge_snapshots_date                      = var.pge_snapshots_date
+  pge_sim_mode                            = var.pge_sim_mode
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
