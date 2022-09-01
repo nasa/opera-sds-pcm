@@ -68,15 +68,24 @@ class OperaAccountability(Accountability):
 
         self.trigger_dataset_type = context[oc_const.DATASET_TYPE]
         self.trigger_dataset_id = context[oc_const.INPUT_DATASET_ID]
+        self.input_files_type = remove_suffix(self.trigger_dataset_type, "-state-config")
 
         metadata: Dict[str, str] = context["product_metadata"]["metadata"]
-        # NOTE TO DEVELOPERS
-        #  updating this section may require an update to eval_state_config.py
-        self.product_paths: list[str] = [product_info["product_path"] for band_or_qa, product_info in metadata.items() if band_or_qa != '@timestamp']
-        self.input_files_type = remove_suffix(self.trigger_dataset_type, "-state-config")
-        self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
 
-        self.output_type = "L3_DSWx"  # got this from PGE config YAML
+        if self.input_files_type in ('L2_HLS_L30', 'L2_HLS_S30'):
+            # NOTE TO DEVELOPERS
+            #  updating this section may require an update to eval_state_config.py
+            self.product_paths = [product_info["product_path"]
+                                  for band_or_qa, product_info in metadata.items()
+                                  if band_or_qa != '@timestamp']
+            self.output_type = "L3_DSWx_HLS"
+        elif self.input_files_type in ('L1_S1_SLC',):
+            self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+            self.output_type = "L2_CSLC_S1"
+        else:
+            raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
+
+        self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
 
     def create_job_entry(self):
         if self.job_id is not None:
