@@ -371,11 +371,11 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = ""
 }
 
 variable "pge_release" {
-  default = "1.0.0-er.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 variable "crid" {
