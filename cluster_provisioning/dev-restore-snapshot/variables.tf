@@ -227,8 +227,8 @@ variable "common_ci" {
   type = map(string)
   default = {
     name       = "ci"
-    private_ip = "100.64.122.201"
-    public_ip  = "100.64.122.201"
+    private_ip = "opera-pcm-ci.jpl.nasa.gov"
+    public_ip  = "opera-pcm-ci.jpl.nasa.gov"
   }
 }
 
@@ -371,11 +371,15 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = ""
 }
 
-variable "pge_release" {
-  default = "1.0.0-er.3.0"
+variable "pge_releases" {
+  type = map(string)
+  default = {
+    "dswx_hls" = "1.0.0-rc.4.0"
+    "cslc_s1" = "2.0.0-er.2.0"
+  }
 }
 
 variable "crid" {

@@ -29,8 +29,8 @@ locals {
   asf_daac_delivery_account         = split(":", var.asf_daac_delivery_proxy)[4]
   asf_daac_delivery_resource_name   = split(":", var.asf_daac_delivery_proxy)[5]
 
-  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge/"
-  pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge/"
+  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
+  pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
   po_daac_delivery_proxy_maturity   = split("-", var.po_daac_delivery_proxy)[5]
   asf_daac_delivery_proxy_maturity   = split("-", var.asf_daac_delivery_proxy)[5]
@@ -1246,49 +1246,63 @@ resource "aws_instance" "mozart" {
       "else",
       "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py",
       "fi",
+    ]
+  }
 
-      # deploy PGE for R1 (DSWx_HLS)
-      "if [[ \"${var.pge_release}\" == \"develop\"* ]]; then",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
-      "    --image_names ${var.pge_names} \\",
-      "    --pge_release \"${var.pge_release}\" \\",
-      "    --sds_config ~/.sds/config \\",
-      "    --processes 4 \\",
-      "    --force \\",
-      "    --artifactory_url ${local.pge_artifactory_dev_url}",
-      "    --username ${var.artifactory_fn_user} \\",
-      "    --api_key ${var.artifactory_fn_api_key}",
-      "else",
-      "    python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \\",
-      "    --image_names ${var.pge_names} \\",
-      "    --pge_release ${var.pge_release} \\",
-      "    --sds_config ~/.sds/config \\",
-      "    --processes 4 \\",
-      "    --force \\",
-      "    --artifactory_url ${local.pge_artifactory_release_url} \\",
-      "    --username ${var.artifactory_fn_user} \\",
-      "    --api_key ${var.artifactory_fn_api_key}",
-      "fi",
-      "sds -d kibana import -f",
-      "sds -d cloud storage ship_style --bucket ${local.dataset_bucket}",
-      "sds -d cloud storage ship_style --bucket ${local.osl_bucket}",
-      "sds -d cloud storage ship_style --bucket ${local.triage_bucket}",
-      "sds -d cloud storage ship_style --bucket ${local.lts_bucket}",
-      #"sds -d cloud asg create"
+  # deploy PGEs
+  provisioner "remote-exec" {
+    inline = [<<-EOF
+      set -ex
+      source ~/.bash_profile
+      %{ for pge_name, pge_version in var.pge_releases ~}
+      if [[ \"${pge_version}\" == \"develop\"* ]]; then
+          python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \
+          --image_names opera_pge-${pge_name} \
+          --pge_release ${pge_version} \
+          --sds_config ~/.sds/config \
+          --processes 4 \
+          --force \
+          --artifactory_url ${local.pge_artifactory_dev_url}/${pge_name} \
+          --username ${var.artifactory_fn_user} \
+          --api_key ${var.artifactory_fn_api_key}
+      else
+          python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \
+          --image_names opera_pge-${pge_name} \
+          --pge_release ${pge_version} \
+          --sds_config ~/.sds/config \
+          --processes 4 \
+          --force \
+          --artifactory_url ${local.pge_artifactory_release_url}/${pge_name} \
+          --username ${var.artifactory_fn_user} \
+          --api_key ${var.artifactory_fn_api_key}
+      fi
+      %{ endfor ~}
+      sds -d kibana import -f
+      sds -d cloud storage ship_style --bucket ${local.dataset_bucket}
+      sds -d cloud storage ship_style --bucket ${local.osl_bucket}
+      sds -d cloud storage ship_style --bucket ${local.triage_bucket}
+      sds -d cloud storage ship_style --bucket ${local.lts_bucket}
+    EOF
     ]
   }
 
   # Get test data from the artifactory and put into tests directory
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      "mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
-      "wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \\",
-      "     -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz",
-      "cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/",
-      "tar xfz hls_l2.tar.gz"
+    inline = [<<-EOF
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+      mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/
+      wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \
+           -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz
+      cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/
+      tar xfz hls_l2.tar.gz
+      mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
+      wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0/slc_l1.tar.gz \
+           -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/slc_l1.tar.gz
+      cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
+      tar xfz slc_l1.tar.gz
+    EOF
     ]
   }
 

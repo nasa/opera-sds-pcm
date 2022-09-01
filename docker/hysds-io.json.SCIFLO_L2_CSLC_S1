@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L3_DSWx_HLS",
+  "label": "SCIFLO_L2_CSLC_S1",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": true,
   "params": [
@@ -19,7 +19,12 @@
       "name": "wf_name",
       "from": "value",
       "type": "text",
-      "value": "L3_DSWx_HLS"
+      "value": "L2_CSLC_S1"
+    },
+    {
+      "name": "product_path",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]"
     },
     {
       "name":"dataset_type",
@@ -70,73 +75,7 @@
       "name": "container_home",
       "from": "value",
       "type": "text",
-      "value": "/home/conda"
-    },
-    {
-      "name": "wigt",
-      "from": "value",
-      "type": "number",
-      "value": "0.0124"
-    },
-    {
-      "name": "awgt",
-      "from": "value",
-      "type": "number",
-      "value": "0.0"
-    },
-    {
-      "name": "pswt_1_mndwi",
-      "from": "value",
-      "type": "number",
-      "value": "-0.44"
-    },
-    {
-      "name": "pswt_1_nir",
-      "from": "value",
-      "type": "number",
-      "value": "1500"
-    },
-    {
-      "name": "pswt_1_swir1",
-      "from": "value",
-      "type": "number",
-      "value": "900"
-    },
-    {
-      "name": "pswt_1_ndvi",
-      "from": "value",
-      "type": "number",
-      "value": "0.7"
-    },
-    {
-      "name": "pswt_2_mndwi",
-      "from": "value",
-      "type": "number",
-      "value": "-0.5"
-    },
-    {
-      "name": "pswt_2_blue",
-      "from": "value",
-      "type": "number",
-      "value": "1000"
-    },
-    {
-      "name": "pswt_2_nir",
-      "from": "value",
-      "type": "number",
-      "value": "2500"
-    },
-    {
-      "name": "pswt_2_swir1",
-      "from": "value",
-      "type": "number",
-      "value": "3000"
-    },
-    {
-      "name": "pswt_2_swir2",
-      "from": "value",
-      "type": "number",
-      "value": "1000"
+      "value": "/home/compass_user"
     }
   ]
 }

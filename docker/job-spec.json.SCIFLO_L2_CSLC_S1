@@ -10,15 +10,15 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/dswx_hls:1.0.0-rc.4.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.0-rc.4.0.tar.gz",
+      "container_image_name": "opera_pge/cslc_s1:2.0.0-er.2.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-cslc_s1-2.0.0-er.2.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
       }
     }
   ],
-  "recommended-queues": [ "opera-job_worker-sciflo-l3_dswx_hls"],
+  "recommended-queues": [ "opera-job_worker-sciflo-l2_cslc_s1"],
   "post": [ "hysds.utils.triage"],
   "params": [
     {
@@ -32,6 +32,10 @@
     {
       "name": "wf_name",
       "destination": "positional"
+    },
+    {
+      "name": "product_path",
+      "destination": "context"
     },
     {
       "name": "dataset_type",
@@ -67,50 +71,6 @@
     },
     {
       "name": "container_home",
-      "destination": "context"
-    },
-    {
-      "name": "wigt",
-      "destination": "context"
-    },
-    {
-      "name": "awgt",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_mndwi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_nir",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_swir1",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_ndvi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_mndwi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_blue",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_nir",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_swir1",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_swir2",
       "destination": "context"
     }
   ]
