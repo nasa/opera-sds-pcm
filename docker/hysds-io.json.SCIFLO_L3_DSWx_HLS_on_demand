@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L3_HLS_on_demand",
+  "label": "SCIFLO_L3_DSWx_HLS_on_demand",
   "allowed_accounts": [ "ops" ],
   "submission_type": "individual",
   "enable_dedup": true,
@@ -20,7 +20,7 @@
       "name": "wf_name",
       "from": "value",
       "type": "text",
-      "value": "L3_HLS"
+      "value": "L3_DSWx_HLS"
     },
     {
       "name": "accountability_module_path",
@@ -51,6 +51,12 @@
       "from": "value",
       "type": "text",
       "value": "pge_output_dir"
+    },
+    {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/conda"
     },
     {
       "name":"input_dataset_id",

@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<sf:sciflo xmlns:sf="http://sciflo.jpl.nasa.gov/2006v1/sf"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        xmlns:py="http://sciflo.jpl.nasa.gov/2006v1/py">
+  <sf:flow id="L2_CSLC_S1">
+    <sf:title>L2_CSLC_S1</sf:title>
+    <sf:icon>http://sciflo.jpl.nasa.gov/smap_sciflo/web/thumbnails/merged_data.png</sf:icon>
+    <sf:description>Run the L2_CSLC_S1 PGE workflow</sf:description>
+    <sf:inputs>
+        <sf_context>_context.json</sf_context>
+    </sf:inputs>
+    <sf:outputs>
+      <job_id_L2_CSLC_S1 from="@#L2_CSLC_S1_PGE"/>
+    </sf:outputs>
+
+    <sf:processes>
+      <!-- input preprocessor -->
+      <sf:process id="input_preprocessor_L2_CSLC_S1">
+        <sf:inputs>
+          <sf_context/>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L2_CSLC_S1.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+        </sf:inputs>
+        <sf:outputs>
+          <PGE_L2_CSLC_S1_job_params />
+        </sf:outputs>
+        <sf:operator>
+          <sf:description>Pre-processing steps for the L2_CSLC_S1 PGE</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/input_preprocessor.py?input_preprocessor.process</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+
+      <sf:process id="L2_CSLC_S1_PGE">
+        <sf:inputs>
+          <sf_context/>
+          <PGE_L2_CSLC_S1_job_params from="@#input_preprocessor_L2_CSLC_S1"/>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L2_CSLC_S1.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+        </sf:inputs>
+        <sf:outputs>
+          <job_id_L2_CSLC_S1 />
+        </sf:outputs>
+        <sf:operator>
+          <sf:description>Run the L2_CSLC_S1 PGE on an EC2 worker</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/run_pge_docker.py?run_pge_docker.submit_pge_job</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+
+      <sf:process id="postprocessor_L2_CSLC_S1">
+        <sf:inputs>
+          <sf_context/>
+          <job_id_L2_CSLC_S1 from="@#previous"/>
+          <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
+          <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L2_CSLC_S1.yaml</pge_config_file>
+          <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
+        </sf:inputs>
+        <sf:outputs/>
+        <sf:operator>
+          <sf:description>Post-processing steps for the L2_CSLC_S1 PGE</sf:description>
+          <sf:op>
+            <sf:binding>python:/home/ops/verdi/ops/chimera/chimera/post_processor.py?post_processor.post_process</sf:binding>
+          </sf:op>
+        </sf:operator>
+      </sf:process>
+    </sf:processes>
+  </sf:flow>
+</sf:sciflo>

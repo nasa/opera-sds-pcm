@@ -307,6 +307,13 @@ variable "queues" {
       "max_size"      = 10
       "total_jobs_metric" = true
     }
+    "opera-job_worker-sciflo-l2_cslc_s1" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 50
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "instance_type" = ["t2.large", "t3a.large", "t3.large"]
       "root_dev_size" = 50
@@ -387,8 +394,12 @@ variable "lambda_log_retention_in_days" {
   default = 30
 }
 
-variable "pge_names" {
-  default = "opera_pge-dswx_hls"
+variable "pge_releases" {
+  type = map(string)
+  default = {
+    "dswx_hls" = "1.0.0-rc.4.0"
+    "cslc_s1" = "2.0.0-er.2.0"
+  }
 }
 
 variable "docker_registry_bucket" {
@@ -397,10 +408,6 @@ variable "docker_registry_bucket" {
 
 variable "pge_snapshots_date" {
   default = "20220609-1.0.0-rc.1.0"
-}
-
-variable "pge_release" {
-  default = "1.0.0-rc.3.0"
 }
 
 variable "crid" {

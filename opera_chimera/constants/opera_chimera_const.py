@@ -101,6 +101,12 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BASE_NAME = "base_name"
 
+    SAFE_FILE_PATH = "safe_file_path"
+
+    ORBIT_FILE_PATH = "orbit_file_path"
+
+    BURST_ID = "burst_id"
+
     DEM_FILE = "dem_file"
 
     LANDCOVER_FILE = "landcover_file"
@@ -204,6 +210,10 @@ class OperaChimeraConstants(ChimeraConstants):
     CAST_STRING_TO_INT = "cast_string_to_int"
 
     BBOX = "bbox"
+
+    GET_CSLC_ORBIT_FILE = "get_cslc_orbit_file"
+
+    GET_CSLC_DEM = "get_cslc_dem"
 
     GET_DEM_BBOX = "get_dem_bbox"
 
