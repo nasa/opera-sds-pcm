@@ -26,6 +26,7 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
                                          "properties": {
                                              "bounding_box": {"type": "geo_point"},
                                              "short_name": {"type": "keyword"},
+											 "product_id": {"type": "keyword"},
                                              "production_datetime": {"type": "date"},
                                              "creation_timestamp": {"type": "date"}}}},
                                index=ES_INDEX)
@@ -46,6 +47,7 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
                 "provider": granule["provider"],
                 "production_datetime": granule["production_datetime"],
                 "short_name": granule["short_name"],
+				"product_id": granule["identifier"],
                 "bounding_box": granule["bounding_box"],
                 "creation_timestamp": datetime.now()
             }
