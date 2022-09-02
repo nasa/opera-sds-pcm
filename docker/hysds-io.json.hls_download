@@ -22,6 +22,18 @@
       "optional": true
     },
     {
+      "name": "start_datetime",
+      "from": "submitter",
+      "placeholder": "e.g. --start-date=1970-01-01T00:00:00Z",
+      "optional": true
+    },
+    {
+      "name": "end_datetime",
+      "from": "submitter",
+      "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z",
+      "optional": true
+    },
+    {
       "name": "smoke_run",
       "from": "submitter",
       "placeholder": "e.g. --smoke-run",

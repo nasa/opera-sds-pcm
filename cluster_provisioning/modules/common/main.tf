@@ -38,8 +38,8 @@ locals {
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
   hls_download_job_type             = "hls_download"
-  hlsl30_query_job_type             = "hlsl30_query_minutes"
-  hlss30_query_job_type             = "hlss30_query_minutes"
+  hlsl30_query_job_type             = "hlsl30_query"
+  hlss30_query_job_type             = "hlss30_query"
 
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
@@ -716,7 +716,7 @@ resource "aws_lambda_function" "isl_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-isl-lambda"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.7"
+  runtime       = "python3.8"
   timeout       = 60
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
@@ -1518,9 +1518,9 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   name                      = "${var.project}-${var.venue}-${local.counter}-${each.key}"
   depends_on                = [aws_launch_template.launch_template]
   max_size                  = lookup(each.value, "max_size")
-  min_size                  = 0
+  min_size                  = lookup(each.value, "min_size", 0)
   default_cooldown          = 60
-  desired_capacity          = 0
+  desired_capacity          = lookup(each.value, "min_size", 0)
   health_check_grace_period = 300
   health_check_type         = "EC2"
   protect_from_scale_in     = false
@@ -2174,7 +2174,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-hlsl30-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
-  runtime = "python3.7"
+  runtime = "python3.8"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids = data.aws_subnet_ids.lambda_vpc.ids

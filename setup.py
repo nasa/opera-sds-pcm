@@ -12,8 +12,36 @@ setup(
         'h5py'
     ],
     extras_require={
+        'docker': [
+            "more-itertools",
+
+            'pytest==7.1.1',
+            "scripttest",
+            "mock",
+            "mockito",
+            "flake8",
+            "pytest-cov",
+            "flake8-junit-report",
+            "flake8-string-format",
+            "xmltodict",
+            "yamale==3.0.6",
+            "ruamel.yaml",
+            "elasticmock",
+            "geopandas",
+            "smart_open",
+
+            "pytest-asyncio",
+            "pytest-mock",
+            "elasticsearch[async]",
+            
+            "mgrs",
+            "pyproj",
+
+            "python-dateutil"
+        ],
         'subscriber': [
             'boto3',
+            'python-dateutil',
             'elasticsearch==7.13.4',
             'elasticsearch[async]>=7.13.4',
             'more-itertools==8.13.0',

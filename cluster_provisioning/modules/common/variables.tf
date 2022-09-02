@@ -299,6 +299,7 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
+      "min_size"      = 0
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -313,6 +314,7 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
+      "min_size"      = 0
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -327,6 +329,7 @@ variable "queues" {
       "instance_type" = ["t2.large", "t3a.large", "t3.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
+      "min_size"      = 0
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -348,6 +351,7 @@ variable "queues" {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
+      "min_size"      = 0
       "max_size"      = 10
       "total_jobs_metric" = false
       "use_private_vpc" = false
@@ -356,6 +360,7 @@ variable "queues" {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
+      "min_size"      = 0
       "max_size"      = 80
       "total_jobs_metric" = true
       "use_private_vpc" = false
