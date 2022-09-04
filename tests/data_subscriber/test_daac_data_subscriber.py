@@ -43,7 +43,7 @@ async def test_full(monkeypatch):
 
     args = "dummy.py full " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=HLSS30 " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=not-https " \
            "--start-date=1970-01-01T00:00:00Z " \
@@ -65,7 +65,7 @@ async def test_query(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=HLSS30 " \
            "".split()
 
     # ACT
@@ -82,7 +82,7 @@ async def test_query_chunked(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=HLSS30 " \
            "--chunk-size=1 " \
            "".split()
 
@@ -101,7 +101,7 @@ async def test_query_no_schedule_download(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=HLSS30 " \
            "--chunk-size=1 " \
            "--no-schedule-download " \
            "".split()
@@ -120,7 +120,7 @@ async def test_query_smoke_run(monkeypatch):
 
     args = "dummy.py query " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=dummy_collection_shortname " \
+           "--collection-shortname=HLSS30 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--chunk-size=1 " \
@@ -310,24 +310,37 @@ def patch_subscriber(monkeypatch):
             [
                 {
                     "granule_id": "dummy_granule_id",
-                    "related_urls": [
-                        "https://example.com/T00000.B01.tif",
+                    "filtered_urls": [
+                        "https://example.com/T00000.B02.tif",
                     ],
+                    "related_urls": [
+                        "https://example.com/T00000.B02.tif",
+                    ],
+                    "identifier": "S2A_dummy",
                     "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_2",
-                    "related_urls": [
-                        "https://example.com/T00001.B01.tif",
+                    "filtered_urls": [
                         "https://example.com/T00001.B02.tif",
+                        "https://example.com/T00001.B03.tif",
                     ],
+                    "related_urls": [
+                        "https://example.com/T00001.B02.tif",
+                        "https://example.com/T00001.B03.tif",
+                    ],
+                    "identifier": "S2A_dummy",
                     "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_3",
-                    "related_urls": [
-                        "https://example.com/T00002.B01.tif",
+                    "filtered_urls": [
+                        "https://example.com/T00002.B02.tif",
                     ],
+                    "related_urls": [
+                        "https://example.com/T00002.B02.tif",
+                    ],
+                    "identifier": "S2A_dummy",
                     "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 }
             ],

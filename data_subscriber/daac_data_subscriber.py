@@ -116,7 +116,7 @@ async def run(argv: list[str]):
 
         results = {}
         if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token, hls_conn, cmr, job_id)
+            results["query"] = await run_query(args, token, hls_conn, cmr, job_id, settings)
         if args.subparser_name == "download" or args.subparser_name == "full":
             results["download"] = run_download(args, token, hls_conn, netloc, username, password, job_id)  # return None
     logging.info(f"{results=}")
@@ -144,6 +144,7 @@ def create_parser():
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
+                             "choices": ["HLSL30", "HLSS30"],
                              "required": True,
                              "help": "The collection shortname for which you want to retrieve data."}}
 
@@ -385,14 +386,14 @@ def _delete_token(url: str, token: str) -> None:
         logging.warning(f"Error deleting the token: {e}")
 
 
-async def run_query(args, token, HLS_CONN, CMR, job_id):
+async def run_query(args, token, hls_conn, cmr, job_id, settings):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
 
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
 
-    granules = query_cmr(args, token, CMR, query_timerange, now)
+    granules = query_cmr(args, token, cmr, settings, query_timerange, now)
 
     if args.smoke_run:
         logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
@@ -400,10 +401,12 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
 
     download_urls: list[str] = []
     for granule in granules:
-        update_granule_index(HLS_SPATIAL_CONN, granule)
-        update_url_index(HLS_CONN, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
+        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
                          temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]))
-        download_urls.extend(granule.get("filtered_urls"))
+        update_granule_index(HLS_SPATIAL_CONN, granule)
+
+        if granule.get("filtered_urls"):
+            download_urls.extend(granule.get("filtered_urls"))
 
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")
@@ -498,11 +501,11 @@ async def run_query(args, token, HLS_CONN, CMR, job_id):
     logging.info(f"{succeeded=}")
     failed = [e for e in results if isinstance(e, Exception)]
     logging.info(f"{failed=}")
+
     return {
         "success": succeeded,
         "fail": failed
     }
-
 
 def get_query_timerange(args, now: datetime):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -525,8 +528,9 @@ def get_download_timerange(args):
     return download_timerange
 
 
-def query_cmr(args, token, cmr, timerange: DateTimeRange, now: datetime) -> list:
+def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     PAGE_SIZE = 2000
+    now = datetime.utcnow()
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
@@ -548,15 +552,21 @@ def query_cmr(args, token, cmr, timerange: DateTimeRange, now: datetime) -> list
         params['temporal'] = temporal_range
 
     logging.info(f"{request_url=} {params=}")
-    product_granules, search_after = _request_search(request_url, params)
+    product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
-        granules, search_after = _request_search(request_url, params, search_after=search_after)
+        granules, search_after = _request_search(args, request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
-    logging.info(f"Found {str(len(product_granules))} total granules")
+    if args.collection in settings['SHORTNAME_FILTERS']:
+        product_granules = [granule
+                            for granule in product_granules
+                            if _match_identifier(settings, args, granule)]
+
+        logging.info(f"Found {str(len(product_granules))} total granules")
+
     for granule in product_granules:
-        granule['filtered_urls'] = _filter_on_extension(granule, args)
+        granule['filtered_urls'] = _filter_granules(granule, args)
 
     return product_granules
 
@@ -575,12 +585,16 @@ def _get_temporal_range(start: str, end: str, now: datetime):
     raise ValueError("One of start-date or end-date must be specified.")
 
 
-def _request_search(request_url, params, search_after=None):
+def _request_search(args, request_url, params, search_after=None):
     response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
         if search_after else requests.get(request_url, params=params)
+
     results = response.json()
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
+
+    collection_identifier_map = {"HLSL30": "LANDSAT_PRODUCT_ID",
+                                 "HLSS30": "PRODUCT_URI"}
 
     if items and 'umm' in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
@@ -592,27 +606,39 @@ def _request_search(request_url, params, search_after=None):
                                   for point
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
-                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
+                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")],
+                 "identifier": next(attr.get("Values")[0]
+                                    for attr in item.get("umm").get("AdditionalAttributes")
+                                    if attr.get("Name") == collection_identifier_map[
+                                        args.collection]) if args.collection in collection_identifier_map else None}
                 for item in items], next_search_after
     else:
         return [], None
 
 
-def _filter_on_extension(granule, args):
-    extension_list_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                          "TIF": ["tif"]}
+def _filter_granules(granule, args):
+    collection_map = {"HLSL30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+                      "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+                      "TIF": ["tif"]}
     filter_extension = "TIF"
 
-    for extension in extension_list_map:
-        if extension.upper() in args.collection.upper():
-            filter_extension = extension.upper()
+    for collection in collection_map:
+        if collection in args.collection:
+            filter_extension = collection
             break
 
     return [f
             for f in granule.get("related_urls")
-            for extension in extension_list_map.get(filter_extension)
+            for extension in collection_map.get(filter_extension)
             if extension in f]
+
+
+def _match_identifier(settings, args, granule) -> bool:
+    for filter in settings['SHORTNAME_FILTERS'][args.collection]:
+        if re.match(filter, granule['identifier']):
+            return True
+
+    return False
 
 
 def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
@@ -687,7 +713,6 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
         _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
-    
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
@@ -702,7 +727,7 @@ def _to_url(dl_dict: dict[str, Any]) -> str:
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
-        
+
 def _has_url(dl_dict: dict[str, Any]):
     if dl_dict.get("https_url"):
         return True
@@ -711,7 +736,7 @@ def _has_url(dl_dict: dict[str, Any]):
 
     logging.error(f"Couldn't find any URL in {dl_dict=}")
     return False
-  
+
 
 def _to_https_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("https_url"):
