@@ -1,6 +1,8 @@
+from datetime import datetime
 import random
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -44,6 +46,8 @@ async def test_full(monkeypatch):
            "--collection-shortname=HLSS30 " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=not-https " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -142,6 +146,8 @@ async def test_download(monkeypatch):
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=not-https " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -163,6 +169,8 @@ async def test_download_by_tile(monkeypatch):
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
            "--transfer-protocol=not-https " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -183,6 +191,8 @@ async def test_download_by_tiles(monkeypatch):
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -203,6 +213,8 @@ async def test_download_https(monkeypatch):
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "--transfer-protocol=https " \
            "".split()
 
@@ -224,6 +236,8 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "--smoke-run " \
            "".split()
 
@@ -245,6 +259,8 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "--dry-run " \
            "".split()
 
@@ -261,6 +277,12 @@ def mock_token_ctx(*args):
 
 
 def patch_subscriber(monkeypatch):
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.socket.__name__,
+        Mock()
+    )
+
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,
@@ -295,7 +317,7 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00000.B02.tif",
                     ],
                     "identifier": "S2A_dummy",
-					"temporal_extent_beginning_datetime": datetime.now().isoformat()
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_2",
@@ -308,7 +330,7 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00001.B03.tif",
                     ],
                     "identifier": "S2A_dummy",
-					"temporal_extent_beginning_datetime": datetime.now().isoformat()
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_3",
@@ -319,7 +341,7 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00002.B02.tif",
                     ],
                     "identifier": "S2A_dummy",
-					"temporal_extent_beginning_datetime": datetime.now().isoformat()
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 }
             ],
             False  # search_after
@@ -381,7 +403,7 @@ def mock_boto3(monkeypatch):
 
 
 class MockDataSubscriberProductCatalog:
-    def get_all_undownloaded(self):
+    def get_all_undownloaded(self, *args, **kwargs):
         return [
             {
                 "https_url": "https://example.com/T00000.B01.tif",

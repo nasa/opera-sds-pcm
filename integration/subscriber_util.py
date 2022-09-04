@@ -27,7 +27,7 @@ def invoke_l30_subscriber_query_lambda():
 
     response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"],
-        Payload=generate_dummy_payload_cloudwatch_scheduled_event()
+        Payload=generate_payload_cloudwatch_scheduled_event()
     )
     return response
 
@@ -37,7 +37,7 @@ def invoke_s30_subscriber_query_lambda():
 
     response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"],
-        Payload=generate_dummy_payload_cloudwatch_scheduled_event()
+        Payload=generate_payload_cloudwatch_scheduled_event()
     )
     return response
 
@@ -156,14 +156,15 @@ def wait_for_download_jobs(job_id):
     return True
 
 
-def generate_dummy_payload_cloudwatch_scheduled_event():
+def generate_payload_cloudwatch_scheduled_event():
+    # using known datetime range that has data
     return b"""
         {
           "id": "cdc73f9d-aea9-11e3-9d5a-835b769c0d9c",
           "detail-type": "Scheduled Event",
           "source": "aws.events",
           "account": "123456789012",
-          "time": "1970-01-01T00:00:00Z",
+          "time": "2022-01-01T01:00:00Z",
           "region": "us-east-1",
           "resources": [
             "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"

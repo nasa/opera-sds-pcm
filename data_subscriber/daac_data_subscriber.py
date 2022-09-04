@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import uuid
+from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
@@ -25,6 +26,7 @@ from urllib import request
 from urllib.parse import urlparse
 
 import boto3
+import dateutil.parser
 import requests
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
@@ -34,6 +36,8 @@ from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connectio
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from util.conf_util import SettingsConf
 
+
+DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -146,13 +150,13 @@ def create_parser():
 
     start_date = {"positionals": ["-s", "--start-date"],
                   "kwargs": {"dest": "start_date",
-                             "default": False,
+                             "default": None,
                              "help": "The ISO date time after which data should be retrieved. For Example, "
                                      "--start-date 2021-01-14T00:00:00Z"}}
 
     end_date = {"positionals": ["-e", "--end-date"],
                 "kwargs": {"dest": "end_date",
-                           "default": False,
+                           "default": None,
                            "help": "The ISO date time before which data should be retrieved. For Example, --end-date "
                                    "2021-01-14T00:00:00Z"}}
 
@@ -228,7 +232,7 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids]
+    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids, start_date, end_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
@@ -283,9 +287,9 @@ def _validate_minutes(minutes):
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
 
-def update_url_index(es_conn, urls, granule_id, job_id, query_dt):
+def update_url_index(es_conn, urls: list[str], granule_id: str, job_id: str, query_dt: datetime, temporal_extent_beginning_dt: datetime):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt)
 
 
 def update_granule_index(es_spatial_conn, granule):
@@ -386,7 +390,7 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
 
     query_dt = datetime.now()
-	now = datetime.utcnow()
+    now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
 
     granules = query_cmr(args, token, cmr, settings, query_timerange, now)
@@ -471,6 +475,16 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
                             "name": "endpoint",
                             "value": f"--endpoint={args.endpoint}",
                             "from": "value"
+                        },
+                        {
+                            "name": "start_datetime",
+                            "value": f"--start-date={query_timerange.start_date}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "end_datetime",
+                            "value": f"--end-date={query_timerange.end_date}",
+                            "from": "value"
                         }
 
                     ],
@@ -517,11 +531,6 @@ def get_download_timerange(args):
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     PAGE_SIZE = 2000
     now = datetime.utcnow()
-    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    start_date = args.start_date if args.start_date else now_minus_minutes_date
-    end_date = args.end_date if args.end_date else now_date
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
@@ -529,17 +538,20 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,
-        'updated_since': start_date,
+        'updated_since': timerange.start_date,
         'token': token,
         'bounding_box': args.bbox,
     }
 
-    time_range_is_defined = args.start_date or args.end_date
-    if time_range_is_defined:
-        temporal_range = _get_temporal_range(start_date, end_date, now_date)
+    start_or_end_date_provided = args.start_date or args.end_date
+    if start_or_end_date_provided:
+        # derive and apply param "temporal"
+        now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
         logging.info("Temporal Range: " + temporal_range)
         params['temporal'] = temporal_range
 
+    logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
@@ -559,7 +571,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     return product_granules
 
 
-def _get_temporal_range(start, end, now):
+def _get_temporal_range(start: str, end: str, now: datetime):
     start = start if start is not False else None
     end = end if end is not False else None
 
@@ -588,6 +600,7 @@ def _request_search(args, request_url, params, search_after=None):
         return [{"granule_id": item.get("umm").get("GranuleUR"),
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
+                 "temporal_extent_beginning_datetime": item["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
                  "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
                                   for point
@@ -667,7 +680,11 @@ def _url_to_tile_id(url: str):
 
 
 def run_download(args, token, hls_conn, netloc, username, password, job_id):
-    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded()
+    download_timerange = get_download_timerange(args)
+    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded(
+        dateutil.parser.isoparse(download_timerange.start_date),
+        dateutil.parser.isoparse(download_timerange.end_date)
+    )
 
     downloads = all_pending_downloads
     if args.tile_ids:
