@@ -384,8 +384,12 @@ def _delete_token(url: str, token: str) -> None:
 
 async def run_query(args, token, hls_conn, cmr, job_id, settings):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+
     query_dt = datetime.now()
-    granules = query_cmr(args, token, cmr, settings)
+	now = datetime.utcnow()
+    query_timerange: DateTimeRange = get_query_timerange(args, now)
+
+    granules = query_cmr(args, token, cmr, settings, query_timerange, now)
 
     if args.smoke_run:
         logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
@@ -393,7 +397,8 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
+        update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
+                         temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]))
         update_granule_index(HLS_SPATIAL_CONN, granule)
 
         if granule.get("filtered_urls"):
@@ -488,8 +493,28 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
         "fail": failed
     }
 
+def get_query_timerange(args, now: datetime):
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-def query_cmr(args, token, cmr, settings) -> list:
+    start_date = args.start_date if args.start_date else now_minus_minutes_date
+    end_date = args.end_date if args.end_date else now_date
+
+    query_timerange = DateTimeRange(start_date, end_date)
+    logging.info(f"{query_timerange=}")
+    return query_timerange
+
+
+def get_download_timerange(args):
+    start_date = args.start_date
+    end_date = args.end_date
+
+    download_timerange = DateTimeRange(start_date, end_date)
+    logging.info(f"{download_timerange=}")
+    return download_timerange
+
+
+def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     PAGE_SIZE = 2000
     now = datetime.utcnow()
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
