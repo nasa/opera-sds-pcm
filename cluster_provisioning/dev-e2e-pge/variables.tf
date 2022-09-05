@@ -358,7 +358,7 @@ variable "cnm_r_job_queue" {
 }
 
 variable "po_daac_cnm_r_event_trigger" {
-  default = "sqs"
+  default = "sns"
 }
 
 variable "asf_daac_cnm_r_event_trigger" {

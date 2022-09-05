@@ -12,13 +12,9 @@ locals {
   triage_bucket                     = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
   default_lts_bucket                = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
   lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
-
   key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
-
   cnm_r_kinesis_count               = 0
-
   lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-
   po_daac_delivery_event_type       = split(":", var.po_daac_delivery_proxy)[2]
   po_daac_delivery_region           = split(":", var.po_daac_delivery_proxy)[3]
   po_daac_delivery_account          = split(":", var.po_daac_delivery_proxy)[4]
@@ -33,7 +29,7 @@ locals {
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
   po_daac_delivery_proxy_maturity   = split("-", var.po_daac_delivery_proxy)[5]
-  asf_daac_delivery_proxy_maturity   = split("-", var.asf_daac_delivery_proxy)[5]
+  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[5]
 
   timer_handler_job_type            = "timer_handler"
   accountability_report_job_type    = "accountability_report"
@@ -588,7 +584,8 @@ data "aws_sqs_queue" "cnm_response" {
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
-  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
+#  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue]: aws_sqs_queue.cnm_response.arn
   function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
 

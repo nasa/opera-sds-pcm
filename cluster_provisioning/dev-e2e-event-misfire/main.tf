@@ -55,13 +55,10 @@ module "common" {
   asf_daac_cnm_r_event_trigger            = var.asf_daac_cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
   cnm_r_venue                             = var.cnm_r_venue
-
   po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
   po_daac_endpoint_url                    = var.po_daac_endpoint_url
-
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
   asf_daac_endpoint_url                   = var.asf_daac_endpoint_url
-
   asg_use_role                            = var.asg_use_role
   asg_role                                = var.asg_role
   public_asg_vpc                          = var.public_asg_vpc
@@ -78,11 +75,9 @@ module "common" {
   grq_aws_es_port                         = var.grq_aws_es_port
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
-
   use_daac_cnm_r                          = var.use_daac_cnm_r
-
+  pge_releases                            = var.pge_releases
   pge_snapshots_date                      = var.pge_snapshots_date
-  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
@@ -104,7 +99,7 @@ module "common" {
 }
 
 locals {
-  default_source_event_arn = "arn:aws:${var.cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
+  default_source_event_arn = "arn:aws:${var.po_daac_cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.po_daac_cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
   daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
   source_event_arn         = local.default_source_event_arn
   grq_url                  = "http://${module.common.grq.private_ip}:9200"
