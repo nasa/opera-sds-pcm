@@ -129,14 +129,14 @@ logging.debug(pstr(missing_data_ingest))
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_time"))
 search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30-state-config", scroll="5m", size=10000))
-l30_state_config = {PurePath(v).name.removesuffix(".tif")
+l30_state_config = {PurePath(v['product_path']).name.removesuffix(".tif")
                     for hit in search_results
                     for k, v in hit["_source"]["metadata"].items() if k != "@timestamp"}
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_time"))
 search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_s30-state-config", scroll="5m", size=10000))
-s30_state_config = {PurePath(v).name.removesuffix(".tif")
+s30_state_config = {PurePath(v['product_path']).name.removesuffix(".tif")
                     for hit in search_results
                     for k, v in hit["_source"]["metadata"].items() if k != "@timestamp"}
 
@@ -159,7 +159,7 @@ body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10000))
 pge_input_products = {PurePath(input).name.removesuffix(".tif")
                       for hit in search_results
-                      for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx"]["inputs"]}
+                      for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx_HLS"]["inputs"]}
 
 missing_pge = all_state_config - pge_input_products
 logging.info(f'Inputs Missing PGE: {len(missing_pge)=}')
@@ -190,7 +190,7 @@ body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10000))
 
-pge_input_granules = {hit["_source"]["metadata"]["accountability"]["L3_DSWx"]["trigger_dataset_id"].removesuffix("_state_config") for hit in search_results}
+pge_input_granules = {hit["_source"]["metadata"]["accountability"]["L3_DSWx_HLS"]["trigger_dataset_id"].removesuffix("_state_config") for hit in search_results}
 
 logging.info(f'Granules PGE Executed: {len(pge_input_granules)=}')
 logging.debug(pstr(pge_input_granules))
@@ -206,7 +206,7 @@ logging.debug(pstr(missing_pge_granules))
 
 cnm_s_input_products = {PurePath(input).name.removesuffix(".tif")
                         for hit in search_results
-                        for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"}
+                        for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx_HLS"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"}
 
 
 missing_cnm_s = pge_input_products - cnm_s_input_products
@@ -215,7 +215,7 @@ logging.debug(pstr(missing_cnm_s))
 
 cnm_r_input_products = {PurePath(input).name.removesuffix(".tif")
                         for hit in search_results
-                        for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"}
+                        for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx_HLS"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"}
 
 missing_cnm_r = cnm_s_input_products - cnm_r_input_products
 logging.info(f'Inputs Missing successful CNM-R: {len(missing_cnm_r)=}')
