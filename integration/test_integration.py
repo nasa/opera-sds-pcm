@@ -4,7 +4,7 @@ from pathlib import Path
 
 import conftest
 from int_test_util import \
-    mock_cnm_r_success, \
+    mock_cnm_r_success_sns, \
     upload_file, \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
@@ -28,8 +28,13 @@ def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_l30_subscriber_query_lambda()
+    sleep_for(30)
+
     response = invoke_l30_subscriber_query_lambda()
+
     reset_env_vars_l30_subscriber_query_lambda()
+    sleep_for(30)
+
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
@@ -49,8 +54,13 @@ def test_subscriber_s30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_s30_subscriber_query_lambda()
+    sleep_for(30)
+
     response = invoke_s30_subscriber_query_lambda()
+
     reset_env_vars_s30_subscriber_query_lambda()
+    sleep_for(30)
+
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
@@ -88,25 +98,25 @@ def test_l30():
     logging.info("Sleeping for L2 ingest...")
     sleep_for(150)
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B02", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B02"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B03", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B03", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B03"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B04", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B04", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B04"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B05", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B05", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B05"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B06", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B06", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B06"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B07", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.B07", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.B07"
 
-    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask", index="grq_1_l2_hls_l30")
+    response = wait_for_l2(_id="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask", index="grq_v2.0_l2_hls_l30")
     assert response.hits[0]["id"] == "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask"
 
     logging.info("Sleeping for state-config execution...")
@@ -119,25 +129,24 @@ def test_l30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001", index="grq_1_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001"
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001", index="grq_1_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001")
+    mock_cnm_r_success_sns(id="OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_L8_30_T22VEQ_20210905T143156Z_20210905T143156Z_v2.0_001", index="grq_1_l3_dswx_hls")
-
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_r_success(response)
 
 
@@ -163,25 +172,25 @@ def test_s30():
     logging.info("Sleeping for L2 ingest...")
     sleep_for(150)
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B02", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B02"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B03", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B03", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B03"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B04", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B04", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B04"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B11", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B11", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B11"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B12", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B12", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B12"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B8A", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.B8A", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.B8A"
 
-    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.Fmask", index="grq_1_l2_hls_s30")
+    response = wait_for_l2(_id="HLS.S30.T15SXR.2021250T163901.v2.0.Fmask", index="grq_v2.0_l2_hls_s30")
     assert response.hits[0]["id"] == "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask"
 
     logging.info("Sleeping for state-config execution...")
@@ -194,24 +203,24 @@ def test_s30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001", index="grq_1_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001"
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001", index="grq_1_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+    mock_cnm_r_success_sns(id="OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    mock_cnm_r_success(id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001")
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_S2A_30_T15SXR_20210907T163901Z_20210907T163901Z_v2.0_001", index="grq_1_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
 
     assert_cnm_r_success(response)
 

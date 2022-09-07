@@ -4,7 +4,10 @@ import json
 import re
 from typing import Dict, List
 
+import boto3
+
 from commons.logger import logger
+from hysds.utils import get_disk_usage
 
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
@@ -14,6 +17,49 @@ DSWX_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
 List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
 PGE.
 """
+
+
+def download_ancillary_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
+    """Helper function to download an arbitrary ancillary file from S3"""
+    if not s3_bucket or not s3_key:
+        raise RuntimeError(
+            f"Incomplete S3 location for {filetype} file.\n"
+            f"Values must be provided for both the '{oc_const.S3_BUCKET}' "
+            f"and the '{oc_const.S3_KEY}' fields within the appropriate "
+            f"section of the PGE config."
+        )
+
+    s3 = boto3.resource('s3')
+
+    pge_metrics = {"download": [], "upload": []}
+
+    loc_t1 = datetime.utcnow()
+
+    try:
+        logger.info(f'Downloading {filetype} file s3://{s3_bucket}/{s3_key} to {output_filepath}')
+        s3.Object(s3_bucket, s3_key).download_file(output_filepath)
+    except Exception as err:
+        errmsg = f'Failed to download {filetype} file from S3, reason: {str(err)}'
+        raise RuntimeError(errmsg)
+
+    loc_t2 = datetime.utcnow()
+    loc_dur = (loc_t2 - loc_t1).total_seconds()
+    path_disk_usage = get_disk_usage(output_filepath)
+
+    pge_metrics["download"].append(
+        {
+            "url": output_filepath,
+            "path": output_filepath,
+            "disk_usage": path_disk_usage,
+            "time_start": loc_t1.isoformat() + "Z",
+            "time_end": loc_t2.isoformat() + "Z",
+            "duration": loc_dur,
+            "transfer_rate": path_disk_usage / loc_dur,
+        }
+    )
+    logger.info(json.dumps(pge_metrics, indent=2))
+
+    return pge_metrics
 
 
 def write_pge_metrics(metrics_path, pge_metrics):
@@ -48,24 +94,19 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
 
     output_types = pge_config.get(oc_const.OUTPUT_TYPES)
 
-    for output_type in output_types.keys():
-        product_shortname = match.groupdict()['product_shortname']
-        if product_shortname == 'HLS.L30':
-            sensor = 'L8'
-        elif product_shortname == 'HLS.S30':
-            sensor = 'S2A'
-        else:
-            raise
+    # Generate the output file base name specific to the PGE to be simulated
+    base_name_map = {
+        'L2_CSLC_S1': get_cslc_s1_simulated_output_basename,
+        'L3_DSWx_HLS': get_dswx_hls_simulated_output_basename
+    }
 
-        base_name = output_base_name.format(
-            sensor=sensor,
-            tile_id=match.groupdict()['tile_id'],
-            # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
-            acquisition_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            # make creation time a duplicate of the acquisition time for ease of testing
-            creation_ts=datetime.strptime(match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
-            collection_version=match.groupdict()['collection_version']
-        )
+    try:
+        output_basename_function = base_name_map[pge_name]
+    except KeyError as err:
+        raise RuntimeError(f'No basename function available for PGE {str(err)}')
+
+    for output_type in output_types.keys():
+        base_name = output_basename_function(match, output_base_name)
         metadata = {}
         simulate_output(pge_name, metadata, base_name, output_dir, output_types[output_type])
 
@@ -78,12 +119,50 @@ def get_input_dataset_id(context: Dict) -> str:
     raise
 
 
+def get_cslc_s1_simulated_output_basename(dataset_match, base_name_template):
+    """Generates the output basename for simulated CSLC-S1 PGE runs"""
+
+    base_name = base_name_template.format(
+        burst_id='T64-135524-IW2',
+        pol='VV',
+        acquisition_ts=dataset_match.groupdict()['start_ts'],
+        product_version='v0.1',
+        creation_ts=dataset_match.groupdict()['stop_ts']
+    )
+
+    return base_name
+
+
+def get_dswx_hls_simulated_output_basename(dataset_match, base_name_template):
+    """Generates the output basename for simulated DSWx-HLS PGE runs"""
+    product_shortname = dataset_match.groupdict()['product_shortname']
+    if product_shortname == 'HLS.L30':
+        sensor = 'L8'
+    elif product_shortname == 'HLS.S30':
+        sensor = 'S2A'
+    else:
+        raise
+
+    base_name = base_name_template.format(
+        tile_id=dataset_match.groupdict()['tile_id'],
+        # compare input pattern with entries in settings.yaml, and output pattern with entries in pge_outputs.yaml
+        acquisition_ts=datetime.strptime(dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+        # make creation time a duplicate of the acquisition time for ease of testing
+        creation_ts=datetime.strptime(dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S'),
+        sensor=sensor,
+        collection_version=dataset_match.groupdict()['collection_version']
+    )
+
+    return base_name
+
+
 def get_input_dataset_tile_code(context: Dict) -> str:
     tile_code = None
     product_metadata = context["product_metadata"]["metadata"]
 
-    for band_or_qa, product_path in product_metadata.items():
+    for band_or_qa, product_info in product_metadata.items():
         if band_or_qa != '@timestamp':
+            product_path = product_info["product_path"]  # see eval_state_config.py
             product_filename = product_path.split('/')[-1]
             tile_code = product_filename.split('.')[2]
             break
@@ -100,7 +179,7 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
             logger.info(f'Simulating met {met_file}')
             with open(met_file, 'w') as outfile:
                 json.dump(metadata, outfile, indent=2)
-        elif extension.endswith('tiff') and pge_name == 'L3_HLS':
+        elif extension.endswith('tiff') and pge_name == 'L3_DSWx_HLS':
             # Simulate the multiple output tif files created by this PGE
 
             for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
@@ -113,3 +192,11 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
             logger.info(f'Simulating output {output_file}')
             with open(output_file, 'wb') as f:
                 f.write(os.urandom(1024))
+
+
+def get_product_metadata(job_json_dict: Dict) -> Dict:
+    params = job_json_dict['job_specification']['params']
+    for param in params:
+        if param['name'] == 'product_metadata':
+            return param['value']['metadata']
+    raise

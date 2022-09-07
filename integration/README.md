@@ -25,6 +25,7 @@ ES_PASSWORD = bar # Elasticsearch password
 
 # CNM-R
 CNMR_TOPIC = arn:aws:sns:us-west-2:123456789012:opera-foo-1-daac-cnm-response
+CNMR_QUEUE = https://sqs.us-west-2.amazonaws.com/123456789012/opera-foo-1-daac-cnm-response
 
 # S3 storage
 ISL_BUCKET = opera-foo-isl-fwd-bar
@@ -38,6 +39,8 @@ S30_INPUT_DIR = ~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0
 DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
 L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
 S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
+
+CLEAR_DATA = true
 ```
 
 ### CLEAR_DATA
@@ -45,8 +48,6 @@ S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
 This env entry cleans the test system.
 * It drops the relevant Elasticsearch indexes from GRQ and Mozart.
 * It removes all products from rolling storage.
-
-Add `CLEAR_DATA = true` to `.env` to toggle on. Omit entirely to toggle off.
 
 # Prerequisites
 

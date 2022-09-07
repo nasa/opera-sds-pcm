@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId 
+# venue : userId
 # counter : 1-n
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -227,8 +227,8 @@ variable "common_ci" {
   type = map(string)
   default = {
     name       = "ci"
-    private_ip = "100.104.41.51"
-    public_ip  = "100.104.41.51"
+    private_ip = "opera-pcm-ci.jpl.nasa.gov"
+    public_ip  = "opera-pcm-ci.jpl.nasa.gov"
   }
 }
 
@@ -274,8 +274,12 @@ variable "cnm_r_job_queue" {
   default = "opera-job_worker-rcv_cnm_notify"
 }
 
-variable "cnm_r_event_trigger" {
+variable "po_daac_cnm_r_event_trigger" {
   default = "sns"
+}
+
+variable "asf_daac_cnm_r_event_trigger" {
+  default = "sqs"
 }
 
 variable "cnm_r_allowed_account" {
@@ -286,16 +290,24 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   default = false
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
+  default = ""
+}
+
+variable "asf_daac_delivery_proxy" {
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+}
+
+variable "asf_daac_endpoint_url" {
   default = ""
 }
 

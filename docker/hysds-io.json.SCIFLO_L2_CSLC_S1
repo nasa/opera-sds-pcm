@@ -1,0 +1,81 @@
+{
+  "label": "SCIFLO_L2_CSLC_S1",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    {
+      "name": "module_path",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm"
+    },
+    {
+      "name": "wf_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+    },
+    {
+      "name": "wf_name",
+      "from": "value",
+      "type": "text",
+      "value": "L2_CSLC_S1"
+    },
+    {
+      "name": "product_path",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]"
+    },
+    {
+      "name":"dataset_type",
+      "type":"text",
+      "from":"dataset_jpath:_source.dataset"
+    },
+    {
+      "name":"input_dataset_id",
+      "type":"text",
+      "from":"dataset_jpath:_id"
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
+    },
+    {
+      "name": "accountability_module_path",
+      "from": "value",
+      "type": "text",
+      "value": "opera_chimera.accountability"
+    },
+    {
+      "name": "accountability_class",
+      "from": "value",
+      "type": "text",
+      "value": "OperaAccountability"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_runconfig_dir"
+    },
+    {
+      "name": "pge_input_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_input_dir"
+    },
+    {
+      "name": "pge_output_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_output_dir"
+    },
+    {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/compass_user"
+    }
+  ]
+}

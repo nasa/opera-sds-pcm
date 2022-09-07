@@ -50,11 +50,14 @@ module "common" {
   lambda_job_queue                        = var.lambda_job_queue
   cnm_r_handler_job_type                  = var.cnm_r_handler_job_type
   cnm_r_job_queue                         = var.cnm_r_job_queue
-  cnm_r_event_trigger                     = var.cnm_r_event_trigger
+  po_daac_cnm_r_event_trigger             = var.po_daac_cnm_r_event_trigger
+  asf_daac_cnm_r_event_trigger            = var.asf_daac_cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
   cnm_r_venue                             = var.cnm_r_venue
-  daac_delivery_proxy                     = var.daac_delivery_proxy
-  daac_endpoint_url                       = var.daac_endpoint_url
+  po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
+  po_daac_endpoint_url                    = var.po_daac_endpoint_url
+  asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
+  asf_daac_endpoint_url                   = var.asf_daac_endpoint_url
   asg_use_role                            = var.asg_use_role
   asg_role                                = var.asg_role
   public_asg_vpc                          = var.public_asg_vpc
@@ -71,10 +74,9 @@ module "common" {
   grq_aws_es_port                         = var.grq_aws_es_port
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   use_grq_aws_es_private_verdi            = var.use_grq_aws_es_private_verdi
-  use_daac_cnm                            = var.use_daac_cnm
-  pge_names                               = var.pge_names
+  use_daac_cnm_r                          = var.use_daac_cnm_r
+  pge_releases                            = var.pge_releases
   pge_snapshots_date                      = var.pge_snapshots_date
-  pge_release                             = var.pge_release
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
@@ -102,7 +104,7 @@ module "common" {
 }
 
 locals {
-  default_source_event_arn = "arn:aws:${var.cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
+  default_source_event_arn = "arn:aws:${var.po_daac_cnm_r_event_trigger}:${var.region}:${var.aws_account_id}:${var.po_daac_cnm_r_event_trigger == "kinesis" ? "stream/" : ""}${var.project}-${var.venue}-${module.common.counter}-daac-cnm-response"
   daac_proxy_cnm_r_arn     = "arn:aws:sns:${var.region}:${var.aws_account_id}:${var.project}-${var.venue}-${module.common.counter}-daac-proxy-cnm-response"
   source_event_arn         = local.default_source_event_arn
   grq_es_url               = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : module.common.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
@@ -134,7 +136,7 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              echo "use_daac_cnm is ${var.use_daac_cnm}"
+              echo "use_daac_cnm is ${var.use_daac_cnm_r}"
               if [ "${var.run_smoke_test}" = true ]; then
                 ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \
                 ${var.project} \
@@ -152,8 +154,8 @@ resource "null_resource" "mozart" {
                 ${module.common.mozart.private_ip} \
                 ${module.common.isl_bucket} \
                 ${local.source_event_arn} \
-                ${var.daac_delivery_proxy} \
-                ${var.use_daac_cnm} \
+                ${var.po_daac_delivery_proxy} \
+                ${var.use_daac_cnm_r} \
                 ${local.crid} \
                 ${var.cluster_type} || :
               fi
@@ -210,57 +212,6 @@ resource "null_resource" "mozart" {
     EOF
     ]
   }
-
-#  provisioner "remote-exec" {
-#    inline = [
-#      "set -ex",
-#      "if [ \"${var.run_smoke_test}\" = true ]; then",
-#      "  cat /tmp/datasets.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/datasets.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_scnm_s_messages.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_scnm_s_messages.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_cnm_s_passthru.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_cnm_s_passthru.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_cnm_r_passthru.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_cnm_r_passthru.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_stamped_dataset_result.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_stamped_dataset_result.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_cloudwatch_logs.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_cloudwatch_logs.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_tile_predict.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_tile_predict.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "  cat /tmp/check_crex_report.txt",
-#      "  SUCCESS=$(grep -c ^SUCCESS /tmp/check_crex_report.txt)",
-#      "  if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "cat /tmp/bach_ui_status_code.txt",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/bach_ui_status_code.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "cat /tmp/bach_api_status_code.txt",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/bach_api_status_code.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "fi",
-#      "if [ \"${var.promote_artifacts}\" = true ]; then",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/adaptation/${var.swot_pcm_branch}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/adaptation/${var.swot_pcm_branch}\"",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/product_delivery/${var.product_delivery_branch}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/product_delivery/${var.product_delivery_branch}\"",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/pcm_commons/${var.pcm_commons_branch}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/pcm_commons/${var.pcm_commons_branch}\"",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/lambdas/${var.lambda_package_release}?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/lambdas/${var.lambda_package_release}\"",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_api/${var.swot_bach_api_branch}/swot_bach_api-${var.swot_bach_api_branch}.tar.gz?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_api/${var.swot_bach_api_branch}/swot_bach_api-${var.swot_bach_api_branch}.tar.gz\"",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/${var.artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_ui/${var.swot_bach_ui_branch}/swot_bach_ui-${var.swot_bach_ui_branch}.tar.gz?to=/${var.target_artifactory_repo}/gov/nasa/jpl/swot/sds/pcm/dependencies/swot_bach_ui/${var.swot_bach_ui_branch}/swot_bach_ui-${var.swot_bach_ui_branch}.tar.gz\"",
-#      "  curl -v -u ${var.artifactory_user}:${var.artifactory_api_key} -X POST \"https://cae-artifactory.jpl.nasa.gov/artifactory/api/copy/docker-develop-local/gov/nasa/jpl/swot/sds/pcm/container-iems-sds_swot-pcm/${var.swot_pcm_branch}?to=/docker-stage-local/gov/nasa/jpl/swot/sds/pcm/container-iems-sds_swot-pcm/${var.swot_pcm_branch}\"",
-#      "fi",
-#    ]
-#  }
-
-#  provisioner "local-exec" {
-#    command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
-#  }
 }
 
 resource "null_resource" "smoke_test" {
@@ -283,7 +234,7 @@ resource "null_resource" "smoke_test" {
   }
 
   provisioner "remote-exec" {
-    inline = [<<-EOF
+    inline = [<<-EOT
               if [ "${var.run_smoke_test}" = true ]; then
                 cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
 
@@ -301,7 +252,7 @@ resource "null_resource" "smoke_test" {
                 --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
                 --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0"
               fi
-    EOF
+    EOT
     ]
   }
 }

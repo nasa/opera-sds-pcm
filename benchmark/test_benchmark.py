@@ -234,7 +234,7 @@ async def copy_and_submit_input_files(
         id = get_l3_id(new_ts)
         ids.append(id)
         l3_tasks.append(event_loop.run_in_executor(
-            func=partial(wait_for_l3, _id=id, index="grq_1_l3_dswx_hls"),
+            func=partial(wait_for_l3, _id=id, index="grq_v2.0_l3_dswx_hls"),
             executor=None
         ))
 

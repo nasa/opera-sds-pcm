@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L3_HLS",
+  "label": "SCIFLO_L3_DSWx_HLS",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": true,
   "params": [
@@ -19,7 +19,7 @@
       "name": "wf_name",
       "from": "value",
       "type": "text",
-      "value": "L3_HLS"
+      "value": "L3_DSWx_HLS"
     },
     {
       "name":"dataset_type",
@@ -65,6 +65,12 @@
       "from": "value",
       "type": "text",
       "value": "pge_output_dir"
+    },
+    {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/conda"
     },
     {
       "name": "wigt",

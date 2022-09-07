@@ -10,17 +10,18 @@ from __future__ import print_function
 import glob
 import json
 import os
-import sys
 import shutil
-
-import traceback
 import subprocess
+import sys
+import traceback
+from pathlib import PurePath
+from typing import Dict, List
 
 from commons.logger import logger
-
 from extractor import extract
-from util.conf_util import SettingsConf, PGEOutputsConf
+from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
+from util.conf_util import SettingsConf, PGEOutputsConf
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -29,28 +30,41 @@ DEFAULT_HASH_ALGO = "sha256"
 DATASETS_DIR_NAME = "datasets"
 
 
-def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
-            settings_conf_file=None, extra_met=None):
-    created_datasets = set()
+def convert(
+        work_dir: str,
+        product_dir: str,
+        pge_name: str,
+        rc_file: str = None,
+        pge_output_conf_file:str = None,
+        settings_conf_file: str = None,
+        extra_met: Dict = None,
+        **kwargs
+) -> List:
+    """Convert a product (directory of files) into a list of datasets.
 
-    pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
-    pge_config = pge_outputs_cfg[pge_name]
-
-    product_dir = os.path.abspath(product_dir)
+    :param work_dir: The working directory (Verdi workspace) the worker executes jobs from.
+    :param product_dir: Local filepath to the product.
+    :param pge_name: PGE outputs config entry key. See `PGEOutputsConf`.
+    :param rc_file: Local filepath to the RunConfig file.
+    :param pge_output_conf_file: Local filepath to the `pge_output.yaml` file.
+    :param settings_conf_file: Local filepath to the `settings.yaml` file.
+    :param extra_met: Extra metadata to include in *each* created dataset.
+    """
+    extra_met = extra_met if extra_met else {}
 
     # Check to see if all expected outputs were generated
+    product_dir = os.path.abspath(product_dir)
+    pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
+    pge_config = pge_outputs_cfg[pge_name]
     products = process_outputs(product_dir, pge_config["Outputs"])
 
-    if extra_met:
-        extra_met.update({"tags": ["PGE"]})
-    else:
-        extra_met = {"tags": ["PGE"]}
+    extra_met.update({"tags": ["PGE"]})
 
     settings = SettingsConf(settings_conf_file).cfg
 
     # Create the datasets
+    created_datasets = set()
     output_types = [PRIMARY_KEY, OPTIONAL_KEY]
-
     for output_type in output_types:
         for product in products[output_type].keys():
             logger.info(f"Converting {product} to a dataset")
@@ -71,21 +85,19 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
             created_datasets.add(dataset_dir)
 
     for dataset in created_datasets:
-        dataset_id = dataset.split(os.sep)[-1]
+        dataset_id = PurePath(dataset).name
 
         # Merge all created .met.json files into a single one for use with accountability reporting
         dataset_met_json = {"Files": []}
         combined_file_size = 0
-
         for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
             with open(met_json_file, 'r') as infile:
                 met_json = json.load(infile)
-                file_key = os.path.splitext(met_json["FileName"])[0]
                 combined_file_size += int(met_json["FileSize"])
 
                 # Extract a copy of the "Product*" key/values to include at the top level
                 # They should be the same values for each file in the dataset
-                product_keys = list(filter(lambda key: key.startswith("Product"), met_json.keys()))
+                product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
 
                 for product_key in product_keys:
                     extra_met[product_key] = met_json[product_key]
@@ -99,12 +111,50 @@ def convert(product_dir, pge_name, rc_file=None, pge_output_conf_file=None,
         # Add fields to the top-level of the .met.json file
         dataset_met_json["FileSize"] = combined_file_size
         dataset_met_json["FileName"] = dataset_id
-        dataset_met_json["id"] = dataset_id               # added by Hyun 5-4-22
+        dataset_met_json["id"] = dataset_id
+
+        with open(PurePath(work_dir) / "_job.json") as fp:
+            job_json_dict = json.load(fp)
+
+        with open(PurePath(work_dir) / "datasets.json") as fp:
+            datasets_json_dict = json.load(fp)
+
+        if pge_name == "L3_DSWx_HLS":
+            logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
+            state_config_product_metadata: Dict = kwargs["product_metadata"]
+
+            first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
+            first_product_info: Dict = state_config_product_metadata[first_product_info_key]
+
+            dataset_type = job_json_dict["params"]["dataset_type"]
+            dataset_type = dataset_type.split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
+
+            l2_hls_publish_s3_url = datasets_json_util.find_s3_url(datasets_json_dict, dataset_type)
+            l2_hls_publish_s3_url_parts = PurePath(l2_hls_publish_s3_url).parts
+
+            dataset_met_json["input_granule_id"] = PurePath(first_product_info["id"]).stem  # strip band from ID to get granule ID
+            dataset_met_json["product_urls"] = [
+                f'{l2_hls_publish_s3_url_parts[0]}'  # http:
+                f'//{l2_hls_publish_s3_url_parts[1]}'  # <bucket>.s3.<region>.amazonaws.com/<key>
+                f'/products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]]
+            dataset_met_json["product_s3_paths"] = [
+                f'products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]]
+
+        dataset_met_json["software_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
+        dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
-            collection_name = settings.get("DSWX_COLLECTION_NAME")
+            collection_name: str = settings.get("DSWX_COLLECTION_NAME")
             dataset_met_json["CollectionName"] = collection_name
-            logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
+        elif "cslc_s1" in dataset_id.lower():
+            collection_name = settings.get("CSLC_COLLECTION_NAME")
+            dataset_met_json["CollectionName"] = collection_name
+        else:
+            collection_name = "Unknown"
+
+        logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
         dataset_met_json.update(extra_met)
         dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")
@@ -202,13 +252,14 @@ def main():
     """
     Main entry point
     """
-    product_dir = sys.argv[1]
-    product_type = sys.argv[2]
+    work_dir = sys.argv[1]
+    product_dir = sys.argv[2]
+    product_type = sys.argv[3]
     rc_file = None
-    if len(sys.argv) == 4:
-        rc_file = sys.argv[3]
+    if len(sys.argv) == 5:
+        rc_file = sys.argv[4]
 
-    convert(product_dir, product_type, rc_file)
+    convert(work_dir, product_dir, product_type, rc_file)
 
 
 if __name__ == "__main__":
