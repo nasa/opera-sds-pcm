@@ -243,10 +243,12 @@ resource "null_resource" "smoke_test" {
                 --mozart-ip=${module.common.mozart.private_ip} \
                 --grq-host="grq:9200" \
                 --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+                --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
                 --isl-bucket="${module.common.isl_bucket}" \
                 --rs-bucket="${module.common.dataset_bucket}" \
                 --L30-input-dir="hls_l2/l30_greenland" \
                 --S30-input-dir="hls_l2/s30_louisiana" \
+                --SLC-input-dir="l1_s1_slc" \
                 --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
                 --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
                 --artifactory-fn-api-key=${var.artifactory_fn_api_key} \

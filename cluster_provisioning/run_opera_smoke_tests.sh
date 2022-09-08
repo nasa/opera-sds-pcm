@@ -31,6 +31,7 @@ Options:
       --rs-bucket                                The RS S3 bucket name.
       --L30-input-dir                            The expected path to the directory containing THE sample L30 data after download.
       --S30-input-dir                            The expected path to the directory containing THE sample S30 data after download.
+      --SLC-input-dir                            The expected path to the directory containing THE sample SLC data.
       --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
       --S30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits S30 query jobs.
       --artifactory-fn-api-key                   The Artifactory FN API Key. Used to download the sample data.
@@ -90,7 +91,7 @@ for i in "$@"; do
       shift
       ;;
     --SLC-input-dir=*)
-      SLC-input-dir="${i#*=}"
+      SLC_input_dir="${i#*=}"
       shift
       ;;
     --L30-data-subscriber-query-lambda=*)
@@ -133,6 +134,7 @@ export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
 export L30_INPUT_DIR=${L30_input_dir}
 export S30_INPUT_DIR=${S30_input_dir}
+export SLC_INPUT_DIR=${SLC_input_dir}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 
