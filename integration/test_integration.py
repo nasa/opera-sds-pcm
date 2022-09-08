@@ -242,32 +242,32 @@ def test_slc():
     logging.info("Sleeping for L2 ingest...")
     sleep_for(150)
 
-    response = wait_for_l2(_id="S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC", index="grq_1_l1_s1_slc")
-    assert response.hits[0]["id"] == "S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC"
+    response = wait_for_l2(_id="S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC", index="grq_1_l1_s1_slc")
+    assert response.hits[0]["id"] == "S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC"
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC", index="grq_1_l1_s1_slc")
-    assert response.hits[0]["id"] == "S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC"
+    response = wait_for_l3(_id="OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z", index="grq_1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC", index="grq_1_l1_s1_slc")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z", index="grq_1_l2_cslc_s1")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success_sns(id="S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC")
+    mock_cnm_r_success_sns(id="OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="S1A_IW_SLC__1SDV_20220501T015035_20220501T015104_043011_0522A4_42CC", index="grq_1_l1_s1_slc")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z", index="grq_1_l2_cslc_s1")
     assert_cnm_r_success(response)
 
 
