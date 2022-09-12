@@ -27,15 +27,34 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
     mocker.patch("product2dataset.product2dataset.extract", extract_mock)
 
     mocker.patch("product2dataset.product2dataset.glob.iglob", return_value=["dir1/dir2/dummy_product/dummy_product.met.json"])
-    mocker.patch("builtins.open", mocker.mock_open(read_data="""
+    mock_open = mocker.mock_open()
+    mock_open.side_effect = [
+        met_json := mocker.mock_open(read_data="""
+            {
+                "FileSize": 0
+            }
+        """).return_value,
+        jobs_json := mocker.mock_open(read_data="""
+            {
+                "params": {
+                    "dataset_type": "L2_HLS_S30-state-config"
+                },
+                "context": {
+                    "container_specification": {
+                        "version": "v1.2.3"
+                    },
+                    "job_specification": {
+                        "dependency_images": [
+                            {
+                                "container_image_name": "opera_pge/dswx_hls:1.0.0-rc.1.0"
+                            }
+                        ]
+                    }
+                }
+            }
+        """).return_value,
+        datasets_json := mocker.mock_open(read_data="""
         {
-            "dummy_met_json_entry_key": "dummy_met_json_entry_value",
-            "FileSize": 0,
-            "id": "dummy_product_id",
-            "FileName": "dummy_product_filename",
-            "params": {
-                "dataset_type": "L2_HLS_S30-state-config"
-            },
             "datasets": [
               {
                 "type": "L2_HLS_S30",
@@ -47,21 +66,13 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
                   ]
                 }
                }
-            ],
-            "context": {
-                "container_specification": {
-                    "version": "v1.2.3"
-                },
-                "job_specification": {
-                    "dependency_images": [
-                        {
-                            "container_image_name": "opera_pge/dswx_hls:1.0.0-rc.1.0"
-                        }
-                    ]
-                }
-            }
+            ]
         }
-    """))
+        """).return_value,
+        dataset_met_json := mocker.mock_open(read_data="").return_value
+
+    ]
+    mocker.patch("builtins.open", mock_open)
     mocker.patch("product2dataset.product2dataset.os.path.abspath", lambda _: f"/{_}")
     mocker.patch("product2dataset.product2dataset.os.unlink", Mock())
 
