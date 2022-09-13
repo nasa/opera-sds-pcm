@@ -517,8 +517,8 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
 
 def get_query_timerange(args, now: datetime):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
@@ -528,8 +528,8 @@ def get_query_timerange(args, now: datetime):
 
 
 def get_download_timerange(args):
-    start_date = args.start_date
-    end_date = args.end_date
+    start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
+    end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     download_timerange = DateTimeRange(start_date, end_date)
     logging.info(f"{download_timerange=}")
@@ -538,7 +538,6 @@ def get_download_timerange(args):
 
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     PAGE_SIZE = 2000
-    now = datetime.utcnow()
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
@@ -553,12 +552,12 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
     if args.native_id:
         params['native-id'] = args.native_id
-    elif args.start_date or args.end_date:
-        # derive and apply param "temporal"
-        now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-        logging.info("Temporal Range: " + temporal_range)
-        params['temporal'] = temporal_range
+
+    # derive and apply param "temporal"
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+    logging.info("Temporal Range: " + temporal_range)
+    params['temporal'] = temporal_range
 
     logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
@@ -580,7 +579,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     return product_granules
 
 
-def _get_temporal_range(start: str, end: str, now: datetime):
+def _get_temporal_range(start: str, end: str, now: str):
     start = start if start is not False else None
     end = end if end is not False else None
 
@@ -590,8 +589,8 @@ def _get_temporal_range(start: str, end: str, now: datetime):
         return "{},{}".format(start, now)
     if start is None and end is not None:
         return "1900-01-01T00:00:00Z,{}".format(end)
-
-    raise ValueError("One of start-date or end-date must be specified.")
+    else:
+        return "1900-01-01T00:00:00Z,{}".format(now)
 
 
 def _request_search(args, request_url, params, search_after=None):
