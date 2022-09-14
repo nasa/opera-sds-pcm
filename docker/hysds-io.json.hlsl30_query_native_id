@@ -1,5 +1,5 @@
 {
-  "label": "Query HLSL30 data with minutes elapsed",
+  "label": "Query HLSL30 data with native_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,
