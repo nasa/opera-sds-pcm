@@ -15,7 +15,7 @@
       "name": "native_id",
       "from": "submitter",
       "placeholder": "e.g. --native-id=HLS.S30.T56JMN.2021274T000241.v2.0",
-      "type": "text",
+      "type": "text"
     },
     {
       "name": "provider",
