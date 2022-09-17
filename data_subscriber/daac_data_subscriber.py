@@ -557,22 +557,19 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,
-        'updated_since': timerange.start_date,
         'token': token,
         'bounding_box': args.bbox,
     }
 
-    start_or_end_date_provided = args.start_date or args.end_date
-    if start_or_end_date_provided:
-        # derive and apply param "temporal"
-        now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-        logging.info("Temporal Range: " + temporal_range)
+    # derive and apply param "temporal"
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+    logging.info("Temporal Range: " + temporal_range)
 
-        if args.use_temporal:
-            params['temporal'] = temporal_range
-        else:
-            params["revision_date"] = temporal_range
+    if args.use_temporal:
+        params['temporal'] = temporal_range
+    else:
+        params["revision_date"] = temporal_range
 
     logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
