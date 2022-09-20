@@ -859,7 +859,7 @@ def download_granules(
         # generate merge metadata from single-product datasets
         total_product_file_sizes, merged_met_dict = \
             product2dataset.product2dataset.merge_dataset_met_json(
-                str(granule_download_dir.resolve()),
+                str(granule_extracts_dir.resolve()),
                 extra_met={}  # copy additional metadata to each product. In this case, leaving as-is.
             )
         logging.info(f"{merged_met_dict=}")
