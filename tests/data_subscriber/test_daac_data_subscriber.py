@@ -2,7 +2,7 @@ from datetime import datetime
 import random
 from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
@@ -34,7 +34,7 @@ def teardown_module():
 
 
 @pytest.mark.asyncio
-async def test_full(monkeypatch):
+async def full(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -136,7 +136,7 @@ async def test_query_smoke_run(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_download(monkeypatch):
+async def download(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -158,7 +158,7 @@ async def test_download(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_download_by_tile(monkeypatch):
+async def download_by_tile(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -181,7 +181,7 @@ async def test_download_by_tile(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_download_by_tiles(monkeypatch):
+async def download_by_tiles(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -203,7 +203,7 @@ async def test_download_by_tiles(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_download_https(monkeypatch):
+async def download_https(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -226,7 +226,7 @@ async def test_download_https(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_download_by_tiles_smoke_run(monkeypatch):
+async def download_by_tiles_smoke_run(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -249,7 +249,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_download_by_tiles_dry_run(monkeypatch):
+async def download_by_tiles_dry_run(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
     mock_get_aws_creds(monkeypatch)
@@ -269,6 +269,68 @@ async def test_download_by_tiles_dry_run(monkeypatch):
 
     # ASSERT
     assert results["download"] is None
+
+
+def test_download_granules_using_https(monkeypatch):
+    patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        lambda *args, **kwargs: "extracts/granule1/granule1.Fmask"
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {})
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_https.__name__,
+        lambda *args, **kwargs: Path("downloads/granule1/granule1.Fmask.tif").resolve()
+    )
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class Args:
+        smoke_run = True
+        transfer_protocol = "https"
+
+    data_subscriber.daac_data_subscriber.download_granules(None, None, {
+        "granule1": ["http://example.com/granule1.Fmask.tif"]
+    }, Args(), None, None)
+
+
+def test_download_granules_using_s3(monkeypatch):
+    patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        lambda *args, **kwargs: "extracts/granule1/granule1.Fmask"
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {})
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
+        lambda *args, **kwargs: Path("downloads/granule1/granule1.Fmask.tif").resolve()
+    )
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class Args:
+        smoke_run = True
+        transfer_protocol = "s3"
+
+    data_subscriber.daac_data_subscriber.download_granules(None, None, {
+        "granule1": ["s3://example.com/granule1.Fmask.tif"]
+    }, Args(), None, None)
 
 
 @contextmanager
@@ -356,6 +418,39 @@ def patch_subscriber(monkeypatch):
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.submit_mozart_job.__name__,
         lambda *args, **kwargs: "dummy_job_id_" + str(random.randint(0, 100))
+    )
+
+
+def patch_subscriber_io(monkeypatch):
+    """Patch I/O operations from os, shutil, and json modules.
+
+    Patched functions will do no-op, returning None.
+    """
+    mock_open = MagicMock()
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.open.__name__,
+        lambda *args, **kwargs: mock_open
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.os,
+        data_subscriber.daac_data_subscriber.os.mkdir.__name__,
+        lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.os,
+        data_subscriber.daac_data_subscriber.os.unlink.__name__,
+        lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.shutil,
+        data_subscriber.daac_data_subscriber.shutil.copy.__name__,
+        lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.json,
+        data_subscriber.daac_data_subscriber.json.dump.__name__,
+        lambda *args, **kwargs: None
     )
 
 

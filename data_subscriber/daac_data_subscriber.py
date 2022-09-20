@@ -5,16 +5,18 @@
 
 import argparse
 import asyncio
-import socket
+import glob
+import itertools
 import json
 import logging
 import netrc
 import os
 import re
 import shutil
+import socket
 import sys
 import uuid
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
@@ -32,10 +34,11 @@ from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
 from smart_open import open
 
+import extractor.extract
+import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from util.conf_util import SettingsConf
-
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -706,13 +709,30 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     if args.transfer_protocol.lower() == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
+        # TODO chrisjrd: remove dead code after successful tests
+        # _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
+
+        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+        download_granules(session, hls_conn, granule_id_to_download_urls_map, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
+        # TODO chrisjrd: remove dead code after successful tests
+        # _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
+
+        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+        download_granules(session, hls_conn, granule_id_to_download_urls_map, args, None, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
+
+
+def group_download_urls_by_granule_id(download_urls):
+    granule_id_to_download_urls_map = defaultdict(list)
+    for download_url in download_urls:
+        # remove both suffixes to get granule ID (e.g. removes .Fmask.tif)
+        granule_id = PurePath(download_url).with_suffix("").with_suffix("").name
+        granule_id_to_download_urls_map[granule_id].append(download_url)
+    return granule_id_to_download_urls_map
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
@@ -778,6 +798,125 @@ def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id
     logging.info(f"Files downloaded: {str(num_successes)}")
     logging.info(f"Duplicate files skipped: {str(num_skipped)}")
     logging.info(f"Files failed to download: {str(num_failures)}")
+
+
+def download_granules(
+        session: requests.Session,
+        es_conn,
+        granule_id_to_product_urls_map: dict[str, list[str]],
+        args,
+        token,
+        job_id
+):
+    cfg = SettingsConf().cfg  # has metadata extractor config
+    logging.info("Creating directories to process granules")
+    os.mkdir(downloads_dir := Path("downloads"))  # house all file downloads
+    os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
+
+    # TODO chrisjrd: implement dry_run support
+
+    if args.smoke_run:
+        granule_id_to_product_urls_map = dict(itertools.islice(granule_id_to_product_urls_map.items(), 1))
+
+    for granule_id, product_urls in granule_id_to_product_urls_map.items():
+        logging.info(f"Processing {granule_id=}")
+
+        os.mkdir(granule_download_dir := downloads_dir / granule_id)
+
+        # download products in granule
+        products = []
+        for product_url in product_urls:
+            if args.transfer_protocol.lower() == "https":
+                product_filepath = download_product_using_https(
+                    product_url,
+                    session,
+                    token,
+                    target_dirpath=granule_download_dir.resolve()
+                )
+            else:  # args.transfer_protocol.lower() == "s3"
+                product_filepath = download_product_using_s3(
+                    product_url,
+                    session,
+                    target_dirpath=granule_download_dir.resolve(),
+                    args=args
+                )
+            products.append(product_filepath)
+            # TODO chrisjrd: mark product as downlaoded in the database
+        logging.info(f"{products=}")
+
+        # create individual dataset dir for each product in the granule
+        # (this also extracts the metadata to *.met.json files)
+        os.mkdir(granule_extracts_dir := extracts_dir / granule_id)
+        dataset_dirs = [
+            extractor.extract.extract(
+                product=str(product),
+                product_types=cfg["PRODUCT_TYPES"],  # TODO chrisjrd: read settings.yaml#products
+                workspace=str(granule_extracts_dir.resolve())
+            ) for product in products
+        ]
+        logging.info(f"{dataset_dirs=}")
+
+        # generate merge metadata from single-product datasets
+        total_product_file_sizes, merged_met_dict = \
+            product2dataset.product2dataset.merge_dataset_met_json(
+                str(granule_download_dir.resolve()),
+                extra_met={}  # copy additional metadata to each product. In this case, leaving as-is.
+            )
+        logging.info(f"{merged_met_dict=}")
+
+        logging.info("Creating granule dataset directory")
+        os.mkdir(granule_dataset_dir := Path(granule_id))
+
+        # copy input products to granule dataset dir
+        for product in products:
+            shutil.copy(product, granule_dataset_dir.resolve())
+        logging.info("Copied input products to dataset directory")
+
+        # write out merged *.met.json
+        merged_met_json_filepath = granule_dataset_dir.resolve() / f"{granule_dataset_dir.name}.met.json"
+        with open(merged_met_json_filepath, mode="w") as output_file:
+            json.dump(merged_met_dict, output_file)
+        logging.info(f"Wrote {merged_met_json_filepath=!s}")
+
+        # write out basic *.dataset.json file (value + created_timestamp)
+        dataset_json_dict = extractor.extract.create_dataset_json(
+            product_metadata={},
+            ds_met={},
+            alt_ds_met={}
+        )
+        granule_dataset_json_filepath = granule_dataset_dir.resolve() / f"{granule_id}.dataset.json"
+        with open(granule_dataset_json_filepath, mode="w") as output_file:
+            json.dump(dataset_json_dict, output_file)
+        logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
+
+        # TODO chrisjrd: cleanup
+        for dataset_dir in dataset_dirs:
+            for met_json_file in glob.iglob(os.path.join(dataset_dir, '*.met.json')):
+                # Remove the individual .met.json files after they've been merged
+                os.unlink(met_json_file)
+        logging.info(f"Unlinked temporary dataset directories. {dataset_dirs=}")
+
+
+def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:
+    headers = {"Echo-Token": token}
+    with session.get(url, headers=headers) as r:
+        r.raise_for_status()
+
+        file_name = PurePath(url).name
+        product_download_path = target_dirpath / file_name
+        with open(product_download_path, "wb") as output_file:
+            output_file.write(r.content)
+        return product_download_path.resolve()
+
+
+def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
+    aws_creds = _get_aws_creds(session)
+    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                       aws_secret_access_key=aws_creds['secretAccessKey'],
+                       aws_session_token=aws_creds['sessionToken'],
+                       region_name='us-west-2').client("s3")
+    product_download_path = _s3_download(url, args.isl_bucket, s3, str(target_dirpath))
+    return product_download_path.resolve()
 
 
 def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
@@ -883,24 +1022,39 @@ def _get_aws_creds(session):
 
 
 def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
+    try:
+        _s3_download(url, bucket_name, s3, tmp_dir, staging_area)
+        target_key = _s3_upload(url, bucket_name, s3, tmp_dir, staging_area)
+
+        return {"successful_download": target_key}
+    except Exception as e:
+        return {"failed_download": e}
+
+
+# TODO chrisjrd: remove unused param
+def _s3_download(url, bucket_name, s3, tmp_dir, staging_area=""):
     file_name = PurePath(url).name
+    target_key = str(Path(staging_area, file_name))
 
     source = url[len("s3://"):].partition('/')
     source_bucket = source[0]
     source_key = source[2]
 
-    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+    s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+
+    return Path(f"{tmp_dir}/{target_key}")
+
+
+# TODO chrisjrd: remove unused param
+def _s3_upload(url, bucket_name, s3, tmp_dir, staging_area=""):
+    file_name = PurePath(url).name
     target_key = str(Path(staging_area, file_name))
+    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
 
-    try:
-        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+    target_s3 = boto3.resource("s3")
+    target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
 
-        target_s3 = boto3.resource("s3")
-        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
-
-        return {"successful_download": target_key}
-    except Exception as e:
-        return {"failed_download": e}
+    return target_key
 
 
 def _upload_chunk(chunk_dict):
