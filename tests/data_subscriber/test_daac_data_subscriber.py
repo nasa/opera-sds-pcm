@@ -1,6 +1,8 @@
+from datetime import datetime
 import random
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -40,11 +42,12 @@ async def test_full(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py full " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=S30 " \
+           "--collection-shortname=HLSS30 " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=s3 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -61,9 +64,8 @@ async def test_query(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=S30 " \
+           "--collection-shortname=HLSS30 " \
            "".split()
 
     # ACT
@@ -79,9 +81,8 @@ async def test_query_chunked(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=S30 " \
+           "--collection-shortname=HLSS30 " \
            "--chunk-size=1 " \
            "".split()
 
@@ -99,9 +100,8 @@ async def test_query_no_schedule_download(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=S30 " \
+           "--collection-shortname=HLSS30 " \
            "--chunk-size=1 " \
            "--no-schedule-download " \
            "".split()
@@ -119,9 +119,8 @@ async def test_query_smoke_run(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
-           "--collection-shortname=S30 " \
+           "--collection-shortname=HLSS30 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--chunk-size=1 " \
@@ -145,9 +144,10 @@ async def test_download(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=s3 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -166,10 +166,11 @@ async def test_download_by_tile(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
            "--transfer-protocol=s3 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -188,9 +189,10 @@ async def test_download_by_tiles(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "".split()
 
     # ACT
@@ -209,9 +211,10 @@ async def test_download_https(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids=T00000 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "--transfer-protocol=https " \
            "".split()
 
@@ -231,9 +234,10 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "--smoke-run " \
            "".split()
 
@@ -253,9 +257,10 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     mock_boto3(monkeypatch)
 
     args = "dummy.py download " \
-           "--provider=LPCLOUD " \
            "--isl-bucket=dummy_bucket " \
            "--tile-ids T00000 T00001 " \
+           "--start-date=1970-01-01T00:00:00Z " \
+           "--end-date=1970-01-01T00:00:00Z " \
            "--dry-run " \
            "".split()
 
@@ -274,6 +279,12 @@ def mock_token_ctx(*args):
 def patch_subscriber(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.socket.__name__,
+        Mock()
+    )
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,
         lambda *args, **kwargs: MockDataSubscriberProductCatalog()
     )
@@ -281,11 +292,6 @@ def patch_subscriber(monkeypatch):
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_spatial_catalog_connection.__name__,
         lambda *args, **kwargs: MockHlsSpatialCatalog()
-    )
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.get_slc_catalog_connection.__name__,
-        lambda *args, **kwargs: MockDataSubscriberProductCatalog()
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
@@ -304,26 +310,41 @@ def patch_subscriber(monkeypatch):
             [
                 {
                     "granule_id": "dummy_granule_id",
+                    "filtered_urls": [
+                        "https://example.com/T00000.B02.tif",
+                    ],
                     "related_urls": [
-                        "https://example.com/T00000.B01.tif",
-                    ]
+                        "https://example.com/T00000.B02.tif",
+                    ],
+                    "identifier": "S2A_dummy",
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_2",
-                    "related_urls": [
-                        "https://example.com/T00001.B01.tif",
+                    "filtered_urls": [
                         "https://example.com/T00001.B02.tif",
-                    ]
+                        "https://example.com/T00001.B03.tif",
+                    ],
+                    "related_urls": [
+                        "https://example.com/T00001.B02.tif",
+                        "https://example.com/T00001.B03.tif",
+                    ],
+                    "identifier": "S2A_dummy",
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 },
                 {
                     "granule_id": "dummy_granule_id_3",
-                    "related_urls": [
-                        "https://example.com/T00002.B01.tif",
+                    "filtered_urls": [
+                        "https://example.com/T00002.B02.tif",
                     ],
+                    "related_urls": [
+                        "https://example.com/T00002.B02.tif",
+                    ],
+                    "identifier": "S2A_dummy",
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
                 }
-            ], # product_granules
-            False,  # search_after
-            3 # total_granules
+            ],
+            False  # search_after
         )
     )
     monkeypatch.setattr(
@@ -382,7 +403,7 @@ def mock_boto3(monkeypatch):
 
 
 class MockDataSubscriberProductCatalog:
-    def get_all_undownloaded(self):
+    def get_all_undownloaded(self, *args, **kwargs):
         return [
             {
                 "https_url": "https://example.com/T00000.B01.tif",

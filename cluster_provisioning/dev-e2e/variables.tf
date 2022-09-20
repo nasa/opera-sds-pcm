@@ -227,8 +227,8 @@ variable "common_ci" {
   type = map(string)
   default = {
     name       = "ci"
-    private_ip = "100.104.41.51"
-    public_ip  = "100.104.41.51"
+    private_ip = "opera-pcm-ci.jpl.nasa.gov"
+    public_ip  = "opera-pcm-ci.jpl.nasa.gov"
   }
 }
 
@@ -274,8 +274,12 @@ variable "cnm_r_job_queue" {
   default = "opera-job_worker-rcv_cnm_notify"
 }
 
-variable "cnm_r_event_trigger" {
+variable "po_daac_cnm_r_event_trigger" {
   default = "sns"
+}
+
+variable "asf_daac_cnm_r_event_trigger" {
+  default = "sqs"
 }
 
 variable "cnm_r_allowed_account" {
@@ -286,17 +290,27 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
-#The value of daac_delivery_proxy can be
+#The value of po_daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   default = false
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
+  default = ""
+}
+
+#The value of asf_daac_delivery_proxy can be
+#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+variable "asf_daac_delivery_proxy" {
+  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+}
+
+variable "asf_daac_endpoint_url" {
   default = ""
 }
 
@@ -360,12 +374,12 @@ variable "pge_snapshots_date" {
   default = "20220401-1.0.0-er.3.0"
 }
 
-variable "pge_names" {
-  default = "opera_pge-dswx_hls"
-}
-
-variable "pge_release" {
-  default = "1.0.0-rc.2.0"
+variable "pge_releases" {
+  type = map(string)
+  default = {
+    "dswx_hls" = "1.0.0-rc.4.0"
+    "cslc_s1" = "2.0.0-er.2.0"
+  }
 }
 
 variable "crid" {
@@ -470,12 +484,13 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    mozart    = "ami-02fcd254c71ff0fa0"  # opera dev mozart - ol8
-    metrics   = "ami-0a54a14946e0bb52f"  # opera dev metrics - ol8
-    grq       = "ami-0a11c7d42e24fe7d5"  # opera dev grq - ol8
-    factotum  = "ami-0ce5e6a66b7732993"  # opera dev factotum - ol8
-    ci        = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
-    autoscale = "ami-0caed57c920d65ea8"  # OL8 All-project verdi v4.11
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (8-26-22)
+    mozart    = "ami-0f23130e8f63ede5d" # mozart v4.18
+    metrics   = "ami-01d55d43dda66391a" # metrics v4.13
+    grq       = "ami-04f57d54765bea834" # grq v4.14
+    factotum  = "ami-0d5f96008afa14416" # factotum v4.14
+    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 

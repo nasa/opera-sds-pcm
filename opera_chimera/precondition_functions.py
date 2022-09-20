@@ -27,7 +27,9 @@ from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.common_util import convert_datetime, get_working_dir
-from util.pge_util import get_input_dataset_tile_code, write_pge_metrics
+from util.pge_util import (download_ancillary_from_s3,
+                           get_input_dataset_tile_code,
+                           write_pge_metrics)
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
 from tools.stage_worldcover import main as stage_worldcover
@@ -706,6 +708,111 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
             )
 
+    def get_slc_burst_id(self):
+        """Returns the SLC burst ID to be processed with a CSLC-S1 job"""
+        # TODO: dummy implementation until we figure out how to properly source
+        #       the burst ID (or IDs?) from the input SAFE file
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # hardcode the burst ID used with the interface delivery for now...
+        rc_params = {
+            oc_const.BURST_ID: "t64_135524_iw2"
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_safe_file_path(self):
+        """
+        Obtains the s3 URI of the input SAFE file for use with CSLC-S1 job.
+        This URI is then configured as the value of safe_file_path within the
+        interim RunConfig. Chimera will then localize this file from S3 to
+        local disk before starting the OPERA PGE wrapper.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        s3_product_path = f"{self._context['product_path']}/{metadata['FileName']}"
+
+        rc_params = {
+            oc_const.SAFE_FILE_PATH: s3_product_path
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_cslc_orbit_file(self):
+        """
+        Copies a static orbit file configured for use with a CSLC-S1 job
+        to the job's local working area.
+
+        TODO this is a temporary implementation for initial testing purposes
+             eventually this function will need to determine the appropriate
+             orbit file to download based on the input SLC file
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        s3_bucket = self._pge_config.get(oc_const.GET_CSLC_ORBIT_FILE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_CSLC_ORBIT_FILE, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, s3_key)
+
+        pge_metrics = download_ancillary_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Orbit Ephemerides"
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.ORBIT_FILE_PATH: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_cslc_dem(self):
+        """
+        Copies a static DEM file configured for use with a CSLC-S1 job
+        to the job's local working area.
+
+        TODO this may or may not be a temporary implementation based on whether
+             the static dem provided by ADT is suitable for all CSLC-S1 jobs
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        s3_bucket = self._pge_config.get(oc_const.GET_CSLC_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_CSLC_DEM, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, s3_key)
+
+        pge_metrics = download_ancillary_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Static DEM"
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.DEM_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_bbox(self, dem_file=None):
         """
         Input : input_file_name
@@ -854,43 +961,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         s3_bucket = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_BUCKET)
         s3_key = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_KEY)
 
-        if not s3_bucket or not s3_key:
-            raise RuntimeError(
-                f"Incomplete S3 location for Landcover file.\n"
-                f"Values must be provided for both the '{oc_const.S3_BUCKET}' "
-                f"and the '{oc_const.S3_KEY}' fields within the {oc_const.GET_LANDCOVER} "
-                f"section of the PGE config."
-            )
-
-        s3 = boto3.resource('s3')
-
-        pge_metrics = {"download": [], "upload": []}
-
-        loc_t1 = datetime.utcnow()
-
-        try:
-            logger.info(f'Downloading Landcover file s3://{s3_bucket}/{s3_key} to {output_filepath}')
-            s3.Object(s3_bucket, s3_key).download_file(output_filepath)
-        except Exception as err:
-            errmsg = f'Failed to download Landcover file from S3, reason: {str(err)}'
-            raise RuntimeError(errmsg)
-
-        loc_t2 = datetime.utcnow()
-        loc_dur = (loc_t2 - loc_t1).total_seconds()
-        path_disk_usage = get_disk_usage(output_filepath)
-
-        pge_metrics["download"].append(
-            {
-                "url": output_filepath,
-                "path": output_filepath,
-                "disk_usage": path_disk_usage,
-                "time_start": loc_t1.isoformat() + "Z",
-                "time_end": loc_t2.isoformat() + "Z",
-                "duration": loc_dur,
-                "transfer_rate": path_disk_usage / loc_dur,
-            }
+        pge_metrics = download_ancillary_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Landcover"
         )
-        logger.info(json.dumps(pge_metrics, indent=2))
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
@@ -1044,7 +1117,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
-        product_paths: List[str] = [product_path for band_or_qa, product_path in metadata.items() if band_or_qa != '@timestamp']
+        product_paths: List[str] = [product_info["product_path"] for band_or_qa, product_info in metadata.items() if band_or_qa != '@timestamp']
 
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.

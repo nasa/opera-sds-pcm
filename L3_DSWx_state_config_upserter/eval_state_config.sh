@@ -7,13 +7,12 @@ env | sort 1>&2
 BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
-# source PGE env
+# source env
 
 export OPERA_HOME=$(dirname "${BASE_PATH}")
 export COMMONS_HOME=$OPERA_HOME/commons
 export PYTHONPATH=$BASE_PATH:$OPERA_HOME:$PYTHONPATH
 export PATH=$BASE_PATH:$PATH
-export PGE=$(basename "${BASE_PATH}")
 export PYTHONDONTWRITEBYTECODE=1
 
 # source environment

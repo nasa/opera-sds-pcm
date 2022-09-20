@@ -26,9 +26,19 @@ def evaluate():
     metadata: dict = job_context["product_metadata"]["metadata"]
 
     state_config_doc_id = generate_doc_id(metadata)
+
+    # NOTE TO DEVELOPERS
+    # Providing the S3 path here for ease of implementation:
+    #  This will be persisted in the dataset
+    #  and passed down to jobs that take this dataset as input.
+    #  This avoids extra queries against the data store when localizing files.
+    # Updating this section may require a corresponding update to accountability.py
     state_config = {
-        metadata["band_or_qa"]: f"{job_context['product_paths']}/{metadata['FileName']}"
-    }  # e.g. { "Fmask": "s3://...Fmask.tif" }
+        metadata["band_or_qa"]: {
+            "id": f"{metadata['id']}",  # providing ID to trace back to source product
+            "product_path": f"{job_context['product_paths']}/{metadata['FileName']}"
+        }
+    }  # e.g. { "Fmask": { "id": "...", "product_path": "s3://...Fmask.tif" } }
 
     upsert_state_config(state_config, state_config_doc_id)
 

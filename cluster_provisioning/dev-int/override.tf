@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId, in int this is 1 
+# venue : userId, in int this is 1
 # counter : 1-n or version
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -138,37 +138,41 @@ variable "artifactory_repo" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 10, 2022)
-    grq       = "ami-0a4ab3a778c395194" # OL8 All-project grq v4.13 - 220610
-    metrics   = "ami-0d5c253305b866dc0" # metrics v4.12 - 220610A
-    mozart    = "ami-00f898f3f2f930aa4" # mozart v4.17 - 220610
-    factotum  = "ami-0d0e97c6690f612d7" # OL8 All-project factotum v4.13 - 220609
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
+    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
+    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
+    grq       = "ami-0b3852a0f65efed65" # grq v4.13
+    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
     autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
     ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
   }
 }
 
 ####### CNM Response job vars #######
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   default = false
 }
 
-variable "daac_endpoint_url" {
+variable "po_daac_endpoint_url" {
   default = ""
 }
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20220502-RC1.0"
+  default = "20220826-RC4.0"
 }
 
-variable "pge_release" {
-  default = "1.0.0-rc.2.0"
+variable "pge_releases" {
+  type = map(string)
+  default = {
+    "dswx_hls" = "1.0.0-rc.4.0"
+    "cslc_s1" = "2.0.0-er.2.0"
+  }
 }
 
 variable "hysds_release" {
@@ -176,27 +180,27 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 variable "pcm_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 variable "product_delivery_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 variable "bach_api_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 variable "bach_ui_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.4.0"
 }
 
 ###### Roles ########

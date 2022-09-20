@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import uuid
+from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
@@ -25,6 +26,7 @@ from urllib import request
 from urllib.parse import urlparse
 
 import boto3
+import dateutil.parser
 import requests
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
@@ -35,6 +37,8 @@ from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_s
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from util.conf_util import SettingsConf
 
+
+DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -114,14 +118,8 @@ async def run(argv: list[str]):
             raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
         results = {}
-
-        if args.file:
-            with open(args.file, "r") as f:
-                update_url_index(es_conn, f.readlines(), None, None, None)
-            exit(0)
-
         if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token, es_conn, cmr, job_id)
+            results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
         if args.subparser_name == "download" or args.subparser_name == "full":
             results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
     logging.info(f"{results=}")
@@ -156,19 +154,19 @@ def create_parser():
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
-                             "choices": ["L30", "S30", "SENTINEL-1A_SLC"],
+                             "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC"],
                              "required": True,
                              "help": "The collection shortname for which you want to retrieve data."}}
 
     start_date = {"positionals": ["-s", "--start-date"],
                   "kwargs": {"dest": "start_date",
-                             "default": False,
+                             "default": None,
                              "help": "The ISO date time after which data should be retrieved. For Example, "
                                      "--start-date 2021-01-14T00:00:00Z"}}
 
     end_date = {"positionals": ["-e", "--end-date"],
                 "kwargs": {"dest": "end_date",
-                           "default": False,
+                           "default": None,
                            "help": "The ISO date time before which data should be retrieved. For Example, --end-date "
                                    "2021-01-14T00:00:00Z"}}
 
@@ -248,7 +246,7 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids]
+    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids, start_date, end_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
@@ -303,9 +301,9 @@ def _validate_minutes(minutes):
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
 
-def update_url_index(es_conn, urls, granule_id, job_id, query_dt):
+def update_url_index(es_conn, urls: list[str], granule_id: str, job_id: str, query_dt: datetime, temporal_extent_beginning_dt: datetime):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt)
 
 
 def update_granule_index(es_spatial_conn, granule):
@@ -402,10 +400,14 @@ def _delete_token(url: str, token: str) -> None:
         logging.warning(f"Error deleting the token: {e}")
 
 
-async def run_query(args, token, es_conn, CMR, job_id):
+async def run_query(args, token, es_conn, cmr, job_id, settings):
     HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+
     query_dt = datetime.now()
-    granules = query_cmr(args, token, CMR)
+    now = datetime.utcnow()
+    query_timerange: DateTimeRange = get_query_timerange(args, now)
+
+    granules = query_cmr(args, token, cmr, settings, query_timerange, now)
 
     if args.smoke_run:
         logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
@@ -413,12 +415,13 @@ async def run_query(args, token, es_conn, CMR, job_id):
 
     download_urls: list[str] = []
     for granule in granules:
-        update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt)
-
+        update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
+                         temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]))
         if args.provider == "LPCLOUD":
             update_granule_index(HLS_SPATIAL_CONN, granule)
 
-        download_urls.extend(granule.get("filtered_urls"))
+        if granule.get("filtered_urls"):
+            download_urls.extend(granule.get("filtered_urls"))
 
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")
@@ -487,6 +490,16 @@ async def run_query(args, token, es_conn, CMR, job_id):
                             "name": "endpoint",
                             "value": f"--endpoint={args.endpoint}",
                             "from": "value"
+                        },
+                        {
+                            "name": "start_datetime",
+                            "value": f"--start-date={query_timerange.start_date}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "end_datetime",
+                            "value": f"--end-date={query_timerange.end_date}",
+                            "from": "value"
                         }
 
                     ],
@@ -503,52 +516,77 @@ async def run_query(args, token, es_conn, CMR, job_id):
     logging.info(f"{succeeded=}")
     failed = [e for e in results if isinstance(e, Exception)]
     logging.info(f"{failed=}")
+
     return {
         "success": succeeded,
         "fail": failed
     }
 
-
-def query_cmr(args, token, cmr) -> list:
-    PAGE_SIZE = 2000
-    now = datetime.utcnow()
+def get_query_timerange(args, now: datetime):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
+    query_timerange = DateTimeRange(start_date, end_date)
+    logging.info(f"{query_timerange=}")
+    return query_timerange
+
+
+def get_download_timerange(args):
+    start_date = args.start_date
+    end_date = args.end_date
+
+    download_timerange = DateTimeRange(start_date, end_date)
+    logging.info(f"{download_timerange=}")
+    return download_timerange
+
+
+def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
+    PAGE_SIZE = 2000
+    now = datetime.utcnow()
+
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
-        'scroll': "false",
         'page_size': PAGE_SIZE,
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,
-        'updated_since': start_date,
+        'updated_since': timerange.start_date,
         'token': token,
         'bounding_box': args.bbox,
     }
 
-    time_range_is_defined = args.start_date or args.end_date
-    if time_range_is_defined:
-        temporal_range = _get_temporal_range(start_date, end_date, now_date)
+    start_or_end_date_provided = args.start_date or args.end_date
+    if start_or_end_date_provided:
+        # derive and apply param "temporal"
+        now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
         logging.info("Temporal Range: " + temporal_range)
         params['temporal'] = temporal_range
 
-    product_granules, search_after = _request_search(request_url, params)
+    logging.info(f"{request_url=} {params=}")
+    product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
-        granules, search_after = _request_search(request_url, params, search_after=search_after)
+        granules, search_after = _request_search(args, request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
+    if args.collection in settings['SHORTNAME_FILTERS']:
+        product_granules = [granule
+                            for granule in product_granules
+                            if _match_identifier(settings, args, granule)]
+
+        logging.info(f"Found {str(len(product_granules))} total granules")
+
     for granule in product_granules:
-        granule['filtered_urls'] = _filter_on_extension(granule, args)
+        granule['filtered_urls'] = _filter_granules(granule, args)
 
     return product_granules
 
 
-def _get_temporal_range(start, end, now):
+def _get_temporal_range(start: str, end: str, now: datetime):
     start = start if start is not False else None
     end = end if end is not False else None
 
@@ -562,45 +600,61 @@ def _get_temporal_range(start, end, now):
     raise ValueError("One of start-date or end-date must be specified.")
 
 
-def _request_search(request_url, params, search_after=None):
+def _request_search(args, request_url, params, search_after=None):
     response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
         if search_after else requests.get(request_url, params=params)
+
     results = response.json()
     items = results.get('items')
     next_search_after = response.headers.get('CMR-Search-After')
-    total_granules = response.headers.get('CMR-Hits')
+
+    collection_identifier_map = {"HLSL30": "LANDSAT_PRODUCT_ID",
+                                 "HLSS30": "PRODUCT_URI"}
 
     if items and 'umm' in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
+                 "temporal_extent_beginning_datetime": item["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
                  "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
                                   for point
                                   in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
                                       .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
-                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")]}
-                for item in items], next_search_after, total_granules
+                 "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")],
+                 "identifier": next(attr.get("Values")[0]
+                                    for attr in item.get("umm").get("AdditionalAttributes")
+                                    if attr.get("Name") == collection_identifier_map[
+                                        args.collection]) if args.collection in collection_identifier_map else None}
+                for item in items], next_search_after
     else:
-        return [], None, total_granules
+        return [], None
 
 
-def _filter_on_extension(granule, args):
-    extension_list_map = {"L30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                          "S30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+def _filter_granules(granule, args):
+    collection_map = {"HLSL30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
+                          "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
                           "SENTINEL-1A_SLC": ["zip"],
                           "DEFAULT": ["tif"]}
     filter_extension = "DEFAULT"
 
-    for extension in extension_list_map:
-        if extension in args.collection:
-            filter_extension = extension
+    for collection in collection_map:
+        if collection in args.collection:
+            filter_extension = collection
             break
 
     return [f
             for f in granule.get("related_urls")
-            for extension in extension_list_map.get(filter_extension)
+            for extension in collection_map.get(filter_extension)
             if extension in f]
+
+
+def _match_identifier(settings, args, granule) -> bool:
+    for filter in settings['SHORTNAME_FILTERS'][args.collection]:
+        if re.match(filter, granule['identifier']):
+            return True
+
+    return False
 
 
 def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
@@ -642,13 +696,18 @@ def _url_to_tile_id(url: str):
 
 
 def run_download(args, token, hls_conn, netloc, username, password, job_id):
-    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded()
+    download_timerange = get_download_timerange(args)
+    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded(
+        dateutil.parser.isoparse(download_timerange.start_date),
+        dateutil.parser.isoparse(download_timerange.end_date)
+    )
 
     downloads = all_pending_downloads
     if args.tile_ids:
         logging.info(f"Filtering pending downloads by {args.tile_ids=}")
         downloads = list(filter(lambda d: _to_tile_id(d) in args.tile_ids, all_pending_downloads))
-        logging.info(f"{downloads=}")
+        logging.info(f"{len(downloads)=}")
+        logging.debug(f"{downloads=}")
 
     if not downloads:
         logging.info(f"No undownloaded files found in index.")
@@ -661,15 +720,15 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     session = SessionWithHeaderRedirection(username, password, netloc)
 
     if args.transfer_protocol.lower() == "https":
-        download_urls = [_to_https_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
+        download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
+        logging.debug(f"{download_urls=}")
         _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
     else:
-        download_urls = [_to_s3_url(download) for download in downloads]
-        logging.info(f"{download_urls=}")
+        download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
+        logging.debug(f"{download_urls=}")
         _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
-    logging.info(f"Total files updated: {len(downloads)}")
+    logging.info(f"Total files updated: {len(download_urls)}")
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
@@ -685,6 +744,16 @@ def _to_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
+def _has_url(dl_dict: dict[str, Any]):
+    if dl_dict.get("https_url"):
+        return True
+    if dl_dict.get("s3_url"):
+        return True
+
+    logging.error(f"Couldn't find any URL in {dl_dict=}")
+    return False
+
+
 def _to_https_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("https_url"):
         return dl_dict["https_url"]
@@ -696,14 +765,17 @@ def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
     for url in filtered_downloads:
         try:
             if es_conn.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
+                logging.debug(f"SKIPPING: {url}")
                 num_skipped = num_skipped + 1
             else:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    pass
                 else:
                     result = _https_transfer(url, args.isl_bucket, session, token)
                     if "failed_download" in result:
@@ -736,7 +808,7 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
         with session.get(url, headers=headers, stream=True) as r:
             if r.status_code != 200:
                 r.raise_for_status()
-            logging.info("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
             with open("s3://{}/{}".format(bucket, key), "wb") as out:
                 pool = ThreadPool(processes=10)
                 pool.map(_upload_chunk,
@@ -783,14 +855,18 @@ def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "s3://" in f]
 
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
     for url in filtered_downloads:
         try:
             if es_conn.product_is_downloaded(url):
-                logging.info(f"SKIPPING: {url}")
+                logging.debug(f"SKIPPING: {url}")
+
                 num_skipped = num_skipped + 1
             else:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    pass
                 else:
                     result = _s3_transfer(url, args.isl_bucket, s3, tmp_dir)
                     if "failed_download" in result:
@@ -799,7 +875,8 @@ def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
                         logging.debug(str(result))
 
                 es_conn.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                logging.debug(f"{str(datetime.now())} SUCCESS: {url}")
+
                 num_successes = num_successes + 1
         except Exception as e:
             logging.error(f"{str(datetime.now())} FAILURE: {url}")
