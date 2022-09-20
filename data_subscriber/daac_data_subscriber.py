@@ -36,8 +36,8 @@ from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connectio
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from util.conf_util import SettingsConf
 
-
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -225,15 +225,19 @@ def create_parser():
                             "action": "store_true",
                             "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
 
+    native_id = {"positionals": ["--native-id"],
+                 "kwargs": {"dest": "native_id",
+                            "help": "The native ID of a single product granule to be queried, overriding other query arguments if present."}}
+
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, tile_ids, use_temporal]
+                            chunk_size, tile_ids, use_temporal, navtive_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket, dry_run,
-                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size, use_temporal]
+                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size, use_temporal, native_id]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
@@ -526,10 +530,11 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
         "fail": failed
     }
 
+
 def get_query_timerange(args, now: datetime):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
@@ -539,8 +544,8 @@ def get_query_timerange(args, now: datetime):
 
 
 def get_download_timerange(args):
-    start_date = args.start_date
-    end_date = args.end_date
+    start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
+    end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     download_timerange = DateTimeRange(start_date, end_date)
     logging.info(f"{download_timerange=}")
@@ -549,7 +554,6 @@ def get_download_timerange(args):
 
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     PAGE_SIZE = 2000
-    now = datetime.utcnow()
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
@@ -560,6 +564,9 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         'token': token,
         'bounding_box': args.bbox,
     }
+
+    if args.native_id:
+        params['native-id'] = args.native_id
 
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -591,7 +598,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     return product_granules
 
 
-def _get_temporal_range(start: str, end: str, now: datetime):
+def _get_temporal_range(start: str, end: str, now: str):
     start = start if start is not False else None
     end = end if end is not False else None
 
@@ -601,8 +608,8 @@ def _get_temporal_range(start: str, end: str, now: datetime):
         return "{},{}".format(start, now)
     if start is None and end is not None:
         return "1900-01-01T00:00:00Z,{}".format(end)
-
-    raise ValueError("One of start-date or end-date must be specified.")
+    else:
+        return "1900-01-01T00:00:00Z,{}".format(now)
 
 
 def _request_search(args, request_url, params, search_after=None):

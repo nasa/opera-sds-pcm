@@ -16,7 +16,7 @@
       "destination": "positional"
     },
     {
-      "name": "minutes",
+      "name": "native_id",
       "destination": "positional"
     },
     {
@@ -53,10 +53,6 @@
     },
     {
       "name": "dry_run",
-      "destination": "positional"
-    },
-    {
-      "name": "use_temporal",
       "destination": "positional"
     }
   ]
