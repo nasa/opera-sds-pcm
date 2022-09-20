@@ -180,7 +180,7 @@ def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
     """
     dataset_met_json = {"Files": []}
     combined_file_size = 0
-    for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
+    for met_json_file in glob.iglob(os.path.join(dataset, '**/*.met.json'), recursive=True):
         with open(met_json_file, 'r') as infile:
             met_json = json.load(infile)
             combined_file_size += int(met_json["FileSize"])
