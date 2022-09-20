@@ -841,7 +841,7 @@ def download_granules(
                     args=args
                 )
             products.append(product_filepath)
-            # TODO chrisjrd: mark product as downlaoded in the database
+            # TODO chrisjrd: mark product as downloaded in the database
         logging.info(f"{products=}")
 
         # create individual dataset dir for each product in the granule
@@ -890,10 +890,10 @@ def download_granules(
         logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
         # TODO chrisjrd: cleanup
-        for dataset_dir in dataset_dirs:
-            for met_json_file in glob.iglob(os.path.join(dataset_dir, '*.met.json')):
-                # Remove the individual .met.json files after they've been merged
-                os.unlink(met_json_file)
+        # for dataset_dir in dataset_dirs:
+        #     for met_json_file in glob.iglob(os.path.join(dataset_dir, '*.met.json')):
+        #         # Remove the individual .met.json files after they've been merged
+        #         os.unlink(met_json_file)
         logging.info(f"Unlinked temporary dataset directories. {dataset_dirs=}")
 
 
