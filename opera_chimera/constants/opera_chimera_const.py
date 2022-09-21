@@ -217,7 +217,7 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DEM_BBOX = "get_dem_bbox"
 
-    GET_DEMS = "get_dems"
+    GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_LANDCOVER = "get_landcover"
 

@@ -869,7 +869,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return latlong
 
-    def get_dems(self):
+    def get_dswx_hls_dem(self):
         """
         This function downloads dems over the bbox provided in the PGE yaml config,
         or derives the appropriate bbox based on the tile code of the product's
@@ -885,10 +885,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         output_filepath = os.path.join(working_dir, 'dem.vrt')
 
         # get s3_bucket param
-        s3_bucket = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.S3_BUCKET)
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_HLS_DEM, {}).get(oc_const.S3_BUCKET)
 
         # get bbox param
-        bbox = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.BBOX)
+        bbox = self._pge_config.get(oc_const.GET_DSWX_HLS_DEM, {}).get(oc_const.BBOX)
 
         if bbox:
             # Convert to list if we were given a space-delimited string
@@ -910,8 +910,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             raise RuntimeError(
                 f"Can not determine a region to obtain DEM for.\n"
                 f"The product metadata must specify an MGRS tile code, "
-                f"or the 'bbox' parameter must be provided in the '{oc_const.GET_DEMS}' "
-                f"area of the PGE config"
+                f"or the 'bbox' parameter must be provided in the "
+                f"'{oc_const.GET_DSWX_HLS_DEM}' area of the PGE config"
             )
 
         # Set up arguments to stage_dem.py
