@@ -27,7 +27,7 @@ from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.common_util import convert_datetime, get_working_dir
-from util.pge_util import (download_ancillary_from_s3,
+from util.pge_util import (download_object_from_s3,
                            get_input_dataset_tile_code,
                            write_pge_metrics)
 from util.type_util import set_type
@@ -765,7 +765,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         output_filepath = os.path.join(working_dir, s3_key)
 
-        pge_metrics = download_ancillary_from_s3(
+        pge_metrics = download_object_from_s3(
             s3_bucket, s3_key, output_filepath, filetype="Orbit Ephemerides"
         )
 
@@ -961,7 +961,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         s3_bucket = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_BUCKET)
         s3_key = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_KEY)
 
-        pge_metrics = download_ancillary_from_s3(
+        pge_metrics = download_object_from_s3(
             s3_bucket, s3_key, output_filepath, filetype="Landcover"
         )
 

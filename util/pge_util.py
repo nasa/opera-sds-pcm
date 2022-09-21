@@ -19,8 +19,8 @@ PGE.
 """
 
 
-def download_ancillary_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
-    """Helper function to download an arbitrary ancillary file from S3"""
+def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
+    """Helper function to download an arbitrary file from S3"""
     if not s3_bucket or not s3_key:
         raise RuntimeError(
             f"Incomplete S3 location for {filetype} file.\n"
