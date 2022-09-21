@@ -857,20 +857,27 @@ def download_granules(
         logging.info(f"{dataset_dirs=}")
 
         # generate merge metadata from single-product datasets
+        shared_met_entries_dict = {}  # this is updated, when merging, with metadata common to multiple input files
         total_product_file_sizes, merged_met_dict = \
             product2dataset.product2dataset.merge_dataset_met_json(
                 str(granule_extracts_dir.resolve()),
-                extra_met={}  # copy additional metadata to each product. In this case, leaving as-is.
+                extra_met=shared_met_entries_dict  # copy some common metadata from each product.
             )
         logging.info(f"{merged_met_dict=}")
 
         logging.info("Creating granule dataset directory")
         os.mkdir(granule_dataset_dir := Path(granule_id))
 
-        # copy input products to granule dataset dir
         for product in products:
             shutil.copy(product, granule_dataset_dir.resolve())
         logging.info("Copied input products to dataset directory")
+
+        logging.info("update merged *.met.json with additional, top-level metadata")
+        merged_met_dict.update(shared_met_entries_dict)
+        merged_met_dict["FileSize"] = total_product_file_sizes
+        merged_met_dict["FileName"] = granule_id
+        merged_met_dict["id"] = granule_id
+        logging.info(f"{merged_met_dict=}")
 
         # write out merged *.met.json
         merged_met_json_filepath = granule_dataset_dir.resolve() / f"{granule_dataset_dir.name}.met.json"

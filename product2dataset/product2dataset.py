@@ -177,6 +177,8 @@ def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
 
     :param dataset: the ancestral parent directory of all *.met.json filepaths that should be merged.
     :param extra_met: extra product metadata. This is removed from the dict and added to the dataset metadata.
+                      This dict is updated with additional properties from the source dataset *.met.json files.
+                      Such properties are prevented from appearing in the merged metadata to prevent duplication.
     """
     dataset_met_json = {"Files": []}
     combined_file_size = 0
