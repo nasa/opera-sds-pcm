@@ -703,9 +703,9 @@ def _url_to_tile_id(url: str):
     return tile_id
 
 
-def run_download(args, token, hls_conn, netloc, username, password, job_id):
+def run_download(args, token, es_conn, netloc, username, password, job_id):
     download_timerange = get_download_timerange(args)
-    all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded(
+    all_pending_downloads: Iterable[dict] = es_conn.get_all_undownloaded(
         dateutil.parser.isoparse(download_timerange.start_date),
         dateutil.parser.isoparse(download_timerange.end_date)
     )
@@ -727,14 +727,14 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.transfer_protocol.lower() == "https":
+    if args.transfer_protocol == "https" or args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
+        _upload_url_list_from_https(session, es_conn, download_urls, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
+        _upload_url_list_from_s3(session, es_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
 
