@@ -811,7 +811,6 @@ def download_granules(
     cfg = SettingsConf().cfg  # has metadata extractor config
     logging.info("Creating directories to process granules")
     os.mkdir(downloads_dir := Path("downloads"))  # house all file downloads
-    os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
 
     # TODO chrisjrd: implement dry_run support
 
@@ -826,6 +825,9 @@ def download_granules(
         # download products in granule
         products = []
         for product_url in product_urls:
+            if args.dry_run:
+                logging.info(f"{args.dry_run=}. Skipping downloads.")
+                break
             if args.transfer_protocol.lower() == "https":
                 product_filepath = download_product_using_https(
                     product_url,
@@ -844,64 +846,62 @@ def download_granules(
             # TODO chrisjrd: mark product as downloaded in the database
         logging.info(f"{products=}")
 
-        # create individual dataset dir for each product in the granule
-        # (this also extracts the metadata to *.met.json files)
-        os.mkdir(granule_extracts_dir := extracts_dir / granule_id)
-        dataset_dirs = [
-            extractor.extract.extract(
-                product=str(product),
-                product_types=cfg["PRODUCT_TYPES"],  # TODO chrisjrd: read settings.yaml#products
-                workspace=str(granule_extracts_dir.resolve())
-            ) for product in products
-        ]
-        logging.info(f"{dataset_dirs=}")
+        extract_many_to_one(products, granule_id, cfg)
 
-        # generate merge metadata from single-product datasets
-        shared_met_entries_dict = {}  # this is updated, when merging, with metadata common to multiple input files
-        total_product_file_sizes, merged_met_dict = \
-            product2dataset.product2dataset.merge_dataset_met_json(
-                str(granule_extracts_dir.resolve()),
-                extra_met=shared_met_entries_dict  # copy some common metadata from each product.
-            )
-        logging.info(f"{merged_met_dict=}")
 
-        logging.info("Creating granule dataset directory")
-        os.mkdir(granule_dataset_dir := Path(granule_id))
+def extract_many_to_one(products, group_dataset_id, settings_cfg):
+    os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
 
-        for product in products:
-            shutil.copy(product, granule_dataset_dir.resolve())
-        logging.info("Copied input products to dataset directory")
+    # create individual dataset dir for each product in the granule
+    # (this also extracts the metadata to *.met.json files)
+    os.mkdir(product_extracts_dir := extracts_dir / group_dataset_id)
+    dataset_dirs = [
+        extractor.extract.extract(
+            product=str(product),
+            product_types=settings_cfg["PRODUCT_TYPES"],
+            workspace=str(product_extracts_dir.resolve())
+        ) for product in products
+    ]
+    logging.info(f"{dataset_dirs=}")
 
-        logging.info("update merged *.met.json with additional, top-level metadata")
-        merged_met_dict.update(shared_met_entries_dict)
-        merged_met_dict["FileSize"] = total_product_file_sizes
-        merged_met_dict["FileName"] = granule_id
-        merged_met_dict["id"] = granule_id
-        logging.info(f"{merged_met_dict=}")
-
-        # write out merged *.met.json
-        merged_met_json_filepath = granule_dataset_dir.resolve() / f"{granule_dataset_dir.name}.met.json"
-        with open(merged_met_json_filepath, mode="w") as output_file:
-            json.dump(merged_met_dict, output_file)
-        logging.info(f"Wrote {merged_met_json_filepath=!s}")
-
-        # write out basic *.dataset.json file (value + created_timestamp)
-        dataset_json_dict = extractor.extract.create_dataset_json(
-            product_metadata={},
-            ds_met={},
-            alt_ds_met={}
+    # generate merge metadata from single-product datasets
+    shared_met_entries_dict = {}  # this is updated, when merging, with metadata common to multiple input files
+    total_product_file_sizes, merged_met_dict = \
+        product2dataset.product2dataset.merge_dataset_met_json(
+            str(product_extracts_dir.resolve()),
+            extra_met=shared_met_entries_dict  # copy some common metadata from each product.
         )
-        granule_dataset_json_filepath = granule_dataset_dir.resolve() / f"{granule_id}.dataset.json"
-        with open(granule_dataset_json_filepath, mode="w") as output_file:
-            json.dump(dataset_json_dict, output_file)
-        logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
+    logging.info(f"{merged_met_dict=}")
 
-        # TODO chrisjrd: cleanup
-        # for dataset_dir in dataset_dirs:
-        #     for met_json_file in glob.iglob(os.path.join(dataset_dir, '*.met.json')):
-        #         # Remove the individual .met.json files after they've been merged
-        #         os.unlink(met_json_file)
-        logging.info(f"Unlinked temporary dataset directories. {dataset_dirs=}")
+    logging.info("Creating target dataset directory")
+    os.mkdir(target_dataset_dir := Path(group_dataset_id))
+    for product in products:
+        shutil.copy(product, target_dataset_dir.resolve())
+    logging.info("Copied input products to dataset directory")
+
+    logging.info("update merged *.met.json with additional, top-level metadata")
+    merged_met_dict.update(shared_met_entries_dict)
+    merged_met_dict["FileSize"] = total_product_file_sizes
+    merged_met_dict["FileName"] = group_dataset_id
+    merged_met_dict["id"] = group_dataset_id
+    logging.info(f"{merged_met_dict=}")
+
+    # write out merged *.met.json
+    merged_met_json_filepath = target_dataset_dir.resolve() / f"{target_dataset_dir.name}.met.json"
+    with open(merged_met_json_filepath, mode="w") as output_file:
+        json.dump(merged_met_dict, output_file)
+    logging.info(f"Wrote {merged_met_json_filepath=!s}")
+
+    # write out basic *.dataset.json file (value + created_timestamp)
+    dataset_json_dict = extractor.extract.create_dataset_json(
+        product_metadata={},
+        ds_met={},
+        alt_ds_met={}
+    )
+    granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
+    with open(granule_dataset_json_filepath, mode="w") as output_file:
+        json.dump(dataset_json_dict, output_file)
+    logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:

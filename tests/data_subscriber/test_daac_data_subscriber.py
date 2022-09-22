@@ -34,12 +34,49 @@ def teardown_module():
 
 
 @pytest.mark.asyncio
-async def full(monkeypatch):
+async def test_full(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    mock_extract = MagicMock()
+    mock_extract.side_effect = [
+        "extracts/T00000/T00000.B01",
+        "extracts/T00001/T00001.B01",
+        "extracts/T00001/T00001.B02",
+        "extracts/T00001/T00002.B02",
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        mock_extract
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {})
+    )
+
+    mock_download_product_using_s3 = MagicMock()
+    mock_download_product_using_s3.side_effect = [
+        Path("downloads/T00000/T00000.B01").resolve(),
+        Path("downloads/T00001/T00001.B01").resolve(),
+        Path("downloads/T00001/T00001.B02").resolve(),
+        Path("downloads/T00002/T00002.B01").resolve()
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
+        mock_download_product_using_s3
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
+        lambda *args, **kwargs: {}
+    )
 
     args = "dummy.py full " \
            "--isl-bucket=dummy_bucket " \
@@ -136,12 +173,49 @@ async def test_query_smoke_run(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def download(monkeypatch):
+async def test_download(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    mock_extract = MagicMock()
+    mock_extract.side_effect = [
+        "extracts/T00000/T00000.B01",
+        "extracts/T00001/T00001.B01",
+        "extracts/T00001/T00001.B02",
+        "extracts/T00001/T00002.B02",
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        mock_extract
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {})
+    )
+
+    mock_download_product_using_s3 = MagicMock()
+    mock_download_product_using_s3.side_effect = [
+        Path("downloads/T00000/T00000.B01").resolve(),
+        Path("downloads/T00001/T00001.B01").resolve(),
+        Path("downloads/T00001/T00001.B02").resolve(),
+        Path("downloads/T00002/T00002.B01").resolve()
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
+        mock_download_product_using_s3
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
+        lambda *args, **kwargs: {}
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -158,12 +232,43 @@ async def download(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def download_by_tile(monkeypatch):
+async def test_download_by_tile(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    mock_extract = MagicMock()
+    mock_extract.side_effect = [
+        "extracts/T00000/T00000.B01",
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        mock_extract
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {})
+    )
+
+    mock_download_product_using_s3 = MagicMock()
+    mock_download_product_using_s3.side_effect = [
+        Path("downloads/T00000/T00000.B01").resolve()
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
+        mock_download_product_using_s3
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
+        lambda *args, **kwargs: {}
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -181,12 +286,49 @@ async def download_by_tile(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def download_by_tiles(monkeypatch):
+async def test_download_by_tiles(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    mock_extract = MagicMock()
+    mock_extract.side_effect = [
+        "extracts/T00000/T00000.B01",
+        "extracts/T00001/T00001.B01",
+        "extracts/T00001/T00001.B02",
+        "extracts/T00001/T00002.B02",
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        mock_extract
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {})
+    )
+
+    mock_download_product_using_s3 = MagicMock()
+    mock_download_product_using_s3.side_effect = [
+        Path("downloads/T00000/T00000.B01").resolve(),
+        Path("downloads/T00000/T00001.B01").resolve(),
+        Path("downloads/T00001/T00001.B02").resolve(),
+        Path("downloads/T00001/T00002.B02").resolve()
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
+        mock_download_product_using_s3
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
+        lambda *args, **kwargs: {}
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -203,12 +345,28 @@ async def download_by_tiles(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def download_https(monkeypatch):
+async def test_download_https(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_https_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    mock_extract = MagicMock()
+    mock_extract.side_effect = [
+        "extracts/T00000/T00000.Fmask"
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        mock_extract
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.SessionWithHeaderRedirection.__name__,
+        MagicMock()
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -226,12 +384,24 @@ async def download_https(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def download_by_tiles_smoke_run(monkeypatch):
+async def test_download_by_tiles_smoke_run(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    mock_extract = MagicMock()
+    mock_extract.side_effect = [
+        "extracts/T00000/T00000.Fmask",
+        "extracts/T00001/T00001.Fmask"
+    ]
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.extractor.extract,
+        data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
+        mock_extract
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -249,9 +419,10 @@ async def download_by_tiles_smoke_run(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def download_by_tiles_dry_run(monkeypatch):
+async def test_download_by_tiles_dry_run(monkeypatch):
     # ARRANGE
     patch_subscriber(monkeypatch)
+    patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
@@ -284,22 +455,28 @@ def test_download_granules_using_https(monkeypatch):
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
         lambda *args, **kwargs: (1, {})
     )
+
+    mock_download_product_using_https = MagicMock()
+    mock_download_product_using_https.return_value = Path("downloads/granule1/granule1.Fmask.tif").resolve()
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.download_product_using_https.__name__,
-        lambda *args, **kwargs: Path("downloads/granule1/granule1.Fmask.tif").resolve()
+        mock_download_product_using_https
     )
 
     from dataclasses import dataclass
 
     @dataclass
     class Args:
+        dry_run = False
         smoke_run = True
         transfer_protocol = "https"
 
     data_subscriber.daac_data_subscriber.download_granules(None, None, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
     }, Args(), None, None)
+
+    mock_download_product_using_https.assert_called()
 
 
 def test_download_granules_using_s3(monkeypatch):
@@ -315,22 +492,28 @@ def test_download_granules_using_s3(monkeypatch):
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
         lambda *args, **kwargs: (1, {})
     )
+
+    mock_download_product_using_s3 = MagicMock()
+    mock_download_product_using_s3.return_value = Path("downloads/granule1/granule1.Fmask.tif").resolve()
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
-        lambda *args, **kwargs: Path("downloads/granule1/granule1.Fmask.tif").resolve()
+        mock_download_product_using_s3
     )
 
     from dataclasses import dataclass
 
     @dataclass
     class Args:
+        dry_run = False
         smoke_run = True
         transfer_protocol = "s3"
 
     data_subscriber.daac_data_subscriber.download_granules(None, None, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
     }, Args(), None, None)
+
+    mock_download_product_using_s3.assert_called()
 
 
 @contextmanager
@@ -412,7 +595,7 @@ def patch_subscriber(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.update_url_index.__name__,
-        lambda *args, **kwargs: None
+        MagicMock()
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
@@ -435,22 +618,27 @@ def patch_subscriber_io(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.os,
         data_subscriber.daac_data_subscriber.os.mkdir.__name__,
-        lambda *args, **kwargs: None
+        MagicMock()
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.os,
         data_subscriber.daac_data_subscriber.os.unlink.__name__,
-        lambda *args, **kwargs: None
+        MagicMock()
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.shutil,
         data_subscriber.daac_data_subscriber.shutil.copy.__name__,
-        lambda *args, **kwargs: None
+        MagicMock()
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.json,
         data_subscriber.daac_data_subscriber.json.dump.__name__,
-        lambda *args, **kwargs: None
+        MagicMock()
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.json,
+        data_subscriber.daac_data_subscriber.json.load.__name__,
+        MagicMock()
     )
 
 
@@ -479,6 +667,16 @@ def mock_s3_transfer(monkeypatch):
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber._s3_transfer.__name__,
         lambda *args, **kwargs: {}
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber._s3_download.__name__,
+        MagicMock()
+    )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber._s3_upload.__name__,
+        lambda *args, **kwargs: "dummy_target_key"
     )
 
 
