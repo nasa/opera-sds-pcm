@@ -74,6 +74,8 @@ def clear_pcm_test_state():
     es_index_delete("hls_spatial_catalog")
 
     # clear ingest data indexes
+    es_index_delete("grq_1_l1_s1_slc")
+
     es_index_delete("grq_v2.0_l2_hls_l30")
     es_index_delete("grq_v2.0_l2_hls_s30")
     es_index_delete("grq_v2.0_l2_hls_l30-state-config")
@@ -81,6 +83,7 @@ def clear_pcm_test_state():
     es_index_delete("grq_1_opera_state_config")
 
     # clear PGE indexes
+    es_index_delete("grq_1_l2_cslc_s1")
     es_index_delete("grq_v2.0_l3_dswx_hls")
 
     # empty out S3 to make it easier to inspect test outputs and side effects

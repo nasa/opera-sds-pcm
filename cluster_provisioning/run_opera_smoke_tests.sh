@@ -31,6 +31,7 @@ Options:
       --rs-bucket                                The RS S3 bucket name.
       --L30-input-dir                            The expected path to the directory containing THE sample L30 data after download.
       --S30-input-dir                            The expected path to the directory containing THE sample S30 data after download.
+      --SLC-input-dir                            The expected path to the directory containing THE sample SLC data.
       --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
       --S30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits S30 query jobs.
       --artifactory-fn-api-key                   The Artifactory FN API Key. Used to download the sample data.
@@ -89,6 +90,10 @@ for i in "$@"; do
       S30_input_dir="${i#*=}"
       shift
       ;;
+    --SLC-input-dir=*)
+      SLC_input_dir="${i#*=}"
+      shift
+      ;;
     --L30-data-subscriber-query-lambda=*)
       L30_data_subscriber_query_lambda="${i#*=}"
       shift
@@ -129,13 +134,14 @@ export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
 export L30_INPUT_DIR=${L30_input_dir}
 export S30_INPUT_DIR=${S30_input_dir}
+export SLC_INPUT_DIR=${SLC_input_dir}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 
 set -e
 echo Running smoke tests
 
-echo Downloading test data
+echo Downloading HLS test data
 if [[ ! -f hls_l2.tar.gz ]]; then
   curl -H "X-JFrog-Art-Api:${artifactory_fn_api_key}" -O ${sample_data_artifactory_dir}/hls_l2.tar.gz
 else
@@ -145,16 +151,24 @@ fi
   mkdir -p hls_l2
   tar xfz hls_l2.tar.gz -C hls_l2
 
-echo Executing integration tests. This can take at least 20 minutes...
+echo Creating SLC test data
+mkdir l1_s1_slc
+touch l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
+echo dummy file contents >> l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
+
+echo Executing integration tests. This can take at least 20 or 40 minutes...
 python -m venv venv
 source venv/bin/activate
-pip install '.[integration]'
+pip install -e '.[integration]'
 
 set +e
 pytest --maxfail=2 --numprocesses=auto \
+  integration/test_integration.py::test_slc \
   integration/test_integration.py::test_l30 \
   integration/test_integration.py::test_s30 \
   integration/test_integration.py::test_subscriber_l30 \
   integration/test_integration.py::test_subscriber_s30
-cp -f target/reports/junit/junit.xml /tmp/junit.xml
 set -e
+
+echo Copying JUnit report to public directory for CI/CD integration
+cp -f target/reports/junit/junit.xml /tmp/junit.xml
