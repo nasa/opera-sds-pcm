@@ -848,6 +848,8 @@ def download_granules(
 
         extract_many_to_one(products, granule_id, cfg)
 
+        shutil.rmtree(downloads_dir)
+
 
 def extract_many_to_one(products, group_dataset_id, settings_cfg):
     os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
@@ -902,6 +904,8 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)
     logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
+
+    shutil.rmtree(extracts_dir)
 
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:

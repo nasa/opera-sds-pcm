@@ -621,6 +621,11 @@ def patch_subscriber_io(monkeypatch):
         MagicMock()
     )
     monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.shutil,
+        data_subscriber.daac_data_subscriber.shutil.rmtree.__name__,
+        MagicMock()
+    )
+    monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.os,
         data_subscriber.daac_data_subscriber.os.unlink.__name__,
         MagicMock()
