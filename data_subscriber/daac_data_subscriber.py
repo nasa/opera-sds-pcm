@@ -5,7 +5,6 @@
 
 import argparse
 import asyncio
-import socket
 import json
 import logging
 import netrc
@@ -30,6 +29,7 @@ import dateutil.parser
 import requests
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
+from requests.auth import HTTPBasicAuth
 from smart_open import open
 
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
@@ -76,7 +76,8 @@ async def run(argv: list[str]):
     settings = SettingsConf().cfg
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
-    token_url = f"https://{cmr}/api/users/token"
+    token_create_url = f"https://{edl}/api/users/token"
+    token_delete_url = f"https://{edl}/api/users/revoke_token"
     netloc = urlparse(f"https://{edl}").netloc
     provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
                            "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
@@ -107,7 +108,7 @@ async def run(argv: list[str]):
 
     username, password = setup_earthdata_login_auth(edl)
 
-    with token_ctx(token_url).get("token") as token:
+    with token_ctx(token_create_url, token_delete_url, edl) as token_dict:
         logging.info(f"{args.subparser_name=}")
         if not (
                 args.subparser_name == "query"
@@ -118,9 +119,10 @@ async def run(argv: list[str]):
 
         results = {}
         if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
+            results["query"] = await run_query(args, token_dict['token'], es_conn, cmr, job_id, settings)
         if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
+            results["download"] = run_download(args, token_dict['token'], es_conn, netloc, username, password,
+                                               job_id)  # return None
     logging.info(f"{results=}")
     logging.info("END")
     return results
@@ -373,19 +375,22 @@ def setup_earthdata_login_auth(endpoint):
 
 
 @contextmanager
-def token_ctx(token_url):
-    token_dict = _get_token(token_url, 'daac-subscriber')
+def token_ctx(token_create_url, token_delete_url, endpoint):
+    token_dict = _get_token(token_create_url, endpoint)
     try:
         yield token_dict
     finally:
-        _delete_token(token_url, token_dict)
+        _delete_token(token_delete_url, token_dict)
 
 
 def _get_token(url: str, endpoint: str) -> dict:
     username, _, password = netrc.netrc().authenticators(endpoint)
-    headers = {'Authorization': f'Basic {username}:{password}', 'Accept': 'application/json'}
-    resp = requests.post(url, headers=headers)
+    resp = requests.post(url, auth=HTTPBasicAuth(username, password))
     response_content = json.loads(resp.content)
+    if "error" in response_content.keys():
+        logging.warning("Failed to acquire CMR token")
+        raise Exception(response_content['error'])
+
     token = response_content["access_token"]
 
     return {"token": token, "username": username, "password": password}
@@ -393,9 +398,7 @@ def _get_token(url: str, endpoint: str) -> dict:
 
 def _delete_token(url: str, token_dict: dict) -> None:
     try:
-        headers = {'Authorization': f'Basic {token_dict["username"]}:{token_dict["password"]}', 'Accept': 'application/json'}
-        url = '{}/{}'.format(url, token_dict['token'])
-        resp = requests.request('DELETE', url, headers=headers)
+        resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']))
         if resp.status_code == 204:
             logging.info("CMR token successfully deleted")
         else:
@@ -420,7 +423,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
     for granule in granules:
         update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]))
+                         temporal_extent_beginning_dt=dateutil.parser.isoparse(
+                             granule["temporal_extent_beginning_datetime"]))
         if args.provider == "LPCLOUD":
             update_granule_index(HLS_SPATIAL_CONN, granule)
 
@@ -639,9 +643,9 @@ def _request_search(args, request_url, params, search_after=None):
 
 def _filter_granules(granule, args):
     collection_map = {"HLSL30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-                          "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                          "SENTINEL-1A_SLC": ["zip"],
-                          "DEFAULT": ["tif"]}
+                      "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
+                      "SENTINEL-1A_SLC": ["zip"],
+                      "DEFAULT": ["tif"]}
     filter_extension = "DEFAULT"
 
     for collection in collection_map:

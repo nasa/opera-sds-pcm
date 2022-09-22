@@ -273,16 +273,10 @@ async def test_download_by_tiles_dry_run(monkeypatch):
 
 @contextmanager
 def mock_token_ctx(*args):
-    yield "test_token"
+    yield {"token": "test_token", "username": "test_username", "password": "test_password"}
 
 
 def patch_subscriber(monkeypatch):
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.socket.__name__,
-        Mock()
-    )
-
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,
