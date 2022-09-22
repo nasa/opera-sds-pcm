@@ -398,7 +398,8 @@ def _get_token(url: str, endpoint: str) -> dict:
 
 def _delete_token(url: str, token_dict: dict) -> None:
     try:
-        resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']))
+        resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']),
+                             params={'token': token_dict['token']})
         if resp.status_code == 204:
             logging.info("CMR token successfully deleted")
         else:
