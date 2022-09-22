@@ -73,11 +73,10 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
-    ip_addr = socket.gethostbyname(socket.gethostname())
     settings = SettingsConf().cfg
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
-    token_url = f"https://{cmr}/legacy-services/rest/tokens"
+    token_url = f"https://{cmr}/api/users/token"
     netloc = urlparse(f"https://{edl}").netloc
     provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
                            "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
@@ -108,7 +107,7 @@ async def run(argv: list[str]):
 
     username, password = setup_earthdata_login_auth(edl)
 
-    with token_ctx(token_url, ip_addr, edl) as token:
+    with token_ctx(token_url).get("token") as token:
         logging.info(f"{args.subparser_name=}")
         if not (
                 args.subparser_name == "query"
@@ -374,29 +373,28 @@ def setup_earthdata_login_auth(endpoint):
 
 
 @contextmanager
-def token_ctx(token_url, ip_addr, edl):
-    token = _get_token(token_url, 'daac-subscriber', ip_addr, edl)
+def token_ctx(token_url):
+    token_dict = _get_token(token_url, 'daac-subscriber')
     try:
-        yield token
+        yield token_dict
     finally:
-        _delete_token(token_url, token)
+        _delete_token(token_url, token_dict)
 
 
-def _get_token(url: str, client_id: str, user_ip: str, endpoint: str) -> str:
+def _get_token(url: str, endpoint: str) -> dict:
     username, _, password = netrc.netrc().authenticators(endpoint)
-    xml = f"<?xml version='1.0' encoding='utf-8'?><token><username>{username}</username><password>{password}</password><client_id>{client_id}</client_id><user_ip_address>{user_ip}</user_ip_address></token>"
-    headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
-    resp = requests.post(url, headers=headers, data=xml)
+    headers = {'Authorization': f'Basic {username}:{password}', 'Accept': 'application/json'}
+    resp = requests.post(url, headers=headers)
     response_content = json.loads(resp.content)
-    token = response_content['token']['id']
+    token = response_content["access_token"]
 
-    return token
+    return {"token": token, "username": username, "password": password}
 
 
-def _delete_token(url: str, token: str) -> None:
+def _delete_token(url: str, token_dict: dict) -> None:
     try:
-        headers = {'Content-Type': 'application/xml', 'Accept': 'application/json'}
-        url = '{}/{}'.format(url, token)
+        headers = {'Authorization': f'Basic {token_dict["username"]}:{token_dict["password"]}', 'Accept': 'application/json'}
+        url = '{}/{}'.format(url, token_dict['token'])
         resp = requests.request('DELETE', url, headers=headers)
         if resp.status_code == 204:
             logging.info("CMR token successfully deleted")
@@ -810,7 +808,7 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
 
     key = Path(staging_area, file_name)
     upload_start_time = datetime.utcnow()
-    headers = {"Echo-Token": token}
+    headers = {"Authorization": f"Bearer {token}"}
 
     try:
         with session.get(url, headers=headers, stream=True) as r:
