@@ -211,13 +211,17 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BBOX = "bbox"
 
-    GET_CSLC_ORBIT_FILE = "get_cslc_orbit_file"
+    GET_SLC_S1_BURST_ID = "get_slc_s1_burst_id"
 
-    GET_CSLC_DEM = "get_cslc_dem"
+    GET_SLC_S1_SAFE_FILE = "get_slc_s1_safe_file"
+
+    GET_SLC_S1_ORBIT_FILE = "get_slc_s1_orbit_file"
+
+    GET_SLC_S1_DEM = "get_slc_s1_dem"
 
     GET_DEM_BBOX = "get_dem_bbox"
 
-    GET_DEMS = "get_dems"
+    GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_LANDCOVER = "get_landcover"
 
