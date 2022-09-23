@@ -57,7 +57,7 @@ async def test_full(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {})
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
     )
 
     mock_download_product_using_s3 = MagicMock()
@@ -196,7 +196,7 @@ async def test_download(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {})
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
     )
 
     mock_download_product_using_s3 = MagicMock()
@@ -252,7 +252,7 @@ async def test_download_by_tile(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {})
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
     )
 
     mock_download_product_using_s3 = MagicMock()
@@ -309,7 +309,7 @@ async def test_download_by_tiles(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {})
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
     )
 
     mock_download_product_using_s3 = MagicMock()
@@ -363,6 +363,11 @@ async def test_download_https(monkeypatch):
         mock_extract
     )
     monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+    )
+    monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.SessionWithHeaderRedirection.__name__,
         MagicMock()
@@ -402,6 +407,11 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
         data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
         mock_extract
     )
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -426,6 +436,12 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     mock_get_aws_creds(monkeypatch)
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
+        data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+    )
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
@@ -453,7 +469,7 @@ def test_download_granules_using_https(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {})
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
     )
 
     mock_download_product_using_https = MagicMock()
@@ -490,7 +506,7 @@ def test_download_granules_using_s3(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {})
+        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
     )
 
     mock_download_product_using_s3 = MagicMock()
