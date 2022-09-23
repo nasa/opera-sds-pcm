@@ -114,7 +114,7 @@ def convert(
             l2_hls_publish_s3_url = datasets_json_util.find_s3_url(datasets_json_dict, dataset_type)
             l2_hls_publish_s3_url_parts = PurePath(l2_hls_publish_s3_url).parts
 
-            dataset_met_json["input_granule_id"] = PurePath(product_metadata["id"])  # strip band from ID to get granule ID
+            dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
             dataset_met_json["product_urls"] = [
                 f'{l2_hls_publish_s3_url_parts[0]}'  # http:
                 f'//{l2_hls_publish_s3_url_parts[1]}'  # <bucket>.s3.<region>.amazonaws.com/<key>
