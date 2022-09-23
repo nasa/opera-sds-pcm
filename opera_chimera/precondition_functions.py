@@ -12,6 +12,7 @@ import os
 import re
 import traceback
 from datetime import datetime
+from pathlib import PurePath
 from typing import Dict, List
 
 import boto3
@@ -26,6 +27,7 @@ from hysds.utils import get_disk_usage
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
+from util import datasets_json_util
 from util.common_util import convert_datetime, get_working_dir
 from util.pge_util import (download_ancillary_from_s3,
                            get_input_dataset_tile_code,
@@ -1116,8 +1118,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """Returns a partial RunConfig containing the s3 paths of the published L2_HLS products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        work_dir = get_working_dir()
+        with open(PurePath(work_dir) / "datasets.json") as fp:
+            datasets_json_dict = json.load(fp)
+        with open(PurePath(work_dir) / "_job.json") as fp:
+            job_json_dict = json.load(fp)
+            dataset_type = job_json_dict["params"]["dataset_type"]
+
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
-        product_paths: List[str] = [product_info["product_path"] for band_or_qa, product_info in metadata.items() if band_or_qa != '@timestamp']
+        product_paths: List[str] = []
+        for file in metadata["Files"]:
+            product_path = f's3://{datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)}/{metadata["FileName"]}/{file["FileName"]}'
+            product_paths.append(product_path)
+
 
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.

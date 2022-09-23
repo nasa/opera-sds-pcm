@@ -107,18 +107,14 @@ def convert(
 
         if pge_name == "L3_DSWx_HLS":
             logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
-            state_config_product_metadata: Dict = kwargs["product_metadata"]
-
-            first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
-            first_product_info: Dict = state_config_product_metadata[first_product_info_key]
+            product_metadata: Dict = kwargs["product_metadata"]
 
             dataset_type = job_json_dict["params"]["dataset_type"]
-            dataset_type = dataset_type.split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
 
             l2_hls_publish_s3_url = datasets_json_util.find_s3_url(datasets_json_dict, dataset_type)
             l2_hls_publish_s3_url_parts = PurePath(l2_hls_publish_s3_url).parts
 
-            dataset_met_json["input_granule_id"] = PurePath(first_product_info["id"]).stem  # strip band from ID to get granule ID
+            dataset_met_json["input_granule_id"] = PurePath(product_metadata["id"])  # strip band from ID to get granule ID
             dataset_met_json["product_urls"] = [
                 f'{l2_hls_publish_s3_url_parts[0]}'  # http:
                 f'//{l2_hls_publish_s3_url_parts[1]}'  # <bucket>.s3.<region>.amazonaws.com/<key>
