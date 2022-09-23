@@ -1128,7 +1128,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
         product_paths: List[str] = []
         for file in metadata["Files"]:
-            product_path = f's3://{datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)}/{metadata["FileName"]}/{file["FileName"]}'
+            product_path = f's3://{datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)}/products/{metadata["FileName"]}/{file["FileName"]}'
             product_paths.append(product_path)
 
 
