@@ -73,7 +73,7 @@ class OperaAccountability(Accountability):
         metadata: Dict[str, str] = context["product_metadata"]["metadata"]
 
         if self.input_files_type in ('L2_HLS_L30', 'L2_HLS_S30'):
-            self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+            self.product_paths = [os.path.join(metadata['FileName'])]
             self.output_type = "L3_DSWx_HLS"
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
