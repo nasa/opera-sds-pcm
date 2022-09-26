@@ -480,6 +480,8 @@ def test_download_granules_using_https(monkeypatch):
         mock_download_product_using_https
     )
 
+    mock_es_conn = MagicMock()
+
     from dataclasses import dataclass
 
     @dataclass
@@ -488,7 +490,7 @@ def test_download_granules_using_https(monkeypatch):
         smoke_run = True
         transfer_protocol = "https"
 
-    data_subscriber.daac_data_subscriber.download_granules(None, None, {
+    data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
     }, Args(), None, None)
 
@@ -517,6 +519,8 @@ def test_download_granules_using_s3(monkeypatch):
         mock_download_product_using_s3
     )
 
+    mock_es_conn = MagicMock()
+
     from dataclasses import dataclass
 
     @dataclass
@@ -525,7 +529,7 @@ def test_download_granules_using_s3(monkeypatch):
         smoke_run = True
         transfer_protocol = "s3"
 
-    data_subscriber.daac_data_subscriber.download_granules(None, None, {
+    data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
     }, Args(), None, None)
 

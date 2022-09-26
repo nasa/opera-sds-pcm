@@ -42,6 +42,7 @@ from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
+
 class SessionWithHeaderRedirection(requests.Session):
     """
     Borrowed from https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -510,6 +511,7 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
         "fail": failed
     }
 
+
 def get_query_timerange(args, now: datetime):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -824,31 +826,40 @@ def download_granules(
 
         # download products in granule
         products = []
-        for product_url in product_urls:
-            if args.dry_run:
-                logging.info(f"{args.dry_run=}. Skipping downloads.")
-                break
-            if args.transfer_protocol.lower() == "https":
-                product_filepath = download_product_using_https(
-                    product_url,
-                    session,
-                    token,
-                    target_dirpath=granule_download_dir.resolve()
-                )
-            else:  # args.transfer_protocol.lower() == "s3"
-                product_filepath = download_product_using_s3(
-                    product_url,
-                    session,
-                    target_dirpath=granule_download_dir.resolve(),
-                    args=args
-                )
-            products.append(product_filepath)
-            # TODO chrisjrd: mark product as downloaded in the database
-        logging.info(f"{products=}")
+        product_urls_downloaded = []
+        try:
+            for product_url in product_urls:
+                if args.dry_run:
+                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    break
+                if args.transfer_protocol.lower() == "https":
+                    product_filepath = download_product_using_https(
+                        product_url,
+                        session,
+                        token,
+                        target_dirpath=granule_download_dir.resolve()
+                    )
+                else:  # args.transfer_protocol.lower() == "s3"
+                    product_filepath = download_product_using_s3(
+                        product_url,
+                        session,
+                        target_dirpath=granule_download_dir.resolve(),
+                        args=args
+                    )
+                products.append(product_filepath)
+                product_urls_downloaded.append(product_url)
+            logging.info(f"{products=}")
+        except Exception:
+            logging.error(f"Failed to download {granule_id=} when processing {product_url=}. Skipping to next granule.")
+            continue
+
+        logging.info(f"Marking as downloaded. {granule_id=}")
+        for product_url in product_urls_downloaded:
+            es_conn.mark_product_as_downloaded(product_url, job_id)
 
         extract_many_to_one(products, granule_id, cfg)
 
-        shutil.rmtree(downloads_dir)
+    shutil.rmtree(downloads_dir)
 
 
 def extract_many_to_one(products, group_dataset_id, settings_cfg):
