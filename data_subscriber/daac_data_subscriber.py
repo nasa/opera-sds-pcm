@@ -5,7 +5,6 @@
 
 import argparse
 import asyncio
-import glob
 import itertools
 import json
 import logging
@@ -711,16 +710,12 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     if args.transfer_protocol.lower() == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        # TODO chrisjrd: remove dead code after successful tests
-        # _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
         download_granules(session, hls_conn, granule_id_to_download_urls_map, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        # TODO chrisjrd: remove dead code after successful tests
-        # _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
         download_granules(session, hls_conn, granule_id_to_download_urls_map, args, None, job_id)
@@ -767,41 +762,6 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id):
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "https://" in f]
-
-    if args.dry_run:
-        logging.info(f"{args.dry_run=}. Skipping downloads.")
-
-    for url in filtered_downloads:
-        try:
-            if es_conn.product_is_downloaded(url):
-                logging.debug(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    pass
-                else:
-                    result = _https_transfer(url, args.isl_bucket, session, token)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
-
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
-
-
 def download_granules(
         session: requests.Session,
         es_conn,
@@ -814,7 +774,8 @@ def download_granules(
     logging.info("Creating directories to process granules")
     os.mkdir(downloads_dir := Path("downloads"))  # house all file downloads
 
-    # TODO chrisjrd: implement dry_run support
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
 
     if args.smoke_run:
         granule_id_to_product_urls_map = dict(itertools.islice(granule_id_to_product_urls_map.items(), 1))
@@ -830,22 +791,9 @@ def download_granules(
         try:
             for product_url in product_urls:
                 if args.dry_run:
-                    logging.info(f"{args.dry_run=}. Skipping downloads.")
+                    logging.debug(f"{args.dry_run=}. Skipping download.")
                     break
-                if args.transfer_protocol.lower() == "https":
-                    product_filepath = download_product_using_https(
-                        product_url,
-                        session,
-                        token,
-                        target_dirpath=granule_download_dir.resolve()
-                    )
-                else:  # args.transfer_protocol.lower() == "s3"
-                    product_filepath = download_product_using_s3(
-                        product_url,
-                        session,
-                        target_dirpath=granule_download_dir.resolve(),
-                        args=args
-                    )
+                product_filepath = download_product(product_url, session, token, args, granule_download_dir)
                 products.append(product_filepath)
                 product_urls_downloaded.append(product_url)
             logging.info(f"{products=}")
@@ -862,7 +810,33 @@ def download_granules(
     shutil.rmtree(downloads_dir)
 
 
+def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
+    if args.transfer_protocol.lower() == "https":
+        product_filepath = download_product_using_https(
+            product_url,
+            session,
+            token,
+            target_dirpath=target_dirpath.resolve()
+        )
+    elif args.transfer_protocol.lower() == "s3":
+        product_filepath = download_product_using_s3(
+            product_url,
+            session,
+            target_dirpath=target_dirpath.resolve(),
+            args=args
+        )
+    else:
+        raise Exception(args.transfer_protocol)
+    return product_filepath
+
+
 def extract_many_to_one(products, group_dataset_id, settings_cfg):
+    """Creates a dataset for each of the given products, merging them into 1 final dataset.
+
+    :param products: the products to create datasets for.
+    :param group_dataset_id: a unique identifier for the group of products.
+    :param settings_cfg: the settings.yaml config as a dict.
+    """
     os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
 
     # create individual dataset dir for each product in the granule
@@ -937,7 +911,7 @@ def download_product_using_s3(url, session: requests.Session, target_dirpath: Pa
                        aws_secret_access_key=aws_creds['secretAccessKey'],
                        aws_session_token=aws_creds['sessionToken'],
                        region_name='us-west-2').client("s3")
-    product_download_path = _s3_download(url, args.isl_bucket, s3, str(target_dirpath))
+    product_download_path = _s3_download(url, s3, str(target_dirpath))
     return product_download_path.resolve()
 
 
@@ -987,54 +961,6 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
-    aws_creds = _get_aws_creds(session)
-    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
-                       aws_secret_access_key=aws_creds['secretAccessKey'],
-                       aws_session_token=aws_creds['sessionToken'],
-                       region_name='us-west-2').client("s3")
-
-    tmp_dir = "/tmp/data_subscriber"
-    os.makedirs(tmp_dir, exist_ok=True)
-
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "s3://" in f]
-
-    if args.dry_run:
-        logging.info(f"{args.dry_run=}. Skipping downloads.")
-
-    for url in filtered_downloads:
-        try:
-            if es_conn.product_is_downloaded(url):
-                logging.debug(f"SKIPPING: {url}")
-
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    pass
-                else:
-                    result = _s3_transfer(url, args.isl_bucket, s3, tmp_dir)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.debug(f"{str(datetime.now())} SUCCESS: {url}")
-
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
-
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
-
-    shutil.rmtree(tmp_dir)
-
-
 def _get_aws_creds(session):
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
         if r.status_code != 200:
@@ -1045,16 +971,15 @@ def _get_aws_creds(session):
 
 def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     try:
-        _s3_download(url, bucket_name, s3, tmp_dir, staging_area)
-        target_key = _s3_upload(url, bucket_name, s3, tmp_dir, staging_area)
+        _s3_download(url, s3, tmp_dir, staging_area)
+        target_key = _s3_upload(url, bucket_name, tmp_dir, staging_area)
 
         return {"successful_download": target_key}
     except Exception as e:
         return {"failed_download": e}
 
 
-# TODO chrisjrd: remove unused param
-def _s3_download(url, bucket_name, s3, tmp_dir, staging_area=""):
+def _s3_download(url, s3, tmp_dir, staging_area=""):
     file_name = PurePath(url).name
     target_key = str(Path(staging_area, file_name))
 
@@ -1067,8 +992,7 @@ def _s3_download(url, bucket_name, s3, tmp_dir, staging_area=""):
     return Path(f"{tmp_dir}/{target_key}")
 
 
-# TODO chrisjrd: remove unused param
-def _s3_upload(url, bucket_name, s3, tmp_dir, staging_area=""):
+def _s3_upload(url, bucket_name, tmp_dir, staging_area=""):
     file_name = PurePath(url).name
     target_key = str(Path(staging_area, file_name))
     target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
