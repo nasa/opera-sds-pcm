@@ -788,8 +788,13 @@ def download_granules(
         # download products in granule
         products = []
         product_urls_downloaded = []
+        product_urls_skipped = []
+        product_urls_failed = []
         try:
             for product_url in product_urls:
+                if es_conn.product_is_downloaded(product_url):
+                    product_urls_skipped.append(product_url)
+                    continue
                 if args.dry_run:
                     logging.debug(f"{args.dry_run=}. Skipping download.")
                     break
@@ -797,16 +802,22 @@ def download_granules(
                 products.append(product_filepath)
                 product_urls_downloaded.append(product_url)
             logging.info(f"{products=}")
-        except Exception:
+        except Exception as e:
             logging.error(f"Failed to download {granule_id=} when processing {product_url=}. Skipping to next granule.")
+            product_urls_failed.append(product_url)
             continue
 
         logging.info(f"Marking as downloaded. {granule_id=}")
         for product_url in product_urls_downloaded:
             es_conn.mark_product_as_downloaded(product_url, job_id)
 
+        logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
+        logging.warning(f"{len(product_urls_skipped)=}, {product_urls_skipped=}")
+        logging.error(f"{len(product_urls_failed)=}, {product_urls_failed=}")
+
         extract_many_to_one(products, granule_id, cfg)
 
+    logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
 
 
