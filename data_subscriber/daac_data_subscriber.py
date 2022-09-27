@@ -869,7 +869,7 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
             str(product_extracts_dir.resolve()),
             extra_met=shared_met_entries_dict  # copy some common metadata from each product.
         )
-    logging.info(f"{merged_met_dict=}")
+    logging.debug(f"{merged_met_dict=}")
 
     logging.info("Creating target dataset directory")
     os.mkdir(target_dataset_dir := Path(group_dataset_id))
@@ -882,7 +882,7 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     merged_met_dict["FileSize"] = total_product_file_sizes
     merged_met_dict["FileName"] = group_dataset_id
     merged_met_dict["id"] = group_dataset_id
-    logging.info(f"{merged_met_dict=}")
+    logging.debug(f"{merged_met_dict=}")
 
     # write out merged *.met.json
     merged_met_json_filepath = target_dataset_dir.resolve() / f"{target_dataset_dir.name}.met.json"
