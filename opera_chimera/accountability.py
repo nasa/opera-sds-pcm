@@ -72,9 +72,12 @@ class OperaAccountability(Accountability):
 
         metadata: Dict[str, str] = context["product_metadata"]["metadata"]
 
+        input_metadata = {}
         if self.input_files_type in ('L2_HLS_L30', 'L2_HLS_S30'):
             self.product_paths = [os.path.join(metadata['FileName'])]
             self.output_type = "L3_DSWx_HLS"
+            input_metadata["ids"] = [nested_product["id"] for nested_product in metadata["Files"]]
+            input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
             self.output_type = "L2_CSLC_S1"
@@ -82,6 +85,7 @@ class OperaAccountability(Accountability):
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 
         self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
+        self.input_metadata = input_metadata
 
     def create_job_entry(self):
         if self.job_id is not None:
@@ -93,6 +97,8 @@ class OperaAccountability(Accountability):
                 "trigger_dataset_id": self.trigger_dataset_id,
                 "created_at": datetime.now().isoformat()
             }
+            if self.input_metadata:
+                payload["metadata"] = self.input_metadata
             grq_es.index_document(index=oc_const.JOB_ACCOUNTABILITY_INDEX, id=self.job_id, body=payload)
         else:
             raise Exception("Unable to create job_accountability_catalog entry: {}".format(self.product_paths))
@@ -143,12 +149,16 @@ class OperaAccountability(Accountability):
                         "trigger_dataset_type": acc_obj[pge]["trigger_dataset_type"],
                         "trigger_dataset_ids": list(set(acc[pge]["trigger_dataset_ids"]))
                     }
+
+                    if "metadata" in acc_obj[pge]:
+                        acc[pge]["metadata"] = acc_obj[pge]["metadata"]
                 else:
                     acc[pge] = {
                         "inputs": acc_obj[pge]["inputs"],
                         "input_data_type": acc_obj[pge]["input_data_type"],
                         "trigger_dataset_type": acc_obj[pge]["trigger_dataset_type"],
                     }
+
                     if "id" in acc_obj[pge]:
                         acc[pge]["outputs"] = [acc_obj[pge]["id"]]
                     else:
@@ -163,6 +173,9 @@ class OperaAccountability(Accountability):
                         acc[pge]["trigger_dataset_ids"] = [acc_obj[pge]["trigger_dataset_id"]]
                     else:
                         acc[pge]["trigger_dataset_ids"] = acc_obj[pge]["trigger_dataset_ids"]
+
+                    if acc_obj[pge].get("metadata"):
+                        acc[pge]["metadata"] = acc_obj[pge]["metadata"]
 
         logger.info("accountability obj: {}".format(acc))
         return acc
@@ -184,6 +197,9 @@ class OperaAccountability(Accountability):
                 "trigger_dataset_type": self.trigger_dataset_type,
                 "trigger_dataset_id": self.trigger_dataset_id
             }
+
+            if self.input_metadata:
+                new_accountability[self.output_type]["metadata"] = self.input_metadata
 
             output_met_json_filepath = f"{datasets_path}/{dataset}/{dataset}.met.json"
             with open(output_met_json_filepath, "r") as f:
