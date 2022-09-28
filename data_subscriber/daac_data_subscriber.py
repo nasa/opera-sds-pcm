@@ -39,6 +39,21 @@ from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
+class NullAuth(requests.auth.AuthBase):
+    '''force requests to ignore the ``.netrc``
+
+    Some sites do not support regular authentication, but we still
+    want to store credentials in the ``.netrc`` file and submit them
+    as form elements. Without this, requests would otherwise use the
+    .netrc which leads, on some sites, to a 401 error.
+
+    Use with::
+
+        requests.get(url, auth=NullAuth())
+    '''
+
+    def __call__(self, r):
+        return r
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -840,16 +855,18 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
         return {"failed_download": e}
 
 
-def _handle_url_redirect(session, url, headers):
+def _handle_url_redirect(session, url, headers, is_s3=False):
+    if is_s3:
+        return session.get(url, headers=headers, auth=NullAuth, stream=True, allow_redirects=False)
+
     response = session.get(url, headers=headers, stream=True, allow_redirects=False)
 
     if str(response.status_code).startswith("3"):
         redirect_url = response.headers["Location"]
+        logging.debug(f"Redirecting to {redirect_url}")
 
-        if "s3" in redirect_url and "amazonaws.com" in redirect_url:
-            del headers["Authorization"]
-
-        return _handle_url_redirect(session, redirect_url, headers)
+        is_s3 = "s3" in redirect_url and "amazonaws" in redirect_url
+        response = _handle_url_redirect(session, redirect_url, headers, is_s3=is_s3)
 
     return response
 
