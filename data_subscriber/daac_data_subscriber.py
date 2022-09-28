@@ -257,19 +257,20 @@ def create_parser():
     _add_arguments(parser, parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
-    full_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
+    full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
                             chunk_size, tile_ids, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
-    query_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket, dry_run,
-                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size, native_id]
+    query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
+                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
+                             native_id]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [endpoint, provider, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids,
-                                start_date, end_date]
+    download_parser_arg_list = [verbose, file, endpoint, provider, isl_bucket, transfer_protocol, dry_run, smoke_run,
+                                tile_ids, start_date, end_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
@@ -859,9 +860,10 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
 
 def _handle_url_redirect(session, url, headers, is_s3=False):
     if is_s3:
-        return session.get(url, headers=headers, auth=NullAuth, stream=True, allow_redirects=False)
-
-    response = session.get(url, headers=headers, stream=True, allow_redirects=False)
+        del headers['Authorization']
+        response = session.get(url, headers=headers, auth=NullAuth(), stream=True, allow_redirects=False)
+    else:
+        response = session.get(url, headers=headers, stream=True, allow_redirects=False)
 
     if str(response.status_code).startswith("3"):
         redirect_url = response.headers["Location"]
