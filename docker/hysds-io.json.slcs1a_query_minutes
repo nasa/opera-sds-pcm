@@ -1,5 +1,5 @@
 {
-  "label": "Query SLC data with minutes elapsed",
+  "label": "Query SLCS1A data with minutes elapsed",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,
@@ -17,13 +17,6 @@
       "placeholder": "e.g. -m 60",
       "type": "text",
       "default": "-m 60"
-    },
-    {
-      "name": "provider",
-      "from": "submitter",
-      "placeholder": "e.g. -p LPCLOUD",
-      "type": "text",
-      "default": "-p LPCLOUD"
     },
     {
       "name": "bounding_box",

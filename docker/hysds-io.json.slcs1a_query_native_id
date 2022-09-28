@@ -1,5 +1,5 @@
 {
-  "label": "Query HLSL30 data with minutes elapsed",
+  "label": "Query SLCS1A data with native_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,
@@ -7,16 +7,15 @@
     {
       "name": "endpoint",
       "from": "submitter",
-      "placeholder": "e.g. --endpoint=OPS",
-      "type": "text",
+	  "placeholder": "e.g. --endpoint=OPS",
+	  "type": "text",
       "default": "--endpoint=OPS"
     },
     {
-      "name": "minutes",
+      "name": "native_id",
       "from": "submitter",
-      "placeholder": "e.g. -m 60",
-      "type": "text",
-      "default": "-m 60"
+      "placeholder": "e.g. --native-id=HLS.L30.T56JMN.2021274T000241.v2.0",
+      "type": "text"
     },
     {
       "name": "bounding_box",
@@ -39,8 +38,8 @@
       "name": "download_job_queue",
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
-      "type": "text",
-      "default": "--job-queue=opera-job_worker-hls_data_download"
+	  "type": "text",
+	  "default": "--job-queue=opera-job_worker-hls_data_download"
     },
     {
       "name": "isl_bucket_name",

@@ -18,13 +18,6 @@
       "type": "text"
     },
     {
-      "name": "provider",
-      "from": "submitter",
-      "placeholder": "e.g. -p LPCLOUD",
-      "type": "text",
-	  "default": "-p LPCLOUD"
-    },
-    {
       "name": "bounding_box",
       "from": "submitter",
       "placeholder": "e.g. --bounds=-180,-90,180,90",
