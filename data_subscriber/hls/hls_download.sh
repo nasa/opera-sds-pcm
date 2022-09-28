@@ -20,8 +20,8 @@ echo "Running job to download LPDAAC HLS data"
 date
 
 # Forward processing use case; download all undownloaded files from ES index
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download $* 2>&1"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download $* 2>&1
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p LPCLOUD $* 2>&1"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p LPCLOUD $* 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

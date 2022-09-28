@@ -356,6 +356,24 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_private_vpc" = false
     }
+    "opera-job_worker-slc_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 10
+      "total_jobs_metric" = false
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 80
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
     "opera-job_worker-timer" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50

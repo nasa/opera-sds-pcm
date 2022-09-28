@@ -155,7 +155,7 @@ def create_parser():
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
-                             "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC"],
+                             "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC", "SENTINEL-1B_SLC"],
                              "required": True,
                              "help": "The collection shortname for which you want to retrieve data."}}
 
@@ -400,7 +400,7 @@ def _delete_token(url: str, token_dict: dict) -> None:
     try:
         resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']),
                              params={'token': token_dict['token']})
-        if resp.status_code == 204:
+        if resp.status_code == 200:
             logging.info("CMR token successfully deleted")
         else:
             logging.warning("CMR token deleting failed.")
@@ -813,10 +813,10 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
 
     key = Path(staging_area, file_name)
     upload_start_time = datetime.utcnow()
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
 
     try:
-        with session.get(url, headers=headers, stream=True) as r:
+        with _handle_url_redirect(session, url, headers) as r:
             if r.status_code != 200:
                 r.raise_for_status()
             logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
@@ -838,6 +838,20 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
         return upload_stats
     except (ConnectionResetError, requests.exceptions.HTTPError) as e:
         return {"failed_download": e}
+
+
+def _handle_url_redirect(session, url, headers):
+    response = session.get(url, headers=headers, stream=True, allow_redirects=False)
+
+    if str(response.status_code).startswith("3"):
+        redirect_url = response.headers["Location"]
+
+        if "s3" in redirect_url and "amazonaws.com" in redirect_url:
+            del headers["Authorization"]
+
+        return _handle_url_redirect(session, redirect_url, headers)
+
+    return response
 
 
 def _convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
