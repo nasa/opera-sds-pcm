@@ -47,7 +47,7 @@ runconfig:
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_metadata
-  - get_input_filepaths_from_state_config
+  - get_hls_dswx_pge_input_filepaths
   - get_cnm_version
   - set_daac_product_type
   - get_dems

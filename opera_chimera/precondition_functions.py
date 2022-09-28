@@ -1114,7 +1114,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info("Adding the following to the job params: {}".format(json.dumps(results)))
         return results
 
-    def get_input_filepaths_from_state_config(self) -> Dict:
+    def get_hls_dswx_pge_input_filepaths(self) -> Dict:
         """Returns a partial RunConfig containing the s3 paths of the published L2_HLS products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 

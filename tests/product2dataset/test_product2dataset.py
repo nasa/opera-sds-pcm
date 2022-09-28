@@ -37,7 +37,7 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
         jobs_json := mocker.mock_open(read_data="""
             {
                 "params": {
-                    "dataset_type": "L2_HLS_S30-state-config"
+                    "dataset_type": "L2_HLS_S30"
                 },
                 "context": {
                     "container_specification": {
@@ -80,12 +80,7 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
     created_datasets = product2dataset.product2dataset.convert(
         "dummy_work_dir",
         "dummy_product_dir",
-        "L3_HLS",
-        # kwargs below
-        state_config_product_metadata={
-            "B01": {"id": "dummy_granule_id.B01"},
-            "@timestamp": ""
-        })
+        "L3_HLS")
 
     # ASSERT
     assert created_datasets == ["dir1/dir2/dummy_product"]
