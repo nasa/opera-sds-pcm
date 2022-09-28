@@ -446,8 +446,7 @@ def test_download_granules_using_https(monkeypatch):
     patch_subscriber(monkeypatch)
     patch_subscriber_io(monkeypatch)
 
-    mock_download_product_using_https = MagicMock()
-    mock_download_product_using_https.return_value = Path("downloads/granule1/granule1.Fmask.tif").resolve()
+    mock_download_product_using_https = MagicMock(return_value=Path("downloads/granule1/granule1.Fmask.tif").resolve())
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.download_product_using_https.__name__,
@@ -487,8 +486,7 @@ def test_download_granules_using_s3(monkeypatch):
     patch_subscriber(monkeypatch)
     patch_subscriber_io(monkeypatch)
 
-    mock_download_product_using_s3 = MagicMock()
-    mock_download_product_using_s3.return_value = Path("downloads/granule1/granule1.Fmask.tif").resolve()
+    mock_download_product_using_s3 = MagicMock(return_value=Path("downloads/granule1/granule1.Fmask.tif").resolve())
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.download_product_using_s3.__name__,
