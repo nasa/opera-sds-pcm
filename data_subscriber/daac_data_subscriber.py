@@ -837,23 +837,29 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
         with _handle_url_redirect(session, url, headers) as r:
             if r.status_code != 200:
                 r.raise_for_status()
+
             logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+
             with open("s3://{}/{}".format(bucket, key), "wb") as out:
                 pool = ThreadPool(processes=10)
                 pool.map(_upload_chunk,
                          [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
                 pool.close()
                 pool.join()
-        upload_end_time = datetime.utcnow()
-        upload_duration = upload_end_time - upload_start_time
-        upload_stats = {
-            "file_name": file_name,
-            "file_size (in bytes)": r.headers.get('Content-Length'),
-            "upload_duration (in seconds)": upload_duration.total_seconds(),
-            "upload_start_time": _convert_datetime(upload_start_time),
-            "upload_end_time": _convert_datetime(upload_end_time)
-        }
-        return upload_stats
+
+            upload_end_time = datetime.utcnow()
+            upload_duration = upload_end_time - upload_start_time
+            upload_stats = {
+                "file_name": file_name,
+                "file_size (in bytes)": r.headers.get('Content-Length'),
+                "upload_duration (in seconds)": upload_duration.total_seconds(),
+                "upload_start_time": _convert_datetime(upload_start_time),
+                "upload_end_time": _convert_datetime(upload_end_time)
+            }
+
+            logging.debug(f"{upload_stats=}")
+
+            return upload_stats
     except (ConnectionResetError, requests.exceptions.HTTPError) as e:
         return {"failed_download": e}
 
