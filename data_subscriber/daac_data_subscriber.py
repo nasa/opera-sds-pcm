@@ -39,6 +39,7 @@ from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
+
 class NullAuth(requests.auth.AuthBase):
     '''force requests to ignore the ``.netrc``
 
@@ -54,6 +55,7 @@ class NullAuth(requests.auth.AuthBase):
 
     def __call__(self, r):
         return r
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -266,8 +268,8 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids, start_date,
-                                end_date]
+    download_parser_arg_list = [endpoint, provider, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids,
+                                start_date, end_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
