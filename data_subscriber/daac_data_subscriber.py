@@ -18,7 +18,6 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
 from http.cookiejar import CookieJar
-from multiprocessing.pool import ThreadPool
 from pathlib import Path, PurePath
 from typing import Any, Iterable
 from urllib import request
@@ -825,7 +824,7 @@ def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id
     logging.info(f"Files failed to download: {str(num_failures)}")
 
 
-def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
+def _https_transfer(url, bucket_name, session, token, staging_area=""):
     file_name = PurePath(url).name
     bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
 
@@ -841,11 +840,7 @@ def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_siz
             logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
 
             with open("s3://{}/{}".format(bucket, key), "wb") as out:
-                pool = ThreadPool(processes=10)
-                pool.map(_upload_chunk,
-                         [{'chunk': chunk, 'out': out} for chunk in r.iter_content(chunk_size=chunk_size)])
-                pool.close()
-                pool.join()
+                out.write(r.content)
 
             upload_end_time = datetime.utcnow()
             upload_duration = upload_end_time - upload_start_time
@@ -969,11 +964,6 @@ def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
         return {"successful_download": target_key}
     except Exception as e:
         return {"failed_download": e}
-
-
-def _upload_chunk(chunk_dict):
-    logging.debug("Uploading {} byte(s)".format(len(chunk_dict['chunk'])))
-    chunk_dict['out'].write(chunk_dict['chunk'])
 
 
 if __name__ == '__main__':
