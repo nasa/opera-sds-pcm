@@ -71,7 +71,8 @@ setup(
             'pytest-asyncio==0.18.3',
             'pytest-cov==3.0.0',
             'mgrs',
-            'pyproj'
+            'pyproj',
+            'validators'
         ],
         'integration': [
             'pytest==7.1.1',
