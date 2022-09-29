@@ -4,9 +4,9 @@ import json
 import os
 import unittest
 import tempfile
-
-from unittest.mock import patch
 from os.path import exists, join
+from unittest.mock import patch
+from zipfile import ZipFile
 
 import boto3.s3.inject
 
@@ -63,7 +63,7 @@ def _object_download_file_patch(self, Filename, ExtraArgs=None, Callback=None, C
     """Patch for the boto3.s3.inject.object_download_file function"""
     # Create a dummy file in the expected location to simulate download
     with open(Filename, 'w') as outfile:
-        outfile.write("fake landcover data")
+        outfile.write("fake ancillary data")
 
 
 class TestOperaPreConditionFunctions(unittest.TestCase):
@@ -84,10 +84,127 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         os.chdir(self.start_dir)
         self.working_dir.cleanup()
 
+    @patch.object(boto3.s3.inject, "object_download_file", _object_download_file_patch)
+    def test_get_slc_s1_safe_file(self):
+        """Unit tests for the get_slc_s1_safe_file() precondition function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_path": "s3://s3-us-west-2.amazonaws.com:80/opera-bucket/fake/key/to",
+            "product_metadata": {
+                "metadata":
+                    {
+                        'FileName': "DUMMY_SAFE.zip"
+                    }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_SLC_S1_SAFE_FILE: {}
+        }
+
+        # These are not used with get_dems()
+        settings = None
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_slc_s1_safe_file()
+
+        # Make sure we got a path back for replacement within the PGE runconfig
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn(oc_const.SAFE_FILE_PATH, rc_params)
+
+        # Make sure the SAFE file was created
+        expected_safe_file = join(self.working_dir.name, 'DUMMY_SAFE.zip')
+        self.assertEqual(rc_params[oc_const.SAFE_FILE_PATH], expected_safe_file)
+        self.assertTrue(exists(expected_safe_file))
+
+        # Make sure the metrics for the "download" were written to disk
+        expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
+        self.assertTrue(exists(expected_pge_metrics))
+
     @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
     @patch.object(tools.stage_dem, "gdal", MockGdal)
-    def test_get_dems(self):
-        """Unit tests for get_dems() precondition function"""
+    def test_get_slc_s1_dem(self):
+        """Unit tests for the get_slc_s1_dem() precondition function"""
+
+        # Create a dummy SAFE zip archive containing a stub version of
+        # manifest.safe with the portion of XML we'll be looking for
+        manifest_safe_text = """<?xml version="1.0" encoding="UTF-8"?>
+        <xfdu:XFDU xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                   xmlns:gml="http://www.opengis.net/gml" 
+                   xmlns:xfdu="urn:ccsds:schema:xfdu:1" 
+                   xmlns:safe="http://www.esa.int/safe/sentinel-1.0" 
+                   version="esa/safe/sentinel-1.0/sentinel-1/sar/level-1/slc/standard/iwdp">
+            <metadataSection>
+                <metadataObject ID="measurementFrameSet" classification="DESCRIPTION" category="DMD">
+                  <metadataWrap mimeType="text/xml" vocabularyName="SAFE" textInfo="Frame Set">
+                    <xmlData>
+                      <safe:frameSet>
+                        <safe:frame>
+                          <safe:footPrint srsName="http://www.opengis.net/gml/srs/epsg.xml#4326">
+                            <gml:coordinates>35.360844,-119.156471 35.760201,-116.393867 34.082375,-116.057800 33.681068,-118.762573</gml:coordinates>
+                          </safe:footPrint>
+                        </safe:frame>
+                      </safe:frameSet>
+                    </xmlData>
+                  </metadataWrap>
+                </metadataObject>
+            </metadataSection>
+        </xfdu:XFDU>
+        """
+
+        with ZipFile(join(self.working_dir.name, 'DUMMY_SAFE.zip'), 'w') as myzip:
+            myzip.writestr('DUMMY_SAFE.SAFE/manifest.safe', manifest_safe_text)
+
+        # Set up the arguments to OperaPreConditionFunctions
+        job_params = {
+            oc_const.SAFE_FILE_PATH: join(self.working_dir.name, 'DUMMY_SAFE.zip')
+        }
+
+        pge_config = {
+            oc_const.GET_SLC_S1_DEM: {
+                oc_const.S3_BUCKET: 'opera-bucket'
+            }
+        }
+
+        # These are not used with get_cslc_s1_dem()
+        settings = None
+        context = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_slc_s1_dem()
+
+        # Make sure we got a path back for replacement within the PGE runconfig
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn(oc_const.DEM_FILE, rc_params)
+
+        # Make sure the vrt file was created
+        expected_dem_vrt = join(self.working_dir.name, 'dem.vrt')
+        # TODO uncomment once vrt files are accpeted by PGE validation
+        #self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
+        self.assertTrue(exists(expected_dem_vrt))
+
+        # Make sure the tif was created
+        expected_dem_tif = join(self.working_dir.name, 'dem_0.tif')
+        self.assertTrue(exists(expected_dem_tif))
+
+        # Make sure the metrics for the "download" were written to disk
+        expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
+        self.assertTrue(exists(expected_pge_metrics))
+
+    @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
+    @patch.object(tools.stage_dem, "gdal", MockGdal)
+    def test_get_dswx_hls_dem(self):
+        """Unit tests for get_dswx_hls_dem() precondition function"""
 
         # Set up the arguments to OperaPreConditionFunctions
         context = {
@@ -105,7 +222,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         }
 
         pge_config = {
-            oc_const.GET_DEMS: {
+            oc_const.GET_DSWX_HLS_DEM: {
                 oc_const.BBOX: []
             }
         }
@@ -118,7 +235,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             context, pge_config, settings, job_params
         )
 
-        rc_params = precondition_functions.get_dems()
+        rc_params = precondition_functions.get_dswx_hls_dem()
 
         # Make sure we got a path back for replacement within the PGE runconfig
         self.assertIsNotNone(rc_params)
@@ -197,7 +314,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         }
 
         pge_config = {
-            oc_const.GET_DEMS: {
+            oc_const.GET_DSWX_HLS_DEM: {
                 oc_const.BBOX: []
             }
         }
