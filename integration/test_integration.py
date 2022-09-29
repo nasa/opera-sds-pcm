@@ -42,12 +42,12 @@ def test_subscriber_l30():
     logging.info(f"{job_id=}")
 
     logging.info("Sleeping for query job execution...")
-    sleep_for(150)
+    sleep_for(300)
 
     wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
-    sleep_for(150)
+    sleep_for(300)
     wait_for_download_jobs(job_id)
 
 
@@ -68,12 +68,12 @@ def test_subscriber_s30():
     logging.info(f"{job_id=}")
 
     logging.info("Sleeping for query job execution...")
-    sleep_for(150)
+    sleep_for(300)
 
     wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
-    sleep_for(150)
+    sleep_for(300)
     wait_for_download_jobs(job_id)
 
 
@@ -128,7 +128,7 @@ def test_l30():
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
-    sleep_for(150)
+    sleep_for(300)
 
     response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0"
@@ -247,7 +247,7 @@ def test_slc():
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
-    sleep_for(150)
+    sleep_for(300)
 
     response = wait_for_l3(_id="OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z", index="grq_1_l2_cslc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z"
