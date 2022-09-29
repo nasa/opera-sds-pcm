@@ -46,6 +46,7 @@ setup(
             'elasticsearch[async]>=7.13.4',
             'more-itertools==8.13.0',
             'requests==2.27.1',
+            'validators'
         ],
         'test': [
             'prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz',
