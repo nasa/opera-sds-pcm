@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 import boto3
 import dateutil.parser
 import requests
+import validators
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
 from requests.auth import HTTPBasicAuth
@@ -855,11 +856,14 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
             logging.debug(f"{upload_stats=}")
 
             return upload_stats
-    except (ConnectionResetError, requests.exceptions.HTTPError) as e:
+    except (Exception, ConnectionResetError, requests.exceptions.HTTPError) as e:
         return {"failed_download": e}
 
 
 def _handle_url_redirect(session, url, headers, is_s3=False):
+    if not validators.url(url):
+        raise Exception("Malformed URL")
+
     if is_s3:
         del headers['Authorization']
         response = session.get(url, headers=headers, auth=NullAuth(), stream=True, allow_redirects=False)
