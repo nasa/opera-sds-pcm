@@ -54,10 +54,13 @@ module "common" {
   asf_daac_cnm_r_event_trigger            = var.asf_daac_cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
   cnm_r_venue                             = var.cnm_r_venue
+
   po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
   po_daac_endpoint_url                    = var.po_daac_endpoint_url
+
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
   asf_daac_endpoint_url                   = var.asf_daac_endpoint_url
+
   asg_use_role                            = var.asg_use_role
   asg_role                                = var.asg_role
   public_asg_vpc                          = var.public_asg_vpc
@@ -77,6 +80,7 @@ module "common" {
   use_daac_cnm_r                          = var.use_daac_cnm_r
   pge_releases                            = var.pge_releases
   pge_snapshots_date                      = var.pge_snapshots_date
+  pge_sim_mode                            = var.pge_sim_mode
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency

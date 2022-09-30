@@ -50,7 +50,7 @@ preconditions:
   - get_hls_dswx_pge_input_filepaths
   - get_cnm_version
   - set_daac_product_type
-  - get_dems
+  - get_dswx_hls_dem
   - get_landcover
   - get_worldcover
 
@@ -74,7 +74,7 @@ get_metadata:
     - pswt_2_swir1
     - pswt_2_swir2
 
-get_dems:
+get_dswx_hls_dem:
   # Specify a specific bounding box to obtain the corresponding DEM for.
   # If not provided, the bounding box will be determined based on the tile code
   # of the HLS dataset to be processed

@@ -483,6 +483,11 @@ variable "run_smoke_test" {
   default = true
 }
 
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
+}
+
 variable "artifactory_fn_user" {
   description = "Username to use for authenticated Artifactory API calls."
   default = ""

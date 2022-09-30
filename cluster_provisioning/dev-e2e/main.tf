@@ -243,7 +243,10 @@ resource "null_resource" "smoke_test" {
                 --mozart-ip=${module.common.mozart.private_ip} \
                 --grq-host="grq:9200" \
                 --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+                --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
+                --isl-bucket="${module.common.isl_bucket}" \
                 --rs-bucket="${module.common.dataset_bucket}" \
+                --SLC-input-dir="l1_s1_slc" \
                 --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
                 --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name}
               fi

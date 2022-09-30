@@ -75,6 +75,12 @@
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
       "optional": true
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "placeholder": "e.g. --use-temporal",
+      "optional": true
     }
   ]
 }

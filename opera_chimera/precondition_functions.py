@@ -11,11 +11,13 @@ import json
 import os
 import re
 import traceback
+import zipfile
 from datetime import datetime
 from pathlib import PurePath
+from lxml import etree as ET
 from typing import Dict, List
+from urllib.parse import urlparse
 
-import boto3
 import psutil
 from chimera.precondition_functions import PreConditionFunctions
 
@@ -29,7 +31,7 @@ from opera_chimera.constants.opera_chimera_const import (
 )
 from util import datasets_json_util
 from util.common_util import convert_datetime, get_working_dir
-from util.pge_util import (download_ancillary_from_s3,
+from util.pge_util import (download_object_from_s3,
                            get_input_dataset_tile_code,
                            write_pge_metrics)
 from util.type_util import set_type
@@ -710,8 +712,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
             )
 
-    def get_slc_burst_id(self):
-        """Returns the SLC burst ID to be processed with a CSLC-S1 job"""
+    def get_slc_s1_burst_id(self):
+        """Returns the SLC burst ID to be processed with a S1 based job"""
         # TODO: dummy implementation until we figure out how to properly source
         #       the burst ID (or IDs?) from the input SAFE file
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
@@ -725,31 +727,59 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_safe_file_path(self):
+    def get_slc_s1_safe_file(self):
         """
-        Obtains the s3 URI of the input SAFE file for use with CSLC-S1 job.
-        This URI is then configured as the value of safe_file_path within the
-        interim RunConfig. Chimera will then localize this file from S3 to
-        local disk before starting the OPERA PGE wrapper.
+        Obtains the input SAFE file for use with an CSLC-S1 or RTC-S1 job.
+        This local path is then configured as the value of safe_file_path within the
+        interim RunConfig.
+
+        The SAFE file is manually localized here, so it will be available for
+        use when obtaining the corresponding DEM.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
 
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
 
         s3_product_path = f"{self._context['product_path']}/{metadata['FileName']}"
+        parsed_s3_url = urlparse(s3_product_path)
+        s3_path = parsed_s3_url.path
+
+        # Strip leading forward slash from url path
+        if s3_path.startswith('/'):
+            s3_path = s3_path[1:]
+
+        # Bucket name should be first part of url path, the key is the rest
+        s3_bucket = s3_path.split('/')[0]
+        s3_key = '/'.join(s3_path.split('/')[1:])
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        logger.info(f"working_dir : {working_dir}")
+        logger.info(f"s3_product_path : {s3_product_path}")
+        logger.info(f"s3_bucket: {s3_bucket}")
+        logger.info(f"output_filepath: {output_filepath}")
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="SAFE"
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
         rc_params = {
-            oc_const.SAFE_FILE_PATH: s3_product_path
+            oc_const.SAFE_FILE_PATH: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
-    def get_cslc_orbit_file(self):
+    def get_slc_s1_orbit_file(self):
         """
-        Copies a static orbit file configured for use with a CSLC-S1 job
-        to the job's local working area.
+        Copies a static orbit file configured for use with a CSLC-S1 or RTC-S1
+        job to the job's local working area.
 
         TODO this is a temporary implementation for initial testing purposes
              eventually this function will need to determine the appropriate
@@ -762,12 +792,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         logger.info("working_dir : {}".format(working_dir))
 
-        s3_bucket = self._pge_config.get(oc_const.GET_CSLC_ORBIT_FILE, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_CSLC_ORBIT_FILE, {}).get(oc_const.S3_KEY)
+        s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_ORBIT_FILE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_SLC_S1_ORBIT_FILE, {}).get(oc_const.S3_KEY)
 
         output_filepath = os.path.join(working_dir, s3_key)
 
-        pge_metrics = download_ancillary_from_s3(
+        pge_metrics = download_object_from_s3(
             s3_bucket, s3_key, output_filepath, filetype="Orbit Ephemerides"
         )
 
@@ -781,34 +811,93 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_cslc_dem(self):
+    def get_slc_s1_dem(self):
         """
-        Copies a static DEM file configured for use with a CSLC-S1 job
-        to the job's local working area.
+        Stages a DEM file corresponding to the region covered by an input
+        S1 SLC SAFE archive.
 
-        TODO this may or may not be a temporary implementation based on whether
-             the static dem provided by ADT is suitable for all CSLC-S1 jobs
+        The manifest.safe file is extracted from the archive and used to
+        determine the lat/lon bounding box of the S1 swath. This bbox is then
+        used with the stage_dem tool to obtain the appropriate DEM.
+
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # get the working directory
         working_dir = get_working_dir()
 
-        logger.info("working_dir : {}".format(working_dir))
+        # get the local file path of the input SAFE archive (should have already
+        # been downloaded by the get_safe_file precondition function)
+        safe_file_path = self._job_params.get(oc_const.SAFE_FILE_PATH)
+        safe_file_name = os.path.splitext(os.path.basename(safe_file_path))[0]
 
-        s3_bucket = self._pge_config.get(oc_const.GET_CSLC_DEM, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_CSLC_DEM, {}).get(oc_const.S3_KEY)
+        # get s3_bucket param
+        s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_DEM, {}).get(oc_const.S3_BUCKET)
 
-        output_filepath = os.path.join(working_dir, s3_key)
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
 
-        pge_metrics = download_ancillary_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="Static DEM"
-        )
+        logger.info(f"working_dir : {working_dir}")
+        logger.info(f"safe_file_path: {safe_file_path}")
+        logger.info(f"s3_bucket: {s3_bucket}")
+        logger.info(f"output_filepath: {output_filepath}")
+
+        if not safe_file_path:
+            raise RuntimeError(f'No value set for {oc_const.SAFE_FILE_PATH} in '
+                               f'job parameters. Please ensure the get_safe_file '
+                               f'precondition function has been run prior to this one.')
+
+        # Extract the contents of the manifest.safe XML file from the top-level
+        # of the zip archive. This file contains the bounding box of the full
+        # SLC swath covered by the data
+        with zipfile.ZipFile(safe_file_path) as myzip:
+            with myzip.open(f'{safe_file_name}.SAFE/manifest.safe', 'r') as infile:
+                manifest_tree = ET.parse(infile)
+
+        coordinates_elem = manifest_tree.xpath('.//*[local-name()="coordinates"]')
+
+        if coordinates_elem is None:
+            raise RuntimeError(
+                'Could not find gml:coordinates element within the manifest.safe '
+                'of the provided SAFE archive, cannot determine DEM bounding box.'
+            )
+
+        coordinates_str = coordinates_elem[0].text
+        coordinates = coordinates_str.split()
+        lats = [float(coordinate.split(',')[0]) for coordinate in coordinates]
+        lons = [float(coordinate.split(',')[-1]) for coordinate in coordinates]
+
+        lat_min = min(lats)
+        lat_max = max(lats)
+        lon_min = min(lons)
+        lon_max = max(lons)
+
+        bbox = [lon_min, lat_min, lon_max, lat_max]  # WSEN order
+
+        logger.info(f"Derived DEM bounding box: {bbox}")
+
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.outfile = output_filepath
+        args.filepath = None
+        args.margin = 5  # KM
+        args.log_level = LogLevels.INFO.value
+        args.bbox = bbox
+        args.tile_code = None
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='S1 DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
+        # TODO set this back to output_filepath once vrt file is supported by PGE validation
+        kludge_output_filepath = os.path.join(working_dir, 'dem_0.tif')
         rc_params = {
-            oc_const.DEM_FILE: output_filepath
+            oc_const.DEM_FILE: kludge_output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -871,7 +960,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return latlong
 
-    def get_dems(self):
+    def get_dswx_hls_dem(self):
         """
         This function downloads dems over the bbox provided in the PGE yaml config,
         or derives the appropriate bbox based on the tile code of the product's
@@ -887,10 +976,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         output_filepath = os.path.join(working_dir, 'dem.vrt')
 
         # get s3_bucket param
-        s3_bucket = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.S3_BUCKET)
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_HLS_DEM, {}).get(oc_const.S3_BUCKET)
 
         # get bbox param
-        bbox = self._pge_config.get(oc_const.GET_DEMS, {}).get(oc_const.BBOX)
+        bbox = self._pge_config.get(oc_const.GET_DSWX_HLS_DEM, {}).get(oc_const.BBOX)
 
         if bbox:
             # Convert to list if we were given a space-delimited string
@@ -912,8 +1001,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             raise RuntimeError(
                 f"Can not determine a region to obtain DEM for.\n"
                 f"The product metadata must specify an MGRS tile code, "
-                f"or the 'bbox' parameter must be provided in the '{oc_const.GET_DEMS}' "
-                f"area of the PGE config"
+                f"or the 'bbox' parameter must be provided in the "
+                f"'{oc_const.GET_DSWX_HLS_DEM}' area of the PGE config"
             )
 
         # Set up arguments to stage_dem.py
@@ -931,10 +1020,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.bbox = bbox
         args.tile_code = tile_code
 
-        pge_metrics = self.get_dswx_ancillary(ancillary_type='DEM',
-                                              output_filepath=output_filepath,
-                                              staging_func=stage_dem,
-                                              staging_func_args=args)
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
@@ -963,7 +1052,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         s3_bucket = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_BUCKET)
         s3_key = self._pge_config.get(oc_const.GET_LANDCOVER, {}).get(oc_const.S3_KEY)
 
-        pge_metrics = download_ancillary_from_s3(
+        pge_metrics = download_object_from_s3(
             s3_bucket, s3_key, output_filepath, filetype="Landcover"
         )
 
@@ -1039,10 +1128,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.bbox = bbox
         args.tile_code = tile_code
 
-        pge_metrics = self.get_dswx_ancillary(ancillary_type='Worldcover',
-                                              output_filepath=output_filepath,
-                                              staging_func=stage_worldcover,
-                                              staging_func_args=args)
+        pge_metrics = self.get_opera_ancillary(ancillary_type='Worldcover',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_worldcover,
+                                               staging_func_args=args)
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
@@ -1054,9 +1143,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
+    def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """
-        Handles common operations for obtaining ancillary data used with DSWx-HLS processing
+        Handles common operations for obtaining ancillary data used with OPERA
+        PGE processing
         """
         pge_metrics = {"download": [], "upload": []}
 
