@@ -27,6 +27,7 @@ Options:
       --grq-host                                 The hostname and port of GRQ.
       --cnm-r-topic-arn                          The CNM-R SNS topic ARN.
       --cnm-r-queue-url                          The CNM-R SQS queue URL.
+      --isl-bucket                               The ISL S3 bucket name.
       --rs-bucket                                The RS S3 bucket name.
       --SLC-input-dir                            The expected path to the directory containing THE sample SLC data.
       --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
@@ -69,6 +70,10 @@ for i in "$@"; do
       cnm_r_queue_url="${i#*=}"
       shift
       ;;
+    --isl-bucket=*)
+      isl_bucket="${i#*=}"
+      shift
+      ;;
     --rs-bucket=*)
       rs_bucket="${i#*=}"
       shift
@@ -105,21 +110,20 @@ export GRQ_HOST=${grq_host}
 export GRQ_BASE_URL="https://${mozart_ip}/grq/api/v0.1"
 export CNMR_TOPIC=${cnm_r_topic_arn}
 export CNMR_QUEUE=${cnm_r_queue_url}
+export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
 export SLC_INPUT_DIR=${SLC_input_dir}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 
 set -e
-echo Running smoke tests
+echo Executing integration tests. This can take at least 20 or 40 minutes...
 
-echo Executing integration tests. This can take at least 20 minutes...
 echo Creating SLC test data
 mkdir l1_s1_slc
 touch l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
 echo dummy file contents >> l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
 
-echo Executing integration tests. This can take at least 20 or 40 minutes...
 python -m venv venv
 source venv/bin/activate
 pip install -e '.[integration]'
