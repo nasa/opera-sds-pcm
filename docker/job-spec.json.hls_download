@@ -20,7 +20,7 @@
       "destination": "positional"
     },
     {
-      "name": "query",
+      "name": "batch_ids",
       "destination": "positional"
     },
     {
