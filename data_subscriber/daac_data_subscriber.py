@@ -250,9 +250,9 @@ def create_parser():
                            "help": "A list of target tile IDs pending download."}}
 
     use_temporal = {"positionals": ["--use-temporal"],
-                 "kwargs": {"dest": "use_temporal",
-                            "action": "store_true",
-                            "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
+                    "kwargs": {"dest": "use_temporal",
+                               "action": "store_true",
+                               "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
 
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
@@ -454,7 +454,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
     for granule in granules:
         update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+                         temporal_extent_beginning_dt=dateutil.parser.isoparse(
+                             granule["temporal_extent_beginning_datetime"]),
                          revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
         update_granule_index(HLS_SPATIAL_CONN, granule)
         if args.provider == "LPCLOUD":
@@ -505,6 +506,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                 func=partial(
                     submit_download_job,
                     release_version=args.release_version,
+                    provider=args.provider,
                     params=[
                         {
                             "name": "isl_bucket_name",
@@ -664,7 +666,8 @@ def _request_search(args, request_url, params, search_after=None):
         return [{"granule_id": item.get("umm").get("GranuleUR"),
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
-                 "temporal_extent_beginning_datetime": item["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
+                 "temporal_extent_beginning_datetime": item["umm"]["TemporalExtent"]["RangeDateTime"][
+                     "BeginningDateTime"],
                  "revision_date": item["meta"]["revision-date"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
                  "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
@@ -708,15 +711,15 @@ def _match_identifier(settings, args, granule) -> bool:
     return False
 
 
-def submit_download_job(*, release_version=None, params: list[dict[str, str]], job_queue: str) -> str:
-    return _submit_mozart_job_minimal(
-        hysdsio={
-            "id": str(uuid.uuid4()),
-            "params": params,
-            "job-specification": f"job-hls_download:{release_version}",
-        },
-        job_queue=job_queue
-    )
+def submit_download_job(*, release_version=None, provider="LPCLOUD", params: list[dict[str, str]],
+                        job_queue: str) -> str:
+    provider_map = {"LPCLOUD": "hls", "ASF": "slc"}
+    job_spec_str = f"job-{provider_map[provider]}_download:{release_version}"
+
+    return _submit_mozart_job_minimal(hysdsio={"id": str(uuid.uuid4()),
+                                               "params": params,
+                                               "job-specification": job_spec_str},
+                                      job_queue=job_queue)
 
 
 def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
@@ -740,9 +743,11 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
     )
 
 
-def _url_to_tile_id(url: str):
+def _url_to_tile_id(url: str, args):
+    tile_re = r"T\w{5}" if args.provider == "LPCLOUD" else r"_\d{6}_"
+
     input_filename = Path(url).name
-    tile_id: str = re.findall(r"T\w{5}", input_filename)[0]
+    tile_id: str = re.findall(tile_re, input_filename)[0]
     return tile_id
 
 
