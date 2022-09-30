@@ -245,9 +245,9 @@ def create_parser():
                                      "per job"}}
 
     batch_ids = {"positionals": ["--batch-ids"],
-                "kwargs": {"dest": "batch_ids",
-                           "nargs": "*",
-                           "help": "A list of target tile IDs pending download."}}
+                 "kwargs": {"dest": "batch_ids",
+                            "nargs": "*",
+                            "help": "A list of target tile IDs pending download."}}
 
     use_temporal = {"positionals": ["--use-temporal"],
                     "kwargs": {"dest": "use_temporal",
@@ -774,7 +774,8 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.batch_ids:
         logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        downloads = list(filter(lambda d: _to_tile_id(d) in args.batch_ids, all_pending_downloads))
+        id_func = _to_tile_id if args.provider == "LPCLOUD" else _to_orbit_number
+        downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
 
@@ -798,6 +799,10 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         _upload_url_list_from_s3(session, es_conn, download_urls, args, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
+
+
+def _to_orbit_number(dl_doc: dict[str, Any]):
+    return _url_to_orbit_number(_to_url(dl_doc))
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
