@@ -167,7 +167,7 @@ async def test_download_by_tile(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids=T00000 " \
+           "--batch-ids=T00000 " \
            "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -190,7 +190,7 @@ async def test_download_by_tiles(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids T00000 T00001 " \
+           "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -212,7 +212,7 @@ async def test_download_https(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids=T00000 " \
+           "--batch-ids=T00000 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--transfer-protocol=https " \
@@ -235,7 +235,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids T00000 T00001 " \
+           "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--smoke-run " \
@@ -258,7 +258,7 @@ async def test_download_by_tiles_dry_run(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids T00000 T00001 " \
+           "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--dry-run " \

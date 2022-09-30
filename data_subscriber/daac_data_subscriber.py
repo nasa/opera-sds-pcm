@@ -244,8 +244,8 @@ def create_parser():
                              "help": "chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles "
                                      "per job"}}
 
-    tile_ids = {"positionals": ["--tile-ids"],
-                "kwargs": {"dest": "tile_ids",
+    batch_ids = {"positionals": ["--batch-ids"],
+                "kwargs": {"dest": "batch_ids",
                            "nargs": "*",
                            "help": "A list of target tile IDs pending download."}}
 
@@ -264,7 +264,7 @@ def create_parser():
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, tile_ids, use_temporal, native_id]
+                            chunk_size, batch_ids, use_temporal, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
@@ -275,7 +275,7 @@ def create_parser():
 
     download_parser = subparsers.add_parser("download")
     download_parser_arg_list = [verbose, file, endpoint, provider, isl_bucket, transfer_protocol, dry_run, smoke_run,
-                                tile_ids, start_date, end_date, use_temporal]
+                                batch_ids, start_date, end_date, use_temporal]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
@@ -452,12 +452,14 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         granules = granules[:1]
 
     download_urls: list[str] = []
+
     for granule in granules:
         update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
                          temporal_extent_beginning_dt=dateutil.parser.isoparse(
                              granule["temporal_extent_beginning_datetime"]),
                          revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
         update_granule_index(HLS_SPATIAL_CONN, granule)
+
         if args.provider == "LPCLOUD":
             update_granule_index(HLS_SPATIAL_CONN, granule)
 
@@ -476,28 +478,29 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         logging.info(f"{args.chunk_size=}. Skipping download job submission.")
         return
 
-    tile_id_to_urls_map: dict[str, set[str]] = map_reduce(
+    keyfunc = _url_to_tile_id if args.provider == "LPCLOUD" else _url_to_orbit_number
+    batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
-        keyfunc=_url_to_tile_id,
+        keyfunc=keyfunc,
         valuefunc=lambda url: url,
         reducefunc=set
     )
 
-    logging.info(f"{tile_id_to_urls_map=}")
+    logging.info(f"{batch_id_to_urls_map=}")
     job_submission_tasks = []
     loop = asyncio.get_event_loop()
     logging.info(f"{args.chunk_size=}")
-    for tile_chunk in chunked(tile_id_to_urls_map.items(), n=args.chunk_size):
+    for batch_chunk in chunked(batch_id_to_urls_map.items(), n=args.chunk_size):
         chunk_id = str(uuid.uuid4())
         logging.info(f"{chunk_id=}")
 
-        chunk_tile_ids = []
+        chunk_batch_ids = []
         chunk_urls = []
-        for tile_id, urls in tile_chunk:
-            chunk_tile_ids.append(tile_id)
+        for batch_id, urls in batch_chunk:
+            chunk_batch_ids.append(batch_id)
             chunk_urls.extend(urls)
 
-        logging.info(f"{chunk_tile_ids=}")
+        logging.info(f"{chunk_batch_ids=}")
         logging.info(f"{chunk_urls=}")
 
         job_submission_tasks.append(
@@ -514,8 +517,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                             "from": "value"
                         },
                         {
-                            "name": "tile_ids",
-                            "value": "--tile-ids " + " ".join(chunk_tile_ids) if chunk_tile_ids else "",
+                            "name": "batch_ids",
+                            "value": "--batch-ids " + " ".join(chunk_batch_ids) if chunk_batch_ids else "",
                             "from": "value"
                         },
                         {
@@ -743,8 +746,16 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
     )
 
 
-def _url_to_tile_id(url: str, args):
-    tile_re = r"T\w{5}" if args.provider == "LPCLOUD" else r"_\d{6}_"
+def _url_to_orbit_number(url: str):
+    orbit_re = r"_\d{6}_"  # Orbit number
+
+    input_filename = Path(url).name
+    orbit_number: str = re.findall(orbit_re, input_filename)[0]
+    return orbit_number
+
+
+def _url_to_tile_id(url: str):
+    tile_re = r"T\w{5}"
 
     input_filename = Path(url).name
     tile_id: str = re.findall(tile_re, input_filename)[0]
@@ -760,9 +771,9 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     )
 
     downloads = all_pending_downloads
-    if args.tile_ids:
-        logging.info(f"Filtering pending downloads by {args.tile_ids=}")
-        downloads = list(filter(lambda d: _to_tile_id(d) in args.tile_ids, all_pending_downloads))
+    if args.batch_ids:
+        logging.info(f"Filtering pending downloads by {args.batch_ids=}")
+        downloads = list(filter(lambda d: _to_tile_id(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
 
@@ -772,7 +783,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     if args.smoke_run:
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
-        args.tile_ids = args.tile_ids[:1]
+        args.batch_ids = args.batch_ids[:1]
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 

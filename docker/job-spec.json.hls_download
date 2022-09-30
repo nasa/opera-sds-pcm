@@ -20,7 +20,7 @@
       "destination": "positional"
     },
     {
-      "name": "tile_ids",
+      "name": "query",
       "destination": "positional"
     },
     {
