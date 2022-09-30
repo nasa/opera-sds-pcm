@@ -157,15 +157,8 @@ def get_dswx_hls_simulated_output_basename(dataset_match, base_name_template):
 
 
 def get_input_dataset_tile_code(context: Dict) -> str:
-    tile_code = None
     product_metadata = context["product_metadata"]["metadata"]
-
-    for band_or_qa, product_info in product_metadata.items():
-        if band_or_qa != '@timestamp':
-            product_path = product_info["product_path"]  # see eval_state_config.py
-            product_filename = product_path.split('/')[-1]
-            tile_code = product_filename.split('.')[2]
-            break
+    tile_code = product_metadata["id"].split('.')[2]  # Example id: "HLS.L30.T54PVQ.2022001T005855.v2.0"
 
     return tile_code
 
