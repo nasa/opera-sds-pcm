@@ -722,22 +722,23 @@ def submit_download_job(*, release_version=None, provider="LPCLOUD", params: lis
     return _submit_mozart_job_minimal(hysdsio={"id": str(uuid.uuid4()),
                                                "params": params,
                                                "job-specification": job_spec_str},
-                                      job_queue=job_queue)
+                                      job_queue=job_queue,
+                                      provider_str=provider_map[provider])
 
 
-def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
+def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str) -> str:
     return submit_mozart_job(
         hysdsio=hysdsio,
         product={},
         rule={
-            "rule_name": "trigger-hls_download",
+            "rule_name": f"trigger-{provider_str}_download",
             "queue": job_queue,
             "priority": "0",
             "kwargs": "{}",
             "enable_dedup": True
         },
         queue=None,
-        job_name="job-WF-hls_download",
+        job_name=f"job-WF-{provider_str}_download",
         payload_hash=None,
         enable_dedup=None,
         soft_time_limit=None,
