@@ -15,7 +15,7 @@ import subprocess
 import sys
 import traceback
 from pathlib import PurePath
-from typing import Dict, List
+from typing import Dict, List, Union, Tuple
 
 from commons.logger import logger
 from extractor import extract
@@ -36,11 +36,11 @@ def convert(
         pge_name: str,
         rc_file: str = None,
         pge_output_conf_file:str = None,
-        settings_conf_file: str = None,
+        settings_conf_file: Union[str, SettingsConf, Dict, None] = None,
         extra_met: Dict = None,
         **kwargs
 ) -> List:
-    """Convert a product (directory of files) into a list of datasets.
+    """Convert a PGE product (directory of files) into a list of datasets.
 
     :param work_dir: The working directory (Verdi workspace) the worker executes jobs from.
     :param product_dir: Local filepath to the product.
@@ -88,23 +88,9 @@ def convert(
         dataset_id = PurePath(dataset).name
 
         # Merge all created .met.json files into a single one for use with accountability reporting
-        dataset_met_json = {"Files": []}
-        combined_file_size = 0
+        combined_file_size, dataset_met_json = merge_dataset_met_json(dataset, extra_met)
+
         for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
-            with open(met_json_file, 'r') as infile:
-                met_json = json.load(infile)
-                combined_file_size += int(met_json["FileSize"])
-
-                # Extract a copy of the "Product*" key/values to include at the top level
-                # They should be the same values for each file in the dataset
-                product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
-
-                for product_key in product_keys:
-                    extra_met[product_key] = met_json[product_key]
-                    met_json.pop(product_key)
-
-                dataset_met_json["Files"].append(met_json)
-
             # Remove the individual .met.json files after they've been merged
             os.unlink(met_json_file)
 
@@ -183,6 +169,33 @@ def convert(
                 create_dataset_checksums(target, hash_algo)
 
     return list(created_datasets)
+
+
+def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
+    """Merges all the dataset *.met.json metadata into a single dataset metadata dict that can be subsequently saved as *.met.json.
+    Returns a tuple of the combined product file sizes and the merged dataset metadata dict.
+
+    :param dataset: the ancestral parent directory of all *.met.json filepaths that should be merged.
+    :param extra_met: extra product metadata. This is removed from the dict and added to the dataset metadata.
+    """
+    dataset_met_json = {"Files": []}
+    combined_file_size = 0
+    for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
+        with open(met_json_file, 'r') as infile:
+            met_json = json.load(infile)
+            combined_file_size += int(met_json["FileSize"])
+
+            # Extract a copy of the "Product*" key/values to include at the top level
+            # They should be the same values for each file in the dataset
+            product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
+
+            for product_key in product_keys:
+                extra_met[product_key] = met_json[product_key]
+                met_json.pop(product_key)
+
+            dataset_met_json["Files"].append(met_json)
+
+    return combined_file_size, dataset_met_json
 
 
 def get_patterns(pattern_obj_array):
