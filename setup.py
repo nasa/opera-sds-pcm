@@ -37,7 +37,8 @@ setup(
             "mgrs",
             "pyproj",
 
-            "python-dateutil"
+            "python-dateutil",
+            'validators'
         ],
         'subscriber': [
             'boto3',
