@@ -902,12 +902,13 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
 
             return upload_stats
     except (Exception, ConnectionResetError, requests.exceptions.HTTPError) as e:
+        logging.error(e)
         return {"failed_download": e}
 
 
 def _handle_url_redirect(session, url, headers, is_s3=False):
     if not validators.url(url):
-        raise Exception("Malformed URL")
+        raise Exception(f"Malformed URL: {url}")
 
     if is_s3:
         del headers['Authorization']
