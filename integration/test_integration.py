@@ -49,32 +49,6 @@ def test_subscriber_l30():
     sleep_for(300)
     wait_for_download_jobs(job_id)
 
-
-def test_subscriber_s30():
-    logging.info("TRIGGERING DATA SUBSCRIBE")
-
-    update_env_vars_s30_subscriber_query_lambda()
-    sleep_for(30)
-
-    response = invoke_s30_subscriber_query_lambda()
-
-    reset_env_vars_s30_subscriber_query_lambda()
-    sleep_for(30)
-
-    assert response["StatusCode"] == 200
-
-    job_id = response["Payload"].read().decode().strip("\"")
-    logging.info(f"{job_id=}")
-
-    logging.info("Sleeping for query job execution...")
-    sleep_for(300)
-
-    wait_for_query_job(job_id)
-
-    logging.info("Sleeping for download job execution...")
-    sleep_for(300)
-    wait_for_download_jobs(job_id)
-
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
