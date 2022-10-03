@@ -62,3 +62,55 @@ variable "isl_bucket" {
 variable "osl_bucket" {
   default = "opera-int-osl-pop1"
 }
+
+# mozart vars
+variable "mozart" {
+  type = map(string)
+  default = {
+    name          = "mozart"
+    instance_type = "m5.8xlarge"
+    root_dev_size = 200
+    private_ip    = "100.104.49.20"
+    public_ip     = ""
+  }
+}
+
+# metrics vars
+variable "metrics" {
+  type = map(string)
+  default = {
+    name          = "metrics"
+    instance_type = "r5.4xlarge"
+    root_dev_size = 200
+    private_ip    = "100.104.49.21"
+    public_ip     = ""
+  }
+}
+
+# grq vars
+variable "grq" {
+  type = map(string)
+  default = {
+    name          = "grq"
+    instance_type = "r5.4xlarge"
+    root_dev_size = 200
+    private_ip    = "100.104.49.22"
+    public_ip     = ""
+  }
+}
+
+# factotum vars
+variable "factotum" {
+  type = map(string)
+  default = {
+    name          = "factotum"
+    instance_type = "r5.8xlarge"
+    root_dev_size = 500
+    data          = "/data"
+    data_dev      = "/dev/xvdb"
+    data_dev_size = 300
+    private_ip    = "100.104.49.23"
+    publicc_ip    = ""
+  }
+}
+
