@@ -71,7 +71,7 @@ def test_simulate_dswx_hls_pge_with_l30():
                     "params": [
                         {
                             "name": "input_dataset_id",
-                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0_state_config"
+                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0"
                         }
                     ]
                 }
@@ -117,7 +117,7 @@ def test_simulate_dswx_hls_pge_with_s30():
                     "params": [
                         {
                             "name": "input_dataset_id",
-                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0_state_config"
+                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0"
                         }
                     ]
                 }
@@ -162,7 +162,7 @@ def test_simulate_dswx_hls_pge_with_unsupported():
                         "params": [
                             {
                                 "name": "input_dataset_id",
-                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0_state_config"
+                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0"
                             }
                         ]
                     }

@@ -5,16 +5,17 @@
 
 import argparse
 import asyncio
-import socket
+import itertools
 import json
 import logging
 import netrc
 import os
 import re
 import shutil
+import socket
 import sys
 import uuid
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
@@ -32,12 +33,14 @@ from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
 from smart_open import open
 
+import extractor.extract
+import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from util.conf_util import SettingsConf
 
-
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -220,19 +223,28 @@ def create_parser():
                            "nargs": "*",
                            "help": "A list of target tile IDs pending download."}}
 
+    use_temporal = {"positionals": ["--use-temporal"],
+                 "kwargs": {"dest": "use_temporal",
+                            "action": "store_true",
+                            "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
+
+    native_id = {"positionals": ["--native-id"],
+                 "kwargs": {"dest": "native_id",
+                            "help": "The native ID of a single product granule to be queried, overriding other query arguments if present."}}
+
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, tile_ids]
+                            chunk_size, tile_ids, use_temporal, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket, dry_run,
-                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size]
+                             smoke_run, no_schedule_download, release_version, job_queue, chunk_size, use_temporal, native_id]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids, start_date, end_date]
+    download_parser_arg_list = [endpoint, isl_bucket, transfer_protocol, dry_run, smoke_run, tile_ids, start_date, end_date, use_temporal]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
@@ -287,9 +299,17 @@ def _validate_minutes(minutes):
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
 
-def update_url_index(es_conn, urls: list[str], granule_id: str, job_id: str, query_dt: datetime, temporal_extent_beginning_dt: datetime):
+def update_url_index(
+        es_conn,
+        urls: list[str],
+        granule_id: str,
+        job_id: str,
+        query_dt: datetime,
+        temporal_extent_beginning_dt: datetime,
+        revision_date_dt: datetime
+):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt)
 
 
 def update_granule_index(es_spatial_conn, granule):
@@ -402,7 +422,8 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
     download_urls: list[str] = []
     for granule in granules:
         update_url_index(hls_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]))
+                         temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+                         revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
         update_granule_index(HLS_SPATIAL_CONN, granule)
 
         if granule.get("filtered_urls"):
@@ -485,6 +506,11 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
                             "name": "end_datetime",
                             "value": f"--end-date={query_timerange.end_date}",
                             "from": "value"
+                        },
+                        {
+                            "name": "use_temporal",
+                            "value": "--use-temporal" if args.use_temporal else "",
+                            "from": "value"
                         }
 
                     ],
@@ -507,10 +533,11 @@ async def run_query(args, token, hls_conn, cmr, job_id, settings):
         "fail": failed
     }
 
+
 def get_query_timerange(args, now: datetime):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
@@ -520,8 +547,8 @@ def get_query_timerange(args, now: datetime):
 
 
 def get_download_timerange(args):
-    start_date = args.start_date
-    end_date = args.end_date
+    start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
+    end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     download_timerange = DateTimeRange(start_date, end_date)
     logging.info(f"{download_timerange=}")
@@ -530,7 +557,6 @@ def get_download_timerange(args):
 
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     PAGE_SIZE = 2000
-    now = datetime.utcnow()
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
@@ -538,18 +564,22 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         'sort_key': "-start_date",
         'provider': args.provider,
         'ShortName': args.collection,
-        'updated_since': timerange.start_date,
         'token': token,
         'bounding_box': args.bbox,
     }
 
-    start_or_end_date_provided = args.start_date or args.end_date
-    if start_or_end_date_provided:
-        # derive and apply param "temporal"
-        now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-        logging.info("Temporal Range: " + temporal_range)
+    if args.native_id:
+        params['native-id'] = args.native_id
+
+    # derive and apply param "temporal"
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+    logging.info("Temporal Range: " + temporal_range)
+
+    if args.use_temporal:
         params['temporal'] = temporal_range
+    else:
+        params["revision_date"] = temporal_range
 
     logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
@@ -571,7 +601,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     return product_granules
 
 
-def _get_temporal_range(start: str, end: str, now: datetime):
+def _get_temporal_range(start: str, end: str, now: str):
     start = start if start is not False else None
     end = end if end is not False else None
 
@@ -581,8 +611,8 @@ def _get_temporal_range(start: str, end: str, now: datetime):
         return "{},{}".format(start, now)
     if start is None and end is not None:
         return "1900-01-01T00:00:00Z,{}".format(end)
-
-    raise ValueError("One of start-date or end-date must be specified.")
+    else:
+        return "1900-01-01T00:00:00Z,{}".format(now)
 
 
 def _request_search(args, request_url, params, search_after=None):
@@ -601,6 +631,7 @@ def _request_search(args, request_url, params, search_after=None):
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
                  "temporal_extent_beginning_datetime": item["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
+                 "revision_date": item["meta"]["revision-date"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
                  "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
                                   for point
@@ -683,7 +714,8 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     download_timerange = get_download_timerange(args)
     all_pending_downloads: Iterable[dict] = hls_conn.get_all_undownloaded(
         dateutil.parser.isoparse(download_timerange.start_date),
-        dateutil.parser.isoparse(download_timerange.end_date)
+        dateutil.parser.isoparse(download_timerange.end_date),
+        args.use_temporal
     )
 
     downloads = all_pending_downloads
@@ -706,13 +738,26 @@ def run_download(args, token, hls_conn, netloc, username, password, job_id):
     if args.transfer_protocol.lower() == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(session, hls_conn, download_urls, args, token, job_id)
+
+        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+        download_granules(session, hls_conn, granule_id_to_download_urls_map, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_s3(session, hls_conn, download_urls, args, job_id)
+
+        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+        download_granules(session, hls_conn, granule_id_to_download_urls_map, args, None, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
+
+
+def group_download_urls_by_granule_id(download_urls):
+    granule_id_to_download_urls_map = defaultdict(list)
+    for download_url in download_urls:
+        # remove both suffixes to get granule ID (e.g. removes .Fmask.tif)
+        granule_id = PurePath(download_url).with_suffix("").with_suffix("").name
+        granule_id_to_download_urls_map[granule_id].append(download_url)
+    return granule_id_to_download_urls_map
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
@@ -745,39 +790,168 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id):
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "https://" in f]
+def download_granules(
+        session: requests.Session,
+        es_conn,
+        granule_id_to_product_urls_map: dict[str, list[str]],
+        args,
+        token,
+        job_id
+):
+    cfg = SettingsConf().cfg  # has metadata extractor config
+    logging.info("Creating directories to process granules")
+    os.mkdir(downloads_dir := Path("downloads"))  # house all file downloads
 
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for url in filtered_downloads:
+    if args.smoke_run:
+        granule_id_to_product_urls_map = dict(itertools.islice(granule_id_to_product_urls_map.items(), 1))
+
+    for granule_id, product_urls in granule_id_to_product_urls_map.items():
+        logging.info(f"Processing {granule_id=}")
+
+        os.mkdir(granule_download_dir := downloads_dir / granule_id)
+
+        # download products in granule
+        products = []
+        product_urls_downloaded = []
+        product_urls_skipped = []
+        product_urls_failed = []
         try:
-            if es_conn.product_is_downloaded(url):
-                logging.debug(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
+            for product_url in product_urls:
+                if es_conn.product_is_downloaded(product_url):
+                    product_urls_skipped.append(product_url)
+                    continue
                 if args.dry_run:
-                    pass
-                else:
-                    result = _https_transfer(url, args.isl_bucket, session, token)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
+                    logging.debug(f"{args.dry_run=}. Skipping download.")
+                    break
+                product_filepath = download_product(product_url, session, token, args, granule_download_dir)
+                products.append(product_filepath)
+                product_urls_downloaded.append(product_url)
+            logging.info(f"{products=}")
         except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
+            logging.error(f"Failed to download {granule_id=} when processing {product_url=}. Skipping to next granule.")
+            product_urls_failed.append(product_url)
+            continue
 
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
+        logging.info(f"Marking as downloaded. {granule_id=}")
+        for product_url in product_urls_downloaded:
+            es_conn.mark_product_as_downloaded(product_url, job_id)
+
+        logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
+        logging.warning(f"{len(product_urls_skipped)=}, {product_urls_skipped=}")
+        logging.error(f"{len(product_urls_failed)=}, {product_urls_failed=}")
+
+        extract_many_to_one(products, granule_id, cfg)
+
+    logging.info(f"Removing directory tree. {downloads_dir}")
+    shutil.rmtree(downloads_dir)
+
+
+def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
+    if args.transfer_protocol.lower() == "https":
+        product_filepath = download_product_using_https(
+            product_url,
+            session,
+            token,
+            target_dirpath=target_dirpath.resolve()
+        )
+    elif args.transfer_protocol.lower() == "s3":
+        product_filepath = download_product_using_s3(
+            product_url,
+            session,
+            target_dirpath=target_dirpath.resolve(),
+            args=args
+        )
+    else:
+        raise Exception(args.transfer_protocol)
+    return product_filepath
+
+
+def extract_many_to_one(products, group_dataset_id, settings_cfg):
+    """Creates a dataset for each of the given products, merging them into 1 final dataset.
+
+    :param products: the products to create datasets for.
+    :param group_dataset_id: a unique identifier for the group of products.
+    :param settings_cfg: the settings.yaml config as a dict.
+    """
+    os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
+
+    # create individual dataset dir for each product in the granule
+    # (this also extracts the metadata to *.met.json files)
+    os.mkdir(product_extracts_dir := extracts_dir / group_dataset_id)
+    dataset_dirs = [
+        extractor.extract.extract(
+            product=str(product),
+            product_types=settings_cfg["PRODUCT_TYPES"],
+            workspace=str(product_extracts_dir.resolve())
+        ) for product in products
+    ]
+    logging.info(f"{dataset_dirs=}")
+
+    # generate merge metadata from single-product datasets
+    shared_met_entries_dict = {}  # this is updated, when merging, with metadata common to multiple input files
+    total_product_file_sizes, merged_met_dict = \
+        product2dataset.product2dataset.merge_dataset_met_json(
+            str(product_extracts_dir.resolve()),
+            extra_met=shared_met_entries_dict  # copy some common metadata from each product.
+        )
+    logging.debug(f"{merged_met_dict=}")
+
+    logging.info("Creating target dataset directory")
+    os.mkdir(target_dataset_dir := Path(group_dataset_id))
+    for product in products:
+        shutil.copy(product, target_dataset_dir.resolve())
+    logging.info("Copied input products to dataset directory")
+
+    logging.info("update merged *.met.json with additional, top-level metadata")
+    merged_met_dict.update(shared_met_entries_dict)
+    merged_met_dict["FileSize"] = total_product_file_sizes
+    merged_met_dict["FileName"] = group_dataset_id
+    merged_met_dict["id"] = group_dataset_id
+    logging.debug(f"{merged_met_dict=}")
+
+    # write out merged *.met.json
+    merged_met_json_filepath = target_dataset_dir.resolve() / f"{target_dataset_dir.name}.met.json"
+    with open(merged_met_json_filepath, mode="w") as output_file:
+        json.dump(merged_met_dict, output_file)
+    logging.info(f"Wrote {merged_met_json_filepath=!s}")
+
+    # write out basic *.dataset.json file (value + created_timestamp)
+    dataset_json_dict = extractor.extract.create_dataset_json(
+        product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
+        ds_met={},
+        alt_ds_met={}
+    )
+    granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
+    with open(granule_dataset_json_filepath, mode="w") as output_file:
+        json.dump(dataset_json_dict, output_file)
+    logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
+
+    shutil.rmtree(extracts_dir)
+
+
+def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:
+    headers = {"Echo-Token": token}
+    with session.get(url, headers=headers) as r:
+        r.raise_for_status()
+
+        file_name = PurePath(url).name
+        product_download_path = target_dirpath / file_name
+        with open(product_download_path, "wb") as output_file:
+            output_file.write(r.content)
+        return product_download_path.resolve()
+
+
+def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
+    aws_creds = _get_aws_creds(session)
+    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                       aws_secret_access_key=aws_creds['secretAccessKey'],
+                       aws_session_token=aws_creds['sessionToken'],
+                       region_name='us-west-2').client("s3")
+    product_download_path = _s3_download(url, s3, str(target_dirpath))
+    return product_download_path.resolve()
 
 
 def _https_transfer(url, bucket_name, session, token, staging_area="", chunk_size=25600):
@@ -826,54 +1000,6 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_s3(session, es_conn, downloads, args, job_id):
-    aws_creds = _get_aws_creds(session)
-    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
-                       aws_secret_access_key=aws_creds['secretAccessKey'],
-                       aws_session_token=aws_creds['sessionToken'],
-                       region_name='us-west-2').client("s3")
-
-    tmp_dir = "/tmp/data_subscriber"
-    os.makedirs(tmp_dir, exist_ok=True)
-
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "s3://" in f]
-
-    if args.dry_run:
-        logging.info(f"{args.dry_run=}. Skipping downloads.")
-
-    for url in filtered_downloads:
-        try:
-            if es_conn.product_is_downloaded(url):
-                logging.debug(f"SKIPPING: {url}")
-
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    pass
-                else:
-                    result = _s3_transfer(url, args.isl_bucket, s3, tmp_dir)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.debug(f"{str(datetime.now())} SUCCESS: {url}")
-
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
-
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
-
-    shutil.rmtree(tmp_dir)
-
-
 def _get_aws_creds(session):
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
         if r.status_code != 200:
@@ -883,24 +1009,37 @@ def _get_aws_creds(session):
 
 
 def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
+    try:
+        _s3_download(url, s3, tmp_dir, staging_area)
+        target_key = _s3_upload(url, bucket_name, tmp_dir, staging_area)
+
+        return {"successful_download": target_key}
+    except Exception as e:
+        return {"failed_download": e}
+
+
+def _s3_download(url, s3, tmp_dir, staging_area=""):
     file_name = PurePath(url).name
+    target_key = str(Path(staging_area, file_name))
 
     source = url[len("s3://"):].partition('/')
     source_bucket = source[0]
     source_key = source[2]
 
-    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
+    s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+
+    return Path(f"{tmp_dir}/{target_key}")
+
+
+def _s3_upload(url, bucket_name, tmp_dir, staging_area=""):
+    file_name = PurePath(url).name
     target_key = str(Path(staging_area, file_name))
+    target_bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
 
-    try:
-        s3.download_file(source_bucket, source_key, f"{tmp_dir}/{target_key}")
+    target_s3 = boto3.resource("s3")
+    target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
 
-        target_s3 = boto3.resource("s3")
-        target_s3.Bucket(target_bucket).upload_file(f"{tmp_dir}/{target_key}", target_key)
-
-        return {"successful_download": target_key}
-    except Exception as e:
-        return {"failed_download": e}
+    return target_key
 
 
 def _upload_chunk(chunk_dict):

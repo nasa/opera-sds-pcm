@@ -45,8 +45,8 @@ class HLSProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
-    def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime):
-        undownloaded = self._query_undownloaded(start_dt, end_dt)
+    def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
+        undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
         return [
             {
                 "s3_url": result['_source']['s3_url'],
@@ -54,7 +54,15 @@ class HLSProductCatalog(ElasticsearchUtility):
             } for result in (undownloaded or [])
         ]
 
-    def process_url(self, url: str, granule_id: str, job_id: str, query_dt: datetime, temporal_extent_beginning_dt: datetime):
+    def process_url(
+            self,
+            url: str,
+            granule_id: str,
+            job_id: str,
+            query_dt: datetime,
+            temporal_extent_beginning_dt: datetime,
+            revision_date_dt: datetime
+    ):
         filename = Path(url).name
         result = self._query_existence(filename)
         doc = {
@@ -63,7 +71,8 @@ class HLSProductCatalog(ElasticsearchUtility):
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
             "query_datetime": query_dt,
-            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt
+            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
+            "revision_date": revision_date_dt
         }
 
         if "https://" in url:
@@ -127,7 +136,7 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         return result
 
-    def _query_undownloaded(self, start_dt: datetime, end_dt: datetime, index=ES_INDEX):
+    def _query_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
         try:
             result = self.query(
                 index=index,
@@ -147,7 +156,7 @@ class HLSProductCatalog(ElasticsearchUtility):
                                 },
                                 {
                                     "range": {
-                                        "temporal_extent_beginning_datetime": {
+                                        "temporal_extent_beginning_datetime" if use_temporal else "revision_date": {
                                             "gte": start_dt.isoformat(),
                                             "lt": end_dt.isoformat()
                                         }

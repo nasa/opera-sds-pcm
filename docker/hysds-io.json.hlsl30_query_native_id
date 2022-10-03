@@ -1,5 +1,5 @@
 {
-  "label": "Query HLSL30 data with minutes elapsed",
+  "label": "Query HLSL30 data with native_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,
@@ -12,11 +12,10 @@
       "default": "--endpoint=OPS"
     },
     {
-      "name": "minutes",
+      "name": "native_id",
       "from": "submitter",
-      "placeholder": "e.g. -m 60",
-      "type": "text",
-	  "default": "-m 60"
+      "placeholder": "e.g. --native-id=HLS.L30.T56JMN.2021274T000241.v2.0",
+      "type": "text"
     },
     {
       "name": "provider",
@@ -72,12 +71,6 @@
       "name": "dry_run",
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
-      "optional": true
-    },
-    {
-      "name": "use_temporal",
-      "from": "submitter",
-      "placeholder": "e.g. --use-temporal",
       "optional": true
     }
   ]

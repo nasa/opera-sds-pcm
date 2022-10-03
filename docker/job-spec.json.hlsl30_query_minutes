@@ -1,7 +1,7 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query_minutes.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query.sh",
   "disk_usage":"1GB",
-  "soft_time_limit": 600,
+  "soft_time_limit": 3600,
   "time_limit": 660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
@@ -53,6 +53,10 @@
     },
     {
       "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "use_temporal",
       "destination": "positional"
     }
   ]
