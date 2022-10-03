@@ -58,25 +58,6 @@ def wait_for_l2(_id, index):
 @backoff.on_predicate(
     backoff.constant,
     lambda r: len(r) != 1,
-    max_time=60*10,
-    on_success=success_handler,
-    on_giveup=lambda _: raise_(Exception()),
-    interval=30
-)
-@backoff.on_exception(
-    backoff.constant,
-    elasticsearch.exceptions.NotFoundError,
-    max_time=60*10,
-    giveup=index_not_found,
-    interval=30
-)
-def wait_for_state_config(_id, index):
-    return search_es(index, _id)
-
-
-@backoff.on_predicate(
-    backoff.constant,
-    lambda r: len(r) != 1,
     max_time=60*20,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
