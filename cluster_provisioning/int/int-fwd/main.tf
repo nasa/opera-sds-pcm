@@ -1,0 +1,3 @@
+module "int-main" {
+  source = "../"
+}
