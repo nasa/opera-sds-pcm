@@ -907,6 +907,9 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
 
 
 def _handle_url_redirect(session, url, headers, is_s3=False):
+    if url.startswith("/"):
+        url = "https://sentinel1.asf.alaska.edu" + url
+
     if not validators.url(url):
         raise Exception(f"Malformed URL: {url}")
 
