@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 import conftest
 from int_test_util import \
@@ -8,6 +9,7 @@ from int_test_util import \
     upload_file, \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
+    wait_for_l2, \
     wait_for_l3
 from subscriber_util import \
     wait_for_query_job, \
@@ -146,7 +148,7 @@ def test_subscriber_s30():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T53HQV_20220101T003711Z_20220101T003711Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_r_success(response)
 
 

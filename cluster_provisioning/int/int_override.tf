@@ -18,11 +18,6 @@ variable "environment" {
   default = "int"
 }
 
-variable "counter" {
-  default = "fwd"
-  #default = "pop1"
-}
-
 variable "crid" {
   default = "T00100"
 }
@@ -43,38 +38,6 @@ variable "az" {
 # PCM will disable all timers upon provisioning. Otherwise, they are enabled at start up.
 variable "cluster_type" {
   default = "forward"
-}
-
-###### Security  ########
-variable "public_verdi_security_group_id" {
-  # fwd security group
-  default = "sg-0e60f417ff3c769fb"
-  # pop1 security group
-  #default = "sg-06bf23a69b4d83f66"
-}
-
-variable "private_verdi_security_group_id" {
-  # fwd security group
-  default = "sg-0869719f04e735bd6"
-  # pop1 security group
-  #default = "sg-045ff9d3d16a65ba4"
-}
-
-variable "cluster_security_group_id" {
-  # fwd security group
-  default = "sg-039db67f56d1b12f0"
-  # pop1 security group
-  #default = "sg-0958a845b83c5b857"
-}
-
-variable "private_key_file" {
-  default = "~/.ssh/operasds-int-cluster-fwd.pem"
-  #default = "~/.ssh/operasds-int-cluster-pop1.pem"
-}
-
-variable "keypair_name" {
-  default = "operasds-int-cluster-fwd"
-#  default = "operasds-int-cluster-pop1"
 }
 
 variable "ops_password" {
@@ -108,42 +71,6 @@ variable "public_asg_vpc" {
 
 variable "private_asg_vpc" {
   default = "vpc-c1e0dab9"
-}
-
-##### Bucket Names #########
-variable "docker_registry_bucket" {
-  default = "opera-int-cc-fwd"
-  #default = "opera-int-cc-pop1"
-}
-
-variable "dataset_bucket" {
-  default = "opera-int-rs-fwd"
-  #default = "opera-int-rs-pop1"
-}
-
-variable "code_bucket" {
-  default = "opera-int-cc-fwd"
-  #default = "opera-int-cc-pop1"
-}
-
-variable "lts_bucket" {
-  default = "opera-int-lts-fwd"
-  #default = "opera-int-lts-pop1"
-}
-
-variable "triage_bucket" {
-  default = "opera-int-triage-fwd"
-  #default = "opera-int-triage-pop1"
-}
-
-variable "isl_bucket" {
-  default = "opera-int-isl-fwd"
-  #default = "opera-int-isl-pop1"
-}
-
-variable "osl_bucket" {
-  default = "opera-int-osl-fwd"
-  #default = "opera-int-osl-pop1"
 }
 
 variable "es_snapshot_bucket" {
