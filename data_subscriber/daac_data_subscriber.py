@@ -792,7 +792,11 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.transfer_protocol == "https" or args.provider == "ASF":
+    if args.provider == "ASF":
+        download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
+        logging.debug(f"{download_urls=}")
+        _upload_url_list_from_https(session, es_conn, download_urls, args, token, job_id)
+    elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
 
@@ -849,6 +853,41 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         return dl_dict["https_url"]
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
+
+
+def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id):
+    num_successes = num_failures = num_skipped = 0
+    filtered_downloads = [f for f in downloads if "https://" in f]
+
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
+    for url in filtered_downloads:
+        try:
+            if es_conn.product_is_downloaded(url):
+                logging.debug(f"SKIPPING: {url}")
+                num_skipped = num_skipped + 1
+            else:
+                if args.dry_run:
+                    pass
+                else:
+                    result = _https_transfer(url, args.isl_bucket, session, token)
+                    if "failed_download" in result:
+                        raise Exception(result["failed_download"])
+                    else:
+                        logging.debug(str(result))
+
+                es_conn.mark_product_as_downloaded(url, job_id)
+                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
+                num_successes = num_successes + 1
+        except Exception as e:
+            logging.error(f"{str(datetime.now())} FAILURE: {url}")
+            num_failures = num_failures + 1
+            logging.error(e)
+
+    logging.info(f"Files downloaded: {str(num_successes)}")
+    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
+    logging.info(f"Files failed to download: {str(num_failures)}")
 
 
 def download_granules(
@@ -993,9 +1032,9 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     shutil.rmtree(extracts_dir)
 
 
-def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:
+def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path) -> Path:
     headers = {"Echo-Token": token}
-    with session.get(url, headers=headers) as r:
+    with _handle_url_redirect(session, url, headers) as r:
         r.raise_for_status()
 
         file_name = PurePath(url).name
@@ -1066,7 +1105,7 @@ def _handle_url_redirect(session, url, headers, is_s3=False):
 
     if str(response.status_code).startswith("3"):
         redirect_url = response.headers["Location"]
-        logging.debug(f"Redirecting to {redirect_url}")
+        logging.info(f"Redirecting to {redirect_url}")
 
         is_s3 = "s3" in redirect_url and "amazonaws" in redirect_url
         response = _handle_url_redirect(session, redirect_url, headers, is_s3=is_s3)
