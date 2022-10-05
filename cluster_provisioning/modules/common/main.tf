@@ -778,13 +778,41 @@ resource "aws_instance" "mozart" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.mozart["private_ip"] != "" ? var.mozart["private_ip"] : null
-  user_data            = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
+
               FACTOTUMIP=${aws_instance.factotum.private_ip}
               GRQIP=${aws_instance.grq.private_ip}
               METRICSIP=${aws_instance.metrics.private_ip}
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
     Bravo = "pcm"
@@ -1251,7 +1279,7 @@ resource "aws_instance" "mozart" {
 
   # deploy PGEs
   provisioner "remote-exec" {
-    inline = [<<-EOF
+    inline = [<<-EOT
       set -ex
       source ~/.bash_profile
       %{ for pge_name, pge_version in var.pge_releases ~}
@@ -1282,13 +1310,13 @@ resource "aws_instance" "mozart" {
       sds -d cloud storage ship_style --bucket ${local.osl_bucket}
       sds -d cloud storage ship_style --bucket ${local.triage_bucket}
       sds -d cloud storage ship_style --bucket ${local.lts_bucket}
-    EOF
+    EOT
     ]
   }
 
   # Get test data from the artifactory and put into tests directory
   provisioner "remote-exec" {
-    inline = [<<-EOF
+    inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
       set -ex
       source ~/.bash_profile
@@ -1302,7 +1330,7 @@ resource "aws_instance" "mozart" {
            -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/slc_l1.tar.gz
       cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
       tar xfz slc_l1.tar.gz
-    EOF
+    EOT
     ]
   }
 
@@ -1463,11 +1491,84 @@ data "aws_subnet_ids" "public_asg_vpc" {
 
 data "template_file" "launch_template_user_data" {
   for_each = var.queues
-  template = <<-EOF
+  template = <<-EOT
+        #!/bin/bash
+
         BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2
         PROJECT=${var.project}
         ENVIRONMENT=${var.environment}
-        EOF
+
+        echo "PASS" >> /tmp/user_data_test.txt
+
+        mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+        touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        echo '{
+          "agent": {
+            "metrics_collection_interval": 10,
+            "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+          },
+          "logs": {
+            "logs_collected": {
+              "files": {
+                "collect_list": [
+                  {
+                    "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                    "timezone": "UTC"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/hlsl30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hlsl30_query.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/hlss30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hlss30_query.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/hls_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hls_download.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_pcm_int.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_pcm_int.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_on_demand.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_on_demand.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/purge_isl.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/purge_isl.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/create_accountability_report.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/create_accountability_report.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_sciflo_L3_HLS.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_HLS.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_sciflo_L3_HLS.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L2_CSLC_S1.log",
+                    "timezone": "Local"
+                  }
+                ]
+              }
+            },
+            "force_flush_interval" : 15
+          }
+        }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        EOT
 }
 
 resource "aws_launch_template" "launch_template" {
@@ -1477,7 +1578,7 @@ resource "aws_launch_template" "launch_template" {
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
-  user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
+  user_data              = base64encode(data.template_file.launch_template_user_data[each.key].rendered)
   vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
@@ -1628,10 +1729,38 @@ resource "aws_instance" "metrics" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.metrics["private_ip"] != "" ? var.metrics["private_ip"] : null
-  user_data              = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
+
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
     Bravo = "pcm"
@@ -1698,10 +1827,37 @@ resource "aws_instance" "grq" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.grq["private_ip"] != "" ? var.grq["private_ip"] : null
-  user_data              = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
     Bravo = "pcm"
@@ -1778,10 +1934,38 @@ resource "aws_instance" "factotum" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.factotum["private_ip"] != "" ? var.factotum["private_ip"] : null
-  user_data              = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
+
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
     Bravo = "pcm"
