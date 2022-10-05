@@ -915,9 +915,9 @@ def _handle_url_redirect(session, url, headers, is_s3=False):
 
     if is_s3:
         del headers['Authorization']
-        response = session.get(url, headers=headers, auth=NullAuth(), stream=True, allow_redirects=False)
+        response = session.get(url, headers=headers, auth=NullAuth(), allow_redirects=False)
     else:
-        response = session.get(url, headers=headers, stream=True, allow_redirects=False)
+        response = session.get(url, headers=headers, allow_redirects=False)
 
     if str(response.status_code).startswith("3"):
         redirect_url = response.headers["Location"]
