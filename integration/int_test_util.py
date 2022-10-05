@@ -70,7 +70,7 @@ def wait_for_l2(_id, index):
     giveup=index_not_found,
     interval=30
 )
-def wait_for_state_config(_id, index):
+def wait_for_l2(_id, index):
     return search_es(index, _id)
 
 

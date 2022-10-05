@@ -210,13 +210,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         context = {
             "product_metadata": {
                 "metadata": {
-                    "@timestamp": "2022-05-12T15:54:57.406535915Z",
-                    "B02": {
-                        "product_path": "products/HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif"
-                    },
-                    "Fmask": {
-                        "product_path": "products/HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif"
-                    }
+                    "id": "HLS.S30.T15SXR.2021250T163901.v2.0"
                 }
             }
         }
@@ -302,13 +296,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         context = {
             "product_metadata": {
                 "metadata": {
-                    "@timestamp": "2022-05-12T15:54:57.406535915Z",
-                    "B02": {
-                        "product_path": "products/HLS.L30.T22VEQ.2021250T163901.v2.0.B02.tif"
-                    },
-                    "Fmask": {
-                        "product_path": "products/HLS.L30.T22VEQ.2021250T163901.v2.0.Fmask.tif"
-                    }
+                    "id": "HLS.S30.T15SXR.2021250T163901.v2.0"
                 }
             }
         }

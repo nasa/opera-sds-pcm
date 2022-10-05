@@ -29,13 +29,9 @@ Options:
       --cnm-r-queue-url                          The CNM-R SQS queue URL.
       --isl-bucket                               The ISL S3 bucket name.
       --rs-bucket                                The RS S3 bucket name.
-      --L30-input-dir                            The expected path to the directory containing THE sample L30 data after download.
-      --S30-input-dir                            The expected path to the directory containing THE sample S30 data after download.
       --SLC-input-dir                            The expected path to the directory containing THE sample SLC data.
       --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
       --S30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits S30 query jobs.
-      --artifactory-fn-api-key                   The Artifactory FN API Key. Used to download the sample data.
-      --sample-data-artifactory-dir              The repository path to the "hls_l2.tar.gz" sample data's parent directory.
 USAGE
 }
 
@@ -82,14 +78,6 @@ for i in "$@"; do
       rs_bucket="${i#*=}"
       shift
       ;;
-    --L30-input-dir=*)
-      L30_input_dir="${i#*=}"
-      shift
-      ;;
-    --S30-input-dir=*)
-      S30_input_dir="${i#*=}"
-      shift
-      ;;
     --SLC-input-dir=*)
       SLC_input_dir="${i#*=}"
       shift
@@ -100,14 +88,6 @@ for i in "$@"; do
       ;;
     --S30-data-subscriber-query-lambda=*)
       S30_data_subscriber_query_lambda="${i#*=}"
-      shift
-      ;;
-    --artifactory-fn-api-key=*)
-      artifactory_fn_api_key="${i#*=}"
-      shift
-      ;;
-    --sample-data-artifactory-dir=*)
-      sample_data_artifactory_dir="${i#*=}"
       shift
       ;;
     *)
@@ -132,31 +112,18 @@ export CNMR_TOPIC=${cnm_r_topic_arn}
 export CNMR_QUEUE=${cnm_r_queue_url}
 export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
-export L30_INPUT_DIR=${L30_input_dir}
-export S30_INPUT_DIR=${S30_input_dir}
 export SLC_INPUT_DIR=${SLC_input_dir}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 
 set -e
-echo Running smoke tests
-
-echo Downloading HLS test data
-if [[ ! -f hls_l2.tar.gz ]]; then
-  curl -H "X-JFrog-Art-Api:${artifactory_fn_api_key}" -O ${sample_data_artifactory_dir}/hls_l2.tar.gz
-else
-  echo test data previously downloaded. Skipping re-download
-fi
-  rm -rf hls_l2
-  mkdir -p hls_l2
-  tar xfz hls_l2.tar.gz -C hls_l2
+echo Executing integration tests. This can take at least 20 or 40 minutes...
 
 echo Creating SLC test data
 mkdir l1_s1_slc
 touch l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
 echo dummy file contents >> l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
 
-echo Executing integration tests. This can take at least 20 or 40 minutes...
 python -m venv venv
 source venv/bin/activate
 pip install -e '.[integration]'

@@ -21,7 +21,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\":{\"must\":[{\"term\":{\"dataset_type.keyword\":\"L2_HLS_L30-state-config\"}},{\"bool\":{\"must\":[{\"exists\":{\"field\":\"metadata.B02\"}},{\"exists\":{\"field\":\"metadata.B03\"}},{\"exists\":{\"field\":\"metadata.B04\"}},{\"exists\":{\"field\":\"metadata.B05\"}},{\"exists\":{\"field\":\"metadata.B06\"}},{\"exists\":{\"field\":\"metadata.B07\"}},{\"exists\":{\"field\":\"metadata.Fmask\"}}]}}]}}",
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L2_HLS_L30\"]}}]}}",
       "queue": "opera-job_worker-sciflo-l3_dswx_hls",
       "rule_name": "trigger-SCIFLO_L3_DSWx_HLS_L30",
       "username": "hysdsops",
@@ -35,26 +35,12 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\":{\"must\":[{\"term\":{\"dataset_type.keyword\":\"L2_HLS_S30-state-config\"}},{\"bool\":{\"must\":[{\"exists\":{\"field\":\"metadata.B02\"}},{\"exists\":{\"field\":\"metadata.B03\"}},{\"exists\":{\"field\":\"metadata.B04\"}},{\"exists\":{\"field\":\"metadata.B11\"}},{\"exists\":{\"field\":\"metadata.B12\"}},{\"exists\":{\"field\":\"metadata.B8A\"}},{\"exists\":{\"field\":\"metadata.Fmask\"}}]}}]}}",
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L2_HLS_S30\"]}}]}}",
       "queue": "opera-job_worker-sciflo-l3_dswx_hls",
       "rule_name": "trigger-SCIFLO_L3_DSWx_HLS_S30",
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DSWx_HLS:__TAG__",
       "job_spec": "job-SCIFLO_L3_DSWx_HLS:__TAG__"
-    },
-    {
-      "enabled": true,
-      "job_type": "hysds-io-L3_DSWx_HLS_STATE_CONFIG:__TAG__",
-      "kwargs": "{}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L2_HLS_L30\",\"L2_HLS_S30\"]}}]}}",
-      "queue": "opera-job_worker-l3_dswx_hls_state_config",
-      "rule_name": "trigger-L3_DSWx_HLS_STATE_CONFIG",
-      "username": "hysdsops",
-      "workflow": "hysds-io-L3_DSWx_HLS_STATE_CONFIG:__TAG__",
-      "job_spec": "job-L3_DSWx_HLS_STATE_CONFIG:__TAG__"
     }
   ],
   "mozart": []

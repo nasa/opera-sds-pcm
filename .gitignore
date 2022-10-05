@@ -39,6 +39,8 @@ override.tf.json
 !cluster_provisioning/ops/override.tf
 !cluster_provisioning/int/override.tf
 !cluster_provisioning/pst/override.tf
+!cluster_provisioning/int/int-fwd/override.tf
+!cluster_provisioning/int/int-pop1/override.tf
 
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*

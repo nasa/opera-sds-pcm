@@ -112,7 +112,6 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     }
 
     product_metadata: Dict = pge_util.get_product_metadata(job_json_dict)
-    product_metadata.pop("@timestamp", None)
 
     logger.info("Converting output product to HySDS-style datasets")
     created_datasets = product2dataset.convert(
