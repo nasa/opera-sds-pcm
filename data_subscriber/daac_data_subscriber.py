@@ -883,10 +883,10 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
             if r.status_code != 200:
                 r.raise_for_status()
 
-            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket_name, key))
+            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
             target_s3 = boto3.resource("s3")
-            target_object = target_s3.Object(bucket_name, key)
+            target_object = target_s3.Object(bucket, key)
             result = target_object.put(Body=r.content)
 
             metadata = result.get('ResponseMetadata')
