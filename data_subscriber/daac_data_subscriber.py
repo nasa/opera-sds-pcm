@@ -873,10 +873,9 @@ def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id
 def _https_transfer(url, bucket_name, session, token, staging_area=""):
     file_name = PurePath(url).name
     bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
-
-    key = Path(staging_area, file_name)
-    upload_start_time = datetime.utcnow()
+    key = Path(staging_area, file_name).name
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    upload_start_time = datetime.utcnow()
 
     try:
         with _handle_url_redirect(session, url, headers) as r:
@@ -885,8 +884,12 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
 
             logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
-            s3 = boto3.client("s3")
-            s3.put_object(Bucket=bucket, Key=key, Body=r.content)
+            with open("https.tmp", "wb") as file:
+                file.write(r.content)
+
+            with open("https.tmp", "rb") as file:
+                s3 = boto3.client("s3")
+                s3.upload_fileobj(file, bucket, key)
 
             upload_end_time = datetime.utcnow()
             upload_duration = upload_end_time - upload_start_time
