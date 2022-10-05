@@ -886,7 +886,7 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
             logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
             s3 = boto3.client("s3")
-            s3.put_object(bucket, key, r.content)
+            s3.put_object(Bucket=bucket, Key=key, Body=r.content)
 
             upload_end_time = datetime.utcnow()
             upload_duration = upload_end_time - upload_start_time
