@@ -58,6 +58,25 @@ def wait_for_l2(_id, index):
 @backoff.on_predicate(
     backoff.constant,
     lambda r: len(r) != 1,
+    max_time=60*10,
+    on_success=success_handler,
+    on_giveup=lambda _: raise_(Exception()),
+    interval=30
+)
+@backoff.on_exception(
+    backoff.constant,
+    elasticsearch.exceptions.NotFoundError,
+    max_time=60*10,
+    giveup=index_not_found,
+    interval=30
+)
+def wait_for_l2(_id, index):
+    return search_es(index, _id)
+
+
+@backoff.on_predicate(
+    backoff.constant,
+    lambda r: len(r) != 1,
     max_time=60*20,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
@@ -225,6 +244,27 @@ def get_mozart_es_client():
 
 def get_es_host() -> str:
     return config["ES_HOST"]
+
+
+def upload_file(filepath: Union[Path, str], bucket=config["ISL_BUCKET"], object_name=None):
+    """Upload a file to an S3 bucket
+
+    :param filepath: File to upload
+    :param bucket: destination S3 bucket name
+    :param object_name: S3 object name. If not specified then file_name is used
+    :return: True if file was uploaded, else False
+    """
+    logging.info(f"Uploading {filepath}")
+
+    if isinstance(filepath, Path):
+        filepath = str(filepath)
+
+    # If S3 object_name was not specified, use file_name
+    if object_name is None:
+        object_name = os.path.basename(filepath)
+
+    # Upload the file
+    s3_client.upload_file(filepath, bucket, object_name)
 
 
 def delete_output_files(bucket=None, prefix=None):
