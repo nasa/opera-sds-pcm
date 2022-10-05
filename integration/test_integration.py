@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 import conftest
 from int_test_util import \
@@ -73,7 +74,6 @@ def test_subscriber_s30():
     logging.info("Sleeping for download job execution...")
     sleep_for(300)
     wait_for_download_jobs(job_id)
-
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
