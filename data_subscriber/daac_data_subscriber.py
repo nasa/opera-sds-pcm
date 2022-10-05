@@ -885,14 +885,8 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
 
             logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
-            target_s3 = boto3.resource("s3")
-            target_object = target_s3.Object(bucket, key)
-            result = target_object.put(Body=r.content)
-
-            metadata = result.get('ResponseMetadata')
-
-            if metadata.get('HTTPStatusCode') != 200:
-                return {"failed_download": metadata}
+            s3 = boto3.client("s3")
+            s3.put_object(bucket, key, r.content)
 
             upload_end_time = datetime.utcnow()
             upload_duration = upload_end_time - upload_start_time
