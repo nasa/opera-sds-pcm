@@ -1213,67 +1213,69 @@ resource "aws_instance" "mozart" {
   #}
 
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.hysds_release}\" = \"develop\" ]; then",
-      "  sds -d update mozart -f",
-      "  sds -d update grq -f",
-      "  sds -d update metrics -f",
-      "  sds -d update factotum -f",
-      "else",
-      "  sds -d update mozart -f -c",
-      "  sds -d update grq -f -c",
-      "  sds -d update metrics -f -c",
-      "  sds -d update factotum -f -c",
-      "fi",
-      "echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}",
-      "if [ \"${var.pge_sim_mode}\" = false ]; then",
-      "  sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml",
-      "fi",
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
-      "else",
-      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
-      "fi",
-      "if [ \"${var.grq_aws_es}\" = true ] && [ \"${var.use_grq_aws_es_private_verdi}\" = true ]; then",
-      "  fab -f ~/.sds/cluster.py -R mozart update_celery_config",
-      "fi",
-      "fab -f ~/.sds/cluster.py -R grq update_es_template",
-      "sds -d ship",
-      "cd ~/mozart/pkgs",
-      "sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar",
-      "aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress",
-      "aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress",
-      "aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/ --no-progress",
-      "sds -d reset all -f",
-      "cd ~/mozart/ops/pcm_commons",
-      "pip install --progress-bar off -e .",
-      "cd ~/mozart/ops/opera-pcm",
-      "pip install '.[subscriber]'",  # download dependencies for CLI execution of daac_data_subscriber.py
-      "pip install --progress-bar off -e .",
-      #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
-      # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
-      # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py"
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py",
-      #"fi",
+    inline = [<<-EOT
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+      if [ "${var.hysds_release}" = "develop" ]; then
+        sds -d update mozart -f
+        sds -d update grq -f
+        sds -d update metrics -f
+        sds -d update factotum -f
+      else
+        sds -d update mozart -f -c
+        sds -d update grq -f -c
+        sds -d update metrics -f -c
+        sds -d update factotum -f -c
+      fi
+      echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
+      if [ "${var.pge_sim_mode}" = false ]; then
+        sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
+      fi
+      if [ "${var.use_artifactory}" = true ]; then
+        fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
+      else
+        fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
+      fi
+      if [ "${var.grq_aws_es}" = true ] && [ "${var.use_grq_aws_es_private_verdi}" = true ]; then
+        fab -f ~/.sds/cluster.py -R mozart update_celery_config
+      fi
+      fab -f ~/.sds/cluster.py -R grq update_es_template
+      sds -d ship
+      cd ~/mozart/pkgs
+      sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
+      aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
+      aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
+      aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/ --no-progress
+      sds -d reset all -f
+      cd ~/mozart/ops/pcm_commons
+      pip install --progress-bar off -e .
+      cd ~/mozart/ops/opera-pcm
+      echo # download dependencies for CLI execution of daac_data_subscriber.py
+      pip install '.[subscriber]'
+      pip install --progress-bar off -e .
+      echo #if [[ "$${var.pcm_release}" == "develop"* ]]; then
+      echo # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
+      echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
+      echo #fi
 
-      # create data subscriber Elasticsearch indexes
-      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py",
-      "fi",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py",
+      echo create data subscriber Elasticsearch indexes
+      if [ "${local.delete_old_job_catalog}" = true ]; then
+          python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
+          python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
+      fi
+      python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
+      python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
 
-      # create accountability Elasticsearch index
-      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
-      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
-      "else",
-      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py",
-      "fi",
+      echo create accountability Elasticsearch index
+      if [ "${local.delete_old_job_catalog}" = true ]; then
+          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
+      else
+          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
+      fi
+    EOT
     ]
   }
 
@@ -1336,21 +1338,22 @@ resource "aws_instance" "mozart" {
 
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      // grq
-      "~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}",
-      "~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog",
+    inline = [<<-EOT
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+      echo // grq
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog
 
-      // mozart
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}",
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers",
+      echo // mozart
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers
 
-      // metrics
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}",
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*",
+      echo // metrics
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*
+    EOT
     ]
   }
 
@@ -1370,34 +1373,39 @@ resource "null_resource" "install_pcm_and_pges" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      # build/import opera-pcm
-      "echo Build container",
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
-      "else",
-      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
-      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-      "fi",
-      # build/import CNM product delivery
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-      "    sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-      "    rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-      "else",
-      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
-      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-      "fi",
-      "echo Set up trigger rules",
-      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+
+      echo build/import opera-pcm
+      echo Build container
+
+      if [ "${var.use_artifactory}" = true ]; then
+          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+	      sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+          rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+          fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}"
+      else
+          sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3
+          sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}
+          sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}
+      fi
+
+      echo build/import CNM product delivery
+      if [ "${var.use_artifactory}" = true ]; then
+          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+          sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+          rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+      else
+          sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
+          sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+          sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+      fi
+
+      echo Set up trigger rules
+      sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}
+    EOT
     ]
   }
 }
@@ -1519,22 +1527,26 @@ data "template_file" "launch_template_user_data" {
                   {
                     "file_path": "/data/work/jobs/**/hlsl30_query.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hlsl30_query.log",
-                    "timezone": "Local"
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
                     "file_path": "/data/work/jobs/**/hlss30_query.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hlss30_query.log",
-                    "timezone": "Local"
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
                     "file_path": "/data/work/jobs/**/hls_download.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hls_download.log",
-                    "timezone": "Local"
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
                     "file_path": "/data/work/jobs/**/run_pcm_int.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_pcm_int.log",
-                    "timezone": "Local"
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
                     "file_path": "/data/work/jobs/**/run_on_demand.log",
