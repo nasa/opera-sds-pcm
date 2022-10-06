@@ -1090,25 +1090,13 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
         return {"failed_download": e}
 
 
-def _handle_url_redirect(session, url, headers, is_s3=False):
-    if url.startswith("/"):
-        url = "https://sentinel1.asf.alaska.edu" + url
+def _handle_url_redirect(session, url, headers):
+    response = session.get(url, headers=headers, allow_redirects=False)
 
-    if not validators.url(url):
-        raise Exception(f"Malformed URL: {url}")
-
-    if is_s3:
-        del headers['Authorization']
-        response = session.get(url, headers=headers, auth=NullAuth(), allow_redirects=False)
-    else:
-        response = session.get(url, headers=headers, allow_redirects=False)
-
-    if str(response.status_code).startswith("3"):
+    if response.is_redirect:
         redirect_url = response.headers["Location"]
         logging.info(f"Redirecting to {redirect_url}")
-
-        is_s3 = "cloudfront" not in redirect_url and "s3.us-west-2.amazonaws.com" in redirect_url
-        response = _handle_url_redirect(session, redirect_url, headers, is_s3=is_s3)
+        response = session.get(url, headers=headers, allow_redirects=True)
 
     return response
 
