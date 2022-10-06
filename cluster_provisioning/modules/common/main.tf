@@ -1554,24 +1554,16 @@ data "template_file" "launch_template_user_data" {
                     "timezone": "Local"
                   },
                   {
-                    "file_path": "/data/work/jobs/**/purge_isl.log",
-                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/purge_isl.log",
-                    "timezone": "Local"
-                  },
-                  {
-                    "file_path": "/data/work/jobs/**/create_accountability_report.log",
-                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/create_accountability_report.log",
-                    "timezone": "Local"
-                  },
-                  {
                     "file_path": "/data/work/jobs/**/run_sciflo_L3_HLS.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_HLS.log",
-                    "timezone": "Local"
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S"
                   },
                   {
-                    "file_path": "/data/work/jobs/**/run_sciflo_L3_HLS.log",
+                    "file_path": "/data/work/jobs/**/run_sciflo_L2_CSLC_S1.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L2_CSLC_S1.log",
-                    "timezone": "Local"
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S"
                   }
                 ]
               }
