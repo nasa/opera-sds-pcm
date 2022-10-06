@@ -693,8 +693,8 @@ def _request_search(args, request_url, params, search_after=None):
 def _filter_granules(granule, args):
     collection_map = {"HLSL30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
                       "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-                      "SENTINEL-1A_SLC": ["zip"],
-                      "SENTINEL-1B_SLC": ["zip"],
+                      "SENTINEL-1A_SLC": ["IW"],
+                      "SENTINEL-1B_SLC": ["IW"],
                       "DEFAULT": ["tif"]}
     filter_extension = "DEFAULT"
 
