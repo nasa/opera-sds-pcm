@@ -795,7 +795,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(session, es_conn, download_urls, args, token, job_id)
+        _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
@@ -855,7 +855,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id):
+def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
@@ -871,7 +871,7 @@ def _upload_url_list_from_https(session, es_conn, downloads, args, token, job_id
                 if args.dry_run:
                     pass
                 else:
-                    result = _https_transfer(url, args.isl_bucket, session, token)
+                    result = _https_transfer(url, args.isl_bucket, token)
                     if "failed_download" in result:
                         raise Exception(result["failed_download"])
                     else:
@@ -1034,7 +1034,9 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path) -> Path:
     headers = {"Echo-Token": token}
-    with _handle_url_redirect(session, url, headers) as r:
+    logging.info(f"Requesting from {url}")
+
+    with session.get(url, headers=headers) as r:
         r.raise_for_status()
 
         file_name = PurePath(url).name
@@ -1054,15 +1056,16 @@ def download_product_using_s3(url, session: requests.Session, target_dirpath: Pa
     return product_download_path.resolve()
 
 
-def _https_transfer(url, bucket_name, session, token, staging_area=""):
+def _https_transfer(url, bucket_name, token, staging_area=""):
     file_name = PurePath(url).name
     bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
     key = Path(staging_area, file_name).name
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+
     upload_start_time = datetime.utcnow()
 
     try:
-        with _handle_url_redirect(session, url, headers) as r:
+        logging.info(f"Requesting from {url}")
+        with _handle_url_redirect(url, token) as r:
             if r.status_code != 200:
                 r.raise_for_status()
 
@@ -1090,13 +1093,18 @@ def _https_transfer(url, bucket_name, session, token, staging_area=""):
         return {"failed_download": e}
 
 
-def _handle_url_redirect(session, url, headers):
-    response = session.get(url, headers=headers, allow_redirects=False)
+def _handle_url_redirect(url, token):
+    s = requests.Session()
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    s.headers = headers
+
+    response = s.get(url, allow_redirects=False)
 
     if response.is_redirect:
         redirect_url = response.headers["Location"]
         logging.info(f"Redirecting to {redirect_url}")
-        response = session.get(url, headers=headers, allow_redirects=True)
+        return s.get(url, allow_redirects=True)
 
     return response
 
