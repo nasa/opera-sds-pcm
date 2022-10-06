@@ -1107,7 +1107,7 @@ def _handle_url_redirect(session, url, headers, is_s3=False):
         redirect_url = response.headers["Location"]
         logging.info(f"Redirecting to {redirect_url}")
 
-        is_s3 = "s3" in redirect_url and "amazonaws" in redirect_url
+        is_s3 = "cloudfront" not in redirect_url and "s3.us-west-2.amazonaws.com" in redirect_url
         response = _handle_url_redirect(session, redirect_url, headers, is_s3=is_s3)
 
     return response
