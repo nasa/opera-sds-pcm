@@ -1525,20 +1525,20 @@ data "template_file" "launch_template_user_data" {
                     "timezone": "UTC"
                   },
                   {
-                    "file_path": "/data/work/jobs/**/hlsl30_query.log",
-                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hlsl30_query.log",
+                    "file_path": "/data/work/jobs/**/run_hlsl30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hlsl30_query.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
-                    "file_path": "/data/work/jobs/**/hlss30_query.log",
-                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hlss30_query.log",
+                    "file_path": "/data/work/jobs/**/run_hlss30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hlss30_query.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
-                    "file_path": "/data/work/jobs/**/hls_download.log",
-                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/hls_download.log",
+                    "file_path": "/data/work/jobs/**/run_hls_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hls_download.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
