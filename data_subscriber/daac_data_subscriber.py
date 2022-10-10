@@ -14,6 +14,8 @@ import re
 import shutil
 import sys
 import uuid
+import asf_search
+
 from collections import namedtuple, defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -795,7 +797,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
+        _upload_url_list_from_https(es_conn, download_urls, args, username, password, job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
@@ -855,7 +857,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
+def _upload_url_list_from_https(es_conn, downloads, args, username, password, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
@@ -871,7 +873,7 @@ def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
                 if args.dry_run:
                     pass
                 else:
-                    result = _https_transfer(url, args.isl_bucket, token)
+                    result = _https_transfer(url, args.isl_bucket, username, password)
                     if "failed_download" in result:
                         raise Exception(result["failed_download"])
                     else:
@@ -1056,7 +1058,7 @@ def download_product_using_s3(url, s: requests.Session, target_dirpath: Path, ar
     return product_download_path.resolve()
 
 
-def _https_transfer(url, bucket_name, token, staging_area=""):
+def _https_transfer(url, bucket_name, username, password, staging_area=""):
     file_name = PurePath(url).name
     bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
     key = Path(staging_area, file_name).name
@@ -1065,46 +1067,48 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
 
     try:
         logging.info(f"Requesting from {url}")
-        with _handle_url_redirect(url, token) as r:
-            if r.status_code != 200:
-                r.raise_for_status()
+        #with _handle_url_redirect(url, username, password) as r:
+            #if r.status_code != 200:
+                #r.raise_for_status()
 
-            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
+        logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
-            with open("https.tmp", "wb") as file:
-                file.write(r.content)
+            #with open("https.tmp", "wb") as file:
+                #file.write(r.content)
+        s = asf_search.ASFSession()
+        s.auth_with_creds(username, password)
+        asf_search.download_url(url, "https.tmp", session=s)
 
-            with open("https.tmp", "rb") as file:
-                s3 = boto3.client("s3")
-                s3.upload_fileobj(file, bucket, key)
+        with open("https.tmp", "rb") as file:
+            s3 = boto3.client("s3")
+            s3.upload_fileobj(file, bucket, key)
 
-            upload_end_time = datetime.utcnow()
-            upload_duration = upload_end_time - upload_start_time
-            upload_stats = {"file_name": file_name,
-                            "file_size (in bytes)": r.headers.get('Content-Length'),
-                            "upload_duration (in seconds)": upload_duration.total_seconds(),
-                            "upload_start_time": _convert_datetime(upload_start_time),
-                            "upload_end_time": _convert_datetime(upload_end_time)}
-            logging.debug(f"{upload_stats=}")
+        upload_end_time = datetime.utcnow()
+        upload_duration = upload_end_time - upload_start_time
+        upload_stats = {"file_name": file_name,
+                        #"file_size (in bytes)": r.headers.get('Content-Length'),
+                        "upload_duration (in seconds)": upload_duration.total_seconds(),
+                        "upload_start_time": _convert_datetime(upload_start_time),
+                        "upload_end_time": _convert_datetime(upload_end_time)}
+        logging.debug(f"{upload_stats=}")
 
-            return upload_stats
+        return upload_stats
     except (Exception, ConnectionResetError, requests.exceptions.HTTPError) as e:
         logging.error(e)
         return {"failed_download": e}
 
 
-def _handle_url_redirect(url, token, is_s3=False):
+def _handle_url_redirect(url, username, password, is_s3=False):
     s = requests.Session()
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    s.auth = (username, password)
 
     if not validators.url(url):
         raise Exception(f"Malformed URL: {url}")
 
     if is_s3:
-        del headers['Authorization']
-        response = s.get(url, headers=headers, auth=NullAuth(), allow_redirects=False)
+        response = s.get(url, auth=NullAuth(), allow_redirects=False)
     else:
-        response = s.get(url, headers=headers,  allow_redirects=False)
+        response = s.get(url, allow_redirects=False)
 
     if response.is_redirect:
         redirect_url = response.headers["Location"]
@@ -1113,7 +1117,7 @@ def _handle_url_redirect(url, token, is_s3=False):
         logging.info(f"Redirecting to {redirect_url}")
 
         is_s3_url = "cloudfront" not in redirect_url and "s3.us-west-2.amazonaws.com" in redirect_url
-        response = _handle_url_redirect(redirect_url, token, is_s3=is_s3_url)
+        response = _handle_url_redirect(redirect_url, username, password, is_s3=is_s3_url)
 
     return response
 
