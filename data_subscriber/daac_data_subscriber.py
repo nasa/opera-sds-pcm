@@ -43,23 +43,6 @@ from util.conf_util import SettingsConf
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 
-class NullAuth(requests.auth.AuthBase):
-    '''force requests to ignore the ``.netrc``
-
-    Some sites do not support regular authentication, but we still
-    want to store credentials in the ``.netrc`` file and submit them
-    as form elements. Without this, requests would otherwise use the
-    .netrc which leads, on some sites, to a 401 error.
-
-    Use with::
-
-        requests.get(url, auth=NullAuth())
-    '''
-
-    def __call__(self, r):
-        return r
-
-
 class SessionWithHeaderRedirection(requests.Session):
     """
     Borrowed from https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
@@ -790,24 +773,24 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.batch_ids = args.batch_ids[:1]
 
-    session = SessionWithHeaderRedirection(username, password, netloc)
+    s = SessionWithHeaderRedirection(username, password, netloc)
 
     if args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_asf(es_conn, download_urls, args, username, password, job_id)
+        _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
+        download_granules(s, es_conn, granule_id_to_download_urls_map, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, None, job_id)
+        download_granules(s, es_conn, granule_id_to_download_urls_map, args, None, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
 
@@ -855,7 +838,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_asf(es_conn, downloads, args, username, password, job_id):
+def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
     num_successes = num_failures = num_skipped = 0
     filtered_downloads = [f for f in downloads if "https://" in f]
 
@@ -871,7 +854,7 @@ def _upload_url_list_from_asf(es_conn, downloads, args, username, password, job_
                 if args.dry_run:
                     pass
                 else:
-                    result = _asf_transfer(url, args.isl_bucket, username, password)
+                    result = _https_transfer(url, args.isl_bucket, token)
                     if "failed_download" in result:
                         raise Exception(result["failed_download"])
                     else:
@@ -891,7 +874,7 @@ def _upload_url_list_from_asf(es_conn, downloads, args, username, password, job_
 
 
 def download_granules(
-        session: requests.Session,
+        s: requests.Session,
         es_conn,
         granule_id_to_product_urls_map: dict[str, list[str]],
         args,
@@ -926,7 +909,7 @@ def download_granules(
                 if args.dry_run:
                     logging.debug(f"{args.dry_run=}. Skipping download.")
                     break
-                product_filepath = download_product(product_url, session, token, args, granule_download_dir)
+                product_filepath = download_product(product_url, s, token, args, granule_download_dir)
                 products.append(product_filepath)
                 product_urls_downloaded.append(product_url)
             logging.info(f"{products=}")
@@ -949,18 +932,18 @@ def download_granules(
     shutil.rmtree(downloads_dir)
 
 
-def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
+def download_product(product_url, s: requests.Session, token: str, args, target_dirpath: Path):
     if args.transfer_protocol.lower() == "https":
         product_filepath = download_product_using_https(
             product_url,
-            session,
+            s,
             token,
             target_dirpath=target_dirpath.resolve()
         )
     elif args.transfer_protocol.lower() == "s3":
         product_filepath = download_product_using_s3(
             product_url,
-            session,
+            s,
             target_dirpath=target_dirpath.resolve(),
             args=args
         )
@@ -1032,11 +1015,11 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     shutil.rmtree(extracts_dir)
 
 
-def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path) -> Path:
+def download_product_using_https(url, s: requests.Session, token, target_dirpath: Path) -> Path:
     headers = {"Echo-Token": token}
     logging.info(f"Requesting from {url}")
 
-    with session.get(url, headers=headers) as r:
+    with s.get(url, headers=headers) as r:
         r.raise_for_status()
 
         file_name = PurePath(url).name
@@ -1046,17 +1029,17 @@ def download_product_using_https(url, session: requests.Session, token, target_d
         return product_download_path.resolve()
 
 
-def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
-    aws_creds = _get_aws_creds(session)
+def download_product_using_s3(url, s: requests.Session, target_dirpath: Path, args) -> Path:
+    aws_creds = _get_aws_creds(s)
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
-                       aws_session_token=aws_creds['sessionToken'],
+                       aws_s_token=aws_creds['sessionToken'],
                        region_name='us-west-2').client("s3")
     product_download_path = _s3_download(url, s3, str(target_dirpath))
     return product_download_path.resolve()
 
 
-def _asf_transfer(url, bucket_name, username, password, staging_area=""):
+def _https_transfer(url, bucket_name, token, staging_area=""):
     file_name = PurePath(url).name
     bucket = bucket_name[len("s3://"):] if bucket_name.startswith("s3://") else bucket_name
     key = Path(staging_area, file_name).name
@@ -1065,42 +1048,49 @@ def _asf_transfer(url, bucket_name, username, password, staging_area=""):
 
     try:
         logging.info(f"Requesting from {url}")
-        logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
+        with _handle_url_redirect(url, token) as r:
+            if r.status_code != 200:
+                r.raise_for_status()
 
-        s = asf_search.ASFSession()
-        s.auth_with_creds(username, password)
-        asf_search.download_url(url, "https.tmp", session=s)
+            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
-        with open("https.tmp", "rb") as file:
-            s3 = boto3.client("s3")
-            s3.upload_fileobj(file, bucket, key)
+            with open("https.tmp", "wb") as file:
+                file.write(r.content)
 
-        upload_end_time = datetime.utcnow()
-        upload_duration = upload_end_time - upload_start_time
-        upload_stats = {"file_name": file_name,
-                        "upload_duration (in seconds)": upload_duration.total_seconds(),
-                        "upload_start_time": _convert_datetime(upload_start_time),
-                        "upload_end_time": _convert_datetime(upload_end_time)}
-        logging.debug(f"{upload_stats=}")
+            with open("https.tmp", "rb") as file:
+                s3 = boto3.client("s3")
+                s3.upload_fileobj(file, bucket, key)
 
-        return upload_stats
+            upload_end_time = datetime.utcnow()
+            upload_duration = upload_end_time - upload_start_time
+            upload_stats = {"file_name": file_name,
+                            "file_size (in bytes)": r.headers.get('Content-Length'),
+                            "upload_duration (in seconds)": upload_duration.total_seconds(),
+                            "upload_start_time": _convert_datetime(upload_start_time),
+                            "upload_end_time": _convert_datetime(upload_end_time)}
+            logging.debug(f"{upload_stats=}")
+
+            return upload_stats
     except (Exception, ConnectionResetError, requests.exceptions.HTTPError) as e:
         logging.error(e)
         return {"failed_download": e}
 
 
 def _handle_url_redirect(url, token):
+    if not validators.url(url):
+        raise Exception(f"Malformed URL: {url}")
+
     s = requests.Session()
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-
-    response = s.get(url, allow_redirects=False)
+    response = s.get(url, headers=headers, allow_redirects=False)
 
     if response.is_redirect:
         redirect_url = response.headers["Location"]
         logging.info(f"Redirecting to {redirect_url}")
-        return s.get(url, allow_redirects=True)
 
-    return response
+        return s.get(redirect_url, allow_redirects=True)
+    else:
+        return response
 
 
 def _convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
@@ -1116,8 +1106,8 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _get_aws_creds(session):
-    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+def _get_aws_creds(s):
+    with s.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
         if r.status_code != 200:
             r.raise_for_status()
 

@@ -38,8 +38,7 @@ setup(
             "pyproj",
 
             "python-dateutil",
-            'validators',
-            'asf_search'
+            'validators'
         ],
         'subscriber': [
             'boto3',
@@ -48,8 +47,7 @@ setup(
             'elasticsearch[async]>=7.13.4',
             'more-itertools==8.13.0',
             'requests==2.27.1',
-            'validators',
-            'asf_search'
+            'validators'
         ],
         'test': [
             'prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz',
@@ -75,8 +73,7 @@ setup(
             'pytest-cov==3.0.0',
             'mgrs',
             'pyproj',
-            'validators',
-            'asf_search'
+            'validators'
         ],
         'integration': [
             'pytest==7.1.1',
