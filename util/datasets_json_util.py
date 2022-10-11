@@ -30,6 +30,13 @@ def find_s3_bucket(datasets_json, dataset_type):
     return PurePath(publish_location).parts[2]
 
 
+def find_region(datasets_json, dataset_type):
+    """Extracts the region from the publish location. See find_publish_location_s3
+    """
+    publish_location = find_publish_location_s3(datasets_json, dataset_type)
+    return PurePath(publish_location.parts[1].split()[0]).with_suffix("").with_suffix("")
+
+
 def find_s3_url(datasets_json, dataset_type):
     """Example url: "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}"
     """
