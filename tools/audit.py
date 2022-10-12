@@ -81,7 +81,7 @@ search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", s
 queried_or_downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 logging.debug(pstr(queried_or_downloaded_files))
 
-logging.debug(f'Data queried or downloaded (files): {len(search_results)=}')
+logging.info(f'Data queried or downloaded (files): {len(search_results)=}')
 logging.debug(pstr(queried_or_downloaded_files))
 
 body = get_body()
@@ -90,7 +90,7 @@ body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
 search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10000))
 downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 
-logging.debug(f'Data downloaded (files): {len(search_results)=}')
+logging.info(f'Data downloaded (files): {len(search_results)=}')
 logging.debug(pstr(downloaded_files))
 
 downloaded_granules = more_itertools.map_reduce(
@@ -98,7 +98,7 @@ downloaded_granules = more_itertools.map_reduce(
     lambda k: PurePath(k).with_suffix("").name
 )
 downloaded_granules = set(downloaded_granules.keys())
-logging.debug(f'Data downloaded (granules): {len(search_results)=}')
+logging.info(f'Data downloaded (granules): {len(downloaded_granules)=}')
 logging.debug(pstr(downloaded_granules))
 
 missing_download_files = queried_or_downloaded_files - downloaded_files
