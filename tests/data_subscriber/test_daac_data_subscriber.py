@@ -665,7 +665,7 @@ def mock_get_aws_creds(monkeypatch):
 def mock_https_transfer(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber._asf_transfer.__name__,
+        data_subscriber.daac_data_subscriber._https_transfer.__name__,
         lambda *args, **kwargs: {}
     )
 
