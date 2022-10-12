@@ -778,13 +778,41 @@ resource "aws_instance" "mozart" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.mozart["private_ip"] != "" ? var.mozart["private_ip"] : null
-  user_data            = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
+
               FACTOTUMIP=${aws_instance.factotum.private_ip}
               GRQIP=${aws_instance.grq.private_ip}
               METRICSIP=${aws_instance.metrics.private_ip}
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
     Bravo = "pcm"
@@ -1185,73 +1213,75 @@ resource "aws_instance" "mozart" {
   #}
 
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.hysds_release}\" = \"develop\" ]; then",
-      "  sds -d update mozart -f",
-      "  sds -d update grq -f",
-      "  sds -d update metrics -f",
-      "  sds -d update factotum -f",
-      "else",
-      "  sds -d update mozart -f -c",
-      "  sds -d update grq -f -c",
-      "  sds -d update metrics -f -c",
-      "  sds -d update factotum -f -c",
-      "fi",
-      "echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}",
-      "if [ \"${var.pge_sim_mode}\" = false ]; then",
-      "  sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml",
-      "fi",
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
-      "else",
-      "  fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages",
-      "fi",
-      "if [ \"${var.grq_aws_es}\" = true ] && [ \"${var.use_grq_aws_es_private_verdi}\" = true ]; then",
-      "  fab -f ~/.sds/cluster.py -R mozart update_celery_config",
-      "fi",
-      "fab -f ~/.sds/cluster.py -R grq update_es_template",
-      "sds -d ship",
-      "cd ~/mozart/pkgs",
-      "sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar",
-      "aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress",
-      "aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress",
-      "aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/ --no-progress",
-      "sds -d reset all -f",
-      "cd ~/mozart/ops/pcm_commons",
-      "pip install --progress-bar off -e .",
-      "cd ~/mozart/ops/opera-pcm",
-      "pip install '.[subscriber]'",  # download dependencies for CLI execution of daac_data_subscriber.py
-      "pip install --progress-bar off -e .",
-      #"if [[ \"${var.pcm_release}\" == \"develop\"* ]]; then",
-      # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
-      # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py"
-      #"    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py",
-      #"fi",
+    inline = [<<-EOT
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+      if [ "${var.hysds_release}" = "develop" ]; then
+        sds -d update mozart -f
+        sds -d update grq -f
+        sds -d update metrics -f
+        sds -d update factotum -f
+      else
+        sds -d update mozart -f -c
+        sds -d update grq -f -c
+        sds -d update metrics -f -c
+        sds -d update factotum -f -c
+      fi
+      echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
+      if [ "${var.pge_sim_mode}" = false ]; then
+        sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
+      fi
+      if [ "${var.use_artifactory}" = true ]; then
+        fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
+      else
+        fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
+      fi
+      if [ "${var.grq_aws_es}" = true ] && [ "${var.use_grq_aws_es_private_verdi}" = true ]; then
+        fab -f ~/.sds/cluster.py -R mozart update_celery_config
+      fi
+      fab -f ~/.sds/cluster.py -R grq update_es_template
+      sds -d ship
+      cd ~/mozart/pkgs
+      sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
+      aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
+      aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
+      aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/ --no-progress
+      sds -d reset all -f
+      cd ~/mozart/ops/pcm_commons
+      pip install --progress-bar off -e .
+      cd ~/mozart/ops/opera-pcm
+      echo # download dependencies for CLI execution of daac_data_subscriber.py
+      pip install '.[subscriber]'
+      pip install --progress-bar off -e .
+      echo #if [[ "$${var.pcm_release}" == "develop"* ]]; then
+      echo # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
+      echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
+      echo #fi
 
-      # create data subscriber Elasticsearch indexes
-      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py",
-      "    python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py",
-      "fi",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py",
-      "python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py",
+      echo create data subscriber Elasticsearch indexes
+      if [ "${local.delete_old_job_catalog}" = true ]; then
+          python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
+          python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
+      fi
+      python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
+      python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
 
-      # create accountability Elasticsearch index
-      "if [ \"${local.delete_old_job_catalog}\" = true ]; then",
-      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog",
-      "else",
-      "    python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py",
-      "fi",
+      echo create accountability Elasticsearch index
+      if [ "${local.delete_old_job_catalog}" = true ]; then
+          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
+      else
+          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
+      fi
+    EOT
     ]
   }
 
   # deploy PGEs
   provisioner "remote-exec" {
-    inline = [<<-EOF
+    inline = [<<-EOT
       set -ex
       source ~/.bash_profile
       %{ for pge_name, pge_version in var.pge_releases ~}
@@ -1282,13 +1312,13 @@ resource "aws_instance" "mozart" {
       sds -d cloud storage ship_style --bucket ${local.osl_bucket}
       sds -d cloud storage ship_style --bucket ${local.triage_bucket}
       sds -d cloud storage ship_style --bucket ${local.lts_bucket}
-    EOF
+    EOT
     ]
   }
 
   # Get test data from the artifactory and put into tests directory
   provisioner "remote-exec" {
-    inline = [<<-EOF
+    inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
       set -ex
       source ~/.bash_profile
@@ -1302,27 +1332,28 @@ resource "aws_instance" "mozart" {
            -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/slc_l1.tar.gz
       cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
       tar xfz slc_l1.tar.gz
-    EOF
+    EOT
     ]
   }
 
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      // grq
-      "~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}",
-      "~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog",
+    inline = [<<-EOT
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+      echo // grq
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog
 
-      // mozart
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}",
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers",
+      echo // mozart
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers
 
-      // metrics
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}",
-      "~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*",
+      echo // metrics
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*
+    EOT
     ]
   }
 
@@ -1342,34 +1373,39 @@ resource "null_resource" "install_pcm_and_pges" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "source ~/.bash_profile",
-      # build/import opera-pcm
-      "echo Build container",
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-	  "    sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-      "    rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar",
-      "    fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:\"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}\"",
-      "else",
-      "    sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3",
-      "    sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-      "    sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}",
-      "fi",
-      # build/import CNM product delivery
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "    ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-      "    sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-      "    rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar",
-      "else",
-      "    sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3",
-      "    sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-      "    sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}",
-      "fi",
-      "echo Set up trigger rules",
-      "sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}"
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      source ~/.bash_profile
+
+      echo build/import opera-pcm
+      echo Build container
+
+      if [ "${var.use_artifactory}" = true ]; then
+          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+	      sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+          rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+          fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}"
+      else
+          sds -d ci add_job -b ${var.pcm_branch} --token https://${var.pcm_repo} s3
+          sds -d ci build_job -b ${var.pcm_branch} https://${var.pcm_repo}
+          sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}
+      fi
+
+      echo build/import CNM product delivery
+      if [ "${var.use_artifactory}" = true ]; then
+          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+          sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+          rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+      else
+          sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
+          sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+          sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+      fi
+
+      echo Set up trigger rules
+      sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}
+    EOT
     ]
   }
 }
@@ -1463,11 +1499,80 @@ data "aws_subnet_ids" "public_asg_vpc" {
 
 data "template_file" "launch_template_user_data" {
   for_each = var.queues
-  template = <<-EOF
+  template = <<-EOT
+        #!/bin/bash
+
         BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2
         PROJECT=${var.project}
         ENVIRONMENT=${var.environment}
-        EOF
+
+        echo "PASS" >> /tmp/user_data_test.txt
+
+        mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+        touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        echo '{
+          "agent": {
+            "metrics_collection_interval": 10,
+            "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+          },
+          "logs": {
+            "logs_collected": {
+              "files": {
+                "collect_list": [
+                  {
+                    "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                    "timezone": "UTC"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_hlsl30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hlsl30_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_hlss30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hlss30_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_hls_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hls_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_pcm_int.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_pcm_int.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_on_demand.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_on_demand.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_sciflo_L3_HLS.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_HLS.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_sciflo_L2_CSLC_S1.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L2_CSLC_S1.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S"
+                  }
+                ]
+              }
+            },
+            "force_flush_interval" : 15
+          }
+        }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        EOT
 }
 
 resource "aws_launch_template" "launch_template" {
@@ -1477,7 +1582,7 @@ resource "aws_launch_template" "launch_template" {
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
-  user_data              = base64encode("BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2")
+  user_data              = base64encode(data.template_file.launch_template_user_data[each.key].rendered)
   vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
@@ -1628,10 +1733,38 @@ resource "aws_instance" "metrics" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.metrics["private_ip"] != "" ? var.metrics["private_ip"] : null
-  user_data              = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
+
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
     Bravo = "pcm"
@@ -1698,10 +1831,37 @@ resource "aws_instance" "grq" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.grq["private_ip"] != "" ? var.grq["private_ip"] : null
-  user_data              = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
     Bravo = "pcm"
@@ -1778,10 +1938,38 @@ resource "aws_instance" "factotum" {
   availability_zone    = var.az
   iam_instance_profile = var.pcm_cluster_role["name"]
   private_ip           = var.factotum["private_ip"] != "" ? var.factotum["private_ip"] : null
-  user_data              = <<-EOF
+  user_data            = <<-EOT
+              #!/bin/bash
+
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
-              EOF
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
     Bravo = "pcm"
