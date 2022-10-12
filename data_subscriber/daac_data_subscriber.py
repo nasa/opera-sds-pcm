@@ -1048,29 +1048,29 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
 
     try:
         logging.info(f"Requesting from {url}")
-        with _handle_url_redirect(url, token) as r:
-            if r.status_code != 200:
-                r.raise_for_status()
+        r =_handle_url_redirect(url, token)
+        if r.status_code != 200:
+            r.raise_for_status()
 
-            logging.debug("Uploading {} to Bucket={}, Key={}".format(file_name, bucket, key))
 
-            with open("https.tmp", "wb") as file:
-                file.write(r.content)
+        with open("https.tmp", "wb") as file:
+            file.write(r.content)
 
-            with open("https.tmp", "rb") as file:
-                s3 = boto3.client("s3")
-                s3.upload_fileobj(file, bucket, key)
+        logging.info(f"Uploading {file_name} to {bucket=}, {key=}")
+        with open("https.tmp", "rb") as file:
+            s3 = boto3.client("s3")
+            s3.upload_fileobj(file, bucket, key)
 
-            upload_end_time = datetime.utcnow()
-            upload_duration = upload_end_time - upload_start_time
-            upload_stats = {"file_name": file_name,
-                            "file_size (in bytes)": r.headers.get('Content-Length'),
-                            "upload_duration (in seconds)": upload_duration.total_seconds(),
-                            "upload_start_time": _convert_datetime(upload_start_time),
-                            "upload_end_time": _convert_datetime(upload_end_time)}
-            logging.debug(f"{upload_stats=}")
+        upload_end_time = datetime.utcnow()
+        upload_duration = upload_end_time - upload_start_time
+        upload_stats = {"file_name": file_name,
+                        "file_size (in bytes)": r.headers.get('Content-Length'),
+                        "upload_duration (in seconds)": upload_duration.total_seconds(),
+                        "upload_start_time": _convert_datetime(upload_start_time),
+                        "upload_end_time": _convert_datetime(upload_end_time)}
+        logging.debug(f"{upload_stats=}")
 
-            return upload_stats
+        return upload_stats
     except (Exception, ConnectionResetError, requests.exceptions.HTTPError) as e:
         logging.error(e)
         return {"failed_download": e}
@@ -1080,17 +1080,10 @@ def _handle_url_redirect(url, token):
     if not validators.url(url):
         raise Exception(f"Malformed URL: {url}")
 
-    s = requests.Session()
+    r = requests.get(url, allow_redirects=False)
+
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    response = s.get(url, headers=headers, allow_redirects=False)
-
-    if response.is_redirect:
-        redirect_url = response.headers["Location"]
-        logging.info(f"Redirecting to {redirect_url}")
-
-        return s.get(redirect_url, allow_redirects=True)
-    else:
-        return response
+    return requests.get(r.headers["Location"], headers=headers, allow_redirects=True)
 
 
 def _convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
