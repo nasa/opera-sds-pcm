@@ -21,7 +21,7 @@ date
 
 # Forward processing use case; query previous 60 minutes
 echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p LPCLOUD -c HLSL30 $* 2>&1"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p LPCLOUD -c HLSL30 $* 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p LPCLOUD -c HLSL30 $* > run_hlsl30_query.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

@@ -131,8 +131,6 @@ pip install -e '.[integration]'
 set +e
 pytest --maxfail=2 --numprocesses=auto \
   integration/test_integration.py::test_slc \
-  integration/test_integration.py::test_l30 \
-  integration/test_integration.py::test_s30 \
   integration/test_integration.py::test_subscriber_l30 \
   integration/test_integration.py::test_subscriber_s30
 set -e

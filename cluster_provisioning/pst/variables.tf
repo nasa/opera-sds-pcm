@@ -217,7 +217,7 @@ variable "daac_delivery_proxy" {
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
-variable "use_daac_cnm" {
+variable "use_daac_cnm_r" {
   type = bool
 #  default = false
   default = true
@@ -337,6 +337,11 @@ variable "pge_names" {
 
 variable "pge_release" {
   default = "1.0.0-rc.2.0"
+}
+
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
 }
 
 variable "crid" {
