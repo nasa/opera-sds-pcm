@@ -1,11 +1,12 @@
 VENUE: '{{VENUE}}'
 PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
-# for OPS 
+# for OPS
 #DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_1.0"
 # for PST (CalVal products)
 DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 CSLC_COLLECTION_NAME: "OPERA_L2_CSLC_S1_1.0"
+RTC_COLLECTION_NAME: "OPERA_L2_RTC_S1_0.0"
 
 DSWX_HLS_PRODUCT_VERSION: "0.0"
 CSLC_S1_PRODUCT_VERSION: "1.0"
@@ -150,6 +151,18 @@ PRODUCT_TYPES:
         Configuration:
             Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
             Date_Time_Keys: ['acquisition_ts', 'creation_ts']
+        Dataset_Keys: {}
+
+    L2_RTC_S1:
+        # Pattern for parsing output L2_RTC_S1 product filenames, such as:
+        # OPERA_L2_RTC_S1_t069_147170_iw1_20220913T215519Z_20220913T215519Z_S1A_30_v0.1.nc
+        # This pattern groups the metadata information in the filename using named groups.
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)_(?P<source>S1)_(?P<burst_id>\w{4}_\w{6}_\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>tif|tiff|nc)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+          Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
+          Date_Time_Keys: ['acquisition_ts', 'creation_ts']
         Dataset_Keys: {}
 
     L3_DSWx_HLS:
