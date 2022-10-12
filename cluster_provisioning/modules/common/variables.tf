@@ -358,7 +358,7 @@ variable "queues" {
       "use_private_vpc" = false
     }
     "opera-job_worker-slc_data_download" = {
-      "instance_type" = ["c5n.large", "m5dn.large"]
+      "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "min_size"      = 0

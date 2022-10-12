@@ -1048,10 +1048,9 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
 
     try:
         logging.info(f"Requesting from {url}")
-        r =_handle_url_redirect(url, token)
+        r = _handle_url_redirect(url, token)
         if r.status_code != 200:
             r.raise_for_status()
-
 
         with open("https.tmp", "wb") as file:
             file.write(r.content)
