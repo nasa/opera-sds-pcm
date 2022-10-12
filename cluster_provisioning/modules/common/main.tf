@@ -37,6 +37,10 @@ locals {
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
 
+  slc_download_job_type             = "slc_download"
+  slcs1a_query_job_type             = "slcs1a_query"
+  slcs1b_query_job_type             = "slcs1b_query"
+
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
@@ -2285,4 +2289,177 @@ resource "aws_lambda_permission" "hlss30_query_timer" {
   principal = "events.amazonaws.com"
   source_arn = aws_cloudwatch_event_rule.hlss30_query_timer.arn
   function_name = aws_lambda_function.hlss30_query_timer.function_name
+}
+resource "aws_lambda_function" "slc_download_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will create a Data Subscriber"
+  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
+      "JOB_TYPE": local.slc_download_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "ENDPOINT": "OPS",
+      "SMOKE_RUN": "true",
+      "DRY_RUN": "true"
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "slc_download_timer" {
+  depends_on = [aws_lambda_function.slc_download_timer]
+  name = "/aws/lambda/${aws_lambda_function.slc_download_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+resource "aws_cloudwatch_event_rule" "slc_download_timer" {
+  name = "${aws_lambda_function.slc_download_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.slc_download_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
+}
+
+resource "aws_cloudwatch_event_target" "slc_download_timer" {
+  rule = aws_cloudwatch_event_rule.slc_download_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.slc_download_timer.arn
+}
+
+resource "aws_lambda_permission" "slc_download_timer" {
+  statement_id = aws_cloudwatch_event_rule.slc_download_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.slc_download_timer.arn
+  function_name = aws_lambda_function.slc_download_timer.function_name
+}
+
+resource "aws_lambda_function" "slcs1a_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query HLSL30 data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-slcs1a-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-slc_data_query",
+      "JOB_TYPE": local.slcs1a_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "MINUTES": var.slcs1a_query_timer_trigger_frequency,
+      "PROVIDER": var.slc_provider,
+      "ENDPOINT": "OPS",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
+      "CHUNK_SIZE": "80",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "slcs1a_query_timer" {
+  depends_on = [aws_lambda_function.slcs1a_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.slcs1a_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "slcs1a_query_timer" {
+  name = "${aws_lambda_function.slcs1a_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.slcs1a_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
+}
+
+resource "aws_cloudwatch_event_target" "slcs1a_query_timer" {
+  rule = aws_cloudwatch_event_rule.slcs1a_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.slcs1a_query_timer.arn
+}
+
+resource "aws_lambda_permission" "slcs1a_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.slcs1a_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.slcs1a_query_timer.arn
+  function_name = aws_lambda_function.slcs1a_query_timer.function_name
+}
+
+resource "aws_lambda_function" "slcs1b_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query HLSL30 data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-slcs1b-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-slc_data_query",
+      "JOB_TYPE": local.slcs1b_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "ISL_BUCKET_NAME": local.isl_bucket,
+      "MINUTES": var.slcs1b_query_timer_trigger_frequency,
+      "PROVIDER": var.slc_provider,
+      "ENDPOINT": "OPS",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
+      "CHUNK_SIZE": "80",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "slcs1b_query_timer" {
+  depends_on = [aws_lambda_function.slcs1b_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.slcs1b_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "slcs1b_query_timer" {
+  name = "${aws_lambda_function.slcs1b_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.slcs1b_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
+}
+
+resource "aws_cloudwatch_event_target" "slcs1b_query_timer" {
+  rule = aws_cloudwatch_event_rule.slcs1b_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.slcs1b_query_timer.arn
+}
+
+resource "aws_lambda_permission" "slcs1b_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.slcs1b_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.slcs1b_query_timer.arn
+  function_name = aws_lambda_function.slcs1b_query_timer.function_name
 }

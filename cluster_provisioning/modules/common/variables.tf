@@ -445,6 +445,22 @@ variable "hlss30_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
+variable "slc_provider" {
+  default = "ASF"
+}
+
+variable "slc_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slcs1a_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slcs1b_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
