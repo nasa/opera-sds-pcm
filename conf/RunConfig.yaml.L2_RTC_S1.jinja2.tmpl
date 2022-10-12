@@ -1,0 +1,72 @@
+RunConfig:
+  Name: OPERA-RTC-S1-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: RTC_S1_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.values() %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          {%- for type in data.dynamic_ancillary_file_group.keys() %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}
+          {%- endfor %}
+      ProductPathGroup:
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: RTC_S1
+        ProductVersion: {{ data.product_path_group.product_version }}
+        ProgramPath: conda
+        ProgramOptions:
+          - run
+          - -n
+          - isce3_rtc
+          - rtc_s1.py
+        ErrorCodeBase: 300000
+        SchemaPath: /home/rtc_user/opera/pge/rtc_s1/schema/rtc_s1_sas_schema.yaml
+        # TODO: fill in once available
+        IsoTemplatePath:
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+    SAS:
+      runconfig:
+        name: rtc_s1_workflow_default
+        groups:
+          pge_name_group:
+            pge_name: RTC_S1_PGE
+          input_file_group:
+            {%- for type in data.input_file_group.keys() %}
+            {%- if data.input_file_group[ type ] is not none %}
+            {{ type }}:
+              - {{ data.input_file_group[ type ] }}
+            {%- endif %}
+            {%- endfor %}
+            burst_id:
+          dynamic_ancillary_file_group:
+            {%- for type in data.dynamic_ancillary_file_group.keys() %}
+            {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
+            {%- endfor %}
+          product_path_group:
+            product_path: {{ data.product_path_group.product_path }}
+            scratch_path: {{ data.product_path_group.scratch_path }}
+            output_dir: {{ data.product_path_group.product_path }}
+            product_id: rtc_product
+            mosaic_bursts: False
+            output_format: NETCDF
+          primary_executable:
+            product_type: RTC_S1
