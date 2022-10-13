@@ -2538,7 +2538,7 @@ resource "aws_lambda_permission" "slc_download_timer" {
 resource "aws_lambda_function" "slcs1a_query_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will query HLSL30 data."
+  description = "Lambda function to submit a job that will query Sentinel SLC 1A data."
   function_name = "${var.project}-${var.venue}-${local.counter}-slcs1a-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
@@ -2597,7 +2597,7 @@ resource "aws_lambda_permission" "slcs1a_query_timer" {
 resource "aws_lambda_function" "slcs1b_query_timer" {
   depends_on = [null_resource.download_lambdas]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
-  description = "Lambda function to submit a job that will query HLSL30 data."
+  description = "Lambda function to submit a job that will query Sentinel 1 SLC 1B data."
   function_name = "${var.project}-${var.venue}-${local.counter}-slcs1b-query-timer"
   handler = "lambda_function.lambda_handler"
   role = var.lambda_role_arn
