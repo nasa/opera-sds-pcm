@@ -2066,7 +2066,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda function to process CNM Response messages"
-  function_name = "${var.project}-${var.venue}-${local.counter}-sqs-daac-cnm_response-handler"
+  function_name = "${var.project}-${var.venue}-${local.counter}-daac-sqs-cnm_response-handler"
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
