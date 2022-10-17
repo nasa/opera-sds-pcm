@@ -1554,8 +1554,8 @@ data "template_file" "launch_template_user_data" {
                     "timezone": "Local"
                   },
                   {
-                    "file_path": "/data/work/jobs/**/run_sciflo_L3_HLS.log",
-                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_HLS.log",
+                    "file_path": "/data/work/jobs/**/run_sciflo_L3_DSWx_HLS.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_DSWx_HLS.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S"
                   },
