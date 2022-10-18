@@ -86,13 +86,13 @@ variable "artifactory_repo" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (8-26-22)
-    mozart    = "ami-0f23130e8f63ede5d" # mozart v4.18
-    metrics   = "ami-01d55d43dda66391a" # metrics v4.13
-    grq       = "ami-04f57d54765bea834" # grq v4.14
-    factotum  = "ami-0d5f96008afa14416" # factotum v4.14
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609 
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
+    mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
+    metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
+    grq       = "ami-0c84c56035af7fb6c" # grq v4.14
+    factotum  = "ami-068944cd3359de653" # factotum v4.14
+    autoscale = "ami-0922fa62a31e88485" # verdi v4.14
+    ci        = "ami-0922fa62a31e88485" # verdi v4.14
  }
 }
 
