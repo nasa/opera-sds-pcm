@@ -1094,92 +1094,141 @@ resource "aws_instance" "mozart" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "set -ex",
-      "mv ~/.sds ~/.sds.bak",
-      "rm -rf ~/mozart",
-      "if [ \"${var.hysds_release}\" = \"develop\" ]; then",
-      "  git clone --quiet --single-branch -b ${var.hysds_release} https://${var.git_auth_key}@github.jpl.nasa.gov/IEMS-SDS/pcm-releaser.git",
-      "  cd pcm-releaser",
-      "  export release=${var.hysds_release}",
-      "  export conda_dir=$HOME/conda",
-      "  ./build_conda.sh $conda_dir $release",
-      "  cd ..",
-      "  rm -rf pcm-releaser",
-      "  scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.metrics.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip} 'mkdir -p ~/conda; tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda; export PATH=$HOME/conda/bin:$PATH; conda-unpack; rm -rf hysds-conda_env-${var.hysds_release}.tar.gz'",
-      "  scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.grq.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.grq.private_ip} 'mkdir -p ~/conda; tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda; export PATH=$HOME/conda/bin:$PATH; conda-unpack; rm -rf hysds-conda_env-${var.hysds_release}.tar.gz'",
-      "  scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.factotum.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.factotum.private_ip} 'mkdir -p ~/conda; tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda; export PATH=$HOME/conda/bin:$PATH; conda-unpack; rm -rf hysds-conda_env-${var.hysds_release}.tar.gz'",
-      "  git clone --quiet https://github.com/hysds/hysds-framework",
-      "  cd hysds-framework",
-      "  git fetch",
-      "  git fetch --tags",
-      "  git checkout ${var.hysds_release}",
-      "  ./install.sh mozart -d",
-      "  rm -rf ~/mozart/pkgs/hysds-verdi-latest.tar.gz",
-      "else",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-      "  mkdir -p ~/conda",
-      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
-      "  export PATH=$HOME/conda/bin:$PATH",
-      "  conda-unpack",
-      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz\"",
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      mv ~/.sds ~/.sds.bak
+      rm -rf ~/mozart
 
-      "  tar xfz hysds-mozart_venv-${var.hysds_release}.tar.gz",
-      "  rm -rf hysds-mozart_venv-${var.hysds_release}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
-      "  tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz",
-      "  rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz",
-      "fi",
-      "cd ~/mozart/ops",
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz\"",
-      "  tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm",
-      "  rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
-      "  tar xfz CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/CNM_product_delivery-${var.product_delivery_branch} /export/home/hysdsops/mozart/ops/CNM_product_delivery",
-      "  rm -rf CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
-      "  tar xfz pcm_commons-${var.pcm_commons_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/pcm_commons-${var.pcm_commons_branch} /export/home/hysdsops/mozart/ops/pcm_commons",
-      "  rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
-      "  tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api",
-      "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
-      "  tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui",
-      "  rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz ",
-      "else",
-      "  git clone --quiet --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm",
-      "  git clone --quiet --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}",
-      "  git clone --quiet --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}",
-      "  git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
-      "  git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui",
-      "fi",
-      "export PATH=~/conda/bin:$PATH",
-      "cp -rp ${var.project}-pcm/conf/sds ~/.sds",
-      "cp ~/.sds.bak/config ~/.sds",
-      "cd bach-ui",
-      "~/conda/bin/npm install --silent --no-progress",
-      "sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui",
-      "~/conda/bin/npm run build --silent",
-      "cd ../",
-      "if [ \"${var.grq_aws_es}\" = true ]; then",
-      "  cp -f ~/.sds/files/supervisord.conf.grq.aws_es ~/.sds/files/supervisord.conf.grq",
-      "fi",
-      "if [ \"${var.factotum["instance_type"]}\" = \"c5.xlarge\" ]; then",
-      "  cp -f ~/.sds/files/supervisord.conf.factotum.small_instance ~/.sds/files/supervisord.conf.factotum",
-      "elif [ \"${var.factotum["instance_type"]}\" = \"r5.8xlarge\" ]; then",
-      "  cp -f ~/.sds/files/supervisord.conf.factotum.large_instance ~/.sds/files/supervisord.conf.factotum",
-      "fi"
+      if [ "${var.hysds_release}" = "develop" ]; then
+        git clone --quiet --single-branch -b ${var.hysds_release} https://${var.git_auth_key}@github.jpl.nasa.gov/IEMS-SDS/pcm-releaser.git
+        cd pcm-releaser
+        export release=${var.hysds_release}
+        export conda_dir=$HOME/conda
+        ./build_conda.sh $conda_dir $release
+        cd ..
+        rm -rf pcm-releaser
+
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.metrics.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz
+        ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip} \
+      '
+      mkdir -p ~/conda;
+      tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda;
+      export PATH=$HOME/conda/bin:$PATH;
+      conda-unpack;
+      rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+      '
+
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.grq.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz
+        ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.grq.private_ip} \
+      '
+      mkdir -p ~/conda;
+      tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda;
+      export PATH=$HOME/conda/bin:$PATH;
+      conda-unpack;
+      rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+      '
+
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysds-conda_env-${var.hysds_release}.tar.gz hysdsops@${aws_instance.factotum.private_ip}:hysds-conda_env-${var.hysds_release}.tar.gz
+        ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.factotum.private_ip} \
+      '
+      mkdir -p ~/conda;
+      tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda;
+      export PATH=$HOME/conda/bin:$PATH;
+      conda-unpack;
+      rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+      '
+        git clone --quiet --single-branch -b ${var.hysds_release} https://github.com/hysds/hysds-framework
+
+        ./install.sh mozart -d
+        rm -rf ~/mozart/pkgs/hysds-verdi-latest.tar.gz
+     else
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        mkdir -p ~/conda
+        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        export PATH=$HOME/conda/bin:$PATH
+        conda-unpack
+        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-mozart_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-mozart_venv-${var.hysds_release}.tar.gz
+
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
+      fi
+      cd ~/mozart/ops
+      if [ "${var.use_artifactory}" = true ]; then
+
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz"
+        tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm
+        rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
+
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz"
+        tar xfz CNM_product_delivery-${var.product_delivery_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/CNM_product_delivery-${var.product_delivery_branch} /export/home/hysdsops/mozart/ops/CNM_product_delivery
+        rm -rf CNM_product_delivery-${var.product_delivery_branch}.tar.gz
+
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz"
+        tar xfz pcm_commons-${var.pcm_commons_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/pcm_commons-${var.pcm_commons_branch} /export/home/hysdsops/mozart/ops/pcm_commons
+        rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm
+        git clone --quiet --single-branch -b ${var.product_delivery_branch} https://${var.git_auth_key}@${var.product_delivery_repo}
+        git clone --quiet --single-branch -b ${var.pcm_commons_branch} https://${var.git_auth_key}@${var.pcm_commons_repo}
+      fi
+
+      cp -rp ${var.project}-pcm/conf/sds ~/.sds
+      cp ~/.sds.bak/config ~/.sds
+    EOT
+    ]
+  }
+
+  # sync bach-api and bach-ui code. start bach-ui
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      cd ~/mozart/ops
+      if [ "${var.use_artifactory}" = true ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz"
+        tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api
+        rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
+        tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
+        rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api
+        git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
+      fi
+      export PATH=~/conda/bin:$PATH
+      cd bach-ui
+      ~/conda/bin/npm install --silent --no-progress
+      sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
+      ~/conda/bin/npm run build --silent
+    EOT
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      set -ex
+      cd ~/mozart/ops
+      if [ "${var.grq_aws_es}" = true ]; then
+        cp -f ~/.sds/files/supervisord.conf.grq.aws_es ~/.sds/files/supervisord.conf.grq
+      fi
+      if [ "${var.factotum["instance_type"]}" = "c5.xlarge" ]; then
+        cp -f ~/.sds/files/supervisord.conf.factotum.small_instance ~/.sds/files/supervisord.conf.factotum
+      elif [ "${var.factotum["instance_type"]}" = "r5.8xlarge" ]; then
+        cp -f ~/.sds/files/supervisord.conf.factotum.large_instance ~/.sds/files/supervisord.conf.factotum
+      fi
+    EOT
     ]
   }
 
@@ -1564,6 +1613,48 @@ data "template_file" "launch_template_user_data" {
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L2_CSLC_S1.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_ingest.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_ingest.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l3_dswx_hls.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-sciflo-l3_dswx_hls.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l2_cslc_s1.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-sciflo-l2_cslc_s1.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-send_cnm_notify.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-send_cnm_notify.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-rcv_cnm_notify.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-rcv_cnm_notify.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   }
                 ]
               }
