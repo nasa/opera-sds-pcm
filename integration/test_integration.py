@@ -23,7 +23,7 @@ from subscriber_util import \
 
 config = conftest.config
 
-
+    
 def test_subscriber_l30():
     logging.info("TRIGGERING DATA SUBSCRIBE")
 
@@ -49,55 +49,29 @@ def test_subscriber_l30():
     sleep_for(300)
     wait_for_download_jobs(job_id)
 
-    
-def test_subscriber_s30():
-    logging.info("TRIGGERING DATA SUBSCRIBE")
-
-    update_env_vars_s30_subscriber_query_lambda()
-    sleep_for(30)
-
-    response = invoke_s30_subscriber_query_lambda()
-
-    reset_env_vars_s30_subscriber_query_lambda()
-    sleep_for(30)
-
-    assert response["StatusCode"] == 200
-
-    job_id = response["Payload"].read().decode().strip("\"")
-    logging.info(f"{job_id=}")
-
-    logging.info("Sleeping for query job execution...")
-    sleep_for(300)
-
-    wait_for_query_job(job_id)
-
-    logging.info("Sleeping for download job execution...")
-    sleep_for(300)
-    wait_for_download_jobs(job_id)
-
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T54PVQ_20220101T005855Z_20220101T005855Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T54PVQ_20220101T005855Z_20220101T005855Z_L8_30_v2.0"
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_T54PVQ_20220101T005855Z_20220101T005855Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success_sns(id="OPERA_L3_DSWx_HLS_T54PVQ_20220101T005855Z_20220101T005855Z_L8_30_v2.0")
+    mock_cnm_r_success_sns(id="OPERA_L3_DSWx_HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T54PVQ_20220101T005855Z_20220101T005855Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_r_success(response)
 
 
@@ -131,24 +105,24 @@ def test_subscriber_s30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T53HQV_20220101T003711Z_20220101T003711Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T53HQV_20220101T003711Z_20220101T003711Z_S2A_30_v2.0"
+    response = wait_for_l3(_id="OPERA_L3_DSWx_HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    assert response.hits[0]["id"] == "OPERA_L3_DSWx_HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_T53HQV_20220101T003711Z_20220101T003711Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx_HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success_sns(id="OPERA_L3_DSWx_HLS_T53HQV_20220101T003711Z_20220101T003711Z_S2A_30_v2.0")
+    mock_cnm_r_success_sns(id="OPERA_L3_DSWx_HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T53HQV_20220101T003711Z_20220101T003711Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx_HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
     assert_cnm_r_success(response)
 
 
