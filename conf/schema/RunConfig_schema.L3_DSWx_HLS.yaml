@@ -18,6 +18,8 @@ RunConfig:
 
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
+        ProductVersion: num(required=False)
+        CompositeReleaseID: str(required=False)
         ProgramPath: str(required=True)
         ProgramOptions: list(str(), min=0, required=False)
         ErrorCodeBase: int(required=True)
@@ -48,11 +50,20 @@ RunConfig:
             # Digital elevation model
             dem_file: str(required=False)
 
+            # Digital elevation model description
+            dem_description: str(required=False)
+
             # Land cover map
             landcover_file: str(required=False)
 
+            # Copernicus Global Land Service (CGLS) Land Cover Layer description
+            landcover_description: str(required=False)
+
             # ESA worldcover map
             worldcover_file: str(required=False)
+
+            # ESA WorldCover map description
+            worldcover_description: str(required=False)
 
           primary_executable:
             product_type: enum('DSWX_HLS')
@@ -73,6 +84,20 @@ RunConfig:
 
             output_dir: str()
             product_id: str()
+            product_version: num(required=False)
+
+          processing:
+            # Use terrain-masking based on the Otsu method
+            flag_use_otsu_terrain_masking: bool(required=False)
+
+            # Minimum slope angle in degrees for terrain masking
+            min_slope_angle: num(min=-180, max=180, required=False)
+
+            # Maximum sun local-incidence angle in degrees for terrain masking
+            max_sun_local_inc_angle: num(min=-180, max=180, required=False)
+
+            # Define how areas adjacent to cloud/cloud-shadow should be handled
+            mask_adjacent_to_cloud_mode: enum('mask', 'ignore', 'cover', required=False)
 
             # Layer 1 - WTR
             save_wtr: bool(required=False)
@@ -109,6 +134,21 @@ RunConfig:
 
             # SWIR-1, NIR, and Red reflectance color composition
             save_infrared_rgb: bool(required=False)
+
+          browse_image_group:
+            # Save a browse image PNG of the WTR layer.
+            save_browse: bool(required=False)
+
+            # Setting `browse_image_height` and `browse_image_width` equal
+            # will maintain this original HLS and DSWx-HLS aspect ratio
+            # of 3660 pixels x 3660 pixels.
+            # If these fields are left empty, 3660 x 3660 will be used.
+
+            # Height in pixels
+            browse_image_height: int(min=1, required=False)
+
+            # Width in pixels
+            browse_image_width: int(min=1, required=False)
 
           hls_thresholds: include('hls_thresholds_options', required=False)
 
@@ -149,3 +189,5 @@ hls_thresholds_options:
   # Partial Surface Water Test-2 SWIR2 Threshold
   pswt_2_swir2: num(required=False)
 
+  # Land Cover Mask based test Near Infrared
+  lcmask_nir: num(required=False)
