@@ -444,7 +444,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                          temporal_extent_beginning_dt=dateutil.parser.isoparse(
                              granule["temporal_extent_beginning_datetime"]),
                          revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
-        update_granule_index(HLS_SPATIAL_CONN, granule)
 
         if args.provider == "LPCLOUD":
             update_granule_index(HLS_SPATIAL_CONN, granule)
