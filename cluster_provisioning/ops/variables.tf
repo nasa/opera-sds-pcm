@@ -17,6 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
+  default = ""
 }
 
 variable "pcm_repo" {
@@ -24,15 +25,15 @@ variable "pcm_repo" {
 }
 
 variable "pcm_branch" {
-  default = "develop"
+  default = ""
 }
 
 variable "pcm_commons_repo" {
-  default = "github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git"
+  default = ""
 }
 
 variable "pcm_commons_branch" {
-  default = "develop"
+  default = ""
 }
 
 variable "product_delivery_repo" {
@@ -40,7 +41,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "opera_delivery"
+  default = ""
 }
 
 variable "bach_api_repo" {
@@ -48,7 +49,7 @@ variable "bach_api_repo" {
 }
 
 variable "bach_api_branch" {
-  default = "develop"
+  default = ""
 }
 
 variable "bach_ui_repo" {
@@ -56,10 +57,11 @@ variable "bach_ui_repo" {
 }
 
 variable "bach_ui_branch" {
-  default = "develop"
+  default = ""
 }
 
 variable "venue" {
+  default = ""
 }
 
 variable "counter" {
@@ -67,9 +69,11 @@ variable "counter" {
 }
 
 variable "private_key_file" {
+  default = ""
 }
 
 variable "git_auth_key" {
+  default = ""
 }
 
 variable "jenkins_api_user" {
@@ -81,48 +85,60 @@ variable "keypair_name" {
 }
 
 variable "jenkins_api_key" {
+  default = ""
+}
+
+variable "jenkins_host" {
+  default = ""
+}
+
+variable "jenkins_enabled" {
+  type = bool
+  default = false
 }
 
 variable "artifactory_fn_api_key" {
+  default = ""
 }
 
 variable "ops_password" {
-  default = "hysdsops"
+  default = ""
 }
 
 variable "shared_credentials_file" {
-  default = "~/.aws/credentials"
+  default = ""
 }
 
 #
 # "default" links to [default] profile in "shared_credentials_file" above
 #
 variable "profile" {
-  default = "saml-pub"
+  default = ""
 }
 
 variable "project" {
-  default = "opera"
+  default = ""
 }
 
 variable "region" {
-  default = "us-west-2"
+  default = ""
 }
 
 variable "az" {
-  default = "us-west-2a"
+  default = ""
 }
 
 variable "grq_aws_es" {
+  type = bool
   default = false
 }
 
 variable "grq_aws_es_host" {
-  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
+  default = ""
 }
 
 variable "grq_aws_es_host_private_verdi" {
-  default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
+  default = ""
 }
 
 variable "grq_aws_es_port" {
@@ -130,130 +146,39 @@ variable "grq_aws_es_port" {
 }
 
 variable "use_grq_aws_es_private_verdi" {
-  default = true
+  default = ""
 }
 
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
+  default = ""
 }
 
 variable "public_verdi_security_group_id" {
+  default = ""
 }
 
 variable "private_verdi_security_group_id" {
+  default = ""
 }
 
 variable "cluster_security_group_id" {
+  default = ""
 }
 
 variable "pcm_cluster_role" {
-  default = {
-    name = "am-pcm-dev-cluster-role"
-    path = "/"
-  }
 }
 
 variable "pcm_verdi_role" {
-  default = {
-    name = "am-pcm-dev-verdi-role"
-    path = "/"
-  }
-}
-
-# mozart vars
-variable "mozart" {
-  type = map(string)
-  default = {
-    name          = "mozart"
-    instance_type = "r5.xlarge"
-    root_dev_size = 50
-    private_ip    = ""
-    public_ip     = ""
-  }
-}
-
-# metrics vars
-variable "metrics" {
-  type = map(string)
-  default = {
-    name          = "metrics"
-    instance_type = "r5.xlarge"
-    private_ip    = ""
-    public_ip     = ""
-  }
-}
-
-# grq vars
-variable "grq" {
-  type = map(string)
-  default = {
-    name          = "grq"
-    instance_type = "r5.xlarge"
-    private_ip    = ""
-    public_ip     = ""
-  }
-}
-
-# factotum vars
-variable "factotum" {
-  type = map(string)
-  default = {
-    name          = "factotum"
-    instance_type = "c5.xlarge"
-    root_dev_size = 50
-    data          = "/data"
-    data_dev      = "/dev/xvdb"
-    data_dev_size = 300
-    private_ip    = ""
-    public_ip     = ""
-  }
-}
-
-# ci vars
-variable "ci" {
-  type = map(string)
-  default = {
-    name          = "ci"
-    instance_type = "c5.xlarge"
-    data          = "/data"
-    data_dev      = "/dev/xvdb"
-    data_dev_size = 100
-    private_ip    = ""
-    public_ip     = ""
-  }
-}
-
-variable "common_ci" {
-  type = map(string)
-  default = {
-    name       = "ci"
-    private_ip = "opera-pcm-ci.jpl.nasa.gov"
-    public_ip  = "opera-pcm-ci.jpl.nasa.gov"
-  }
-}
-
-# autoscale vars
-variable "autoscale" {
-  type = map(string)
-  default = {
-    name          = "autoscale"
-    instance_type = "t2.micro"
-    data          = "/data"
-    data_dev      = "/dev/xvdb"
-    data_dev_size = 300
-    private_ip    = ""
-    public_ip     = ""
-  }
 }
 
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-02676637ea26098a7"
+  default = ""
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
+  default = ""
 }
 
 variable "lambda_job_type" {
@@ -287,31 +212,33 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "cnm_r_venue" {
-  default = "dev"
+  default = "int"
 }
 
-#The value of po_daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+####### CNM Response job vars #######
 variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
+
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
+}
+
 
 variable "use_daac_cnm_r" {
-  default = false
+  type = bool
+#  default = false
+  default = true
 }
 
 variable "po_daac_endpoint_url" {
   default = ""
 }
 
-#The value of asf_daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "asf_daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
-}
-
-variable "use_asf_daac_cnm" {
-  default = false
+  default = "arn:aws:sqs:us-west-2:337765570207:daac-proxy-for-opera-int"
 }
 
 variable "asf_daac_endpoint_url" {
@@ -320,27 +247,28 @@ variable "asf_daac_endpoint_url" {
 
 # asg vars
 variable "asg_use_role" {
-  default = "true"
+  type = bool
+  default = true
 }
 
 variable "asg_role" {
-  default = "am-pcm-dev-verdi-role"
+  default = ""
 }
 
 variable "public_asg_vpc" {
-  default = "vpc-02676637ea26098a7"
+  default = ""
 }
 
 variable "private_asg_vpc" {
-  default = "vpc-b5a983cd"
+  default = ""
 }
 
 variable "aws_account_id" {
-  default = "681612454726"
+  default = ""
 }
 
 variable "lambda_package_release" {
-  default = "develop"
+  default = ""
 }
 
 variable "job_catalog_url" {
@@ -348,34 +276,78 @@ variable "job_catalog_url" {
 }
 
 variable "delete_old_job_catalog" {
-  type    = bool
+  type = bool
   default = false
 }
 
 variable "environment" {
-  default = "dev"
+  default = ""
+}
+
+# ami vars
+variable "amis" {
+
+}
+
+# mozart vars
+variable "mozart" {
+
+}
+
+# metrics vars
+variable "metrics" {
+
+}
+
+# grq vars
+variable "grq" {
+
+}
+
+# factotum vars
+variable "factotum" {
+
+}
+
+# ci vars
+variable "ci" {
+
+}
+
+variable "common_ci" {
+
+}
+
+# autoscale vars
+variable "autoscale" {
+
 }
 
 variable "use_artifactory" {
-  default = false
+  type = bool
+  default = true
 }
 
 variable "event_misfire_trigger_frequency" {
-  default = "rate(1 minutes)"
+  default = "rate(5 minutes)"
 }
 
 variable "event_misfire_delay_threshold_seconds" {
-  type    = number
+  type = number
   default = 60
 }
 
 variable "lambda_log_retention_in_days" {
-  type    = number
+  type = number
   default = 30
 }
 
+variable "docker_registry_bucket" {
+  default = ""
+}
+
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = ""
 }
 
 variable "pge_releases" {
@@ -387,11 +359,11 @@ variable "pge_releases" {
 }
 
 variable "crid" {
-  default = "D00100"
+  default = ""
 }
 
 variable "cluster_type" {
-  default = "reprocessing"
+  default = ""
 }
 
 variable "hls_download_timer_trigger_frequency" {
@@ -438,18 +410,36 @@ variable "osl_bucket" {
   default = ""
 }
 
+variable "osl_report_staging_area" {
+  default = ""
+}
+
 variable "use_s3_uri_structure" {
+  type = bool
   default = true
 }
 
 variable "inactivity_threshold" {
-  type    = number
-  default = 600
+  type = number
+  default = 1800
 }
 
 variable "run_smoke_test" {
-  type    = bool
+  type = bool
   default = true
+}
+
+variable "purge_es_snapshot" {
+  type = bool
+  default = false
+}
+
+variable "es_snapshot_bucket" {
+  default = ""
+}
+
+variable "es_bucket_role_arn" {
+  default = ""
 }
 
 variable "artifactory_fn_user" {
@@ -462,4 +452,88 @@ variable "earthdata_user" {
 
 variable "earthdata_pass" {
   default = ""
+}
+
+variable "queues" {
+  default = {
+    "opera-job_worker-small" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-large" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_ingest" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-purge_isl" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-l3_dswx_hls_state_config" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-sciflo-l3_dswx_hls" = {
+      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-send_cnm_notify" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size" = 100
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-rcv_cnm_notify" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
+      "total_jobs_metric" = true
+    }
+    "opera-job_worker-hls_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 10
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-hls_data_download" = {
+      "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "max_size"      = 100
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+	"opera-job_worker-timer" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 100
+      "max_size"      = 10
+      "total_jobs_metric" = false
+    }
+  }
 }

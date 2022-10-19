@@ -7,7 +7,7 @@
 
 ##### Environments #######
 variable "aws_account_id" {
-  default = "681612454726"
+  default = "483785460105"
 }
 
 variable "venue" {
@@ -15,15 +15,16 @@ variable "venue" {
 }
 
 variable "environment" {
-  default = "dev"
+  default = "pst"
 }
 
 variable "counter" {
-  default = "6"
+  #default = "fwd"
+  default = "pop1"
 }
 
 variable "crid" {
-  default = "D00100"
+  default = "T00100"
 }
 
 variable "project" {
@@ -41,31 +42,33 @@ variable "az" {
 # Specify either forward or reprocessing. When this is set to "reprocessing"
 # PCM will disable all timers upon provisioning. Otherwise, they are enabled at start up.
 variable "cluster_type" {
-  #default = "reprocessing"
   default = "forward"
 }
 
 ###### Security  ########
 variable "public_verdi_security_group_id" {
+  default = "sg-01b0d3772049cc263"
 }
 
 variable "private_verdi_security_group_id" {
+  default = "sg-03eed53cf8fbfea3a"
 }
 
 variable "cluster_security_group_id" {
+  default = "sg-070b0cf50df41767f"
 }
 
+
 variable "private_key_file" {
-  default = ""
+  default = "~/.ssh/pyoon_pcm_pst.pem"
 }
 
 variable "keypair_name" {
-  #default = "operasds-int-cluster-1"
-  default = ""
+  default = "pyoon_pcm_pst"
 }
 
 variable "ops_password" {
-  default = "hysdsops"
+  default = ""
 }
 
 variable "shared_credentials_file" {
@@ -81,90 +84,77 @@ variable "profile" {
 
 ####### Subnet ###########
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
+  default = "subnet-005726c648910667e"
 }
 
 ####### VPC #########
 variable "lambda_vpc" {
-  default = "vpc-02676637ea26098a7"
+  default = "vpc-09690c3880fda922e"
 }
 
 variable "public_asg_vpc" {
-  default = "vpc-02676637ea26098a7"
+  default = "vpc-09690c3880fda922e"
 }
 
 variable "private_asg_vpc" {
-  default = "vpc-b5a983cd"
+  default = "vpc-0ac48391a96eb1291"
 }
+
 
 ##### Bucket Names #########
 variable "docker_registry_bucket" {
-  default = "opera-dev-cc-fwd-ci"
+  default = "opera-pst-cc-pop1"
 }
 
 variable "dataset_bucket" {
-  default = "opera-dev-rs-fwd-ci"
+  default = "opera-pst-rs-pop1"
 }
 
 variable "code_bucket" {
-  default = "opera-dev-cc-fwd-ci"
+  default = "opera-pst-cc-pop1"
 }
 
 variable "lts_bucket" {
-  default = "opera-dev-lts-fwd-ci"
+  default = "opera-pst-lts-pop1"
 }
 
 variable "triage_bucket" {
-  default = "opera-dev-triage-fwd-ci"
+  default = "opera-pst-triage-pop1"
 }
 
 variable "isl_bucket" {
-  default = "opera-dev-isl-fwd-ci"
+  default = "opera-pst-isl-pop1"
 }
 
 variable "osl_bucket" {
-  default = "opera-dev-osl-fwd-ci"
+  default = "opera-pst-osl-pop1"
 }
 
 variable "es_snapshot_bucket" {
-  default = "opera-dev-cc-fwd-ci"
+  default = "opera-pst-es-bucket"
 }
 
 variable "artifactory_repo" {
-  default = "general-develop"
+  default = "general-stage"
 }
 
 ######### ami vars #######
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
-    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
-    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
-    grq       = "ami-0b3852a0f65efed65" # grq v4.13
-    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
+    mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
+    metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
+    grq       = "ami-0c84c56035af7fb6c" # grq v4.14
+    factotum  = "ami-068944cd3359de653" # factotum v4.14
+    autoscale = "ami-0922fa62a31e88485" # verdi v4.14
+    ci        = "ami-0922fa62a31e88485" # verdi v4.14
   }
-}
-
-####### CNM Response job vars #######
-variable "po_daac_delivery_proxy" {
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
-  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
-}
-
-variable "use_daac_cnm_r" {
-  default = false
-}
-
-variable "po_daac_endpoint_url" {
-  default = ""
 }
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20220826-RC4.0"
+  default = "20220901-1.0.0-rc.4.0"
 }
 
 variable "pge_releases" {
@@ -205,42 +195,45 @@ variable "bach_ui_branch" {
 
 ###### Roles ########
 variable "asg_use_role" {
-  default = "true"
+  default = true
 }
 
 variable "asg_role" {
-  default = "am-pcm-dev-verdi-role"
-  #default = "am-pcm-verdi-role"
+  default = "am-pcm-verdi-role"
 }
 
 variable "pcm_cluster_role" {
   default = {
-    name = "am-pcm-dev-cluster-role"
-    #name = "am-pcm-cluster-role"
+    name = "am-pcm-cluster-role"
     path = "/"
   }
 }
 
 variable "pcm_verdi_role" {
   default = {
-    name = "am-pcm-dev-verdi-role"
-    #name = "am-pcm-verdi-role"
+    name = "am-pcm-verdi-role"
     path = "/"
   }
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
-  #default = "arn:aws:iam::681612454726:role/am-pcm-lambda-role"
+  default = "arn:aws:iam::483785460105:role/am-pcm-lambda-role"
 }
 
 ##### ES ######
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-es-role"
+  default = "arn:aws:iam::483785460105:role/am-es-role"
 }
 
+####### CNM Response job vars #######
+variable "daac_delivery_proxy" {
+  default = "arn:aws:sns:us-west-2:483785460105:daac-proxy-for-opera-pst"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+}
+
+
 variable "grq_aws_es_host" {
-  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
+  default = ""
 }
 
 variable "grq_aws_es_port" {
@@ -254,7 +247,8 @@ variable "mozart" {
     name          = "mozart"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    private_ip    = ""
+    #private_ip    = "100.104.13.10"
+    private_ip    = "100.104.62.10"
     public_ip     = ""
   }
 }
@@ -266,7 +260,8 @@ variable "metrics" {
     name          = "metrics"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    private_ip    = ""
+    #private_ip    = "100.104.13.11"
+    private_ip    = "100.104.62.11"
     public_ip     = ""
   }
 }
@@ -278,7 +273,8 @@ variable "grq" {
     name          = "grq"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    private_ip    = ""
+    #private_ip    = "100.104.13.12"
+    private_ip    = "100.104.62.12"
     public_ip     = ""
   }
 }
@@ -293,7 +289,8 @@ variable "factotum" {
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
-    private_ip    = ""
+    #private_ip    = "100.104.13.13"
+    private_ip    = "100.104.62.13"
     publicc_ip    = ""
   }
 }
@@ -332,4 +329,11 @@ variable "autoscale" {
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
   }
+}
+
+
+# Smoke test
+variable "run_smoke_test" {
+  type = bool
+  default = true
 }
