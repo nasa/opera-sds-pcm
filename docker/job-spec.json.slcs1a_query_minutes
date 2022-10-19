@@ -1,14 +1,14 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlss30_query.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/slc/slcs1a_query.sh",
   "disk_usage":"1GB",
-  "soft_time_limit": 3600,
+  "soft_time_limit": 600,
   "time_limit": 660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-hls_data_query" ],
+  "recommended-queues": [ "opera-job_worker-slc_data_query" ],
   "post": [ "hysds.utils.triage" ],
   "params": [
     {
@@ -16,11 +16,7 @@
       "destination": "positional"
     },
     {
-      "name": "start_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "end_datetime",
+      "name": "minutes",
       "destination": "positional"
     },
     {

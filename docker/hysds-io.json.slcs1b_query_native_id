@@ -1,5 +1,5 @@
 {
-  "label": "Query HLSS30 data with native_id",
+  "label": "Query SLCS1B data with native_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,
@@ -14,7 +14,7 @@
     {
       "name": "native_id",
       "from": "submitter",
-      "placeholder": "e.g. --native-id=HLS.S30.T56JMN.2021274T000241.v2.0",
+      "placeholder": "e.g. --native-id=HLS.L30.T56JMN.2021274T000241.v2.0",
       "type": "text"
     },
     {
@@ -39,7 +39,7 @@
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
 	  "type": "text",
-	  "default": "--job-queue=opera-job_worker-hls_data_download"
+	  "default": "--job-queue=opera-job_worker-slc_data_download"
     },
     {
       "name": "isl_bucket_name",

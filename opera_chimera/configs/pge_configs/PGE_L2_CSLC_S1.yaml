@@ -38,13 +38,13 @@ preconditions:
 postprocess:
   - update_product_accountability
 
-get_cslc_orbit_file:
+get_slc_s1_orbit_file:
   # TODO: use the sample orbit file provided by ADT until we figure out how
   #       derive the appropriate file based on input product
   s3_bucket: "opera-dev-lts-fwd-collinss"
   s3_key: "S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942.EOF"
 
-get_cslc_s1_dem:
+get_slc_s1_dem:
   # The s3 bucket containing the global DEM(s) to download regions from
   s3_bucket: "opera-dem"
 

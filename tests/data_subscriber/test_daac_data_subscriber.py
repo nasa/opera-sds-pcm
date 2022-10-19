@@ -80,7 +80,7 @@ async def test_full(monkeypatch):
            "--isl-bucket=dummy_bucket " \
            "--collection-shortname=HLSS30 " \
            "--isl-bucket=dummy_bucket " \
-           "--transfer-protocol=not-https " \
+           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -215,7 +215,7 @@ async def test_download(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--transfer-protocol=not-https " \
+           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -262,8 +262,8 @@ async def test_download_by_tile(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids=T00000 " \
-           "--transfer-protocol=not-https " \
+           "--batch-ids=T00000 " \
+           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -320,7 +320,7 @@ async def test_download_by_tiles(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids T00000 T00001 " \
+           "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -360,7 +360,7 @@ async def test_download_https(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids=T00000 " \
+           "--batch-ids=T00000 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--transfer-protocol=https " \
@@ -399,7 +399,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids T00000 T00001 " \
+           "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--smoke-run " \
@@ -429,7 +429,7 @@ async def test_download_by_tiles_dry_run(monkeypatch):
 
     args = "dummy.py download " \
            "--isl-bucket=dummy_bucket " \
-           "--tile-ids T00000 T00001 " \
+           "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "--dry-run " \
@@ -524,16 +524,10 @@ def test_download_granules_using_s3(monkeypatch):
 
 @contextmanager
 def mock_token_ctx(*args):
-    yield "test_token"
+    yield {"token": "test_token", "username": "test_username", "password": "test_password"}
 
 
 def patch_subscriber(monkeypatch):
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.socket.__name__,
-        Mock()
-    )
-
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,

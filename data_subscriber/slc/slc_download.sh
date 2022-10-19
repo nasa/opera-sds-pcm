@@ -16,12 +16,12 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to query LPDAAC HLSL30 data"
+echo "Running job to download ASFDAAC SLC data"
 date
 
-# Forward processing use case; query previous 60 minutes
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p LPCLOUD -c HLSL30 $* 2>&1"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p LPCLOUD -c HLSL30 $* > run_hlsl30_query.log 2>&1
+# Forward processing use case; download all undownloaded files from ES index
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p ASF $* 2>&1"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p ASF $* 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
@@ -32,4 +32,3 @@ else
   date
   exit 1
 fi
-
