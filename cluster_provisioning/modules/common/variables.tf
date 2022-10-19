@@ -457,10 +457,6 @@ variable "slcs1a_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "slcs1b_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
-}
-
 variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
