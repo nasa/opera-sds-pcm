@@ -1,21 +1,24 @@
 {
-  "label": "Query HLSS30 data with native_id",
+  "label": "Query SLCS1A data with datetime range",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
-  "enable_dedup": false,
   "params": [
     {
       "name": "endpoint",
       "from": "submitter",
-	  "placeholder": "e.g. --endpoint=OPS",
-	  "type": "text",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
       "default": "--endpoint=OPS"
     },
     {
-      "name": "native_id",
+      "name": "start_datetime",
       "from": "submitter",
-      "placeholder": "e.g. --native-id=HLS.S30.T56JMN.2021274T000241.v2.0",
-      "type": "text"
+      "placeholder": "e.g. --start-date=1970-01-01T00:00:00Z"
+    },
+    {
+      "name": "end_datetime",
+      "from": "submitter",
+      "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z"
     },
     {
       "name": "bounding_box",
@@ -38,8 +41,8 @@
       "name": "download_job_queue",
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
-	  "type": "text",
-	  "default": "--job-queue=opera-job_worker-hls_data_download"
+      "type": "text",
+      "default": "--job-queue=opera-job_worker-slc_data_download"
     },
     {
       "name": "isl_bucket_name",
@@ -64,6 +67,12 @@
       "name": "dry_run",
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "placeholder": "e.g. --use-temporal",
       "optional": true
     }
   ]

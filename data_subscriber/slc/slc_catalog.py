@@ -3,10 +3,10 @@ from pathlib import Path
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
-ES_INDEX = "hls_catalog"
+ES_INDEX = "slc_catalog"
 
 
-class HLSProductCatalog(ElasticsearchUtility):
+class SLCProductCatalog(ElasticsearchUtility):
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -31,7 +31,7 @@ class HLSProductCatalog(ElasticsearchUtility):
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
-                                             "s3_url": {"type": "keyword"},
+                                             # "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "creation_timestamp": {"type": "date"},
                                              "download_datetime": {"type": "date"},
@@ -47,8 +47,10 @@ class HLSProductCatalog(ElasticsearchUtility):
 
     def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
-        return [{"s3_url": result['_source'].get('s3_url'), "https_url": result['_source'].get('https_url')}
-                for result in (undownloaded or [])]
+
+        return [{  # "s3_url": result['_source']['s3_url'],
+            "https_url": result['_source'].get('https_url')}
+            for result in (undownloaded or [])]
 
     def process_url(
             self,
@@ -73,8 +75,8 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         if "https://" in url:
             doc["https_url"] = url
-        elif "s3://" in url:
-            doc["s3_url"] = url
+        # elif "s3://" in url:
+        # doc["s3_url"] = url
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
@@ -97,18 +99,12 @@ class HLSProductCatalog(ElasticsearchUtility):
 
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split('/')[-1]
-        result = self.update_document(
-            id=filename,
-            body={
-                "doc_as_upsert": True,
-                "doc": {
-                    "downloaded": True,
-                    "download_datetime": datetime.now(),
-                    "download_job_id": job_id,
-                }
-            },
-            index=ES_INDEX
-        )
+        result = self.update_document(id=filename,
+                                      body={"doc_as_upsert": True,
+                                            "doc": {"downloaded": True,
+                                                    "download_datetime": datetime.now(),
+                                                    "download_job_id": job_id, }},
+                                      index=ES_INDEX)
 
         if self.logger:
             self.logger.info(f"Document updated: {result}")
