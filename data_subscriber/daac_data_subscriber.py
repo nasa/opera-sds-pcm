@@ -406,7 +406,7 @@ def _get_token(edl: str) -> dict:
     list_response = requests.get(token_list_url, auth=HTTPBasicAuth(username, password))
     list_content = json.loads(list_response.content)
 
-    if list_content is []:
+    if not list_content:
         create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
         response_content = json.loads(create_response.content)
 
