@@ -960,6 +960,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return latlong
 
+    def get_dswx_hls_product_version(self):
+        """Assigns the product version specified in settings.yaml to PGE RunConfig"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        product_version = self._settings.get(oc_const.DSWX_HLS_PRODUCT_VERSION)
+
+        if not product_version:
+            raise RuntimeError(
+                f"No value set for {oc_const.DSWX_HLS_PRODUCT_VERSION} in settings.yaml"
+            )
+
+        rc_params = {
+            oc_const.PRODUCT_VERSION: product_version
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_hls_dem(self):
         """
         This function downloads dems over the bbox provided in the PGE yaml config,
