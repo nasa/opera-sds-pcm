@@ -68,9 +68,9 @@
       "name": "wigt",
       "from": "submitter",
       "type": "number",
-      "default": "0.0124",
+      "default": "0.124",
       "optional": true,
-      "placeholder": "0.0124"
+      "placeholder": "0.124"
     },
     {
       "name": "awgt",
@@ -151,6 +151,14 @@
       "default": "1000",
       "optional": true,
       "placeholder": "1000"
+    },
+    {
+      "name": "lcmask_nir",
+      "from": "submitter",
+      "type": "number",
+      "default": "1200",
+      "optional": true,
+      "placeholder": "1200"
     }
   ]
 }
