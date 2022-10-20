@@ -123,8 +123,8 @@ def convert(
             dataset_met_json["product_s3_paths"] = [f's3://{publish_bucket}/products/{file["id"]}/{file["FileName"]}'
                                                 for file in dataset_met_json["Files"]]
 
+        dataset_met_json["software_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
-        dataset_met_json["pge_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
             collection_name: str = settings.get("DSWX_COLLECTION_NAME")
