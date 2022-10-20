@@ -105,8 +105,6 @@ def convert(
         with open(PurePath(work_dir) / "datasets.json") as fp:
             datasets_json_dict = json.load(fp)
 
-        dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
-        dataset_met_json["pge_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
         if pge_name == "L3_DSWx_HLS":
             logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
             product_metadata: Dict = kwargs["product_metadata"]
@@ -125,11 +123,8 @@ def convert(
             dataset_met_json["product_s3_paths"] = [f's3://{publish_bucket}/products/{file["id"]}/{file["FileName"]}'
                                                 for file in dataset_met_json["Files"]]
 
-            product_dir_path = PurePath(product_dir)
-            with open(product_dir_path / f"{product_dir_path.name}.catalog.json") as fp:
-                dataset_catalog_dict = json.load(fp)
-                dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
-                dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
+        dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
+        dataset_met_json["pge_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
             collection_name: str = settings.get("DSWX_COLLECTION_NAME")
