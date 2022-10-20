@@ -5,6 +5,7 @@ DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_0.0"
 CSLC_COLLECTION_NAME: "OPERA_L2_CSLC_S1_0.0"
 
 DSWX_HLS_PRODUCT_VERSION: "1.0"
+CSLC_S1_PRODUCT_VERSION: "1.0"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
