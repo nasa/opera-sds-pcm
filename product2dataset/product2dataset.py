@@ -124,8 +124,13 @@ def convert(
                 f'products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
 
-        dataset_met_json["software_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
+
+        product_dir_path = PurePath(product_dir)
+        with open(product_dir_path / f"{product_dir_path.name}.catalog.json") as fp:
+            dataset_catalog_dict = json.load(fp)
+            dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
+            dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
 
         if "dswx_hls" in dataset_id.lower():
             collection_name: str = settings.get("DSWX_COLLECTION_NAME")
