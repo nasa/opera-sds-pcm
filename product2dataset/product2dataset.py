@@ -125,13 +125,17 @@ def convert(
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
-            collection_name: str = settings.get("DSWX_COLLECTION_NAME")
-            dataset_met_json["CollectionName"] = collection_name
+            collection_name = settings.get("DSWX_COLLECTION_NAME")
+            product_version = settings.get("DSWX_HLS_PRODUCT_VERSION")
         elif "cslc_s1" in dataset_id.lower():
             collection_name = settings.get("CSLC_COLLECTION_NAME")
-            dataset_met_json["CollectionName"] = collection_name
+            product_version = settings.get("CSLC_S1_PRODUCT_VERSION")
         else:
             collection_name = "Unknown"
+            product_version = "Unknown"
+
+        dataset_met_json["CollectionName"] = collection_name
+        dataset_met_json["ProductVersion"] = product_version
 
         logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
