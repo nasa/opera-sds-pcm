@@ -23,6 +23,7 @@ runconfig:
     # ESA WorldCover map file
     worldcover_file: __CHIMERA_VAL__
   product_path_group:
+    product_version: __CHIMERA_VAL__
     product_path: output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: output_dir/scratch_dir
@@ -38,6 +39,7 @@ runconfig:
     pswt_2_nir: __CHIMERA_VAL__     # Partial Surface Water Test-2 NIR Threshold
     pswt_2_swir1: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR1 Threshold
     pswt_2_swir2: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR2 Threshold
+    lcmask_nir: __CHIMERA_VAL__     # Land Cover Mask based test Near Infrared
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -73,6 +75,7 @@ get_metadata:
     - pswt_2_nir
     - pswt_2_swir1
     - pswt_2_swir2
+    - lcmask_nir
 
 get_dems:
   # Specify a specific bounding box to obtain the corresponding DEM for.
@@ -113,6 +116,7 @@ set_extra_pge_output_metadata:
 output_types:
   L3_DSWx_HLS:
     - tiff
+    - png
     - catalog.json
     - iso.xml
     - log
