@@ -104,6 +104,10 @@
     {
       "name": "pswt_2_swir2",
       "destination": "context"
+    },
+    {
+      "name": "lcmask_nir",
+      "destination": "context"
     }
   ]
 }
