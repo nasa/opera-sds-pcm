@@ -32,6 +32,8 @@ Options:
       --SLC-input-dir                            The expected path to the directory containing THE sample SLC data.
       --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
       --S30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits S30 query jobs.
+      --artifactory-fn-api-key                   The Artifactory FN API Key. Used to download the sample data.
+      --sample-data-artifactory-dir              The repository path to the "hls_l2.tar.gz" sample data's parent directory.
 USAGE
 }
 
@@ -90,6 +92,14 @@ for i in "$@"; do
       S30_data_subscriber_query_lambda="${i#*=}"
       shift
       ;;
+    --artifactory-fn-api-key=*)
+      artifactory_fn_api_key="${i#*=}"
+      shift
+      ;;
+    --sample-data-artifactory-dir=*)
+      sample_data_artifactory_dir="${i#*=}"
+      shift
+      ;;
     *)
       # unknown option
       echoerr "Unsupported argument $i. Exiting."
@@ -119,10 +129,16 @@ export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 set -e
 echo Executing integration tests. This can take at least 20 or 40 minutes...
 
-echo Creating SLC test data
-mkdir l1_s1_slc
-touch l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
-echo dummy file contents >> l1_s1_slc/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
+echo Downloading SLC test data
+if [[ ! -f slc_l1.tar.gz ]]; then
+  curl -H "X-JFrog-Art-Api:${artifactory_fn_api_key}" -O ${sample_data_artifactory_dir}/slc_l1.tar.gz
+else
+  echo test data previously downloaded. Skipping re-download
+fi
+
+rm -rf slc_l1
+mkdir -p slc_l1
+tar xfz slc_l1.tar.gz -C slc_l1
 
 python -m venv venv
 source venv/bin/activate
