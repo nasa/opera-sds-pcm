@@ -79,8 +79,6 @@ async def run(argv: list[str]):
     settings = SettingsConf().cfg
     edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
     cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
-    token_create_url = f"https://{edl}/api/users/token"
-    token_delete_url = f"https://{edl}/api/users/revoke_token"
     netloc = urlparse(f"https://{edl}").netloc
     provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
                            "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
@@ -111,7 +109,7 @@ async def run(argv: list[str]):
 
     username, password = setup_earthdata_login_auth(edl)
 
-    with token_ctx(token_create_url, token_delete_url, edl) as token_dict:
+    with token_ctx(edl) as token_dict:
         logging.info(f"{args.subparser_name=}")
         if not (
                 args.subparser_name == "query"
@@ -391,28 +389,40 @@ def setup_earthdata_login_auth(endpoint):
 
 
 @contextmanager
-def token_ctx(token_create_url, token_delete_url, endpoint):
-    token_dict = _get_token(token_create_url, endpoint)
+def token_ctx(edl):
+
+    token_dict = _get_token(edl)
     try:
         yield token_dict
     finally:
-        _delete_token(token_delete_url, token_dict)
+        _delete_token(edl, token_dict)
 
 
-def _get_token(url: str, endpoint: str) -> dict:
-    username, _, password = netrc.netrc().authenticators(endpoint)
-    resp = requests.post(url, auth=HTTPBasicAuth(username, password))
-    response_content = json.loads(resp.content)
-    if "error" in response_content.keys():
-        logging.warning("Failed to acquire CMR token")
-        raise Exception(response_content['error'])
+def _get_token(edl: str) -> dict:
+    token_create_url = f"https://{edl}/api/users/token"
+    token_list_url = f"https://{edl}/api/users/tokens"
+    username, _, password = netrc.netrc().authenticators(edl)
 
-    token = response_content["access_token"]
+    list_response = requests.get(token_list_url, auth=HTTPBasicAuth(username, password))
+    list_content = json.loads(list_response.content)
+
+    if not list_content:
+        create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
+        response_content = json.loads(create_response.content)
+
+        if "error" in response_content.keys():
+            logging.warning("Failed to acquire CMR token")
+            raise Exception(response_content['error'])
+
+        token = response_content["access_token"]
+    else:
+        token = list_content[0]["access_token"]
 
     return {"token": token, "username": username, "password": password}
 
 
-def _delete_token(url: str, token_dict: dict) -> None:
+def _delete_token(edl: str, token_dict: dict) -> None:
+    url = f"https://{edl}/api/users/revoke_token"
     try:
         resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']),
                              params={'token': token_dict['token']})
@@ -444,7 +454,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                          temporal_extent_beginning_dt=dateutil.parser.isoparse(
                              granule["temporal_extent_beginning_datetime"]),
                          revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
-        update_granule_index(HLS_SPATIAL_CONN, granule)
 
         if args.provider == "LPCLOUD":
             update_granule_index(HLS_SPATIAL_CONN, granule)
