@@ -76,7 +76,7 @@
       "name": "wigt",
       "from": "value",
       "type": "number",
-      "value": "0.0124"
+      "value": "0.124"
     },
     {
       "name": "awgt",
@@ -137,6 +137,12 @@
       "from": "value",
       "type": "number",
       "value": "1000"
+    },
+    {
+      "name": "lcmask_nir",
+      "from": "value",
+      "type": "number",
+      "value": "1200"
     }
   ]
 }

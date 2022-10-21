@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId, in int this is 1 
+# venue : userId, in int this is 1
 # counter : 1-n or version
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -147,7 +147,7 @@ variable "amis" {
      grq       = "ami-0c84c56035af7fb6c" # grq v4.14
      factotum  = "ami-068944cd3359de653" # factotum v4.14
      autoscale = "ami-0922fa62a31e88485" # verdi v4.14
-     ci        = "ami-0922fa62a31e88485" # verdi v4.14  
+     ci        = "ami-0922fa62a31e88485" # verdi v4.14
   }
 
 }
@@ -160,7 +160,7 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
    type = map(string)
    default = {
-     "dswx_hls" = "1.0.0-rc.4.0"
+     "dswx_hls" = "1.0.0-rc.5.0"
      "cslc_s1" = "2.0.0-er.2.0"
   }
 }

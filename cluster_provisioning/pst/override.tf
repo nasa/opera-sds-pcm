@@ -1,6 +1,6 @@
 # globals
 #
-# venue : userId, in int this is 1 
+# venue : userId, in int this is 1
 # counter : 1-n or version
 # private_key_file : the equivalent to .ssh/id_rsa or .pem file
 #
@@ -11,7 +11,7 @@ variable "aws_account_id" {
 }
 
 variable "venue" {
-  default = "ci"
+  default = "pst"
 }
 
 variable "environment" {
@@ -24,7 +24,7 @@ variable "counter" {
 }
 
 variable "crid" {
-  default = "T00100"
+  default = "P00100"
 }
 
 variable "project" {
@@ -160,7 +160,7 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
+    "dswx_hls" = "1.0.0-rc.5.0"
     "cslc_s1" = "2.0.0-er.2.0"
   }
 }
