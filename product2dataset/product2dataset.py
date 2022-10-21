@@ -99,10 +99,10 @@ def convert(
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id
 
-        with open(PurePath(work_dir) / "_job.json") as fp:
+        with open(PurePath(work_dir, "_job.json")) as fp:
             job_json_dict = json.load(fp)
 
-        with open(PurePath(work_dir) / "datasets.json") as fp:
+        with open(PurePath(work_dir, "datasets.json")) as fp:
             datasets_json_dict = json.load(fp)
 
         if pge_name == "L3_DSWx_HLS":
@@ -125,8 +125,7 @@ def convert(
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
-        product_dir_path = PurePath(product_dir)
-        with open(product_dir_path / f"{product_dir_path.name}.catalog.json") as fp:
+        with open(PurePath(dataset, f"{dataset_id}.catalog.json")) as fp:
             dataset_catalog_dict = json.load(fp)
             dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
             dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
