@@ -85,6 +85,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     PRODUCT_COUNTER = "ProductCounter"
 
+    PRODUCT_VERSION = "product_version"
+
     FILE_NAME = "FileName"
 
     ORBIT_EPHEMERIS_FILE = "OrbitEphemerisFile"
@@ -220,6 +222,10 @@ class OperaChimeraConstants(ChimeraConstants):
     GET_SLC_S1_DEM = "get_slc_s1_dem"
 
     GET_DEM_BBOX = "get_dem_bbox"
+
+    DSWX_HLS_PRODUCT_VERSION = "DSWX_HLS_PRODUCT_VERSION"
+
+    GET_DSWX_HLS_PRODUCT_VERSION = "get_dswx_hls_product_version"
 
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
