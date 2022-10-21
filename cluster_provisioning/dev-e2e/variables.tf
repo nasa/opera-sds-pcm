@@ -461,6 +461,10 @@ variable "docker_registry_bucket" {
   default = "opera-pcm-registry-bucket"
 }
 
+variable "clear_s3_aws_es" {
+  default = true
+}
+
 variable "purge_es_snapshot" {
   default = true
 }
