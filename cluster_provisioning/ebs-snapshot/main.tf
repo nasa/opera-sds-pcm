@@ -136,7 +136,6 @@ resource "aws_ebs_snapshot" "verdi_docker_snapshot" {
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes  = [tags]
-    prevent_destroy = false
-    #prevent_destroy = true
+    prevent_destroy = true
   }
 }
