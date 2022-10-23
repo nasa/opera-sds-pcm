@@ -16,11 +16,7 @@
       "destination": "positional"
     },
     {
-      "name": "start_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "end_datetime",
+      "name": "native_id",
       "destination": "positional"
     },
     {
@@ -53,10 +49,6 @@
     },
     {
       "name": "dry_run",
-      "destination": "positional"
-    },
-    {
-      "name": "use_temporal",
       "destination": "positional"
     }
   ]
