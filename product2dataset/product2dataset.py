@@ -151,7 +151,7 @@ def convert(
             #    dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
             #    dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
 
-		dataset_met_json["pge_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
+        dataset_met_json["pge_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         if "dswx_hls" in dataset_id.lower():
