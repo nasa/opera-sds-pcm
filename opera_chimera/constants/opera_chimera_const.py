@@ -219,15 +219,11 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DEM_BBOX = "get_dem_bbox"
 
-<<<<<<< HEAD
-    GET_DEMS = "get_dems"
-=======
     DSWX_HLS_PRODUCT_VERSION = "DSWX_HLS_PRODUCT_VERSION"
 
     GET_DSWX_HLS_PRODUCT_VERSION = "get_dswx_hls_product_version"
 
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
->>>>>>> 9c5ca86 (Added opera_chimera precondition function get_dswx_hls_product_version())
 
     GET_LANDCOVER = "get_landcover"
 

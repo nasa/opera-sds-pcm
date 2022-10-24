@@ -129,7 +129,7 @@ def convert(
             dataset_type = job_json_dict["params"]["dataset_type"]
             dataset_type = dataset_type.split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
 
-			publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
+            publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
             publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
 
             #l2_hls_publish_s3_url = datasets_json_util.find_s3_url(datasets_json_dict, dataset_type)
