@@ -20,7 +20,7 @@
       "destination": "positional"
     },
     {
-      "name": "batch_ids",
+      "name": "tile_ids",
       "destination": "positional"
     },
     {
