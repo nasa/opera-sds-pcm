@@ -180,6 +180,14 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
                 logger.info(f'Simulating output {output_file}')
                 with open(output_file, 'wb') as f:
                     f.write(os.urandom(1024))
+        elif extension.endswith('json'):
+            output_file = os.path.join(output_dir, f'{base_name}.{extension}')
+            logger.info(f'Simulating JSON output {output_file}')
+            with open(output_file, 'w') as outfile:
+                json.dump({
+                    "PGE_Version": "sim-pge-0.0.0",
+                    "SAS_Version": "sim-sas-0.0.0"
+                }, outfile)
         else:
             output_file = os.path.join(output_dir, f'{base_name}.{extension}')
             logger.info(f'Simulating output {output_file}')
