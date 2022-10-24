@@ -317,7 +317,8 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00000.B02.tif",
                     ],
                     "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
+                    "revision_date": datetime.now().isoformat(),
                 },
                 {
                     "granule_id": "dummy_granule_id_2",
@@ -330,7 +331,8 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00001.B03.tif",
                     ],
                     "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
+                    "revision_date": datetime.now().isoformat(),
                 },
                 {
                     "granule_id": "dummy_granule_id_3",
@@ -341,7 +343,8 @@ def patch_subscriber(monkeypatch):
                         "https://example.com/T00002.B02.tif",
                     ],
                     "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat()
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
+                    "revision_date": datetime.now().isoformat(),
                 }
             ],
             False  # search_after
