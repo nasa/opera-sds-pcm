@@ -125,7 +125,7 @@ def convert(
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
-        with open(PurePath(dataset, f"{dataset_id}.catalog.json")) as fp:
+        with open(PurePath(product_dir, f"{dataset_id}.catalog.json")) as fp:
             dataset_catalog_dict = json.load(fp)
             dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
             dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
