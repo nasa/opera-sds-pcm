@@ -104,16 +104,12 @@ async def run(argv: list[str]):
         job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
-    username, _, password = netrc.netrc().authenticators(edl)
-    token = handle_token(edl, username, password)
-
     logging.info(f"{args.subparser_name=}")
-    if not (
-            args.subparser_name == "query"
-            or args.subparser_name == "download"
-            or args.subparser_name == "full"
-    ):
+    if not (args.subparser_name == "query" or args.subparser_name == "download" or args.subparser_name == "full"):
         raise Exception(f"Unsupported operation. {args.subparser_name=}")
+
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
 
     results = {}
     if args.subparser_name == "query" or args.subparser_name == "full":
@@ -329,10 +325,14 @@ def update_granule_index(es_spatial_conn, granule):
     es_spatial_conn.process_granule(granule)
 
 
-def handle_token(edl: str, username: str, password: str) -> str:
+def supply_token(edl: str, username: str, password: str) -> str:
+    """
+    :param edl: Earthdata login endpoint
+    :type edl: str
+    """
     token_list = _get_tokens(edl, username, password)
 
-    _process_token_list(token_list, edl, username, password)
+    _revoke_expired_tokens(token_list, edl, username, password)
 
     if not token_list:
         token = _create_token(edl, username, password)
@@ -351,13 +351,14 @@ def _get_tokens(edl: str, username: str, password: str) -> list:
     return list_content
 
 
-def _process_token_list(token_list: list, edl: str, username: str, password: str) -> None:
+def _revoke_expired_tokens(token_list: list[str], edl: str, username: str, password: str) -> None:
     for token_dict in token_list:
         now = datetime.utcnow().date()
         expiration_date = datetime.strptime(token_dict['expiration_date'], "%m/%d/%Y").date()
 
         if expiration_date <= now:
             _delete_token(edl, username, password, token_dict['access_token'])
+            del token_dict
 
 
 def _create_token(edl: str, username: str, password: str):
@@ -367,7 +368,6 @@ def _create_token(edl: str, username: str, password: str):
     response_content = json.loads(create_response.content)
 
     if "error" in response_content.keys():
-        logging.warning("Failed to acquire CMR token")
         raise Exception(response_content['error'])
 
     token = response_content["access_token"]
@@ -383,7 +383,7 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
         if resp.status_code == 200:
             logging.info("CMR token successfully deleted")
         else:
-            logging.warning("CMR token deleting failed.")
+            logging.warning(f"CMR token deletion failed: {resp.status_code=}")
     except Exception as e:
         logging.warning(f"Error deleting the token: {e}")
 

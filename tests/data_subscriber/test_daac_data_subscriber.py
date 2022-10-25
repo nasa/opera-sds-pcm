@@ -522,9 +522,8 @@ def test_download_granules_using_s3(monkeypatch):
     mock_download_product_using_s3.assert_called()
 
 
-@contextmanager
-def mock_token_ctx(*args):
-    yield {"token": "test_token", "username": "test_username", "password": "test_password"}
+def mock_token(*args):
+    return "test_token"
 
 
 def patch_subscriber(monkeypatch):
@@ -540,8 +539,8 @@ def patch_subscriber(monkeypatch):
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.handle_token.__name__,
-        mock_token_ctx
+        data_subscriber.daac_data_subscriber.supply_token.__name__,
+        mock_token
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
