@@ -142,7 +142,6 @@ def convert(
                 f'/products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
             dataset_met_json["product_s3_paths"] = [f's3://{publish_bucket}/products/{file["id"]}/{file["FileName"]}'
-                f'products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
 
             product_dir_path = PurePath(product_dir)
