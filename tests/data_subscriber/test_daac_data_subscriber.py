@@ -540,12 +540,7 @@ def patch_subscriber(monkeypatch):
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.setup_earthdata_login_auth.__name__,
-        lambda *args: ("test_username", "test_password")
-    )
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber,
-        data_subscriber.daac_data_subscriber.token_ctx.__name__,
+        data_subscriber.daac_data_subscriber.handle_token.__name__,
         mock_token_ctx
     )
     monkeypatch.setattr(
