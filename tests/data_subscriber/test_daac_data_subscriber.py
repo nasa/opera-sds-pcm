@@ -538,6 +538,21 @@ def patch_subscriber(monkeypatch):
         lambda *args, **kwargs: MockHlsSpatialCatalog()
     )
     monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.netrc,
+        data_subscriber.daac_data_subscriber.netrc.netrc.__name__,
+        MagicMock(
+            return_value=MagicMock(
+                authenticators=MagicMock(
+                    return_value=(
+                        "dummy_username",
+                        "dummy_host",
+                        "dummy_password",
+                    )
+                )
+            )
+        )
+    )
+    monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.supply_token.__name__,
         mock_token
