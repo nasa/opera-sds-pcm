@@ -335,6 +335,10 @@ variable "autoscale" {
   }
 }
 
+variable "clear_s3_aws_es" {
+  default = false
+}
+
 
 # Smoke test
 variable "run_smoke_test" {

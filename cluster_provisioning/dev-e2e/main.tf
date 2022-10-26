@@ -98,6 +98,7 @@ module "common" {
   hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
   hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
+  clear_s3_aws_es                         = var.clear_s3_aws_es
   purge_es_snapshot                       = var.purge_es_snapshot
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
@@ -207,9 +208,11 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
-              ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
-
+              ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
+              if [ "${var.clear_s3_aws_es}" = true ]; then
+                python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
+                ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
+              fi
     EOF
     ]
   }
