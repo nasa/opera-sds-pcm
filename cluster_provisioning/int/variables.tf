@@ -428,10 +428,6 @@ variable "run_smoke_test" {
   default = true
 }
 
-variable "clear_s3_aws_es" {
-  default = true
-}
-
 variable "purge_es_snapshot" {
   type = bool
   default = false
