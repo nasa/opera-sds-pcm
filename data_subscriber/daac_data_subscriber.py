@@ -701,7 +701,7 @@ def _url_to_orbit_number(url: str):
 
     input_filename = Path(url).name
     orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number
+    return orbit_number[1:-1] # Strips leading and trailing underscores
 
 
 def _url_to_tile_id(url: str):
