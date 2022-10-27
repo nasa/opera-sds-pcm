@@ -15,13 +15,10 @@ import shutil
 import sys
 import uuid
 from collections import namedtuple, defaultdict
-from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
-from http.cookiejar import CookieJar
 from pathlib import Path, PurePath
 from typing import Any, Iterable
-from urllib import request
 from urllib.parse import urlparse
 
 import boto3
@@ -107,25 +104,22 @@ async def run(argv: list[str]):
         job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
-    username, password = setup_earthdata_login_auth(edl)
+    logging.info(f"{args.subparser_name=}")
+    if not (args.subparser_name == "query" or args.subparser_name == "download" or args.subparser_name == "full"):
+        raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
-    with token_ctx(edl) as token_dict:
-        logging.info(f"{args.subparser_name=}")
-        if not (
-                args.subparser_name == "query"
-                or args.subparser_name == "download"
-                or args.subparser_name == "full"
-        ):
-            raise Exception(f"Unsupported operation. {args.subparser_name=}")
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
 
-        results = {}
-        if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token_dict['token'], es_conn, cmr, job_id, settings)
-        if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token_dict['token'], es_conn, netloc, username, password,
-                                               job_id)  # return None
+    results = {}
+    if args.subparser_name == "query" or args.subparser_name == "full":
+        results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
+    if args.subparser_name == "download" or args.subparser_name == "full":
+        results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
+
     logging.info(f"{results=}")
     logging.info("END")
+
     return results
 
 
@@ -331,105 +325,65 @@ def update_granule_index(es_spatial_conn, granule):
     es_spatial_conn.process_granule(granule)
 
 
-def setup_earthdata_login_auth(endpoint):
-    # ## Authentication setup
-    #
-    # This function will allow Python scripts to log into any Earthdata Login
-    # application programmatically.  To avoid being prompted for
-    # credentials every time you run and also allow clients such as curl to log in,
-    # you can add the following to a `.netrc` (`_netrc` on Windows) file in
-    # your home directory:
-    #
-    # ```
-    # machine urs.earthdata.nasa.gov
-    #     login <your username>
-    #     password <your password>
-    # ```
-    #
-    # Make sure that this file is only readable by the current user,
-    # or you will receive an error stating
-    # "netrc access too permissive."
-    #
-    # `$ chmod 0600 ~/.netrc`
-    #
-    # You'll need to authenticate using the netrc method when running from
-    # command line with [`papermill`](https://papermill.readthedocs.io/en/latest/).
-    # You can log in manually by executing the cell below when running in the
-    # notebook client in your browser.*
-
+def supply_token(edl: str, username: str, password: str) -> str:
     """
-    Set up the request library so that it authenticates against the given
-    Earthdata Login endpoint and is able to track cookies between requests.
-    This looks in the .netrc file first and if no credentials are found,
-    it prompts for them.
-
-    Valid endpoints include:
-        urs.earthdata.nasa.gov - Earthdata Login production
+    :param edl: Earthdata login endpoint
+    :type edl: str
     """
-    try:
-        username, _, password = netrc.netrc().authenticators(endpoint)
-    except FileNotFoundError as e:
-        logging.error("There's no .netrc file")
-        raise e
-    except TypeError as e:
-        logging.error("The endpoint isn't in the netrc file")
-        raise e
+    token_list = _get_tokens(edl, username, password)
 
-    manager = request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(None, endpoint, username, password)
-    auth = request.HTTPBasicAuthHandler(manager)
+    _revoke_expired_tokens(token_list, edl, username, password)
 
-    jar = CookieJar()
-    processor = request.HTTPCookieProcessor(jar)
-    opener = request.build_opener(auth, processor)
-    opener.addheaders = [('User-agent', 'daac-subscriber')]
-    request.install_opener(opener)
+    if not token_list:
+        token = _create_token(edl, username, password)
+    else:
+        token = token_list[0]["access_token"]
 
-    return username, password
+    return token
 
 
-@contextmanager
-def token_ctx(edl):
-
-    token_dict = _get_token(edl)
-    try:
-        yield token_dict
-    finally:
-        _delete_token(edl, token_dict)
-
-
-def _get_token(edl: str) -> dict:
-    token_create_url = f"https://{edl}/api/users/token"
+def _get_tokens(edl: str, username: str, password: str) -> list:
     token_list_url = f"https://{edl}/api/users/tokens"
-    username, _, password = netrc.netrc().authenticators(edl)
 
     list_response = requests.get(token_list_url, auth=HTTPBasicAuth(username, password))
     list_content = json.loads(list_response.content)
 
-    if not list_content:
-        create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
-        response_content = json.loads(create_response.content)
-
-        if "error" in response_content.keys():
-            logging.warning("Failed to acquire CMR token")
-            raise Exception(response_content['error'])
-
-        token = response_content["access_token"]
-    else:
-        token = list_content[0]["access_token"]
-
-    return {"token": token, "username": username, "password": password}
+    return list_content
 
 
-def _delete_token(edl: str, token_dict: dict) -> None:
+def _revoke_expired_tokens(token_list: list[str], edl: str, username: str, password: str) -> None:
+    for token_dict in token_list:
+        now = datetime.utcnow().date()
+        expiration_date = datetime.strptime(token_dict['expiration_date'], "%m/%d/%Y").date()
+
+        if expiration_date <= now:
+            _delete_token(edl, username, password, token_dict['access_token'])
+            del token_dict
+
+
+def _create_token(edl: str, username: str, password: str):
+    token_create_url = f"https://{edl}/api/users/token"
+
+    create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
+    response_content = json.loads(create_response.content)
+
+    if "error" in response_content.keys():
+        raise Exception(response_content['error'])
+
+    token = response_content["access_token"]
+
+    return token
+
+
+def _delete_token(edl: str, username: str, password: str, token: str) -> None:
     url = f"https://{edl}/api/users/revoke_token"
     try:
-        resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']),
-                             params={'token': token_dict['token']})
+        resp = requests.post(url, auth=HTTPBasicAuth(username, password),
+                             params={'token': token})
         if resp.status_code == 200:
             logging.info("CMR token successfully deleted")
         else:
-            logging.warning("CMR token deleting failed.")
+            logging.warning(f"CMR token deletion failed: {resp.status_code=}")
     except Exception as e:
         logging.warning(f"Error deleting the token: {e}")
 
@@ -747,7 +701,7 @@ def _url_to_orbit_number(url: str):
 
     input_filename = Path(url).name
     orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number
+    return orbit_number[1:-1] # Strips leading and trailing underscores
 
 
 def _url_to_tile_id(url: str):
