@@ -342,16 +342,15 @@ def supply_token(edl: str, username: str, password: str) -> str:
     return token
 
 
-def _get_tokens(edl: str, username: str, password: str) -> list:
+def _get_tokens(edl: str, username: str, password: str) -> list[dict]:
     token_list_url = f"https://{edl}/api/users/tokens"
 
     list_response = requests.get(token_list_url, auth=HTTPBasicAuth(username, password))
-    list_content = json.loads(list_response.content)
 
-    return list_content
+    return list_response.json()
 
 
-def _revoke_expired_tokens(token_list: list[str], edl: str, username: str, password: str) -> None:
+def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, password: str) -> None:
     for token_dict in token_list:
         now = datetime.utcnow().date()
         expiration_date = datetime.strptime(token_dict['expiration_date'], "%m/%d/%Y").date()
@@ -361,7 +360,7 @@ def _revoke_expired_tokens(token_list: list[str], edl: str, username: str, passw
             del token_dict
 
 
-def _create_token(edl: str, username: str, password: str):
+def _create_token(edl: str, username: str, password: str) -> str:
     token_create_url = f"https://{edl}/api/users/token"
 
     create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
