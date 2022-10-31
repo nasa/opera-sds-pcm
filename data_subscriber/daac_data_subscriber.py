@@ -346,6 +346,7 @@ def _get_tokens(edl: str, username: str, password: str) -> list[dict]:
     token_list_url = f"https://{edl}/api/users/tokens"
 
     list_response = requests.get(token_list_url, auth=HTTPBasicAuth(username, password))
+    list_response.raise_for_status()
 
     return list_response.json()
 
@@ -364,7 +365,9 @@ def _create_token(edl: str, username: str, password: str) -> str:
     token_create_url = f"https://{edl}/api/users/token"
 
     create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
-    response_content = json.loads(create_response.content)
+    create_response.raise_for_status()
+
+    response_content = create_response.json()
 
     if "error" in response_content.keys():
         raise Exception(response_content['error'])
@@ -379,12 +382,11 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
     try:
         resp = requests.post(url, auth=HTTPBasicAuth(username, password),
                              params={'token': token})
-        if resp.status_code == 200:
-            logging.info("CMR token successfully deleted")
-        else:
-            logging.warning(f"CMR token deletion failed: {resp.status_code=}")
+        resp.raise_for_status()
     except Exception as e:
         logging.warning(f"Error deleting the token: {e}")
+
+    logging.info("CMR token successfully deleted")
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
