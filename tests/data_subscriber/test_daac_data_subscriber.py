@@ -522,6 +522,39 @@ def test_download_granules_using_s3(monkeypatch):
     mock_download_product_using_s3.assert_called()
 
 
+def test_download_from_asf(monkeypatch):
+    # ARRANGE
+    patch_subscriber_io(monkeypatch)
+
+    from dataclasses import dataclass
+
+    @dataclass
+    class Args:
+        dry_run = False
+        smoke_run = True
+        transfer_protocol = "https"
+
+    # mock ASF download functions
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber._handle_url_redirect.__name__,
+        MagicMock()
+    )
+
+    mock_extract_one_to_one = MagicMock()
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.extract_one_to_one.__name__,
+        mock_extract_one_to_one
+    )
+
+    # ACT
+    data_subscriber.daac_data_subscriber.download_from_asf(es_conn=MagicMock(), download_urls=["https://www.example.com/dummy_slc_product.zip"], args=Args(), token=None, job_id=None)
+
+    # ASSERT
+    mock_extract_one_to_one.assert_called_once()
+
+
 def mock_token(*args):
     return "test_token"
 
@@ -617,29 +650,37 @@ def patch_subscriber(monkeypatch):
 
 
 def patch_subscriber_io(monkeypatch):
-    """Patch I/O operations from os, shutil, and json modules.
+    """Patch I/O operations from smart_open, shutil, and json modules.
 
     Patched functions will do no-op, returning None.
     """
+    mock_smart_open(monkeypatch)
+    mock_path_package(monkeypatch)
+    mock_shutil_package(monkeypatch)
+    mock_json_package(monkeypatch)
+
+
+def mock_smart_open(monkeypatch):
     mock_open = MagicMock()
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.open.__name__,
         lambda *args, **kwargs: mock_open
     )
+
+
+def mock_path_package(monkeypatch):
     monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber.os,
-        data_subscriber.daac_data_subscriber.os.mkdir.__name__,
+        data_subscriber.daac_data_subscriber.Path,
+        data_subscriber.daac_data_subscriber.Path.mkdir.__name__,
         MagicMock()
     )
+
+
+def mock_shutil_package(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.shutil,
         data_subscriber.daac_data_subscriber.shutil.rmtree.__name__,
-        MagicMock()
-    )
-    monkeypatch.setattr(
-        data_subscriber.daac_data_subscriber.os,
-        data_subscriber.daac_data_subscriber.os.unlink.__name__,
         MagicMock()
     )
     monkeypatch.setattr(
@@ -647,6 +688,9 @@ def patch_subscriber_io(monkeypatch):
         data_subscriber.daac_data_subscriber.shutil.copy.__name__,
         MagicMock()
     )
+
+
+def mock_json_package(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.json,
         data_subscriber.daac_data_subscriber.json.dump.__name__,

@@ -9,7 +9,6 @@ import itertools
 import json
 import logging
 import netrc
-import os
 import re
 import shutil
 import sys
@@ -741,7 +740,8 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
+        # _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
+        download_from_asf(es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
@@ -836,6 +836,48 @@ def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
     logging.info(f"Files failed to download: {str(num_failures)}")
 
 
+def download_from_asf(
+        es_conn,
+        download_urls: list[str],
+        args,
+        token,
+        job_id
+):
+    cfg = SettingsConf().cfg  # has metadata extractor config
+    logging.info("Creating directories to process products")
+
+    # house all file downloads
+    downloads_dir = Path("downloads")
+    downloads_dir.mkdir(exist_ok=True)
+
+    if args.dry_run:
+        logging.info(f"{args.dry_run=}. Skipping downloads.")
+
+    for product_url in download_urls:
+        logging.info(f"Processing {product_url=}")
+        product_id = PurePath(product_url).name
+
+        product_download_dir = downloads_dir / product_id
+        product_download_dir.mkdir(exist_ok=True)
+
+        # download product
+        if args.dry_run:
+            logging.debug(f"{args.dry_run=}. Skipping download.")
+            continue
+        product = product_filepath = download_asf_product(product_url, token, product_download_dir)
+        logging.info(f"{product_filepath=}")
+
+        logging.info(f"Marking as downloaded. {product_url=}")
+        es_conn.mark_product_as_downloaded(product_url, job_id)
+
+        logging.info(f"product_url_downloaded={product_url}")
+
+        extract_one_to_one(product, product_id, cfg)
+
+    logging.info(f"Removing directory tree. {downloads_dir}")
+    shutil.rmtree(downloads_dir)
+
+
 def download_granules(
         session: requests.Session,
         es_conn,
@@ -846,7 +888,9 @@ def download_granules(
 ):
     cfg = SettingsConf().cfg  # has metadata extractor config
     logging.info("Creating directories to process granules")
-    os.mkdir(downloads_dir := Path("downloads"))  # house all file downloads
+    # house all file downloads
+    downloads_dir = Path("downloads")
+    downloads_dir.mkdir(exist_ok=True)
 
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
@@ -857,37 +901,26 @@ def download_granules(
     for granule_id, product_urls in granule_id_to_product_urls_map.items():
         logging.info(f"Processing {granule_id=}")
 
-        os.mkdir(granule_download_dir := downloads_dir / granule_id)
+        granule_download_dir = downloads_dir / granule_id
+        granule_download_dir.mkdir(exist_ok=True)
 
         # download products in granule
         products = []
         product_urls_downloaded = []
-        product_urls_skipped = []
-        product_urls_failed = []
-        try:
-            for product_url in product_urls:
-                if es_conn.product_is_downloaded(product_url):
-                    product_urls_skipped.append(product_url)
-                    continue
-                if args.dry_run:
-                    logging.debug(f"{args.dry_run=}. Skipping download.")
-                    break
-                product_filepath = download_product(product_url, session, token, args, granule_download_dir)
-                products.append(product_filepath)
-                product_urls_downloaded.append(product_url)
-            logging.info(f"{products=}")
-        except Exception as e:
-            logging.error(f"Failed to download {granule_id=} when processing {product_url=}. Skipping to next granule.")
-            product_urls_failed.append(product_url)
-            continue
+        for product_url in product_urls:
+            if args.dry_run:
+                logging.debug(f"{args.dry_run=}. Skipping download.")
+                break
+            product_filepath = download_product(product_url, session, token, args, granule_download_dir)
+            products.append(product_filepath)
+            product_urls_downloaded.append(product_url)
+        logging.info(f"{products=}")
 
         logging.info(f"Marking as downloaded. {granule_id=}")
         for product_url in product_urls_downloaded:
             es_conn.mark_product_as_downloaded(product_url, job_id)
 
         logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
-        logging.warning(f"{len(product_urls_skipped)=}, {product_urls_skipped=}")
-        logging.error(f"{len(product_urls_failed)=}, {product_urls_failed=}")
 
         extract_many_to_one(products, granule_id, cfg)
 
@@ -915,18 +948,34 @@ def download_product(product_url, session: requests.Session, token: str, args, t
     return product_filepath
 
 
-def extract_many_to_one(products, group_dataset_id, settings_cfg):
+def download_asf_product(product_url, token: str, target_dirpath: Path):
+    logging.info(f"Requesting from {product_url}")
+
+    asf_response = _handle_url_redirect(product_url, token)
+    asf_response.raise_for_status()
+
+    product_filename = PurePath(product_url).name
+    product_download_path = target_dirpath / product_filename
+    with open(product_download_path, "wb") as file:
+        file.write(asf_response.content)
+    return product_download_path.resolve()
+
+
+def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: dict):
     """Creates a dataset for each of the given products, merging them into 1 final dataset.
 
     :param products: the products to create datasets for.
     :param group_dataset_id: a unique identifier for the group of products.
     :param settings_cfg: the settings.yaml config as a dict.
     """
-    os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
+    # house all datasets / extracted metadata
+    extracts_dir = Path("extracts")
+    extracts_dir.mkdir(exist_ok=True)
 
     # create individual dataset dir for each product in the granule
     # (this also extracts the metadata to *.met.json files)
-    os.mkdir(product_extracts_dir := extracts_dir / group_dataset_id)
+    product_extracts_dir = extracts_dir / group_dataset_id
+    product_extracts_dir.mkdir(exist_ok=True)
     dataset_dirs = [
         extractor.extract.extract(
             product=str(product),
@@ -946,7 +995,8 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     logging.debug(f"{merged_met_dict=}")
 
     logging.info("Creating target dataset directory")
-    os.mkdir(target_dataset_dir := Path(group_dataset_id))
+    target_dataset_dir = Path(group_dataset_id)
+    target_dataset_dir.mkdir(exist_ok=True)
     for product in products:
         shutil.copy(product, target_dataset_dir.resolve())
     logging.info("Copied input products to dataset directory")
@@ -976,6 +1026,40 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
     shutil.rmtree(extracts_dir)
+
+
+def extract_one_to_one(product: Path, dataset_id, settings_cfg: dict):
+    """Creates a dataset for the given product.
+
+    :param product: the product to create datasets for.
+    :param dataset_id: a unique identifier for the product.
+    :param settings_cfg: the settings.yaml config as a dict.
+    """
+    # create dataset dir for product
+    # (this also extracts the metadata to *.met.json file)
+    logging.info("Creating dataset directory")
+    dataset_dir = extractor.extract.extract(
+        product=str(product),
+        product_types=settings_cfg["PRODUCT_TYPES"],
+        workspace=str(Path.cwd().resolve())
+    )
+    logging.info(f"{dataset_dir=}")
+    dataset_dirpath = Path(dataset_dir)
+
+    dataset_met_json_filepath = dataset_dirpath.resolve() / f"{dataset_id}.met.json"
+    with open(dataset_met_json_filepath) as met_json:
+        met_dict = json.load(met_json)
+
+    # write out basic *.dataset.json file (value + created_timestamp)
+    dataset_json_dict = extractor.extract.create_dataset_json(
+        product_metadata={"dataset_version": met_dict["dataset_version"]},
+        ds_met={},
+        alt_ds_met={}
+    )
+    granule_dataset_json_filepath = dataset_dirpath.resolve() / f"{dataset_id}.dataset.json"
+    with open(granule_dataset_json_filepath, mode="w") as output_file:
+        json.dump(dataset_json_dict, output_file)
+    logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:
