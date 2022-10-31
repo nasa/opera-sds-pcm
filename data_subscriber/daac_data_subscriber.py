@@ -1046,7 +1046,9 @@ def extract_one_to_one(product: Path, dataset_id, settings_cfg: dict):
     logging.info(f"{dataset_dir=}")
     dataset_dirpath = Path(dataset_dir)
 
-    dataset_met_json_filepath = dataset_dirpath.resolve() / f"{dataset_id}.met.json"
+    dataset_file_basename = dataset_id.removesuffix(".zip")
+
+    dataset_met_json_filepath = dataset_dirpath.resolve() / f'{dataset_file_basename}.met.json'
     with open(dataset_met_json_filepath) as met_json:
         met_dict = json.load(met_json)
 
@@ -1056,7 +1058,7 @@ def extract_one_to_one(product: Path, dataset_id, settings_cfg: dict):
         ds_met={},
         alt_ds_met={}
     )
-    granule_dataset_json_filepath = dataset_dirpath.resolve() / f"{dataset_id}.dataset.json"
+    granule_dataset_json_filepath = dataset_dirpath.resolve() / f"{dataset_file_basename}.dataset.json"
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)
     logging.info(f"Wrote {granule_dataset_json_filepath=!s}")

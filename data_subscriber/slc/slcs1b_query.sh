@@ -21,7 +21,7 @@ date
 
 # Forward processing use case; query previous 60 minutes
 echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p ASF -c SENTINEL-1B_SLC $* 2>&1"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p ASF -c SENTINEL-1B_SLC $* 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query -p ASF -c SENTINEL-1B_SLC $* > run_slcs1b_query.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
