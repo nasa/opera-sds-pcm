@@ -1651,6 +1651,18 @@ data "template_file" "launch_template_user_data" {
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-slc_data_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-slc_data_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-slc_data_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-slc_data_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
                     "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_ingest.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_ingest.log",
                     "timezone": "Local",
