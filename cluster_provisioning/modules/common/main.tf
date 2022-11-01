@@ -1684,6 +1684,12 @@ data "template_file" "launch_template_user_data" {
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l2_rtc_s1.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-sciflo-l2_rtc_s1.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
                     "file_path": "/home/ops/verdi/log/opera-job_worker-send_cnm_notify.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-send_cnm_notify.log",
                     "timezone": "Local",
