@@ -32,7 +32,7 @@ from opera_chimera.constants.opera_chimera_const import (
 from util import datasets_json_util
 from util.common_util import convert_datetime, get_working_dir
 from util.pge_util import (download_object_from_s3,
-                           get_input_dataset_tile_code,
+                           get_input_hls_dataset_tile_code,
                            write_pge_metrics)
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
@@ -1008,7 +1008,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             logger.info(f"Got bbox from PGE config: {bbox}")
 
         # get MGRS tile code, if available from product metadata
-        tile_code = get_input_dataset_tile_code(self._context)
+        tile_code = get_input_hls_dataset_tile_code(self._context)
 
         if tile_code:
             logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
@@ -1116,7 +1116,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             logger.info(f"Got bbox from PGE config: {bbox}")
 
         # get MGRS tile code, if available from product metadata
-        tile_code = get_input_dataset_tile_code(self._context)
+        tile_code = get_input_hls_dataset_tile_code(self._context)
 
         if tile_code:
             logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
