@@ -136,6 +136,9 @@ def convert(
         elif "cslc_s1" in dataset_id.lower():
             collection_name = settings.get("CSLC_COLLECTION_NAME")
             product_version = settings.get("CSLC_S1_PRODUCT_VERSION")
+        elif "rtc_s1" in dataset_id.lower():
+            collection_name = settings.get("RTC_COLLECTION_NAME")
+            product_version = settings.get("RTC_S1_PRODUCT_VERSION")
         else:
             collection_name = "Unknown"
             product_version = "Unknown"
