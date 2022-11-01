@@ -960,15 +960,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return latlong
 
-    def get_dswx_hls_product_version(self):
+    def get_product_version(self):
         """Assigns the product version specified in settings.yaml to PGE RunConfig"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        product_version = self._settings.get(oc_const.DSWX_HLS_PRODUCT_VERSION)
+        version_key = self._pge_config.get(oc_const.GET_PRODUCT_VERSION, {}).get(oc_const.VERSION_KEY)
+
+        product_version = self._settings.get(version_key)
 
         if not product_version:
             raise RuntimeError(
-                f"No value set for {oc_const.DSWX_HLS_PRODUCT_VERSION} in settings.yaml"
+                f"No value set for {version_key} in settings.yaml"
             )
 
         rc_params = {

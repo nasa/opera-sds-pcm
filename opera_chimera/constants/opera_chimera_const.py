@@ -209,6 +209,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     FILE_NAMES_KEY = "file_names_key"
 
+    VERSION_KEY = "version_key"
+
     CAST_STRING_TO_INT = "cast_string_to_int"
 
     BBOX = "bbox"
@@ -223,9 +225,7 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DEM_BBOX = "get_dem_bbox"
 
-    DSWX_HLS_PRODUCT_VERSION = "DSWX_HLS_PRODUCT_VERSION"
-
-    GET_DSWX_HLS_PRODUCT_VERSION = "get_dswx_hls_product_version"
+    GET_PRODUCT_VERSION = "get_product_version"
 
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
