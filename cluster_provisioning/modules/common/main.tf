@@ -2621,7 +2621,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "PROVIDER": var.slc_provider,
       "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
-      "CHUNK_SIZE": "80",
+      "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
