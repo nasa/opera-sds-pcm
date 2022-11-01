@@ -1028,11 +1028,10 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     shutil.rmtree(extracts_dir)
 
 
-def extract_one_to_one(product: Path, dataset_id, settings_cfg: dict):
+def extract_one_to_one(product: Path, settings_cfg: dict):
     """Creates a dataset for the given product.
 
     :param product: the product to create datasets for.
-    :param dataset_id: a unique identifier for the product.
     :param settings_cfg: the settings.yaml config as a dict.
     """
     # create dataset dir for product
@@ -1044,24 +1043,6 @@ def extract_one_to_one(product: Path, dataset_id, settings_cfg: dict):
         workspace=str(Path.cwd().resolve())
     )
     logging.info(f"{dataset_dir=}")
-    dataset_dirpath = Path(dataset_dir)
-
-    dataset_file_basename = dataset_id.removesuffix(".zip")
-
-    dataset_met_json_filepath = dataset_dirpath.resolve() / f'{dataset_file_basename}.met.json'
-    with open(dataset_met_json_filepath) as met_json:
-        met_dict = json.load(met_json)
-
-    # write out basic *.dataset.json file (value + created_timestamp)
-    dataset_json_dict = extractor.extract.create_dataset_json(
-        product_metadata={"dataset_version": met_dict["dataset_version"]},
-        ds_met={},
-        alt_ds_met={}
-    )
-    granule_dataset_json_filepath = dataset_dirpath.resolve() / f"{dataset_file_basename}.dataset.json"
-    with open(granule_dataset_json_filepath, mode="w") as output_file:
-        json.dump(dataset_json_dict, output_file)
-    logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:
