@@ -872,7 +872,7 @@ def download_from_asf(
 
         logging.info(f"product_url_downloaded={product_url}")
 
-        extract_one_to_one(product, product_id, cfg)
+        extract_one_to_one(product, cfg)
 
     logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
