@@ -34,6 +34,7 @@ import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from tools import stage_orbit_file
 from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
@@ -872,7 +873,13 @@ def download_from_asf(
 
         logging.info(f"product_url_downloaded={product_url}")
 
-        extract_one_to_one(product, cfg)
+        dataset_dirpath = extract_one_to_one(product, cfg)
+        stage_orbit_file_args = stage_orbit_file.get_parser().parse_args([
+            f'--output-directory={str(dataset_dirpath)}',
+            "--url-only",
+            str(product_filepath)
+        ])
+        stage_orbit_file.main(stage_orbit_file_args)
 
     logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
@@ -1028,7 +1035,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     shutil.rmtree(extracts_dir)
 
 
-def extract_one_to_one(product: Path, settings_cfg: dict):
+def extract_one_to_one(product: Path, settings_cfg: dict) -> PurePath:
     """Creates a dataset for the given product.
 
     :param product: the product to create datasets for.
@@ -1043,6 +1050,7 @@ def extract_one_to_one(product: Path, settings_cfg: dict):
         workspace=str(Path.cwd().resolve())
     )
     logging.info(f"{dataset_dir=}")
+    return PurePath(dataset_dir)
 
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:

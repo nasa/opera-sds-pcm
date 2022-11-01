@@ -548,11 +548,24 @@ def test_download_from_asf(monkeypatch):
         mock_extract_one_to_one
     )
 
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.stage_orbit_file,
+        data_subscriber.daac_data_subscriber.stage_orbit_file.get_parser.__name__,
+        MagicMock()
+    )
+    mock_stage_orbit_file = MagicMock()
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber.stage_orbit_file,
+        data_subscriber.daac_data_subscriber.stage_orbit_file.main.__name__,
+        mock_stage_orbit_file
+    )
+
     # ACT
     data_subscriber.daac_data_subscriber.download_from_asf(es_conn=MagicMock(), download_urls=["https://www.example.com/dummy_slc_product.zip"], args=Args(), token=None, job_id=None)
 
     # ASSERT
     mock_extract_one_to_one.assert_called_once()
+    mock_stage_orbit_file.assert_called_once()
 
 
 def mock_token(*args):
