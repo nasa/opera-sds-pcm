@@ -27,6 +27,7 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
+  - get_product_version
   - get_slc_s1_burst_id
   - get_slc_s1_safe_file
   - get_slc_s1_orbit_file
@@ -37,6 +38,9 @@ preconditions:
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
+
+get_product_version:
+  version_key: "CSLC_S1_PRODUCT_VERSION"
 
 get_slc_s1_orbit_file:
   # TODO: use the sample orbit file provided by ADT until we figure out how

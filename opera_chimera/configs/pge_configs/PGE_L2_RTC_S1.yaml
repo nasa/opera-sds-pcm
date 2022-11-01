@@ -38,6 +38,9 @@ preconditions:
 postprocess:
   - update_product_accountability
 
+get_product_version:
+  version_key: "RTC_S1_PRODUCT_VERSION"
+
 get_slc_s1_orbit_file:
   # TODO: use the sample orbit file provided by ADT until the stage_orbit_file.py
   #       script is integrated with the download job for SLC products

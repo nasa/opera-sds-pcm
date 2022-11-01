@@ -48,7 +48,7 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
-  - get_dswx_hls_product_version
+  - get_product_version
   - get_metadata
   - get_hls_dswx_pge_input_filepaths
   - get_cnm_version
@@ -60,6 +60,9 @@ preconditions:
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
+
+get_product_version:
+  version_key: "DSWX_HLS_PRODUCT_VERSION"
 
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here
