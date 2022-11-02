@@ -873,13 +873,14 @@ def download_from_asf(
 
         logging.info(f"product_url_downloaded={product_url}")
 
+        logging.info("downloading associated orbit file")
         dataset_dirpath = extract_one_to_one(product, cfg)
         stage_orbit_file_args = stage_orbit_file.get_parser().parse_args([
             f'--output-directory={str(dataset_dirpath)}',
-            "--url-only",
             str(product_filepath)
         ])
         stage_orbit_file.main(stage_orbit_file_args)
+        logging.info("added orbit file to dataset")
 
     logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
