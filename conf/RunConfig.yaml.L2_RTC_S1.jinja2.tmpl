@@ -21,7 +21,8 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: RTC_S1
-        ProductVersion: {{ data.product_path_group.product_version }}
+        # TODO: remove quotes for next release
+        ProductVersion: "{{ data.product_path_group.product_version }}"
         ProgramPath: conda
         ProgramOptions:
           - run
