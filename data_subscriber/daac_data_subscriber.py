@@ -844,7 +844,7 @@ def download_from_asf(
         token,
         job_id
 ):
-    cfg = SettingsConf().cfg  # has metadata extractor config
+    settings_cfg = SettingsConf().cfg  # has metadata extractor config
     logging.info("Creating directories to process products")
 
     # house all file downloads
@@ -874,9 +874,9 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         logging.info("downloading associated orbit file")
-        dataset_dirpath = extract_one_to_one(product, cfg)
+        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd())
         stage_orbit_file_args = stage_orbit_file.get_parser().parse_args([
-            f'--output-directory={str(dataset_dirpath)}',
+            f'--output-directory={str(dataset_dir)}',
             str(product_filepath)
         ])
         stage_orbit_file.main(stage_orbit_file_args)
@@ -985,11 +985,8 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     product_extracts_dir = extracts_dir / group_dataset_id
     product_extracts_dir.mkdir(exist_ok=True)
     dataset_dirs = [
-        extractor.extract.extract(
-            product=str(product),
-            product_types=settings_cfg["PRODUCT_TYPES"],
-            workspace=str(product_extracts_dir.resolve())
-        ) for product in products
+        extract_one_to_one(product, settings_cfg, working_dir=product_extracts_dir)
+        for product in products
     ]
     logging.info(f"{dataset_dirs=}")
 
@@ -1036,11 +1033,12 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     shutil.rmtree(extracts_dir)
 
 
-def extract_one_to_one(product: Path, settings_cfg: dict) -> PurePath:
+def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path) -> PurePath:
     """Creates a dataset for the given product.
 
     :param product: the product to create datasets for.
     :param settings_cfg: the settings.yaml config as a dict.
+    :param working_dir: the working directory for the extract process. Serves as the output directory for the extraction.
     """
     # create dataset dir for product
     # (this also extracts the metadata to *.met.json file)
@@ -1048,7 +1046,7 @@ def extract_one_to_one(product: Path, settings_cfg: dict) -> PurePath:
     dataset_dir = extractor.extract.extract(
         product=str(product),
         product_types=settings_cfg["PRODUCT_TYPES"],
-        workspace=str(Path.cwd().resolve())
+        workspace=str(working_dir.resolve())
     )
     logging.info(f"{dataset_dir=}")
     return PurePath(dataset_dir)
