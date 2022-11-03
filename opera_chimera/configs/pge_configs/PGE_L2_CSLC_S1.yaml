@@ -20,6 +20,7 @@ runconfig:
   dynamic_ancillary_file_group:
     dem_file: __CHIMERA_VAL__
   product_path_group:
+    product_version: __CHIMERA_VAL__
     product_path: /home/compass_user/output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: /home/compass_user/output_dir/scratch_dir

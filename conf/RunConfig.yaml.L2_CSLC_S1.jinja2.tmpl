@@ -21,6 +21,7 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: CSLC_S1
+        ProductVersion: {{ data.product_path_group.product_version }}
         ProgramPath: conda
         ProgramOptions:
           - run
