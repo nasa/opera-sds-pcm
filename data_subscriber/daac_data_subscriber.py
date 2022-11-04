@@ -741,7 +741,6 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        # _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
         download_from_asf(es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
@@ -800,41 +799,6 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         return dl_dict["https_url"]
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
-
-
-def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "https://" in f]
-
-    if args.dry_run:
-        logging.info(f"{args.dry_run=}. Skipping downloads.")
-
-    for url in filtered_downloads:
-        try:
-            if es_conn.product_is_downloaded(url):
-                logging.debug(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    pass
-                else:
-                    result = _https_transfer(url, args.isl_bucket, token)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
-
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
-
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
 
 
 def download_from_asf(
