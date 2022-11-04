@@ -68,12 +68,12 @@ async def test_full(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.extractor.extract,
         data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
-        lambda *args, **kwargs: {}
+        MagicMock(return_value={})
     )
 
     args = "dummy.py full " \
@@ -205,12 +205,12 @@ async def test_download(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.extractor.extract,
         data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
-        lambda *args, **kwargs: {}
+        MagicMock(return_value={})
     )
 
     args = "dummy.py download " \
@@ -245,7 +245,7 @@ async def test_download_by_tile(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
 
     mock_download_product_using_s3 = MagicMock(side_effect=[Path("downloads/T00000/T00000.B01").resolve()])
@@ -257,7 +257,7 @@ async def test_download_by_tile(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.extractor.extract,
         data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
-        lambda *args, **kwargs: {}
+        MagicMock(return_value={})
     )
 
     args = "dummy.py download " \
@@ -310,12 +310,12 @@ async def test_download_by_tiles(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.extractor.extract,
         data_subscriber.daac_data_subscriber.extractor.extract.create_dataset_json.__name__,
-        lambda *args, **kwargs: {}
+        MagicMock(return_value={})
     )
 
     args = "dummy.py download " \
@@ -350,7 +350,7 @@ async def test_download_https(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
@@ -394,7 +394,7 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
 
     args = "dummy.py download " \
@@ -424,7 +424,7 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
 
     args = "dummy.py download " \
@@ -456,12 +456,12 @@ def test_download_granules_using_https(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.extractor.extract,
         data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
-        lambda *args, **kwargs: "extracts/granule1/granule1.Fmask"
+        MagicMock(return_value="extracts/granule1/granule1.Fmask")
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
 
     mock_es_conn = MagicMock()
@@ -496,12 +496,12 @@ def test_download_granules_using_s3(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.extractor.extract,
         data_subscriber.daac_data_subscriber.extractor.extract.extract.__name__,
-        lambda *args, **kwargs: "extracts/granule1/granule1.Fmask"
+        MagicMock(return_value="extracts/granule1/granule1.Fmask")
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset,
         data_subscriber.daac_data_subscriber.product2dataset.product2dataset.merge_dataset_met_json.__name__,
-        lambda *args, **kwargs: (1, {"dataset_version": "v2.0"})
+        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
 
     mock_es_conn = MagicMock()
@@ -576,12 +576,12 @@ def patch_subscriber(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,
-        lambda *args, **kwargs: MockDataSubscriberProductCatalog()
+        MagicMock(return_value=MockDataSubscriberProductCatalog())
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_spatial_catalog_connection.__name__,
-        lambda *args, **kwargs: MockHlsSpatialCatalog()
+        MagicMock(return_value=MockHlsSpatialCatalog())
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.netrc,
@@ -606,7 +606,7 @@ def patch_subscriber(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber._request_search.__name__,
-        lambda *args, **kwargs: (
+        MagicMock(return_value=(
             [
                 {
                     "granule_id": "dummy_granule_id",
@@ -648,7 +648,7 @@ def patch_subscriber(monkeypatch):
                 }
             ],
             False  # search_after
-        )
+        ))
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
@@ -658,7 +658,7 @@ def patch_subscriber(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.submit_mozart_job.__name__,
-        lambda *args, **kwargs: "dummy_job_id_" + str(random.randint(0, 100))
+        MagicMock(return_value="dummy_job_id_" + str(random.randint(0, 100)))
     )
 
 
@@ -678,7 +678,7 @@ def mock_smart_open(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.open.__name__,
-        lambda *args, **kwargs: mock_open
+        MagicMock(return_value=mock_open)
     )
 
 
@@ -720,11 +720,11 @@ def mock_get_aws_creds(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber._get_aws_creds.__name__,
-        lambda *args, **kwargs: {
+        MagicMock(return_value={
             "accessKeyId": None,
             "secretAccessKey": None,
             "sessionToken": None
-        }
+        })
     )
 
 
@@ -732,7 +732,7 @@ def mock_https_transfer(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber._https_transfer.__name__,
-        lambda *args, **kwargs: {}
+        MagicMock(return_value={})
     )
 
 
@@ -740,7 +740,7 @@ def mock_s3_transfer(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber._s3_transfer.__name__,
-        lambda *args, **kwargs: {}
+        MagicMock(return_value={})
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
@@ -750,7 +750,7 @@ def mock_s3_transfer(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber._s3_upload.__name__,
-        lambda *args, **kwargs: "dummy_target_key"
+        MagicMock(return_value="dummy_target_key")
     )
 
 
