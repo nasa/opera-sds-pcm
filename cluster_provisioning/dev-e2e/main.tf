@@ -88,6 +88,7 @@ module "common" {
   triage_bucket                           = var.triage_bucket
   isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
+  clear_s3_aws_es                         = var.clear_s3_aws_es
   docker_registry_bucket                  = var.docker_registry_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
@@ -125,6 +126,7 @@ resource "null_resource" "mozart" {
     triage_bucket    = module.common.triage_bucket
     lts_bucket       = module.common.lts_bucket
     osl_bucket       = module.common.osl_bucket
+    clear_s3_aws_es  = var.clear_s3_aws_es
   }
 
   connection {
@@ -209,7 +211,7 @@ resource "null_resource" "mozart" {
               set -ex
               source ~/.bash_profile
               ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
-              if [ "${var.clear_s3_aws_es}" = true ]; then
+              if [ "${self.triggers.clear_s3_aws_es}" = true ]; then
                 python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
                 ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
               fi
