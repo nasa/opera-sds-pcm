@@ -76,8 +76,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name = "verdi"
-    ami = "ami-0caed57c920d65ea8"
-    # verdi v4.11 v4.0.1-beta.8-oraclelinux
+    ami = "ami-041aba0092ac878d4" # verdi v4.1.0-beta.4 (11-08-22)
     instance_type = "t3.medium"
     device_name = "/dev/sda1"
     device_size = 50
