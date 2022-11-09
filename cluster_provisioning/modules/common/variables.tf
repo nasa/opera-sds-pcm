@@ -133,12 +133,11 @@ variable "amis" {
   type = map(string)
   default = {
     # HySDS v4.1.0-beta.4 (R2)
-    mozart    = "ami-07108f7628f8ececf"
-    metrics   = "ami-0e94eadd07ea9e804"
-    grq       = "ami-04c1dcc278e7964d7"
-    factotum  = "ami-00fecd2fd95a0378d"
-    autoscale = "ami-041aba0092ac878d4"
-    ci        = "ami-041aba0092ac878d4"
+	mozart    = "ami-0a4c8f9c7f5a2daec" # v4.18 - 221107
+    metrics   = "ami-0c61e7c8b1bfd14a3" # v4.13 - 221107
+    grq       = "ami-0f52442c2bd506303" # v4.14 - 221107 
+    factotum  = "ami-03fdbdb8c7caa736e" # v4.14 - 221107
+    autoscale = "ami-0266bb7f79155b493" # v4.16 - 221107
   }
 }
 
