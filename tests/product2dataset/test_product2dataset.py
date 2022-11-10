@@ -69,6 +69,12 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
             ]
         }
         """).return_value,
+        dataset_catalog_json := mocker.mock_open(read_data="""
+        {
+            "PGE_Version": "dummy_pge_version",
+            "SAS_Version": "dummy_sas_version"
+        }
+        """).return_value,
         dataset_met_json := mocker.mock_open(read_data="").return_value
 
     ]

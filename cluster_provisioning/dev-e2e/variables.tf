@@ -166,7 +166,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 50
+    root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
   }
@@ -459,10 +459,6 @@ variable "queues" {
 
 variable "docker_registry_bucket" {
   default = "opera-pcm-registry-bucket"
-}
-
-variable "clear_s3_aws_es" {
-  default = true
 }
 
 variable "purge_es_snapshot" {

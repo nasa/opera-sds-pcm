@@ -138,6 +138,10 @@ variable "artifactory_repo" {
   default = "general-stage"
 }
 
+variable "use_artifactory" {
+  default = true
+}
+
 ######### ami vars #######
 variable "amis" {
   type = map(string)
@@ -329,10 +333,6 @@ variable "autoscale" {
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
   }
-}
-
-variable "clear_s3_aws_es" {
-  default = false
 }
 
 

@@ -1600,6 +1600,24 @@ data "template_file" "launch_template_user_data" {
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
                   {
+                    "file_path": "/data/work/jobs/**/run_slcs1a_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slcs1a_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_slcs1b_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slcs1b_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_slc_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slc_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
                     "file_path": "/data/work/jobs/**/run_pcm_int.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_pcm_int.log",
                     "timezone": "Local",
@@ -1631,6 +1649,18 @@ data "template_file" "launch_template_user_data" {
                   {
                     "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_download.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-slc_data_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-slc_data_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-slc_data_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-slc_data_download.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
@@ -2593,7 +2623,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "PROVIDER": var.slc_provider,
       "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
-      "CHUNK_SIZE": "80",
+      "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"

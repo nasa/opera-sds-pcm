@@ -72,6 +72,7 @@ def clear_pcm_test_state():
     # clear data subscriber indexes
     es_index_delete("hls_catalog")
     es_index_delete("hls_spatial_catalog")
+    es_index_delete("slc_catalog")
 
     # clear ingest data indexes
     es_index_delete("grq_1_l1_s1_slc")
