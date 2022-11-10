@@ -163,14 +163,12 @@ variable "bach_ui_branch" {
 variable "amis" {
   type = map(string)
   default = {
-
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Susan 10-24-22)
-    mozart    = "ami-0a9ee96d965b006f3" # mozart v4.18
-    metrics   = "ami-025931942c5155f5c" # metrics v4.13
-    grq       = "ami-08c8b2877d50e06c4" # grq v4.14
-    factotum  = "ami-0ecd7108ca35acd1c" # factotum v4.14
-    autoscale = "ami-022a3064aa856ace1" # verdi v4.14
-    ci        = "ami-022a3064aa856ace1" # verdi v4.14
+    # HySDS v4.1.0-beta.4 
+    mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
+    metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
+    grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
+    factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
+    autoscale = "ami-0266bb7f79155b493" # verdi v4.16 - 221107
   }
 }
 
