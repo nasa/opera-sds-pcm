@@ -15,7 +15,7 @@ import sys
 import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
-from functools import partial
+from functools import partial, cache
 from pathlib import Path, PurePath
 from typing import Any, Iterable
 from urllib.parse import urlparse
@@ -1031,6 +1031,8 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
     aws_creds = _get_aws_creds(session)
+    logging.info(f"{_get_aws_creds.cache_info()=}")
+
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
                        aws_session_token=aws_creds['sessionToken'],
@@ -1098,10 +1100,12 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
+@cache  # OPTIMIZATION: assumes job runs within session validity period
 def _get_aws_creds(session):
+    logging.info("entry")
+
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
-        if r.status_code != 200:
-            r.raise_for_status()
+        r.raise_for_status()
 
         return r.json()
 
