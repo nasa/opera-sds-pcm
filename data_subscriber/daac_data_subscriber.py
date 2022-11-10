@@ -896,6 +896,7 @@ def download_granules(
         logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
 
         extract_many_to_one(products, granule_id, cfg)
+        shutil.rmtree(granule_download_dir)
 
     logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
