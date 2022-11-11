@@ -15,7 +15,7 @@ import sys
 import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
-from functools import partial, cache
+from functools import partial
 from pathlib import Path, PurePath
 from typing import Any, Iterable
 from urllib.parse import urlparse
@@ -24,6 +24,7 @@ import boto3
 import dateutil.parser
 import requests
 import validators
+from cachetools.func import ttl_cache
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
 from requests.auth import HTTPBasicAuth
@@ -1031,7 +1032,6 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
     aws_creds = _get_aws_creds(session)
-    logging.info(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
@@ -1100,7 +1100,7 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-@cache  # OPTIMIZATION: assumes job runs within session validity period
+@ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
 def _get_aws_creds(session):
     logging.info("entry")
 
