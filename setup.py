@@ -39,7 +39,7 @@ setup(
 
             "python-dateutil",
             "validators",
-            "cachetools=5.2.0"
+            "cachetools==5.2.0"
         ],
         "subscriber": [
             "boto3",
@@ -49,7 +49,7 @@ setup(
             "more-itertools==8.13.0",
             "requests==2.27.1",
             "validators",
-            "cachetools=5.2.0"
+            "cachetools==5.2.0"
         ],
         "test": [
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz",
@@ -76,7 +76,7 @@ setup(
             "mgrs",
             "pyproj",
             "validators",
-            "cachetools=5.2.0"
+            "cachetools==5.2.0"
         ],
         "integration": [
             "pytest==7.1.1",
