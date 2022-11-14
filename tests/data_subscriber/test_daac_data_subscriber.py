@@ -710,7 +710,7 @@ def mock_boto3(monkeypatch):
 
 
 class MockDataSubscriberProductCatalog:
-    def get_all_undownloaded(self, *args, **kwargs):
+    def get_all_hls_between(self, *args, **kwargs):
         return [
             {
                 "https_url": "https://example.com/T00000.B01.tif",
