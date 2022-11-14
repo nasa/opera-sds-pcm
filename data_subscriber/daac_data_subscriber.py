@@ -1032,7 +1032,7 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
     aws_creds = _get_aws_creds(session)
-    logging.info(f"{_get_aws_creds.cache_info()=}")
+    logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
