@@ -65,6 +65,7 @@ def convert(
     # Create the datasets
     created_datasets = set()
     output_types = [PRIMARY_KEY, OPTIONAL_KEY]
+
     for output_type in output_types:
         for product in products[output_type].keys():
             logger.info(f"Converting {product} to a dataset")
@@ -84,15 +85,34 @@ def convert(
 
             created_datasets.add(dataset_dir)
 
-    for dataset in created_datasets:
-        dataset_id = PurePath(dataset).name
+    for dataset_dir in created_datasets:
+        dataset_id = PurePath(dataset_dir).name
 
         # Merge all created .met.json files into a single one for use with accountability reporting
-        combined_file_size, dataset_met_json = merge_dataset_met_json(dataset, extra_met)
+        combined_file_size, dataset_met_json = merge_dataset_met_json(dataset_dir, extra_met)
 
-        for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
+        for met_json_file in glob.iglob(os.path.join(dataset_dir, '*.met.json')):
             # Remove the individual .met.json files after they've been merged
             os.unlink(met_json_file)
+
+        # Rename RunConfig to its dataset
+        if rc_file:
+            renamed_rc_file = os.path.join(dataset_dir, f"{os.path.basename(dataset_dir)}.rc.yaml")
+            logger.info(f"Copying RunConfig file to {renamed_rc_file}")
+            shutil.copyfile(rc_file, renamed_rc_file)
+
+        # Ensure ancillary PGE outputs are copied into each individual dataset
+        for secondary_product in products[SECONDARY_KEY].keys():
+            source = os.path.join(product_dir, secondary_product)
+            target = os.path.join(dataset_dir, secondary_product)
+            logger.info(f"Copying {source} to {target}")
+            shutil.copy(source, target)
+
+            hashcheck = products[SECONDARY_KEY][secondary_product].get("hashcheck", False)
+
+            if hashcheck:
+                hash_algo = products[SECONDARY_KEY][secondary_product].get("hash_algo", DEFAULT_HASH_ALGO)
+                create_dataset_checksums(target, hash_algo)
 
         # Add fields to the top-level of the .met.json file
         dataset_met_json["FileSize"] = combined_file_size
@@ -125,7 +145,17 @@ def convert(
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
-        with open(PurePath(product_dir, f"{dataset_id}.catalog.json")) as fp:
+        catalog_metadata_files = glob.glob(os.path.join(product_dir, "*.catalog.json"))
+
+        if len(catalog_metadata_files) != 1:
+            raise RuntimeError(
+                f"Unexpected number of catalog.json files detected. "
+                f"Expected 1, got {len(catalog_metadata_files)} ({list(catalog_metadata_files)})."
+            )
+
+        catalog_metadata_file = catalog_metadata_files[0]
+
+        with open(catalog_metadata_file) as fp:
             dataset_catalog_dict = json.load(fp)
             dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
             dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
@@ -136,6 +166,9 @@ def convert(
         elif "cslc_s1" in dataset_id.lower():
             collection_name = settings.get("CSLC_COLLECTION_NAME")
             product_version = settings.get("CSLC_S1_PRODUCT_VERSION")
+        elif "rtc_s1" in dataset_id.lower():
+            collection_name = settings.get("RTC_COLLECTION_NAME")
+            product_version = settings.get("RTC_S1_PRODUCT_VERSION")
         else:
             collection_name = "Unknown"
             product_version = "Unknown"
@@ -146,30 +179,11 @@ def convert(
         logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
         dataset_met_json.update(extra_met)
-        dataset_met_json_path = os.path.join(dataset, f"{dataset_id}.met.json")
+        dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
             json.dump(dataset_met_json, outfile, indent=2)
-
-        # Rename RunConfig to its dataset
-        if rc_file:
-            renamed_rc_file = os.path.join(product_dir, f"{os.path.basename(dataset)}.rc.yaml")
-            logger.info(f"Copying RunConfig file to {renamed_rc_file}")
-            shutil.copyfile(rc_file, renamed_rc_file)
-            products[SECONDARY_KEY][os.path.basename(renamed_rc_file)] = {"hashcheck": False}
-
-        for secondary_product in products[SECONDARY_KEY].keys():
-            source = os.path.join(product_dir, secondary_product)
-            target = os.path.join(dataset, secondary_product)
-            logger.info(f"Copying {source} to {target}")
-            shutil.copy(source, target)
-
-            hashcheck = products[SECONDARY_KEY][secondary_product].get("hashcheck", False)
-
-            if hashcheck:
-                hash_algo = products[SECONDARY_KEY][secondary_product].get("hash_algo", DEFAULT_HASH_ALGO)
-                create_dataset_checksums(target, hash_algo)
 
     return list(created_datasets)
 

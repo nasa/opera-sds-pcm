@@ -10,16 +10,16 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/cslc_s1:2.0.0-er.3.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-cslc_s1-2.0.0-er.3.0.tar.gz",
+      "container_image_name": "opera_pge/rtc_s1:2.0.0-er.3.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.0.0-er.3.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
       }
     }
   ],
-  "recommended-queues": [ "opera-job_worker-sciflo-l2_cslc_s1"],
-  "post": [ "hysds.triage.triage"],
+  "recommended-queues": [ "opera-job_worker-sciflo-l2_rtc_s1"],
+  "post": [ "hysds.utils.triage"],
   "params": [
     {
       "name": "module_path",

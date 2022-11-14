@@ -32,7 +32,7 @@ from opera_chimera.constants.opera_chimera_const import (
 from util import datasets_json_util
 from util.common_util import convert_datetime, get_working_dir
 from util.pge_util import (download_object_from_s3,
-                           get_input_dataset_tile_code,
+                           get_input_hls_dataset_tile_code,
                            write_pge_metrics)
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
@@ -960,15 +960,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return latlong
 
-    def get_dswx_hls_product_version(self):
+    def get_product_version(self):
         """Assigns the product version specified in settings.yaml to PGE RunConfig"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        product_version = self._settings.get(oc_const.DSWX_HLS_PRODUCT_VERSION)
+        version_key = self._pge_config.get(oc_const.GET_PRODUCT_VERSION, {}).get(oc_const.VERSION_KEY)
+
+        product_version = self._settings.get(version_key)
 
         if not product_version:
             raise RuntimeError(
-                f"No value set for {oc_const.DSWX_HLS_PRODUCT_VERSION} in settings.yaml"
+                f"No value set for {version_key} in settings.yaml"
             )
 
         rc_params = {
@@ -1008,7 +1010,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             logger.info(f"Got bbox from PGE config: {bbox}")
 
         # get MGRS tile code, if available from product metadata
-        tile_code = get_input_dataset_tile_code(self._context)
+        tile_code = get_input_hls_dataset_tile_code(self._context)
 
         if tile_code:
             logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
@@ -1116,7 +1118,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             logger.info(f"Got bbox from PGE config: {bbox}")
 
         # get MGRS tile code, if available from product metadata
-        tile_code = get_input_dataset_tile_code(self._context)
+        tile_code = get_input_hls_dataset_tile_code(self._context)
 
         if tile_code:
             logger.info(f'Derived MGRS tile code {tile_code} from product metadata')
