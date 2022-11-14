@@ -67,16 +67,16 @@ setup(
             'elasticsearch==7.13.4',
             'elasticsearch[async]>=7.13.4',
             'requests==2.27.1',
-            'pytest>=7.1.1',
-            "pytest-mock>=3.8.2",
-            'pytest-asyncio==0.18.3',
-            'pytest-cov==3.0.0',
+            'pytest>=7.2.0',
+            "pytest-mock>=3.10.0",
+            'pytest-asyncio==0.20.2',
+            'pytest-cov==4.0.0',
             'mgrs',
             'pyproj',
             'validators'
         ],
         'integration': [
-            'pytest==7.1.1',
+            'pytest==7.2.0',
             'boto3',
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "boto3-stubs[sns]",
@@ -85,7 +85,7 @@ setup(
             "requests==2.27.1",
             "backoff==1.11.1",
             "python-dotenv==0.20.0",
-            "pytest-xdist==2.5.0",
+            "pytest-xdist==3.0.2",
             "pytest-xdist[psutil]",
             "filelock==3.6.0"
         ],
@@ -95,7 +95,7 @@ setup(
             "botocore",
             "elasticsearch[async]",
             "more-itertools==8.13.0",
-            "pytest-asyncio==0.18.3"
+            'pytest-asyncio==0.20.2'
         ]
     }
 )
