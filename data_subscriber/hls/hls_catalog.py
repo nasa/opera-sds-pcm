@@ -78,13 +78,8 @@ class HLSProductCatalog(ElasticsearchUtility):
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
-        if not result:
-            doc["downloaded"] = False
-            self._post(filename=filename, body=doc)
-            return False
-        else:
-            self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
-            return True
+        self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
+        return True
 
     def product_is_downloaded(self, url):
         filename = url.split("/")[-1]
@@ -137,8 +132,7 @@ class HLSProductCatalog(ElasticsearchUtility):
         try:
             result = self.query(index=index,
                                 body={"sort": [{"creation_timestamp": "asc"}],
-                                      "query": {"bool": {"must": [{"match": {}},
-                                                                  {"range": {range_str: {
+                                      "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),
                                                                       "lt": end_dt.isoformat()}}}]}}})
             if self.logger:
