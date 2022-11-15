@@ -455,6 +455,11 @@ variable "earthdata_pass" {
   default = ""
 }
 
+variable "clear_s3_aws_es" {
+  type = bool
+  default = false
+}
+
 variable "queues" {
   default = {
     "opera-job_worker-small" = {

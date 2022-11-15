@@ -497,10 +497,13 @@ variable "amis" {
     factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
     autoscale = "ami-0266bb7f79155b493" # verdi v4.16 - 221107
   }
-
 }
 
 variable "es_user" {}
 
 variable "es_pass" {}
 
+variable "clear_s3_aws_es" {
+  type = bool
+  default = true
+}
