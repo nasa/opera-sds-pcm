@@ -45,7 +45,7 @@ class SLCProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
-    def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
+    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
 
         return [{  # "s3_url": result['_source']['s3_url'],

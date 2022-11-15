@@ -45,7 +45,7 @@ class HLSProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
-    def get_all_hls_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
+    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
         return [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
                 for catalog_entry in (hls_catalog or [])]

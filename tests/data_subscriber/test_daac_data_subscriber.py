@@ -497,7 +497,7 @@ def patch_subscriber(monkeypatch):
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,
             MagicMock(
                 return_value=MagicMock(
-                get_all_hls_between=MagicMock(
+                get_all_between=MagicMock(
                     return_value=[
                         {
                             "https_url": "https://example.com/T00000.B01.tif",
