@@ -19,7 +19,7 @@
     }
   ],
   "recommended-queues": [ "opera-job_worker-sciflo-l2_rtc_s1"],
-  "post": [ "hysds.utils.triage"],
+  "post": [ "hysds.triage.triage"],
   "params": [
     {
       "name": "module_path",
