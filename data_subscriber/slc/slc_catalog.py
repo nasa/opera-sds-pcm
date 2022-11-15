@@ -80,7 +80,7 @@ class SLCProductCatalog(ElasticsearchUtility):
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
-        self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
+        self.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
     def product_is_downloaded(self, url):
