@@ -77,7 +77,13 @@ def update_slc_s1_runconfig(context, work_dir):
 def update_dswx_hls_runconfig(context, work_dir):
     """Updates a runconfig for use with the DSWx-HLS PGE"""
     run_config: Dict = context.get("run_config")
-    container_home: str = context.get("container_home")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
 
     # Point the PGE to the input directory and ancillary files,
     # they should already have been made locally available by PCM
