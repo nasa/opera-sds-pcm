@@ -109,3 +109,7 @@ output "hlsl30_query_timer" {
 output "hlss30_query_timer" {
   value = aws_lambda_function.hlss30_query_timer
 }
+
+output "slcs1a_query_timer" {
+  value = aws_lambda_function.slcs1a_query_timer
+}

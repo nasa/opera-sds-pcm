@@ -29,9 +29,9 @@ Options:
       --cnm-r-queue-url                          The CNM-R SQS queue URL.
       --isl-bucket                               The ISL S3 bucket name.
       --rs-bucket                                The RS S3 bucket name.
-      --SLC-input-dir                            The expected path to the directory containing THE sample SLC data.
       --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
       --S30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits S30 query jobs.
+      --SLC-data-subscriber-query-lambda         The name of the AWS Lambda function that submits SLC query jobs.
       --artifactory-fn-api-key                   The Artifactory FN API Key. Used to download the sample data.
       --sample-data-artifactory-dir              The repository path to the "hls_l2.tar.gz" sample data's parent directory.
 USAGE
@@ -80,16 +80,16 @@ for i in "$@"; do
       rs_bucket="${i#*=}"
       shift
       ;;
-    --SLC-input-dir=*)
-      SLC_input_dir="${i#*=}"
-      shift
-      ;;
     --L30-data-subscriber-query-lambda=*)
       L30_data_subscriber_query_lambda="${i#*=}"
       shift
       ;;
     --S30-data-subscriber-query-lambda=*)
       S30_data_subscriber_query_lambda="${i#*=}"
+      shift
+      ;;
+    --SLC-data-subscriber-query-lambda=*)
+      SLC_data_subscriber_query_lambda="${i#*=}"
       shift
       ;;
     --artifactory-fn-api-key=*)
@@ -122,23 +122,12 @@ export CNMR_TOPIC=${cnm_r_topic_arn}
 export CNMR_QUEUE=${cnm_r_queue_url}
 export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
-export SLC_INPUT_DIR=${SLC_input_dir}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
+export SLC_DATA_SUBSCRIBER_QUERY_LAMBDA=${SLC_data_subscriber_query_lambda}
 
 set -e
 echo Executing integration tests. This can take at least 20 or 40 minutes...
-
-echo Downloading SLC test data
-if [[ ! -f slc_l1.tar.gz ]]; then
-  curl -H "X-JFrog-Art-Api:${artifactory_fn_api_key}" -O ${sample_data_artifactory_dir}/slc_l1.tar.gz
-else
-  echo test data previously downloaded. Skipping re-download
-fi
-
-rm -rf slc_l1
-mkdir -p slc_l1
-tar xfz slc_l1.tar.gz -C slc_l1
 
 python -m venv venv
 source venv/bin/activate
