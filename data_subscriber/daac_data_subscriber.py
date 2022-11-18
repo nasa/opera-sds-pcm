@@ -182,11 +182,6 @@ def create_parser():
                                   "script as a cron, this value should be equal to or greater than how often your "
                                   "cron runs (default: 60 minutes)."}}
 
-    isl_bucket = {"positionals": ["-i", "--isl-bucket"],
-                  "kwargs": {"dest": "isl_bucket",
-                             "required": True,
-                             "help": "The incoming storage location s3 bucket where data products will be downloaded."}}
-
     transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
                          "kwargs": {"dest": "transfer_protocol",
                                     "choices": ["s3", "https"],
@@ -232,6 +227,12 @@ def create_parser():
                                "action": "store_true",
                                "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
 
+    temporal_start_date = {"positionals": ["--temporal-start-date"],
+                  "kwargs": {"dest": "temporal_start_date",
+                             "default": None,
+                             "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
+                                     "--temporal-start-date 2021-01-14T00:00:00Z"}}
+
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present."}}
@@ -240,20 +241,20 @@ def create_parser():
     _add_arguments(parser, parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
-    full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
+    full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, batch_ids, use_temporal, native_id]
+                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
-    query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, isl_bucket,
+    query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
-                             native_id, use_temporal]
+                             native_id, use_temporal, temporal_start_date]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, provider, isl_bucket, transfer_protocol, dry_run, smoke_run,
-                                batch_ids, start_date, end_date, use_temporal]
+    download_parser_arg_list = [verbose, file, endpoint, provider, transfer_protocol, dry_run, smoke_run,
+                                batch_ids, start_date, end_date, use_temporal, temporal_start_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser
@@ -463,11 +464,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                     provider=args.provider,
                     params=[
                         {
-                            "name": "isl_bucket_name",
-                            "value": f"--isl-bucket={args.isl_bucket}",
-                            "from": "value"
-                        },
-                        {
                             "name": "batch_ids",
                             "value": "--batch-ids " + " ".join(chunk_batch_ids) if chunk_batch_ids else "",
                             "from": "value"
@@ -570,6 +566,10 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         params['temporal'] = temporal_range
     else:
         params["revision_date"] = temporal_range
+
+        # if a temporal start-date is provided, set temporal
+        if args.temporal_start_date:
+            params['temporal'] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)

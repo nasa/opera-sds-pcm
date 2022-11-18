@@ -64,9 +64,7 @@ async def test_full(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py full " \
-           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=HLSS30 " \
-           "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -86,7 +84,6 @@ async def test_query(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=HLSS30 " \
            "".split()
 
@@ -103,7 +100,6 @@ async def test_query_chunked(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=HLSS30 " \
            "--chunk-size=1 " \
            "".split()
@@ -122,7 +118,6 @@ async def test_query_no_schedule_download(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=HLSS30 " \
            "--chunk-size=1 " \
            "--no-schedule-download " \
@@ -141,7 +136,6 @@ async def test_query_smoke_run(monkeypatch):
     patch_subscriber(monkeypatch)
 
     args = "dummy.py query " \
-           "--isl-bucket=dummy_bucket " \
            "--collection-shortname=HLSS30 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -188,7 +182,6 @@ async def test_download(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py download " \
-           "--isl-bucket=dummy_bucket " \
            "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -222,7 +215,6 @@ async def test_download_by_tile(monkeypatch):
     )
 
     args = "dummy.py download " \
-           "--isl-bucket=dummy_bucket " \
            "--batch-ids=T00000 " \
            "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
@@ -267,7 +259,6 @@ async def test_download_by_tiles(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py download " \
-           "--isl-bucket=dummy_bucket " \
            "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -299,7 +290,6 @@ async def test_download_https(monkeypatch):
     )
 
     args = "dummy.py download " \
-           "--isl-bucket=dummy_bucket " \
            "--batch-ids=T00000 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -330,7 +320,6 @@ async def test_download_by_tiles_smoke_run(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py download " \
-           "--isl-bucket=dummy_bucket " \
            "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
@@ -355,7 +344,6 @@ async def test_download_by_tiles_dry_run(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py download " \
-           "--isl-bucket=dummy_bucket " \
            "--batch-ids T00000 T00001 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \

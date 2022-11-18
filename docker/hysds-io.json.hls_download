@@ -11,11 +11,6 @@
       "default": "--endpoint=OPS"
     },
     {
-      "name": "isl_bucket_name",
-      "from": "submitter",
-      "placeholder": "e.g. --isl-bucket=<isl_bucket>"
-    },
-    {
       "name": "batch_ids",
       "from": "submitter",
       "placeholder": "e.g. --batch_ids T00001 T00002",
