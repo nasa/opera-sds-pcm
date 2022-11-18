@@ -56,13 +56,13 @@ class SessionWithHeaderRedirection(requests.Session):
         headers = prepared_request.headers
         url = prepared_request.url
 
-        if 'Authorization' in headers:
+        if "Authorization" in headers:
             original_parsed = requests.utils.urlparse(response.request.url)
             redirect_parsed = requests.utils.urlparse(url)
             if (original_parsed.hostname != redirect_parsed.hostname) and \
                     redirect_parsed.hostname != self.auth_host and \
                     original_parsed.hostname != self.auth_host:
-                del headers['Authorization']
+                del headers["Authorization"]
 
 
 async def run(argv: list[str]):
@@ -74,8 +74,8 @@ async def run(argv: list[str]):
         raise v
 
     settings = SettingsConf().cfg
-    edl = settings['DAAC_ENVIRONMENTS'][args.endpoint]['EARTHDATA_LOGIN']
-    cmr = settings['DAAC_ENVIRONMENTS'][args.endpoint]['BASE_URL']
+    edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
+    cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
     provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
                            "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
@@ -86,7 +86,7 @@ async def run(argv: list[str]):
             update_url_index(es_conn, f.readlines(), None, None, None)
         exit(0)
 
-    loglevel = 'DEBUG' if args.verbose else 'INFO'
+    loglevel = "DEBUG" if args.verbose else "INFO"
     logging.basicConfig(level=loglevel)
     logging.info("Log level set to " + loglevel)
 
@@ -145,7 +145,7 @@ def create_parser():
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
                            "choices": ["LPCLOUD", "ASF"],
-                           "default": 'LPCLOUD',
+                           "default": "LPCLOUD",
                            "help": "Specify a provider for collection search. Default is LPCLOUD."}}
 
     collection = {"positionals": ["-c", "--collection-shortname"],
@@ -280,7 +280,7 @@ def validate(args):
 
 
 def _validate_bounds(bbox):
-    bounds = bbox.split(',')
+    bounds = bbox.split(",")
     value_error = ValueError(
         f"Error parsing bounds: {bbox}. Format is <W Longitude>,<S Latitude>,<E Longitude>,<N Latitude> without spaces")
 
@@ -294,9 +294,9 @@ def _validate_bounds(bbox):
             raise value_error
 
 
-def _validate_date(date, prefix='start'):
+def _validate_date(date, prefix="start"):
     try:
-        datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ')
+        datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
     except ValueError:
         raise ValueError(
             f"Error parsing {prefix} date: {date}. Format must be like 2021-01-14T00:00:00Z")
@@ -355,10 +355,10 @@ def _get_tokens(edl: str, username: str, password: str) -> list[dict]:
 def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, password: str) -> None:
     for token_dict in token_list:
         now = datetime.utcnow().date()
-        expiration_date = datetime.strptime(token_dict['expiration_date'], "%m/%d/%Y").date()
+        expiration_date = datetime.strptime(token_dict["expiration_date"], "%m/%d/%Y").date()
 
         if expiration_date <= now:
-            _delete_token(edl, username, password, token_dict['access_token'])
+            _delete_token(edl, username, password, token_dict["access_token"])
             del token_dict
 
 
@@ -371,7 +371,7 @@ def _create_token(edl: str, username: str, password: str) -> str:
     response_content = create_response.json()
 
     if "error" in response_content.keys():
-        raise Exception(response_content['error'])
+        raise Exception(response_content["error"])
 
     token = response_content["access_token"]
 
@@ -382,7 +382,7 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
     url = f"https://{edl}/api/users/revoke_token"
     try:
         resp = requests.post(url, auth=HTTPBasicAuth(username, password),
-                             params={'token': token})
+                             params={"token": token})
         resp.raise_for_status()
     except Exception as e:
         logging.warning(f"Error deleting the token: {e}")
@@ -546,16 +546,16 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
-        'page_size': PAGE_SIZE,
-        'sort_key': "-start_date",
-        'provider': args.provider,
-        'ShortName': args.collection,
-        'token': token,
-        'bounding_box': args.bbox,
+        "page_size": PAGE_SIZE,
+        "sort_key": "-start_date",
+        "provider": args.provider,
+        "ShortName": args.collection,
+        "token": token,
+        "bounding_box": args.bbox,
     }
 
     if args.native_id:
-        params['native-id'] = args.native_id
+        params["native-id"] = args.native_id
 
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -563,14 +563,14 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     logging.info("Temporal Range: " + temporal_range)
 
     if args.use_temporal:
-        params['temporal'] = temporal_range
+        params["temporal"] = temporal_range
     else:
         params["revision_date"] = temporal_range
 
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
             logging.info(f"{args.temporal_start_date=}")
-            params['temporal'] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
+            params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
@@ -579,7 +579,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         granules, search_after = _request_search(args, request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
-    if args.collection in settings['SHORTNAME_FILTERS']:
+    if args.collection in settings["SHORTNAME_FILTERS"]:
         product_granules = [granule
                             for granule in product_granules
                             if _match_identifier(settings, args, granule)]
@@ -587,7 +587,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         logging.info(f"Found {str(len(product_granules))} total granules")
 
     for granule in product_granules:
-        granule['filtered_urls'] = _filter_granules(granule, args)
+        granule["filtered_urls"] = _filter_granules(granule, args)
 
     return product_granules
 
@@ -607,17 +607,17 @@ def _get_temporal_range(start: str, end: str, now: str):
 
 
 def _request_search(args, request_url, params, search_after=None):
-    response = requests.get(request_url, params=params, headers={'CMR-Search-After': search_after}) \
+    response = requests.get(request_url, params=params, headers={"CMR-Search-After": search_after}) \
         if search_after else requests.get(request_url, params=params)
 
     results = response.json()
-    items = results.get('items')
-    next_search_after = response.headers.get('CMR-Search-After')
+    items = results.get("items")
+    next_search_after = response.headers.get("CMR-Search-After")
 
     collection_identifier_map = {"HLSL30": "LANDSAT_PRODUCT_ID",
                                  "HLSS30": "PRODUCT_URI"}
 
-    if items and 'umm' in items[0]:
+    if items and "umm" in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
@@ -659,8 +659,8 @@ def _filter_granules(granule, args):
 
 
 def _match_identifier(settings, args, granule) -> bool:
-    for filter in settings['SHORTNAME_FILTERS'][args.collection]:
-        if re.match(filter, granule['identifier']):
+    for filter in settings["SHORTNAME_FILTERS"][args.collection]:
+        if re.match(filter, granule["identifier"]):
             return True
 
     return False
@@ -852,7 +852,7 @@ def download_from_asf(
         logging.info("downloading associated orbit file")
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd())
         stage_orbit_file_args = stage_orbit_file.get_parser().parse_args([
-            f'--output-directory={str(dataset_dir)}',
+            f"--output-directory={str(dataset_dir)}",
             str(product_filepath)
         ])
         stage_orbit_file.main(stage_orbit_file_args)
@@ -1045,10 +1045,10 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
     aws_creds = _get_aws_creds(session)
-    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
-                       aws_secret_access_key=aws_creds['secretAccessKey'],
-                       aws_session_token=aws_creds['sessionToken'],
-                       region_name='us-west-2').client("s3")
+    s3 = boto3.Session(aws_access_key_id=aws_creds["accessKeyId"],
+                       aws_secret_access_key=aws_creds["secretAccessKey"],
+                       aws_session_token=aws_creds["sessionToken"],
+                       region_name="us-west-2").client("s3")
     product_download_path = _s3_download(url, s3, str(target_dirpath))
     return product_download_path.resolve()
 
@@ -1077,7 +1077,7 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
         upload_end_time = datetime.utcnow()
         upload_duration = upload_end_time - upload_start_time
         upload_stats = {"file_name": file_name,
-                        "file_size (in bytes)": r.headers.get('Content-Length'),
+                        "file_size (in bytes)": r.headers.get("Content-Length"),
                         "upload_duration (in seconds)": upload_duration.total_seconds(),
                         "upload_start_time": _convert_datetime(upload_start_time),
                         "upload_end_time": _convert_datetime(upload_end_time)}
@@ -1134,7 +1134,7 @@ def _s3_download(url, s3, tmp_dir, staging_area=""):
     file_name = PurePath(url).name
     target_key = str(Path(staging_area, file_name))
 
-    source = url[len("s3://"):].partition('/')
+    source = url[len("s3://"):].partition("/")
     source_bucket = source[0]
     source_key = source[2]
 
@@ -1154,5 +1154,5 @@ def _s3_upload(url, bucket_name, tmp_dir, staging_area=""):
     return target_key
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(run(sys.argv))
