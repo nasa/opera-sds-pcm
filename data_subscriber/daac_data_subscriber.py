@@ -569,6 +569,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
+            logging.info(f"{args.temporal_start_date=}")
             params['temporal'] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     logging.info(f"{request_url=} {params=}")
