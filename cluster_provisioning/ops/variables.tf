@@ -354,7 +354,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.0-rc.5.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "cslc_s1" = "2.0.0-er.3.0"
+    "rtc_s1" = "2.0.0-er.3.0"
   }
 }
 
@@ -452,6 +453,11 @@ variable "earthdata_user" {
 
 variable "earthdata_pass" {
   default = ""
+}
+
+variable "clear_s3_aws_es" {
+  type = bool
+  default = false
 }
 
 variable "queues" {

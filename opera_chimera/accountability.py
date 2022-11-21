@@ -66,24 +66,23 @@ class OperaAccountability(Accountability):
     def __init__(self, context: Dict, work_dir: str):
         Accountability.__init__(self, context, work_dir)
 
-        self.trigger_dataset_type = context[oc_const.DATASET_TYPE]
-        self.trigger_dataset_id = context[oc_const.INPUT_DATASET_ID]
+        self.trigger_dataset_type = self.context[oc_const.DATASET_TYPE]
+        self.trigger_dataset_id = self.context[oc_const.INPUT_DATASET_ID]
         self.input_files_type = self.trigger_dataset_type
 
-        metadata: Dict[str, str] = context["product_metadata"]["metadata"]
+        metadata: Dict[str, str] = self.context["product_metadata"]["metadata"]
 
         input_metadata = {}
         if self.input_files_type in ('L2_HLS_L30', 'L2_HLS_S30'):
             self.product_paths = [os.path.join(metadata['FileName'])]
-            self.output_type = "L3_DSWx_HLS"
             input_metadata["ids"] = [nested_product["id"] for nested_product in metadata["Files"]]
             input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
-            self.output_type = "L2_CSLC_S1"
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 
+        self.output_type = self.context["wf_name"]
         self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
         self.input_metadata = input_metadata
 

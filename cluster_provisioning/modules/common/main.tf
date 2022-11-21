@@ -12,6 +12,7 @@ locals {
   triage_bucket                     = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
   default_lts_bucket                = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
   lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
+  clear_s3_aws_es                   = var.clear_s3_aws_es
   key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
   cnm_r_kinesis_count               = 0
   lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
@@ -1477,6 +1478,7 @@ resource "null_resource" "destroy_es_snapshots" {
     counter            = var.counter
     es_snapshot_bucket = var.es_snapshot_bucket
     grq_es_url         = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+    clear_s3_aws_es    = var.clear_s3_aws_es
   }
 
   connection {
@@ -1678,6 +1680,12 @@ data "template_file" "launch_template_user_data" {
                   {
                     "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l2_cslc_s1.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-sciflo-l2_cslc_s1.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l2_rtc_s1.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-sciflo-l2_rtc_s1.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
