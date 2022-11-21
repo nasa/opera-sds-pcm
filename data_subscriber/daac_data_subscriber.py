@@ -24,6 +24,7 @@ import boto3
 import dateutil.parser
 import requests
 import validators
+from cachetools.func import ttl_cache
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
 from requests.auth import HTTPBasicAuth
@@ -428,7 +429,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         logging.info(f"{args.chunk_size=}. Skipping download job submission.")
         return
 
-    keyfunc = _url_to_tile_id if args.provider == "LPCLOUD" else _url_to_orbit_number
+    # group URLs by this mapping func. E.g. group URLs by granule_id
+    keyfunc = _hls_url_to_granule_id if args.provider == "LPCLOUD" else _url_to_orbit_number
     batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=keyfunc,
@@ -705,6 +707,12 @@ def _url_to_orbit_number(url: str):
     return orbit_number[1:-1] # Strips leading and trailing underscores
 
 
+def _hls_url_to_granule_id(url: str):
+    # remove both suffixes to get granule ID (e.g. removes .Fmask.tif)
+    granule_id = PurePath(url).with_suffix("").with_suffix("").name
+    return granule_id
+
+
 def _url_to_tile_id(url: str):
     tile_re = r"T\w{5}"
 
@@ -724,7 +732,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.batch_ids:
         logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_tile_id if args.provider == "LPCLOUD" else _to_orbit_number
+        id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
         downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
@@ -771,6 +779,9 @@ def group_download_urls_by_granule_id(download_urls):
         granule_id_to_download_urls_map[granule_id].append(download_url)
     return granule_id_to_download_urls_map
 
+
+def _to_granule_id(dl_doc: dict[str, Any]):
+    return _hls_url_to_granule_id(_to_url(dl_doc))
 
 def _to_tile_id(dl_doc: dict[str, Any]):
     return _url_to_tile_id(_to_url(dl_doc))
@@ -1034,6 +1045,8 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
     aws_creds = _get_aws_creds(session)
+    logging.debug(f"{_get_aws_creds.cache_info()=}")
+
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
                        aws_session_token=aws_creds['sessionToken'],
@@ -1101,10 +1114,12 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
+@ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
 def _get_aws_creds(session):
+    logging.info("entry")
+
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
-        if r.status_code != 200:
-            r.raise_for_status()
+        r.raise_for_status()
 
         return r.json()
 

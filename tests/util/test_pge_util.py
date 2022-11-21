@@ -51,6 +51,48 @@ def test_simulate_cslc_s1_pge():
             Path(path).unlink(missing_ok=True)
 
 
+def test_simulate_rtc_s1_pge():
+    for path in glob.iglob('/tmp/OPERA_L2_RTC_S1*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_RTC_S1.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": [
+                    {
+                        "name": "input_dataset_id",
+                        "value": "S1B_IW_SLC__1SDV_20180504T104507_20180504T104535_010770_013AEE_919F"
+                    }
+                ]
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    expected_output_basename = 'OPERA_L2_RTC_S1_{burst_id}_20180504T104507Z_20180504T104535Z_S1B_30_v0.1'
+
+    for burst_id in pge_util.RTC_BURST_IDS:
+        assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.nc').exists()
+
+    expected_ancillary_basename = 'OPERA_L2_RTC_S1_20180504T104535Z_S1B_30_v0.1'
+
+    try:
+        assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.iso.xml').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.qa.log').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L2_RTC_S1*.*'):
+            Path(path).unlink(missing_ok=True)
+
+
 def test_simulate_dswx_hls_pge_with_l30():
     expected_output_base_name = "OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0"
 
