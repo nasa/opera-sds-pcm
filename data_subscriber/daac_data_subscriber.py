@@ -723,7 +723,7 @@ def _url_to_tile_id(url: str):
 
 def run_download(args, token, es_conn, netloc, username, password, job_id):
     download_timerange = get_download_timerange(args)
-    all_pending_downloads: Iterable[dict] = es_conn.get_all_undownloaded(
+    all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
         dateutil.parser.isoparse(download_timerange.start_date),
         dateutil.parser.isoparse(download_timerange.end_date),
         args.use_temporal

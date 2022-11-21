@@ -88,7 +88,7 @@ setup(
             "requests==2.27.1",
             "backoff==1.11.1",
             "python-dotenv==0.20.0",
-            "pytest-xdist==2.5.0",
+            "pytest-xdist==3.0.2",
             "pytest-xdist[psutil]",
             "filelock==3.6.0"
         ],
@@ -98,7 +98,7 @@ setup(
             "botocore",
             "elasticsearch[async]",
             "more-itertools==8.13.0",
-            "pytest-asyncio==0.18.3"
+            'pytest-asyncio==0.20.2'
         ]
     }
 )
