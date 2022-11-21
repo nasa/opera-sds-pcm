@@ -495,7 +495,7 @@ variable "amis" {
     metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
     grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
     factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
-    autoscale = "ami-0266bb7f79155b493" # verdi v4.16 - 221107
+    autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
   }
 }
 
