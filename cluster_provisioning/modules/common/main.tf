@@ -590,6 +590,7 @@ resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
 #  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
   event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue]: aws_sqs_queue.cnm_response.arn
+  #event_source_arn = aws_sqs_queue.cnm_response.arn
   function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
 

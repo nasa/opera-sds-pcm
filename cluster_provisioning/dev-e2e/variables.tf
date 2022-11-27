@@ -482,21 +482,11 @@ variable "earthdata_user" {
 }
 
 variable "earthdata_pass" {
-    default = ""
+  default = ""
 }
 
 # ami vars
 variable "amis" {
-  type = map(string)
-  default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
-    mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
-    metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
-    grq       = "ami-0c84c56035af7fb6c" # grq v4.14
-    factotum  = "ami-068944cd3359de653" # factotum v4.14
-    autoscale = "ami-0922fa62a31e88485" # verdi v4.14
-    ci        = "ami-0922fa62a31e88485" # verdi v4.14
-  }
 }
 
 variable "es_user" {}
