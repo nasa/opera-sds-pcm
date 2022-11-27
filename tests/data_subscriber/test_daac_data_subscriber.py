@@ -495,12 +495,37 @@ def patch_subscriber(monkeypatch):
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_catalog_connection.__name__,
-        MagicMock(return_value=MockDataSubscriberProductCatalog())
+            MagicMock(
+                return_value=MagicMock(
+                get_all_between=MagicMock(
+                    return_value=[
+                        {
+                            "https_url": "https://example.com/T00000.B01.tif",
+                            "s3_url": "s3://example/T00000.B01.tif"
+                        },
+                        {
+                            "https_url": "https://example.com/T00001.B01.tif",
+                            "s3_url": "s3://example/T00001.B01.tif"
+                        },
+                        {
+                            "https_url": "https://example.com/T00001.B02.tif",
+                            "s3_url": "s3://example/T00001.B02.tif"
+                        },
+                        {
+                            "https_url": "https://example.com/T00002.B01.tif",
+                            "s3_url": "s3://example/T00002.B01.tif"
+                        },
+                    ]
+                )
+            )
+        )
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber,
         data_subscriber.daac_data_subscriber.get_hls_spatial_catalog_connection.__name__,
-        MagicMock(return_value=MockHlsSpatialCatalog())
+        MagicMock(
+            return_value=MagicMock(process_granule=MagicMock())
+        )
     )
     monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.netrc,
@@ -707,36 +732,3 @@ def mock_boto3(monkeypatch):
         data_subscriber.daac_data_subscriber.boto3.Session.__name__,
         MockSession
     )
-
-
-class MockDataSubscriberProductCatalog:
-    def get_all_undownloaded(self, *args, **kwargs):
-        return [
-            {
-                "https_url": "https://example.com/T00000.B01.tif",
-                "s3_url": "s3://example/T00000.B01.tif"
-            },
-            {
-                "https_url": "https://example.com/T00001.B01.tif",
-                "s3_url": "s3://example/T00001.B01.tif"
-            },
-            {
-                "https_url": "https://example.com/T00001.B02.tif",
-                "s3_url": "s3://example/T00001.B02.tif"
-            },
-            {
-                "https_url": "https://example.com/T00002.B01.tif",
-                "s3_url": "s3://example/T00002.B01.tif"
-            },
-        ]
-
-    def product_is_downloaded(self, *args, **kwargs):
-        return False
-
-    def mark_product_as_downloaded(self, *args, **kwargs):
-        pass
-
-
-class MockHlsSpatialCatalog:
-    def process_granule(self, *args, **kwargs):
-        pass

@@ -183,6 +183,8 @@ def create_dataset_id(product, product_types):
                 suffix = product_types[product_type]["Suffix"].strip()
                 dataset_id = "{}{}".format(dataset_id, suffix)
 
+            break
+
     if dataset_id is None:
         msg = (
             f"Error while trying to create the dataset directory: "
