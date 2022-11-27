@@ -82,13 +82,17 @@ output "cnm_response_topic_arn" {
   value = aws_sns_topic.cnm_response.arn
 }
 
+output "cnm_response_queue_url" {
+  value = aws_sqs_queue.cnm_response.id
+}
+
 output "e_misfire_metric_alarm_name" {
   value = local.e_misfire_metric_alarm_name
 }
 
-output "aws_cloudwatch_event_rule_hls_download_timer" {
-  value = aws_cloudwatch_event_rule.hls_download_timer
-}
+#output "aws_cloudwatch_event_rule_hls_download_timer" {
+#  value = aws_cloudwatch_event_rule.hls_download_timer
+#}
 
 output "aws_cloudwatch_event_rule_hlsl30_query_timer" {
   value = aws_cloudwatch_event_rule.hlsl30_query_timer

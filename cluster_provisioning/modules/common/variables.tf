@@ -301,14 +301,6 @@ variable "queues" {
       "max_size"      = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-l3_dswx_hls_state_config" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "min_size"      = 0
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "instance_type" = ["t2.large", "t3a.large", "t3.large"]
       "root_dev_size" = 50
@@ -349,6 +341,24 @@ variable "queues" {
     }
     "opera-job_worker-hls_data_download" = {
       "instance_type" = ["c5n.large", "m5dn.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 80
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 10
+      "total_jobs_metric" = false
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_download" = {
+      "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "min_size"      = 0
@@ -432,6 +442,18 @@ variable "hlsl30_query_timer_trigger_frequency" {
 }
 
 variable "hlss30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slc_provider" {
+  default = "ASF"
+}
+
+variable "slc_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slcs1a_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

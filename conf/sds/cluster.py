@@ -105,17 +105,45 @@ def update_opera_packages():
             "%s/bin/restore_snapshot.sh" % hysds_dir,
         )
         run(f"chmod +x {hysds_dir}/bin/restore_snapshot.sh")
+
+    if role == "grq":
+        update_run_aws_es_sh()
+        update_bach_api()
+
+    if role == "metrics":
+        run_sds_watch_using_local_logstash_installation()
+
+    if role != "grq":
+        update_opera_pcm_settings()
+        update_harikiri_config()
+        update_spot_termination_config()
+
+
+def get_hysds_dirs():
+    role, hysds_dir, _ = resolve_role()
+    if role == "mozart":
         hysds_dirs = [hysds_dir, "verdi"]
     else:
         hysds_dirs = [hysds_dir]
+    return hysds_dirs
 
-    for hysds_dir in hysds_dirs:
-        if role == "grq":
-            # update run_aws_es.sh
+
+def update_run_aws_es_sh():
+    role, _, _ = resolve_role()
+    if role == "grq":
+        hysds_dirs = get_hysds_dirs()
+        for hysds_dir in hysds_dirs:
             rm_rf(f"{hysds_dir}/bin/run_aws_es.sh")
             send_template("run_aws_es.sh", f"{hysds_dir}/bin/run_aws_es.sh")
             run(f"chmod 755 {hysds_dir}/bin/run_aws_es.sh")
+            break
 
+
+def update_bach_api():
+    role, _, _ = resolve_role()
+    if role == "grq":
+        hysds_dirs = get_hysds_dirs()
+        for hysds_dir in hysds_dirs:
             rm_rf(f'{hysds_dir}/ops/bach-api')
             rsync_project(f'{hysds_dir}/ops/', os.path.join(ops_dir, 'mozart/ops/bach-api'),
                           extra_opts=extra_opts, ssh_opts=ssh_opts)
@@ -123,34 +151,55 @@ def update_opera_packages():
                     '~/sciflo/ops/bach-api', False, roles=[role])
 
             break
-        elif role == "metrics":
-            # run sdswatch using local logstash installation
+
+
+def run_sds_watch_using_local_logstash_installation():
+    role, _, _ = resolve_role()
+    if role == "metrics":
+        hysds_dirs = get_hysds_dirs()
+        for hysds_dir in hysds_dirs:
             run(f'sed -i "s#/sdswatch/#${{HOME}}/{hysds_dir}/#" ~/metrics/etc/sdswatch_client.conf')
 
-        # update opera-pcm settings
-        rm_rf(f"{hysds_dir}/etc/settings.yaml")
-        send_template(
-            "settings.yaml",
-            f"{hysds_dir}/etc/settings.yaml",
-            "~/mozart/ops/opera-pcm/conf",
-        )
 
-        # update harikiri and spot_termination_detector configuration files
-        rm_rf(f"{hysds_dir}/etc/harikiri.yml")
-        send_template(
-            "harikiri.yml.tmpl",
-            f"{hysds_dir}/etc/harikiri.yml"
-        )
+def update_opera_pcm_settings():
+    role, _, _ = resolve_role()
+    hysds_dirs = get_hysds_dirs()
+    if role != "grq":
+        for hysds_dir in hysds_dirs:
+            rm_rf(f"{hysds_dir}/etc/settings.yaml")
+            send_template(
+                "settings.yaml",
+                f"{hysds_dir}/etc/settings.yaml",
+                "~/mozart/ops/opera-pcm/conf",
+            )
 
-        rm_rf("%s/etc/spot_termination_detector.yml" % hysds_dir)
-        send_template(
-            "spot_termination_detector.yml.tmpl",
-            f"{hysds_dir}/etc/spot_termination_detector.yml"
-        )
+
+def update_harikiri_config():
+    role, _, _ = resolve_role()
+    hysds_dirs = get_hysds_dirs()
+    if role != "grq":
+        for hysds_dir in hysds_dirs:
+            rm_rf(f"{hysds_dir}/etc/harikiri.yml")
+            send_template(
+                "harikiri.yml.tmpl",
+                f"{hysds_dir}/etc/harikiri.yml"
+            )
+
+
+def update_spot_termination_config():
+    role, _, _ = resolve_role()
+    hysds_dirs = get_hysds_dirs()
+    if role != "grq":
+        for hysds_dir in hysds_dirs:
+            rm_rf("%s/etc/spot_termination_detector.yml" % hysds_dir)
+            send_template(
+                "spot_termination_detector.yml.tmpl",
+                f"{hysds_dir}/etc/spot_termination_detector.yml"
+            )
 
 
 def update_celery_config():
-    role, hysds_dir, hostname = resolve_role()
+    role, hysds_dir, _ = resolve_role()
     if role == 'mozart':
         hysds_dirs = [hysds_dir, "verdi"]
         for hysds_dir in hysds_dirs:
@@ -160,7 +209,7 @@ def update_celery_config():
 
 
 def deploy_hysds_ui():
-    role, hysds_dir, hostname = resolve_role()
+    role, _, _ = resolve_role()
     if role == "mozart":
         send_hysds_ui_conf()
         build_hysds_ui()
@@ -169,7 +218,7 @@ def deploy_hysds_ui():
 def create_all_user_rules_index():
     """Create user_rules index on grq."""
 
-    role, hysds_dir, hostname = resolve_role()
+    role, hysds_dir, _ = resolve_role()
 
     if role == "grq":
         send_template(
@@ -187,7 +236,7 @@ def create_all_user_rules_index():
 
 def update_es_template():
     # Overwrites the default ES template with NISAR's custom one
-    role, hysds_dir, hostname = resolve_role()
+    role, hysds_dir, _ = resolve_role()
 
     if role == 'grq':
         copy(
@@ -198,7 +247,7 @@ def update_es_template():
 
 
 def load_container_in_registry(container_name):
-    role, hysds_dir, hostname = resolve_role()
+    role, _, _ = resolve_role()
     ctx = get_context(role)
     if role == 'mozart':
         run(f"aws s3 cp s3://{ctx['CODE_BUCKET']}/{container_name}.tar.gz ~/mozart/pkgs/")

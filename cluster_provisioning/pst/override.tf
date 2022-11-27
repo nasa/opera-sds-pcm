@@ -11,7 +11,7 @@ variable "aws_account_id" {
 }
 
 variable "venue" {
-  default = "ci"
+  default = "pst"
 }
 
 variable "environment" {
@@ -24,7 +24,7 @@ variable "counter" {
 }
 
 variable "crid" {
-  default = "T00100"
+  default = "P00100"
 }
 
 variable "project" {

@@ -19,8 +19,8 @@ PGE.
 """
 
 
-def download_ancillary_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
-    """Helper function to download an arbitrary ancillary file from S3"""
+def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
+    """Helper function to download an arbitrary file from S3"""
     if not s3_bucket or not s3_key:
         raise RuntimeError(
             f"Incomplete S3 location for {filetype} file.\n"
@@ -157,15 +157,8 @@ def get_dswx_hls_simulated_output_basename(dataset_match, base_name_template):
 
 
 def get_input_dataset_tile_code(context: Dict) -> str:
-    tile_code = None
     product_metadata = context["product_metadata"]["metadata"]
-
-    for band_or_qa, product_info in product_metadata.items():
-        if band_or_qa != '@timestamp':
-            product_path = product_info["product_path"]  # see eval_state_config.py
-            product_filename = product_path.split('/')[-1]
-            tile_code = product_filename.split('.')[2]
-            break
+    tile_code = product_metadata["id"].split('.')[2]  # Example id: "HLS.L30.T54PVQ.2022001T005855.v2.0"
 
     return tile_code
 
@@ -187,6 +180,14 @@ def simulate_output(pge_name: str, metadata: Dict, base_name: str, output_dir: s
                 logger.info(f'Simulating output {output_file}')
                 with open(output_file, 'wb') as f:
                     f.write(os.urandom(1024))
+        elif extension.endswith('json'):
+            output_file = os.path.join(output_dir, f'{base_name}.{extension}')
+            logger.info(f'Simulating JSON output {output_file}')
+            with open(output_file, 'w') as outfile:
+                json.dump({
+                    "PGE_Version": "sim-pge-0.0.0",
+                    "SAS_Version": "sim-sas-0.0.0"
+                }, outfile)
         else:
             output_file = os.path.join(output_dir, f'{base_name}.{extension}')
             logger.info(f'Simulating output {output_file}')

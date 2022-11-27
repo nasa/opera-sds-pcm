@@ -172,7 +172,7 @@
       "ipath": "hysds::data/L1_S1_SLC",
       "level": "L1",
       "type": "L1_S1_SLC",
-      "match_pattern": "(?P<id>(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\\d{4})(?P<start_month>\\d{2})(?P<start_day>\\d{2})T(?P<start_hour>\\d{2})(?P<start_minute>\\d{2})(?P<start_second>\\d{2}))_(?P<stop_ts>(?P<stop_year>\\d{4})(?P<stop_month>\\d{2})(?P<stop_day>\\d{2})T(?P<stop_hour>\\d{2})(?P<stop_minute>\\d{2})(?P<stop_second>\\d{2}))_(?P<orbit_num>\\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4}))$",
+      "match_pattern": "(?P<id>(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\\d{4})(?P<start_month>\\d{2})(?P<start_day>\\d{2})T(?P<start_hour>\\d{2})(?P<start_minute>\\d{2})(?P<start_second>\\d{2}))_(?P<stop_ts>(?P<stop_year>\\d{4})(?P<stop_month>\\d{2})(?P<stop_day>\\d{2})T(?P<stop_hour>\\d{2})(?P<stop_minute>\\d{2})(?P<stop_second>\\d{2}))_(?P<orbit_num>\\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[A-F0-9]{4}))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -196,7 +196,7 @@
       "ipath": "hysds::data/L2_HLS_L30",
       "level": "L2",
       "type": "L2_HLS_L30",
-      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -220,7 +220,7 @@
       "ipath": "hysds::data/L2_HLS_S30",
       "level": "L2",
       "type": "L2_HLS_S30",
-      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<band_or_qa>[^\\W_]+))$",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -287,22 +287,6 @@
           "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
         ]
       }
-    },
-    {
-      "ipath": "hysds::data/L2_HLS_L30-state-config",
-      "level": "state-config",
-      "type": "L2_HLS_L30-state-config",
-      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)_state_config)$",
-      "alt_match_pattern": null,
-      "extractor": null
-    },
-    {
-      "ipath": "hysds::data/L2_HLS_S30-state-config",
-      "level": "state-config",
-      "type": "L2_HLS_S30-state-config",
-      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)_state_config)$",
-      "alt_match_pattern": null,
-      "extractor": null
     }
   ]
 }

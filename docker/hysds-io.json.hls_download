@@ -16,9 +16,9 @@
       "placeholder": "e.g. --isl-bucket=<isl_bucket>"
     },
     {
-      "name": "tile_ids",
+      "name": "batch_ids",
       "from": "submitter",
-      "placeholder": "e.g. --tile-ids T00001 T00002",
+      "placeholder": "e.g. --batch_ids T00001 T00002",
       "optional": true
     },
     {

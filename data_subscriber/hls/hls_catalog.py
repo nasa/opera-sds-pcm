@@ -47,12 +47,8 @@ class HLSProductCatalog(ElasticsearchUtility):
 
     def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
-        return [
-            {
-                "s3_url": result['_source']['s3_url'],
-                "https_url": result['_source']['https_url']
-            } for result in (undownloaded or [])
-        ]
+        return [{"s3_url": result['_source'].get('s3_url'), "https_url": result['_source'].get('https_url')}
+                for result in (undownloaded or [])]
 
     def process_url(
             self,
@@ -137,36 +133,14 @@ class HLSProductCatalog(ElasticsearchUtility):
         return result
 
     def _query_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
+        range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
-            result = self.query(
-                index=index,
-                body={
-                    "sort": [
-                        {
-                            "creation_timestamp": "asc"
-                        }
-                    ],
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {
-                                    "match": {
-                                        "downloaded": False
-                                    }
-                                },
-                                {
-                                    "range": {
-                                        "temporal_extent_beginning_datetime" if use_temporal else "revision_date": {
-                                            "gte": start_dt.isoformat(),
-                                            "lt": end_dt.isoformat()
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            )
+            result = self.query(index=index,
+                                body={"sort": [{"creation_timestamp": "asc"}],
+                                      "query": {"bool": {"must": [{"match": {"downloaded": False}},
+                                                                  {"range": {range_str: {
+                                                                      "gte": start_dt.isoformat(),
+                                                                      "lt": end_dt.isoformat()}}}]}}})
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 

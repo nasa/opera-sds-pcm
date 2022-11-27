@@ -352,6 +352,11 @@ variable "pge_releases" {
   }
 }
 
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
+}
+
 variable "crid" {
   default = ""
 }
@@ -472,13 +477,6 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-l3_dswx_hls_state_config" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25

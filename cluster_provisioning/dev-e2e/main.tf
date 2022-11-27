@@ -77,6 +77,7 @@ module "common" {
   use_daac_cnm_r                          = var.use_daac_cnm_r
   pge_releases                            = var.pge_releases
   pge_snapshots_date                      = var.pge_snapshots_date
+  pge_sim_mode                            = var.pge_sim_mode
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
@@ -243,14 +244,14 @@ resource "null_resource" "smoke_test" {
                 --mozart-ip=${module.common.mozart.private_ip} \
                 --grq-host="grq:9200" \
                 --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+                --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
                 --isl-bucket="${module.common.isl_bucket}" \
                 --rs-bucket="${module.common.dataset_bucket}" \
-                --L30-input-dir="hls_l2/l30_greenland" \
-                --S30-input-dir="hls_l2/s30_louisiana" \
+                --SLC-input-dir="slc_l1" \
                 --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
                 --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
                 --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
-                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0"
+                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0"
               fi
     EOT
     ]

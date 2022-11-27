@@ -38,6 +38,9 @@ override.tf.json
 !cluster_provisioning/dev-e2e/override.tf.nasa-demo
 !cluster_provisioning/ops/override.tf
 !cluster_provisioning/int/override.tf
+!cluster_provisioning/pst/override.tf
+!cluster_provisioning/int/int-fwd/override.tf
+!cluster_provisioning/int/int-pop1/override.tf
 
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
@@ -294,6 +297,7 @@ fabric.properties
 
 
 .idea/inspectionProfiles/
+.idea/scopes/
 .idea/opera-sds-pcm.iml
 .idea/opera-pcm.iml
 .idea/misc.xml

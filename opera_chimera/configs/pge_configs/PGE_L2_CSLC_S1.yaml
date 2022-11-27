@@ -27,28 +27,26 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
-  - get_slc_burst_id
-  - get_safe_file_path
+  - get_slc_s1_burst_id
+  - get_slc_s1_safe_file
+  - get_slc_s1_orbit_file
+  - get_slc_s1_dem  # Note: this must be run after get_slc_s1_safe_file
   - get_cnm_version
   - set_daac_product_type
-  - get_cslc_orbit_file
-  - get_cslc_dem
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
 
-get_cslc_orbit_file:
+get_slc_s1_orbit_file:
   # TODO: use the sample orbit file provided by ADT until we figure out how
   #       derive the appropriate file based on input product
   s3_bucket: "opera-dev-lts-fwd-collinss"
   s3_key: "S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942.EOF"
 
-get_cslc_dem:
-  # TODO: utilize a sample DEM provided by ADT until we figure out how to
-  #       derive a region boundary based on the input product
-  s3_bucket: "opera-dev-lts-fwd-collinss"
-  s3_key: "dem_4326.tiff"
+get_slc_s1_dem:
+  # The s3 bucket containing the global DEM(s) to download regions from
+  s3_bucket: "opera-dem"
 
 set_daac_product_type:
   template: OPERA_L2_CSLC_S1_{cnm_version}

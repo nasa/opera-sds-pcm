@@ -70,7 +70,7 @@ def wait_for_l2(_id, index):
     giveup=index_not_found,
     interval=30
 )
-def wait_for_state_config(_id, index):
+def wait_for_l2(_id, index):
     return search_es(index, _id)
 
 
@@ -280,5 +280,7 @@ def delete_output_files(bucket=None, prefix=None):
     try:
         objects = [{"Key": obj["Key"]} for obj in response["Contents"]]
         s3_client.delete_objects(Bucket=bucket, Delete={"Objects": objects})
+        logging.info(f"Deleted {len(objects)} S3 objects")
+        logging.debug(f"Objects deleted. {objects=}")
     except KeyError:
         logging.warning("Error while deleting objects. Ignoring.")

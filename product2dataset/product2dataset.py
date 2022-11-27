@@ -15,7 +15,7 @@ import subprocess
 import sys
 import traceback
 from pathlib import PurePath
-from typing import Dict, List
+from typing import Dict, List, Union, Tuple
 
 from commons.logger import logger
 from extractor import extract
@@ -36,11 +36,11 @@ def convert(
         pge_name: str,
         rc_file: str = None,
         pge_output_conf_file:str = None,
-        settings_conf_file: str = None,
+        settings_conf_file: Union[str, SettingsConf, Dict, None] = None,
         extra_met: Dict = None,
         **kwargs
 ) -> List:
-    """Convert a product (directory of files) into a list of datasets.
+    """Convert a PGE product (directory of files) into a list of datasets.
 
     :param work_dir: The working directory (Verdi workspace) the worker executes jobs from.
     :param product_dir: Local filepath to the product.
@@ -88,23 +88,9 @@ def convert(
         dataset_id = PurePath(dataset).name
 
         # Merge all created .met.json files into a single one for use with accountability reporting
-        dataset_met_json = {"Files": []}
-        combined_file_size = 0
+        combined_file_size, dataset_met_json = merge_dataset_met_json(dataset, extra_met)
+
         for met_json_file in glob.iglob(os.path.join(dataset, '*.met.json')):
-            with open(met_json_file, 'r') as infile:
-                met_json = json.load(infile)
-                combined_file_size += int(met_json["FileSize"])
-
-                # Extract a copy of the "Product*" key/values to include at the top level
-                # They should be the same values for each file in the dataset
-                product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
-
-                for product_key in product_keys:
-                    extra_met[product_key] = met_json[product_key]
-                    met_json.pop(product_key)
-
-                dataset_met_json["Files"].append(met_json)
-
             # Remove the individual .met.json files after they've been merged
             os.unlink(met_json_file)
 
@@ -113,29 +99,22 @@ def convert(
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id
 
-        with open(PurePath(work_dir) / "_job.json") as fp:
+        with open(PurePath(work_dir, "_job.json")) as fp:
             job_json_dict = json.load(fp)
 
-        with open(PurePath(work_dir) / "datasets.json") as fp:
+        with open(PurePath(work_dir, "datasets.json")) as fp:
             datasets_json_dict = json.load(fp)
 
         if pge_name == "L3_DSWx_HLS":
             logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
-            state_config_product_metadata: Dict = kwargs["product_metadata"]
-
-            first_product_info_key: str = list(state_config_product_metadata.keys())[0]  # typically a band name or QA mask like "B01" or "Fmask"
-            first_product_info: Dict = state_config_product_metadata[first_product_info_key]
+            product_metadata: Dict = kwargs["product_metadata"]
 
             dataset_type = job_json_dict["params"]["dataset_type"]
-            dataset_type = dataset_type.split("-")[0]  # extract from dataset type like "L2_HLS_S30-state-config"
 
             publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
             publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
 
-            #l2_hls_publish_s3_url = datasets_json_util.find_s3_url(datasets_json_dict, dataset_type)
-            #l2_hls_publish_s3_url_parts = PurePath(l2_hls_publish_s3_url).parts
-
-            dataset_met_json["input_granule_id"] = PurePath(first_product_info["id"]).stem  # strip band from ID to get granule ID
+            dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
             dataset_met_json["product_urls"] = [
                 f'https:'
                 f'//{publish_bucket}.s3.{publish_region}.amazonaws.com'
@@ -144,14 +123,12 @@ def convert(
             dataset_met_json["product_s3_paths"] = [f's3://{publish_bucket}/products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
 
-            product_dir_path = PurePath(product_dir)
-            #with open(product_dir_path / f"{product_dir_path.name}.catalog.json") as fp:
-            #    dataset_catalog_dict = json.load(fp)
-            #    dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
-            #    dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
-
-        dataset_met_json["pge_version"] = job_json_util.get_pge_container_image_version(job_json_dict)
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
+
+        with open(PurePath(product_dir, f"{dataset_id}.catalog.json")) as fp:
+            dataset_catalog_dict = json.load(fp)
+            dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
+            dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
 
         if "dswx_hls" in dataset_id.lower():
             collection_name = settings.get("DSWX_COLLECTION_NAME")
@@ -195,6 +172,35 @@ def convert(
                 create_dataset_checksums(target, hash_algo)
 
     return list(created_datasets)
+
+
+def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
+    """Merges all the dataset *.met.json metadata into a single dataset metadata dict that can be subsequently saved as *.met.json.
+    Returns a tuple of the combined product file sizes and the merged dataset metadata dict.
+
+    :param dataset: the ancestral parent directory of all *.met.json filepaths that should be merged.
+    :param extra_met: extra product metadata. This is removed from the dict and added to the dataset metadata.
+                      This dict is updated with additional properties from the source dataset *.met.json files.
+                      Such properties are prevented from appearing in the merged metadata to prevent duplication.
+    """
+    dataset_met_json = {"Files": []}
+    combined_file_size = 0
+    for met_json_file in glob.iglob(os.path.join(dataset, '**/*.met.json'), recursive=True):
+        with open(met_json_file, 'r') as infile:
+            met_json = json.load(infile)
+            combined_file_size += int(met_json["FileSize"])
+
+            # Extract a copy of the "Product*" key/values to include at the top level
+            # They should be the same values for each file in the dataset
+            product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
+
+            for product_key in product_keys:
+                extra_met[product_key] = met_json[product_key]
+                met_json.pop(product_key)
+
+            dataset_met_json["Files"].append(met_json)
+
+    return combined_file_size, dataset_met_json
 
 
 def get_patterns(pattern_obj_array):

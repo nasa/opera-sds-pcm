@@ -50,7 +50,7 @@ runconfig:
 preconditions:
   - get_dswx_hls_product_version
   - get_metadata
-  - get_input_filepaths_from_state_config
+  - get_hls_dswx_pge_input_filepaths
   - get_cnm_version
   - set_daac_product_type
   - get_dswx_hls_dem
@@ -146,6 +146,6 @@ localize_groups:
 # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
 #######################################################################
 input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
-    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
-    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
+    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+))$'
+    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+))$'
 output_base_name: OPERA_L3_DSWx_HLS_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{collection_version}
