@@ -533,3 +533,8 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
   default = ""
 }
+
+variable "clear_s3_aws_es" {
+  type = bool
+  default = true
+}

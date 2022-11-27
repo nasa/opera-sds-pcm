@@ -121,7 +121,7 @@ def convert(
                 f'/products/{file["id"]}/{file["FileName"]}'
                 for file in dataset_met_json["Files"]]
             dataset_met_json["product_s3_paths"] = [f's3://{publish_bucket}/products/{file["id"]}/{file["FileName"]}'
-                                                for file in dataset_met_json["Files"]]
+                for file in dataset_met_json["Files"]]
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
