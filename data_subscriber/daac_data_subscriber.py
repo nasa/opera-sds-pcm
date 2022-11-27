@@ -437,7 +437,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         logging.info(f"{args.chunk_size=}. Skipping download job submission.")
         return
 
-    keyfunc = _url_to_tile_id if args.provider == "LPCLOUD" else _url_to_orbit_number
+    # group URLs by this mapping func. E.g. group URLs by granule_id
+    keyfunc = _hls_url_to_granule_id if args.provider == "LPCLOUD" else _url_to_orbit_number
     batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=keyfunc,
@@ -714,6 +715,12 @@ def _url_to_orbit_number(url: str):
     return orbit_number[1:-1] # Strips leading and trailing underscores
 
 
+def _hls_url_to_granule_id(url: str):
+    # remove both suffixes to get granule ID (e.g. removes .Fmask.tif)
+    granule_id = PurePath(url).with_suffix("").with_suffix("").name
+    return granule_id
+
+
 def _url_to_tile_id(url: str):
     tile_re = r"T\w{5}"
 
@@ -733,7 +740,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.batch_ids:
         logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_tile_id if args.provider == "LPCLOUD" else _to_orbit_number
+        id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
         downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
@@ -780,6 +787,9 @@ def group_download_urls_by_granule_id(download_urls):
         granule_id_to_download_urls_map[granule_id].append(download_url)
     return granule_id_to_download_urls_map
 
+
+def _to_granule_id(dl_doc: dict[str, Any]):
+    return _hls_url_to_granule_id(_to_url(dl_doc))
 
 def _to_tile_id(dl_doc: dict[str, Any]):
     return _url_to_tile_id(_to_url(dl_doc))
