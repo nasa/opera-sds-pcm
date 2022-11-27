@@ -166,7 +166,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 50
+    root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
   }

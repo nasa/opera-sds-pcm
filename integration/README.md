@@ -34,6 +34,7 @@ RS_BUCKET = opera-foo-rs-fwd-bar
 DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
 L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
 S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
+SLC_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-slcs1a-query-timer
 
 CLEAR_DATA = true
 ```

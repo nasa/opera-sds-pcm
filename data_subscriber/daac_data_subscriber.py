@@ -9,19 +9,15 @@ import itertools
 import json
 import logging
 import netrc
-import os
 import re
 import shutil
 import sys
 import uuid
 from collections import namedtuple, defaultdict
-from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
-from http.cookiejar import CookieJar
 from pathlib import Path, PurePath
 from typing import Any, Iterable
-from urllib import request
 from urllib.parse import urlparse
 
 import boto3
@@ -38,6 +34,7 @@ import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from tools import stage_orbit_file
 from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
@@ -107,25 +104,22 @@ async def run(argv: list[str]):
         job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
     logging.info(f"{job_id=}")
 
-    username, password = setup_earthdata_login_auth(edl)
+    logging.info(f"{args.subparser_name=}")
+    if not (args.subparser_name == "query" or args.subparser_name == "download" or args.subparser_name == "full"):
+        raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
-    with token_ctx(edl) as token_dict:
-        logging.info(f"{args.subparser_name=}")
-        if not (
-                args.subparser_name == "query"
-                or args.subparser_name == "download"
-                or args.subparser_name == "full"
-        ):
-            raise Exception(f"Unsupported operation. {args.subparser_name=}")
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
 
-        results = {}
-        if args.subparser_name == "query" or args.subparser_name == "full":
-            results["query"] = await run_query(args, token_dict['token'], es_conn, cmr, job_id, settings)
-        if args.subparser_name == "download" or args.subparser_name == "full":
-            results["download"] = run_download(args, token_dict['token'], es_conn, netloc, username, password,
-                                               job_id)  # return None
+    results = {}
+    if args.subparser_name == "query" or args.subparser_name == "full":
+        results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
+    if args.subparser_name == "download" or args.subparser_name == "full":
+        results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
+
     logging.info(f"{results=}")
     logging.info("END")
+
     return results
 
 
@@ -340,107 +334,68 @@ def update_granule_index(es_spatial_conn, granule):
     es_spatial_conn.process_granule(granule)
 
 
-def setup_earthdata_login_auth(endpoint):
-    # ## Authentication setup
-    #
-    # This function will allow Python scripts to log into any Earthdata Login
-    # application programmatically.  To avoid being prompted for
-    # credentials every time you run and also allow clients such as curl to log in,
-    # you can add the following to a `.netrc` (`_netrc` on Windows) file in
-    # your home directory:
-    #
-    # ```
-    # machine urs.earthdata.nasa.gov
-    #     login <your username>
-    #     password <your password>
-    # ```
-    #
-    # Make sure that this file is only readable by the current user,
-    # or you will receive an error stating
-    # "netrc access too permissive."
-    #
-    # `$ chmod 0600 ~/.netrc`
-    #
-    # You'll need to authenticate using the netrc method when running from
-    # command line with [`papermill`](https://papermill.readthedocs.io/en/latest/).
-    # You can log in manually by executing the cell below when running in the
-    # notebook client in your browser.*
-
+def supply_token(edl: str, username: str, password: str) -> str:
     """
-    Set up the request library so that it authenticates against the given
-    Earthdata Login endpoint and is able to track cookies between requests.
-    This looks in the .netrc file first and if no credentials are found,
-    it prompts for them.
-
-    Valid endpoints include:
-        urs.earthdata.nasa.gov - Earthdata Login production
+    :param edl: Earthdata login endpoint
+    :type edl: str
     """
-    try:
-        username, _, password = netrc.netrc().authenticators(endpoint)
-    except FileNotFoundError as e:
-        logging.error("There's no .netrc file")
-        raise e
-    except TypeError as e:
-        logging.error("The endpoint isn't in the netrc file")
-        raise e
+    token_list = _get_tokens(edl, username, password)
 
-    manager = request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(None, endpoint, username, password)
-    auth = request.HTTPBasicAuthHandler(manager)
+    _revoke_expired_tokens(token_list, edl, username, password)
 
-    jar = CookieJar()
-    processor = request.HTTPCookieProcessor(jar)
-    opener = request.build_opener(auth, processor)
-    opener.addheaders = [('User-agent', 'daac-subscriber')]
-    request.install_opener(opener)
+    if not token_list:
+        token = _create_token(edl, username, password)
+    else:
+        token = token_list[0]["access_token"]
 
-    return username, password
+    return token
 
 
-@contextmanager
-def token_ctx(edl):
-
-    token_dict = _get_token(edl)
-    try:
-        yield token_dict
-    finally:
-        _delete_token(edl, token_dict)
-
-
-def _get_token(edl: str) -> dict:
-    token_create_url = f"https://{edl}/api/users/token"
+def _get_tokens(edl: str, username: str, password: str) -> list[dict]:
     token_list_url = f"https://{edl}/api/users/tokens"
-    username, _, password = netrc.netrc().authenticators(edl)
 
     list_response = requests.get(token_list_url, auth=HTTPBasicAuth(username, password))
-    list_content = json.loads(list_response.content)
+    list_response.raise_for_status()
 
-    if not list_content:
-        create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
-        response_content = json.loads(create_response.content)
-
-        if "error" in response_content.keys():
-            logging.warning("Failed to acquire CMR token")
-            raise Exception(response_content['error'])
-
-        token = response_content["access_token"]
-    else:
-        token = list_content[0]["access_token"]
-
-    return {"token": token, "username": username, "password": password}
+    return list_response.json()
 
 
-def _delete_token(edl: str, token_dict: dict) -> None:
+def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, password: str) -> None:
+    for token_dict in token_list:
+        now = datetime.utcnow().date()
+        expiration_date = datetime.strptime(token_dict['expiration_date'], "%m/%d/%Y").date()
+
+        if expiration_date <= now:
+            _delete_token(edl, username, password, token_dict['access_token'])
+            del token_dict
+
+
+def _create_token(edl: str, username: str, password: str) -> str:
+    token_create_url = f"https://{edl}/api/users/token"
+
+    create_response = requests.post(token_create_url, auth=HTTPBasicAuth(username, password))
+    create_response.raise_for_status()
+
+    response_content = create_response.json()
+
+    if "error" in response_content.keys():
+        raise Exception(response_content['error'])
+
+    token = response_content["access_token"]
+
+    return token
+
+
+def _delete_token(edl: str, username: str, password: str, token: str) -> None:
     url = f"https://{edl}/api/users/revoke_token"
     try:
-        resp = requests.post(url, auth=HTTPBasicAuth(token_dict['username'], token_dict['password']),
-                             params={'token': token_dict['token']})
-        if resp.status_code == 200:
-            logging.info("CMR token successfully deleted")
-        else:
-            logging.warning("CMR token deleting failed.")
+        resp = requests.post(url, auth=HTTPBasicAuth(username, password),
+                             params={'token': token})
+        resp.raise_for_status()
     except Exception as e:
         logging.warning(f"Error deleting the token: {e}")
+
+    logging.info("CMR token successfully deleted")
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
@@ -756,7 +711,7 @@ def _url_to_orbit_number(url: str):
 
     input_filename = Path(url).name
     orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number
+    return orbit_number[1:-1] # Strips leading and trailing underscores
 
 
 def _url_to_tile_id(url: str):
@@ -796,7 +751,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if args.provider == "ASF":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        _upload_url_list_from_https(es_conn, download_urls, args, token, job_id)
+        download_from_asf(es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
@@ -856,39 +811,53 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
-def _upload_url_list_from_https(es_conn, downloads, args, token, job_id):
-    num_successes = num_failures = num_skipped = 0
-    filtered_downloads = [f for f in downloads if "https://" in f]
+def download_from_asf(
+        es_conn,
+        download_urls: list[str],
+        args,
+        token,
+        job_id
+):
+    settings_cfg = SettingsConf().cfg  # has metadata extractor config
+    logging.info("Creating directories to process products")
+
+    # house all file downloads
+    downloads_dir = Path("downloads")
+    downloads_dir.mkdir(exist_ok=True)
 
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for url in filtered_downloads:
-        try:
-            if es_conn.product_is_downloaded(url):
-                logging.debug(f"SKIPPING: {url}")
-                num_skipped = num_skipped + 1
-            else:
-                if args.dry_run:
-                    pass
-                else:
-                    result = _https_transfer(url, args.isl_bucket, token)
-                    if "failed_download" in result:
-                        raise Exception(result["failed_download"])
-                    else:
-                        logging.debug(str(result))
+    for product_url in download_urls:
+        logging.info(f"Processing {product_url=}")
+        product_id = PurePath(product_url).name
 
-                es_conn.mark_product_as_downloaded(url, job_id)
-                logging.info(f"{str(datetime.now())} SUCCESS: {url}")
-                num_successes = num_successes + 1
-        except Exception as e:
-            logging.error(f"{str(datetime.now())} FAILURE: {url}")
-            num_failures = num_failures + 1
-            logging.error(e)
+        product_download_dir = downloads_dir / product_id
+        product_download_dir.mkdir(exist_ok=True)
 
-    logging.info(f"Files downloaded: {str(num_successes)}")
-    logging.info(f"Duplicate files skipped: {str(num_skipped)}")
-    logging.info(f"Files failed to download: {str(num_failures)}")
+        # download product
+        if args.dry_run:
+            logging.debug(f"{args.dry_run=}. Skipping download.")
+            continue
+        product = product_filepath = download_asf_product(product_url, token, product_download_dir)
+        logging.info(f"{product_filepath=}")
+
+        logging.info(f"Marking as downloaded. {product_url=}")
+        es_conn.mark_product_as_downloaded(product_url, job_id)
+
+        logging.info(f"product_url_downloaded={product_url}")
+
+        logging.info("downloading associated orbit file")
+        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd())
+        stage_orbit_file_args = stage_orbit_file.get_parser().parse_args([
+            f'--output-directory={str(dataset_dir)}',
+            str(product_filepath)
+        ])
+        stage_orbit_file.main(stage_orbit_file_args)
+        logging.info("added orbit file to dataset")
+
+    logging.info(f"Removing directory tree. {downloads_dir}")
+    shutil.rmtree(downloads_dir)
 
 
 def download_granules(
@@ -901,7 +870,9 @@ def download_granules(
 ):
     cfg = SettingsConf().cfg  # has metadata extractor config
     logging.info("Creating directories to process granules")
-    os.mkdir(downloads_dir := Path("downloads"))  # house all file downloads
+    # house all file downloads
+    downloads_dir = Path("downloads")
+    downloads_dir.mkdir(exist_ok=True)
 
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
@@ -912,37 +883,26 @@ def download_granules(
     for granule_id, product_urls in granule_id_to_product_urls_map.items():
         logging.info(f"Processing {granule_id=}")
 
-        os.mkdir(granule_download_dir := downloads_dir / granule_id)
+        granule_download_dir = downloads_dir / granule_id
+        granule_download_dir.mkdir(exist_ok=True)
 
         # download products in granule
         products = []
         product_urls_downloaded = []
-        product_urls_skipped = []
-        product_urls_failed = []
-        try:
-            for product_url in product_urls:
-                if es_conn.product_is_downloaded(product_url):
-                    product_urls_skipped.append(product_url)
-                    continue
-                if args.dry_run:
-                    logging.debug(f"{args.dry_run=}. Skipping download.")
-                    break
-                product_filepath = download_product(product_url, session, token, args, granule_download_dir)
-                products.append(product_filepath)
-                product_urls_downloaded.append(product_url)
-            logging.info(f"{products=}")
-        except Exception as e:
-            logging.error(f"Failed to download {granule_id=} when processing {product_url=}. Skipping to next granule.")
-            product_urls_failed.append(product_url)
-            continue
+        for product_url in product_urls:
+            if args.dry_run:
+                logging.debug(f"{args.dry_run=}. Skipping download.")
+                break
+            product_filepath = download_product(product_url, session, token, args, granule_download_dir)
+            products.append(product_filepath)
+            product_urls_downloaded.append(product_url)
+        logging.info(f"{products=}")
 
         logging.info(f"Marking as downloaded. {granule_id=}")
         for product_url in product_urls_downloaded:
             es_conn.mark_product_as_downloaded(product_url, job_id)
 
         logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
-        logging.warning(f"{len(product_urls_skipped)=}, {product_urls_skipped=}")
-        logging.error(f"{len(product_urls_failed)=}, {product_urls_failed=}")
 
         extract_many_to_one(products, granule_id, cfg)
 
@@ -970,24 +930,37 @@ def download_product(product_url, session: requests.Session, token: str, args, t
     return product_filepath
 
 
-def extract_many_to_one(products, group_dataset_id, settings_cfg):
+def download_asf_product(product_url, token: str, target_dirpath: Path):
+    logging.info(f"Requesting from {product_url}")
+
+    asf_response = _handle_url_redirect(product_url, token)
+    asf_response.raise_for_status()
+
+    product_filename = PurePath(product_url).name
+    product_download_path = target_dirpath / product_filename
+    with open(product_download_path, "wb") as file:
+        file.write(asf_response.content)
+    return product_download_path.resolve()
+
+
+def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: dict):
     """Creates a dataset for each of the given products, merging them into 1 final dataset.
 
     :param products: the products to create datasets for.
     :param group_dataset_id: a unique identifier for the group of products.
     :param settings_cfg: the settings.yaml config as a dict.
     """
-    os.mkdir(extracts_dir := Path("extracts"))  # house all datasets / extracted metadata
+    # house all datasets / extracted metadata
+    extracts_dir = Path("extracts")
+    extracts_dir.mkdir(exist_ok=True)
 
     # create individual dataset dir for each product in the granule
     # (this also extracts the metadata to *.met.json files)
-    os.mkdir(product_extracts_dir := extracts_dir / group_dataset_id)
+    product_extracts_dir = extracts_dir / group_dataset_id
+    product_extracts_dir.mkdir(exist_ok=True)
     dataset_dirs = [
-        extractor.extract.extract(
-            product=str(product),
-            product_types=settings_cfg["PRODUCT_TYPES"],
-            workspace=str(product_extracts_dir.resolve())
-        ) for product in products
+        extract_one_to_one(product, settings_cfg, working_dir=product_extracts_dir)
+        for product in products
     ]
     logging.info(f"{dataset_dirs=}")
 
@@ -1001,7 +974,8 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     logging.debug(f"{merged_met_dict=}")
 
     logging.info("Creating target dataset directory")
-    os.mkdir(target_dataset_dir := Path(group_dataset_id))
+    target_dataset_dir = Path(group_dataset_id)
+    target_dataset_dir.mkdir(exist_ok=True)
     for product in products:
         shutil.copy(product, target_dataset_dir.resolve())
     logging.info("Copied input products to dataset directory")
@@ -1031,6 +1005,25 @@ def extract_many_to_one(products, group_dataset_id, settings_cfg):
     logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
     shutil.rmtree(extracts_dir)
+
+
+def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path) -> PurePath:
+    """Creates a dataset for the given product.
+
+    :param product: the product to create datasets for.
+    :param settings_cfg: the settings.yaml config as a dict.
+    :param working_dir: the working directory for the extract process. Serves as the output directory for the extraction.
+    """
+    # create dataset dir for product
+    # (this also extracts the metadata to *.met.json file)
+    logging.info("Creating dataset directory")
+    dataset_dir = extractor.extract.extract(
+        product=str(product),
+        product_types=settings_cfg["PRODUCT_TYPES"],
+        workspace=str(working_dir.resolve())
+    )
+    logging.info(f"{dataset_dir=}")
+    return PurePath(dataset_dir)
 
 
 def download_product_using_https(url, session: requests.Session, token, target_dirpath: Path, chunk_size=25600) -> Path:

@@ -138,6 +138,10 @@ variable "artifactory_repo" {
   default = "general-stage"
 }
 
+variable "use_artifactory" {
+  default = true
+}
+
 ######### ami vars #######
 variable "amis" {
   type = map(string)
