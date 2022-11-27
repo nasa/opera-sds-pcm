@@ -40,10 +40,6 @@
       "destination": "positional"
     },
     {
-      "name": "isl_bucket_name",
-      "destination": "positional"
-    },
-    {
       "name": "chunk_size",
       "destination": "positional"
     },
@@ -57,6 +53,10 @@
     },
     {
       "name": "use_temporal",
+      "destination": "positional"
+    },
+    {
+      "name": "temporal_start_datetime",
       "destination": "positional"
     }
   ]
