@@ -157,6 +157,7 @@ missing_data_ingest_granules = set(missing_data_ingest_granules.keys())
 logging.info(f'Missing data ingest (granules): {len(missing_data_ingest_granules)=}')
 logging.debug(pstr(missing_data_ingest_granules))
 
+
 #######################################################################
 # GET L3 products (products used by PGE runs)
 # Note: It is possible for L3 products to exist without CNM-S / accountability information briefly after PGE but before CNM-S processing,
