@@ -24,6 +24,7 @@ import boto3
 import dateutil.parser
 import requests
 import validators
+from cachetools.func import ttl_cache
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import map_reduce, chunked
 from requests.auth import HTTPBasicAuth
@@ -723,7 +724,7 @@ def _url_to_tile_id(url: str):
 
 def run_download(args, token, es_conn, netloc, username, password, job_id):
     download_timerange = get_download_timerange(args)
-    all_pending_downloads: Iterable[dict] = es_conn.get_all_undownloaded(
+    all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
         dateutil.parser.isoparse(download_timerange.start_date),
         dateutil.parser.isoparse(download_timerange.end_date),
         args.use_temporal
@@ -1045,10 +1046,12 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
     aws_creds = _get_aws_creds(session)
-    s3 = boto3.Session(aws_access_key_id=aws_creds["accessKeyId"],
-                       aws_secret_access_key=aws_creds["secretAccessKey"],
-                       aws_session_token=aws_creds["sessionToken"],
-                       region_name="us-west-2").client("s3")
+    logging.debug(f"{_get_aws_creds.cache_info()=}")
+
+    s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                       aws_secret_access_key=aws_creds['secretAccessKey'],
+                       aws_session_token=aws_creds['sessionToken'],
+                       region_name='us-west-2').client("s3")
     product_download_path = _s3_download(url, s3, str(target_dirpath))
     return product_download_path.resolve()
 
@@ -1112,10 +1115,12 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
+@ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
 def _get_aws_creds(session):
+    logging.info("entry")
+
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
-        if r.status_code != 200:
-            r.raise_for_status()
+        r.raise_for_status()
 
         return r.json()
 

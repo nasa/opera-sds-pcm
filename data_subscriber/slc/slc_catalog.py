@@ -45,7 +45,7 @@ class SLCProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
-    def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
+    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
 
         return [{  # "s3_url": result['_source']['s3_url'],
@@ -80,13 +80,8 @@ class SLCProductCatalog(ElasticsearchUtility):
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
-        if not result:
-            doc["downloaded"] = False
-            self._post(filename=filename, body=doc)
-            return False
-        else:
-            self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
-            return True
+        self.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        return True
 
     def product_is_downloaded(self, url):
         filename = url.split('/')[-1]
@@ -133,8 +128,7 @@ class SLCProductCatalog(ElasticsearchUtility):
         try:
             result = self.query(index=index,
                                 body={"sort": [{"creation_timestamp": "asc"}],
-                                      "query": {"bool": {"must": [{"match": {"downloaded": False}},
-                                                                  {"range": {range_str: {
+                                      "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),
                                                                       "lt": end_dt.isoformat()}}}]}}})
             if self.logger:

@@ -251,9 +251,9 @@ resource "null_resource" "smoke_test" {
                 --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
                 --isl-bucket="${module.common.isl_bucket}" \
                 --rs-bucket="${module.common.dataset_bucket}" \
-                --SLC-input-dir="slc_l1" \
                 --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
                 --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
+                --SLC-data-subscriber-query-lambda=${module.common.slcs1a_query_timer.function_name} \
                 --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
                 --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0"
               fi

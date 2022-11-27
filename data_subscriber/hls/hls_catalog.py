@@ -45,10 +45,10 @@ class HLSProductCatalog(ElasticsearchUtility):
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
-    def get_all_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
-        undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
-        return [{"s3_url": result['_source'].get('s3_url'), "https_url": result['_source'].get('https_url')}
-                for result in (undownloaded or [])]
+    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
+        hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
+        return [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
+                for catalog_entry in (hls_catalog or [])]
 
     def process_url(
             self,
@@ -78,16 +78,11 @@ class HLSProductCatalog(ElasticsearchUtility):
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
-        if not result:
-            doc["downloaded"] = False
-            self._post(filename=filename, body=doc)
-            return False
-        else:
-            self.update_document(index=ES_INDEX, body={"doc": doc}, id=filename)
-            return True
+        self.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        return True
 
     def product_is_downloaded(self, url):
-        filename = url.split('/')[-1]
+        filename = url.split("/")[-1]
         result = self._query_existence(filename)
 
         if result:
@@ -96,7 +91,7 @@ class HLSProductCatalog(ElasticsearchUtility):
             return False
 
     def mark_product_as_downloaded(self, url, job_id):
-        filename = url.split('/')[-1]
+        filename = url.split("/")[-1]
         result = self.update_document(
             id=filename,
             body={
@@ -132,13 +127,12 @@ class HLSProductCatalog(ElasticsearchUtility):
 
         return result
 
-    def _query_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
+    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.query(index=index,
                                 body={"sort": [{"creation_timestamp": "asc"}],
-                                      "query": {"bool": {"must": [{"match": {"downloaded": False}},
-                                                                  {"range": {range_str: {
+                                      "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),
                                                                       "lt": end_dt.isoformat()}}}]}}})
             if self.logger:
