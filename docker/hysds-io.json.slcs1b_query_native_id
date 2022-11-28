@@ -42,11 +42,6 @@
 	  "default": "--job-queue=opera-job_worker-slc_data_download"
     },
     {
-      "name": "isl_bucket_name",
-      "from": "submitter",
-      "placeholder": "e.g. --isl-bucket=<isl_bucket>"
-    },
-    {
       "name": "chunk_size",
       "from": "submitter",
       "placeholder": "e.g. --chunk-size=<chunk_size>",
