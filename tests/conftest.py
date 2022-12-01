@@ -1,6 +1,7 @@
 import sys
 import types
 
+import elasticsearch
 import pytest
 import requests
 
@@ -40,3 +41,5 @@ mock_commons_es_connection.get_grq_es = lambda *args, **kwargs: None
 @pytest.fixture(autouse=True)
 def deny_network_requests(monkeypatch):
     monkeypatch.delattr(requests.sessions.Session, requests.sessions.Session.request.__name__)
+    monkeypatch.delattr(elasticsearch.connection.base.Connection, elasticsearch.connection.base.Connection.perform_request.__name__)
+    monkeypatch.delattr(elasticsearch.connection.http_requests.RequestsHttpConnection, elasticsearch.connection.http_requests.RequestsHttpConnection.perform_request.__name__)
