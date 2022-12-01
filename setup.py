@@ -15,7 +15,7 @@ setup(
         "docker": [
             "more-itertools",
 
-            "pytest==7.2.0",
+            "pytest==7.1.1",
             "scripttest",
             "mock",
             "mockito",
@@ -79,7 +79,7 @@ setup(
             "cachetools==5.2.0"
         ],
         "integration": [
-            "pytest==7.2.0",
+            "pytest==7.1.1",
             "boto3",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "boto3-stubs[sns]",

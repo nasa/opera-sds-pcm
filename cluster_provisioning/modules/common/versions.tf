@@ -7,13 +7,17 @@ terraform {
     #   https://github.com/hashicorp/terraform-provider-aws/issues/10297
     aws = {
       source  = "hashicorp/aws"
-      version = "3.75.2"
+#      version = "2.63"
+      version = "2.70.1"
     }
     null = {
       source = "hashicorp/null"
     }
     random = {
       source = "hashicorp/random"
+    }
+    template = {
+      source = "hashicorp/template"
     }
   }
 }
