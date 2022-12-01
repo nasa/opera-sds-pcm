@@ -317,7 +317,6 @@ cluster_provisioning/**/*.tf
 #
 # !cluster_provisioning/run_opera_smoke_tests.sh
 !cluster_provisioning/run_opera_smoke_tests.sh
-!cluster_provisioning/modules/common/launch_template_user_data.sh.tmpl
 
 ######################################################################
 # MacOS files
