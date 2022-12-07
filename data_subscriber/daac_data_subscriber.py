@@ -750,9 +750,9 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     session = SessionWithHeaderRedirection(username, password, netloc)
 
     if args.provider == "ASF":
-        download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
+        download_urls = [_to_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        download_from_asf(es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
+        download_from_asf(session=session, es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
@@ -816,6 +816,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
 
 
 def download_from_asf(
+        session: requests.Session,
         es_conn,
         download_urls: list[str],
         args,
@@ -843,7 +844,19 @@ def download_from_asf(
         if args.dry_run:
             logging.debug(f"{args.dry_run=}. Skipping download.")
             continue
-        product = product_filepath = download_asf_product(product_url, token, product_download_dir)
+
+        if product_url.startswith("s3"):
+            product = product_filepath = download_product_using_s3(
+                product_url,
+                session,
+                target_dirpath=product_download_dir.resolve(),
+                args=args
+            )
+        else:
+            product = product_filepath = download_asf_product(
+                product_url, token, product_download_dir
+            )
+
         logging.info(f"{product_filepath=}")
 
         logging.info(f"Marking as downloaded. {product_url=}")

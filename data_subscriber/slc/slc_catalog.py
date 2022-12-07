@@ -31,7 +31,7 @@ class SLCProductCatalog(ElasticsearchUtility):
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
-                                             # "s3_url": {"type": "keyword"},
+                                             "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "creation_timestamp": {"type": "date"},
                                              "download_datetime": {"type": "date"},
@@ -48,9 +48,15 @@ class SLCProductCatalog(ElasticsearchUtility):
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
 
-        return [{  # "s3_url": result['_source']['s3_url'],
-            "https_url": result['_source'].get('https_url')}
-            for result in (undownloaded or [])]
+        urls = [
+            {
+                "https_url": result['_source'].get('https_url'),
+                "s3_url": result['_source'].get('s3_url')
+            }
+            for result in (undownloaded or [])
+        ]
+
+        return urls
 
     def process_url(
             self,
@@ -75,8 +81,8 @@ class SLCProductCatalog(ElasticsearchUtility):
 
         if "https://" in url:
             doc["https_url"] = url
-        # elif "s3://" in url:
-        # doc["s3_url"] = url
+        elif "s3://" in url:
+            doc["s3_url"] = url
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
