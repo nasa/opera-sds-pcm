@@ -17,7 +17,7 @@ SHORTNAME_FILTERS:
   HLSL30:
 #   - L.07 # Landsat-7
     - L.08 # Landsat-8
-    - L.09 # Landsat-9
+#    - L.09 # Landsat-9
   HLSS30:
 #   - S1 # Sentinel-1
     - S2A # Sentinel-2A
