@@ -36,6 +36,7 @@ from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connectio
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from tools import stage_orbit_file
+from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
@@ -850,14 +851,35 @@ def download_from_asf(
 
         logging.info(f"product_url_downloaded={product_url}")
 
-        logging.info("downloading associated orbit file")
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd())
-        stage_orbit_file_args = stage_orbit_file.get_parser().parse_args([
-            f"--output-directory={str(dataset_dir)}",
-            str(product_filepath)
-        ])
-        stage_orbit_file.main(stage_orbit_file_args)
-        logging.info("added orbit file to dataset")
+
+        logging.info("Downloading associated orbit file")
+
+        try:
+            logging.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
+            stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                [
+                    f"--output-directory={str(dataset_dir)}",
+                    "--orbit-type=POEORB",
+                    str(product_filepath)
+                ]
+            )
+            stage_orbit_file.main(stage_orbit_file_args)
+        except NoQueryResultsException:
+            logging.warning("No POEORB file could be found, querying for Restituted Orbit (ROEORB) file")
+            stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                [
+                    f"--output-directory={str(dataset_dir)}",
+                    "--orbit-type=RESORB",
+                    str(product_filepath)
+                ]
+            )
+            stage_orbit_file.main(stage_orbit_file_args)
+
+        logging.info("Added orbit file to dataset")
+
+        logging.info(f"Removing {product_filepath}")
+        product_filepath.unlink(missing_ok=True)
 
     logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
