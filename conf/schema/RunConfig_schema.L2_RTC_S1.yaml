@@ -18,8 +18,7 @@ RunConfig:
 
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
-        # TODO: this will become num with next release
-        ProductVersion: str(required=False)
+        ProductVersion: num(required=False)
         CompositeReleaseID: str(required=False)
         ProgramPath: str(required=True)
         ProgramOptions: list(str(), min=0, required=False)

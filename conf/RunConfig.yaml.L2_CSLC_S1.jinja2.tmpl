@@ -21,8 +21,7 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: CSLC_S1
-        # TODO remove quotes for next release
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductVersion: {{ data.product_path_group.product_version }}
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -68,4 +67,4 @@ RunConfig:
           primary_executable:
             product_type: CSLC_S1
           processing:
-            polarization: co-pol
+            polarization: {{ data.processing.polarization }}
