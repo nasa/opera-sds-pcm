@@ -1033,7 +1033,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.s3_bucket = s3_bucket
         args.outfile = output_filepath
         args.filepath = None
-        args.margin = 5  # KM
+        args.margin = 50  # KM
         args.log_level = LogLevels.INFO.value
 
         # Provide both the bounding box and tile code, stage_dem.py should
@@ -1141,7 +1141,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.worldcover_ver = worldcover_ver
         args.worldcover_year = worldcover_year
         args.outfile = output_filepath
-        args.margin = 5  # KM
+        args.margin = 50  # KM
         args.log_level = LogLevels.INFO.value
 
         # Provide both the bounding box and tile code, stage_worldcover.py should

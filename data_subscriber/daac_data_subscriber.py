@@ -237,7 +237,8 @@ def create_parser():
 
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
-                            "help": "The native ID of a single product granule to be queried, overriding other query arguments if present."}}
+                            "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
+                                    "The native ID value supports the '*' and '?' wildcards."}}
 
     parser_arg_list = [verbose, file, provider]
     _add_arguments(parser, parser_arg_list)
@@ -558,6 +559,9 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
     if args.native_id:
         params["native-id"] = args.native_id
+
+        if any(wildcard in args.native_id for wildcard in ['*', '?']):
+            params["options[native-id][pattern]"] = 'true'
 
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
