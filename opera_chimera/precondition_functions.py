@@ -714,13 +714,54 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_slc_s1_burst_id(self):
         """Returns the SLC burst ID to be processed with a S1 based job"""
-        # TODO: dummy implementation until we figure out how to properly source
-        #       the burst ID (or IDs?) from the input SAFE file
+        # TODO: dummy implementation until we get the CSLC-S1 SAS beta which
+        #       determines the list of burst ID's to process automatically
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # hardcode the burst ID used with the interface delivery for now...
         rc_params = {
             oc_const.BURST_ID: "t64_135524_iw2"
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_slc_polarization(self):
+        """
+        Determines the polarization setting for the CSLC-S1 or RTC-S1 job based
+        on the file name of the input SLC granule.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        slc_filename = metadata['FileName']
+
+        slc_regex = "(S1A|S1B)_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
+
+        result = re.search(slc_regex, slc_filename)
+
+        if not result:
+            raise RuntimeError(
+                f'Could not parse Polarization from SLC granule {slc_filename}'
+            )
+
+        pol = result.groupdict()['pol']
+
+        logger.info(f'Parsed Polarization mode {pol} from SLC granule {slc_filename}')
+
+        polarization_map = {
+            'SH': 'co-pol',
+            'SV': 'co-pol',
+            'DH': 'dual-pol',
+            'DV': 'dual-pol'
+        }
+
+        slc_polarization = polarization_map[pol]
+
+        rc_params = {
+            oc_const.POLARIZATION: slc_polarization
         }
 
         logger.info(f"rc_params : {rc_params}")

@@ -103,6 +103,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BASE_NAME = "base_name"
 
+    POLARIZATION = "polarization"
+
     SAFE_FILE_PATH = "safe_file_path"
 
     ORBIT_FILE_PATH = "orbit_file_path"
@@ -214,6 +216,8 @@ class OperaChimeraConstants(ChimeraConstants):
     CAST_STRING_TO_INT = "cast_string_to_int"
 
     BBOX = "bbox"
+
+    GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
 
     GET_SLC_S1_BURST_ID = "get_slc_s1_burst_id"
 
