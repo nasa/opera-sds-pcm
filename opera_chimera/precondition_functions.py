@@ -949,10 +949,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
-        # TODO set this back to output_filepath once vrt file is supported by PGE validation
-        kludge_output_filepath = os.path.join(working_dir, 'dem_0.tif')
         rc_params = {
-            oc_const.DEM_FILE: kludge_output_filepath
+            oc_const.DEM_FILE: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")

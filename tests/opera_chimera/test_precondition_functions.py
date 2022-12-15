@@ -288,8 +288,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
         # Make sure the vrt file was created
         expected_dem_vrt = join(self.working_dir.name, 'dem.vrt')
-        # TODO uncomment once vrt files are accpeted by PGE validation
-        #self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
+        self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
         self.assertTrue(exists(expected_dem_vrt))
 
         # Make sure the tif was created
