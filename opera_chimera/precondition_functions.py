@@ -18,6 +18,7 @@ from lxml import etree as ET
 from typing import Dict, List
 from urllib.parse import urlparse
 
+import boto3
 import psutil
 from chimera.precondition_functions import PreConditionFunctions
 
@@ -819,33 +820,46 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_slc_s1_orbit_file(self):
         """
-        Copies a static orbit file configured for use with a CSLC-S1 or RTC-S1
-        job to the job's local working area.
-
-        TODO this is a temporary implementation for initial testing purposes
-             eventually this function will need to determine the appropriate
-             orbit file to download based on the input SLC file
+        Obtains the S3 location of the orbit file configured for use with a
+        CSLC-S1 or RTC-S1 job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # get the working directory
-        working_dir = get_working_dir()
+        s3_product_path = self._context['product_path']
 
-        logger.info("working_dir : {}".format(working_dir))
+        parsed_s3_url = urlparse(s3_product_path)
+        s3_path = parsed_s3_url.path
 
-        s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_ORBIT_FILE, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_SLC_S1_ORBIT_FILE, {}).get(oc_const.S3_KEY)
+        # Strip leading forward slash from url path
+        if s3_path.startswith('/'):
+            s3_path = s3_path[1:]
 
-        output_filepath = os.path.join(working_dir, s3_key)
+        # Bucket name should be first part of url path, the key is the rest
+        s3_bucket_name = s3_path.split('/')[0]
+        s3_key = '/'.join(s3_path.split('/')[1:])
 
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="Orbit Ephemerides"
+        s3 = boto3.resource('s3')
+
+        bucket = s3.Bucket(s3_bucket_name)
+        s3_objects = bucket.objects.filter(Prefix=s3_key)
+
+        orbit_file_objects = list(
+            filter(lambda s3_object: s3_object.key.endswith('.EOF'), s3_objects)
         )
 
-        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+        if len(orbit_file_objects) < 1:
+            raise RuntimeError(
+                f'Could not find an orbit file within the S3 location {s3_product_path}'
+            )
 
+        orbit_file_object = orbit_file_objects[0]
+
+        s3_orbit_file_path = f"s3://{s3_bucket_name}/{orbit_file_object.key}"
+
+        # Assign the s3 location of the orbit file to the chimera config,
+        # it will be localized for us automatically
         rc_params = {
-            oc_const.ORBIT_FILE_PATH: output_filepath
+            oc_const.ORBIT_FILE_PATH: s3_orbit_file_path
         }
 
         logger.info(f"rc_params : {rc_params}")
