@@ -28,10 +28,9 @@ List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
 PGE.
 """
 
-# TODO: these may go to all-caps at some point
-RTC_BURST_IDS = ['t069_147170_iw1', 't069_147170_iw3', 't069_147171_iw1',
-                 't069_147171_iw2', 't069_147171_iw3', 't069_147172_iw1',
-                 't069_147172_iw2', 't069_147172_iw3', 't069_147173_iw1']
+RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
+                 'T069-147171-IW2', 'T069-147171-IW3', 'T069-147172-IW1',
+                 'T069-147172-IW2', 'T069-147172-IW3', 'T069-147173-IW1']
 """List of sample burst ID's to simulate RTC-S1 multi-product output"""
 
 

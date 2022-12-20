@@ -18,6 +18,7 @@ from lxml import etree as ET
 from typing import Dict, List
 from urllib.parse import urlparse
 
+import boto3
 import psutil
 from chimera.precondition_functions import PreConditionFunctions
 
@@ -714,13 +715,54 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_slc_s1_burst_id(self):
         """Returns the SLC burst ID to be processed with a S1 based job"""
-        # TODO: dummy implementation until we figure out how to properly source
-        #       the burst ID (or IDs?) from the input SAFE file
+        # TODO: dummy implementation until we get the CSLC-S1 SAS beta which
+        #       determines the list of burst ID's to process automatically
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # hardcode the burst ID used with the interface delivery for now...
         rc_params = {
             oc_const.BURST_ID: "t64_135524_iw2"
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_slc_polarization(self):
+        """
+        Determines the polarization setting for the CSLC-S1 or RTC-S1 job based
+        on the file name of the input SLC granule.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        slc_filename = metadata['FileName']
+
+        slc_regex = "(S1A|S1B)_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
+
+        result = re.search(slc_regex, slc_filename)
+
+        if not result:
+            raise RuntimeError(
+                f'Could not parse Polarization from SLC granule {slc_filename}'
+            )
+
+        pol = result.groupdict()['pol']
+
+        logger.info(f'Parsed Polarization mode {pol} from SLC granule {slc_filename}')
+
+        polarization_map = {
+            'SH': 'co-pol',
+            'SV': 'co-pol',
+            'DH': 'dual-pol',
+            'DV': 'dual-pol'
+        }
+
+        slc_polarization = polarization_map[pol]
+
+        rc_params = {
+            oc_const.POLARIZATION: slc_polarization
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -778,33 +820,46 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_slc_s1_orbit_file(self):
         """
-        Copies a static orbit file configured for use with a CSLC-S1 or RTC-S1
-        job to the job's local working area.
-
-        TODO this is a temporary implementation for initial testing purposes
-             eventually this function will need to determine the appropriate
-             orbit file to download based on the input SLC file
+        Obtains the S3 location of the orbit file configured for use with a
+        CSLC-S1 or RTC-S1 job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # get the working directory
-        working_dir = get_working_dir()
+        s3_product_path = self._context['product_path']
 
-        logger.info("working_dir : {}".format(working_dir))
+        parsed_s3_url = urlparse(s3_product_path)
+        s3_path = parsed_s3_url.path
 
-        s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_ORBIT_FILE, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_SLC_S1_ORBIT_FILE, {}).get(oc_const.S3_KEY)
+        # Strip leading forward slash from url path
+        if s3_path.startswith('/'):
+            s3_path = s3_path[1:]
 
-        output_filepath = os.path.join(working_dir, s3_key)
+        # Bucket name should be first part of url path, the key is the rest
+        s3_bucket_name = s3_path.split('/')[0]
+        s3_key = '/'.join(s3_path.split('/')[1:])
 
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="Orbit Ephemerides"
+        s3 = boto3.resource('s3')
+
+        bucket = s3.Bucket(s3_bucket_name)
+        s3_objects = bucket.objects.filter(Prefix=s3_key)
+
+        orbit_file_objects = list(
+            filter(lambda s3_object: s3_object.key.endswith('.EOF'), s3_objects)
         )
 
-        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+        if len(orbit_file_objects) < 1:
+            raise RuntimeError(
+                f'Could not find an orbit file within the S3 location {s3_product_path}'
+            )
 
+        orbit_file_object = orbit_file_objects[0]
+
+        s3_orbit_file_path = f"s3://{s3_bucket_name}/{orbit_file_object.key}"
+
+        # Assign the s3 location of the orbit file to the chimera config,
+        # it will be localized for us automatically
         rc_params = {
-            oc_const.ORBIT_FILE_PATH: output_filepath
+            oc_const.ORBIT_FILE_PATH: s3_orbit_file_path
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -894,10 +949,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
-        # TODO set this back to output_filepath once vrt file is supported by PGE validation
-        kludge_output_filepath = os.path.join(working_dir, 'dem_0.tif')
         rc_params = {
-            oc_const.DEM_FILE: kludge_output_filepath
+            oc_const.DEM_FILE: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
