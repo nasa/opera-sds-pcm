@@ -134,14 +134,44 @@ def convert(
             publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
             publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
 
-            dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
             dataset_met_json["product_urls"] = [
                 f'https:'
                 f'//{publish_bucket}.s3.{publish_region}.amazonaws.com'
                 f'/products/{file["id"]}/{file["FileName"]}'
-                for file in dataset_met_json["Files"]]
-            dataset_met_json["product_s3_paths"] = [f's3://{publish_bucket}/products/{file["id"]}/{file["FileName"]}'
-                                                for file in dataset_met_json["Files"]]
+                for file in dataset_met_json["Files"]
+            ]
+            dataset_met_json["product_s3_paths"] = [
+                f's3:'
+                f'//{publish_bucket}'
+                f'/products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]
+            ]
+
+            dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
+        elif pge_name == "L2_CSLC_S1" or pge_name == "L2_RTC_S1":
+            logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
+            product_metadata: Dict = kwargs["product_metadata"]
+
+            dataset_type = job_json_dict["params"]["dataset_type"]
+
+            publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
+            publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
+
+            dataset_met_json["product_urls"] = [
+                f'https:'
+                f'//{publish_bucket}.s3.{publish_region}.amazonaws.com'
+                f'/products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]
+            ]
+            dataset_met_json["product_s3_paths"] = [
+                f's3:'
+                f'//{publish_bucket}'
+                f'/products/{file["id"]}/{file["FileName"]}'
+                for file in dataset_met_json["Files"]
+            ]
+
+            dataset_met_json["input_granule_id"] = product_metadata["id"]  # strip band from ID to get granule ID
+            dataset_met_json["orbit_file_s3_path"] = product_metadata["runconfig"]["localize"][0]
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
