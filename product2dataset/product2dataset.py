@@ -151,6 +151,7 @@ def convert(
         elif pge_name == "L2_CSLC_S1" or pge_name == "L2_RTC_S1":
             logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
             product_metadata: Dict = kwargs["product_metadata"]
+            logger.info(f"{product_metadata=}")
 
             dataset_type = job_json_dict["params"]["dataset_type"]
 
@@ -170,7 +171,8 @@ def convert(
                 for file in dataset_met_json["Files"]
             ]
 
-            dataset_met_json["safe_file"] = product_metadata["id"]
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["orbit_file"] = product_metadata["runconfig"]["input_file_group"]["orbit_file_path"]
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
