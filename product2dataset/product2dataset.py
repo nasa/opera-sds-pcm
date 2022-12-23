@@ -171,7 +171,7 @@ def convert(
             ]
 
             dataset_met_json["input_granule_id"] = product_metadata["id"]  # strip band from ID to get granule ID
-            dataset_met_json["orbit_file_s3_path"] = product_metadata["runconfig"]["localize"][0]
+            dataset_met_json["orbit_file_s3_path"] = job_json_dict["run_config"]["input_file_group"]["orbit_file_path"]
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
