@@ -171,6 +171,8 @@ def convert(
             ]
 
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            logger.info(f"{dataset_dir=}")
+            logger.info(f"{extra_met=}")
             dataset_met_json["orbit_file"] = PurePath(extra_met["localize"][0]).name
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
