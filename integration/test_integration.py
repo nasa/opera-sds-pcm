@@ -156,7 +156,7 @@ def test_subscriber_slc():
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_1_l2_cslc_s1")
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_v0.1_l2_cslc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
@@ -164,7 +164,7 @@ def test_subscriber_slc():
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(300)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_1_l2_cslc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_v0.1_l2_cslc_s1")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
@@ -173,7 +173,7 @@ def test_subscriber_slc():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(300)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_1_l2_cslc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_v0.1_l2_cslc_s1")
     assert_cnm_r_success(response)
 
 
