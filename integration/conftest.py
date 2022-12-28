@@ -81,6 +81,7 @@ def clear_pcm_test_state():
     es_index_delete("grq_v2.0_l2_hls_s30")
 
     # clear PGE indexes
+    es_index_delete("grq_1_l2_rtc_s1")
     es_index_delete("grq_1_l2_cslc_s1")
     es_index_delete("grq_v2.0_l3_dswx_hls")
 
