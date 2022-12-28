@@ -175,7 +175,7 @@ def convert(
             logger.info(f"{extra_met=}")
             logger.info(f"{type(extra_met)=}")
             logger.info(f"{extra_met.keys()=}")
-            dataset_met_json["orbit_file"] = PurePath(extra_met["localize"][0]).name
+            dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
