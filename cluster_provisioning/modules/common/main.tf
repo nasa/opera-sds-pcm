@@ -37,6 +37,7 @@ locals {
 #  hls_download_job_type             = "hls_download"
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
+  batch_query_job_type              = "batch_query"
 
 #  slc_download_job_type             = "slc_download"
   slcs1a_query_job_type             = "slcs1a_query"
@@ -86,6 +87,9 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
   }
 }
 
@@ -653,23 +657,24 @@ resource "aws_sqs_queue_policy" "isl_queue_policy" {
 }
 POLICY
 }
-resource "aws_s3_bucket_object" "folder" {
-  bucket = local.isl_bucket
-  acl    = "private"
-  key    = "met_required/"
-  source = "/dev/null"
-}
 
-resource "aws_s3_bucket_notification" "sqs_isl_notification" {
-  bucket = local.isl_bucket
+# resource "aws_s3_bucket_object" "folder" {
+#  bucket = local.isl_bucket
+#  acl    = "private"
+#  key    = "met_required/"
+#  source = "/dev/null"
+#}
 
-  queue {
-    id        = "sqs_event"
-    queue_arn = aws_sqs_queue.isl_queue.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
+# resource "aws_s3_bucket_notification" "sqs_isl_notification" {
+#  bucket = local.isl_bucket
+#
+#  queue {
+#    id        = "sqs_event"
+#    queue_arn = aws_sqs_queue.isl_queue.arn
+#    events    = ["s3:ObjectCreated:*"]
+#  }
 
-}
+#}
 
 resource "aws_sqs_queue" "isl_dead_letter_queue" {
   name                       = "${var.project}-${var.venue}-${local.counter}-isl-dead-letter-queue"
@@ -1615,6 +1620,12 @@ data "template_file" "launch_template_user_data" {
                   {
                     "file_path": "/data/work/jobs/**/run_slc_download.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slc_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_batch_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_batch_query.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
@@ -2659,3 +2670,57 @@ resource "aws_lambda_permission" "slcs1a_query_timer" {
   source_arn = aws_cloudwatch_event_rule.slcs1a_query_timer.arn
   function_name = aws_lambda_function.slcs1a_query_timer.function_name
 }
+
+# Batch Query Lambda and Timer ---->
+
+resource "aws_lambda_function" "batch_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query batch data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-batch-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_IP": "${aws_instance.mozart.private_ip}",
+      "GRQ_IP": "${aws_instance.grq.private_ip}",
+      "ENDPOINT": "OPS",
+      "JOB_RELEASE": var.pcm_branch
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "batch_query_timer" {
+  depends_on = [aws_lambda_function.batch_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.batch_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "batch_query_timer" {
+  name = "${aws_lambda_function.batch_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Batch Timer Lambda"
+  schedule_expression = var.batch_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
+}
+
+resource "aws_cloudwatch_event_target" "batch_query_timer" {
+  rule = aws_cloudwatch_event_rule.batch_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.batch_query_timer.arn
+}
+
+resource "aws_lambda_permission" "batch_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.batch_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.batch_query_timer.arn
+  function_name = aws_lambda_function.batch_query_timer.function_name
+}
+
+# <------ Batch Query Lambda and Timer
