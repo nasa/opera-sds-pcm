@@ -39,6 +39,8 @@ LOGGER.setLevel(logging.INFO)
 eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, LOGGER)
 LOGGER.info("Connected to %s" % str(eu.es_url))
 
+FILE_OPTION = '--file'
+
 
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
@@ -64,6 +66,10 @@ def view_proc(id):
     print("Batch Proc ID", doc_id)
     for k, v in proc.items():
         print(k, ' ' * (30 - len(k)), v)
+
+
+def _validate_proc(proc):
+    return True
 
 
 def batch_proc_once():
@@ -111,7 +117,17 @@ def batch_proc_once():
         else:
             print("Batch proc deletion aborted")
 
-        exit(0)
+    elif args.subparser_name == 'create':
+        if args.file is not None:
+            print("Creating batch proc using file %s" % args.file)
+            with open(args.file) as f:
+                proc = json.load(f)
+                print(proc)
+
+                print(eu.index_document(body=proc, index=ES_INDEX))
+        else:
+            print("Creating batch proc using parameters")
+            print(args)
 
     exit(0)
 
@@ -157,16 +173,6 @@ def batch_proc_once():
         if e_date > data_end_date:
             e_date = data_end_date
 
-        # See if we've reached the end of this batch proc. If so, disable it.
-        if s_date >= data_end_date:
-            print(p.label, "Batch Proc completed processing. It is now disabled")
-            eu.update_document(id=doc_id,
-                               body={"doc_as_upsert": True,
-                                     "doc": {
-                                         "enabled": False, }},
-                               index=ES_INDEX)
-            continue
-
         # update last_attempted_proc_data_date here
         eu.update_document(id=doc_id,
                            body={"doc_as_upsert": True,
@@ -176,17 +182,6 @@ def batch_proc_once():
 
         job_name = "data-subscriber-query-timer-{}_{}-{}".format(p.label, s_date.strftime(ES_DATETIME_FORMAT),
                                                                  e_date.strftime(ES_DATETIME_FORMAT))
-        # submit mozart job
-        job_success = submit_job(job_name, job_spec, job_params, queue, tags)
-
-        # Update last_successful_proc_data_date here
-        eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": {
-                                     "last_successful_proc_data_date": e_date, }},
-                           index=ES_INDEX)
-
-        return job_success
 
 
 def create_parser():
@@ -198,9 +193,9 @@ def create_parser():
                           "action": "store_true",
                           "help": "Verbose mode."}}
 
-    file = {"positionals": ["-f", "--file"],
+    file = {"positionals": [FILE_OPTION],
             "kwargs": {"dest": "file",
-                       "help": "Path to file with newline-separated URIs to ingest into data product ES index (to be downloaded later)."}}
+                       "help": "Single json file that contains all batch proc information"}}
 
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
@@ -211,7 +206,6 @@ def create_parser():
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
                              "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC", "SENTINEL-1B_SLC"],
-                             "required": True,
                              "help": "The collection shortname for which you want to retrieve data."}}
 
     start_date = {"positionals": ["-s", "--start-date"],
@@ -234,14 +228,6 @@ def create_parser():
                                "to use this command, please use the -b=\"-180,-90,180,90\" syntax when calling from "
                                "the command line. Default: \"-180,-90,180,90\"."}}
 
-    minutes = {"positionals": ["-m", "--minutes"],
-               "kwargs": {"dest": "minutes",
-                          "type": int,
-                          "default": 60,
-                          "help": "How far back in time, in minutes, should the script look for data. If running this "
-                                  "script as a cron, this value should be equal to or greater than how often your "
-                                  "cron runs (default: 60 minutes)."}}
-
     job_queue = {"positionals": ["--job-queue"],
                  "kwargs": {"dest": "job_queue",
                             "help": "The queue to use for the scheduled download job."}}
@@ -251,17 +237,6 @@ def create_parser():
                              "type": int,
                              "help": "chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles "
                                      "per job"}}
-
-    use_temporal = {"positionals": ["--use-temporal"],
-                    "kwargs": {"dest": "use_temporal",
-                               "action": "store_true",
-                               "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
-
-    temporal_start_date = {"positionals": ["--temporal-start-date"],
-                           "kwargs": {"dest": "temporal_start_date",
-                                      "default": None,
-                                      "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
-                                              "--temporal-start-date 2021-01-14T00:00:00Z"}}
 
     list_parser = subparsers.add_parser("list")
 
@@ -276,17 +251,19 @@ def create_parser():
     enable_parser.add_argument("t_f", help="Enable or disable an existing batch proc", choices=["true", "false"])
 
     create_parser = subparsers.add_parser("create")
-    create_parser_arg_list = [verbose, provider, collection, start_date, end_date, bbox, minutes,
-                              job_queue,
-                              chunk_size, use_temporal, temporal_start_date]
+    create_parser_arg_list = [provider, collection, start_date, end_date, bbox, job_queue, chunk_size]
+    _add_arguments(create_parser, [file], True)
     _add_arguments(create_parser, create_parser_arg_list)
 
     return parser
 
 
-def _add_arguments(parser, arg_list):
+def _add_arguments(parser, arg_list, force_optional=False):
     for argument in arg_list:
-        parser.add_argument(*argument["positionals"], **argument["kwargs"])
+        if (force_optional):
+            parser.add_argument(*argument["positionals"], **argument["kwargs"], required=False)
+        else:
+            parser.add_argument(*argument["positionals"], **argument["kwargs"], required=FILE_OPTION not in sys.argv)
 
 
 def _add_id_arg(parser):
