@@ -215,13 +215,16 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
         # make creation time a duplicate of the acquisition time for ease of testing
         creation_ts=acq_time,
         sensor=sensor,
-        collection_version=dataset_match.groupdict()['collection_version']
+        product_version=dataset_match.groupdict()['collection_version']
     )
 
     # Simulate the multiple output tif files created by this PGE
-    if extension.endswith('tiff'):
+    if extension.endswith('tiff') or extension.endswith('tif'):
         for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
-            output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.{extension}')
+            output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+    elif extension.endswith('png'):
+        output_filenames.append(f'{base_name}_BROWSE.png')
+        output_filenames.append(f'{base_name}_BROWSE.tif')
     else:
         output_filenames.append(f'{base_name}.{extension}')
 
