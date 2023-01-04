@@ -94,10 +94,10 @@ def test_simulate_rtc_s1_pge():
 
 
 def test_simulate_dswx_hls_pge_with_l30():
-    expected_output_base_name = "OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0"
+    expected_output_base_name = "OPERA_L3_DSWx-HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0"
 
     # before
-    for path in glob.iglob(f'/tmp/{expected_output_base_name}*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DSWx_HLS.yaml')
@@ -125,30 +125,25 @@ def test_simulate_dswx_hls_pge_with_l30():
 
     # ASSERT
     for band_idx, band_name in enumerate(pge_util.DSWX_BAND_NAMES, start=1):
-        assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tiff').exists()
+        assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tif').exists()
 
     assert Path(f'/tmp/{expected_output_base_name}.log').exists()
-    assert Path(f'/tmp/{expected_output_base_name}.png').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.png').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.tif').exists()
     assert Path(f'/tmp/{expected_output_base_name}.qa.log').exists()
     assert Path(f'/tmp/{expected_output_base_name}.catalog.json').exists()
     assert Path(f'/tmp/{expected_output_base_name}.iso.xml').exists()
 
     # after
-    for path in glob.iglob(f'/tmp/{expected_output_base_name}*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=True)
-
-    Path(f'/tmp/{expected_output_base_name}.log').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.png').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.qa.log').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.catalog.json').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.iso.xml').unlink(missing_ok=False)
 
 
 def test_simulate_dswx_hls_pge_with_s30():
-    expected_output_base_name = "OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0"
+    expected_output_base_name = "OPERA_L3_DSWx-HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0"
 
     # before
-    for path in glob.iglob(f'/tmp/{expected_output_base_name}*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DSWx_HLS.yaml')
@@ -176,23 +171,18 @@ def test_simulate_dswx_hls_pge_with_s30():
 
     # ASSERT
     for band_idx, band_name in enumerate(pge_util.DSWX_BAND_NAMES, start=1):
-        assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tiff').exists()
+        assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tif').exists()
 
     assert Path(f'/tmp/{expected_output_base_name}.log').exists()
-    assert Path(f'/tmp/{expected_output_base_name}.png').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.png').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.tif').exists()
     assert Path(f'/tmp/{expected_output_base_name}.qa.log').exists()
     assert Path(f'/tmp/{expected_output_base_name}.catalog.json').exists()
     assert Path(f'/tmp/{expected_output_base_name}.iso.xml').exists()
 
     # after
-    for path in glob.iglob(f'/tmp/{expected_output_base_name}*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=False)
-
-    Path(f'/tmp/{expected_output_base_name}.log').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.png').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.qa.log').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.catalog.json').unlink(missing_ok=False)
-    Path(f'/tmp/{expected_output_base_name}.iso.xml').unlink(missing_ok=False)
 
 
 def test_simulate_dswx_hls_pge_with_unsupported():
