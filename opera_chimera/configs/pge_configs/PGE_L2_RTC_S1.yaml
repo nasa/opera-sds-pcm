@@ -23,11 +23,14 @@ runconfig:
     product_path: /home/rtc_user/output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: /home/rtc_user/output_dir/scratch_dir
+  processing:
+    polarization: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
+  - get_slc_polarization
   - get_slc_s1_safe_file
   - get_slc_s1_orbit_file
   - get_slc_s1_dem  # Note: this must be run after get_slc_s1_safe_file
@@ -40,12 +43,6 @@ postprocess:
 
 get_product_version:
   version_key: "RTC_S1_PRODUCT_VERSION"
-
-get_slc_s1_orbit_file:
-  # TODO: use the sample orbit file provided by ADT until the stage_orbit_file.py
-  #       script is integrated with the download job for SLC products
-  s3_bucket: "opera-dev-lts-fwd-collinss"
-  s3_key: "S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942.EOF"
 
 get_slc_s1_dem:
   # The s3 bucket containing the global DEM(s) to download regions from
@@ -91,5 +88,5 @@ localize_groups:
 #######################################################################
 input_file_base_name_regexes: # regexes taken from settings.yaml
     - '(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})$'
-output_base_name: OPERA_L2_RTC_S1_{burst_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{product_version}
-ancillary_base_name: OPERA_L2_RTC_S1_{creation_ts}Z_{sensor}_30_{product_version}
+output_base_name: OPERA_L2_RTC-S1_{burst_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{product_version}
+ancillary_base_name: OPERA_L2_RTC-S1_{creation_ts}Z_{sensor}_30_{product_version}

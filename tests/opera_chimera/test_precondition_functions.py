@@ -9,6 +9,7 @@ from unittest.mock import patch
 from zipfile import ZipFile
 
 import boto3.s3.inject
+import boto3.resources.collection
 
 import tools.stage_dem
 import tools.stage_worldcover
@@ -64,6 +65,24 @@ def _object_download_file_patch(self, Filename, ExtraArgs=None, Callback=None, C
     # Create a dummy file in the expected location to simulate download
     with open(Filename, 'w') as outfile:
         outfile.write("fake ancillary data")
+
+
+class MockCollectionManager:
+    """
+    Mock class for boto3.resources.collection.CollectionManager for use with
+    tests that filter on s3 objects to locate an ancillary file
+    """
+    class MockS3Object:
+        def __init__(self):
+            self.key = None
+
+    def __init__(self, collection_model, parent, factory, service_context):
+        self.s3_object = self.MockS3Object()
+
+    def filter(self, **kwargs):
+        self.s3_object.key = "fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"
+
+        return [self.s3_object]
 
 
 class TestOperaPreConditionFunctions(unittest.TestCase):
@@ -127,6 +146,86 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
         self.assertTrue(exists(expected_pge_metrics))
 
+    def test_get_slc_polarization(self):
+        """Unit tests for the get_slc_polarization() function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_metadata": {
+                "metadata":
+                    {
+                        'FileName': "S1A_IW_SLC__1SDV_..._043011_0522A4_42CC.zip"
+                    }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_SLC_S1_POLARIZATION: {}
+        }
+
+        # These are not used by get_slc_s1_orbit_file
+        settings = None
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_slc_polarization()
+
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn(oc_const.POLARIZATION, rc_params)
+
+        # "DV" portion of test file name should translate to "dual-pol" setting
+        # for runconfig
+        expected_polarization = 'dual-pol'
+        self.assertEqual(rc_params[oc_const.POLARIZATION], expected_polarization)
+
+        # Test again with single polarization setting ("SH")
+        context['product_metadata']['metadata']['FileName'] = "S1A_IW_SLC__1SSH_..._043011_0522A4_42CC.zip"
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_slc_polarization()
+
+        expected_polarization = 'co-pol'
+        self.assertEqual(rc_params[oc_const.POLARIZATION], expected_polarization)
+
+    @patch.object(boto3.resources.collection, "CollectionManager", MockCollectionManager)
+    def test_get_slc_s1_orbit_file(self):
+        """Unit tests for the get_slc_s1_orbit_file() function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_path": "s3://s3-us-west-2.amazonaws.com:80/opera-bucket/fake/key/to",
+        }
+
+        pge_config = {
+            oc_const.GET_SLC_S1_SAFE_FILE: {}
+        }
+
+        # These are not used by get_slc_s1_orbit_file
+        settings = None
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_slc_s1_orbit_file()
+
+        # Make sure we got a path back for replacement within the PGE runconfig
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn(oc_const.ORBIT_FILE_PATH, rc_params)
+
+        # Make sure the path to the orbit file was assigned to the runconfig params as expected
+        expected_s3_path = "s3://opera-bucket/fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"
+        self.assertEqual(rc_params[oc_const.ORBIT_FILE_PATH], expected_s3_path)
+
     @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
     @patch.object(tools.stage_dem, "gdal", MockGdal)
     def test_get_slc_s1_dem(self):
@@ -189,8 +288,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
         # Make sure the vrt file was created
         expected_dem_vrt = join(self.working_dir.name, 'dem.vrt')
-        # TODO uncomment once vrt files are accpeted by PGE validation
-        #self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
+        self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
         self.assertTrue(exists(expected_dem_vrt))
 
         # Make sure the tif was created

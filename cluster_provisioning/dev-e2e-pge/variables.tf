@@ -87,7 +87,6 @@ variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
-  default = "hysdsops"
 }
 
 variable "queues" {
@@ -453,9 +452,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.5.0"
-    "cslc_s1" = "2.0.0-er.3.0"
-    "rtc_s1" = "2.0.0-er.3.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.4.0"
+    "rtc_s1" = "2.0.0-er.4.0"
   }
 }
 

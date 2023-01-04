@@ -21,8 +21,7 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: RTC_S1
-        # TODO: remove quotes for next release
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductVersion: {{ data.product_path_group.product_version }}
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -31,8 +30,7 @@ RunConfig:
           - rtc_s1.py
         ErrorCodeBase: 300000
         SchemaPath: /home/rtc_user/opera/pge/rtc_s1/schema/rtc_s1_sas_schema.yaml
-        # TODO: fill in once available
-        IsoTemplatePath:
+        IsoTemplatePath: /home/rtc_user/opera/pge/rtc_s1/templates/OPERA_ISO_metadata_L2_RTC_S1_template.xml.jinja2
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -72,4 +70,4 @@ RunConfig:
           primary_executable:
             product_type: RTC_S1
           processing:
-            polarization: co-pol
+            polarization: {{ data.processing.polarization }}

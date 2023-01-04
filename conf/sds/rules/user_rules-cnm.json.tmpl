@@ -3,7 +3,7 @@
     {
       "enabled": true,
       "job_type": "hysds-io-send_notify_msg:__TAG__",
-      "kwargs": "{\"provider_name\":\"JPL-OPERA\",\"checksum_type\":\"md5\",\"publisher_arn\":\"{{ PO_DAAC_PROXY }}\",\"sqs_queue_url\":\"{{ PO_DAAC_SQS_URL }}\",\"sqs_endpoint_url\":\"{{ PO_DAAC_ENDPOINT_URL }}\",\"staged_data_types\":{\"data\":[\"*.tiff\",\"*.png\"],\"metadata\":[\"*.log\",\"*.catalog.json\",\"*.iso.xml\",\"*.md5\"]},\"use_s3_uri_structure\": \"{{ USE_S3_URI }}\",\"product_type_key\": \"CollectionName\",\"data_version\":\"0.0\",\"schema_version\":\"1.5\"}",
+      "kwargs": "{\"provider_name\":\"JPL-OPERA\",\"checksum_type\":\"md5\",\"publisher_arn\":\"{{ PO_DAAC_PROXY }}\",\"sqs_queue_url\":\"{{ PO_DAAC_SQS_URL }}\",\"sqs_endpoint_url\":\"{{ PO_DAAC_ENDPOINT_URL }}\",\"staged_data_types\":{\"data\":[\"*.tif\",\"*.png\"],\"metadata\":[\"*.log\",\"*.catalog.json\",\"*.iso.xml\",\"*.md5\"]},\"use_s3_uri_structure\": \"{{ USE_S3_URI }}\",\"product_type_key\": \"CollectionName\",\"data_version\":\"0.0\",\"schema_version\":\"1.5\"}",
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
@@ -13,7 +13,7 @@
       "username": "hysdsops",
       "workflow": "hysds-io-send_notify_msg:__TAG__",
       "job_spec": "job-send_notify_msg:__TAG__"
-   }
+    }
   ],
   "mozart": []
 }

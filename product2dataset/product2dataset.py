@@ -160,13 +160,13 @@ def convert(
             dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
             dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
 
-        if "dswx_hls" in dataset_id.lower():
+        if "dswx-hls" in dataset_id.lower():
             collection_name = settings.get("DSWX_COLLECTION_NAME")
             product_version = settings.get("DSWX_HLS_PRODUCT_VERSION")
-        elif "cslc_s1" in dataset_id.lower():
+        elif "cslc-s1" in dataset_id.lower():
             collection_name = settings.get("CSLC_COLLECTION_NAME")
             product_version = settings.get("CSLC_S1_PRODUCT_VERSION")
-        elif "rtc_s1" in dataset_id.lower():
+        elif "rtc-s1" in dataset_id.lower():
             collection_name = settings.get("RTC_COLLECTION_NAME")
             product_version = settings.get("RTC_S1_PRODUCT_VERSION")
         else:

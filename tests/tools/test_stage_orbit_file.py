@@ -2,7 +2,9 @@
 
 import unittest
 import tools.stage_orbit_file
-
+from tools.stage_orbit_file import (ORBIT_TYPE_POE,
+                                    ORBIT_TYPE_RES,
+                                    NoQueryResultsException)
 
 class TestStageOrbitFile(unittest.TestCase):
     """Unit tests for the stage_orbit_file.py script"""
@@ -53,16 +55,32 @@ class TestStageOrbitFile(unittest.TestCase):
         mission_id = "S1A"
         safe_start_time = "20220501T000000"
         safe_stop_time = "20220501T000030"
+        orbit_type = ORBIT_TYPE_POE
 
-        query = tools.stage_orbit_file.construct_orbit_file_query(mission_id, safe_start_time, safe_stop_time)
+        query = tools.stage_orbit_file.construct_orbit_file_query(
+            mission_id, orbit_type, safe_start_time, safe_stop_time
+        )
 
         # Check that all portions of the query were constructed with the inputs
         # as expected
-        self.assertIn("beginPosition:[2022-04-30T00:00:00.000Z TO 2022-05-01T23:59:59.999Z]", query)
-        self.assertIn("endPosition:[2022-05-01T00:00:00.000Z TO 2022-05-02T23:59:59.999Z]", query)
+        self.assertIn("beginPosition:[2022-04-30T00:00:00.000000Z TO 2022-05-01T00:00:00.000000Z]", query)
+        self.assertIn("endPosition:[2022-05-01T00:00:30.000000Z TO 2022-05-02T00:00:30.000000Z]", query)
         self.assertIn("platformname:Sentinel-1", query)
         self.assertIn("filename:S1A_*", query)
         self.assertIn("producttype:AUX_POEORB", query)
+
+        # Test again for restituted orbit type
+        orbit_type = ORBIT_TYPE_RES
+
+        query = tools.stage_orbit_file.construct_orbit_file_query(
+            mission_id, orbit_type, safe_start_time, safe_stop_time
+        )
+
+        self.assertIn("beginPosition:[2022-04-30T21:00:00.000000Z TO 2022-05-01T00:00:00.000000Z]", query)
+        self.assertIn("endPosition:[2022-05-01T00:00:30.000000Z TO 2022-05-01T03:00:30.000000Z]", query)
+        self.assertIn("platformname:Sentinel-1", query)
+        self.assertIn("filename:S1A_*", query)
+        self.assertIn("producttype:AUX_RESORB", query)
 
     def test_parse_orbit_file_query_xml(self):
         """Tests for the parse_orbit_file_query_xml() function"""
@@ -143,7 +161,7 @@ class TestStageOrbitFile(unittest.TestCase):
             </feed>
         """
 
-        with self.assertRaises(RuntimeError) as err:
+        with self.assertRaises(NoQueryResultsException) as err:
             tools.stage_orbit_file.parse_orbit_file_query_xml(invalid_xml_response)
 
         self.assertIn('No results returned from parsed query results',

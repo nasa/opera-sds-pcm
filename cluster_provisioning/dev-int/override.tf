@@ -65,7 +65,6 @@ variable "keypair_name" {
 }
 
 variable "ops_password" {
-  default = "hysdsops"
 }
 
 variable "shared_credentials_file" {
