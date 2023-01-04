@@ -52,7 +52,7 @@ def test_simulate_cslc_s1_pge():
 
 
 def test_simulate_rtc_s1_pge():
-    for path in glob.iglob('/tmp/OPERA_L2_RTC_S1*.*'):
+    for path in glob.iglob('/tmp/OPERA_L2_RTC-S1*.*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_RTC_S1.yaml')

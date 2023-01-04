@@ -164,6 +164,9 @@ PRODUCT_TYPES:
         Configuration:
             Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
             Date_Time_Keys: ['acquisition_ts', 'creation_ts']
+            # Specify the metadata key to use as the dataset version.
+            #  Note: this affects the data product index name
+            Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
     L2_RTC_S1:
@@ -176,6 +179,9 @@ PRODUCT_TYPES:
         Configuration:
           Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
           Date_Time_Keys: ['acquisition_ts', 'creation_ts']
+          # Specify the metadata key to use as the dataset version.
+          #  Note: this affects the data product index name
+          Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
     L3_DSWx_HLS:

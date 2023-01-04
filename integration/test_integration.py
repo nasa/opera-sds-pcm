@@ -156,33 +156,33 @@ def test_subscriber_slc():
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_1_l2_cslc_s1")
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_v0.1_l2_cslc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z"
 
     # 70-IW1, 70-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147170-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147170-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
 
     # 71-IW1, 71-IW2, 71-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
 
     # 72-IW1, 72-IW2, 72-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
 
     # 73-IW1
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
@@ -190,27 +190,27 @@ def test_subscriber_slc():
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(300)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_1_l2_cslc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_v0.1_l2_cslc_s1")
     assert_cnm_s_success(response)
 
     # 71-IW1, 71-IW2, 71-IW3
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
 
     # 72-IW1, 72-IW2, 72-IW3
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
 
     # 73-IW1
-    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
@@ -232,27 +232,27 @@ def test_subscriber_slc():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(300)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_1_l2_cslc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20220131T193216Z_v0.1_20220131T193246Z", index="grq_v0.1_l2_cslc_s1")
     assert_cnm_r_success(response)
 
     # 71-IW1, 71-IW2, 71-IW3
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
 
     # 72-IW1, 72-IW2, 72-IW3
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
 
     # 73-IW1
-    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_1_l2_rtc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20220131T193216Z_20220131T193246Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_r_success(response)
 
 
