@@ -243,6 +243,15 @@ def create_parser():
     parser_arg_list = [verbose, file, provider]
     _add_arguments(parser, parser_arg_list)
 
+    use_temporal = {"positionals": ["--use-temporal"],
+                 "kwargs": {"dest": "use_temporal",
+                            "action": "store_true",
+                            "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
+
+    native_id = {"positionals": ["--native-id"],
+                 "kwargs": {"dest": "native_id",
+                            "help": "The native ID of a single product granule to be queried, overriding other query arguments if present."}}
+
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
