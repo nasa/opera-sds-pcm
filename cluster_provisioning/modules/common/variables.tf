@@ -315,7 +315,7 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "min_size"      = 0
