@@ -753,16 +753,18 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.provider == "ASF":
-        download_urls = [_to_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
-        download_from_asf(session=session, es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
-    elif args.transfer_protocol == "https":
-        download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
+    if args.transfer_protocol == "https":
+        if args.provider == "ASF":
+            download_urls = [_to_url(download) for download in downloads if _has_url(download)]
+            logging.debug(f"{download_urls=}")
+            download_from_asf(session=session, es_conn=es_conn, download_urls=download_urls, args=args, token=token,
+                              job_id=job_id)
+        else:
+            download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
+            logging.debug(f"{download_urls=}")
 
-        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
+            granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+            download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
     else:
         download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
