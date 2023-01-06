@@ -51,6 +51,10 @@ setup(
             "validators",
             "cachetools==5.2.0"
         ],
+        "geo": [
+            "matplotlib",
+            "numpy"
+        ],
         "test": [
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz",
             "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.1.0.tar.gz",
@@ -77,6 +81,8 @@ setup(
             "pyproj",
             "validators",
             "cachetools==5.2.0"
+            "matplotlib",
+            "numpy"
         ],
         "integration": [
             "pytest==7.2.0",
