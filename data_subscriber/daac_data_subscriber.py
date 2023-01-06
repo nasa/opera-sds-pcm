@@ -1102,7 +1102,7 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
-    aws_creds = _get_aws_creds(session)
+    aws_creds = _get_aws_creds(session, args.provider)
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -1173,7 +1173,15 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
 
 
 @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
-def _get_aws_creds(session):
+def _get_aws_creds(session, provider):
+    logging.info("entry")
+
+    if provider == "LPCLOUD":
+        return _get_lp_aws_creds(session)
+    else:
+        return _get_asf_aws_creds(session)
+
+def _get_lp_aws_creds(session):
     logging.info("entry")
 
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
@@ -1181,6 +1189,13 @@ def _get_aws_creds(session):
 
         return r.json()
 
+def _get_asf_aws_creds(session):
+    logging.info("entry")
+
+    with session.get("https://sentinel1.asf.alaska.edu/s3credentials") as r:
+        r.raise_for_status()
+
+        return r.json()
 
 def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     try:
