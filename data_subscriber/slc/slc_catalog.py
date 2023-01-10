@@ -51,7 +51,9 @@ class SLCProductCatalog(ElasticsearchUtility):
         urls = [
             {
                 "https_url": result['_source'].get('https_url'),
-                "s3_url": result['_source'].get('s3_url')
+                "s3_url": result['_source'].get('s3_url'),
+                "bounding_box": result['_source'].get('bounding_box'),
+                "intersects_north_america": result['_source'].get('intersects_north_america')
             }
             for result in (undownloaded or [])
         ]
