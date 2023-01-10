@@ -440,6 +440,7 @@ def test_download_from_asf(monkeypatch):
         dry_run = False
         smoke_run = True
         transfer_protocol = "https"
+        provider = "ASF"
 
     # mock ASF download functions
     monkeypatch.setattr(
