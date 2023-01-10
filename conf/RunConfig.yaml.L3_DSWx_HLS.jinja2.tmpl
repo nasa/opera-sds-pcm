@@ -24,7 +24,7 @@ RunConfig:
         ProductVersion: {{ data.product_path_group.product_version }}
         ProgramPath: python3
         ProgramOptions:
-          - proteus-0.1/bin/dswx_hls.py
+          - /home/conda/proteus-0.5.1/bin/dswx_hls.py
           - --full-log-format
         ErrorCodeBase: 100000
         SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
@@ -56,7 +56,7 @@ RunConfig:
             {%- endif %}
             {%- endfor %}
             # TODO: update descriptions as necessary when new ancillary releases are available
-            dem_description: Copernicus DEM GLO-30 2021 WGS84
+            dem_description: Copernicus DEM GLO-30 2021
             landcover_description: Land Cover 100m - collection 3 - epoch 2019 discrete classification map
             worldcover_description: ESA WorldCover 10m 2020 v1.0
           primary_executable:
@@ -68,10 +68,12 @@ RunConfig:
             product_id: dswx_hls
             product_version: {{ data.product_path_group.product_version }}
           processing:
-            flag_use_otsu_terrain_masking: False
+            check_ancillary_inputs_coverage: True
+            shadow_masking_algorithm: sun_local_inc_angle
             min_slope_angle: -5
             max_sun_local_inc_angle: 40
-            mask_adjacent_to_cloud_mode: mask
+            mask_adjacent_to_cloud_mode: 'mask'
+            copernicus_forest_classes: [ 20, 111, 113, 115, 116, 121, 123, 125, 126 ]
             save_wtr: True    # Layer 1 - WTR
             save_bwtr: True   # Layer 2 - BWTR
             save_conf: True   # Layer 3 - CONF
@@ -88,6 +90,10 @@ RunConfig:
             save_browse: True
             browse_image_height: 1024
             browse_image_width: 1024
+            exclude_psw_aggressive_in_browse: False
+            not_water_in_browse: 'white'
+            cloud_in_browse: 'gray'
+            snow_in_browse: 'cyan'
           hls_thresholds:
             wigt: {{ data.hls_thresholds.wigt or 0.124 }}         # Modified Normalized Difference Wetness Index (MNDWI) Threshold
             awgt: {{ data.hls_thresholds.awgt or 0.0 }}            # Automated Water Extent Shadow Threshold

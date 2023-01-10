@@ -315,7 +315,7 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "min_size"      = 0
@@ -418,7 +418,7 @@ variable "lambda_log_retention_in_days" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.5.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
     "cslc_s1" = "2.0.0-er.4.0"
     "rtc_s1" = "2.0.0-er.4.0"
   }
