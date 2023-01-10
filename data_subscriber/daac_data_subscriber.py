@@ -895,12 +895,13 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
-        if download.get("intersects_north_america"):
+        if args.provider == "ASF":
             logging.info(download.keys())  # TODO chrisjrd: adjust logging
-            logging.info("has additional metadata")  # TODO chrisjrd: adjust logging
-            additional_metadata["intersects_north_america"] = True
-        else:
-            logging.info("no additional metadata")  # TODO chrisjrd: adjust logging
+            if download.get("intersects_north_america"):
+                logging.info("has additional metadata")  # TODO chrisjrd: adjust logging
+                additional_metadata["intersects_north_america"] = True
+            else:
+                logging.info("no additional metadata")  # TODO chrisjrd: adjust logging
 
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(), extra_metadata=additional_metadata)
 
