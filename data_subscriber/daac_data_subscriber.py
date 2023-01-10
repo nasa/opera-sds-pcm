@@ -896,7 +896,12 @@ def download_from_asf(
 
         additional_metadata = {}
         if download.get("intersects_north_america"):
+            logging.info(download.keys())  # TODO chrisjrd: adjust logging
+            logging.info("has additional metadata")  # TODO chrisjrd: adjust logging
             additional_metadata["intersects_north_america"] = True
+        else:
+            logging.info("no additional metadata")  # TODO chrisjrd: adjust logging
+
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(), extra_metadata=additional_metadata)
 
         logging.info("Downloading associated orbit file")
