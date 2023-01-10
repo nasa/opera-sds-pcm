@@ -65,7 +65,9 @@ class SLCProductCatalog(ElasticsearchUtility):
             job_id: str,
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
-            revision_date_dt: datetime
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
     ):
         filename = Path(url).name
         result = self._query_existence(filename)
@@ -85,6 +87,8 @@ class SLCProductCatalog(ElasticsearchUtility):
             doc["s3_url"] = url
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
+
+        doc.update(kwargs)
 
         self.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True

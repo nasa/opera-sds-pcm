@@ -468,7 +468,7 @@ def test_download_from_asf(monkeypatch):
     )
 
     # ACT
-    data_subscriber.daac_data_subscriber.download_from_asf(session=None, es_conn=MagicMock(), download_urls=["https://www.example.com/dummy_slc_product.zip"], args=Args(), token=None, job_id=None)
+    data_subscriber.daac_data_subscriber.download_from_asf(session=MagicMock(), es_conn=MagicMock(), downloads=[{"https_url": "https://www.example.com/dummy_slc_product.zip"}], args=Args(), token=None, job_id=None)
 
     # ASSERT
     mock_extract_one_to_one.assert_called_once()
