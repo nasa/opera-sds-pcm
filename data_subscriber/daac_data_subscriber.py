@@ -411,7 +411,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
 
     for granule in granules:
-        additional_fields = {}  # TODO chrisjrd: save fields to appropriate catalog index
+        additional_fields = {}
         if args.provider == "ASF":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True

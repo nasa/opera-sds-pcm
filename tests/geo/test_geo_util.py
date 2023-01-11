@@ -1,12 +1,4 @@
-from geo.geo_util import is_coordinate_in_north_america_opera, does_bbox_intersect_north_america
-
-
-def test_costa_rican_border_point():
-    assert is_coordinate_in_north_america_opera(-83.64435787741405, 10.925930079609543)
-
-
-def test_salvadoran_border_point():
-    assert is_coordinate_in_north_america_opera(-89.36162085002218, 14.41547780375771)
+from geo.geo_util import does_bbox_intersect_north_america
 
 
 def test_bbox_not_in_north_america():
