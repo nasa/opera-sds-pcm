@@ -397,7 +397,9 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
-    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+    provider_esconn_map = {"LPCLOUD": get_hls_spatial_catalog_connection(logging.getLogger(__name__)),
+                           "ASF": get_hls_spatial_catalog_connection(logging.getLogger(__name__))}  # TODO chrisjrd: create slc version of catalog
+    HLS_SPATIAL_CONN = provider_esconn_map.get(args.provider)
 
     query_dt = datetime.now()
     now = datetime.utcnow()
@@ -896,12 +898,8 @@ def download_from_asf(
 
         additional_metadata = {}
         if args.provider == "ASF":
-            logging.info(download.keys())  # TODO chrisjrd: adjust logging
             if download.get("intersects_north_america"):
-                logging.info("has additional metadata")  # TODO chrisjrd: adjust logging
                 additional_metadata["intersects_north_america"] = True
-            else:
-                logging.info("no additional metadata")  # TODO chrisjrd: adjust logging
 
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(), extra_metadata=additional_metadata)
 
