@@ -64,14 +64,14 @@ class HLSSpatialProductCatalog:
             self._post(granule['granule_id'], doc)
 
     def _post(self, granule_id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=granule_id)
+        result = self.es.index_document(index=ES_INDEX, body=body, id=granule_id)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, granule_id, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=granule_id)
+            result = self.es.get_by_id(index=index, id=granule_id)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 

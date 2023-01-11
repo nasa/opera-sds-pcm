@@ -1,13 +1,11 @@
 from datetime import datetime
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
-
 from data_subscriber import es_conn_util
 
 ES_INDEX = "slc_spatial_catalog"
 
 
-class SLCSpatialProductCatalog(ElasticsearchUtility):
+class SLCSpatialProductCatalog:
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -64,14 +62,14 @@ class SLCSpatialProductCatalog(ElasticsearchUtility):
             self._post(granule['granule_id'], doc)
 
     def _post(self, granule_id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=granule_id)
+        result = self.es.index_document(index=ES_INDEX, body=body, id=granule_id)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, granule_id, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=granule_id)
+            result = self.es.get_by_id(index=index, id=granule_id)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 

@@ -89,7 +89,7 @@ class SLCProductCatalog:
 
         doc.update(kwargs)
 
-        self.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
     def product_is_downloaded(self, url):
@@ -103,7 +103,7 @@ class SLCProductCatalog:
 
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split('/')[-1]
-        result = self.update_document(id=filename,
+        result = self.es.update_document(id=filename,
                                       body={"doc_as_upsert": True,
                                             "doc": {"downloaded": True,
                                                     "download_datetime": datetime.now(),
@@ -114,14 +114,14 @@ class SLCProductCatalog:
             self.logger.info(f"Document updated: {result}")
 
     def _post(self, filename, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=filename)
+        result = self.es.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=filename)
+            result = self.es.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
@@ -135,7 +135,7 @@ class SLCProductCatalog:
     def _query_undownloaded(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
-            result = self.query(index=index,
+            result = self.es.query(index=index,
                                 body={"sort": [{"creation_timestamp": "asc"}],
                                       "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),
