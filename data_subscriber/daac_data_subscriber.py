@@ -35,6 +35,7 @@ import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from geo.geo_util import does_bbox_intersect_north_america
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
@@ -328,8 +329,8 @@ def update_url_index(
         es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 
-def update_granule_index(es_spatial_conn, granule):
-    es_spatial_conn.process_granule(granule)
+def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
+    es_spatial_conn.process_granule(granule, *args, **kwargs)
 
 
 def supply_token(edl: str, username: str, password: str) -> str:
@@ -397,10 +398,6 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
-    provider_esconn_map = {"LPCLOUD": get_hls_spatial_catalog_connection(logging.getLogger(__name__)),
-                           "ASF": get_hls_spatial_catalog_connection(logging.getLogger(__name__))}  # TODO chrisjrd: create slc version of catalog
-    HLS_SPATIAL_CONN = provider_esconn_map.get(args.provider)
-
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
@@ -414,9 +411,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
 
     for granule in granules:
-        additional_fields = {}
+        additional_fields = {}  # TODO chrisjrd: save fields to appropriate catalog index
         if args.provider == "ASF":
-            additional_fields["bounding_box"] = granule["bounding_box"]
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
 
@@ -432,7 +428,11 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         )
 
         if args.provider == "LPCLOUD":
-            update_granule_index(HLS_SPATIAL_CONN, granule)
+            spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+            update_granule_index(spatial_catalog_conn, granule)
+        elif args.provider == "ASF":
+            spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
+            update_granule_index(spatial_catalog_conn, granule)
 
         if granule.get("filtered_urls"):
             download_urls.extend(granule.get("filtered_urls"))

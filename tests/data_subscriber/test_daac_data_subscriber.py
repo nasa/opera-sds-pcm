@@ -517,6 +517,13 @@ def patch_subscriber(monkeypatch):
         )
     )
     monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.get_slc_spatial_catalog_connection.__name__,
+        MagicMock(
+            return_value=MagicMock(process_granule=MagicMock())
+        )
+    )
+    monkeypatch.setattr(
         data_subscriber.daac_data_subscriber.netrc,
         data_subscriber.daac_data_subscriber.netrc.netrc.__name__,
         MagicMock(
