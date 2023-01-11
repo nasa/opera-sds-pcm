@@ -82,6 +82,7 @@ PRODUCT_TYPES:
         Configuration:
             Date_Time_Patterns: ['%Y%m%dT%H%M%S']
             Date_Time_Keys: ['start_ts', 'stop_ts']
+            Dataset_Version_Key: 'collection_version'
         Dataset_Keys: {}
 
     L1_S1_ORB:
