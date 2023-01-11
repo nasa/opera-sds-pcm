@@ -23,7 +23,6 @@ class HLSProductCatalog:
     def __init__(self, /, logger=None, *args, **kwargs):
         if not logger:
             raise Exception("Missing logger")
-        super().__init__(*args, **kwargs)
         if kwargs.get("logger"):
             self.logger = kwargs["logger"]
         self.es = es_conn_util.get_es_connection(logger)
