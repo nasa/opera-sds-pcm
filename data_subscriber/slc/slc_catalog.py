@@ -48,17 +48,7 @@ class SLCProductCatalog(ElasticsearchUtility):
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_undownloaded(start_dt, end_dt, use_temporal)
 
-        urls = [
-            {
-                "https_url": result['_source'].get('https_url'),
-                "s3_url": result['_source'].get('s3_url'),
-                "bounding_box": result['_source'].get('bounding_box'),
-                "intersects_north_america": result['_source'].get('intersects_north_america')
-            }
-            for result in (undownloaded or [])
-        ]
-
-        return urls
+        return [result['_source'] for result in (undownloaded or [])]
 
     def process_url(
             self,
