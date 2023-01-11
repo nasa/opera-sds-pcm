@@ -753,8 +753,11 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    protocol_func = _has_https_url if args.transfer_protocol == "https" else _has_s3_url
-    download_urls = [_to_url(download) for download in downloads if protocol_func(download)]
+    if args.transfer_protocol == "https":
+        download_urls = [_to_https_url(download) for download in downloads if _has_https_url(download)]
+    else:
+        download_urls = [_to_s3_url(download) for download in downloads if _has_s3_url(download)]
+
     logging.debug(f"{download_urls=}")
 
     if args.provider == "ASF":
