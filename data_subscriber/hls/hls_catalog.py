@@ -1,12 +1,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+from data_subscriber import es_conn_util
 
 ES_INDEX = "hls_catalog"
 
 
-class HLSProductCatalog(ElasticsearchUtility):
+class HLSProductCatalog:
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -20,6 +20,13 @@ class HLSProductCatalog(ElasticsearchUtility):
         delete_by_id
         update_document
     """
+    def __init__(self, /, logger=None, *args, **kwargs):
+        if not logger:
+            raise Exception("Missing logger")
+        super().__init__(*args, **kwargs)
+        if kwargs.get("logger"):
+            self.logger = kwargs["logger"]
+        self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self, index=ES_INDEX, delete_old_index=False):
         if delete_old_index is True:
