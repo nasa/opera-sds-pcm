@@ -81,9 +81,13 @@ async def run(argv: list[str]):
     edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
-    provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
-                           "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
-    es_conn = provider_esconn_map.get(args.provider)
+
+    if args.provider == "LPCLOUD":
+        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+    elif args.provider == "ASF":
+        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+    else:
+        raise Exception("Unreachable")
 
     if args.file:
         with open(args.file, "r") as f:
