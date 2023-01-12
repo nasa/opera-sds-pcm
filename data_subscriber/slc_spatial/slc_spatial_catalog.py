@@ -19,11 +19,8 @@ class SLCSpatialProductCatalog:
         delete_by_id
         update_document
     """
-    def __init__(self, /, logger=None, *args, **kwargs):
-        if not logger:
-            raise Exception("Missing logger")
-        if kwargs.get("logger"):
-            self.logger = kwargs["logger"]
+    def __init__(self, /, logger=None):
+        self.logger = logger
         self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self):
