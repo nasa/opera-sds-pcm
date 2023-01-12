@@ -236,10 +236,10 @@ def create_parser():
                                "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
 
     temporal_start_date = {"positionals": ["--temporal-start-date"],
-                  "kwargs": {"dest": "temporal_start_date",
-                             "default": None,
-                             "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
-                                     "--temporal-start-date 2021-01-14T00:00:00Z"}}
+                           "kwargs": {"dest": "temporal_start_date",
+                                      "default": None,
+                                      "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
+                                              "--temporal-start-date 2021-01-14T00:00:00Z"}}
 
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
@@ -339,8 +339,9 @@ def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
 
 def supply_token(edl: str, username: str, password: str) -> str:
     """
-    :param edl: Earthdata login endpoint
-    :type edl: str
+    :param edl: Earthdata login (EDL) endpoint
+    :param username: EDL username
+    :param password:EDL password
     """
     token_list = _get_tokens(edl, username, password)
 
@@ -566,11 +567,11 @@ def get_download_timerange(args):
 
 
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
-    PAGE_SIZE = 2000
+    page_size = 2000
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
-        "page_size": PAGE_SIZE,
+        "page_size": page_size,
         "sort_key": "-start_date",
         "provider": args.provider,
         "ShortName": args.collection,
@@ -738,7 +739,7 @@ def _url_to_orbit_number(url: str):
 
     input_filename = Path(url).name
     orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number[1:-1] # Strips leading and trailing underscores
+    return orbit_number[1:-1]  # Strips leading and trailing underscores
 
 
 def _hls_url_to_granule_id(url: str):
@@ -816,6 +817,7 @@ def group_download_urls_by_granule_id(download_urls):
 
 def _to_granule_id(dl_doc: dict[str, Any]):
     return _hls_url_to_granule_id(_to_url(dl_doc))
+
 
 def _to_tile_id(dl_doc: dict[str, Any]):
     return _url_to_tile_id(_to_url(dl_doc))
