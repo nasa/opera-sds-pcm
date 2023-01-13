@@ -26,11 +26,11 @@ class HLSProductCatalog:
 
     def create_index(self, index=ES_INDEX, delete_old_index=False):
         if delete_old_index is True:
-            self.es.indices.delete(index=index, ignore=404)
+            self.es.es.indices.delete(index=index, ignore=404)
             if self.logger:
                 self.logger.info("Deleted old index: {}".format(index))
 
-        self.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
+        self.es.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
@@ -44,7 +44,7 @@ class HLSProductCatalog:
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
     def delete_index(self):
-        self.es.indices.delete(index=ES_INDEX, ignore=404)
+        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 

@@ -26,7 +26,7 @@ class HLSSpatialProductCatalog:
         self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self):
-        self.es.indices.create(body={"settings": {},
+        self.es.es.indices.create(body={"settings": {},
                                      "mappings": {
                                          "properties": {
                                              "bounding_box": {"type": "geo_point"},
@@ -39,7 +39,7 @@ class HLSSpatialProductCatalog:
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
     def delete_index(self):
-        self.es.indices.delete(index=ES_INDEX, ignore=404)
+        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
