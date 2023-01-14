@@ -2,11 +2,17 @@ import json
 import logging
 from functools import cache
 from pathlib import Path
+from typing import TypedDict
 
 from osgeo import ogr
 
 
-def does_bbox_intersect_north_america(bbox: list[dict[str, float]]) -> bool:
+class Coordinate(TypedDict):
+    lat: float
+    lon: float
+
+
+def does_bbox_intersect_north_america(bbox: list[Coordinate]) -> bool:
     """
     Check whether a bbox intersects North America (OPERA).
 
