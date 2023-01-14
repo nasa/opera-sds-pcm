@@ -31,7 +31,7 @@ def does_bbox_intersect_north_america(bbox: list[Coordinate]) -> bool:
     bbox_poly = ogr.Geometry(ogr.wkbPolygon)
     bbox_poly.AddGeometry(bbox_ring)
 
-    na_geom = load_north_america_opera_geometry_collection()
+    na_geom = _load_north_america_opera_geometry_collection()
 
     is_bbox_in_north_america = na_geom.Intersects(bbox_poly)
     logging.info(f"{is_bbox_in_north_america=}")
@@ -39,8 +39,8 @@ def does_bbox_intersect_north_america(bbox: list[Coordinate]) -> bool:
 
 
 @cache
-def load_north_america_opera_geometry_collection() -> ogr.Geometry:
-    north_america_opera_geojson = cached_load_north_america_opera_geojson()
+def _load_north_america_opera_geometry_collection() -> ogr.Geometry:
+    north_america_opera_geojson = _cached_load_north_america_opera_geojson()
 
     na_geoms = ogr.Geometry(ogr.wkbGeometryCollection)
     for feature in north_america_opera_geojson["features"]:
@@ -51,7 +51,7 @@ def load_north_america_opera_geometry_collection() -> ogr.Geometry:
 
 
 @cache
-def cached_load_north_america_opera_geojson() -> dict:
+def _cached_load_north_america_opera_geojson() -> dict:
     """Loads a RFC7946 GeoJSON file."""
     with Path(__file__).parent.joinpath('north_america_opera.geojson').open() as fp:
         geojson_obj: dict = json.load(fp)
