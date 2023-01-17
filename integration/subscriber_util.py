@@ -131,13 +131,15 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environ
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30
+    interval=30,
+    jitter=None
 )
 @backoff.on_exception(
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60 * 10,
-    giveup=index_not_found
+    giveup=index_not_found,
+    jitter=None
 )
 def wait_for_query_job(job_id):
     logging.info(f"Checking query job status. {job_id=}")
@@ -162,13 +164,15 @@ def wait_for_query_job(job_id):
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30
+    interval=30,
+    jitter=None
 )
 @backoff.on_exception(
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60 * 10,
-    giveup=index_not_found
+    giveup=index_not_found,
+    jitter=None
 )
 def wait_for_download_jobs(job_id, index="hls_catalog"):
     logging.info(f"Checking download job status. {job_id=}")
