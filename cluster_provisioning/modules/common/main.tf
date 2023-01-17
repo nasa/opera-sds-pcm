@@ -2632,7 +2632,8 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "BOUNDING_BOX": ""
     }
   }
 }
