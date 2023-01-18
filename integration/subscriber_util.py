@@ -73,7 +73,10 @@ def update_env_vars_slc_subscriber_query_lambda():
     )
 
 
-def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict]):
+def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict] = None):
+    if additional_environment_variable_updates is None:
+        additional_environment_variable_updates = {}
+
     response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
@@ -108,7 +111,10 @@ def reset_env_vars_slc_subscriber_query_lambda():
     )
 
 
-def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict]):
+def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict] = None):
+    if additional_environment_variable_updates is None:
+        additional_environment_variable_updates = {}
+
     response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
