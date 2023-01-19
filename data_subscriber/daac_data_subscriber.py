@@ -35,6 +35,8 @@ import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
+from geo.geo_util import does_bbox_intersect_north_america
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
@@ -79,9 +81,13 @@ async def run(argv: list[str]):
     edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
-    provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
-                           "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
-    es_conn = provider_esconn_map.get(args.provider)
+
+    if args.provider == "LPCLOUD":
+        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+    elif args.provider == "ASF":
+        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+    else:
+        raise Exception("Unreachable")
 
     if args.file:
         with open(args.file, "r") as f:
@@ -313,20 +319,24 @@ def update_url_index(
         job_id: str,
         query_dt: datetime,
         temporal_extent_beginning_dt: datetime,
-        revision_date_dt: datetime
+        revision_date_dt: datetime,
+        *args,
+        **kwargs
 ):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
+                            **kwargs)
 
 
-def update_granule_index(es_spatial_conn, granule):
-    es_spatial_conn.process_granule(granule)
+def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
+    es_spatial_conn.process_granule(granule, *args, **kwargs)
 
 
 def supply_token(edl: str, username: str, password: str) -> str:
     """
-    :param edl: Earthdata login endpoint
-    :type edl: str
+    :param edl: Earthdata login (EDL) endpoint
+    :param username: EDL username
+    :param password:EDL password
     """
     token_list = _get_tokens(edl, username, password)
 
@@ -388,8 +398,6 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
-    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
-
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
@@ -403,13 +411,28 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
 
     for granule in granules:
-        update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         temporal_extent_beginning_dt=dateutil.parser.isoparse(
-                             granule["temporal_extent_beginning_datetime"]),
-                         revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
+        additional_fields = {}
+        if args.provider == "ASF":
+            if does_bbox_intersect_north_america(granule["bounding_box"]):
+                additional_fields["intersects_north_america"] = True
+
+        update_url_index(
+            es_conn,
+            granule.get("filtered_urls"),
+            granule.get("granule_id"),
+            job_id,
+            query_dt,
+            temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+            revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+            **additional_fields
+        )
 
         if args.provider == "LPCLOUD":
-            update_granule_index(HLS_SPATIAL_CONN, granule)
+            spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+            update_granule_index(spatial_catalog_conn, granule)
+        elif args.provider == "ASF":
+            spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
+            update_granule_index(spatial_catalog_conn, granule)
 
         if granule.get("filtered_urls"):
             download_urls.extend(granule.get("filtered_urls"))
@@ -539,11 +562,11 @@ def get_download_timerange(args):
 
 
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
-    PAGE_SIZE = 2000
+    page_size = 2000
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
-        "page_size": PAGE_SIZE,
+        "page_size": page_size,
         "sort_key": "-start_date",
         "provider": args.provider,
         "ShortName": args.collection,
@@ -625,10 +648,17 @@ def _request_search(args, request_url, params, search_after=None):
                      "BeginningDateTime"],
                  "revision_date": item["meta"]["revision-date"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
-                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
-                                  for point
-                                  in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
-                                      .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
+                 "bounding_box": [
+                     {"lat": point.get("Latitude"), "lon": point.get("Longitude")}
+                     for point
+                     in item.get("umm")
+                         .get("SpatialExtent")
+                         .get("HorizontalSpatialDomain")
+                         .get("Geometry")
+                         .get("GPolygons")[0]
+                         .get("Boundary")
+                         .get("Points")
+                 ],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")],
                  "identifier": next(attr.get("Values")[0]
                                     for attr in item.get("umm").get("AdditionalAttributes")
@@ -828,7 +858,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
 def download_from_asf(
         session: requests.Session,
         es_conn,
-        download_urls: list[str],
+        downloads: list[dict],
         args,
         token,
         job_id
@@ -843,7 +873,11 @@ def download_from_asf(
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for product_url in download_urls:
+    for download in downloads:
+        if not _has_url(download):
+            continue
+        product_url = _to_url(download)
+
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
 
@@ -874,7 +908,14 @@ def download_from_asf(
 
         logging.info(f"product_url_downloaded={product_url}")
 
-        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd())
+        additional_metadata = {}
+        if args.provider == "ASF":
+            if download.get("intersects_north_america"):
+                logging.info("adding additional dataset metadata (intersects_north_america)")
+                additional_metadata["intersects_north_america"] = True
+
+        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
+                                         extra_metadata=additional_metadata)
 
         logging.info("Downloading associated orbit file")
 
@@ -1057,12 +1098,13 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     shutil.rmtree(extracts_dir)
 
 
-def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path) -> PurePath:
+def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None) -> PurePath:
     """Creates a dataset for the given product.
 
     :param product: the product to create datasets for.
     :param settings_cfg: the settings.yaml config as a dict.
     :param working_dir: the working directory for the extract process. Serves as the output directory for the extraction.
+    :param extra_metadata: extra metadata to add to the dataset.
     """
     # create dataset dir for product
     # (this also extracts the metadata to *.met.json file)
@@ -1070,7 +1112,8 @@ def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path) -> 
     dataset_dir = extractor.extract.extract(
         product=str(product),
         product_types=settings_cfg["PRODUCT_TYPES"],
-        workspace=str(working_dir.resolve())
+        workspace=str(working_dir.resolve()),
+        extra_met=extra_metadata
     )
     logging.info(f"{dataset_dir=}")
     return PurePath(dataset_dir)
