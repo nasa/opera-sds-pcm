@@ -184,12 +184,6 @@ def create_parser():
                                   "script as a cron, this value should be equal to or greater than how often your "
                                   "cron runs (default: 60 minutes)."}}
 
-    transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
-                         "kwargs": {"dest": "transfer_protocol",
-                                    "choices": ["s3", "https"],
-                                    "default": "s3",
-                                    "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
-
     dry_run = {"positionals": ["--dry-run"],
                "kwargs": {"dest": "dry_run",
                           "action": "store_true",
@@ -230,10 +224,10 @@ def create_parser():
                                "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
 
     temporal_start_date = {"positionals": ["--temporal-start-date"],
-                  "kwargs": {"dest": "temporal_start_date",
-                             "default": None,
-                             "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
-                                     "--temporal-start-date 2021-01-14T00:00:00Z"}}
+                           "kwargs": {"dest": "temporal_start_date",
+                                      "default": None,
+                                      "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
+                                              "--temporal-start-date 2021-01-14T00:00:00Z"}}
 
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
@@ -245,7 +239,7 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
-                            transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
+                            dry_run, smoke_run, no_schedule_download, release_version, job_queue,
                             chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
@@ -256,7 +250,7 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, provider, transfer_protocol, dry_run, smoke_run,
+    download_parser_arg_list = [verbose, file, endpoint, provider, dry_run, smoke_run,
                                 batch_ids, start_date, end_date, use_temporal, temporal_start_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
@@ -710,7 +704,7 @@ def _url_to_orbit_number(url: str):
 
     input_filename = Path(url).name
     orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number[1:-1] # Strips leading and trailing underscores
+    return orbit_number[1:-1]  # Strips leading and trailing underscores
 
 
 def _hls_url_to_granule_id(url: str):
@@ -753,10 +747,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.transfer_protocol == "https":
-        download_urls = [_to_https_url(download) for download in downloads if _has_https_url(download)]
-    else:
-        download_urls = [_to_s3_url(download) for download in downloads if _has_s3_url(download)]
+    download_urls = [_to_url(download) for download in downloads if _has_url(download)]
 
     logging.debug(f"{download_urls=}")
 
@@ -786,26 +777,28 @@ def group_download_urls_by_granule_id(download_urls):
 def _to_granule_id(dl_doc: dict[str, Any]):
     return _hls_url_to_granule_id(_to_url(dl_doc))
 
+
 def _to_tile_id(dl_doc: dict[str, Any]):
     return _url_to_tile_id(_to_url(dl_doc))
 
 
 def _to_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    elif dl_dict.get("s3_url"):
+    if dl_dict.get("s3_url"):
         return dl_dict["s3_url"]
+    elif dl_dict.get("https_url"):
+        return dl_dict["https_url"]
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
 def _has_url(dl_dict: dict[str, Any]):
-    result = _has_https_url(dl_dict) or _has_s3_url(dl_dict)
+    result = _has_s3_url(dl_dict) or _has_https_url(dl_dict)
 
     if not result:
         logging.error(f"Couldn't find any URL in {dl_dict=}")
 
     return result
+
 
 def _has_https_url(dl_dict: dict[str, Any]):
     result = dl_dict.get("https_url")
@@ -969,14 +962,7 @@ def download_granules(
 
 
 def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
-    if args.transfer_protocol.lower() == "https":
-        product_filepath = download_product_using_https(
-            product_url,
-            session,
-            token,
-            target_dirpath=target_dirpath.resolve()
-        )
-    elif args.transfer_protocol.lower() == "s3":
+    if product_url.startswith("s3"):
         product_filepath = download_product_using_s3(
             product_url,
             session,
@@ -984,7 +970,13 @@ def download_product(product_url, session: requests.Session, token: str, args, t
             args=args
         )
     else:
-        raise Exception(args.transfer_protocol)
+        product_filepath = download_product_using_https(
+            product_url,
+            session,
+            token,
+            target_dirpath=target_dirpath.resolve()
+        )
+
     return product_filepath
 
 
@@ -1176,6 +1168,7 @@ def _get_aws_creds(session, provider):
     else:
         return _get_asf_aws_creds(session)
 
+
 def _get_lp_aws_creds(session):
     logging.info("entry")
 
@@ -1184,6 +1177,7 @@ def _get_lp_aws_creds(session):
 
         return r.json()
 
+
 def _get_asf_aws_creds(session):
     logging.info("entry")
 
@@ -1191,6 +1185,7 @@ def _get_asf_aws_creds(session):
         r.raise_for_status()
 
         return r.json()
+
 
 def _s3_transfer(url, bucket_name, s3, tmp_dir, staging_area=""):
     try:
