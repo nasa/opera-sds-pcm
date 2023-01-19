@@ -534,11 +534,12 @@ data "aws_iam_policy_document" "operator_notify" {
 # sqs
 ######################
 resource "aws_sqs_queue" "harikiri_queue" {
-  name                      = "${var.project}-${var.venue}-${local.counter}-queue"
-  delay_seconds             = 0
-  max_message_size          = 2048
-  message_retention_seconds = 86400
-  receive_wait_time_seconds = 0
+  name                       = "${var.project}-${var.venue}-${local.counter}-queue"
+  delay_seconds              = 0
+  max_message_size           = 2048
+  message_retention_seconds  = 86400
+  receive_wait_time_seconds  = 0
+  sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 600
 }
 
@@ -571,6 +572,7 @@ resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
   name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
 #  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
+  sqs_managed_sse_enabled   = true
 }
 
 resource "aws_sqs_queue" "cnm_response" {
@@ -579,6 +581,7 @@ resource "aws_sqs_queue" "cnm_response" {
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
+  sqs_managed_sse_enabled    = true
 }
 
 data "aws_sqs_queue" "cnm_response" {
@@ -623,6 +626,7 @@ resource "aws_sqs_queue" "isl_queue" {
   max_message_size           = 2048
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 10
+  sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 60
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.isl_dead_letter_queue.arn
@@ -677,6 +681,7 @@ resource "aws_sqs_queue" "isl_dead_letter_queue" {
   max_message_size           = 2048
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 0
+  sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 500
 }
 
