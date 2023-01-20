@@ -78,7 +78,9 @@ setup(
             "validators",
             "cachetools==5.2.0",
             "matplotlib",
-            "numpy"
+            "numpy",
+            "more-itertools==8.13.0",
+            "ruamel.yaml"  # NOTE: deployed instances use ruamel-yaml-conda
         ],
         "integration": [
             "pytest==7.2.1",
