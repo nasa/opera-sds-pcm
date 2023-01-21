@@ -64,7 +64,7 @@ setup(
             "boto3",
             "botocore",
             "click==8.1.3",
-            # "GDAL==3.5.0",  # install native gdal first. `brew install gdal` on macOS.
+            "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "Shapely",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",

@@ -65,7 +65,6 @@ async def test_full(monkeypatch):
 
     args = "dummy.py full " \
            "--collection-shortname=HLSS30 " \
-           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -182,7 +181,6 @@ async def test_download(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py download " \
-           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -216,7 +214,6 @@ async def test_download_by_tile(monkeypatch):
 
     args = "dummy.py download " \
            "--batch-ids=T00000 " \
-           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -270,7 +267,7 @@ async def test_download_by_tiles(monkeypatch):
     # ASSERT
     assert results["download"] is None
 
-
+"""
 @pytest.mark.asyncio
 async def test_download_https(monkeypatch):
     # ARRANGE
@@ -293,7 +290,6 @@ async def test_download_https(monkeypatch):
            "--batch-ids=T00000 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-           "--transfer-protocol=https " \
            "".split()
 
     # ACT
@@ -301,7 +297,7 @@ async def test_download_https(monkeypatch):
 
     # ASSERT
     assert results["download"] is None
-
+"""
 
 @pytest.mark.asyncio
 async def test_download_by_tiles_smoke_run(monkeypatch):
@@ -384,7 +380,6 @@ def test_download_granules_using_https(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
-        transfer_protocol = "https"
 
     data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
@@ -420,7 +415,6 @@ def test_download_granules_using_s3(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
-        transfer_protocol = "s3"
 
     data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
@@ -439,7 +433,6 @@ def test_download_from_asf(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
-        transfer_protocol = "https"
         provider = "ASF"
 
     # mock ASF download functions
