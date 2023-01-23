@@ -21,9 +21,12 @@ def slc_s1_lineage_metadata(context, work_dir):
 
         lineage_metadata.append(input_filepath)
 
-    # Copy the DEM (vrt and tif) downloaded for this job to the pge input directory
+    # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
     lineage_metadata.extend(local_dem_filepaths)
+
+    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite3"))
+    lineage_metadata.extend(local_burstdb_filepaths)
 
     return lineage_metadata
 
@@ -70,6 +73,9 @@ def update_slc_s1_runconfig(context, work_dir):
 
     # TODO: update once better naming is implemented for ancillary files
     run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'
+
+    burst_db_file_path = run_config["static_ancillary_file_group"]["burst_database_file"]
+    run_config["static_ancillary_file_group"]["burst_database_file"] = f'{container_home}/input_dir/{basename(burst_db_file_path)}'
 
     return run_config
 
