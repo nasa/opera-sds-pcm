@@ -301,16 +301,16 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
