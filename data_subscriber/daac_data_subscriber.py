@@ -38,6 +38,7 @@ from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connectio
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
+from geo.geo_util import does_bbox_intersect_north_america
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -240,19 +241,24 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
+    na_only = {"positionals": ["--north-america-only"],
+               "kwargs": {"dest": "na_only",
+                          "action": "store_true",
+                          "help": "Download only North America data. Filtering happens in the query job."}}
+
     parser_arg_list = [verbose, file, provider]
     _add_arguments(parser, parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
+                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id, na_only]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
-                             native_id, use_temporal, temporal_start_date]
+                             native_id, use_temporal, temporal_start_date, na_only]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
@@ -409,6 +415,12 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
 
     for granule in granules:
+
+        # If the query mode is for North America data only (typical for historical processing),
+        # throw out any granules that do not intersect with North America
+        if args.na_only and not does_bbox_intersect_north_america(granule["bounding_box"]):
+            continue
+
         update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
                          temporal_extent_beginning_dt=dateutil.parser.isoparse(
                              granule["temporal_extent_beginning_datetime"]),
