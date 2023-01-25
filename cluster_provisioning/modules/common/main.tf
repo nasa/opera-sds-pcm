@@ -2458,7 +2458,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "PROVIDER": var.hls_provider,
 	  "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
-      "CHUNK_SIZE": "80",
+      "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
@@ -2493,7 +2493,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
 	  "ENDPOINT": "OPS",
       "MINUTES": var.hlss30_query_timer_trigger_frequency,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
-      "CHUNK_SIZE": "80",
+      "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
