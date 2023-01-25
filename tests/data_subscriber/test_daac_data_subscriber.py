@@ -674,8 +674,8 @@ def patch_subscriber_io(monkeypatch):
 def mock_smart_open(monkeypatch):
     mock_open = MagicMock()
     monkeypatch.setattr(
-        daac_data_subscriber,
-        daac_data_subscriber.open.__name__,
+        download_util,
+        download_util.open.__name__,
         MagicMock(return_value=mock_open)
     )
 

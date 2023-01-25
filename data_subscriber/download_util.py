@@ -13,6 +13,7 @@ import requests
 import requests.utils
 import validators
 from cachetools.func import ttl_cache
+from smart_open import open
 
 import extractor.extract
 import product2dataset.product2dataset
