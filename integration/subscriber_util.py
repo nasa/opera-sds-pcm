@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import backoff
 import boto3
@@ -64,10 +65,18 @@ def update_env_vars_s30_subscriber_query_lambda():
 
 def update_env_vars_slc_subscriber_query_lambda():
     logging.info("updating data subscriber query timer lambda environment variables")
-    update_env_vars_subscriber_query_lambda(FunctionName=config["SLC_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+    update_env_vars_subscriber_query_lambda(
+        FunctionName=config["SLC_DATA_SUBSCRIBER_QUERY_LAMBDA"],
+        additional_environment_variable_updates={
+            "BOUNDING_BOX": "-124.763068,24.523096,-66.949895,47.459686"  # mainland USA
+        }
+    )
 
 
-def update_env_vars_subscriber_query_lambda(FunctionName: str):
+def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict] = None):
+    if additional_environment_variable_updates is None:
+        additional_environment_variable_updates = {}
+
     response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
@@ -75,6 +84,8 @@ def update_env_vars_subscriber_query_lambda(FunctionName: str):
     environment_variables["DRY_RUN"] = "false"
     environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
     environment_variables["MINUTES"] = "rate(60 minutes)"
+
+    environment_variables.update(additional_environment_variable_updates)
 
     aws_lambda.update_function_configuration(
         FunctionName=FunctionName,
@@ -94,10 +105,16 @@ def reset_env_vars_s30_subscriber_query_lambda():
 
 def reset_env_vars_slc_subscriber_query_lambda():
     logging.info("reseting data subscriber query timer lambda environment variables")
-    reset_env_vars_subscriber_query_lambda(FunctionName=config["SLC_DATA_SUBSCRIBER_QUERY_LAMBDA"])
+    reset_env_vars_subscriber_query_lambda(
+        FunctionName=config["SLC_DATA_SUBSCRIBER_QUERY_LAMBDA"],
+        additional_environment_variable_updates={"BOUNDING_BOX": ""}
+    )
 
 
-def reset_env_vars_subscriber_query_lambda(FunctionName: str):
+def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict] = None):
+    if additional_environment_variable_updates is None:
+        additional_environment_variable_updates = {}
+
     response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
@@ -106,11 +123,12 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str):
     environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
     environment_variables["MINUTES"] = "rate(60 minutes)"
 
+    environment_variables.update(additional_environment_variable_updates)
+
     aws_lambda.update_function_configuration(
         FunctionName=FunctionName,
         Environment={"Variables": environment_variables}
     )
-
 
 
 @backoff.on_predicate(
@@ -119,13 +137,15 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str):
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30
+    interval=30,
+    jitter=None
 )
 @backoff.on_exception(
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60 * 10,
-    giveup=index_not_found
+    giveup=index_not_found,
+    jitter=None
 )
 def wait_for_query_job(job_id):
     logging.info(f"Checking query job status. {job_id=}")
@@ -150,13 +170,15 @@ def wait_for_query_job(job_id):
     max_time=60 * 10,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
-    interval=30
+    interval=30,
+    jitter=None
 )
 @backoff.on_exception(
     backoff.expo,
     elasticsearch.exceptions.NotFoundError,
     max_time=60 * 10,
-    giveup=index_not_found
+    giveup=index_not_found,
+    jitter=None
 )
 def wait_for_download_jobs(job_id, index="hls_catalog"):
     logging.info(f"Checking download job status. {job_id=}")
@@ -202,7 +224,7 @@ def generate_payload_cloudwatch_scheduled_event_slc():
           "detail-type": "Scheduled Event",
           "source": "aws.events",
           "account": "123456789012",
-          "time": "2022-02-01T01:00:00Z",
+          "time": "2022-11-17T07:00:00Z",
           "region": "us-east-1",
           "resources": [
             "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"

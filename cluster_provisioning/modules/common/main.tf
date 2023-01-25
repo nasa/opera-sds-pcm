@@ -1141,6 +1141,9 @@ resource "aws_instance" "mozart" {
       tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda;
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
+      echo installing gdal for manual execution of daac_data_subscriber.py ;
+      conda install gdal=3.4.1 --yes --quiet ;
+
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
         git clone --quiet --single-branch -b ${var.hysds_release} https://github.com/hysds/hysds-framework
@@ -1153,6 +1156,9 @@ resource "aws_instance" "mozart" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
+        echo installing gdal for manual execution of daac_data_subscriber.py ;
+        conda install gdal=3.4.1 --yes --quiet ;
+
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz"
@@ -1313,6 +1319,8 @@ resource "aws_instance" "mozart" {
       echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
       echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
       echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_slc_catalog.py
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_slc_catalog.py
       echo #fi
 
       echo create data subscriber Elasticsearch indexes
@@ -1320,11 +1328,13 @@ resource "aws_instance" "mozart" {
           python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
           python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
           python ~/mozart/ops/opera-pcm/data_subscriber/slc/delete_slc_catalog.py
+          python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/delete_slc_spatial_catalog.py
 
       fi
       python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
       python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
       python ~/mozart/ops/opera-pcm/data_subscriber/slc/create_slc_catalog.py
+      python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/create_slc_spatial_catalog.py
 
       echo create accountability Elasticsearch index
       if [ "${local.delete_old_job_catalog}" = true ]; then
@@ -2155,20 +2165,21 @@ resource "aws_instance" "factotum" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "chmod 755 ~/download_artifact.sh",
-      "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-      "  mkdir -p ~/conda",
-      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
-      "  export PATH=$HOME/conda/bin:$PATH",
-      "  conda-unpack",
-      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
-      "  tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz",
-      "  rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz",
-      "fi",
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      chmod 755 ~/download_artifact.sh
+      if [ "${var.hysds_release}" != "develop" ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        mkdir -p ~/conda
+        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        export PATH=$HOME/conda/bin:$PATH
+        conda-unpack
+        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
+      fi
+    EOT
     ]
   }
 }
@@ -2628,7 +2639,8 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "BOUNDING_BOX": ""
     }
   }
 }
