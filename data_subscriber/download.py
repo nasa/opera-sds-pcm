@@ -17,7 +17,7 @@ from smart_open import open
 
 import extractor.extract
 import product2dataset.product2dataset
-from data_subscriber.url_util import _to_granule_id, _to_orbit_number, _has_url, _to_url
+from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url
 from product2dataset import product2dataset
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException

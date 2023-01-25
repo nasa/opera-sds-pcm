@@ -5,8 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from data_subscriber import daac_data_subscriber, download_util, query_util, token_util, url_util
-import data_subscriber.hls
+from data_subscriber import daac_data_subscriber, download, query, token, url
 
 
 def setup_module():
@@ -45,14 +44,14 @@ async def test_full(monkeypatch):
     mock_download_product_using_https = MagicMock(return_value=Path("downloads/T00003/T00003.B01").resolve())
 
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_https.__name__,
+        download,
+        download.download_product_using_https.__name__,
         mock_download_product_using_https
     )
 
     monkeypatch.setattr(
-        download_util,
-        download_util.SessionWithHeaderRedirection.__name__,
+        download,
+        download.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -63,8 +62,8 @@ async def test_full(monkeypatch):
         Path("downloads/T00002/T00002.B01").resolve()
     ])
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_s3.__name__,
+        download,
+        download.download_product_using_s3.__name__,
         mock_download_product_using_s3
     )
 
@@ -177,14 +176,14 @@ async def test_download(monkeypatch):
     mock_download_product_using_https = MagicMock(return_value=Path("downloads/T00003/T00003.B01").resolve())
 
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_https.__name__,
+        download,
+        download.download_product_using_https.__name__,
         mock_download_product_using_https
     )
 
     monkeypatch.setattr(
-        download_util,
-        download_util.SessionWithHeaderRedirection.__name__,
+        download,
+        download.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -196,8 +195,8 @@ async def test_download(monkeypatch):
         Path("downloads/T00002/T00002.B01").resolve()
     ])
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_s3.__name__,
+        download,
+        download.download_product_using_s3.__name__,
         mock_download_product_using_s3
     )
 
@@ -238,8 +237,8 @@ async def test_download_by_tile(monkeypatch):
 
     mock_download_product_using_s3 = MagicMock(side_effect=[Path("downloads/T00000/T00000.B01").resolve()])
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_s3.__name__,
+        download,
+        download.download_product_using_s3.__name__,
         mock_download_product_using_s3
     )
 
@@ -272,8 +271,8 @@ async def test_download_by_tiles(monkeypatch):
         Path("downloads/T00001/T00002.B02").resolve()
     ])
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_s3.__name__,
+        download,
+        download.download_product_using_s3.__name__,
         mock_download_product_using_s3
     )
 
@@ -311,8 +310,8 @@ async def test_download_https(monkeypatch):
     mock_extract_metadata(monkeypatch, mock_extract)
     mock_create_merged_files(monkeypatch)
     monkeypatch.setattr(
-        download_util,
-        download_util.SessionWithHeaderRedirection.__name__,
+        download,
+        download.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -388,14 +387,14 @@ def test_download_granules_using_https(monkeypatch):
 
     mock_download_product_using_https = MagicMock(return_value=Path("downloads/granule1/granule1.Fmask.tif").resolve())
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_https.__name__,
+        download,
+        download.download_product_using_https.__name__,
         mock_download_product_using_https
     )
 
     monkeypatch.setattr(
-        download_util.extractor.extract,
-        download_util.extractor.extract.extract.__name__,
+        download.extractor.extract,
+        download.extractor.extract.extract.__name__,
         MagicMock(return_value="extracts/granule1/granule1.Fmask")
     )
     mock_create_merged_files(monkeypatch)
@@ -410,7 +409,7 @@ def test_download_granules_using_https(monkeypatch):
         dry_run = False
         smoke_run = True
 
-    download_util.download_granules(None, mock_es_conn, {
+    download.download_granules(None, mock_es_conn, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
     }, Args(), None, None)
 
@@ -423,14 +422,14 @@ def test_download_granules_using_s3(monkeypatch):
 
     mock_download_product_using_s3 = MagicMock(return_value=Path("downloads/granule1/granule1.Fmask.tif").resolve())
     monkeypatch.setattr(
-        download_util,
-        download_util.download_product_using_s3.__name__,
+        download,
+        download.download_product_using_s3.__name__,
         mock_download_product_using_s3
     )
 
     monkeypatch.setattr(
-        download_util.extractor.extract,
-        download_util.extractor.extract.extract.__name__,
+        download.extractor.extract,
+        download.extractor.extract.extract.__name__,
         MagicMock(return_value="extracts/granule1/granule1.Fmask")
     )
     mock_create_merged_files(monkeypatch)
@@ -445,7 +444,7 @@ def test_download_granules_using_s3(monkeypatch):
         dry_run = False
         smoke_run = True
 
-    download_util.download_granules(None, mock_es_conn, {
+    download.download_granules(None, mock_es_conn, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
     }, Args(), None, None)
 
@@ -466,32 +465,32 @@ def test_download_from_asf(monkeypatch):
 
     # mock ASF download functions
     monkeypatch.setattr(
-        download_util,
-        download_util._handle_url_redirect.__name__,
+        download,
+        download._handle_url_redirect.__name__,
         MagicMock()
     )
 
     mock_extract_one_to_one = MagicMock()
     monkeypatch.setattr(
-        download_util,
-        download_util.extract_one_to_one.__name__,
+        download,
+        download.extract_one_to_one.__name__,
         mock_extract_one_to_one
     )
 
     monkeypatch.setattr(
-        download_util.stage_orbit_file,
-        download_util.stage_orbit_file.get_parser.__name__,
+        download.stage_orbit_file,
+        download.stage_orbit_file.get_parser.__name__,
         MagicMock()
     )
     mock_stage_orbit_file = MagicMock()
     monkeypatch.setattr(
-        download_util.stage_orbit_file,
-        download_util.stage_orbit_file.main.__name__,
+        download.stage_orbit_file,
+        download.stage_orbit_file.main.__name__,
         mock_stage_orbit_file
     )
 
     # ACT
-    download_util.download_from_asf(session=MagicMock(), es_conn=MagicMock(), downloads=[{"https_url": "https://www.example.com/dummy_slc_product.zip"}], args=Args(), token=None, job_id=None)
+    download.download_from_asf(session=MagicMock(), es_conn=MagicMock(), downloads=[{"https_url": "https://www.example.com/dummy_slc_product.zip"}], args=Args(), token=None, job_id=None)
 
     # ASSERT
     mock_extract_one_to_one.assert_called_once()
@@ -535,15 +534,15 @@ def patch_subscriber(monkeypatch):
         )
     )
     monkeypatch.setattr(
-        query_util,
-        query_util.get_hls_spatial_catalog_connection.__name__,
+        query,
+        query.get_hls_spatial_catalog_connection.__name__,
         MagicMock(
             return_value=MagicMock(process_granule=MagicMock())
         )
     )
     monkeypatch.setattr(
-        query_util,
-        query_util.get_slc_spatial_catalog_connection.__name__,
+        query,
+        query.get_slc_spatial_catalog_connection.__name__,
         MagicMock(
             return_value=MagicMock(process_granule=MagicMock())
         )
@@ -569,8 +568,8 @@ def patch_subscriber(monkeypatch):
         mock_token
     )
     monkeypatch.setattr(
-        query_util,
-        query_util._request_search.__name__,
+        query,
+        query._request_search.__name__,
         MagicMock(return_value=(
             [
                 {
@@ -633,29 +632,29 @@ def patch_subscriber(monkeypatch):
         MagicMock()
     )
     monkeypatch.setattr(
-        query_util,
-        query_util.submit_mozart_job.__name__,
+        query,
+        query.submit_mozart_job.__name__,
         MagicMock(return_value="dummy_job_id_" + str(random.randint(0, 100)))
     )
 
 
 def mock_extract_metadata(monkeypatch, mock_extract):
     monkeypatch.setattr(
-        download_util.extractor.extract,
-        download_util.extractor.extract.extract.__name__,
+        download.extractor.extract,
+        download.extractor.extract.extract.__name__,
         mock_extract
     )
 
 
 def mock_create_merged_files(monkeypatch):
     monkeypatch.setattr(
-        download_util.product2dataset,
-        download_util.product2dataset.merge_dataset_met_json.__name__,
+        download.product2dataset,
+        download.product2dataset.merge_dataset_met_json.__name__,
         MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
     )
     monkeypatch.setattr(
-        download_util.extractor.extract,
-        download_util.extractor.extract.create_dataset_json.__name__,
+        download.extractor.extract,
+        download.extractor.extract.create_dataset_json.__name__,
         MagicMock(return_value={})
     )
 
@@ -674,8 +673,8 @@ def patch_subscriber_io(monkeypatch):
 def mock_smart_open(monkeypatch):
     mock_open = MagicMock()
     monkeypatch.setattr(
-        download_util,
-        download_util.open.__name__,
+        download,
+        download.open.__name__,
         MagicMock(return_value=mock_open)
     )
 
@@ -690,13 +689,13 @@ def mock_path_package(monkeypatch):
 
 def mock_shutil_package(monkeypatch):
     monkeypatch.setattr(
-        download_util.shutil,
-        download_util.shutil.rmtree.__name__,
+        download.shutil,
+        download.shutil.rmtree.__name__,
         MagicMock()
     )
     monkeypatch.setattr(
-        download_util.shutil,
-        download_util.shutil.copy.__name__,
+        download.shutil,
+        download.shutil.copy.__name__,
         MagicMock()
     )
 
@@ -716,8 +715,8 @@ def mock_json_package(monkeypatch):
 
 def mock_get_aws_creds(monkeypatch):
     monkeypatch.setattr(
-        download_util,
-        download_util._get_aws_creds.__name__,
+        download,
+        download._get_aws_creds.__name__,
         MagicMock(return_value={
             "accessKeyId": None,
             "secretAccessKey": None,
@@ -728,26 +727,26 @@ def mock_get_aws_creds(monkeypatch):
 
 def mock_https_transfer(monkeypatch):
     monkeypatch.setattr(
-        download_util,
-        download_util._https_transfer.__name__,
+        download,
+        download._https_transfer.__name__,
         MagicMock(return_value={})
     )
 
 
 def mock_s3_transfer(monkeypatch):
     monkeypatch.setattr(
-        download_util,
-        download_util._s3_transfer.__name__,
+        download,
+        download._s3_transfer.__name__,
         MagicMock(return_value={})
     )
     monkeypatch.setattr(
-        download_util,
-        download_util._s3_download.__name__,
+        download,
+        download._s3_download.__name__,
         MagicMock()
     )
     monkeypatch.setattr(
-        download_util,
-        download_util._s3_upload.__name__,
+        download,
+        download._s3_upload.__name__,
         MagicMock(return_value="dummy_target_key")
     )
 
@@ -761,7 +760,7 @@ def mock_boto3(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        download_util.boto3,
-        download_util.boto3.Session.__name__,
+        download.boto3,
+        download.boto3.Session.__name__,
         MockSession
     )

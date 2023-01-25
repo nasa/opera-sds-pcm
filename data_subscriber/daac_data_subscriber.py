@@ -14,11 +14,11 @@ from urllib.parse import urlparse
 
 from smart_open import open
 
-from data_subscriber.download_util import run_download
+from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
-from data_subscriber.query_util import update_url_index, run_query
+from data_subscriber.query import update_url_index, run_query
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
-from data_subscriber.token_util import supply_token
+from data_subscriber.token import supply_token
 from util.conf_util import SettingsConf
 
 
