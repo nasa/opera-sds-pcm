@@ -76,7 +76,7 @@ fi
 
 # Set PGE_SIMULATION_MODE to false so we call the PGE Docker image in the PGE jobs
 echo "************Turning off PGE_SIMULATION_MODE**************"
-sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/${var.proejct}-pcm/conf/settings.yaml
+sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/${var.project}-pcm/conf/settings.yaml
 fab -f ~/.sds/cluster.py -R mozart,factotum update_opera_packages
 sds -d ship
 
