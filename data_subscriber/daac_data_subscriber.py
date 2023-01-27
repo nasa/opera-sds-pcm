@@ -420,7 +420,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         granules = granules[:1]
 
     download_urls: list[str] = []
-    skipped_granu
 
     for granule in granules:
 
