@@ -14,7 +14,7 @@
     {
       "name": "native_id",
       "from": "submitter",
-      "placeholder": "e.g. --native-id=HLS.L30.T56JMN.2021274T000241.v2.0",
+      "placeholder": "e.g. --native-id=S1B_IW_SLC__1SDV_20180504T104507_20180504T104535_010770_013AEE_919F",
       "type": "text"
     },
     {
@@ -46,7 +46,7 @@
       "from": "submitter",
       "placeholder": "e.g. --chunk-size=<chunk_size>",
       "type": "text",
-      "default": "--chunk-size=80",
+      "default": "--chunk-size=1",
       "optional": true
     },
     {

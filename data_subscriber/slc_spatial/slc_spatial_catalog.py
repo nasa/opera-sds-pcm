@@ -1,13 +1,11 @@
 from datetime import datetime
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
-
 from data_subscriber import es_conn_util
 
-ES_INDEX = "hls_spatial_catalog"
+ES_INDEX = "slc_spatial_catalog"
 
 
-class HLSSpatialProductCatalog:
+class SLCSpatialProductCatalog:
     """
     Class to track products downloaded by daac_data_subscriber.py
 

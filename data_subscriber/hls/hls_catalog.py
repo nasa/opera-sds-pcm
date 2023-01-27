@@ -1,12 +1,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+from data_subscriber import es_conn_util
 
 ES_INDEX = "hls_catalog"
 
 
-class HLSProductCatalog(ElasticsearchUtility):
+class HLSProductCatalog:
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -20,14 +20,17 @@ class HLSProductCatalog(ElasticsearchUtility):
         delete_by_id
         update_document
     """
+    def __init__(self, /, logger=None):
+        self.logger = logger
+        self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self, index=ES_INDEX, delete_old_index=False):
         if delete_old_index is True:
-            self.es.indices.delete(index=index, ignore=404)
+            self.es.es.indices.delete(index=index, ignore=404)
             if self.logger:
                 self.logger.info("Deleted old index: {}".format(index))
 
-        self.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
+        self.es.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
@@ -41,7 +44,7 @@ class HLSProductCatalog(ElasticsearchUtility):
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
     def delete_index(self):
-        self.es.indices.delete(index=ES_INDEX, ignore=404)
+        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
@@ -57,7 +60,9 @@ class HLSProductCatalog(ElasticsearchUtility):
             job_id: str,
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
-            revision_date_dt: datetime
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
     ):
         filename = Path(url).name
         result = self._query_existence(filename)
@@ -78,7 +83,9 @@ class HLSProductCatalog(ElasticsearchUtility):
         else:
             raise Exception(f"Unrecognized URL format. {url=}")
 
-        self.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        doc.update(kwargs)
+
+        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
     def product_is_downloaded(self, url):
@@ -92,7 +99,7 @@ class HLSProductCatalog(ElasticsearchUtility):
 
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split("/")[-1]
-        result = self.update_document(
+        result = self.es.update_document(
             id=filename,
             body={
                 "doc_as_upsert": True,
@@ -109,14 +116,14 @@ class HLSProductCatalog(ElasticsearchUtility):
             self.logger.info(f"Document updated: {result}")
 
     def _post(self, filename, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=filename)
+        result = self.es.index_document(index=ES_INDEX, body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, filename, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=filename)
+            result = self.es.get_by_id(index=index, id=filename)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 
@@ -130,7 +137,7 @@ class HLSProductCatalog(ElasticsearchUtility):
     def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
-            result = self.query(index=index,
+            result = self.es.query(index=index,
                                 body={"sort": [{"creation_timestamp": "asc"}],
                                       "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),

@@ -37,11 +37,6 @@ RABBITMQ_PASSWORD = bar
 CNMR_TOPIC = arn:aws:sns:us-west-2:123456789012:opera-foo-1-daac-cnm-response
 
 # S3 storage
-ISL_BUCKET = opera-foo-isl-fwd-bar
 RS_BUCKET = opera-foo-rs-fwd-bar
-
-# Test input
-L30_INPUT_DIR = ~/Downloads/test_datasets/l30_greenland/input_files_hls_v2.0
-S30_INPUT_DIR = ~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0
 
 ```
