@@ -42,7 +42,7 @@ from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-
+_date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -113,13 +113,15 @@ async def run(argv: list[str]):
     logging.info(f"{job_id=}")
 
     logging.info(f"{args.subparser_name=}")
-    if not (args.subparser_name == "query" or args.subparser_name == "download" or args.subparser_name == "full"):
+    if not (args.subparser_name in ["survey", "query", "download", "full"]):
         raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
     username, _, password = netrc.netrc().authenticators(edl)
     token = supply_token(edl, username, password)
 
     results = {}
+    if args.subparser_name == "survey":
+        run_survey(args, token, cmr, settings)
     if args.subparser_name == "query" or args.subparser_name == "full":
         results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
     if args.subparser_name == "download" or args.subparser_name == "full":
@@ -246,8 +248,18 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
+    out_csv = {"positionals": ["--out-csv"],
+                           "kwargs": {"dest": "out_csv",
+                                      "default": "cmr_survey.csv",
+                                      "help": "Specify name of the output CSV file"}}
+
     parser_arg_list = [verbose, file, provider]
     _add_arguments(parser, parser_arg_list)
+
+    survey_parser = subparsers.add_parser("survey")
+    survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
+                             smoke_run, native_id, use_temporal, temporal_start_date, out_csv]
+    _add_arguments(survey_parser, survey_parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
@@ -401,6 +413,44 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
 
     logging.info("CMR token successfully deleted")
 
+def run_survey(args, token, cmr, settings):
+
+    start_dt = datetime.strptime(args.start_date, _date_format_str)
+    end_dt = datetime.strptime(args.end_date, _date_format_str)
+
+    out_csv = open(args.out_csv, 'w')
+    out_csv.write("# DateTime Range:" + start_dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " to " + end_dt.strftime(
+        "%Y-%m-%dT%H:%M:%SZ") + '\n')
+
+    while start_dt < end_dt:
+
+        now = datetime.utcnow()
+
+        start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_str = (start_dt + timedelta(minutes=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        args.start_date = start_str
+        args.end_date = end_str
+
+        query_timerange: DateTimeRange = get_query_timerange(args, now, silent = True)
+
+        granules = query_cmr(args, token, cmr, settings, query_timerange, now, silent = True)
+
+        count = len(granules)
+
+        out_csv.write(start_str)
+        out_csv.write(',')
+        out_csv.write(end_str)
+        out_csv.write(',')
+        out_csv.write(str(count))
+        out_csv.write('\n')
+
+        logging.info(f"{start_str},{end_str},{str(count)}")
+
+        start_dt = start_dt + timedelta(minutes=60)
+
+    out_csv.close()
+
+    logging.info("Output CSV written out to file: " + str(args.out_csv))
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
     query_dt = datetime.now()
@@ -545,7 +595,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     }
 
 
-def get_query_timerange(args, now: datetime):
+def get_query_timerange(args, now: datetime, silent = False):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
         "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
@@ -553,7 +603,8 @@ def get_query_timerange(args, now: datetime):
     end_date = args.end_date if args.end_date else now_date
 
     query_timerange = DateTimeRange(start_date, end_date)
-    logging.info(f"{query_timerange=}")
+    if silent is False:
+        logging.info(f"{query_timerange=}")
     return query_timerange
 
 
@@ -566,7 +617,7 @@ def get_download_timerange(args):
     return download_timerange
 
 
-def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
+def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime, silent = False) -> list:
     page_size = 2000
 
     request_url = f"https://{cmr}/search/granules.umm_json"
@@ -588,7 +639,9 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-    logging.info("Temporal Range: " + temporal_range)
+
+    if not silent:
+        logging.info("Temporal Range: " + temporal_range)
 
     if args.use_temporal:
         params["temporal"] = temporal_range
@@ -597,10 +650,11 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
-            logging.info(f"{args.temporal_start_date=}")
+            if not silent:
+                logging.info(f"{args.temporal_start_date=}")
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    logging.info(f"{request_url=} {params=}")
+    if not silent:
+        logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
@@ -612,7 +666,8 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
                             for granule in product_granules
                             if _match_identifier(settings, args, granule)]
 
-        logging.info(f"Found {str(len(product_granules))} total granules")
+        if not silent:
+            logging.info(f"Found {str(len(product_granules))} total granules")
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
