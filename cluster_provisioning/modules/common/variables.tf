@@ -301,16 +301,16 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -419,8 +419,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.0-rc.6.0"
-    "cslc_s1" = "2.0.0-er.4.0"
-    "rtc_s1" = "2.0.0-er.4.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 

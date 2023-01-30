@@ -111,6 +111,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BURST_ID = "burst_id"
 
+    BURST_DATABASE_FILE = "burst_database_file"
+
     DEM_FILE = "dem_file"
 
     LANDCOVER_FILE = "landcover_file"
@@ -219,7 +221,7 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
 
-    GET_SLC_S1_BURST_ID = "get_slc_s1_burst_id"
+    GET_SLC_S1_BURST_DATABASE = "get_slc_s1_burst_database"
 
     GET_SLC_S1_SAFE_FILE = "get_slc_s1_safe_file"
 
