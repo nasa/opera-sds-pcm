@@ -782,7 +782,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     logging.debug(f"{download_urls=}")
 
     if args.provider == "ASF":
-        download_from_asf(session=session, es_conn=es_conn, download_urls=download_urls, args=args, token=token,
+        download_from_asf(session=session, es_conn=es_conn, downloads=download_urls, args=args, token=token,
                           job_id=job_id)
     else:
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
@@ -858,7 +858,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
 def download_from_asf(
         session: requests.Session,
         es_conn,
-        downloads: list[dict],
+        downloads: list[str],
         args,
         token,
         job_id
@@ -873,10 +873,7 @@ def download_from_asf(
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for download in downloads:
-        if not _has_url(download):
-            continue
-        product_url = _to_url(download)
+    for product_url in downloads:
 
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
@@ -909,10 +906,6 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
-        if args.provider == "ASF":
-            if download.get("intersects_north_america"):
-                logging.info("adding additional dataset metadata (intersects_north_america)")
-                additional_metadata["intersects_north_america"] = True
 
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
                                          extra_metadata=additional_metadata)
