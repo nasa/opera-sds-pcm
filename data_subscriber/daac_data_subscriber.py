@@ -423,13 +423,18 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
     for granule in granules:
 
-        granule_in_na = does_bbox_intersect_north_america(granule["bounding_box"])
+        granule_in_na = False
+        try:
+            granule_in_na = does_bbox_intersect_north_america(granule["bounding_box"])
+        except Exception:
+            logging.warning(f"Granule %s failed testing for North America intersection.\
+We will assume this granule does not intersect" % granule.get("granule_id"))
 
         # If the query mode is for North America data only (typical for historical processing),
         # throw out any granules that do not intersect with North America
         if args.na_only is True and granule_in_na is False:
             logging.info(f"Historical processing is enabled and following granule does not intersect with\
-             North America. Skipping processing. %s" % granule.get("granule_id"))
+North America. Skipping processing. %s" % granule.get("granule_id"))
             continue
 
         additional_fields = {}
