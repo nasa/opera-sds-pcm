@@ -1,8 +1,10 @@
 VENUE: '{{VENUE}}'
 PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
-# for OPS
+# for PRODUCTION, check with Luca again
 #DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_1.0"
+#DSWX_HLS_PRODUCT_VERSION: "1.0"
+
 # for PST (CalVal products)
 DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_PROVISIONAL_V0"
@@ -11,18 +13,6 @@ RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_PROVISIONAL_V0"
 DSWX_HLS_PRODUCT_VERSION: "0.0"
 CSLC_S1_PRODUCT_VERSION: "0.0"
 RTC_S1_PRODUCT_VERSION: "0.0"
-
-# Shortname filtering on input product types. RegEx strings ('.' == any single character)
-SHORTNAME_FILTERS:
-  HLSL30:
-#   - L.07 # Landsat-7
-    - L.08 # Landsat-8
-#   - L.09 # Landsat-9
-  HLSS30:
-#   - S1 # Sentinel-1
-    - S2A # Sentinel-2A
-    - S2B # Sentinel-2B
-#   - S2C # Sentinel-2C
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
