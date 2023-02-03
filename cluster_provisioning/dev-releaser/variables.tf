@@ -87,7 +87,6 @@ variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
-  default = "hysdsops"
 }
 
 variable "shared_credentials_file" {
@@ -166,7 +165,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 50
+    root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
   }

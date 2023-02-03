@@ -7,8 +7,8 @@ from os.path import basename
 from typing import Dict
 
 
-def cslc_s1_lineage_metadata(context, work_dir):
-    """Gathers the lineage metadata for the CSLC-S1 PGE"""
+def slc_s1_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the CSLC-S1 and RTC-S1 PGEs"""
     run_config: Dict = context.get("run_config")
 
     lineage_metadata = []
@@ -21,8 +21,12 @@ def cslc_s1_lineage_metadata(context, work_dir):
 
         lineage_metadata.append(input_filepath)
 
-    for input_ancillary_path in run_config["dynamic_ancillary_file_group"].values():
-        lineage_metadata.append(input_ancillary_path)
+    # Copy the ancillaries downloaded for this job to the pge input directory
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
+    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite3"))
+    lineage_metadata.extend(local_burstdb_filepaths)
 
     return lineage_metadata
 
@@ -51,17 +55,27 @@ def dswx_hls_lineage_metadata(context, work_dir):
     return lineage_metadata
 
 
-def update_cslc_s1_runconfig(context, work_dir):
-    """Updates a runconfig for use with the CSLC-S1 PGE"""
+def update_slc_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
     run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
 
     safe_file_path = run_config["input_file_group"]["safe_file_path"]
     orbit_file_path = run_config["input_file_group"]["orbit_file_path"]
-    run_config["input_file_group"]["safe_file_path"] = f'/home/compass_user/input_dir/{basename(safe_file_path)}'
-    run_config["input_file_group"]["orbit_file_path"] = f'/home/compass_user/input_dir/{basename(orbit_file_path)}'
+    run_config["input_file_group"]["safe_file_path"] = f'{container_home}/input_dir/{basename(safe_file_path)}'
+    run_config["input_file_group"]["orbit_file_path"] = f'{container_home}/input_dir/{basename(orbit_file_path)}'
 
-    # TODO: update once DEM staging is implemented for CSLC-S1
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = '/home/compass_user/input_dir/dem_4326.tiff'
+    # TODO: update once better naming is implemented for ancillary files
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'
+
+    burst_db_file_path = run_config["static_ancillary_file_group"]["burst_database_file"]
+    run_config["static_ancillary_file_group"]["burst_database_file"] = f'{container_home}/input_dir/{basename(burst_db_file_path)}'
 
     return run_config
 
@@ -69,12 +83,21 @@ def update_cslc_s1_runconfig(context, work_dir):
 def update_dswx_hls_runconfig(context, work_dir):
     """Updates a runconfig for use with the DSWx-HLS PGE"""
     run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
 
     # Point the PGE to the input directory and ancillary files,
     # they should already have been made locally available by PCM
-    run_config["input_file_group"]["input_file_path"] = ['/home/conda/input_dir']
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = '/home/conda/input_dir/dem.vrt'
-    run_config["dynamic_ancillary_file_group"]["landcover_file"] = '/home/conda/input_dir/landcover.tif'
-    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = '/home/conda/input_dir/worldcover.vrt'
+    run_config["input_file_group"]["input_file_path"] = [f'{container_home}/input_dir']
+
+    # TODO: update once better naming is implemented for ancillary files
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'
+    run_config["dynamic_ancillary_file_group"]["landcover_file"] = f'{container_home}/input_dir/landcover.tif'
+    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home}/input_dir/worldcover.vrt'
 
     return run_config

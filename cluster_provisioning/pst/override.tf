@@ -7,24 +7,24 @@
 
 ##### Environments #######
 variable "aws_account_id" {
-  default = "337765570207"
+  default = "483785460105"
 }
 
 variable "venue" {
-  default = "int"
+  default = "pst"
 }
 
 variable "environment" {
-  default = "int"
+  default = "pst"
 }
 
 variable "counter" {
-  default = "fwd"
-  #default = "pop1"
+  #default = "fwd"
+  default = "pop1"
 }
 
 variable "crid" {
-  default = "T00100"
+  default = "P00100"
 }
 
 variable "project" {
@@ -36,7 +36,7 @@ variable "region" {
 }
 
 variable "az" {
-  default = "us-west-2b"
+  default = "us-west-2a"
 }
 
 # Specify either forward or reprocessing. When this is set to "reprocessing"
@@ -47,34 +47,24 @@ variable "cluster_type" {
 
 ###### Security  ########
 variable "public_verdi_security_group_id" {
-  # fwd security group
-  default = "sg-0e60f417ff3c769fb"
-  # pop1 security group
-  #default = "sg-06bf23a69b4d83f66"
+  default = "sg-01b0d3772049cc263"
 }
 
 variable "private_verdi_security_group_id" {
-  # fwd security group
-  default = "sg-0869719f04e735bd6"
-  # pop1 security group
-  #default = "sg-045ff9d3d16a65ba4"
+  default = "sg-03eed53cf8fbfea3a"
 }
 
 variable "cluster_security_group_id" {
-  # fwd security group
-  default = "sg-039db67f56d1b12f0"
-  # pop1 security group
-  #default = "sg-06bf23a69b4d83f66"
+  default = "sg-070b0cf50df41767f"
 }
 
+
 variable "private_key_file" {
-  default = "~/.ssh/operasds-int-cluster-fwd.pem"
-  #default = "~/.ssh/operasds-int-cluster-pop1.pem"
+  default = "~/.ssh/pyoon_pcm_pst.pem"
 }
 
 variable "keypair_name" {
-  default = "operasds-int-cluster-fwd"
-#  default = "operasds-int-cluster-pop1"
+  default = "pyoon_pcm_pst"
 }
 
 variable "ops_password" {
@@ -94,120 +84,117 @@ variable "profile" {
 
 ####### Subnet ###########
 variable "subnet_id" {
-  default = "subnet-0644c172bef1d690e"
+  default = "subnet-005726c648910667e"
 }
 
 ####### VPC #########
 variable "lambda_vpc" {
-  default = "vpc-07cd74102c0dfd9ab"
+  default = "vpc-09690c3880fda922e"
 }
 
 variable "public_asg_vpc" {
-  default = "vpc-07cd74102c0dfd9ab"
+  default = "vpc-09690c3880fda922e"
 }
 
 variable "private_asg_vpc" {
-  default = "vpc-c1e0dab9"
+  default = "vpc-0ac48391a96eb1291"
 }
+
 
 ##### Bucket Names #########
 variable "docker_registry_bucket" {
-  default = "opera-int-cc-fwd"
-  #default = "opera-int-cc-pop1"
+  default = "opera-pst-cc-pop1"
 }
 
 variable "dataset_bucket" {
-  default = "opera-int-rs-fwd"
-  #default = "opera-int-rs-pop1"
+  default = "opera-pst-rs-pop1"
 }
 
 variable "code_bucket" {
-  default = "opera-int-cc-fwd"
-  #default = "opera-int-cc-pop1"
+  default = "opera-pst-cc-pop1"
 }
 
 variable "lts_bucket" {
-  default = "opera-int-lts-fwd"
-  #default = "opera-int-lts-pop1"
+  default = "opera-pst-lts-pop1"
 }
 
 variable "triage_bucket" {
-  default = "opera-int-triage-fwd"
-  #default = "opera-int-triage-pop1"
+  default = "opera-pst-triage-pop1"
 }
 
 variable "isl_bucket" {
-  default = "opera-int-isl-fwd"
-  #default = "opera-int-isl-pop1"
+  default = "opera-pst-isl-pop1"
 }
 
 variable "osl_bucket" {
-  default = "opera-int-osl-fwd"
-  #default = "opera-int-osl-pop1"
+  default = "opera-pst-osl-pop1"
 }
 
 variable "es_snapshot_bucket" {
-  default = "opera-int-es-bucket"
+  default = "opera-pst-es-bucket"
 }
 
 variable "artifactory_repo" {
-  #default = "general-stage"
-  default = "general-develop"
+  default = "general-stage"
+}
+
+variable "use_artifactory" {
+  default = true
 }
 
 ######### ami vars #######
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
-    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17
-    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
-    grq       = "ami-0b3852a0f65efed65" # grq v4.13
-    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
+    mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
+    metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
+    grq       = "ami-0c84c56035af7fb6c" # grq v4.14
+    factotum  = "ami-068944cd3359de653" # factotum v4.14
+    autoscale = "ami-0922fa62a31e88485" # verdi v4.14
+    ci        = "ami-0922fa62a31e88485" # verdi v4.14
   }
 }
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20220609-1.0.0-rc.1.0"
+  default = "20220901-1.0.0-rc.4.0"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.4.0"
   }
 }
 
 variable "hysds_release" {
-  default = "v4.0.1-beta.8-oraclelinux"
+  default = "v4.1.0-beta.4"
 }
 
 variable "lambda_package_release" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.7.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.7.0"
 }
 
 variable "pcm_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.7.0"
 }
 
 variable "product_delivery_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.7.0"
 }
 
 variable "bach_api_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.7.0"
 }
 
 variable "bach_ui_branch" {
-  default = "1.0.0-rc.3.0"
+  default = "1.0.0-rc.7.0"
 }
 
 ###### Roles ########
@@ -234,13 +221,20 @@ variable "pcm_verdi_role" {
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::337765570207:role/am-pcm-lambda-role"
+  default = "arn:aws:iam::483785460105:role/am-pcm-lambda-role"
 }
 
 ##### ES ######
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::337765570207:role/am-es-role"
+  default = "arn:aws:iam::483785460105:role/am-es-role"
 }
+
+####### CNM Response job vars #######
+variable "daac_delivery_proxy" {
+  default = "arn:aws:sns:us-west-2:483785460105:daac-proxy-for-opera-pst"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+}
+
 
 variable "grq_aws_es_host" {
   default = ""
@@ -257,7 +251,8 @@ variable "mozart" {
     name          = "mozart"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    private_ip    = "100.104.13.10"
+    #private_ip    = "100.104.13.10"
+    private_ip    = "100.104.62.10"
     public_ip     = ""
   }
 }
@@ -269,7 +264,8 @@ variable "metrics" {
     name          = "metrics"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    private_ip    = "100.104.13.11"
+    #private_ip    = "100.104.13.11"
+    private_ip    = "100.104.62.11"
     public_ip     = ""
   }
 }
@@ -281,7 +277,8 @@ variable "grq" {
     name          = "grq"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    private_ip    = "100.104.13.12"
+    #private_ip    = "100.104.13.12"
+    private_ip    = "100.104.62.12"
     public_ip     = ""
   }
 }
@@ -296,7 +293,8 @@ variable "factotum" {
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
-    private_ip    = "100.104.13.13"
+    #private_ip    = "100.104.13.13"
+    private_ip    = "100.104.62.13"
     publicc_ip    = ""
   }
 }
@@ -336,6 +334,7 @@ variable "autoscale" {
     data_dev_size = 300
   }
 }
+
 
 # Smoke test
 variable "run_smoke_test" {

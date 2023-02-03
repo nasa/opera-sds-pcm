@@ -1,0 +1,77 @@
+{
+  "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
+  "disk_usage":"10GB",
+  "soft_time_limit": 14400,
+  "time_limit": 14460,
+  "imported_worker_files": {
+    "$HOME/.netrc": "/home/ops/.netrc",
+    "$HOME/.aws": "/home/ops/.aws",
+    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "dependency_images": [
+    {
+      "container_image_name": "opera_pge/rtc_s1:2.0.0-er.5.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.0.0-er.5.0.tar.gz",
+      "container_mappings": {
+        "$HOME/.netrc": ["/root/.netrc"],
+        "$HOME/.aws": ["/root/.aws", "ro"]
+      }
+    }
+  ],
+  "recommended-queues": [ "opera-job_worker-sciflo-l2_rtc_s1"],
+  "post": [ "hysds.triage.triage"],
+  "params": [
+    {
+      "name": "module_path",
+      "destination": "positional"
+    },
+    {
+      "name": "wf_dir",
+      "destination": "positional"
+    },
+    {
+      "name": "wf_name",
+      "destination": "positional"
+    },
+    {
+      "name": "product_path",
+      "destination": "context"
+    },
+    {
+      "name": "dataset_type",
+      "destination": "context"
+    },
+    {
+      "name":"input_dataset_id",
+      "destination": "context"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
+    },
+    {
+      "name": "accountability_module_path",
+      "destination": "context"
+    },
+    {
+      "name": "accountability_class",
+      "destination": "context"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_input_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_output_dir",
+      "destination": "context"
+    },
+    {
+      "name": "container_home",
+      "destination": "context"
+    }
+  ]
+}

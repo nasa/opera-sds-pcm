@@ -132,13 +132,20 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (8-26-22)
-    mozart    = "ami-0f23130e8f63ede5d" # mozart v4.18
-    metrics   = "ami-01d55d43dda66391a" # metrics v4.13
-    grq       = "ami-04f57d54765bea834" # grq v4.14
-    factotum  = "ami-0d5f96008afa14416" # factotum v4.14
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    # HySDS v4.1.0-beta.4
+    #mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
+    #metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
+    #grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
+    #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
+    #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
+
+
+    # HySDS v4.1.0-beta.4 with ES 7.10 - Jan 20, 2023
+	mozart    = "ami-07227c9552d105f5d"
+    metrics   = "ami-076eed77dcca47ddd"
+    grq       = "ami-077e344b9281d76af"
+    factotum  = "ami-024bb9a07340e8438"
+    autoscale = "ami-0824aba5572a8695f"
   }
 }
 
@@ -301,23 +308,22 @@ variable "queues" {
       "max_size"      = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-l3_dswx_hls_state_config" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+    "opera-job_worker-sciflo-l2_cslc_s1" = {
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 25
-      "min_size"      = 0
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-sciflo-l2_cslc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+    "opera-job_worker-sciflo-l2_rtc_s1" = {
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "min_size"      = 0
@@ -351,6 +357,24 @@ variable "queues" {
       "instance_type" = ["c5n.large", "m5dn.large"]
       "root_dev_size" = 50
       "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 80
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_query" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 10
+      "total_jobs_metric" = false
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_download" = {
+      "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
+      "root_dev_size" = 50
+      "data_dev_size" = 100
       "min_size"      = 0
       "max_size"      = 80
       "total_jobs_metric" = true
@@ -402,8 +426,9 @@ variable "lambda_log_retention_in_days" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 
@@ -432,6 +457,18 @@ variable "hlsl30_query_timer_trigger_frequency" {
 }
 
 variable "hlss30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slc_provider" {
+  default = "ASF"
+}
+
+variable "slc_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slcs1a_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
@@ -491,6 +528,11 @@ variable "run_smoke_test" {
   default = true
 }
 
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
+}
+
 variable "artifactory_fn_user" {
   description = "Username to use for authenticated Artifactory API calls."
   default = ""
@@ -506,4 +548,9 @@ variable "earthdata_user" {
 
 variable "earthdata_pass" {
   default = ""
+}
+
+variable "clear_s3_aws_es" {
+  type = bool
+  default = true
 }

@@ -1,0 +1,43 @@
+{
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/slc/slc_download.sh",
+  "disk_usage":"1GB",
+  "soft_time_limit": 3600,
+  "time_limit": 3660,
+  "imported_worker_files": {
+    "$HOME/.netrc": "/home/ops/.netrc",
+    "$HOME/.aws": "/home/ops/.aws",
+    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "opera-job_worker-slc_data_download" ],
+  "post": [ "hysds.triage.triage" ],
+  "params": [
+    {
+      "name": "endpoint",
+      "destination": "positional"
+    },
+    {
+      "name": "batch_ids",
+      "destination": "positional"
+    },
+    {
+      "name": "start_datetime",
+      "destination": "positional"
+    },
+    {
+      "name": "end_datetime",
+      "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "use_temporal",
+      "destination": "positional"
+    }
+  ]
+}

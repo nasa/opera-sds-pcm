@@ -13,7 +13,7 @@ REPO_DIR = abspath(join(TEST_DIR, os.pardir, os.pardir))
 
 
 def test_simulate_cslc_s1_pge():
-    for path in glob.iglob('/tmp/OPERA_L2_CSLC_S1A_IW_*_VV_*Z_v0.1_*Z.*'):
+    for path in glob.iglob('/tmp/OPERA_L2_CSLC-S1*.*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_CSLC_S1.yaml')
@@ -37,23 +37,69 @@ def test_simulate_cslc_s1_pge():
         output_dir='/tmp'
     )
 
-    expected_output_base_name = "OPERA_L2_CSLC_S1A_IW_T64-135524-IW2_VV_20220501T015035Z_v0.1_20220501T015102Z"
+    expected_output_basename = 'OPERA_L2_CSLC-S1A_IW_{burst_id}_VV_20220501T015035Z_v0.1_20220501T015102Z'
+    expected_ancillary_basename = 'OPERA_L2_CSLC-S1A_IW_VV_v0.1_20220501T015102Z'
 
     try:
-        assert Path(f'/tmp/{expected_output_base_name}.tiff').exists()
-        assert Path(f'/tmp/{expected_output_base_name}.json').exists()
-        assert Path(f'/tmp/{expected_output_base_name}.catalog.json').exists()
-        assert Path(f'/tmp/{expected_output_base_name}.iso.xml').exists()
-        assert Path(f'/tmp/{expected_output_base_name}.log').exists()
-        assert Path(f'/tmp/{expected_output_base_name}.qa.log').exists()
+        for burst_id in pge_util.CSLC_BURST_IDS:
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.h5').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.iso.xml').exists()
+
+        assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.qa.log').exists()
     finally:
-        for path in glob.iglob('/tmp/OPERA_L2_CSLC_S1A_IW_*_VV_*Z_v0.1_*Z.*'):
+        for path in glob.iglob('/tmp/OPERA_L2_CSLC-S1*.*'):
+            Path(path).unlink(missing_ok=True)
+
+
+def test_simulate_rtc_s1_pge():
+    for path in glob.iglob('/tmp/OPERA_L2_RTC-S1*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_RTC_S1.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": [
+                    {
+                        "name": "input_dataset_id",
+                        "value": "S1B_IW_SLC__1SDV_20180504T104507_20180504T104535_010770_013AEE_919F"
+                    }
+                ]
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    expected_output_basename = 'OPERA_L2_RTC-S1_{burst_id}_20180504T104507Z_20180504T104535Z_S1B_30_v0.1'
+    expected_ancillary_basename = 'OPERA_L2_RTC-S1_20180504T104535Z_S1B_30_v0.1'
+
+    try:
+        for burst_id in pge_util.RTC_BURST_IDS:
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_VV.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_VH.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.iso.xml').exists()
+
+        assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.qa.log').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L2_RTC-S1*.*'):
             Path(path).unlink(missing_ok=True)
 
 
 def test_simulate_dswx_hls_pge_with_l30():
+    expected_output_base_name = "OPERA_L3_DSWx-HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0"
+
     # before
-    for path in glob.iglob('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DSWx_HLS.yaml')
@@ -71,35 +117,35 @@ def test_simulate_dswx_hls_pge_with_l30():
                     "params": [
                         {
                             "name": "input_dataset_id",
-                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0_state_config"
+                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0"
                         }
                     ]
                 }
             },
             output_dir='/tmp'
         )
+
     # ASSERT
     for band_idx, band_name in enumerate(pge_util.DSWX_BAND_NAMES, start=1):
-        assert Path(f'/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0_B{band_idx:02}_{band_name}.tiff').exists()
+        assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tif').exists()
 
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.log').exists()
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.qa.log').exists()
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.catalog.json').exists()
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.iso.xml').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.log').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.png').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.tif').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.qa.log').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.catalog.json').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.iso.xml').exists()
 
     # after
-    for path in glob.iglob('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=True)
-
-    Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.log').unlink(missing_ok=False)
-    Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.qa.log').unlink(missing_ok=False)
-    Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.catalog.json').unlink(missing_ok=False)
-    Path('/tmp/OPERA_L3_DSWx_HLS_T22VEQ_20210905T143156Z_20210905T143156Z_L8_30_v2.0.iso.xml').unlink(missing_ok=False)
 
 
 def test_simulate_dswx_hls_pge_with_s30():
+    expected_output_base_name = "OPERA_L3_DSWx-HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0"
+
     # before
-    for path in glob.iglob('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DSWx_HLS.yaml')
@@ -117,7 +163,7 @@ def test_simulate_dswx_hls_pge_with_s30():
                     "params": [
                         {
                             "name": "input_dataset_id",
-                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0_state_config"
+                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0"
                         }
                     ]
                 }
@@ -127,21 +173,18 @@ def test_simulate_dswx_hls_pge_with_s30():
 
     # ASSERT
     for band_idx, band_name in enumerate(pge_util.DSWX_BAND_NAMES, start=1):
-        assert Path(f'/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0_B{band_idx:02}_{band_name}.tiff').exists()
+        assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tif').exists()
 
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.log').exists()
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.qa.log').exists()
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.catalog.json').exists()
-    assert Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.iso.xml').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.log').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.png').exists()
+    assert Path(f'/tmp/{expected_output_base_name}_BROWSE.tif').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.qa.log').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.catalog.json').exists()
+    assert Path(f'/tmp/{expected_output_base_name}.iso.xml').exists()
 
     # after
-    for path in glob.iglob('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0*.tiff'):
+    for path in glob.iglob(f'/tmp/{expected_output_base_name}*'):
         Path(path).unlink(missing_ok=False)
-
-    Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.log').unlink(missing_ok=False)
-    Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.qa.log').unlink(missing_ok=False)
-    Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.catalog.json').unlink(missing_ok=False)
-    Path('/tmp/OPERA_L3_DSWx_HLS_T15SXR_20210907T163901Z_20210907T163901Z_S2A_30_v2.0.iso.xml').unlink(missing_ok=False)
 
 
 def test_simulate_dswx_hls_pge_with_unsupported():
@@ -162,7 +205,7 @@ def test_simulate_dswx_hls_pge_with_unsupported():
                         "params": [
                             {
                                 "name": "input_dataset_id",
-                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0_state_config"
+                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0"
                             }
                         ]
                     }

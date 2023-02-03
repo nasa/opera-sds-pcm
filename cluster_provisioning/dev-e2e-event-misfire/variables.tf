@@ -87,7 +87,6 @@ variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
-  default = "hysdsops"
 }
 
 variable "shared_credentials_file" {
@@ -166,7 +165,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 50
+    root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
   }
@@ -381,8 +380,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 

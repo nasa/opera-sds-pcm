@@ -135,17 +135,40 @@ variable "artifactory_repo" {
   default = "general-develop"
 }
 
+variable "lambda_package_release" {
+  default = "2.0.0-er.1.0"
+}
+
+variable "pcm_commons_branch" {
+  default = "2.0.0-er.1.0"
+}
+
+variable "pcm_branch" {
+  default = "2.0.0-er.1.0"
+}
+
+variable "product_delivery_branch" {
+  default = "2.0.0-er.1.0"
+}
+
+variable "bach_api_branch" {
+  default = "2.0.0-er.1.0"
+}
+
+variable "bach_ui_branch" {
+  default = "2.0.0-er.1.0"
+}
+
 ######### ami vars #######
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (June 24, 2022)
-    mozart    = "ami-07e0e84f9469ab0db" # mozart v4.17 
-    metrics   = "ami-0846bd13fe529f806" # metrics v4.12
-    grq       = "ami-0b3852a0f65efed65" # grq v4.13
-    factotum  = "ami-00be11af7135dc5c3" # factotum v4.13
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    # HySDS v4.1.0-beta.4 
+    mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
+    metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
+    grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
+    factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
+    autoscale = "ami-0266bb7f79155b493" # verdi v4.16 - 221107
   }
 }
 
@@ -154,7 +177,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r5.4xlarge"
+    instance_type = "m5.8xlarge"
     root_dev_size = 200
     private_ip    = "100.104.40.20"
     public_ip     = ""

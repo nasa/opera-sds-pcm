@@ -9,18 +9,14 @@
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
   "recommended-queues": [ "opera-job_worker-hls_data_download" ],
-  "post": [ "hysds.utils.triage" ],
+  "post": [ "hysds.triage.triage" ],
   "params": [
     {
       "name": "endpoint",
       "destination": "positional"
     },
     {
-      "name": "isl_bucket_name",
-      "destination": "positional"
-    },
-    {
-      "name": "tile_ids",
+      "name": "batch_ids",
       "destination": "positional"
     },
     {
@@ -37,6 +33,10 @@
     },
     {
       "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "use_temporal",
       "destination": "positional"
     }
   ]

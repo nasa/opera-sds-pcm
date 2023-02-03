@@ -18,6 +18,8 @@ RunConfig:
 
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
+        ProductVersion: num(required=False)
+        CompositeReleaseID: str(required=False)
         ProgramPath: str(required=True)
         ProgramOptions: list(str(), min=0, required=False)
         ErrorCodeBase: int(required=True)
@@ -48,11 +50,20 @@ RunConfig:
             # Digital elevation model
             dem_file: str(required=False)
 
+            # Digital elevation model description
+            dem_description: str(required=False)
+
             # Land cover map
             landcover_file: str(required=False)
 
+            # Copernicus Global Land Service (CGLS) Land Cover Layer description
+            landcover_description: str(required=False)
+
             # ESA worldcover map
             worldcover_file: str(required=False)
+
+            # ESA WorldCover map description
+            worldcover_description: str(required=False)
 
           primary_executable:
             product_type: enum('DSWX_HLS')
@@ -73,6 +84,27 @@ RunConfig:
 
             output_dir: str()
             product_id: str()
+            product_version: num(required=False)
+
+          processing:
+
+            # Check if ancillary inputs cover entirely the output product
+            check_ancillary_inputs_coverage: bool(required=False)
+
+            # Select shadow masking algorithm
+            shadow_masking_algorithm: enum('otsu', 'sun_local_inc_angle', required=False)
+
+            # Minimum slope angle in degrees for terrain masking
+            min_slope_angle: num(min=-180, max=180, required=False)
+
+            # Maximum sun local-incidence angle in degrees for terrain masking
+            max_sun_local_inc_angle: num(min=-180, max=180, required=False)
+
+            # Define how areas adjacent to cloud/cloud-shadow should be handled
+            mask_adjacent_to_cloud_mode: enum('mask', 'ignore', 'cover', required=False)
+
+            # Copernicus CGLS Land Cover 100m forest classes
+            copernicus_forest_classes: list(int(), min=0, required=False)
 
             # Layer 1 - WTR
             save_wtr: bool(required=False)
@@ -109,6 +141,53 @@ RunConfig:
 
             # SWIR-1, NIR, and Red reflectance color composition
             save_infrared_rgb: bool(required=False)
+
+          browse_image_group:
+            # Save a full-res Cloud-Optimized GEOTIFF DSWx-HLS browse image and
+            # a modified-resolution PNG of the browse image for DSWx-HLS
+            save_browse: bool(required=False)
+
+            # Setting `browse_image_height` and `browse_image_width` equal
+            # will maintain this original HLS and DSWx-HLS aspect ratio
+            # of 3660 pixels x 3660 pixels for the PNG browse image.
+            # If these fields are left empty, 1024 x 1024 will be used.
+
+            # Height in pixels
+            browse_image_height: int(min=1, required=False)
+
+            # Width in pixels
+            browse_image_width: int(min=1, required=False)
+
+            # Flag to exclude the Partial Surface Water Aggressive (PSW-Agg)
+            # class in the browse image. If True, PSW-Agg pixels will
+            # appear as Not Water. If False, this class will be displayed
+            # in the browse image, same as in WTR. Default is False.
+            exclude_psw_aggressive_in_browse: bool(required=False)
+
+            # Define how Not Water (e.g. land) appears in the browse image.
+            # Defaults to 'white'.
+            # Options are: 'white', 'nodata'
+            #   'white'         : Not Water pixels will be white
+            #   'nodata'        : Not Water pixels will be marked as not having
+            #                     valid data, and will be fully transparent
+            not_water_in_browse: enum('white', 'nodata', required=False)
+
+            # Define how cloud appears in the browse image.
+            # Defaults to 'gray'.
+            # Options are: 'gray', 'nodata'
+            #   'gray'          : cloud pixels will be opaque gray
+            #   'nodata'        : cloud pixels will be marked as not having
+            #                     valid data, and will be fully transparent
+            cloud_in_browse: enum('gray', 'nodata', required=False)
+
+            # Define how snow appears in the browse image.
+            # Defaults to 'cyan'.
+            # Options are: 'cyan', 'gray', 'nodata'
+            #   'cyan'          : snow will be opaque cyan
+            #   'gray'          : snow will be opaque gray
+            #   'nodata'        : snow pixels will be marked as not having
+            #                     valid data, and will be fully transparent
+            snow_in_browse: enum('cyan', 'gray', 'nodata', required=False)
 
           hls_thresholds: include('hls_thresholds_options', required=False)
 
@@ -149,3 +228,5 @@ hls_thresholds_options:
   # Partial Surface Water Test-2 SWIR2 Threshold
   pswt_2_swir2: num(required=False)
 
+  # Land Cover Mask based test Near Infrared
+  lcmask_nir: num(required=False)

@@ -4,6 +4,8 @@ from builtins import object
 import os
 import re
 import json
+from typing import Optional
+
 import yaml
 import logging
 
@@ -45,8 +47,11 @@ class YamlConfError(Exception):
 class YamlConf(object):
     """YAML configuration class."""
 
-    def __init__(self, file):
-        """Construct YamlConf instance."""
+    def __init__(self, file: str):
+        """Construct YamlConf instance.
+
+        :param file: filepath to the YAML file.
+        """
 
         logger.info("file: {}".format(file))
         self._file = file
@@ -74,8 +79,11 @@ class YamlConf(object):
 class SettingsConf(YamlConf):
     """Settings YAML configuration class."""
 
-    def __init__(self, file=None):
-        "Construct SettingsConf instance." ""
+    def __init__(self, file: Optional[str] = None):
+        """Construct SettingsConf instance.
+
+        :param file: filepath to the settings config file. Defaults to "../conf/settings.yaml", relative to this module.
+        """
 
         if file is None:
             file = norm_path(
@@ -90,8 +98,9 @@ class RunConfig(object):
     def __init__(self, rc_data, template_type):
         """
         Construct RunConfig instance.
-        ::param rc_data: Run Config content.
-        ::param template_type: The template type to use.
+
+        :param rc_data: Run Config content.
+        :param template_type: The template type to use.
         """
         self._rc_data = rc_data
         if template_type is None:

@@ -1,7 +1,7 @@
 {
   "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/hls/hlsl30_query.sh",
   "disk_usage":"1GB",
-  "soft_time_limit": 600,
+  "soft_time_limit": 3600,
   "time_limit": 660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
@@ -9,7 +9,7 @@
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
   "recommended-queues": [ "opera-job_worker-hls_data_query" ],
-  "post": [ "hysds.utils.triage" ],
+  "post": [ "hysds.triage.triage" ],
   "params": [
     {
       "name": "endpoint",
@@ -21,10 +21,6 @@
     },
     {
       "name": "end_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "provider",
       "destination": "positional"
     },
     {
@@ -44,10 +40,6 @@
       "destination": "positional"
     },
     {
-      "name": "isl_bucket_name",
-      "destination": "positional"
-    },
-    {
       "name": "chunk_size",
       "destination": "positional"
     },
@@ -57,6 +49,14 @@
     },
     {
       "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "use_temporal",
+      "destination": "positional"
+    },
+    {
+      "name": "temporal_start_datetime",
       "destination": "positional"
     }
   ]

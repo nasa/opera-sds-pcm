@@ -40,7 +40,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "opera_delivery"
+  default = "develop"
 }
 
 variable "bach_api_repo" {
@@ -87,7 +87,6 @@ variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
-  default = "hysdsops"
 }
 
 variable "shared_credentials_file" {
@@ -166,7 +165,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r5.xlarge"
-    root_dev_size = 50
+    root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
   }
@@ -377,9 +376,15 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
+}
+
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
 }
 
 variable "crid" {
@@ -477,20 +482,19 @@ variable "earthdata_user" {
 }
 
 variable "earthdata_pass" {
-    default = ""
+  default = ""
 }
 
 # ami vars
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (8-26-22)
-    mozart    = "ami-0f23130e8f63ede5d" # mozart v4.18
-    metrics   = "ami-01d55d43dda66391a" # metrics v4.13
-    grq       = "ami-04f57d54765bea834" # grq v4.14
-    factotum  = "ami-0d5f96008afa14416" # factotum v4.14
-    autoscale = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
-    ci        = "ami-0d5a7f80daf236d93" # verdi v4.12 patchdate - 220609
+    # HySDS v4.1.0-beta.4
+    mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
+    metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
+    grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
+    factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
+    autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
   }
 }
 
@@ -498,3 +502,7 @@ variable "es_user" {}
 
 variable "es_pass" {}
 
+variable "clear_s3_aws_es" {
+  type = bool
+  default = true
+}

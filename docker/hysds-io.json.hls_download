@@ -6,19 +6,14 @@
     {
       "name": "endpoint",
       "from": "submitter",
-	  "placeholder": "e.g. --endpoint=OPS",
-	  "type": "text",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
       "default": "--endpoint=OPS"
     },
     {
-      "name": "isl_bucket_name",
+      "name": "batch_ids",
       "from": "submitter",
-      "placeholder": "e.g. --isl-bucket=<isl_bucket>"
-    },
-    {
-      "name": "tile_ids",
-      "from": "submitter",
-      "placeholder": "e.g. --tile-ids T00001 T00002",
+      "placeholder": "e.g. --batch_ids T00001 T00002",
       "optional": true
     },
     {
@@ -43,6 +38,12 @@
       "name": "dry_run",
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "placeholder": "e.g. --use-temporal",
       "optional": true
     }
   ]

@@ -28,17 +28,13 @@ CNMR_TOPIC = arn:aws:sns:us-west-2:123456789012:opera-foo-1-daac-cnm-response
 CNMR_QUEUE = https://sqs.us-west-2.amazonaws.com/123456789012/opera-foo-1-daac-cnm-response
 
 # S3 storage
-ISL_BUCKET = opera-foo-isl-fwd-bar
 RS_BUCKET = opera-foo-rs-fwd-bar
-
-# Test input
-L30_INPUT_DIR = ~/Downloads/test_datasets/l30_greenland/input_files_hls_v2.0
-S30_INPUT_DIR = ~/Downloads/test_datasets/s30_louisiana/input_files_hls_v2.0
 
 # Data subscriber feature
 DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-data-subscriber-query-timer
 L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
 S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
+SLC_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-slcs1a-query-timer
 
 CLEAR_DATA = true
 ```

@@ -1,0 +1,50 @@
+{
+  "label": "Download SLC data",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
+      "default": "--endpoint=OPS"
+    },
+    {
+      "name": "batch_ids",
+      "from": "submitter",
+      "placeholder": "e.g. --batch-ids T00001 T00002",
+      "optional": true
+    },
+    {
+      "name": "start_datetime",
+      "from": "submitter",
+      "placeholder": "e.g. --start-date=1970-01-01T00:00:00Z",
+      "optional": true
+    },
+    {
+      "name": "end_datetime",
+      "from": "submitter",
+      "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z",
+      "optional": true
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "placeholder": "e.g. --use-temporal",
+      "optional": true
+    }
+  ]
+}

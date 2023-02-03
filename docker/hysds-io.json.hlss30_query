@@ -6,8 +6,8 @@
     {
       "name": "endpoint",
       "from": "submitter",
-	  "placeholder": "e.g. --endpoint=OPS",
-	  "type": "text",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
       "default": "--endpoint=OPS"
     },
     {
@@ -19,13 +19,6 @@
       "name": "end_datetime",
       "from": "submitter",
       "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z"
-    },
-    {
-      "name": "provider",
-      "from": "submitter",
-      "placeholder": "e.g. -p LPCLOUD",
-      "type": "text",
-	  "default": "-p LPCLOUD"
     },
     {
       "name": "bounding_box",
@@ -48,20 +41,15 @@
       "name": "download_job_queue",
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
-	  "type": "text",
-	  "default": "--job-queue=opera-job_worker-hls_data_download"
-    },
-    {
-      "name": "isl_bucket_name",
-      "from": "submitter",
-      "placeholder": "e.g. --isl-bucket=<isl_bucket>"
+      "type": "text",
+      "default": "--job-queue=opera-job_worker-hls_data_download"
     },
     {
       "name": "chunk_size",
       "from": "submitter",
       "placeholder": "e.g. --chunk-size=<chunk_size>",
       "type": "text",
-      "default": "--chunk-size=80",
+      "default": "--chunk-size=1",
       "optional": true
     },
     {
@@ -74,6 +62,18 @@
       "name": "dry_run",
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "placeholder": "e.g. --use-temporal",
+      "optional": true
+    },
+    {
+      "name": "temporal_start_datetime",
+      "from": "submitter",
+      "placeholder": "e.g. --temporal-start-date=1970-01-01T00:00:00Z",
       "optional": true
     }
   ]

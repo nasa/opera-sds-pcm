@@ -87,7 +87,6 @@ variable "artifactory_fn_api_key" {
 }
 
 variable "ops_password" {
-  default = "hysdsops"
 }
 
 variable "queues" {
@@ -114,13 +113,6 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-l3_dswx_hls_state_config" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
@@ -460,8 +452,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 

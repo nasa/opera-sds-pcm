@@ -66,8 +66,10 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
     for offset_x_multiplier in range(2):
         for offset_y_multiplier in range(2):
 
-            x = x_min + offset_x_multiplier * 109.8 * 1000
-            y = y_min + offset_y_multiplier * 109.8 * 1000
+            # We are using MGRS 100km x 100km tiles
+            # HLS tiles have 4.9 km of margin => width/length = 109.8 km
+            x = x_min - 4.9 * 1000 + offset_x_multiplier * 109.8 * 1000
+            y = y_min - 4.9 * 1000 + offset_y_multiplier * 109.8 * 1000
             lat, lon, z = transformation.TransformPoint(x, y, elevation)
 
             if lat_min is None or lat_min > lat:

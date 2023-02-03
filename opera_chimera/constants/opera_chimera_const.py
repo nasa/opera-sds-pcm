@@ -85,6 +85,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     PRODUCT_COUNTER = "ProductCounter"
 
+    PRODUCT_VERSION = "product_version"
+
     FILE_NAME = "FileName"
 
     ORBIT_EPHEMERIS_FILE = "OrbitEphemerisFile"
@@ -101,11 +103,15 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BASE_NAME = "base_name"
 
+    POLARIZATION = "polarization"
+
     SAFE_FILE_PATH = "safe_file_path"
 
     ORBIT_FILE_PATH = "orbit_file_path"
 
     BURST_ID = "burst_id"
+
+    BURST_DATABASE_FILE = "burst_database_file"
 
     DEM_FILE = "dem_file"
 
@@ -207,17 +213,27 @@ class OperaChimeraConstants(ChimeraConstants):
 
     FILE_NAMES_KEY = "file_names_key"
 
+    VERSION_KEY = "version_key"
+
     CAST_STRING_TO_INT = "cast_string_to_int"
 
     BBOX = "bbox"
 
-    GET_CSLC_ORBIT_FILE = "get_cslc_orbit_file"
+    GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
 
-    GET_CSLC_DEM = "get_cslc_dem"
+    GET_SLC_S1_BURST_DATABASE = "get_slc_s1_burst_database"
+
+    GET_SLC_S1_SAFE_FILE = "get_slc_s1_safe_file"
+
+    GET_SLC_S1_ORBIT_FILE = "get_slc_s1_orbit_file"
+
+    GET_SLC_S1_DEM = "get_slc_s1_dem"
 
     GET_DEM_BBOX = "get_dem_bbox"
 
-    GET_DEMS = "get_dems"
+    GET_PRODUCT_VERSION = "get_product_version"
+
+    GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_LANDCOVER = "get_landcover"
 

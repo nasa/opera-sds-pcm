@@ -23,6 +23,7 @@ runconfig:
     # ESA WorldCover map file
     worldcover_file: __CHIMERA_VAL__
   product_path_group:
+    product_version: __CHIMERA_VAL__
     product_path: output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: output_dir/scratch_dir
@@ -38,6 +39,7 @@ runconfig:
     pswt_2_nir: __CHIMERA_VAL__     # Partial Surface Water Test-2 NIR Threshold
     pswt_2_swir1: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR1 Threshold
     pswt_2_swir2: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR2 Threshold
+    lcmask_nir: __CHIMERA_VAL__     # Land Cover Mask based test Near Infrared
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -46,17 +48,21 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
+  - get_product_version
   - get_metadata
-  - get_input_filepaths_from_state_config
+  - get_hls_dswx_pge_input_filepaths
   - get_cnm_version
   - set_daac_product_type
-  - get_dems
+  - get_dswx_hls_dem
   - get_landcover
   - get_worldcover
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
+
+get_product_version:
+  version_key: "DSWX_HLS_PRODUCT_VERSION"
 
 # For any of the precondition evaluation steps listed in the preconditions area,
 # specify function arguments here
@@ -73,8 +79,9 @@ get_metadata:
     - pswt_2_nir
     - pswt_2_swir1
     - pswt_2_swir2
+    - lcmask_nir
 
-get_dems:
+get_dswx_hls_dem:
   # Specify a specific bounding box to obtain the corresponding DEM for.
   # If not provided, the bounding box will be determined based on the tile code
   # of the HLS dataset to be processed
@@ -112,7 +119,8 @@ set_extra_pge_output_metadata:
 # List the extensions that the PGE generates
 output_types:
   L3_DSWx_HLS:
-    - tiff
+    - tif
+    - png
     - catalog.json
     - iso.xml
     - log
@@ -141,6 +149,6 @@ localize_groups:
 # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
 #######################################################################
 input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
-    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
-    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)_state_config)$'
-output_base_name: OPERA_L3_DSWx_HLS_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{collection_version}
+    - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+))$'
+    - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+))$'
+output_base_name: OPERA_L3_DSWx-HLS_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{product_version}

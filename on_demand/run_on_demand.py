@@ -37,14 +37,12 @@ def main(context_file):
     if oc_const.INPUT_DATASET_ID not in job_context:
         raise RuntimeError(f'No {oc_const.INPUT_DATASET_ID} key set in provided context')
 
-    # Extract the dataset ID, and append "_state_config" for the elasticsearch
-    # lookup
+    # Extract the dataset ID for the elasticsearch lookup
     input_dataset_id = job_context[oc_const.INPUT_DATASET_ID]
-    input_dataset_id += "_state_config"
 
     logger.info(f"Querying metadata for input dataset ID {input_dataset_id}")
 
-    index = "grq_*-state-config"
+    indexes = ["grq_*_l2_hls_l30", "grq_*_l2_hls_s30"]
     query = {
         "query": {
             "bool": {
@@ -59,7 +57,7 @@ def main(context_file):
 
     try:
         # Query elasticsearch for the provided dataset ID
-        result = ancillary_es.search(body=query, index=index)
+        result = ancillary_es.search(body=query, index=indexes)
 
         hits = result.get("hits", {}).get("hits", [])
         logger.info("query hit count: {}".format(len(hits)))

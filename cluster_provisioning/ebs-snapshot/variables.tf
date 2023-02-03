@@ -31,8 +31,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.4.0"
-    "cslc_s1" = "2.0.0-er.2.0"
+    "dswx_hls" = "1.0.0-rc.6.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 
@@ -76,8 +77,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name = "verdi"
-    ami = "ami-0caed57c920d65ea8"
-    # verdi v4.11 v4.0.1-beta.8-oraclelinux
+	ami = "ami-003e368c872ea1099"
     instance_type = "t3.medium"
     device_name = "/dev/sda1"
     device_size = 50

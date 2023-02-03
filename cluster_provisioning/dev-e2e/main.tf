@@ -77,6 +77,7 @@ module "common" {
   use_daac_cnm_r                          = var.use_daac_cnm_r
   pge_releases                            = var.pge_releases
   pge_snapshots_date                      = var.pge_snapshots_date
+  pge_sim_mode                            = var.pge_sim_mode
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
@@ -87,6 +88,7 @@ module "common" {
   triage_bucket                           = var.triage_bucket
   isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
+  clear_s3_aws_es                         = var.clear_s3_aws_es
   docker_registry_bucket                  = var.docker_registry_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
@@ -123,6 +125,7 @@ resource "null_resource" "mozart" {
     triage_bucket    = module.common.triage_bucket
     lts_bucket       = module.common.lts_bucket
     osl_bucket       = module.common.osl_bucket
+    clear_s3_aws_es  = var.clear_s3_aws_es
   }
 
   connection {
@@ -206,9 +209,11 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
-              ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
-
+              ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
+              if [ "${self.triggers.clear_s3_aws_es}" = true ]; then
+                python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
+                ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}
+              fi
     EOF
     ]
   }
@@ -243,14 +248,14 @@ resource "null_resource" "smoke_test" {
                 --mozart-ip=${module.common.mozart.private_ip} \
                 --grq-host="grq:9200" \
                 --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+                --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
                 --isl-bucket="${module.common.isl_bucket}" \
                 --rs-bucket="${module.common.dataset_bucket}" \
-                --L30-input-dir="hls_l2/l30_greenland" \
-                --S30-input-dir="hls_l2/s30_louisiana" \
                 --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
                 --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
+                --SLC-data-subscriber-query-lambda=${module.common.slcs1a_query_timer.function_name} \
                 --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
-                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0"
+                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0"
               fi
     EOT
     ]

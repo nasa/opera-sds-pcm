@@ -21,9 +21,10 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: DSWX_HLS
+        ProductVersion: {{ data.product_path_group.product_version }}
         ProgramPath: python3
         ProgramOptions:
-          - proteus-0.1/bin/dswx_hls.py
+          - /home/conda/proteus-0.5.1/bin/dswx_hls.py
           - --full-log-format
         ErrorCodeBase: 100000
         SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
@@ -54,6 +55,10 @@ RunConfig:
             {{ type }}:
             {%- endif %}
             {%- endfor %}
+            # TODO: update descriptions as necessary when new ancillary releases are available
+            dem_description: Copernicus DEM GLO-30 2021
+            landcover_description: Land Cover 100m - collection 3 - epoch 2019 discrete classification map
+            worldcover_description: ESA WorldCover 10m 2020 v1.0
           primary_executable:
             product_type: DSWX_HLS
           product_path_group:
@@ -61,6 +66,14 @@ RunConfig:
             scratch_path: {{ data.product_path_group.scratch_path }}
             output_dir: {{ data.product_path_group.product_path }}
             product_id: dswx_hls
+            product_version: {{ data.product_path_group.product_version }}
+          processing:
+            check_ancillary_inputs_coverage: True
+            shadow_masking_algorithm: sun_local_inc_angle
+            min_slope_angle: -5
+            max_sun_local_inc_angle: 40
+            mask_adjacent_to_cloud_mode: 'mask'
+            copernicus_forest_classes: [ 20, 111, 113, 115, 116, 121, 123, 125, 126 ]
             save_wtr: True    # Layer 1 - WTR
             save_bwtr: True   # Layer 2 - BWTR
             save_conf: True   # Layer 3 - CONF
@@ -73,8 +86,16 @@ RunConfig:
             save_dem: True    # Layer 10 - DEM
             save_rgb: False   # Reflectance RGB color composition
             save_infrared_rgb: False  # SWIR-1, NIR, and Red reflectance color composition
+          browse_image_group:
+            save_browse: True
+            browse_image_height: 1024
+            browse_image_width: 1024
+            exclude_psw_aggressive_in_browse: False
+            not_water_in_browse: 'white'
+            cloud_in_browse: 'gray'
+            snow_in_browse: 'cyan'
           hls_thresholds:
-            wigt: {{ data.hls_thresholds.wigt or 0.0124 }}         # Modified Normalized Difference Wetness Index (MNDWI) Threshold
+            wigt: {{ data.hls_thresholds.wigt or 0.124 }}         # Modified Normalized Difference Wetness Index (MNDWI) Threshold
             awgt: {{ data.hls_thresholds.awgt or 0.0 }}            # Automated Water Extent Shadow Threshold
             pswt_1_mndwi: {{ data.hls_thresholds.pswt_1_mndwi or -0.44 }}  # Partial Surface Water Test-1 MNDWI Threshold
             pswt_1_nir: {{ data.hls_thresholds.pswt_1_nir or 1500 }}     # Partial Surface Water Test-1 NIR Threshold
@@ -85,3 +106,4 @@ RunConfig:
             pswt_2_nir: {{ data.hls_thresholds.pswt_2_nir or 2500 }}     # Partial Surface Water Test-2 NIR Threshold
             pswt_2_swir1: {{ data.hls_thresholds.pswt_2_swir1 or 3000 }}   # Partial Surface Water Test-2 SWIR1 Threshold
             pswt_2_swir2: {{ data.hls_thresholds.pswt_2_swir2 or 1000 }}   # Partial Surface Water Test-2 SWIR2 Threshold
+            lcmask_nir: {{ data.hls_thresholds.lcmask_nir or 1200 }}   # Land Cover Mask based test Near Infrared

@@ -14,6 +14,7 @@ import json
 import argparse
 import subprocess
 import traceback
+from typing import Dict, Optional
 
 from util.conf_util import SettingsConf
 from datetime import datetime
@@ -32,7 +33,7 @@ PRODUCT_TYPES_KEY = "PRODUCT_TYPES"
 STRIP_FILE_EXTENSION_KEY = "Strip_File_Extension"
 IS_COMPRESSED = "IsCompressed"
 
-MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DSWx_HLS']
+MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DSWx_HLS', 'L2_CSLC_S1', 'L2_RTC_S1']
 """
 List of the product types (from settings.yaml) which produce multiple output files
 which should all be bundled in the same dataset.
@@ -50,7 +51,19 @@ def crawl(target_dir, product_types, workspace, extra_met=None):
                 logger.error(str(e))
 
 
-def extract(product, product_types, workspace, extra_met=None):
+def extract(
+        product: str,
+        product_types: Dict,
+        workspace: str,
+        extra_met: Optional[Dict] = None
+):
+    """Create a dataset (directory), with metadata extracted from the input product.
+
+    :param product: product filepath
+    :param product_types: Product config as defined in `settings.yaml`
+    :param workspace: workspace directory. This directory will house created dataset directories.
+    :param extra_met: extra metadata to include in the created dataset.
+    """
     # Get the dataset id (product name)
     logger.debug(f"extract : product: {product}, product_types: {product_types}, "
                  f"workspace: {workspace}, extra_met: {extra_met}")
@@ -74,7 +87,8 @@ def extract(product, product_types, workspace, extra_met=None):
     try:
         found, product_met, ds_met, alt_ds_met = extract_metadata(
             os.path.join(dataset_dir, os.path.basename(product)),
-            product_types, extra_met
+            product_types,
+            extra_met
         )
 
         # Write the metadata extracted from the product to the .met.json file
@@ -169,6 +183,8 @@ def create_dataset_id(product, product_types):
                 suffix = product_types[product_type]["Suffix"].strip()
                 dataset_id = "{}{}".format(dataset_id, suffix)
 
+            break
+
     if dataset_id is None:
         msg = (
             f"Error while trying to create the dataset directory: "
@@ -209,9 +225,9 @@ def extract_metadata(product, product_types, catalog_met=None):
                 if catalog_met is not None:
                     config["catalog_metadata"] = catalog_met
 
-                extractor_tokens = extractor.rsplit(".", 1)
+                extractor_tokens = extractor.rsplit(".", 1)  # e.g. "extractor.FilenameRegexMetExtractor"
                 module = import_module(extractor)
-                cls = getattr(module, extractor_tokens[1])
+                cls = getattr(module, extractor_tokens[1])  # e.g. "FilenameRegexMetExtractor"
                 cls_object = cls()
 
                 try:
