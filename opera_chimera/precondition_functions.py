@@ -1233,6 +1233,46 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_shoreline_shapefiles(self):
+        """
+        Copies the set of static shoreline shapefiles configured for use with a
+        DSWx-HLS job to the job's local working area.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        rc_params = {}
+
+        s3_bucket = self._pge_config.get(oc_const.GET_SHORELINE_SHAPEFILES, {}).get(oc_const.S3_BUCKET)
+        s3_keys = self._pge_config.get(oc_const.GET_SHORELINE_SHAPEFILES, {}).get(oc_const.S3_KEYS)
+
+        for s3_key in s3_keys:
+            output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+            pge_metrics = download_object_from_s3(
+                s3_bucket, s3_key, output_filepath, filetype="Shoreline Shapefile"
+            )
+
+            write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+            # Set up the main shapefile which is configured in the PGE RunConfig
+            if output_filepath.endswith(".shp"):
+                rc_params = {
+                    oc_const.SHORELINE_SHAPEFILE: output_filepath
+                }
+
+        # Make sure the .shp file was included in the set of files localized from S3
+        if not rc_params:
+            raise RuntimeError("No .shp file included with the localized Shoreline Shapefile dataset.")
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """
         Handles common operations for obtaining ancillary data used with OPERA

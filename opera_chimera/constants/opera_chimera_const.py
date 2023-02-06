@@ -123,6 +123,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     WORLDCOVER_YEAR = "worldcover_year"
 
+    SHORELINE_SHAPEFILE = "shoreline_shapefile"
+
     PLANNED_OBSERVATION_ID = "PlannedObservationId"
 
     PLANNED_OBSERVATION_TIMESTAMP = "PlannedObservationTimestamp"
@@ -183,6 +185,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     S3_KEY = "s3_key"
 
+    S3_KEYS = "s3_keys"
+
     # PGE names
     #L3_DSWX_HLS = "L3_DSWX_HLS"
 
@@ -238,5 +242,7 @@ class OperaChimeraConstants(ChimeraConstants):
     GET_LANDCOVER = "get_landcover"
 
     GET_WORLDCOVER = "get_worldcover"
+
+    GET_SHORELINE_SHAPEFILES = "get_shoreline_shapefiles"
 
     GET_PGE_SETTINGS_VALUES = "get_pge_settings_values"

@@ -16,12 +16,14 @@ runconfig:
   input_file_group:
     input_file_path: []
   dynamic_ancillary_file_group:
-    # Digital elevation model
+    # Digital elevation model file
     dem_file:  __CHIMERA_VAL__
     # Copernicus Global Land Service (CGLS) Land Cover Layer file
     landcover_file: __CHIMERA_VAL__
     # ESA WorldCover map file
     worldcover_file: __CHIMERA_VAL__
+    # NOAA GSHHS shapefile description
+    shoreline_shapefile: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: output_dir
@@ -56,6 +58,7 @@ preconditions:
   - get_dswx_hls_dem
   - get_landcover
   - get_worldcover
+  - get_shoreline_shapefiles
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -108,6 +111,18 @@ get_worldcover:
   # They should only be changed when updated Worldcover files are available (yearly)
   worldcover_version: "v100"
   worldcover_year: "2020"
+
+get_shoreline_shapefiles:
+  # The s3 bucket containing the Shoreline shapefile data set
+  s3_bucket: "opera-dist2coast"
+  # Key paths to the files that comprise the Shoreline shapefile data set
+  # Typically should be a set of 4 files, one of which MUST be the .shp which
+  # gets configured within the PGE RunConfig
+  s3_keys:
+    - "GSHHS_f_L1.dbf"
+    - "GSHHS_f_L1.prj"
+    - "GSHHS_f_L1.shp"
+    - "GSHHS_f_L1.shx"
 
 set_daac_product_type:
   template: OPERA_L3_DSWX_HLS_{cnm_version}
