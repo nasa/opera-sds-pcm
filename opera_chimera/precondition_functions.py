@@ -1095,6 +1095,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 f"'{oc_const.GET_DSWX_HLS_DEM}' area of the PGE config"
             )
 
+
         # Set up arguments to stage_dem.py
         # Note that since we provide an argparse.Namespace directly,
         # all arguments must be specified, even if it's only with a null value
