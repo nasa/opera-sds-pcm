@@ -505,7 +505,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         return
 
     # group URLs by this mapping func. E.g. group URLs by granule_id
-    keyfunc = _hls_url_to_granule_id if args.provider == "LPCLOUD" else _url_to_orbit_number
+    keyfunc = _hls_url_to_granule_id if args.provider == "LPCLOUD" else _slc_url_to_chunk_id
     batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=keyfunc,
@@ -789,12 +789,8 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
     )
 
 
-def _url_to_orbit_number(url: str):
-    orbit_re = r"_\d{6}_"  # Orbit number
-
-    input_filename = Path(url).name
-    orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number[1:-1]  # Strips leading and trailing underscores
+def _slc_url_to_chunk_id(url: str):
+    return input_filename := Path(url).name
 
 
 def _hls_url_to_granule_id(url: str):
@@ -858,7 +854,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
-    return _url_to_orbit_number(_to_url(dl_doc))
+    return _slc_url_to_chunk_id(_to_url(dl_doc))
 
 
 def group_download_urls_by_granule_id(download_urls):
