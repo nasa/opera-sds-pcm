@@ -16,12 +16,14 @@ runconfig:
   input_file_group:
     input_file_path: []
   dynamic_ancillary_file_group:
-    # Digital elevation model
+    # Digital elevation model file
     dem_file:  __CHIMERA_VAL__
     # Copernicus Global Land Service (CGLS) Land Cover Layer file
     landcover_file: __CHIMERA_VAL__
     # ESA WorldCover map file
     worldcover_file: __CHIMERA_VAL__
+    # NOAA GSHHS shapefile description
+    shoreline_shapefile: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: output_dir
@@ -56,6 +58,7 @@ preconditions:
   - get_dswx_hls_dem
   - get_landcover
   - get_worldcover
+  - get_shoreline_shapefiles
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -109,6 +112,18 @@ get_worldcover:
   worldcover_version: "v100"
   worldcover_year: "2020"
 
+get_shoreline_shapefiles:
+  # The s3 bucket containing the Shoreline shapefile data set
+  s3_bucket: "opera-dist2coast"
+  # Key paths to the files that comprise the Shoreline shapefile data set
+  # Typically should be a set of 4 files, one of which MUST be the .shp which
+  # gets configured within the PGE RunConfig
+  s3_keys:
+    - "GSHHS_f_L1.dbf"
+    - "GSHHS_f_L1.prj"
+    - "GSHHS_f_L1.shp"
+    - "GSHHS_f_L1.shx"
+
 set_daac_product_type:
   template: OPERA_L3_DSWX_HLS_{cnm_version}
 
@@ -119,7 +134,7 @@ set_extra_pge_output_metadata:
 # List the extensions that the PGE generates
 output_types:
   L3_DSWx_HLS:
-    - tiff
+    - tif
     - png
     - catalog.json
     - iso.xml
@@ -151,4 +166,4 @@ localize_groups:
 input_file_base_name_regexes: # regexes taken from settings.yaml > L2_HLS_L30 and L2_HLS_S30
     - '(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+))$'
     - '(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+))$'
-output_base_name: OPERA_L3_DSWx_HLS_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{collection_version}
+output_base_name: OPERA_L3_DSWx-HLS_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{product_version}

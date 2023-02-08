@@ -546,11 +546,12 @@ data "aws_iam_policy_document" "operator_notify" {
 # sqs
 ######################
 resource "aws_sqs_queue" "harikiri_queue" {
-  name                      = "${var.project}-${var.venue}-${local.counter}-queue"
-  delay_seconds             = 0
-  max_message_size          = 2048
-  message_retention_seconds = 86400
-  receive_wait_time_seconds = 0
+  name                       = "${var.project}-${var.venue}-${local.counter}-queue"
+  delay_seconds              = 0
+  max_message_size           = 2048
+  message_retention_seconds  = 86400
+  receive_wait_time_seconds  = 0
+  #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 600
 }
 
@@ -583,6 +584,7 @@ resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
   name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
 #  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
+  #sqs_managed_sse_enabled   = true
 }
 
 resource "aws_sqs_queue" "cnm_response" {
@@ -591,6 +593,7 @@ resource "aws_sqs_queue" "cnm_response" {
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
+  #sqs_managed_sse_enabled    = true
 }
 
 data "aws_sqs_queue" "cnm_response" {
@@ -635,6 +638,7 @@ resource "aws_sqs_queue" "isl_queue" {
   max_message_size           = 2048
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 10
+  #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 60
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.isl_dead_letter_queue.arn
@@ -689,6 +693,7 @@ resource "aws_sqs_queue" "isl_dead_letter_queue" {
   max_message_size           = 2048
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 0
+  #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 500
 }
 
@@ -1132,6 +1137,9 @@ resource "aws_instance" "mozart" {
       tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda;
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
+      echo installing gdal for manual execution of daac_data_subscriber.py ;
+      conda install gdal=3.4.1 --yes --quiet ;
+
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
         git clone --quiet --single-branch -b ${var.hysds_release} https://github.com/hysds/hysds-framework
@@ -1144,6 +1152,9 @@ resource "aws_instance" "mozart" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
+        echo installing gdal for manual execution of daac_data_subscriber.py ;
+        conda install gdal=3.4.1 --yes --quiet ;
+
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz"
@@ -1304,6 +1315,8 @@ resource "aws_instance" "mozart" {
       echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
       echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
       echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_slc_catalog.py
+      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_slc_catalog.py
       echo #fi
 
       echo create data subscriber Elasticsearch indexes
@@ -1311,11 +1324,13 @@ resource "aws_instance" "mozart" {
           python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
           python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
           python ~/mozart/ops/opera-pcm/data_subscriber/slc/delete_slc_catalog.py
+          python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/delete_slc_spatial_catalog.py
 
       fi
       python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
       python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
       python ~/mozart/ops/opera-pcm/data_subscriber/slc/create_slc_catalog.py
+      python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/create_slc_spatial_catalog.py
 
       echo create accountability Elasticsearch index
       if [ "${local.delete_old_job_catalog}" = true ]; then
@@ -1996,20 +2011,21 @@ resource "aws_instance" "factotum" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
-      "chmod 755 ~/download_artifact.sh",
-      "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-      "  mkdir -p ~/conda",
-      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
-      "  export PATH=$HOME/conda/bin:$PATH",
-      "  conda-unpack",
-      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz\"",
-      "  tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz",
-      "  rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz",
-      "fi",
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      chmod 755 ~/download_artifact.sh
+      if [ "${var.hysds_release}" != "develop" ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        mkdir -p ~/conda
+        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        export PATH=$HOME/conda/bin:$PATH
+        conda-unpack
+        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
+      fi
+    EOT
     ]
   }
 }
@@ -2295,7 +2311,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "PROVIDER": var.hls_provider,
 	  "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
-      "CHUNK_SIZE": "80",
+      "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
@@ -2330,7 +2346,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
 	  "ENDPOINT": "OPS",
       "MINUTES": var.hlss30_query_timer_trigger_frequency,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
-      "CHUNK_SIZE": "80",
+      "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false"
@@ -2469,7 +2485,8 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "BOUNDING_BOX": ""
     }
   }
 }

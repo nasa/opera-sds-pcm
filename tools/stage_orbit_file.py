@@ -33,6 +33,20 @@ DEFAULT_USERNAME = 'gnssguest'
 DEFAULT_PASSWORD = 'gnssguest'
 """Default username and password for a public account provided by SciHub"""
 
+ORBIT_TYPE_POE = 'POEORB'
+"""Orbit type identifier for Precise Orbit Ephemeris"""
+
+ORBIT_TYPE_RES = 'RESORB'
+"""Orbit type identifier for Restituted Orbit Ephemeris"""
+
+VALID_ORBIT_TYPES = (ORBIT_TYPE_POE, ORBIT_TYPE_RES)
+"""List of the valid orbit types that this script supports querying for"""
+
+
+class NoQueryResultsException(Exception):
+    """Custom exception to identify empty results from a query"""
+    pass
+
 
 def get_parser():
     """Returns the command line parser for stage_orbit_file.py"""
@@ -48,6 +62,10 @@ def get_parser():
                         default=abspath(os.curdir),
                         help="Specify the directory to store the output Orbit file. "
                              "Has no effect if --url-only is specified.")
+    parser.add_argument("-O", "--orbit-type", type=str, action='store',
+                        choices=VALID_ORBIT_TYPES, default=ORBIT_TYPE_RES,
+                        help="Specify the type of orbit file to query for, either "
+                             "Precise (POEORB) or Restituted (RESORB)."),
     parser.add_argument("-u", "--username", type=str, action='store',
                         default=DEFAULT_USERNAME,
                         help="Specify a user name to use with the query/download "
@@ -147,7 +165,7 @@ def parse_orbit_time_range_from_safe(input_safe_file):
     return mission_id, safe_start_time, safe_stop_time
 
 
-def construct_orbit_file_query(mission_id, safe_start_time, safe_stop_time):
+def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_stop_time):
     """
     Constructs the query used with the query endpoint URL to determine the
     available Orbit files for the given time range.
@@ -161,6 +179,9 @@ def construct_orbit_file_query(mission_id, safe_start_time, safe_stop_time):
     mission_id : str
         The mission ID parsed from the SAFE file name, should always be one
         of S1A or S1B.
+    orbit_type : str
+        String identifying the type of orbit file to query for. Should be either
+        POEORB for Precise Orbit files, or RESORB for Restituted.
     safe_start_time : str
         The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
     safe_stop_time : str
@@ -179,34 +200,37 @@ def construct_orbit_file_query(mission_id, safe_start_time, safe_stop_time):
     logger.debug(f'safe_start_date: {safe_start_date}')
     logger.debug(f'safe_stop_date: {safe_stop_date}')
 
-    # Pad the start/stop times by a day on each side to ensure we can find
+    # Pad the start/stop times on each side to ensure we can find
     # a corresponding Orbit file that encompasses the SAFE time range
-    query_start_date = safe_start_date - timedelta(days=1)
-    query_stop_date = safe_stop_date + timedelta(days=1)
+    if orbit_type == ORBIT_TYPE_POE:
+        query_delta = timedelta(days=1)
+    else:
+        query_delta = timedelta(hours=3)
+
+    query_start_date = safe_start_date - query_delta
+    query_stop_date = safe_stop_date + query_delta
 
     logger.debug(f'query_start_date: {query_start_date}')
     logger.debug(f'query_stop_date: {query_stop_date}')
 
     # Set up templates that use the domain specific syntax expected by the
     # query service
-    time_range_template = "{start_date}T00:00:00.000Z TO {stop_date}T23:59:59.999Z"
+    time_range_template = "{start_date}Z TO {stop_date}Z"
 
-    # TODO: this template will probably need to support AUX_RESORB as a
-    #       producttype when we can't find anything for AUX_POEORB
     query_template = (
         "( beginPosition:[{start_range}] AND endPosition:[{stop_range}] ) AND "
-        "( (platformname:Sentinel-1 AND filename:{mission_id}_* AND producttype:AUX_POEORB))"
+        "( (platformname:Sentinel-1 AND filename:{mission_id}_* AND producttype:AUX_{orbit_type}))"
     )
 
     # Format the query templates using the values we were provided
     query_start_range = time_range_template.format(
-        start_date=query_start_date.strftime("%Y-%m-%d"),
-        stop_date=safe_start_date.strftime("%Y-%m-%d")
+        start_date=query_start_date.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+        stop_date=safe_start_date.strftime("%Y-%m-%dT%H:%M:%S.%f")
     )
 
     query_stop_range = time_range_template.format(
-        start_date=safe_stop_date.strftime("%Y-%m-%d"),
-        stop_date=query_stop_date.strftime("%Y-%m-%d")
+        start_date=safe_stop_date.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+        stop_date=query_stop_date.strftime("%Y-%m-%dT%H:%M:%S.%f")
     )
 
     logger.debug(f'query_start_range: {query_start_range}')
@@ -214,7 +238,8 @@ def construct_orbit_file_query(mission_id, safe_start_time, safe_stop_time):
 
     query = query_template.format(start_range=query_start_range,
                                   stop_range=query_stop_range,
-                                  mission_id=mission_id)
+                                  mission_id=mission_id,
+                                  orbit_type=orbit_type)
 
     logger.debug(f'query: {query}')
 
@@ -315,7 +340,7 @@ def parse_orbit_file_query_xml(query_xml):
     logger.debug(f'total_results: {total_results}')
 
     if total_results < 1:
-        raise RuntimeError('No results returned from parsed query results')
+        raise NoQueryResultsException('No results returned from parsed query results')
 
     # Parse the entry elements, there should be one for each hit we got from
     # the query
@@ -337,7 +362,7 @@ def parse_orbit_file_query_xml(query_xml):
 
     logger.debug(f'orbit_file_request_id: {orbit_file_request_id}')
 
-    # Get all the info elements, as one will tell us the offical file name to
+    # Get all the info elements, as one will tell us the official file name to
     # assign to the downloaded Orbit file
     info_elems = entry_elem.findall('str', namespaces=tree.nsmap)
 
@@ -442,7 +467,7 @@ def main(args):
 
     # Construct the query based on the time range parsed from the input file
     query = construct_orbit_file_query(
-        mission_id, safe_start_time, safe_stop_time
+        mission_id, args.orbit_type, safe_start_time, safe_stop_time
     )
 
     # Make the query to determine what Orbit files are available for the time
@@ -464,9 +489,10 @@ def main(args):
         args.download_endpoint, f"Products('{orbit_file_request_id}')/$value"
     )
 
-    # If user request the URL only, print it to standard out
+    # If user request the URL only, print it to standard out and the log
     if args.url_only:
         logger.info('URL-only requested')
+        logger.info(request_url)
         print(request_url)
     # Otherwise, download the Orbit file using the file name parsed from the
     # query result to the directory specified by the user

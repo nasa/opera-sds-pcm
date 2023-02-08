@@ -28,10 +28,14 @@ List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
 PGE.
 """
 
-# TODO: these may go to all-caps at some point
-RTC_BURST_IDS = ['t069_147170_iw1', 't069_147170_iw3', 't069_147171_iw1',
-                 't069_147171_iw2', 't069_147171_iw3', 't069_147172_iw1',
-                 't069_147172_iw2', 't069_147172_iw3', 't069_147173_iw1']
+CSLC_BURST_IDS = ['T064-135518-IW1', 'T064-135518-IW2', 'T064-135518-IW3',
+                  'T064-135519-IW1', 'T064-135519-IW2', 'T064-135519-IW3',
+                  'T064-135520-IW1', 'T064-135520-IW2', 'T064-135520-IW3']
+"""List of sample burst ID's to simulate CSLC-S1 multi-product output"""
+
+RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
+                 'T069-147171-IW2', 'T069-147171-IW3', 'T069-147172-IW1',
+                 'T069-147172-IW2', 'T069-147172-IW3', 'T069-147173-IW1']
 """List of sample burst ID's to simulate RTC-S1 multi-product output"""
 
 
@@ -144,17 +148,27 @@ def get_cslc_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     output_filenames = []
 
     base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
 
-    # TODO: this will need to produce multiple products per-burst ID eventually
-    base_name = base_name_template.format(
-        burst_id='T64-135524-IW2',
-        pol='VV',
-        acquisition_ts=dataset_match.groupdict()['start_ts'],
-        product_version='v0.1',
-        creation_ts=dataset_match.groupdict()['stop_ts']
-    )
+    if extension.endswith('h5') or extension.endswith('iso.xml'):
+        for burst_id in CSLC_BURST_IDS:
+            base_name = base_name_template.format(
+                burst_id=burst_id,
+                pol='VV',
+                acquisition_ts=dataset_match.groupdict()['start_ts'],
+                product_version='v0.1',
+                creation_ts=dataset_match.groupdict()['stop_ts']
+            )
 
-    output_filenames.append(f'{base_name}.{extension}')
+            output_filenames.append(f'{base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            pol='VV',
+            product_version='v0.1',
+            creation_ts=dataset_match.groupdict()['stop_ts']
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
 
     return output_filenames
 
@@ -168,8 +182,22 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
 
     sensor = dataset_match.groupdict()['mission_id']
 
-    # Primary output product pattern, includes burst ID and acquisition time
-    if extension.endswith('tiff') or extension.endswith('tif') or extension.endswith('nc'):
+    # Primary output image product pattern, includes burst ID, acquisition time
+    # and polarization values
+    if extension.endswith('tiff') or extension.endswith('tif'):
+        for burst_id in RTC_BURST_IDS:
+            base_name = base_name_template.format(
+                burst_id=burst_id,
+                acquisition_ts=dataset_match.groupdict()['start_ts'],
+                product_version='v0.1',
+                creation_ts=dataset_match.groupdict()['stop_ts'],
+                sensor=sensor
+            )
+
+            output_filenames.append(f'{base_name}_VV.{extension}')
+            output_filenames.append(f'{base_name}_VH.{extension}')
+    # Primary metadata product, like image product but no polarization field
+    elif extension.endswith('h5') or extension.endswith('iso.xml'):
         for burst_id in RTC_BURST_IDS:
             base_name = base_name_template.format(
                 burst_id=burst_id,
@@ -180,7 +208,7 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
             )
 
             output_filenames.append(f'{base_name}.{extension}')
-    # Ancillary output product pattern, no burst ID or acquisition time
+    # Ancillary output product pattern, no burst ID, acquisition time or polarization
     else:
         base_name = ancillary_name_template.format(
             product_version='v0.1',
@@ -216,13 +244,16 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
         # make creation time a duplicate of the acquisition time for ease of testing
         creation_ts=acq_time,
         sensor=sensor,
-        collection_version=dataset_match.groupdict()['collection_version']
+        product_version=dataset_match.groupdict()['collection_version']
     )
 
     # Simulate the multiple output tif files created by this PGE
-    if extension.endswith('tiff'):
+    if extension.endswith('tiff') or extension.endswith('tif'):
         for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
-            output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.{extension}')
+            output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+    elif extension.endswith('png'):
+        output_filenames.append(f'{base_name}_BROWSE.png')
+        output_filenames.append(f'{base_name}_BROWSE.tif')
     else:
         output_filenames.append(f'{base_name}.{extension}')
 

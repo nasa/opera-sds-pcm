@@ -103,11 +103,15 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BASE_NAME = "base_name"
 
+    POLARIZATION = "polarization"
+
     SAFE_FILE_PATH = "safe_file_path"
 
     ORBIT_FILE_PATH = "orbit_file_path"
 
     BURST_ID = "burst_id"
+
+    BURST_DATABASE_FILE = "burst_database_file"
 
     DEM_FILE = "dem_file"
 
@@ -118,6 +122,8 @@ class OperaChimeraConstants(ChimeraConstants):
     WORLDCOVER_VER = "worldcover_version"
 
     WORLDCOVER_YEAR = "worldcover_year"
+
+    SHORELINE_SHAPEFILE = "shoreline_shapefile"
 
     PLANNED_OBSERVATION_ID = "PlannedObservationId"
 
@@ -179,6 +185,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     S3_KEY = "s3_key"
 
+    S3_KEYS = "s3_keys"
+
     # PGE names
     #L3_DSWX_HLS = "L3_DSWX_HLS"
 
@@ -215,7 +223,9 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BBOX = "bbox"
 
-    GET_SLC_S1_BURST_ID = "get_slc_s1_burst_id"
+    GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
+
+    GET_SLC_S1_BURST_DATABASE = "get_slc_s1_burst_database"
 
     GET_SLC_S1_SAFE_FILE = "get_slc_s1_safe_file"
 
@@ -232,5 +242,7 @@ class OperaChimeraConstants(ChimeraConstants):
     GET_LANDCOVER = "get_landcover"
 
     GET_WORLDCOVER = "get_worldcover"
+
+    GET_SHORELINE_SHAPEFILES = "get_shoreline_shapefiles"
 
     GET_PGE_SETTINGS_VALUES = "get_pge_settings_values"

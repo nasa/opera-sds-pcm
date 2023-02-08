@@ -1,25 +1,20 @@
-import asyncio
 import logging
-import re
 import time
 from asyncio import AbstractEventLoop
-from functools import partial
-from pathlib import Path
-from typing import Callable
 
 import boto3
 import pytest
 import requests
 from botocore.config import Config
+from mypy_boto3_lambda import LambdaClient
+from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef
 from mypy_boto3_s3 import S3Client
 from requests import Response
 
 import conftest
-from benchmark_test_util import \
-    get_es_host as get_mozart_ip, \
-    upload_file, \
-    wait_for_l2, \
-    wait_for_l3
+import integration.conftest
+from benchmark_test_util import get_es_host as get_mozart_ip
+from tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish
 
 config = conftest.config
 
@@ -30,16 +25,15 @@ s3_client: S3Client = boto3.client("s3", config=(Config(max_pool_connections=30)
 # TEST INPUTS - SYSTEM
 #######################################################################
 instance_type_queues = [
-    # "opera-job_worker-large",  # configured for t2.medium (Primary), t3.medium, t3a.medium
-    # "opera-job_worker-t3_medium",
+    # "opera-job_worker-sciflo-l3_dswx_hls",  # configured for t2.medium (Primary), t3.medium, t3a.medium
     # "opera-job_worker-t3_large",
-    # "opera-job_worker-t3_xlarge",
-    # "opera-job_worker-c5d_large",
-    # "opera-job_worker-c5d_xlarge",
-    # "opera-job_worker-m5d_large",
-    # "opera-job_worker-m5d_xlarge",
-    # "opera-job_worker-r5d_large",
-    # "opera-job_worker-r5d_xlarge",
+    # "opera-job_worker-t3a_large",
+    # "opera-job_worker-m3_large",
+    # "opera-job_worker-m4_large",
+    # "opera-job_worker-m5_large",
+    # "opera-job_worker-m6i_large",
+    # "opera-job_worker-m5a_large",
+    # "opera-job_worker-m6a_large",
 ]
 
 
@@ -54,40 +48,45 @@ def setup_function():
 
 @pytest.mark.asyncio
 async def test_s30(event_loop: AbstractEventLoop):
-    # NOTE:
-    #  total number of PGE jobs should not exceed max job queue size (dev=10) as to not affect EBS timers
-    #  e.g. assert num_runs * len(instance_type_queues) <= 10
-    run_start_index = 2030  # a YYYY year. Note that the sample set already uses 2021
-    num_runs = 10
+    branch = "issue_319"
 
-    input_filenames = [
-        "HLS.S30.T15SXR.2021250T163901.v2.0.B02.tif",
-        "HLS.S30.T15SXR.2021250T163901.v2.0.B03.tif",
-        "HLS.S30.T15SXR.2021250T163901.v2.0.B04.tif",
-        "HLS.S30.T15SXR.2021250T163901.v2.0.B11.tif",
-        "HLS.S30.T15SXR.2021250T163901.v2.0.B12.tif",
-        "HLS.S30.T15SXR.2021250T163901.v2.0.B8A.tif",
-        "HLS.S30.T15SXR.2021250T163901.v2.0.Fmask.tif"  # can submit Fmask separately to treat as signal file
-    ]
-    old_ts = '2021'
-
-    # input_files_dir = Path(config["S30_INPUT_DIR"]).expanduser()
-    # reupload_input_files(input_files_dir, input_filenames)
-    copy_and_submit_input_files_s30 = partial(
-        copy_and_submit_input_files,
-        l2_index="grq_1_l2_hls_s30", get_l3_id=get_l3_s30_id,
-        event_loop=event_loop
-    )
-
-    grq_user_rule_name = "trigger-SCIFLO_L3_DSWx_HLS_S30"
-    run_stop_index = run_start_index + num_runs
     for new_instance_type_queue_name in instance_type_queues:
-        swap_instance_type(grq_user_rule_name, new_instance_type_queue_name)
-        await copy_and_submit_input_files_s30(input_filenames, old_ts, run_start_index, run_stop_index)
+        logging.info(f"{new_instance_type_queue_name=}")
 
-        # update indexes for next iteration
-        run_start_index = run_stop_index
-        run_stop_index = run_start_index + num_runs
+        integration.conftest.clear_pcm_test_state()
+        swap_instance_type("trigger-SCIFLO_L3_DSWx_HLS_S30", new_instance_type_queue_name)
+
+        query_timer_lambda_response = await invoke_s30_subscriber_query_lambda()
+        query_job_id = query_timer_lambda_response["Payload"].read().decode().strip("\"")
+        logging.info(f"{query_job_id=}")
+
+        wait_for_query_jobs_to_finish(job_type=f"job-hlss30_query:{branch}")
+        wait_for_download_jobs_to_finish(job_type=f"job-hls_download:{branch}")
+        wait_for_pge_jobs_to_finish(job_type=f"job-SCIFLO_L3_DSWx_HLS:{branch}")
+        # wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:develop")
+
+
+async def invoke_s30_subscriber_query_lambda():
+    aws_lambda: LambdaClient = boto3.client("lambda")
+    query_timer_lambda_response: InvocationResponseTypeDef = aws_lambda.invoke(
+        FunctionName="opera-crivas-1-hlss30-query-timer",
+        Payload=b"""
+                {
+                  "id": "cdc73f9d-aea9-11e3-9d5a-835b769c0d9c",
+                  "detail-type": "Scheduled Event",
+                  "source": "aws.events",
+                  "account": "123456789012",
+                  "time": "2022-01-02T06:00:00Z",
+                  "region": "us-east-1",
+                  "resources": [
+                    "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"
+                  ],
+                  "detail": {}
+                }
+            """
+    )
+    assert query_timer_lambda_response["StatusCode"] == 200
+    return query_timer_lambda_response
 
 
 def create_job_queues(queues):
@@ -110,16 +109,6 @@ def create_job_queues(queues):
             verify=False
         )
         assert r.status_code in [201, 204]
-
-
-def reupload_input_files(download_dir, input_filenames):
-    logging.info("(RE)UPLOADING INPUT FILES")
-
-    input_filepaths = [download_dir / input_filename for input_filename in input_filenames]
-    for i, input_filepath in enumerate(input_filepaths):
-        logging.info(f"Uploading file {i + 1} of {len(input_filepaths)}")
-        logging.info(f"Uploading {input_filepath.name}")
-        upload_file(input_filepath)
 
 
 def swap_instance_type(grq_user_rule, instance_type_queue):
@@ -174,92 +163,6 @@ def swap_instance_type(grq_user_rule, instance_type_queue):
     res = r.json()
     updated_queue = res["rule"]["queue"]
     assert updated_queue == instance_type_queue
-
-
-async def copy_and_submit_input_files(
-        input_filenames,
-        old_ts,
-        tile_id_start_index: int,
-        tile_id_stop_index: int,
-        l2_index: str,
-        get_l3_id: Callable[[str], str],
-        event_loop: AbstractEventLoop
-):
-    logging.info("COPYING AND SUBMITTING INPUT FILES")
-
-    copy_tasks = []
-
-    runs = range(tile_id_start_index, tile_id_stop_index)
-    new_tss = []
-    for run in runs:
-        new_ts = f"{run:04d}"  # generate a new year
-        new_tss.append(new_ts)
-        logging.info(f"Copying files for run (tile ID) {new_ts}")
-
-        for i, input_filename in enumerate(input_filenames):
-            logging.info(f"Copying file {i + 1} of {len(input_filenames)}")
-            copy_tasks.append(event_loop.run_in_executor(
-                func=partial(copy_s3_file, input_filename=input_filename, old_ts=old_ts, new_ts=new_ts),
-                executor=None,
-            ))
-
-    await asyncio.gather(*copy_tasks)
-
-    logging.info("Sleeping for L2 ingestion...")
-    sleep_for(180)
-
-    # check that all input files were ingested
-    for new_ts in new_tss:
-        l2_tasks = []
-        ids = []
-        for i, input_filename in enumerate(input_filenames):
-            id = get_l2_id(input_filename, old_ts, new_ts)
-            ids.append(id)
-            l2_tasks.append(event_loop.run_in_executor(
-                func=partial(wait_for_l2, _id=id, index=l2_index),
-                executor=None
-            ))
-
-        responses = await asyncio.gather(*l2_tasks, return_exceptions=False)
-        for response in responses:
-            assert response.hits[0]["id"] in ids
-
-    logging.info("Sleeping for PGE execution...")
-    sleep_for(300)
-
-    logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
-    l3_tasks = []
-    ids = []
-    for new_ts in new_tss:
-        id = get_l3_id(new_ts)
-        ids.append(id)
-        l3_tasks.append(event_loop.run_in_executor(
-            func=partial(wait_for_l3, _id=id, index="grq_v2.0_l3_dswx_hls"),
-            executor=None
-        ))
-
-    responses = await asyncio.gather(*l3_tasks)
-    for response in responses:
-        assert response.hits[0]["id"] in ids
-
-
-def copy_s3_file(input_filename, old_ts, new_ts):
-    copy_source = {"Bucket": config["ISL_BUCKET"], "Key": input_filename}
-    destination = f"{input_filename.replace(old_ts, new_ts)}"
-    logging.info(f'Copying s3://.../{copy_source["Key"]} to s3://.../{destination}')
-    s3_client.copy(copy_source, copy_source["Bucket"], destination)
-
-
-def get_l2_id(input_filename, old_ts, new_ts):
-    return input_filename.replace(old_ts, new_ts).removesuffix(".tif")
-
-
-def get_l3_s30_id(new_ts):
-    return f"OPERA_L3_DSWx_HLS_SENTINEL-2A_T15SXR_{new_ts}0907T163901_v2.0_001"
-
-
-def get_l3_l30_id(new_ts):
-    return f"OPERA_L3_DSWx_HLS_LANDSAT-8_T22VEQ_{new_ts}0907T163901_v2.0_001"
 
 
 def sleep_for(sec=None):

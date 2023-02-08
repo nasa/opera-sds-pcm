@@ -47,23 +47,33 @@ RunConfig:
             input_file_path: list(str(), min=1)
 
           dynamic_ancillary_file_group:
-            # Digital elevation model
+            # Digital elevation model file
+            # (REQUIRED if check_ancillary_inputs_coverage is True)
             dem_file: str(required=False)
 
             # Digital elevation model description
-            dem_description: str(required=False)
+            dem_file_description: str(required=False)
 
-            # Land cover map
+            # Copernicus Global Land Service (CGLS) Land Cover Layer file
+            # (REQUIRED if check_ancillary_inputs_coverage is True)
             landcover_file: str(required=False)
 
             # Copernicus Global Land Service (CGLS) Land Cover Layer description
-            landcover_description: str(required=False)
+            landcover_file_description: str(required=False)
 
-            # ESA worldcover map
+            # ESA WorldCover map file
+            # (REQUIRED if check_ancillary_inputs_coverage is True)
             worldcover_file: str(required=False)
 
             # ESA WorldCover map description
-            worldcover_description: str(required=False)
+            worldcover_file_description: str(required=False)
+
+            # NOAA GSHHS shapefile
+            # (REQUIRED if check_ancillary_inputs_coverage is True)
+            shoreline_shapefile: str(required=False)
+
+            # NOAA GSHHS shapefile description
+            shoreline_shapefile_description: str(required=False)
 
           primary_executable:
             product_type: enum('DSWX_HLS')
@@ -78,17 +88,24 @@ RunConfig:
             # SAS writes DSWx-HLS products as a set of GeoTIFF layers
             # All files are saved within the output_directory following
             # the scheme:
-            # {output_dir}/{product_id}_{layer_name}.tif
-            # If the field product_id is left empty, the prefix "dswx_hls"
-            # will be used instead
+            # {output_dir}/{product_id}_v{product_version}_B{layer_number}_{layer_name}.tif
+            # The default value for `product_id` is "dswx_hls".
+            # The default value for `product_version` is the PROTEUS software version.
+            # `layer_number` and `layer_name` are automatically set by the DSWx-HLS SAS
+            # The PGE should update `product_id` and `product_version`
+            # according to the DSWx-HLS product specs.
 
             output_dir: str()
             product_id: str()
             product_version: num(required=False)
 
           processing:
-            # Use terrain-masking based on the Otsu method
-            flag_use_otsu_terrain_masking: bool(required=False)
+
+            # Check if ancillary inputs cover entirely the output product
+            check_ancillary_inputs_coverage: bool(required=False)
+
+            # Select shadow masking algorithm
+            shadow_masking_algorithm: enum('otsu', 'sun_local_inc_angle', required=False)
 
             # Minimum slope angle in degrees for terrain masking
             min_slope_angle: num(min=-180, max=180, required=False)
@@ -98,6 +115,12 @@ RunConfig:
 
             # Define how areas adjacent to cloud/cloud-shadow should be handled
             mask_adjacent_to_cloud_mode: enum('mask', 'ignore', 'cover', required=False)
+
+            # Copernicus CGLS Land Cover 100m forest classes
+            copernicus_forest_classes: list(int(), min=0, required=False)
+
+            # Ocean masking distance from shoreline in km
+            ocean_masking_shoreline_distance_km: num(required=False)
 
             # Layer 1 - WTR
             save_wtr: bool(required=False)
@@ -136,19 +159,51 @@ RunConfig:
             save_infrared_rgb: bool(required=False)
 
           browse_image_group:
-            # Save a browse image PNG of the WTR layer.
+            # Save a full-res Cloud-Optimized GEOTIFF DSWx-HLS browse image and
+            # a modified-resolution PNG of the browse image for DSWx-HLS
             save_browse: bool(required=False)
 
             # Setting `browse_image_height` and `browse_image_width` equal
             # will maintain this original HLS and DSWx-HLS aspect ratio
-            # of 3660 pixels x 3660 pixels.
-            # If these fields are left empty, 3660 x 3660 will be used.
+            # of 3660 pixels x 3660 pixels for the PNG browse image.
+            # If these fields are left empty, 1024 x 1024 will be used.
 
-            # Height in pixels
+            # Height in pixels for the PNG browse image
             browse_image_height: int(min=1, required=False)
 
-            # Width in pixels
+            # Width in pixels for the PNG browse image
             browse_image_width: int(min=1, required=False)
+
+            # Flag to exclude the Partial Surface Water Aggressive (PSW-Agg)
+            # class in the browse image. If True, PSW-Agg pixels will
+            # appear as Not Water. If False, this class will be displayed
+            # in the browse image, same as in WTR. Default is False.
+            exclude_psw_aggressive_in_browse: bool(required=False)
+
+            # Define how Not Water (e.g. land) appears in the browse image.
+            # Defaults to 'white'.
+            # Options are: 'white', 'nodata'
+            #   'white'         : Not Water pixels will be white
+            #   'nodata'        : Not Water pixels will be marked as not having
+            #                     valid data, and will be fully transparent
+            not_water_in_browse: enum('white', 'nodata', required=False)
+
+            # Define how cloud appears in the browse image.
+            # Defaults to 'gray'.
+            # Options are: 'gray', 'nodata'
+            #   'gray'          : cloud pixels will be opaque gray
+            #   'nodata'        : cloud pixels will be marked as not having
+            #                     valid data, and will be fully transparent
+            cloud_in_browse: enum('gray', 'nodata', required=False)
+
+            # Define how snow appears in the browse image.
+            # Defaults to 'cyan'.
+            # Options are: 'cyan', 'gray', 'nodata'
+            #   'cyan'          : snow will be opaque cyan
+            #   'gray'          : snow will be opaque gray
+            #   'nodata'        : snow pixels will be marked as not having
+            #                     valid data, and will be fully transparent
+            snow_in_browse: enum('cyan', 'gray', 'nodata', required=False)
 
           hls_thresholds: include('hls_thresholds_options', required=False)
 

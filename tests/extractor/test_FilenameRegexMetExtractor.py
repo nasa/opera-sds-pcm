@@ -1,4 +1,5 @@
 import os
+from unittest.mock import MagicMock
 
 from _pytest.monkeypatch import MonkeyPatch
 
@@ -23,6 +24,6 @@ def test(monkeypatch: MonkeyPatch):
 
 
 def mock_CoreMetExtractor(monkeypatch):
-    monkeypatch.setattr(os.path, os.path.dirname.__name__, lambda *args, **kwags: "")
-    monkeypatch.setattr(os.path, os.path.getsize.__name__, lambda *args, **kwags: 0)
-    monkeypatch.setattr(os.path, os.path.basename.__name__, lambda *args, **kwags: "")
+    monkeypatch.setattr(os.path, os.path.dirname.__name__, MagicMock(return_value=""))
+    monkeypatch.setattr(os.path, os.path.getsize.__name__, MagicMock(return_value=0))
+    monkeypatch.setattr(os.path, os.path.basename.__name__, MagicMock(return_value=""))
