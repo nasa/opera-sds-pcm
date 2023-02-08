@@ -790,7 +790,8 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
 
 
 def _slc_url_to_chunk_id(url: str):
-    return input_filename := Path(url).name
+    input_filename = Path(url).name
+    return input_filename
 
 
 def _hls_url_to_granule_id(url: str):
