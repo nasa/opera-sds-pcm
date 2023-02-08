@@ -35,12 +35,14 @@ import product2dataset.product2dataset
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
+from geo.geo_util import does_bbox_intersect_north_america
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-
+_date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -79,9 +81,13 @@ async def run(argv: list[str]):
     edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
-    provider_esconn_map = {"LPCLOUD": get_hls_catalog_connection(logging.getLogger(__name__)),
-                           "ASF": get_slc_catalog_connection(logging.getLogger(__name__))}
-    es_conn = provider_esconn_map.get(args.provider)
+
+    if args.provider == "LPCLOUD":
+        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+    elif args.provider == "ASF":
+        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+    else:
+        raise Exception("Unreachable")
 
     if args.file:
         with open(args.file, "r") as f:
@@ -107,13 +113,15 @@ async def run(argv: list[str]):
     logging.info(f"{job_id=}")
 
     logging.info(f"{args.subparser_name=}")
-    if not (args.subparser_name == "query" or args.subparser_name == "download" or args.subparser_name == "full"):
+    if not (args.subparser_name in ["survey", "query", "download", "full"]):
         raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
     username, _, password = netrc.netrc().authenticators(edl)
     token = supply_token(edl, username, password)
 
     results = {}
+    if args.subparser_name == "survey":
+        run_survey(args, token, cmr, settings)
     if args.subparser_name == "query" or args.subparser_name == "full":
         results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
     if args.subparser_name == "download" or args.subparser_name == "full":
@@ -230,27 +238,28 @@ def create_parser():
                                "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
 
     temporal_start_date = {"positionals": ["--temporal-start-date"],
-                  "kwargs": {"dest": "temporal_start_date",
-                             "default": None,
-                             "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
-                                     "--temporal-start-date 2021-01-14T00:00:00Z"}}
+                           "kwargs": {"dest": "temporal_start_date",
+                                      "default": None,
+                                      "help": "The ISO date time after which data should be retrieved. Only valid when --use-temporal is false/omitted. For Example, "
+                                              "--temporal-start-date 2021-01-14T00:00:00Z"}}
 
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
+    out_csv = {"positionals": ["--out-csv"],
+                           "kwargs": {"dest": "out_csv",
+                                      "default": "cmr_survey.csv",
+                                      "help": "Specify name of the output CSV file"}}
+
     parser_arg_list = [verbose, file, provider]
     _add_arguments(parser, parser_arg_list)
 
-    use_temporal = {"positionals": ["--use-temporal"],
-                 "kwargs": {"dest": "use_temporal",
-                            "action": "store_true",
-                            "help": "Toggle for using temporal range rather than revision date (range) in the query."}}
-
-    native_id = {"positionals": ["--native-id"],
-                 "kwargs": {"dest": "native_id",
-                            "help": "The native ID of a single product granule to be queried, overriding other query arguments if present."}}
+    survey_parser = subparsers.add_parser("survey")
+    survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
+                             smoke_run, native_id, use_temporal, temporal_start_date, out_csv]
+    _add_arguments(survey_parser, survey_parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
@@ -328,20 +337,23 @@ def update_url_index(
         job_id: str,
         query_dt: datetime,
         temporal_extent_beginning_dt: datetime,
-        revision_date_dt: datetime
+        revision_date_dt: datetime,
+        *args,
+        **kwargs
 ):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 
-def update_granule_index(es_spatial_conn, granule):
-    es_spatial_conn.process_granule(granule)
+def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
+    es_spatial_conn.process_granule(granule, *args, **kwargs)
 
 
 def supply_token(edl: str, username: str, password: str) -> str:
     """
-    :param edl: Earthdata login endpoint
-    :type edl: str
+    :param edl: Earthdata login (EDL) endpoint
+    :param username: EDL username
+    :param password:EDL password
     """
     token_list = _get_tokens(edl, username, password)
 
@@ -401,10 +413,46 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
 
     logging.info("CMR token successfully deleted")
 
+def run_survey(args, token, cmr, settings):
+
+    start_dt = datetime.strptime(args.start_date, _date_format_str)
+    end_dt = datetime.strptime(args.end_date, _date_format_str)
+
+    out_csv = open(args.out_csv, 'w')
+    out_csv.write("# DateTime Range:" + start_dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " to " + end_dt.strftime(
+        "%Y-%m-%dT%H:%M:%SZ") + '\n')
+
+    while start_dt < end_dt:
+
+        now = datetime.utcnow()
+
+        start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_str = (start_dt + timedelta(minutes=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        args.start_date = start_str
+        args.end_date = end_str
+
+        query_timerange: DateTimeRange = get_query_timerange(args, now, silent = True)
+
+        granules = query_cmr(args, token, cmr, settings, query_timerange, now, silent = True)
+
+        count = len(granules)
+
+        out_csv.write(start_str)
+        out_csv.write(',')
+        out_csv.write(end_str)
+        out_csv.write(',')
+        out_csv.write(str(count))
+        out_csv.write('\n')
+
+        logging.info(f"{start_str},{end_str},{str(count)}")
+
+        start_dt = start_dt + timedelta(minutes=60)
+
+    out_csv.close()
+
+    logging.info("Output CSV written out to file: " + str(args.out_csv))
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
-    HLS_SPATIAL_CONN = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
-
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
@@ -418,13 +466,28 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
 
     for granule in granules:
-        update_url_index(es_conn, granule.get("filtered_urls"), granule.get("granule_id"), job_id, query_dt,
-                         temporal_extent_beginning_dt=dateutil.parser.isoparse(
-                             granule["temporal_extent_beginning_datetime"]),
-                         revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]))
+        additional_fields = {}
+        if args.provider == "ASF":
+            if does_bbox_intersect_north_america(granule["bounding_box"]):
+                additional_fields["intersects_north_america"] = True
+
+        update_url_index(
+            es_conn,
+            granule.get("filtered_urls"),
+            granule.get("granule_id"),
+            job_id,
+            query_dt,
+            temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+            revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+            **additional_fields
+        )
 
         if args.provider == "LPCLOUD":
-            update_granule_index(HLS_SPATIAL_CONN, granule)
+            spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+            update_granule_index(spatial_catalog_conn, granule)
+        elif args.provider == "ASF":
+            spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
+            update_granule_index(spatial_catalog_conn, granule)
 
         if granule.get("filtered_urls"):
             download_urls.extend(granule.get("filtered_urls"))
@@ -532,7 +595,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     }
 
 
-def get_query_timerange(args, now: datetime):
+def get_query_timerange(args, now: datetime, silent = False):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
         "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
@@ -540,7 +603,8 @@ def get_query_timerange(args, now: datetime):
     end_date = args.end_date if args.end_date else now_date
 
     query_timerange = DateTimeRange(start_date, end_date)
-    logging.info(f"{query_timerange=}")
+    if silent is False:
+        logging.info(f"{query_timerange=}")
     return query_timerange
 
 
@@ -553,12 +617,12 @@ def get_download_timerange(args):
     return download_timerange
 
 
-def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
-    PAGE_SIZE = 2000
+def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime, silent = False) -> list:
+    page_size = 2000
 
     request_url = f"https://{cmr}/search/granules.umm_json"
     params = {
-        "page_size": PAGE_SIZE,
+        "page_size": page_size,
         "sort_key": "-start_date",
         "provider": args.provider,
         "ShortName": args.collection,
@@ -575,7 +639,9 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-    logging.info("Temporal Range: " + temporal_range)
+
+    if not silent:
+        logging.info("Temporal Range: " + temporal_range)
 
     if args.use_temporal:
         params["temporal"] = temporal_range
@@ -584,10 +650,11 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
-            logging.info(f"{args.temporal_start_date=}")
+            if not silent:
+                logging.info(f"{args.temporal_start_date=}")
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    logging.info(f"{request_url=} {params=}")
+    if not silent:
+        logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
@@ -599,7 +666,8 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
                             for granule in product_granules
                             if _match_identifier(settings, args, granule)]
 
-        logging.info(f"Found {str(len(product_granules))} total granules")
+        if not silent:
+            logging.info(f"Found {str(len(product_granules))} total granules")
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
@@ -640,10 +708,17 @@ def _request_search(args, request_url, params, search_after=None):
                      "BeginningDateTime"],
                  "revision_date": item["meta"]["revision-date"],
                  "short_name": item.get("umm").get("Platforms")[0].get("ShortName"),
-                 "bounding_box": [{"lat": point.get("Latitude"), "lon": point.get("Longitude")}
-                                  for point
-                                  in item.get("umm").get("SpatialExtent").get("HorizontalSpatialDomain")
-                                      .get("Geometry").get("GPolygons")[0].get("Boundary").get("Points")],
+                 "bounding_box": [
+                     {"lat": point.get("Latitude"), "lon": point.get("Longitude")}
+                     for point
+                     in item.get("umm")
+                            .get("SpatialExtent")
+                            .get("HorizontalSpatialDomain")
+                            .get("Geometry")
+                            .get("GPolygons")[0]
+                            .get("Boundary")
+                            .get("Points")
+                     ],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")],
                  "identifier": next(attr.get("Values")[0]
                                     for attr in item.get("umm").get("AdditionalAttributes")
@@ -719,7 +794,7 @@ def _url_to_orbit_number(url: str):
 
     input_filename = Path(url).name
     orbit_number: str = re.findall(orbit_re, input_filename)[0]
-    return orbit_number[1:-1] # Strips leading and trailing underscores
+    return orbit_number[1:-1]  # Strips leading and trailing underscores
 
 
 def _hls_url_to_granule_id(url: str):
@@ -765,7 +840,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if args.provider == "ASF":
         download_urls = [_to_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
-        download_from_asf(session=session, es_conn=es_conn, download_urls=download_urls, args=args, token=token, job_id=job_id)
+        download_from_asf(session=session, es_conn=es_conn, downloads=downloads, args=args, token=token, job_id=job_id)
     elif args.transfer_protocol == "https":
         download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
         logging.debug(f"{download_urls=}")
@@ -797,6 +872,7 @@ def group_download_urls_by_granule_id(download_urls):
 
 def _to_granule_id(dl_doc: dict[str, Any]):
     return _hls_url_to_granule_id(_to_url(dl_doc))
+
 
 def _to_tile_id(dl_doc: dict[str, Any]):
     return _url_to_tile_id(_to_url(dl_doc))
@@ -831,7 +907,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
 def download_from_asf(
         session: requests.Session,
         es_conn,
-        download_urls: list[str],
+        downloads: list[dict],
         args,
         token,
         job_id
@@ -846,7 +922,11 @@ def download_from_asf(
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for product_url in download_urls:
+    for download in downloads:
+        if not _has_url(download):
+            continue
+        product_url = _to_url(download)
+
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
 
@@ -877,7 +957,13 @@ def download_from_asf(
 
         logging.info(f"product_url_downloaded={product_url}")
 
-        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd())
+        additional_metadata = {}
+        if args.provider == "ASF":
+            if download.get("intersects_north_america"):
+                logging.info("adding additional dataset metadata (intersects_north_america)")
+                additional_metadata["intersects_north_america"] = True
+
+        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(), extra_metadata=additional_metadata)
 
         logging.info("Downloading associated orbit file")
 
@@ -1061,12 +1147,13 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     shutil.rmtree(extracts_dir)
 
 
-def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path) -> PurePath:
+def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None) -> PurePath:
     """Creates a dataset for the given product.
 
     :param product: the product to create datasets for.
     :param settings_cfg: the settings.yaml config as a dict.
     :param working_dir: the working directory for the extract process. Serves as the output directory for the extraction.
+    :param extra_metadata: extra metadata to add to the dataset.
     """
     # create dataset dir for product
     # (this also extracts the metadata to *.met.json file)
@@ -1074,7 +1161,8 @@ def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path) -> 
     dataset_dir = extractor.extract.extract(
         product=str(product),
         product_types=settings_cfg["PRODUCT_TYPES"],
-        workspace=str(working_dir.resolve())
+        workspace=str(working_dir.resolve()),
+        extra_met=extra_metadata
     )
     logging.info(f"{dataset_dir=}")
     return PurePath(dataset_dir)

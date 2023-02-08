@@ -2,10 +2,12 @@ from datetime import datetime
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
+from data_subscriber import es_conn_util
+
 ES_INDEX = "hls_spatial_catalog"
 
 
-class HLSSpatialProductCatalog(ElasticsearchUtility):
+class HLSSpatialProductCatalog:
     """
     Class to track products downloaded by daac_data_subscriber.py
 
@@ -19,9 +21,12 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
         delete_by_id
         update_document
     """
+    def __init__(self, /, logger=None):
+        self.logger = logger
+        self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self):
-        self.es.indices.create(body={"settings": {},
+        self.es.es.indices.create(body={"settings": {},
                                      "mappings": {
                                          "properties": {
                                              "bounding_box": {"type": "geo_point"},
@@ -34,7 +39,7 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
             self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
     def delete_index(self):
-        self.es.indices.delete(index=ES_INDEX, ignore=404)
+        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
@@ -55,14 +60,14 @@ class HLSSpatialProductCatalog(ElasticsearchUtility):
             self._post(granule['granule_id'], doc)
 
     def _post(self, granule_id, body):
-        result = self.index_document(index=ES_INDEX, body=body, id=granule_id)
+        result = self.es.index_document(index=ES_INDEX, body=body, id=granule_id)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, granule_id, index=ES_INDEX):
         try:
-            result = self.get_by_id(index=index, id=granule_id)
+            result = self.es.get_by_id(index=index, id=granule_id)
             if self.logger:
                 self.logger.debug(f"Query result: {result}")
 

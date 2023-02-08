@@ -16,6 +16,13 @@ RunConfig:
           {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}
           {%- endfor %}
+          {%- for type in data.static_ancillary_file_group.keys() %}
+          {%- if data.static_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
+          {%- else %}
+          {{ type }}:
+          {%- endif %}
+          {%- endfor %}
       ProductPathGroup:
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
@@ -51,11 +58,19 @@ RunConfig:
               - {{ data.input_file_group[ type ] }}
             {%- endif %}
             {%- endfor %}
-            burst_id: {{ data.burst_id }}
+            burst_id:
           dynamic_ancillary_file_group:
             {%- for type in data.dynamic_ancillary_file_group.keys() %}
             {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
             {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
+            {%- endfor %}
+          static_ancillary_file_group:
+            {%- for type in data.static_ancillary_file_group.keys() %}
+            {%- if data.static_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
@@ -68,3 +83,13 @@ RunConfig:
             product_type: CSLC_S1
           processing:
             polarization: {{ data.processing.polarization }}
+            geocoding:
+              output_format: GTiff
+              flatten: True
+              lines_per_block: 1000
+              x_posting: 5
+              y_posting: 10
+            geo2rdr:
+              lines_per_block: 1000
+              threshold: 1.0e-8
+              numiter: 25
