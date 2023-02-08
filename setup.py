@@ -14,7 +14,6 @@ setup(
     extras_require={
         "docker": [
             "more-itertools",
-
             "pytest==7.2.1",
             "scripttest",
             "mock",
