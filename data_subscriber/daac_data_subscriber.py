@@ -837,7 +837,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     logging.debug(f"{download_urls=}")
 
     if args.provider == "ASF":
-        download_from_asf(session=session, es_conn=es_conn, downloads=download_urls, args=args, token=token,
+        download_from_asf(session=session, es_conn=es_conn, downloads=downloads, args=args, token=token,
                           job_id=job_id)
     else:
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
