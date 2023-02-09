@@ -269,7 +269,7 @@ def create_parser():
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
-                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
+                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
                              native_id, use_temporal, temporal_start_date]
     _add_arguments(query_parser, query_parser_arg_list)
 
@@ -493,6 +493,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         if granule.get("filtered_urls"):
             download_urls.extend(granule.get("filtered_urls"))
 
+    logging.info(f"****** download_urls....{download_urls=}")
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")
         return
@@ -573,8 +574,12 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                             "name": "use_temporal",
                             "value": "--use-temporal" if args.use_temporal else "",
                             "from": "value"
+                        },
+                        {
+                            "name": "transfer_protocol",
+                            "value": "--transfer-protocol" if args.transfer_protocol else "s3",
+                            "from": "value"
                         }
-
                     ],
                     job_queue=args.job_queue
                 )
