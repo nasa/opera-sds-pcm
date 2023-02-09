@@ -192,6 +192,12 @@ def create_parser():
                                   "script as a cron, this value should be equal to or greater than how often your "
                                   "cron runs (default: 60 minutes)."}}
 
+    transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
+                         "kwargs": {"dest": "transfer_protocol",
+                                    "choices": ["s3", "https"],
+                                    "default": "s3",
+                                    "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
+
     dry_run = {"positionals": ["--dry-run"],
                "kwargs": {"dest": "dry_run",
                           "action": "store_true",
@@ -257,7 +263,7 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
-                            dry_run, smoke_run, no_schedule_download, release_version, job_queue,
+                            transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
                             chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
@@ -268,7 +274,7 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, provider, dry_run, smoke_run,
+    download_parser_arg_list = [verbose, file, endpoint, provider, transfer_protocol, dry_run, smoke_run,
                                 batch_ids, start_date, end_date, use_temporal, temporal_start_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
@@ -931,7 +937,11 @@ def download_from_asf(
     for download in downloads:
         if not _has_url(download):
             continue
-        product_url = _to_url(download)
+
+        if args.transfer_protocol == "https":
+            product_url = _to_https_url(download)
+        else:
+            product_url = _to_url(download)
 
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
@@ -1058,7 +1068,14 @@ def download_granules(
 
 
 def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
-    if product_url.startswith("s3"):
+    if args.transfer_protocol.lower() == "https":
+        product_filepath = download_product_using_https(
+            product_url,
+            session,
+            token,
+            target_dirpath=target_dirpath.resolve()
+        )
+    elif args.transfer_protocol.lower() == "s3":
         product_filepath = download_product_using_s3(
             product_url,
             session,
@@ -1066,13 +1083,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
             args=args
         )
     else:
-        product_filepath = download_product_using_https(
-            product_url,
-            session,
-            token,
-            target_dirpath=target_dirpath.resolve()
-        )
-
+        raise Exception(args.transfer_protocol)
     return product_filepath
 
 
