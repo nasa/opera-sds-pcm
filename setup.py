@@ -64,7 +64,7 @@ setup(
             "boto3",
             "botocore",
             "click==8.1.3",
-            "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "Shapely",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
@@ -78,7 +78,9 @@ setup(
             "validators",
             "cachetools==5.2.0",
             "matplotlib",
-            "numpy"
+            "numpy",
+            "more-itertools==8.13.0",
+            "ruamel.yaml"  # NOTE: deployed instances use ruamel-yaml-conda
         ],
         "integration": [
             "pytest==7.2.1",

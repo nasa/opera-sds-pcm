@@ -55,7 +55,7 @@ def setup_session(tmp_path_factory, worker_id):
 
 
 def clear_pcm_test_state():
-    from int_test_util import \
+    from integration.int_test_util import \
         es_index_delete, \
         delete_output_files, \
         mozart_es_index_delete

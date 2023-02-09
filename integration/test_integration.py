@@ -156,8 +156,33 @@ def test_subscriber_slc():
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
-    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    # CSLC
+
+    # 18-IW1, 18-IW2, 18-IW3
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z"
+
+    # 19-IW1, 19-IW2, 19-IW3
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z"
+
+    # 20-IW1, 20-IW2, 20-IW3
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z"
+
+    # RTC
 
     # 70-IW1, 70-IW3
     response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
@@ -190,7 +215,7 @@ def test_subscriber_slc():
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(300)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
     assert_cnm_s_success(response)
 
     # 70-IW1, 70-IW3
@@ -220,7 +245,7 @@ def test_subscriber_slc():
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z")
 
     # 70-IW1, 70-IW3
     mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
@@ -242,7 +267,7 @@ def test_subscriber_slc():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(300)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T64-135524-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
     assert_cnm_r_success(response)
 
     # 70-IW1, 70-IW3
