@@ -928,7 +928,10 @@ def download_from_asf(
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for product_url in downloads:
+    for download in downloads:
+        if not _has_url(download):
+            continue
+        product_url = _to_url(download)
 
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
@@ -961,7 +964,6 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
-
         if args.provider == "ASF":
             if download.get("intersects_north_america"):
                 logging.info("adding additional dataset metadata (intersects_north_america)")
