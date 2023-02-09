@@ -42,6 +42,20 @@ async def test_full(monkeypatch):
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
 
+    mock_download_product_using_https = MagicMock(return_value=Path("downloads/T00003/T00003.B01").resolve())
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_https.__name__,
+        mock_download_product_using_https
+    )
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.SessionWithHeaderRedirection.__name__,
+        MagicMock()
+    )
+
     mock_download_product_using_s3 = MagicMock(side_effect=[
         Path("downloads/T00000/T00000.B01").resolve(),
         Path("downloads/T00001/T00001.B01").resolve(),
@@ -59,13 +73,13 @@ async def test_full(monkeypatch):
         "extracts/T00001/T00001.B01",
         "extracts/T00001/T00001.B02",
         "extracts/T00001/T00002.B02",
+        "extracts/T00003/T00003.B01",
     ])
     mock_extract_metadata(monkeypatch, mock_extract)
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py full " \
            "--collection-shortname=HLSS30 " \
-           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -160,6 +174,21 @@ async def test_download(monkeypatch):
     mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
 
+    mock_download_product_using_https = MagicMock(return_value=Path("downloads/T00003/T00003.B01").resolve())
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.download_product_using_https.__name__,
+        mock_download_product_using_https
+    )
+
+    monkeypatch.setattr(
+        data_subscriber.daac_data_subscriber,
+        data_subscriber.daac_data_subscriber.SessionWithHeaderRedirection.__name__,
+        MagicMock()
+    )
+
+
     mock_download_product_using_s3 = MagicMock(side_effect=[
         Path("downloads/T00000/T00000.B01").resolve(),
         Path("downloads/T00001/T00001.B01").resolve(),
@@ -177,12 +206,12 @@ async def test_download(monkeypatch):
         "extracts/T00001/T00001.B01",
         "extracts/T00001/T00001.B02",
         "extracts/T00001/T00002.B02",
+        "extracts/T00003/T00003.B01",
     ])
     mock_extract_metadata(monkeypatch, mock_extract)
     mock_create_merged_files(monkeypatch)
 
     args = "dummy.py download " \
-           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -216,7 +245,6 @@ async def test_download_by_tile(monkeypatch):
 
     args = "dummy.py download " \
            "--batch-ids=T00000 " \
-           "--transfer-protocol=s3 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
            "".split()
@@ -270,7 +298,6 @@ async def test_download_by_tiles(monkeypatch):
     # ASSERT
     assert results["download"] is None
 
-
 @pytest.mark.asyncio
 async def test_download_https(monkeypatch):
     # ARRANGE
@@ -280,7 +307,7 @@ async def test_download_https(monkeypatch):
     mock_https_transfer(monkeypatch)
     mock_boto3(monkeypatch)
 
-    mock_extract = MagicMock(side_effect=["extracts/T00000/T00000.Fmask"])
+    mock_extract = MagicMock(side_effect=["extracts/T00003/T00003.Fmask"])
     mock_extract_metadata(monkeypatch, mock_extract)
     mock_create_merged_files(monkeypatch)
     monkeypatch.setattr(
@@ -290,10 +317,9 @@ async def test_download_https(monkeypatch):
     )
 
     args = "dummy.py download " \
-           "--batch-ids=T00000 " \
+           "--batch-ids=T00003 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-           "--transfer-protocol=https " \
            "".split()
 
     # ACT
@@ -301,7 +327,6 @@ async def test_download_https(monkeypatch):
 
     # ASSERT
     assert results["download"] is None
-
 
 @pytest.mark.asyncio
 async def test_download_by_tiles_smoke_run(monkeypatch):
@@ -384,7 +409,6 @@ def test_download_granules_using_https(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
-        transfer_protocol = "https"
 
     data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
@@ -420,7 +444,6 @@ def test_download_granules_using_s3(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
-        transfer_protocol = "s3"
 
     data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
@@ -439,7 +462,6 @@ def test_download_from_asf(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
-        transfer_protocol = "https"
         provider = "ASF"
 
     # mock ASF download functions
@@ -469,7 +491,7 @@ def test_download_from_asf(monkeypatch):
     )
 
     # ACT
-    data_subscriber.daac_data_subscriber.download_from_asf(session=MagicMock(), es_conn=MagicMock(), downloads=[{"https_url": "https://www.example.com/dummy_slc_product.zip"}], args=Args(), token=None, job_id=None)
+    data_subscriber.daac_data_subscriber.download_from_asf(session=MagicMock(), es_conn=MagicMock(), downloads=["https://www.example.com/dummy_slc_product.zip"], args=Args(), token=None, job_id=None)
 
     # ASSERT
     mock_extract_one_to_one.assert_called_once()
@@ -504,6 +526,9 @@ def patch_subscriber(monkeypatch):
                             "https_url": "https://example.com/T00002.B01.tif",
                             "s3_url": "s3://example/T00002.B01.tif"
                         },
+                        {
+                            "https_url": "https://example.com/T00003.B01.tif",
+                        }
                     ]
                 )
             )
@@ -581,6 +606,18 @@ def patch_subscriber(monkeypatch):
                     ],
                     "related_urls": [
                         "https://example.com/T00002.B02.tif",
+                    ],
+                    "identifier": "S2A_dummy",
+                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
+                    "revision_date": datetime.now().isoformat(),
+                },
+                {
+                    "granule_id": "dummy_granule_id_4",
+                    "filtered_urls": [
+                        "https://example.com/T00003.B01.tif",
+                    ],
+                    "related_urls": [
+                        "https://example.com/T00003.B01.tif",
                     ],
                     "identifier": "S2A_dummy",
                     "temporal_extent_beginning_datetime": datetime.now().isoformat(),

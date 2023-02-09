@@ -192,12 +192,6 @@ def create_parser():
                                   "script as a cron, this value should be equal to or greater than how often your "
                                   "cron runs (default: 60 minutes)."}}
 
-    transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
-                         "kwargs": {"dest": "transfer_protocol",
-                                    "choices": ["s3", "https"],
-                                    "default": "s3",
-                                    "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
-
     dry_run = {"positionals": ["--dry-run"],
                "kwargs": {"dest": "dry_run",
                           "action": "store_true",
@@ -263,7 +257,7 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
-                            transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
+                            dry_run, smoke_run, no_schedule_download, release_version, job_queue,
                             chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
@@ -274,7 +268,7 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, provider, transfer_protocol, dry_run, smoke_run,
+    download_parser_arg_list = [verbose, file, endpoint, provider, dry_run, smoke_run,
                                 batch_ids, start_date, end_date, use_temporal, temporal_start_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
@@ -342,7 +336,8 @@ def update_url_index(
         **kwargs
 ):
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
+                            **kwargs)
 
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
@@ -712,13 +707,13 @@ def _request_search(args, request_url, params, search_after=None):
                      {"lat": point.get("Latitude"), "lon": point.get("Longitude")}
                      for point
                      in item.get("umm")
-                            .get("SpatialExtent")
-                            .get("HorizontalSpatialDomain")
-                            .get("Geometry")
-                            .get("GPolygons")[0]
-                            .get("Boundary")
-                            .get("Points")
-                     ],
+                         .get("SpatialExtent")
+                         .get("HorizontalSpatialDomain")
+                         .get("Geometry")
+                         .get("GPolygons")[0]
+                         .get("Boundary")
+                         .get("Points")
+                 ],
                  "related_urls": [url_item.get("URL") for url_item in item.get("umm").get("RelatedUrls")],
                  "identifier": next(attr.get("Values")[0]
                                     for attr in item.get("umm").get("AdditionalAttributes")
@@ -837,22 +832,16 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    if args.provider == "ASF":
-        download_urls = [_to_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
-        download_from_asf(session=session, es_conn=es_conn, downloads=downloads, args=args, token=token, job_id=job_id)
-    elif args.transfer_protocol == "https":
-        download_urls = [_to_https_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
+    download_urls = [_to_url(download) for download in downloads if _has_url(download)]
 
+    logging.debug(f"{download_urls=}")
+
+    if args.provider == "ASF":
+        download_from_asf(session=session, es_conn=es_conn, downloads=download_urls, args=args, token=token,
+                          job_id=job_id)
+    else:
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
         download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
-    else:
-        download_urls = [_to_s3_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
-
-        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, None, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
 
@@ -879,22 +868,39 @@ def _to_tile_id(dl_doc: dict[str, Any]):
 
 
 def _to_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    elif dl_dict.get("s3_url"):
+    if dl_dict.get("s3_url"):
         return dl_dict["s3_url"]
+    elif dl_dict.get("https_url"):
+        return dl_dict["https_url"]
     else:
         raise Exception(f"Couldn't find any URL in {dl_dict=}")
 
 
 def _has_url(dl_dict: dict[str, Any]):
-    if dl_dict.get("https_url"):
-        return True
-    if dl_dict.get("s3_url"):
-        return True
+    result = _has_s3_url(dl_dict) or _has_https_url(dl_dict)
 
-    logging.error(f"Couldn't find any URL in {dl_dict=}")
-    return False
+    if not result:
+        logging.error(f"Couldn't find any URL in {dl_dict=}")
+
+    return result
+
+
+def _has_https_url(dl_dict: dict[str, Any]):
+    result = dl_dict.get("https_url")
+
+    if not result:
+        logging.warning(f"Couldn't find any HTTPS URL in {dl_dict=}")
+
+    return result
+
+
+def _has_s3_url(dl_dict: dict[str, Any]):
+    result = dl_dict.get("s3_url")
+
+    if not result:
+        logging.warning(f"Couldn't find any S3 URL in {dl_dict=}")
+
+    return result
 
 
 def _to_https_url(dl_dict: dict[str, Any]) -> str:
@@ -907,7 +913,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
 def download_from_asf(
         session: requests.Session,
         es_conn,
-        downloads: list[dict],
+        downloads: list[str],
         args,
         token,
         job_id
@@ -922,10 +928,7 @@ def download_from_asf(
     if args.dry_run:
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
-    for download in downloads:
-        if not _has_url(download):
-            continue
-        product_url = _to_url(download)
+    for product_url in downloads:
 
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
@@ -958,12 +961,9 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
-        if args.provider == "ASF":
-            if download.get("intersects_north_america"):
-                logging.info("adding additional dataset metadata (intersects_north_america)")
-                additional_metadata["intersects_north_america"] = True
 
-        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(), extra_metadata=additional_metadata)
+        dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
+                                         extra_metadata=additional_metadata)
 
         logging.info("Downloading associated orbit file")
 
@@ -1051,14 +1051,7 @@ def download_granules(
 
 
 def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
-    if args.transfer_protocol.lower() == "https":
-        product_filepath = download_product_using_https(
-            product_url,
-            session,
-            token,
-            target_dirpath=target_dirpath.resolve()
-        )
-    elif args.transfer_protocol.lower() == "s3":
+    if product_url.startswith("s3"):
         product_filepath = download_product_using_s3(
             product_url,
             session,
@@ -1066,7 +1059,13 @@ def download_product(product_url, session: requests.Session, token: str, args, t
             args=args
         )
     else:
-        raise Exception(args.transfer_protocol)
+        product_filepath = download_product_using_https(
+            product_url,
+            session,
+            token,
+            target_dirpath=target_dirpath.resolve()
+        )
+
     return product_filepath
 
 
@@ -1181,7 +1180,7 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
-    aws_creds = _get_aws_creds(session)
+    aws_creds = _get_aws_creds(session, args.provider)
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -1252,10 +1251,28 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
 
 
 @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
-def _get_aws_creds(session):
+def _get_aws_creds(session, provider):
+    logging.info("entry")
+
+    if provider == "LPCLOUD":
+        return _get_lp_aws_creds(session)
+    else:
+        return _get_asf_aws_creds(session)
+
+
+def _get_lp_aws_creds(session):
     logging.info("entry")
 
     with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+        r.raise_for_status()
+
+        return r.json()
+
+
+def _get_asf_aws_creds(session):
+    logging.info("entry")
+
+    with session.get("https://sentinel1.asf.alaska.edu/s3credentials") as r:
         r.raise_for_status()
 
         return r.json()
