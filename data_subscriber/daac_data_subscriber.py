@@ -913,7 +913,7 @@ def _to_https_url(dl_dict: dict[str, Any]) -> str:
 def download_from_asf(
         session: requests.Session,
         es_conn,
-        downloads: list[str],
+        downloads: list[dict],
         args,
         token,
         job_id
