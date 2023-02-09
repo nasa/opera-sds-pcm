@@ -962,6 +962,11 @@ def download_from_asf(
 
         additional_metadata = {}
 
+        if args.provider == "ASF":
+            if download.get("intersects_north_america"):
+                logging.info("adding additional dataset metadata (intersects_north_america)")
+                additional_metadata["intersects_north_america"] = True
+
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
                                          extra_metadata=additional_metadata)
 
