@@ -82,7 +82,7 @@ async def test_full(monkeypatch):
            "--collection-shortname=HLSS30 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-		   "--transfer-protocol=s3 " \
+           "--transfer-protocol=s3 " \
            "".split()
 
     # ACT
@@ -215,7 +215,7 @@ async def test_download(monkeypatch):
     args = "dummy.py download " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-		   "--transfer-protocol=s3" \
+           "--transfer-protocol=s3" \
            "".split()
 
     # ACT
