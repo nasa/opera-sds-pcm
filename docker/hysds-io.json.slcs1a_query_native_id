@@ -60,6 +60,14 @@
       "from": "submitter",
       "placeholder": "e.g. --dry-run",
       "optional": true
+    },
+    {
+      "name": "transfer_protocol",
+      "from": "submitter",
+      "placeholder": "e.g. --transfer-protocol=s3",
+      "type": "text",
+      "default": "--transfer-protocol=s3",
+      "optional": true
     }
   ]
 }
