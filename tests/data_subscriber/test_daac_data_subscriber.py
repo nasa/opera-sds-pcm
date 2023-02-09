@@ -409,6 +409,7 @@ def test_download_granules_using_https(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
+        transfer_protocol = "https"
 
     data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
@@ -444,6 +445,7 @@ def test_download_granules_using_s3(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
+        transfer_protocol = "s3"
 
     data_subscriber.daac_data_subscriber.download_granules(None, mock_es_conn, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
