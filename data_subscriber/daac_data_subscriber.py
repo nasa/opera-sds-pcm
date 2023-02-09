@@ -493,7 +493,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         if granule.get("filtered_urls"):
             download_urls.extend(granule.get("filtered_urls"))
 
-    logging.info(f"****** download_urls....{download_urls=}")
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")
         return
@@ -577,7 +576,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                         },
                         {
                             "name": "transfer_protocol",
-                            "value": "--transfer-protocol" if args.transfer_protocol else "s3",
+                            "value": "--transfer-protocol" if args.transfer_protocol else "",
                             "from": "value"
                         }
                     ],
