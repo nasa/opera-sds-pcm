@@ -1923,6 +1923,13 @@ resource "aws_instance" "metrics" {
   volume_tags = {
     Bravo = "pcm"
   }
+
+  root_block_device {
+    volume_size           = var.metrics["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -2019,6 +2026,12 @@ resource "aws_instance" "grq" {
   }
   volume_tags = {
     Bravo = "pcm"
+  }
+
+  root_block_device {
+    volume_size           = var.grq["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
