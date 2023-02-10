@@ -137,6 +137,11 @@ variable "artifactory_repo" {
   default = "general-stage"
 }
 
+variable "use_artifactory" {
+  type = bool
+  default = true
+}
+
 variable "hysds_release" {
   default = "v4.1.0-beta.4"
 }
