@@ -82,7 +82,7 @@ async def test_full(monkeypatch):
            "--collection-shortname=HLSS30 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-           "--transfer-protocol=s3 " \
+           "--transfer-protocol=auto " \
            "".split()
 
     # ACT
@@ -189,7 +189,6 @@ async def test_download(monkeypatch):
         MagicMock()
     )
 
-
     mock_download_product_using_s3 = MagicMock(side_effect=[
         Path("downloads/T00000/T00000.B01").resolve(),
         Path("downloads/T00001/T00001.B01").resolve(),
@@ -215,7 +214,7 @@ async def test_download(monkeypatch):
     args = "dummy.py download " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-           "--transfer-protocol=s3" \
+           "--transfer-protocol=auto" \
            "".split()
 
     # ACT
@@ -322,7 +321,7 @@ async def test_download_https(monkeypatch):
            "--batch-ids=T00003 " \
            "--start-date=1970-01-01T00:00:00Z " \
            "--end-date=1970-01-01T00:00:00Z " \
-		   "--transfer-protocol=https " \
+           "--transfer-protocol=https " \
            "".split()
 
     # ACT

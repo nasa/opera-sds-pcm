@@ -49,9 +49,9 @@
     {
       "name": "transfer_protocol",
       "from": "submitter",
-      "placeholder": "e.g. --transfer-protocol=s3",
+      "placeholder": "e.g. --transfer-protocol=auto",
       "type": "text",
-      "default": "--transfer-protocol=s3",
+      "default": "--transfer-protocol=auto",
       "optional": true
     }
   ]

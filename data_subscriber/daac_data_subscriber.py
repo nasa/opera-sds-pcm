@@ -193,10 +193,10 @@ def create_parser():
                                   "cron runs (default: 60 minutes)."}}
 
     transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
-                         "kwargs": {"dest": "transfer_protocol",
-                                    "choices": ["s3", "https"],
-                                    "default": "s3",
-                                    "help": "The protocol used for retrieving data, HTTPS or default of S3"}}
+               "kwargs": {"dest": "transfer_protocol",
+                          "choices": ["s3", "https", "auto"],
+                          "default": "auto",
+                          "help": "The protocol used for retrieving data, HTTPS or S3 or AUTO, default of auto"}}
 
     dry_run = {"positionals": ["--dry-run"],
                "kwargs": {"dest": "dry_run",
@@ -1086,8 +1086,22 @@ def download_product(product_url, session: requests.Session, token: str, args, t
             target_dirpath=target_dirpath.resolve(),
             args=args
         )
-    else:
-        raise Exception(args.transfer_protocol)
+    elif args.transfer_protocol.lower() == "auto":
+        if product_url.startswith("s3"):
+            product_filepath = download_product_using_s3(
+            product_url,
+            session,
+            target_dirpath=target_dirpath.resolve(),
+             args=args
+            )
+        else:
+            product_filepath = download_product_using_https(
+            product_url,
+            session,
+            token,
+            target_dirpath=target_dirpath.resolve()
+            )
+
     return product_filepath
 
 
