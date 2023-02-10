@@ -576,7 +576,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                         },
                         {
                             "name": "transfer_protocol",
-                            "value": "--transfer-protocol" if args.transfer_protocol else "",
+                            "value": "--transfer-protocol={args.transfer_protocol}",
                             "from": "value"
                         }
                     ],
