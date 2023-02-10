@@ -78,36 +78,13 @@ variable "es_snapshot_bucket" {
 }
 
 variable "artifactory_repo" {
-  #default = "general-stage"
-  default = "general-develop"
+  default = "general-stage"
+  #default = "general-develop"
 }
 
-######### ami vars #######
-variable "amis" {
-  type = map(string)
-  default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
-    mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
-    metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
-    grq       = "ami-0c84c56035af7fb6c" # grq v4.14
-    factotum  = "ami-068944cd3359de653" # factotum v4.14
-    autoscale = "ami-0922fa62a31e88485" # verdi v4.14
-    ci        = "ami-0922fa62a31e88485" # verdi v4.14
- }
-}
-
-####### Release Branches #############
-variable "pge_snapshots_date" {
-  default = "20230203-1.0.0-rc.7.0"
-}
-
-variable "pge_releases" {
-  type = map(string)
-  default = {
-    "dswx_hls" = "1.0.0-rc.7.0"
-    "cslc_s1" = "2.0.0-er.5.0"
-    "rtc_s1" = "2.0.0-er.5.0"
-  }
+# We must use artifactor for any non-dev clusters
+variable "use_artifactory" {
+  default = true
 }
 
 variable "hysds_release" {
@@ -269,4 +246,12 @@ variable "autoscale" {
 variable "run_smoke_test" {
   type = bool
   default = true
+}
+
+variable "es_user" {
+  default = "None"
+}
+
+variable "es_pass" {
+  default = "None"
 }

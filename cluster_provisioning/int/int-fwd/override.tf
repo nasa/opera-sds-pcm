@@ -69,6 +69,7 @@ variable "osl_bucket" {
   default = "opera-int-osl-fwd"
 }
 
+/*
 # mozart vars
 variable "mozart" {
   type = map(string)
@@ -119,4 +120,4 @@ variable "factotum" {
     publicc_ip    = ""
   }
 }
-
+*/
