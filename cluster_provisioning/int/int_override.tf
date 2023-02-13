@@ -55,6 +55,11 @@ variable "profile" {
   default = "saml-pub"
 }
 
+variable "po_daac_delivery_proxy" {
+  default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+}
+
 ####### Subnet ###########
 variable "subnet_id" {
   default = "subnet-0644c172bef1d690e"
