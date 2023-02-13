@@ -58,6 +58,10 @@
     {
       "name": "temporal_start_datetime",
       "destination": "positional"
+    },
+    {
+      "name": "transfer_protocol",
+      "destination": "positional"
     }
   ]
 }
