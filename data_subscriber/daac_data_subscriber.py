@@ -108,12 +108,6 @@ def create_parser():
                            "default": "OPS",
                            "help": "Specify DAAC endpoint to use. Defaults to OPS."}}
 
-    provider = {"positionals": ["-p", "--provider"],
-                "kwargs": {"dest": "provider",
-                           "choices": ["LPCLOUD", "ASF"],
-                           "default": "LPCLOUD",
-                           "help": "Specify a provider for collection search. Default is LPCLOUD."}}
-
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
                              "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC", "SENTINEL-1B_SLC"],
@@ -198,23 +192,23 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
-    parser_arg_list = [verbose, file, provider]
+    parser_arg_list = [verbose, file]
     _add_arguments(parser, parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
-    full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
+    full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                             dry_run, smoke_run, no_schedule_download, release_version, job_queue,
                             chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
-    query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
+    query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
                              native_id, use_temporal, temporal_start_date]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, provider, dry_run, smoke_run,
+    download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run,
                                 batch_ids, start_date, end_date, use_temporal, temporal_start_date]
     _add_arguments(download_parser, download_parser_arg_list)
 
