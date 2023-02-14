@@ -21,6 +21,11 @@ from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connectio
 from data_subscriber.token import supply_token
 from util.conf_util import SettingsConf
 
+PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
+                        "HLSS30": "LPCLOUD",
+                        "SENTINEL-1A_SLC": "ASF",
+                        "SENTINEL-1B_SLC": "ASF"}
+
 
 async def run(argv: list[str]):
     parser = create_parser()
@@ -35,9 +40,9 @@ async def run(argv: list[str]):
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
 
-    if args.provider == "LPCLOUD":
+    if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD":
         es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
-    elif args.provider == "ASF":
+    elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
         es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
     else:
         raise Exception("Unreachable")

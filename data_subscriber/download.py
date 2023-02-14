@@ -24,6 +24,10 @@ from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
+                        "HLSS30": "LPCLOUD",
+                        "SENTINEL-1A_SLC": "ASF",
+                        "SENTINEL-1B_SLC": "ASF"}
 
 
 class SessionWithHeaderRedirection(requests.Session):
@@ -62,7 +66,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.batch_ids:
         logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
+        id_func = _to_granule_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _to_orbit_number
         downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
@@ -81,7 +85,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     logging.debug(f"{download_urls=}")
 
-    if args.provider == "ASF":
+    if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
         download_from_asf(session=session, es_conn=es_conn, downloads=download_urls, args=args, token=token,
                           job_id=job_id)
     else:
@@ -154,7 +158,7 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
-        if args.provider == "ASF":
+        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             if download.get("intersects_north_america"):
                 logging.info("adding additional dataset metadata (intersects_north_america)")
                 additional_metadata["intersects_north_america"] = True
@@ -377,7 +381,7 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
-    aws_creds = _get_aws_creds(session, args.provider)
+    aws_creds = _get_aws_creds(session, PRODUCT_PROVIDER_MAP[args.collection])
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],

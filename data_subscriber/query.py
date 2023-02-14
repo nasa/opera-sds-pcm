@@ -17,6 +17,10 @@ from data_subscriber.url import _hls_url_to_granule_id, _url_to_orbit_number
 from geo.geo_util import does_bbox_intersect_north_america
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
+                        "HLSS30": "LPCLOUD",
+                        "SENTINEL-1A_SLC": "ASF",
+                        "SENTINEL-1B_SLC": "ASF"}
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
@@ -34,7 +38,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
     for granule in granules:
         additional_fields = {}
-        if args.provider == "ASF":
+        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
 
@@ -49,10 +53,10 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             **additional_fields
         )
 
-        if args.provider == "LPCLOUD":
+        if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD":
             spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
             update_granule_index(spatial_catalog_conn, granule)
-        elif args.provider == "ASF":
+        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
             update_granule_index(spatial_catalog_conn, granule)
 
@@ -72,7 +76,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         return
 
     # group URLs by this mapping func. E.g. group URLs by granule_id
-    keyfunc = _hls_url_to_granule_id if args.provider == "LPCLOUD" else _url_to_orbit_number
+    keyfunc = _hls_url_to_granule_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _url_to_orbit_number
     batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=keyfunc,
@@ -103,7 +107,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                 func=partial(
                     submit_download_job,
                     release_version=args.release_version,
-                    provider=args.provider,
+                    provider=PRODUCT_PROVIDER_MAP[args.collection],
                     params=[
                         {
                             "name": "batch_ids",
@@ -181,7 +185,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     params = {
         "page_size": page_size,
         "sort_key": "-start_date",
-        "provider": args.provider,
+        "provider": PRODUCT_PROVIDER_MAP[args.collection],
         "ShortName": args.collection,
         "token": token,
         "bounding_box": args.bbox,
