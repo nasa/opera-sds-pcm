@@ -187,7 +187,6 @@ async def test_download(monkeypatch):
         MagicMock()
     )
 
-
     mock_download_product_using_s3 = MagicMock(side_effect=[
         Path("downloads/T00000/T00000.B01").resolve(),
         Path("downloads/T00001/T00001.B01").resolve(),
@@ -408,6 +407,7 @@ def test_download_granules_using_https(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
+        transfer_protocol = "https"
 
     download.download_granules(None, mock_es_conn, {
         "granule1": ["http://example.com/granule1.Fmask.tif"]
@@ -443,6 +443,7 @@ def test_download_granules_using_s3(monkeypatch):
     class Args:
         dry_run = False
         smoke_run = True
+        transfer_protocol = "s3"
 
     download.download_granules(None, mock_es_conn, {
         "granule1": ["s3://example.com/granule1.Fmask.tif"]
@@ -462,6 +463,7 @@ def test_download_from_asf(monkeypatch):
         dry_run = False
         smoke_run = True
         provider = "ASF"
+        transfer_protocol = "https"
 
     # mock ASF download functions
     monkeypatch.setattr(

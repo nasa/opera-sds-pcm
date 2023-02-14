@@ -1,8 +1,8 @@
 {
   "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
   "disk_usage":"10GB",
-  "soft_time_limit": 3600,
-  "time_limit": 3660,
+  "soft_time_limit": 9300,
+  "time_limit": 9360,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/cslc_s1:2.0.0-er.4.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-cslc_s1-2.0.0-er.4.0.tar.gz",
+      "container_image_name": "opera_pge/cslc_s1:2.0.0-er.5.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-cslc_s1-2.0.0-er.5.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]

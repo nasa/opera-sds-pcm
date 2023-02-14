@@ -177,6 +177,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -188,6 +189,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -380,9 +382,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.6.0"
-    "cslc_s1" = "2.0.0-er.4.0"
-    "rtc_s1" = "2.0.0-er.4.0"
+    "dswx_hls" = "1.0.0-rc.7.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 
