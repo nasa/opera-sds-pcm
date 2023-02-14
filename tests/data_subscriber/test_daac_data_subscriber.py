@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from data_subscriber import daac_data_subscriber, download, query, token, url
+from data_subscriber import daac_data_subscriber, download, query, aws_token, url
 
 
 def setup_module():
