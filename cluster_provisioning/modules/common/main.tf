@@ -14,6 +14,8 @@ locals {
   lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
   clear_s3_aws_es                   = var.clear_s3_aws_es
   key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
+  sns_count                         = var.po_daac_cnm_r_event_trigger == "sns" ? 1 : 0
+  sqs_count                         = var.asf_daac_cnm_r_event_trigger == "sqs" ? 1 : 0
   cnm_r_kinesis_count               = 0
   lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   po_daac_delivery_event_type       = split(":", var.po_daac_delivery_proxy)[2]
@@ -25,20 +27,15 @@ locals {
   asf_daac_delivery_region          = split(":", var.asf_daac_delivery_proxy)[3]
   asf_daac_delivery_account         = split(":", var.asf_daac_delivery_proxy)[4]
   asf_daac_delivery_resource_name   = split(":", var.asf_daac_delivery_proxy)[5]
+  asf_daac_proxy_cnm_r_sns_count    = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[4]
 
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
-  po_daac_delivery_proxy_maturity   = split("-", var.po_daac_delivery_proxy)[5]
-  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[5]
-
-#  timer_handler_job_type            = "timer_handler"
 #  accountability_report_job_type    = "accountability_report"
-#  hls_download_job_type             = "hls_download"
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
-
-#  slc_download_job_type             = "slc_download"
   slcs1a_query_job_type             = "slcs1a_query"
 
   use_s3_uri_structure              = var.use_s3_uri_structure
@@ -576,8 +573,7 @@ resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
 }
 
 resource "aws_sqs_queue" "cnm_response" {
-  name                       = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-#  name                       = "${var.project}-dev-daac-cnm-response"
+  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -591,8 +587,9 @@ data "aws_sqs_queue" "cnm_response" {
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
-#  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
-  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue]: aws_sqs_queue.cnm_response.arn
+  count            = local.sqs_count
+  #event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response[count.index].arn
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
   #event_source_arn = aws_sqs_queue.cnm_response.arn
   function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
@@ -1923,6 +1920,13 @@ resource "aws_instance" "metrics" {
   volume_tags = {
     Bravo = "pcm"
   }
+
+  root_block_device {
+    volume_size           = var.metrics["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -2019,6 +2023,12 @@ resource "aws_instance" "grq" {
   }
   volume_tags = {
     Bravo = "pcm"
+  }
+
+  root_block_device {
+    volume_size           = var.grq["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {

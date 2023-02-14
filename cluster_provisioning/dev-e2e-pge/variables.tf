@@ -253,6 +253,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -264,6 +265,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }

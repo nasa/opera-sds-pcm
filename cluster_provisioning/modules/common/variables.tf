@@ -309,14 +309,16 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
-      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
+      #"instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
+	  "instance_type" = ["c5n.large", "c5.4xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
-      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
+     # "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
+	  "instance_type" = ["c5n.large", "c5.4xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 100
       "max_size"      = 10
@@ -413,7 +415,6 @@ variable "cnm_r_sqs_arn" {
   type = map(string)
   default = {
     dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    test = "arn:aws:sqs:us-west-2:399787141461:opera-test-daac-cnm-response"
     int  = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
   }
 }
