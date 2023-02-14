@@ -39,10 +39,11 @@ async def run(argv: list[str]):
     edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
+    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
 
-    if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD":
+    if provider == "LPCLOUD":
         es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
-    elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+    elif provider == "ASF":
         es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
     else:
         raise Exception("Unreachable")
@@ -107,6 +108,12 @@ def create_parser():
                            "choices": ["OPS", "UAT"],
                            "default": "OPS",
                            "help": "Specify DAAC endpoint to use. Defaults to OPS."}}
+
+    provider = {"positionals": ["-p", "--provider"],
+                "kwargs": {"dest": "provider",
+                           "choices": ["LPCLOUD", "ASF"],
+                           "default": "LPCLOUD",
+                           "help": "Specify a provider for collection search. Default is LPCLOUD."}}
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
@@ -208,7 +215,7 @@ def create_parser():
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run,
+    download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider,
                                 batch_ids, start_date, end_date, use_temporal, temporal_start_date]
     _add_arguments(download_parser, download_parser_arg_list)
 

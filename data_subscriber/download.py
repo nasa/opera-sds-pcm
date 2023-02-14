@@ -56,6 +56,7 @@ class SessionWithHeaderRedirection(requests.Session):
 
 
 def run_download(args, token, es_conn, netloc, username, password, job_id):
+    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
     download_timerange = get_download_timerange(args)
     all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
         dateutil.parser.isoparse(download_timerange.start_date),
@@ -66,7 +67,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.batch_ids:
         logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_granule_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _to_orbit_number
+        id_func = _to_granule_id if provider == "LPCLOUD" else _to_orbit_number
         downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
@@ -85,7 +86,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     logging.debug(f"{download_urls=}")
 
-    if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+    if provider == "ASF":
         download_from_asf(session=session, es_conn=es_conn, downloads=download_urls, args=args, token=token,
                           job_id=job_id)
     else:
@@ -114,6 +115,7 @@ def download_from_asf(
 ):
     settings_cfg = SettingsConf().cfg  # has metadata extractor config
     logging.info("Creating directories to process products")
+    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
 
     # house all file downloads
     downloads_dir = Path("downloads")
@@ -158,7 +160,7 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
-        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+        if provider == "ASF":
             if download.get("intersects_north_america"):
                 logging.info("adding additional dataset metadata (intersects_north_america)")
                 additional_metadata["intersects_north_america"] = True
@@ -381,7 +383,8 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 
 
 def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
-    aws_creds = _get_aws_creds(session, PRODUCT_PROVIDER_MAP[args.collection])
+    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
+    aws_creds = _get_aws_creds(session, provider)
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
