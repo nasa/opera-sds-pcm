@@ -415,7 +415,6 @@ variable "cnm_r_sqs_arn" {
   type = map(string)
   default = {
     dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    test = "arn:aws:sqs:us-west-2:399787141461:opera-test-daac-cnm-response"
     int  = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
   }
 }
