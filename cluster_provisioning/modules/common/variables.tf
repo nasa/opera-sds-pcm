@@ -132,12 +132,19 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4
-    mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
-    metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
-    grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
-    factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
-    autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
+    # HySDS v4.1.0-beta.4 with ES 7.9 - R1
+    #mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
+    #metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
+    #grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
+    #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
+    #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
+
+    # HySDS v4.1.0-beta.4 with ES 7.10 - Feb 2, 2023
+    mozart    = "ami-08193c00a4f91421b" # mozart v4.19 - 230202
+    metrics   = "ami-076eed77dcca47ddd" # metrics v4.14 - 230116
+    grq       = "ami-077e344b9281d76af" # grq v4.15 - 230116
+    factotum  = "ami-024bb9a07340e8438" # factotum v4.15 - 230118
+    autoscale = "ami-096a60cc913eea152" # verdi v4.16 patchdate - 230202
   }
 }
 
@@ -305,16 +312,16 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c6a.2xlarge", "c6a.xlarge"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c6a.2xlarge", "c6a.xlarge"]
       "root_dev_size" = 50
-      "data_dev_size" = 50
+      "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -409,7 +416,6 @@ variable "cnm_r_sqs_arn" {
   type = map(string)
   default = {
     dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    test = "arn:aws:sqs:us-west-2:399787141461:opera-test-daac-cnm-response"
     int  = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
   }
 }
@@ -422,9 +428,9 @@ variable "lambda_log_retention_in_days" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.6.0"
-    "cslc_s1" = "2.0.0-er.4.0"
-    "rtc_s1" = "2.0.0-er.4.0"
+    "dswx_hls" = "1.0.0-rc.7.0"
+    "cslc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.0"
   }
 }
 

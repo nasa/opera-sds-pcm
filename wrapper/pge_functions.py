@@ -3,7 +3,7 @@ PGE-specific functions for use with the OPERA PGE Wrapper
 """
 import glob
 import os
-from os.path import basename
+from os.path import basename, splitext
 from typing import Dict
 
 
@@ -21,9 +21,12 @@ def slc_s1_lineage_metadata(context, work_dir):
 
         lineage_metadata.append(input_filepath)
 
-    # Copy the DEM (vrt and tif) downloaded for this job to the pge input directory
+    # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
     lineage_metadata.extend(local_dem_filepaths)
+
+    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite3"))
+    lineage_metadata.extend(local_burstdb_filepaths)
 
     return lineage_metadata
 
@@ -49,6 +52,11 @@ def dswx_hls_lineage_metadata(context, work_dir):
     local_worldcover_filepaths = glob.glob(os.path.join(work_dir, "worldcover*.*"))
     lineage_metadata.extend(local_worldcover_filepaths)
 
+    shoreline_shape_filename = run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"]
+    shoreline_shape_basename = splitext(basename(shoreline_shape_filename))[0]
+    local_shoreline_filepaths = glob.glob(os.path.join(work_dir, f"{shoreline_shape_basename}.*"))
+    lineage_metadata.extend(local_shoreline_filepaths)
+
     return lineage_metadata
 
 
@@ -70,6 +78,9 @@ def update_slc_s1_runconfig(context, work_dir):
 
     # TODO: update once better naming is implemented for ancillary files
     run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'
+
+    burst_db_file_path = run_config["static_ancillary_file_group"]["burst_database_file"]
+    run_config["static_ancillary_file_group"]["burst_database_file"] = f'{container_home}/input_dir/{basename(burst_db_file_path)}'
 
     return run_config
 
@@ -93,5 +104,8 @@ def update_dswx_hls_runconfig(context, work_dir):
     run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'
     run_config["dynamic_ancillary_file_group"]["landcover_file"] = f'{container_home}/input_dir/landcover.tif'
     run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home}/input_dir/worldcover.vrt'
+
+    shoreline_shape_filename = basename(run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"])
+    run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"] = f'{container_home}/input_dir/{shoreline_shape_filename}'
 
     return run_config

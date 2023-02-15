@@ -16,9 +16,10 @@ runconfig:
   input_file_group:
     safe_file_path: __CHIMERA_VAL__
     orbit_file_path: __CHIMERA_VAL__
-  burst_id: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file: __CHIMERA_VAL__
+  static_ancillary_file_group:
+    burst_database_file: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/compass_user/output_dir
@@ -26,17 +27,17 @@ runconfig:
     scratch_path: /home/compass_user/output_dir/scratch_dir
   processing:
     # TODO: set to __CHIMERA_VAL__ and determine dynamically from input SLC file name
-    #       once beta SAS for CSLC-S1 is available
+    #       once dual-pol mode is fixed for CSLC-S1 SAS
     polarization: co-pol
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
-  - get_slc_s1_burst_id  # TODO: this should go away with CSLC-S1 beta delivery
   - get_slc_s1_safe_file
   - get_slc_s1_orbit_file
   - get_slc_s1_dem  # Note: this must be run after get_slc_s1_safe_file
+  - get_slc_s1_burst_database
   - get_cnm_version
   - set_daac_product_type
 
@@ -51,6 +52,11 @@ get_slc_s1_dem:
   # The s3 bucket containing the global DEM(s) to download regions from
   s3_bucket: "opera-dem"
 
+get_slc_s1_burst_database:
+  # The s3 location of the burst database file to use with each job
+  s3_bucket: "opera-burstdb"
+  s3_key: "opera_burst_database_deploy_2022_1212.sqlite3"
+
 set_daac_product_type:
   template: OPERA_L2_CSLC_S1_{cnm_version}
 
@@ -61,8 +67,7 @@ set_extra_pge_output_metadata:
 # List the extensions that the PGE generates
 output_types:
   L2_CSLC:
-    - tiff
-    - json
+    - h5
     - catalog.json
     - iso.xml
     - log
@@ -82,6 +87,7 @@ primary_output: "L2_CSLC_S1"
 localize_groups:
   - input_file_group
   - dynamic_ancillary_file_group
+  - static_ancillary_file_group
 
 
 #######################################################################
@@ -93,3 +99,4 @@ localize_groups:
 input_file_base_name_regexes: # regexes taken from settings.yaml
     - '(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})$'
 output_base_name: OPERA_L2_CSLC-S1A_IW_{burst_id}_{pol}_{acquisition_ts}Z_{product_version}_{creation_ts}Z
+ancillary_base_name: OPERA_L2_CSLC-S1A_IW_{pol}_{product_version}_{creation_ts}Z

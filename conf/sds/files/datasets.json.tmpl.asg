@@ -177,18 +177,18 @@
       "extractor": null,
       "publish": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/SLC/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/SLC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/SLC/{id}"
         ]
       },
       "browse": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/SLC/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/SLC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/SLC/{id}"
         ]
       }
     },
@@ -201,18 +201,18 @@
       "extractor": null,
       "publish": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_L30/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/HLS_L30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_L30/{id}"
         ]
       },
       "browse": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_L30/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/HLS_L30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_L30/{id}"
         ]
       }
     },
@@ -225,18 +225,18 @@
       "extractor": null,
       "publish": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_S30/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/HLS_S30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_S30/{id}"
         ]
       },
       "browse": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_S30/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/HLS_S30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_S30/{id}"
         ]
       }
     },
@@ -244,23 +244,23 @@
       "ipath": "hysds::data/L2_CSLC_S1",
       "level": "L2",
       "type": "L2_CSLC_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\\w{3}-\\w{6}-\\w{3})_(?P<pol>VV|VH|VV\\+VH)_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<pol>VV|VH|VV\\+VH)_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/CSLC_S1/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/CSLC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/CSLC_S1/{id}"
         ]
       },
       "browse": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/CSLC_S1/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/CSLC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/CSLC_S1/{id}"
         ]
       }
     },
@@ -268,23 +268,23 @@
       "ipath": "hysds::data/L2_RTC_S1",
       "level": "L2",
       "type": "L2_RTC_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))(_(?P<pol>VV|VH|VV\\+VH))?$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/RTC_S1/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/RTC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/RTC_S1/{id}"
         ]
       },
       "browse": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/RTC_S1/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/RTC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/RTC_S1/{id}"
         ]
       }
     },
@@ -297,18 +297,18 @@
       "extractor": null,
       "publish": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_HLS/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DSWx_HLS/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_HLS/{id}"
         ]
       },
       "browse": {
         "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_HLS/{id}",
         "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DSWx_HLS/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_HLS/{id}"
         ]
       }
     }

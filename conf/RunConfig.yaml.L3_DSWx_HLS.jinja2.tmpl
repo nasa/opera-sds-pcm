@@ -24,7 +24,7 @@ RunConfig:
         ProductVersion: {{ data.product_path_group.product_version }}
         ProgramPath: python3
         ProgramOptions:
-          - /home/conda/proteus-0.5.1/bin/dswx_hls.py
+          - /home/conda/proteus-0.5.2/bin/dswx_hls.py
           - --full-log-format
         ErrorCodeBase: 100000
         SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
@@ -56,9 +56,10 @@ RunConfig:
             {%- endif %}
             {%- endfor %}
             # TODO: update descriptions as necessary when new ancillary releases are available
-            dem_description: Copernicus DEM GLO-30 2021
-            landcover_description: Land Cover 100m - collection 3 - epoch 2019 discrete classification map
-            worldcover_description: ESA WorldCover 10m 2020 v1.0
+            dem_file_description: Copernicus DEM GLO-30 2021
+            landcover_file_description: Land Cover 100m - collection 3 - epoch 2019 discrete classification map
+            worldcover_file_description: ESA WorldCover 10m 2020 v1.0
+            shoreline_shapefile_description: NOAA GSHHS Level 1 resolution f - GSHHS_f_L1
           primary_executable:
             product_type: DSWX_HLS
           product_path_group:
@@ -74,6 +75,7 @@ RunConfig:
             max_sun_local_inc_angle: 40
             mask_adjacent_to_cloud_mode: 'mask'
             copernicus_forest_classes: [ 20, 111, 113, 115, 116, 121, 123, 125, 126 ]
+            ocean_masking_shoreline_distance_km: 1.0
             save_wtr: True    # Layer 1 - WTR
             save_bwtr: True   # Layer 2 - BWTR
             save_conf: True   # Layer 3 - CONF

@@ -713,21 +713,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
             )
 
-    def get_slc_s1_burst_id(self):
-        """Returns the SLC burst ID to be processed with a S1 based job"""
-        # TODO: dummy implementation until we get the CSLC-S1 SAS beta which
-        #       determines the list of burst ID's to process automatically
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        # hardcode the burst ID used with the interface delivery for now...
-        rc_params = {
-            oc_const.BURST_ID: "t64_135524_iw2"
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
     def get_slc_polarization(self):
         """
         Determines the polarization setting for the CSLC-S1 or RTC-S1 job based
@@ -860,6 +845,37 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # it will be localized for us automatically
         rc_params = {
             oc_const.ORBIT_FILE_PATH: s3_orbit_file_path
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_slc_s1_burst_database(self):
+        """
+        Copies the static burst database file configured for use with an SLC-based
+        job to the job's local working area.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        output_filepath = os.path.join(working_dir, 'opera_burst_database.sqlite3')
+
+        s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_BURST_DATABASE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_SLC_S1_BURST_DATABASE, {}).get(oc_const.S3_KEY)
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Burst Database"
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.BURST_DATABASE_FILE: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1212,6 +1228,46 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {
             oc_const.WORLDCOVER_FILE: output_filepath
         }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_shoreline_shapefiles(self):
+        """
+        Copies the set of static shoreline shapefiles configured for use with a
+        DSWx-HLS job to the job's local working area.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        rc_params = {}
+
+        s3_bucket = self._pge_config.get(oc_const.GET_SHORELINE_SHAPEFILES, {}).get(oc_const.S3_BUCKET)
+        s3_keys = self._pge_config.get(oc_const.GET_SHORELINE_SHAPEFILES, {}).get(oc_const.S3_KEYS)
+
+        for s3_key in s3_keys:
+            output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+            pge_metrics = download_object_from_s3(
+                s3_bucket, s3_key, output_filepath, filetype="Shoreline Shapefile"
+            )
+
+            write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+            # Set up the main shapefile which is configured in the PGE RunConfig
+            if output_filepath.endswith(".shp"):
+                rc_params = {
+                    oc_const.SHORELINE_SHAPEFILE: output_filepath
+                }
+
+        # Make sure the .shp file was included in the set of files localized from S3
+        if not rc_params:
+            raise RuntimeError("No .shp file included with the localized Shoreline Shapefile dataset.")
 
         logger.info(f"rc_params : {rc_params}")
 
