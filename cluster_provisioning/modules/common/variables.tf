@@ -273,6 +273,10 @@ variable "lambda_e-misfire_handler_package_name" {
   default = "lambda-event-misfire-handler"
 }
 
+variable "lambda_batch-query_handler_package_name" {
+  default = "lambda-batch-process-handler"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -468,6 +472,10 @@ variable "slc_download_timer_trigger_frequency" {
 
 variable "slcs1a_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
+}
+
+variable "batch_query_timer_trigger_frequency" {
+  default = "rate(1 minute)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {}

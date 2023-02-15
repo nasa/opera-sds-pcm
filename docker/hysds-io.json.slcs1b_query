@@ -77,12 +77,17 @@
       "optional": true
     },
     {
+      "name": "historical",
+      "from": "submitter",
+      "placeholder": "e.g. --north-america-only",
+      "optional": true
+    },
+    {
       "name": "transfer_protocol",
       "from": "submitter",
       "placeholder": "e.g. --transfer-protocol=auto",
       "type": "text",
       "default": "--transfer-protocol=auto",
-      "optional": true
     }
   ]
 }

@@ -40,6 +40,7 @@ from geo.geo_util import does_bbox_intersect_north_america
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
+from geo.geo_util import does_bbox_intersect_north_america
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 _date_format_str = "%Y-%m-%dT%H:%M:%SZ"
@@ -248,6 +249,11 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
+    na_only = {"positionals": ["--north-america-only"],
+               "kwargs": {"dest": "na_only",
+                          "action": "store_true",
+                          "help": "Download only North America data. Filtering happens in the query job."}}
+
     out_csv = {"positionals": ["--out-csv"],
                            "kwargs": {"dest": "out_csv",
                                       "default": "cmr_survey.csv",
@@ -264,13 +270,13 @@ def create_parser():
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                             transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id]
+                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id, na_only]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
                              transfer_protocol, dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
-                             native_id, use_temporal, temporal_start_date]
+                             native_id, use_temporal, temporal_start_date, na_only]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
@@ -467,9 +473,24 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     download_urls: list[str] = []
 
     for granule in granules:
+
+        granule_in_na = False
+        try:
+            granule_in_na = does_bbox_intersect_north_america(granule["bounding_box"])
+        except Exception:
+            logging.warning(f"Granule %s failed testing for North America intersection.\
+We will assume this granule does not intersect" % granule.get("granule_id"))
+
+        # If the query mode is for North America data only (typical for historical processing),
+        # throw out any granules that do not intersect with North America
+        if args.na_only is True and granule_in_na is False:
+            logging.info(f"Historical processing is enabled and following granule does not intersect with\
+North America. Skipping processing. %s" % granule.get("granule_id"))
+            continue
+
         additional_fields = {}
         if args.provider == "ASF":
-            if does_bbox_intersect_north_america(granule["bounding_box"]):
+            if granule_in_na is True:
                 additional_fields["intersects_north_america"] = True
 
         update_url_index(
