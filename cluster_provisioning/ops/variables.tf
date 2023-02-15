@@ -355,7 +355,7 @@ variable "pge_releases" {
   default = {
     "dswx_hls" = "1.0.0-rc.7.0"
     "cslc_s1" = "2.0.0-er.5.0"
-    "rtc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.1"
   }
 }
 
