@@ -15,8 +15,8 @@ from requests import Response
 import conftest
 import integration.conftest
 from benchmark_test_util import get_es_host as get_mozart_ip
-from tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish, \
-    wait_for_jobs_to_finish
+from benchmark.tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish, \
+    wait_for_jobs_to_finish, wait_for_slc_pge_jobs_to_finish
 
 config = conftest.config
 
@@ -86,8 +86,8 @@ async def test_slc(event_loop: AbstractEventLoop):
 
         wait_for_query_jobs_to_finish(job_type=f"job-slcs1a_query:{branch}")
         wait_for_download_jobs_to_finish(job_type=f"job-slc_download:{branch}")
-        wait_for_pge_jobs_to_finish(job_type=f"job-SCIFLO_L2_CSLC_S1:{branch}")
-        wait_for_pge_jobs_to_finish(job_type=f"job-SCIFLO_L2_RTC_S1:{branch}")
+        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L2_CSLC_S1:{branch}")
+        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L2_RTC_S1:{branch}")
         wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
 
 
