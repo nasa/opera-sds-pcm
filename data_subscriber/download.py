@@ -82,18 +82,15 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
     session = SessionWithHeaderRedirection(username, password, netloc)
 
-    download_urls = [_to_url(download) for download in downloads if _has_url(download)]
-
-    logging.debug(f"{download_urls=}")
-
     if provider == "ASF":
-        download_from_asf(session=session, es_conn=es_conn, downloads=download_urls, args=args, token=token,
-                          job_id=job_id)
+        download_from_asf(session=session, es_conn=es_conn, downloads=downloads, args=args, token=token, job_id=job_id)
     else:
-        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
+        download_urls = [_to_url(download) for download in downloads if _has_url(download)]
+        logging.debug(f"{download_urls=}")
 
-    logging.info(f"Total files updated: {len(download_urls)}")
+        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+
+        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
 
 
 def get_download_timerange(args):
