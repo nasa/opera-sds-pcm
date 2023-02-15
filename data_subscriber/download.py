@@ -17,7 +17,7 @@ from smart_open import open
 
 import extractor.extract
 import product2dataset.product2dataset
-from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url
+from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from product2dataset import product2dataset
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
@@ -127,7 +127,11 @@ def download_from_asf(
     for download in downloads:
         if not _has_url(download):
             continue
-        product_url = _to_url(download)
+
+        if args.transfer_protocol == "https":
+            product_url = _to_https_url(download)
+        else:
+            product_url = _to_url(download)
 
         logging.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
@@ -254,20 +258,35 @@ def download_granules(
 
 
 def download_product(product_url, session: requests.Session, token: str, args, target_dirpath: Path):
-    if product_url.startswith("s3"):
-        product_filepath = download_product_using_s3(
-            product_url,
-            session,
-            target_dirpath=target_dirpath.resolve(),
-            args=args
-        )
-    else:
+    if args.transfer_protocol.lower() == "https":
         product_filepath = download_product_using_https(
             product_url,
             session,
             token,
             target_dirpath=target_dirpath.resolve()
         )
+    elif args.transfer_protocol.lower() == "s3":
+        product_filepath = download_product_using_s3(
+            product_url,
+            session,
+            target_dirpath=target_dirpath.resolve(),
+            args=args
+        )
+    elif args.transfer_protocol.lower() == "auto":
+        if product_url.startswith("s3"):
+            product_filepath = download_product_using_s3(
+                product_url,
+                session,
+                target_dirpath=target_dirpath.resolve(),
+                args=args
+            )
+        else:
+            product_filepath = download_product_using_https(
+                product_url,
+                session,
+                token,
+                target_dirpath=target_dirpath.resolve()
+            )
 
     return product_filepath
 
