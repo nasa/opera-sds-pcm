@@ -414,7 +414,7 @@ variable "obs_acct_report_timer_trigger_frequency" {
 }
 
 variable "batch_query_timer_trigger_frequency" {
-  default = "rate(1 minutes)"
+  default = "rate(1 minute)"
 }
 
 variable "rs_fwd_bucket_ingested_expiration" {
