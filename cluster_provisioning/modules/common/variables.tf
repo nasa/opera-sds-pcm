@@ -132,20 +132,19 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4
+    # HySDS v4.1.0-beta.4 with ES 7.9 - R1
     #mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
     #metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
     #grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
     #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
     #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
 
-
-    # HySDS v4.1.0-beta.4 with ES 7.10 - Jan 20, 2023
-	mozart    = "ami-07227c9552d105f5d"
-    metrics   = "ami-076eed77dcca47ddd"
-    grq       = "ami-077e344b9281d76af"
-    factotum  = "ami-024bb9a07340e8438"
-    autoscale = "ami-0824aba5572a8695f"
+    # HySDS v4.1.0-beta.4 with ES 7.10 - Feb 2, 2023
+    mozart    = "ami-08193c00a4f91421b" # mozart v4.19 - 230202
+    metrics   = "ami-076eed77dcca47ddd" # metrics v4.14 - 230116
+    grq       = "ami-077e344b9281d76af" # grq v4.15 - 230116
+    factotum  = "ami-024bb9a07340e8438" # factotum v4.15 - 230118
+    autoscale = "ami-096a60cc913eea152" # verdi v4.16 patchdate - 230202
   }
 }
 
@@ -274,6 +273,10 @@ variable "lambda_e-misfire_handler_package_name" {
   default = "lambda-event-misfire-handler"
 }
 
+variable "lambda_batch-query_handler_package_name" {
+  default = "lambda-batch-process-handler"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -309,16 +312,14 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
-      #"instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
-	  "instance_type" = ["c5n.large", "c5.4xlarge"]
+      "instance_type" = ["c6a.2xlarge", "c6a.xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
-     # "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
-	  "instance_type" = ["c5n.large", "c5.4xlarge"]
+      "instance_type" = ["c6a.2xlarge", "c6a.xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 100
       "max_size"      = 10
@@ -471,6 +472,10 @@ variable "slc_download_timer_trigger_frequency" {
 
 variable "slcs1a_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
+}
+
+variable "batch_query_timer_trigger_frequency" {
+  default = "rate(1 minute)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {}

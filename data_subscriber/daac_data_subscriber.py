@@ -20,6 +20,7 @@ from data_subscriber.query import update_url_index, run_query
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.aws_token import supply_token
 from util.conf_util import SettingsConf
+from geo.geo_util import does_bbox_intersect_north_america
 
 PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
                         "HLSS30": "LPCLOUD",
@@ -199,11 +200,22 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
+    na_only = {"positionals": ["--north-america-only"],
+               "kwargs": {"dest": "na_only",
+                          "action": "store_true",
+                          "help": "Download only North America data. Filtering happens in the query job."}}
+
+    out_csv = {"positionals": ["--out-csv"],
+                           "kwargs": {"dest": "out_csv",
+                                      "default": "cmr_survey.csv",
+                                      "help": "Specify name of the output CSV file"}}
+
     transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
                "kwargs": {"dest": "transfer_protocol",
                           "choices": ["s3", "https", "auto"],
                           "default": "auto",
                           "help": "The protocol used for retrieving data, HTTPS or S3 or AUTO, default of auto"}}
+
 
     parser_arg_list = [verbose, file]
     _add_arguments(parser, parser_arg_list)
@@ -211,13 +223,13 @@ def create_parser():
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                             dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol]
+                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol, na_only]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
-                             native_id, use_temporal, temporal_start_date, transfer_protocol]
+                             native_id, use_temporal, temporal_start_date, transfer_protocol, na_only]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")

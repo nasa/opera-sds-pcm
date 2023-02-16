@@ -60,6 +60,10 @@
       "destination": "positional"
     },
     {
+      "name": "historical",
+      "destination": "positional"
+    },
+    {
       "name": "transfer_protocol",
       "destination": "positional"
     }

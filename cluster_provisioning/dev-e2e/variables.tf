@@ -413,6 +413,10 @@ variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
 
+variable "batch_query_timer_trigger_frequency" {
+  default = "rate(1 minutes)"
+}
+
 variable "rs_fwd_bucket_ingested_expiration" {
   default = 14
 }
