@@ -220,6 +220,11 @@ def create_parser():
     parser_arg_list = [verbose, file]
     _add_arguments(parser, parser_arg_list)
 
+    survey_parser = subparsers.add_parser("survey")
+    survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
+                              smoke_run, native_id, use_temporal, temporal_start_date, out_csv]
+    _add_arguments(survey_parser, survey_parser_arg_list)
+
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                             dry_run, smoke_run, no_schedule_download, release_version, job_queue,

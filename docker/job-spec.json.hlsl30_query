@@ -58,10 +58,6 @@
     {
       "name": "temporal_start_datetime",
       "destination": "positional"
-    },
-    {
-      "name": "historical",
-      "destination": "positional"
     }
   ]
 }
