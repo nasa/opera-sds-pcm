@@ -14,6 +14,8 @@ locals {
   lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
   clear_s3_aws_es                   = var.clear_s3_aws_es
   key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
+  sns_count                         = var.po_daac_cnm_r_event_trigger == "sns" ? 1 : 0
+  sqs_count                         = var.asf_daac_cnm_r_event_trigger == "sqs" ? 1 : 0
   cnm_r_kinesis_count               = 0
   lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   po_daac_delivery_event_type       = split(":", var.po_daac_delivery_proxy)[2]
@@ -25,20 +27,14 @@ locals {
   asf_daac_delivery_region          = split(":", var.asf_daac_delivery_proxy)[3]
   asf_daac_delivery_account         = split(":", var.asf_daac_delivery_proxy)[4]
   asf_daac_delivery_resource_name   = split(":", var.asf_daac_delivery_proxy)[5]
+  asf_daac_proxy_cnm_r_sns_count    = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[4]
 
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
-  po_daac_delivery_proxy_maturity   = split("-", var.po_daac_delivery_proxy)[5]
-  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[5]
-
-#  timer_handler_job_type            = "timer_handler"
-#  accountability_report_job_type    = "accountability_report"
-#  hls_download_job_type             = "hls_download"
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
-
-#  slc_download_job_type             = "slc_download"
   slcs1a_query_job_type             = "slcs1a_query"
 
   use_s3_uri_structure              = var.use_s3_uri_structure
@@ -60,18 +56,6 @@ locals {
   enable_download_timer = false
 
   delete_old_job_catalog = true
-
-  q_config = <<EOT
-QUEUES:
-    %{~ for queue, queue_config in var.queues ~}
-  - QUEUE_NAME: ${queue}
-    INSTANCE_TYPES:
-    %{~ for instance_type in queue_config["instance_type"] ~}
-      - ${instance_type}
-    %{~ endfor ~}
-    TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
-    %{~ endfor ~}
-  EOT
 }
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
@@ -588,8 +572,7 @@ resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
 }
 
 resource "aws_sqs_queue" "cnm_response" {
-  name                       = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-#  name                       = "${var.project}-dev-daac-cnm-response"
+  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -603,8 +586,8 @@ data "aws_sqs_queue" "cnm_response" {
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
-#  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
-  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue]: aws_sqs_queue.cnm_response.arn
+  count            = local.sqs_count
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
   #event_source_arn = aws_sqs_queue.cnm_response.arn
   function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
@@ -669,23 +652,21 @@ resource "aws_sqs_queue_policy" "isl_queue_policy" {
 }
 POLICY
 }
-resource "aws_s3_bucket_object" "folder" {
-  bucket = local.isl_bucket
-  acl    = "private"
-  key    = "met_required/"
-  source = "/dev/null"
-}
+#resource "aws_s3_bucket_object" "folder" {
+#  bucket = local.isl_bucket
+#  acl    = "private"
+#  key    = "met_required/"
+#  source = "/dev/null"
+#}
 
-resource "aws_s3_bucket_notification" "sqs_isl_notification" {
-  bucket = local.isl_bucket
-
-  queue {
-    id        = "sqs_event"
-    queue_arn = aws_sqs_queue.isl_queue.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
-
-}
+#resource "aws_s3_bucket_notification" "sqs_isl_notification" {
+#  bucket = local.isl_bucket
+#  queue {
+#    id        = "sqs_event"
+#    queue_arn = aws_sqs_queue.isl_queue.arn
+#    events    = ["s3:ObjectCreated:*"]
+#  }
+#}
 
 resource "aws_sqs_queue" "isl_dead_letter_queue" {
   name                       = "${var.project}-${var.venue}-${local.counter}-isl-dead-letter-queue"
@@ -767,6 +748,27 @@ resource "aws_lambda_event_source_mapping" "isl_queue_event_source_mapping" {
   function_name    = aws_lambda_function.isl_lambda.arn
 }
 
+#####################################
+# sds config  QUEUE block generation
+#####################################
+data "template_file" "config" {
+  template = file("${path.module}/config.tmpl")
+  count    = length(var.queues)
+  #the spacing in inst is determined by trial and error, so the resulting terraform generated YAML is valid
+  vars = {
+    queue = element(keys(var.queues), count.index)
+    inst  = join("\n      - ", lookup(lookup(var.queues, element(keys(var.queues), count.index)), "instance_type"))
+    tot_jobs_met  = lookup(lookup(var.queues, element(keys(var.queues), count.index)), "total_jobs_metric", false)
+  }
+}
+
+data "template_file" "q_config" {
+  template = file("${path.module}/config2.tmpl")
+  #the spacing in queue is determined by trial and error, so the resulting terraform generated YAML is valid
+  vars = {
+    queue = join("\n", data.template_file.config.*.rendered)
+  }
+}
 
 ######################
 # mozart
@@ -857,7 +859,7 @@ resource "aws_instance" "mozart" {
   }
 
   provisioner "file" {
-    content     = local.q_config
+    content     = data.template_file.q_config.rendered
     destination = "q_config"
   }
 
@@ -1561,20 +1563,125 @@ data "aws_subnet_ids" "public_asg_vpc" {
   vpc_id = var.public_asg_vpc
 }
 
+data "template_file" "launch_template_user_data" {
+  for_each = var.queues
+  template = <<-EOT
+        #!/bin/bash
+
+        BUNDLE_URL=s3://${local.code_bucket}/${each.key}-${var.project}-${var.venue}-${local.counter}.tbz2
+        PROJECT=${var.project}
+        ENVIRONMENT=${var.environment}
+
+        echo "PASS" >> /tmp/user_data_test.txt
+
+        mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+        touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        echo '{
+          "agent": {
+            "metrics_collection_interval": 10,
+            "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+          },
+          "logs": {
+            "logs_collected": {
+              "files": {
+                "collect_list": [
+                  {
+                    "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                    "timezone": "UTC"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_hlsl30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hlsl30_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_hlss30_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hlss30_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_hls_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_hls_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_pcm_int.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_pcm_int.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_on_demand.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_on_demand.log",
+                    "timezone": "Local"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_sciflo_L3_DSWx_HLS.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_DSWx_HLS.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_query.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-hls_data_download.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-hls_data_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l3_dswx_hls.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-sciflo-l3_dswx_hls.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-send_cnm_notify.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-send_cnm_notify.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/home/ops/verdi/log/opera-job_worker-rcv_cnm_notify.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/opera-job_worker-rcv_cnm_notify.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  }
+                ]
+              }
+            },
+            "force_flush_interval" : 15
+          }
+        }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        EOT
+}
+
+
 resource "aws_launch_template" "launch_template" {
+  depends_on = [data.template_file.launch_template_user_data]
 
   for_each               = var.queues
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
-  user_data              = base64encode(templatefile("${path.module}/launch_template_user_data.sh.tmpl", {
-    code_bucket = local.code_bucket
-    each_key = each.key
-    var_project = var.project
-    var_venue = var.venue
-    local_counter = local.counter
-    var_environment = var.environment
-  }))
+  user_data              = base64encode(data.template_file.launch_template_user_data[each.key].rendered)
+#  user_data              = base64encode(templatefile("${path.module}/launch_template_user_data.sh.tmpl", {
+#    code_bucket = local.code_bucket
+#    each_key = each.key
+#    var_project = var.project
+#    var_venue = var.venue
+#    local_counter = local.counter
+#    var_environment = var.environment
+#  }))
   vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
   tags = { Bravo = "pcm" }
@@ -1764,6 +1871,13 @@ resource "aws_instance" "metrics" {
   volume_tags = {
     Bravo = "pcm"
   }
+
+  root_block_device {
+    volume_size           = var.metrics["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -1860,6 +1974,12 @@ resource "aws_instance" "grq" {
   }
   volume_tags = {
     Bravo = "pcm"
+  }
+
+  root_block_device {
+    volume_size           = var.grq["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {

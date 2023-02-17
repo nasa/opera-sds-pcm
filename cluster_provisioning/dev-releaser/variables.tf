@@ -40,7 +40,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "opera_delivery"
+  default = "develop"
 }
 
 variable "bach_api_repo" {
