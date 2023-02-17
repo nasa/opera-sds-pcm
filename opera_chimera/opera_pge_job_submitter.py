@@ -129,7 +129,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                 json.dump(pge_metrics, f, indent=2)
 
             # set additional files to triage
-            self._context["_triage_additional_globs"] = ["output", "RunConfig.yaml"]
+            self._context["_triage_additional_globs"] = ["output", "RunConfig.yaml", "pge_output_dir"]
 
             # set force publish (disable no-clobber)
             if not (
