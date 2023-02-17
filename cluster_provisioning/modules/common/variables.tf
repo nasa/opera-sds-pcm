@@ -273,6 +273,10 @@ variable "lambda_e-misfire_handler_package_name" {
   default = "lambda-event-misfire-handler"
 }
 
+variable "lambda_batch-query_handler_package_name" {
+  default = "lambda-batch-process-handler"
+}
+
 variable "lambda_package_release" {
 }
 
