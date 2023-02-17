@@ -145,54 +145,6 @@
       }
     },
     {
-      "ipath": "hysds::data/Observation_Accountability_Report",
-      "level": "Report",
-      "type": "Observation_Accountability_Report",
-      "match_pattern": "/(?P<id>oad_(?P<ContentType>\\w+)_(?P<ValidityStartDateTime>\\d{4}-\\d{3}T\\d{2}:\\d{2}:\\d{2})_(?P<ValidityEndDateTime>\\d{4}-\\d{3}T\\d{2}:\\d{2}:\\d{2}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/reports/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/reports/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/reports/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L1_S1_SLC",
-      "level": "L1",
-      "type": "L1_S1_SLC",
-      "match_pattern": "(?P<id>(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\\d{4})(?P<start_month>\\d{2})(?P<start_day>\\d{2})T(?P<start_hour>\\d{2})(?P<start_minute>\\d{2})(?P<start_second>\\d{2}))_(?P<stop_ts>(?P<stop_year>\\d{4})(?P<stop_month>\\d{2})(?P<stop_day>\\d{2})T(?P<stop_hour>\\d{2})(?P<stop_minute>\\d{2})(?P<stop_second>\\d{2}))_(?P<orbit_num>\\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4}))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
-        ]
-      }
-    },
-    {
       "ipath": "hysds::data/L2_HLS_L30",
       "level": "L2",
       "type": "L2_HLS_L30",
@@ -221,54 +173,6 @@
       "level": "L2",
       "type": "L2_HLS_S30",
       "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L2_CSLC_S1",
-      "level": "L2",
-      "type": "L2_CSLC_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<pol>VV|VH|VV\\+VH)_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
-      "alt_match_pattern": null,
-      "extractor": null,
-      "publish": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
-        ]
-      },
-      "browse": {
-        "s3-profile-name": "default",
-        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}",
-        "urls": [
-          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
-          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/{id}"
-        ]
-      }
-    },
-    {
-      "ipath": "hysds::data/L2_RTC_S1",
-      "level": "L2",
-      "type": "L2_RTC_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))(_(?P<pol>VV|VH|VV\\+VH))?$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
