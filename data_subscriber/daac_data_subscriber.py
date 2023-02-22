@@ -199,10 +199,12 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
-    na_only = {"positionals": ["--north-america-only"],
-               "kwargs": {"dest": "na_only",
+    proc_mode = {"positionals": ["--processing-mode"],
+               "kwargs": {"dest": "proc_mode",
                           "action": "store_true",
-                          "help": "Download only North America data. Filtering happens in the query job."}}
+                          "default": "forward",
+                          "choices": ["forward", "reprocessing", "historical"],
+                          "help": "Processing mode changes SLC data processing behavior"}}
 
     out_csv = {"positionals": ["--out-csv"],
                            "kwargs": {"dest": "out_csv",
@@ -226,19 +228,19 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
-                            dry_run, smoke_run, no_schedule_download, release_version, job_queue,
-                            chunk_size, batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol, na_only]
+                            dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
+                            batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
-                             native_id, use_temporal, temporal_start_date, transfer_protocol, na_only]
+                             native_id, use_temporal, temporal_start_date, transfer_protocol, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
-    download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider,
-                                batch_ids, start_date, end_date, use_temporal, temporal_start_date, transfer_protocol]
+    download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider, batch_ids,
+                                start_date, end_date, use_temporal, temporal_start_date, transfer_protocol]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser

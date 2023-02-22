@@ -38,6 +38,14 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
     for granule in granules:
         additional_fields = {}
+
+        additional_fields["processing_mode"] = args.proc_mode
+
+        # If processing mode is historical,
+        # throw out any granules that do not intersect with North America
+        if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
+            continue
+
         if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
