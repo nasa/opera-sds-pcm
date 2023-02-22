@@ -201,7 +201,6 @@ def create_parser():
 
     proc_mode = {"positionals": ["--processing-mode"],
                "kwargs": {"dest": "proc_mode",
-                          "action": "store_true",
                           "default": "forward",
                           "choices": ["forward", "reprocessing", "historical"],
                           "help": "Processing mode changes SLC data processing behavior"}}
