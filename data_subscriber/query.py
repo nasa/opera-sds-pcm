@@ -156,8 +156,12 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                             "name": "transfer_protocol",
                             "value": f"--transfer-protocol={args.transfer_protocol}",
                             "from": "value"
+                        },
+                        {
+                            "name": "proc_mode",
+                            "value": f"--processing-mode={args.proc_mode}",
+                            "from": "value"
                         }
-
                     ],
                     job_queue=args.job_queue
                 )
