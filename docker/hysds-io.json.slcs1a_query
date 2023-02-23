@@ -77,9 +77,9 @@
       "optional": true
     },
     {
-      "name": "historical",
+      "name": "processing_mode",
       "from": "submitter",
-      "placeholder": "e.g. --north-america-only",
+      "placeholder": "e.g. --processing-mode",
       "optional": true
     },
     {
