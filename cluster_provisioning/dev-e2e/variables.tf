@@ -380,7 +380,7 @@ variable "pge_releases" {
   default = {
     "dswx_hls" = "1.0.0-rc.7.0"
     "cslc_s1" = "2.0.0-er.5.0"
-    "rtc_s1" = "2.0.0-er.5.0"
+    "rtc_s1" = "2.0.0-er.5.1"
   }
 }
 
@@ -411,6 +411,10 @@ variable "hlss30_query_timer_trigger_frequency" {
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
+}
+
+variable "batch_query_timer_trigger_frequency" {
+  default = "rate(1 minute)"
 }
 
 variable "rs_fwd_bucket_ingested_expiration" {

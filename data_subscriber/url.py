@@ -1,0 +1,81 @@
+import logging
+import re
+from pathlib import PurePath, Path
+from typing import Any
+
+
+def _to_granule_id(dl_doc: dict[str, Any]):
+    return _hls_url_to_granule_id(_to_url(dl_doc))
+
+
+def _hls_url_to_granule_id(url: str):
+    # remove both suffixes to get granule ID (e.g. removes .Fmask.tif)
+    granule_id = PurePath(url).with_suffix("").with_suffix("").name
+    return granule_id
+
+
+def _to_orbit_number(dl_doc: dict[str, Any]):
+    return _url_to_orbit_number(_to_url(dl_doc))
+
+
+def _url_to_orbit_number(url: str):
+    orbit_re = r"_\d{6}_"  # Orbit number
+
+    input_filename = Path(url).name
+    orbit_number: str = re.findall(orbit_re, input_filename)[0]
+    return orbit_number[1:-1]  # Strips leading and trailing underscores
+
+
+def _to_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("s3_url"):
+        return dl_dict["s3_url"]
+    elif dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
+
+
+def _url_to_tile_id(url: str):
+    tile_re = r"T\w{5}"
+
+    input_filename = Path(url).name
+    tile_id: str = re.findall(tile_re, input_filename)[0]
+    return tile_id
+
+
+def _to_tile_id(dl_doc: dict[str, Any]):
+    return _url_to_tile_id(_to_url(dl_doc))
+
+
+def _has_url(dl_dict: dict[str, Any]):
+    result = _has_s3_url(dl_dict) or _has_https_url(dl_dict)
+
+    if not result:
+        logging.error(f"Couldn't find any URL in {dl_dict=}")
+
+    return result
+
+
+def _has_https_url(dl_dict: dict[str, Any]):
+    result = dl_dict.get("https_url")
+
+    if not result:
+        logging.warning(f"Couldn't find any HTTPS URL in {dl_dict=}")
+
+    return result
+
+
+def _has_s3_url(dl_dict: dict[str, Any]):
+    result = dl_dict.get("s3_url")
+
+    if not result:
+        logging.warning(f"Couldn't find any S3 URL in {dl_dict=}")
+
+    return result
+
+
+def _to_https_url(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    else:
+        raise Exception(f"Couldn't find any URL in {dl_dict=}")
