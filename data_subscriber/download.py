@@ -164,7 +164,7 @@ def download_from_asf(
         try:
             additional_metadata['processing_mode'] = download['processing_mode']
         except:
-            logging.warning("processing_mode not found in the ASF Query ES")
+            logging.warning("processing_mode not found in the slc_catalog ES index")
 
         if provider == "ASF":
             if download.get("intersects_north_america"):

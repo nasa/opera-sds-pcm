@@ -44,6 +44,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         # If processing mode is historical,
         # throw out any granules that do not intersect with North America
         if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
+            logging.info(f"Processing mode is historical and the following granule does not intersect with \
+North America. Skipping processing. %s" % granule.get("granule_id"))
             continue
 
         if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
