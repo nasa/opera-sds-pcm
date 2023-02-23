@@ -60,7 +60,7 @@
       "destination": "positional"
     },
     {
-      "name": "historical",
+      "name": "processing_mode",
       "destination": "positional"
     },
     {

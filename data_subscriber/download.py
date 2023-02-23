@@ -161,6 +161,11 @@ def download_from_asf(
         logging.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
+        try:
+            additional_metadata['processing_mode'] = download['processing_mode']
+        except:
+            logging.warning("processing_mode not found in the slc_catalog ES index")
+
         if provider == "ASF":
             if download.get("intersects_north_america"):
                 logging.info("adding additional dataset metadata (intersects_north_america)")
