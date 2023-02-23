@@ -36,7 +36,12 @@ instance_type_queues = [
     # "opera-job_worker-m6i_large",
     # "opera-job_worker-m5a_large",
     # "opera-job_worker-m6a_large",
-    "opera-job_worker-m6idn_large",
+    # "opera-job_worker-c6i_4xlarge",
+    # "opera-job_worker-c6a_4xlarge",
+    # "opera-job_worker-c5_4xlarge",
+    # "opera-job_worker-c5a_4xlarge",
+    # "opera-job_worker-c5_2xlarge",
+    # "opera-job_worker-c5a_2xlarge",
 ]
 
 

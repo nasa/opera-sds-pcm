@@ -94,6 +94,7 @@ def wait_for_pge_jobs_to_finish(job_type: str):
     lambda job_statuses: not jobs_finished(job_statuses),
     max_time=60 * 30,
     interval=60,
+    jitter=None,
     on_success=success_handler,
     on_giveup=lambda _: raise_(Exception()),
 )
