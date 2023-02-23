@@ -90,6 +90,8 @@ RunConfig:
             output_imagery_format: COG
             output_imagery_compression: ZSTD
             output_imagery_nbits: 16
+            save_secondary_layers_as_hdf5: False
+            save_metadata: True
           primary_executable:
             product_type: RTC_S1
           processing:
@@ -116,6 +118,9 @@ RunConfig:
               algorithm_type: area_projection
               memory_mode: auto
               geogrid_upsampling: 1
+
+              # Static layer configuration, set all flags below to True to
+              # enable generation of all static layers
               save_incidence_angle: False
               save_local_inc_angle: False
               save_projection_angle: False
@@ -124,7 +129,9 @@ RunConfig:
               save_nlooks: False
               save_rtc_anf: False
               save_dem: False
-              save_layover_shadow_mask: True
+              save_layover_shadow_mask: False
+              # End Static layer configuration
+
               abs_rad_cal: 1
               clip_max:
               clip_min:
