@@ -87,7 +87,6 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
 
     # group URLs by this mapping func. E.g. group URLs by granule_id
     keyfunc = _hls_url_to_granule_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
-    logging.error(f"{keyfunc=}")  # TODO chrisjrd: remove debugging line
     batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
         iterable=download_urls,
         keyfunc=keyfunc,
