@@ -1,32 +1,27 @@
 #!/usr/bin/env python3
 
 from __future__ import print_function
-import sys
-import json
-import os
-import re
-from distutils.util import strtobool
-from typing import Dict
-import dateutil.parser
-import requests
-import argparse
 
-from types import SimpleNamespace
-import time
-from datetime import datetime, timedelta, timezone
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+import argparse
+import json
 import logging
+import os
+import sys
+import time
+from datetime import datetime, timedelta
+from types import SimpleNamespace
+
+from dotenv import dotenv_values
+from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
-# Requires these 4 env variables
-_ENV_GRQ_IP = "GRQ_IP"
-
-for ev in [_ENV_GRQ_IP]:
-    if ev not in os.environ:
-        raise RuntimeError("Need to specify %s in environment." % ev)
-GRQ_IP = os.environ[_ENV_GRQ_IP]
+CONFIG = {
+    **dotenv_values("../.env"),
+    **os.environ
+}
+GRQ_IP = CONFIG["GRQ_HOST"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
