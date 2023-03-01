@@ -20,6 +20,7 @@ def _to_orbit_number(dl_doc: dict[str, Any]):
 
 def _slc_url_to_chunk_id(url: str):
     input_filename = Path(url).name
+    logging.error(f"{input_filename=}")  # TODO chrisjrd: remove debugging line
     return input_filename
 
 
