@@ -335,7 +335,7 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.7.0"
+    "dswx_hls" = "1.0.0-rc.7.1"
     "cslc_s1" = "2.0.0-er.5.0"
     "rtc_s1" = "2.0.0-er.5.1"
   }
