@@ -1,6 +1,6 @@
 {
   "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/slc/slc_download.sh",
-  "disk_usage":"1GB",
+  "disk_usage":"20GB",
   "soft_time_limit": 3600,
   "time_limit": 3660,
   "imported_worker_files": {
