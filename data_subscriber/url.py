@@ -15,12 +15,15 @@ def _hls_url_to_granule_id(url: str):
 
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
-    return _slc_url_to_chunk_id(_to_url(dl_doc))
+    return _url_to_orbit_number(_to_url(dl_doc))
 
 
-def _slc_url_to_chunk_id(url: str):
+def _url_to_orbit_number(url: str):
+    orbit_re = r"_\d{6}_"  # Orbit number
+
     input_filename = Path(url).name
-    return input_filename
+    orbit_number: str = re.findall(orbit_re, input_filename)[0]
+    return orbit_number[1:-1]  # Strips leading and trailing underscores
 
 
 def _to_url(dl_dict: dict[str, Any]) -> str:
