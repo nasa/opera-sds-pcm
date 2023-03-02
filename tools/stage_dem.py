@@ -147,26 +147,11 @@ def download_dem(polys, epsgs, dem_bucket, margin, outfile):
         Path to the where the output DEM file is to be staged.
 
     """
-    if 3031 in epsgs:
-        epsgs = [3031] * len(epsgs)
-        polys = transform_polygon_coords_to_epsg(polys, epsgs)
+    # set epsg to 4326 for each element in the list
+    epsgs = [4326] * len(epsgs)
 
-        # Need one EPSG as in polar stereo we have one big polygon
-        epsgs = [3031]
-        margin = margin * 1000
-    elif 3413 in epsgs:
-        epsgs = [3413] * len(epsgs)
-        polys = transform_polygon_coords_to_epsg(polys, epsgs)
-
-        # Need one EPSG as in polar stereo we have one big polygon
-        epsgs = [3413]
-        margin = margin * 1000
-    else:
-        # set epsg to 4326 for each element in the list
-        epsgs = [4326] * len(epsgs)
-
-        # convert margin to degree (approx formula)
-        margin = margin / 40000 * 360
+    # convert margin to degree (approx formula)
+    margin = margin / 40000 * 360
 
     # Download DEM for each polygon/epsg
     file_prefix = os.path.splitext(outfile)[0]
