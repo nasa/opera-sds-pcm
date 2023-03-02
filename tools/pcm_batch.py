@@ -5,23 +5,21 @@ from __future__ import print_function
 import argparse
 import json
 import logging
-import os
 import sys
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
-from dotenv import dotenv_values
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+
+from util.conf_util import SettingsConf
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
-CONFIG = {
-    **dotenv_values("../.env"),
-    **os.environ
-}
-GRQ_IP = CONFIG["GRQ_HOST"]
+SETTINGS = SettingsConf(file=str(Path("~/.sds/config"))).cfg
+GRQ_IP = SETTINGS["GRQ_PVT_IP"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
