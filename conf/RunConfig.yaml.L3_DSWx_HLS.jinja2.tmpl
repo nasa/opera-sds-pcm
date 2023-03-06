@@ -69,7 +69,8 @@ RunConfig:
             product_id: dswx_hls
             product_version: {{ data.product_path_group.product_version }}
           processing:
-            check_ancillary_inputs_coverage: True
+            # TODO: re-enable this check once anti-meridian case for Landcover is resolved in DSWx-HLS SAS
+            check_ancillary_inputs_coverage: False
             shadow_masking_algorithm: sun_local_inc_angle
             min_slope_angle: -5
             max_sun_local_inc_angle: 40
