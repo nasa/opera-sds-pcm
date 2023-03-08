@@ -199,15 +199,24 @@ def get_query_timerange(args, now: datetime):
 
 def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
     page_size = 2000
-
     request_url = f"https://{cmr}/search/granules.umm_json"
+    bounding_box = args.bbox
+
+    if args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
+        bound_list = bounding_box.split(",")
+
+        # Excludes Antarctica
+        if int(bound_list[1]) < -60:
+            bound_list[1] = "-60"
+            bounding_box = bound_list.join(",")
+
     params = {
         "page_size": page_size,
         "sort_key": "-start_date",
         "provider": PRODUCT_PROVIDER_MAP[args.collection],
         "ShortName": args.collection,
         "token": token,
-        "bounding_box": args.bbox,
+        "bounding_box": bounding_box
     }
 
     if args.native_id:
