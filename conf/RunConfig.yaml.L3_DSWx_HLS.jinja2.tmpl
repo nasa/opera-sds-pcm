@@ -69,8 +69,8 @@ RunConfig:
             product_id: dswx_hls
             product_version: {{ data.product_path_group.product_version }}
           processing:
-            check_ancillary_inputs_coverage: True
-            apply_ocean_masking: False
+            check_ancillary_inputs_coverage: {{ data.processing.check_ancillary_inputs_coverage }}
+            apply_ocean_masking: {{ data.processing.apply_ocean_masking }}
             save_wtr: True    # Layer 1 - WTR
             save_bwtr: True   # Layer 2 - BWTR
             save_conf: True   # Layer 3 - CONF

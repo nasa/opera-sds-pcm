@@ -48,6 +48,10 @@ URGENT_RESPONSE_LATENCY:
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
+DSWX_HLS:
+  CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
+  APPLY_OCEAN_MASKING: !!bool false
+
 PRODUCT_TYPES:
     Observation_Accountability_Report:
         Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
