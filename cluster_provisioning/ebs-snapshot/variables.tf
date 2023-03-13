@@ -13,7 +13,6 @@ variable "profile" {
 }
 
 variable "verdi_release" {
-  #default = "v4.0.1-beta.8-oraclelinux"
 }
 
 variable "registry_release" {
@@ -77,7 +76,8 @@ variable "verdi" {
   type = map(string)
   default = {
     name = "verdi"
-	ami = "ami-003e368c872ea1099"
+	#ami = "ami-003e368c872ea1099"
+	ami = "ami-0805014721e52d629" # verdi v4.16 patchupdate - 230215
     instance_type = "t3.medium"
     device_name = "/dev/sda1"
     device_size = 50
