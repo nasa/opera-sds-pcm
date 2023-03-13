@@ -208,7 +208,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         # Excludes Antarctica
         if int(bound_list[1]) < -60:
             bound_list[1] = "-60"
-            bounding_box = bound_list.join(",")
+            bounding_box = ",".join(bound_list)
 
     params = {
         "page_size": page_size,
