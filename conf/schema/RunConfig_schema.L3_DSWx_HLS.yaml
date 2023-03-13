@@ -104,6 +104,28 @@ RunConfig:
             # Check if ancillary inputs cover entirely the output product
             check_ancillary_inputs_coverage: bool(required=False)
 
+            # Apply ocean masking
+            apply_ocean_masking: bool(required=False)
+
+            # Apply aerosol class remapping
+            apply_aerosol_class_remapping: bool(required=False)
+
+            # HLS Fmask values to convert not-water to high-confidence water
+            # in the presence of high aerosol
+            aerosol_not_water_to_high_conf_water_fmask_values: list(int(), min=0, required=False)
+
+            # HLS Fmask values to convert moderate-confidence water to
+            # high-confidence water in the presence of high aerosol
+            aerosol_water_moderate_conf_to_high_conf_water_fmask_values: list(int(), min=0, required=False)
+
+            # HLS Fmask values to convert partial surface water conservative to
+            # high-confidence water in the presence of high aerosol
+            aerosol_partial_surface_water_conservative_to_high_conf_water_fmask_values: list(int(), min=0, required=False)
+
+            # HLS Fmask values to convert partial surface water aggressive to
+            # high-confidence water in the presence of high aerosol
+            aerosol_partial_surface_aggressive_to_high_conf_water_fmask_values: list(int(), min=0, required=False)
+
             # Select shadow masking algorithm
             shadow_masking_algorithm: enum('otsu', 'sun_local_inc_angle', required=False)
 
@@ -116,8 +138,10 @@ RunConfig:
             # Define how areas adjacent to cloud/cloud-shadow should be handled
             mask_adjacent_to_cloud_mode: enum('mask', 'ignore', 'cover', required=False)
 
-            # Copernicus CGLS Land Cover 100m forest classes
-            copernicus_forest_classes: list(int(), min=0, required=False)
+            # Copernicus CGLS Land Cover 100m forest classes to mask out from
+            # the WTR-2 and WTR layer due to dark reflectance that is usually
+            # misinterpreted as water.
+            forest_mask_landcover_classes: list(int(), min=0, required=False)
 
             # Ocean masking distance from shoreline in km
             ocean_masking_shoreline_distance_km: num(required=False)
