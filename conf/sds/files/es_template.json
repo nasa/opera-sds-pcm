@@ -74,13 +74,13 @@
           "FileSize": {
             "type": "float"
           },
-		  "product_id": {
-		    "type": "text",
-			"copy_to": "text_fields"
-		  },
-		  "data_take_id": {
-		   "type": "text",
+          "product_id": {
+            "type": "text",
             "copy_to": "text_fields"
+          },
+          "data_take_id": {
+            "type": "text",
+           "copy_to": "text_fields"
           }
         }
       },
