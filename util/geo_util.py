@@ -122,6 +122,16 @@ def check_dateline(poly):
         decomp = shapely.ops.polygonize(border_lines)
 
         polys = list(decomp)
+        for polygon_count in range(2):
+            x, y = polys[polygon_count].exterior.coords.xy
+            # if there are no longitude values above 180, continue
+            if not any([k > 180 for k in x]):
+                continue
+
+            # otherwise, wrap longitude values down by 360 degrees
+            x_wrapped_minus_360 = np.asarray(x) - 360
+            polys[polygon_count] = Polygon(zip(x_wrapped_minus_360, y))
+
         assert (len(polys) == 2)
     else:
         # If dateline is not crossed, treat input poly as list
