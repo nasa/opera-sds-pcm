@@ -14,8 +14,6 @@ DSWX_HLS_PRODUCT_VERSION: "0.0"
 CSLC_S1_PRODUCT_VERSION: "0.0"
 RTC_S1_PRODUCT_VERSION: "0.0"
 
-DSWX_HLS_PRODUCT_VERSION: "1.0"
-
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:
@@ -50,6 +48,10 @@ URGENT_RESPONSE_LATENCY:
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
+DSWX_HLS:
+  CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
+  APPLY_OCEAN_MASKING: !!bool false
+
 PRODUCT_TYPES:
     Observation_Accountability_Report:
         Pattern: !!python/regexp '(?P<id>oad_(?P<ContentType>\w+)_(?P<ValidityStartDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})_(?P<ValidityEndDateTime>\d{4}-\d{3}T\d{2}:\d{2}:\d{2})\.(xml|json))$'
@@ -60,6 +62,37 @@ PRODUCT_TYPES:
         Dataset_Keys:
             starttime: ValidityStartDateTime
             endtime: ValidityEndDateTime
+
+    L1_S1_SLC:
+        # Pattern for parsing SAFE archives containing SLC burst data from Sentinel-1, such as:
+        # S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip
+        # This pattern groups the metadata information in the filename using named groups.
+        #
+        # See naming convention documentation (https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-1-sar/naming-conventions)
+        #
+        Pattern: !!python/regexp '(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})[.](?P<format>zip)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
+            Date_Time_Keys: ['start_ts', 'stop_ts']
+        Dataset_Keys: {}
+
+    L1_S1_ORB:
+        # Pattern for parsing Orbit files, both Precise (POE) and Restituted (RES) files
+        # containing the orbit ephemerides data for Sentinel-1 A/B, such as:
+        # S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942.EOF
+        # This pattern groups the metadata information in the filename using named groups.
+        #
+        # See naming convention documentation (https://sentinel.esa.int/documents/247904/351187/Copernicus_Sentinels_POD_Service_File_Format_Specification)
+        #
+        Pattern: !!python/regexp '(?P<mission_id>S1A|S1B)_(?P<file_class>OPER)_(?P<file_type>(?P<category>AUX)_(?P<semantic_desc>POEORB|RESORB))_(?P<instance_id>(?P<site>OPOD)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2}))_V(?P<valid_start_ts>(?P<valid_start_year>\d{4})(?P<valid_start_month>\d{2})(?P<valid_start_day>\d{2})T(?P<valid_start_hour>\d{2})(?P<valid_start_minute>\d{2})(?P<valid_start_second>\d{2}))_(?P<valid_stop_ts>(?P<valid_stop_year>\d{4})(?P<valid_stop_month>\d{2})(?P<valid_stop_day>\d{2})T(?P<valid_stop_hour>\d{2})(?P<valid_stop_minute>\d{2})(?P<valid_stop_second>\d{2})))[.](?P<format>EOF)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            Date_Time_Patterns: ['%Y%m%dT%H%M%S']
+            Date_Time_Keys: ['creation_ts', 'valid_start_ts', 'valid_stop_ts']
+        Dataset_Keys: {}
 
     L2_HLS_L30:
         # Pattern for parsing filenames such as "HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif".
@@ -113,6 +146,37 @@ PRODUCT_TYPES:
             # Specify the metadata key to use as the dataset version.
             #  Note: this affects the data product index name
             Dataset_Version_Key: 'collection_version'
+        Dataset_Keys: {}
+
+    L2_CSLC_S1:
+        # Pattern for parsing output L2_CSLC-S1 product filenames, such as:
+        # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z.h5
+        # This pattern groups the metadata information in the filename using named groups.
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>tif|tiff|h5|iso\.xml)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+            Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
+            Date_Time_Keys: ['acquisition_ts', 'creation_ts']
+            # Specify the metadata key to use as the dataset version.
+            #  Note: this affects the data product index name
+            Dataset_Version_Key: 'product_version'
+        Dataset_Keys: {}
+
+    L2_RTC_S1:
+        # Pattern for parsing output L2_RTC-S1 product filenames, such as:
+        # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0.h5
+        # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_VV.tif
+        # This pattern groups the metadata information in the filename using named groups.
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?[.](?P<ext>tif|tiff|h5|iso\.xml)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+          Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
+          Date_Time_Keys: ['acquisition_ts', 'creation_ts']
+          # Specify the metadata key to use as the dataset version.
+          #  Note: this affects the data product index name
+          Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
     L3_DSWx_HLS:

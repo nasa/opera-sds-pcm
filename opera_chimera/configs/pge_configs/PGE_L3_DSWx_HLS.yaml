@@ -29,6 +29,9 @@ runconfig:
     product_path: output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: output_dir/scratch_dir
+  processing:
+    check_ancillary_inputs_coverage: __CHIMERA_VAL__
+    apply_ocean_masking: __CHIMERA_VAL__
   hls_thresholds:
     wigt: __CHIMERA_VAL__           # Modified Normalized Difference Wetness Index (MNDWI) Threshold
     awgt: __CHIMERA_VAL__           # Automated Water Extent Shadow Threshold
@@ -59,6 +62,8 @@ preconditions:
   - get_landcover
   - get_worldcover
   - get_shoreline_shapefiles
+  - get_ancillary_inputs_coverage_flag
+  - get_apply_ocean_masking_flag
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:

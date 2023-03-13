@@ -1050,6 +1050,34 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_ancillary_inputs_coverage_flag(self):
+        """Gets the setting for the check_ancillary_inputs_coverage flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        check_ancillary_inputs_coverage = self._settings.get("DSWX_HLS").get("CHECK_ANCILLARY_INPUTS_COVERAGE")
+
+        rc_params = {
+            "check_ancillary_inputs_coverage": check_ancillary_inputs_coverage
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_apply_ocean_masking_flag(self):
+        """Gets the setting for the apply_ocean_masking flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        apply_ocean_masking = self._settings.get("DSWX_HLS").get("APPLY_OCEAN_MASKING")
+
+        rc_params = {
+            "apply_ocean_masking": apply_ocean_masking
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_hls_dem(self):
         """
         This function downloads dems over the bbox provided in the PGE yaml config,
@@ -1102,7 +1130,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.s3_bucket = s3_bucket
         args.outfile = output_filepath
         args.filepath = None
-        args.margin = 50  # KM
+        args.margin = 200  # KM
         args.log_level = LogLevels.INFO.value
 
         # Provide both the bounding box and tile code, stage_dem.py should
@@ -1210,7 +1238,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.worldcover_ver = worldcover_ver
         args.worldcover_year = worldcover_year
         args.outfile = output_filepath
-        args.margin = 50  # KM
+        args.margin = 200  # KM
         args.log_level = LogLevels.INFO.value
 
         # Provide both the bounding box and tile code, stage_worldcover.py should
