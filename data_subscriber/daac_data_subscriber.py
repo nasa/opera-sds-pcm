@@ -19,7 +19,6 @@ from data_subscriber.query import update_url_index, run_query
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.aws_token import supply_token
 from util.conf_util import SettingsConf
-from geo.geo_util import does_bbox_intersect_north_america
 
 PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
                         "HLSS30": "LPCLOUD",
