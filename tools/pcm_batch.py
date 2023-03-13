@@ -18,7 +18,7 @@ from util.conf_util import SettingsConf
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
-SETTINGS = SettingsConf(file=str(Path("~/.sds/config"))).cfg
+SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
 GRQ_IP = SETTINGS["GRQ_PVT_IP"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
