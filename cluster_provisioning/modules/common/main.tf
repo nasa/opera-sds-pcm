@@ -879,7 +879,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       chmod 755 ~/download_artifact.sh
       chmod 400 ~/.ssh/${basename(var.private_key_file)}
@@ -1107,7 +1107,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       mv ~/.sds ~/.sds.bak
       rm -rf ~/mozart
@@ -1208,7 +1208,7 @@ resource "aws_instance" "mozart" {
   # sync bach-api and bach-ui code. start bach-ui
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
@@ -1235,13 +1235,13 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       cd ~/mozart/ops
       if [ "${var.grq_aws_es}" = true ]; then
         cp -f ~/.sds/files/supervisord.conf.grq.aws_es ~/.sds/files/supervisord.conf.grq
       fi
-      if [ "${var.factotum["instance_type"]}" = "c5.xlarge" ]; then
+      if [ "${var.factotum["instance_type"]}" = "r6i.4xlarge" ]; then
         cp -f ~/.sds/files/supervisord.conf.factotum.small_instance ~/.sds/files/supervisord.conf.factotum
       elif [ "${var.factotum["instance_type"]}" = "r5.8xlarge" ]; then
         cp -f ~/.sds/files/supervisord.conf.factotum.large_instance ~/.sds/files/supervisord.conf.factotum
@@ -1281,7 +1281,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
@@ -1393,16 +1393,16 @@ resource "aws_instance" "mozart" {
   # Get test data from the artifactory and put into tests directory
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
       mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/
-      wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \
+      wget --no-verbose ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \
            -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz
       cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/
       tar xfz hls_l2.tar.gz
       mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
-      wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0/slc_l1.tar.gz \
+      wget --no-verbose ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0/slc_l1.tar.gz \
            -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/slc_l1.tar.gz
       cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
       tar xfz slc_l1.tar.gz
@@ -1413,7 +1413,7 @@ resource "aws_instance" "mozart" {
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
     inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
       echo // grq
@@ -1448,7 +1448,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -2192,7 +2192,7 @@ resource "aws_instance" "factotum" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
