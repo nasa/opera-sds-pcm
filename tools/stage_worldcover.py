@@ -130,19 +130,6 @@ def translate_worldcover(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     logger.info(f"Translating Worldcover for projection window {str([x_min, y_max, x_max, y_min])} "
                 f"to {output_path}")
     ds = gdal.Open(vrt_filename, gdal.GA_ReadOnly)
-
-    # update cropping coordinates to not exceed the input DEM bounding box
-    input_x_min, xres, _, input_y_max, _, yres = ds.GetGeoTransform()
-    length = ds.GetRasterBand(1).YSize
-    width = ds.GetRasterBand(1).XSize
-    input_y_min = input_y_max + (length * yres)
-    input_x_max = input_x_min + (width * xres)
-
-    x_min = max(x_min, input_x_min)
-    x_max = min(x_max, input_x_max)
-    y_min = max(y_min, input_y_min)
-    y_max = min(y_max, input_y_max)
-
     gdal.Translate(
         output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
     )
