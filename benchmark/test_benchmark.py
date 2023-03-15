@@ -36,6 +36,8 @@ instance_type_queues = [
     # "opera-job_worker-m6i_large",
     # "opera-job_worker-m5a_large",
     # "opera-job_worker-m6a_large",
+    # "opera-job_worker-c6i_2xlarge",
+    # "opera-job_worker-c6a_2xlarge",
     # "opera-job_worker-c6i_4xlarge",
     # "opera-job_worker-c6a_4xlarge",
     # "opera-job_worker-c5_4xlarge",
@@ -56,7 +58,7 @@ def setup_function():
 
 @pytest.mark.asyncio
 async def test_s30(event_loop: AbstractEventLoop):
-    branch = "issue_319"
+    branch = "develop"
 
     for new_instance_type_queue_name in instance_type_queues:
         logging.info(f"{new_instance_type_queue_name=}")
@@ -76,7 +78,7 @@ async def test_s30(event_loop: AbstractEventLoop):
 
 @pytest.mark.asyncio
 async def test_slc(event_loop: AbstractEventLoop):
-    branch = "issue_373"
+    branch = "develop"
 
     for new_instance_type_queue_name in instance_type_queues:
         logging.info(f"{new_instance_type_queue_name=}")
@@ -93,7 +95,7 @@ async def test_slc(event_loop: AbstractEventLoop):
         wait_for_download_jobs_to_finish(job_type=f"job-slc_download:{branch}")
         wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L2_CSLC_S1:{branch}")
         wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L2_RTC_S1:{branch}")
-        wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
+        # wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
 
 
 async def invoke_s30_subscriber_query_lambda():
