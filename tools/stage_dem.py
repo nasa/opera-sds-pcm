@@ -124,6 +124,19 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     logger.info(f"Translating DEM for projection window {str([x_min, y_max, x_max, y_min])} "
                 f"to {output_path}")
     ds = gdal.Open(vrt_filename, gdal.GA_ReadOnly)
+
+    # update cropping coordinates to not exceed the input DEM bounding box
+    input_x_min, xres, _, input_y_max, _, yres = ds.GetGeoTransform()
+    length = ds.GetRasterBand(1).YSize
+    width = ds.GetRasterBand(1).XSize
+    input_y_min = input_y_max + (length * yres)
+    input_x_max = input_x_min + (width * xres)
+
+    x_min = max(x_min, input_x_min)
+    x_max = min(x_max, input_x_max)
+    y_min = max(y_min, input_y_min)
+    y_max = min(y_max, input_y_max)
+
     gdal.Translate(
         output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
     )
@@ -147,26 +160,11 @@ def download_dem(polys, epsgs, dem_bucket, margin, outfile):
         Path to the where the output DEM file is to be staged.
 
     """
-    if 3031 in epsgs:
-        epsgs = [3031] * len(epsgs)
-        polys = transform_polygon_coords_to_epsg(polys, epsgs)
+    # set epsg to 4326 for each element in the list
+    epsgs = [4326] * len(epsgs)
 
-        # Need one EPSG as in polar stereo we have one big polygon
-        epsgs = [3031]
-        margin = margin * 1000
-    elif 3413 in epsgs:
-        epsgs = [3413] * len(epsgs)
-        polys = transform_polygon_coords_to_epsg(polys, epsgs)
-
-        # Need one EPSG as in polar stereo we have one big polygon
-        epsgs = [3413]
-        margin = margin * 1000
-    else:
-        # set epsg to 4326 for each element in the list
-        epsgs = [4326] * len(epsgs)
-
-        # convert margin to degree (approx formula)
-        margin = margin / 40000 * 360
+    # convert margin to degree (approx formula)
+    margin = margin / 40000 * 360
 
     # Download DEM for each polygon/epsg
     file_prefix = os.path.splitext(outfile)[0]

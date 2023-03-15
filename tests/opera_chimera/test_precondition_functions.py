@@ -44,7 +44,16 @@ class MockGdal:
     # pylint: disable=all
     class MockGdalDataset:
         """Mock class for gdal.Dataset objects, as returned from an Open call."""
-        pass
+        def GetGeoTransform(self):
+            return 1, 1, 1, 1, 1, 1
+
+        def GetRasterBand(self, index):
+            class MockRasterBand:
+                def __init__(self):
+                    self.XSize = 1
+                    self.YSize = 1
+
+            return MockRasterBand()
 
     @staticmethod
     def Open(filename, filemode=None):
