@@ -159,19 +159,6 @@ variable "bach_ui_branch" {
   default = "2.0.0-rc.4.0"
 }
 
-######### ami vars #######
-variable "amis" {
-  type = map(string)
-  default = {
-    # HySDS v4.1.0-beta.4 
-    mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
-    metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
-    grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
-    factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
-    autoscale = "ami-0266bb7f79155b493" # verdi v4.16 - 221107
-  }
-}
-
 # mozart vars
 variable "mozart" {
   type = map(string)

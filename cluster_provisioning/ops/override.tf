@@ -137,6 +137,11 @@ variable "artifactory_repo" {
   default = "general-stage"
 }
 
+<<<<<<< HEAD
+variable "use_artifactory" {
+  type = bool
+  default = true
+=======
 ######### ami vars #######
 variable "amis" {
   type = map(string)
@@ -162,6 +167,7 @@ variable "pge_releases" {
    default = {
      "dswx_hls" = "1.0.0"
   }
+>>>>>>> develop
 }
 
 variable "hysds_release" {
