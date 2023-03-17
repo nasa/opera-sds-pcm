@@ -95,7 +95,7 @@ def wait_for_l2(_id, index):
     interval=30,
     jitter=None
 )
-def wait_for_l3(_id, index, query_name):
+def wait_for_l3(_id, index, query_name="match"):
     return search_es(index, _id, query_name)
 
 
@@ -109,7 +109,7 @@ def wait_for_l3(_id, index, query_name):
     interval=60,
     jitter=None
 )
-def wait_for_cnm_s_success(_id, index, query_name):
+def wait_for_cnm_s_success(_id, index, query_name="match"):
     logging.info(f"Waiting for CNM-S success (id={_id})")
     response = search_es(_id=_id, index=index, query_name=query_name)
     return response
@@ -124,7 +124,7 @@ def wait_for_cnm_s_success(_id, index, query_name):
     interval=60,
     jitter=None
 )
-def wait_for_cnm_r_success(_id, index, query_name):
+def wait_for_cnm_r_success(_id, index, query_name="match"):
     logging.info(f"Waiting for CNM-R success ({_id=})")
     response = search_es(_id=_id, index=index, query_name=query_name)
     return response
