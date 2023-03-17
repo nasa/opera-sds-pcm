@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 
 import conftest
@@ -54,24 +55,24 @@ def test_subscriber_l30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0"
+    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_", index="grq_v0.0_l3_dswx_hls", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_(\d+)T(\d+)Z_L8_30_v0.0", response.hits[0]["id"])
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls", query_name="match")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success_sns(id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0")
+    mock_cnm_r_success_sns(id=response.hits[0]["id"])
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_20211228T211639Z_L8_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls", query_name="match")
     assert_cnm_r_success(response)
 
 
@@ -105,24 +106,24 @@ def test_subscriber_s30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
-    assert response.hits[0]["id"] == "OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0"
+    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_", index="grq_v0.0_l3_dswx_hls", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_(\d+)T(\d+)Z_S2B_30_v0.0", response.hits[0]["id"])
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls", query_name="match")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
-    mock_cnm_r_success_sns(id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0")
+    mock_cnm_r_success_sns(id=response.hits[0]["id"])
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_20200526T165849Z_S2A_30_v2.0", index="grq_v2.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls", query_name="match")
     assert_cnm_r_success(response)
 
 
