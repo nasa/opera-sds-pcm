@@ -137,65 +137,9 @@ variable "artifactory_repo" {
   default = "general-stage"
 }
 
-<<<<<<< HEAD
 variable "use_artifactory" {
   type = bool
   default = true
-=======
-######### ami vars #######
-variable "amis" {
-  type = map(string)
-  default = {
-     # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
-     mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
-     metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
-     grq       = "ami-0c84c56035af7fb6c" # grq v4.14
-     factotum  = "ami-068944cd3359de653" # factotum v4.14
-     autoscale = "ami-0922fa62a31e88485" # verdi v4.14
-     ci        = "ami-0922fa62a31e88485" # verdi v4.14
-  }
-
-}
-
-####### Release Branches #############
-variable "pge_snapshots_date" {
-  default = "20230203-1.0.0-rc.7.0"
-}
-
-variable "pge_releases" {
-   type = map(string)
-   default = {
-     "dswx_hls" = "1.0.0"
-  }
->>>>>>> develop
-}
-
-variable "hysds_release" {
-  default = "v4.1.0-beta.4"
-}
-
-variable "lambda_package_release" {
-  default = "1.0.0-rc.9.0"
-}
-
-variable "pcm_commons_branch" {
-  default = "1.0.0-rc.9.0"
-}
-
-variable "pcm_branch" {
-  default = "1.0.0-rc.9.0"
-}
-
-variable "product_delivery_branch" {
-  default = "1.0.0-rc.9.0"
-}
-
-variable "bach_api_branch" {
-  default = "1.0.0-rc.9.0"
-}
-
-variable "bach_ui_branch" {
-  default = "1.0.0-rc.9.0"
 }
 
 ###### Roles ########
