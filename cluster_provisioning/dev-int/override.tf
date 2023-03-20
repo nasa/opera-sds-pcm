@@ -18,6 +18,10 @@ variable "environment" {
   default = "dev"
 }
 
+variable "use_artifactory" {
+  default = true
+}
+
 variable "counter" {
   default = "6"
 }
