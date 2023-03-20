@@ -328,8 +328,9 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             }
         }
 
+        settings = {"DSWX_HLS": {"ANCILLARY_MARGIN": 50}}
+
         # These are not used with get_dems()
-        settings = None
         job_params = None
 
         precondition_functions = OperaPreConditionFunctions(
@@ -414,8 +415,9 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             }
         }
 
+        settings = {"DSWX_HLS": {"ANCILLARY_MARGIN": 50}}
+
         # These are not used with get_worldcover()
-        settings = None
         job_params = None
 
         precondition_functions = OperaPreConditionFunctions(
