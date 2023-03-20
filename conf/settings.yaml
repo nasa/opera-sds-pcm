@@ -49,8 +49,12 @@ URGENT_RESPONSE_LATENCY:
 # during production.
 
 DSWX_HLS:
+  # Toggle ancillary overlap coverage check during processing
   CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
+  # Toggle application of ocean/shoreline masking during processing
   APPLY_OCEAN_MASKING: !!bool false
+  # Amount of margin in km to apply to staged ancillaries (DEM/worldcover)
+  ANCILLARY_MARGIN: 200
 
 PRODUCT_TYPES:
     Observation_Accountability_Report:
