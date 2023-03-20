@@ -1,6 +1,6 @@
 {
   "command": "/home/ops/verdi/ops/opera-pcm/on_demand/run_on_demand.sh",
-  "disk_usage":"10GB",
+  "disk_usage":"25GB",
   "soft_time_limit": 3600,
   "time_limit": 3660,
   "imported_worker_files": {
