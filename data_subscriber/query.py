@@ -206,7 +206,7 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         bound_list = bounding_box.split(",")
 
         # Excludes Antarctica
-        if int(bound_list[1]) < -60:
+        if float(bound_list[1]) < -60:
             bound_list[1] = "-60"
             bounding_box = ",".join(bound_list)
 
