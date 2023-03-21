@@ -75,7 +75,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r5.4xlarge"
+    instance_type = "r6i.4xlarge"
     root_dev_size = 200
     private_ip    = "100.104.49.10"
     public_ip     = ""
@@ -111,7 +111,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "r5.8xlarge"
+    instance_type = "r6i.8xlarge"
     root_dev_size = 500
     data          = "/data"
     data_dev      = "/dev/xvdb"
