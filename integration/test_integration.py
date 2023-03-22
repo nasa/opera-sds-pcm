@@ -55,15 +55,15 @@ def test_subscriber_l30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_", index="grq_v0.0_l3_dswx_hls", query_name="match_phrase")
-    assert re.match(r"OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_(\d+)T(\d+)Z_L8_30_v0.0", response.hits[0]["id"])
+    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_(\d+)T(\d+)Z_L8_30_v2.0", response.hits[0]["id"])
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
@@ -72,7 +72,7 @@ def test_subscriber_l30():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
     assert_cnm_r_success(response)
 
 
@@ -106,15 +106,15 @@ def test_subscriber_s30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_", index="grq_v0.0_l3_dswx_hls", query_name="match_phrase")
-    assert re.match(r"OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_(\d+)T(\d+)Z_S2B_30_v0.0", response.hits[0]["id"])
+    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_(\d+)T(\d+)Z_S2A_30_v2.0", response.hits[0]["id"])
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls")
+    response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
@@ -123,7 +123,7 @@ def test_subscriber_s30():
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
-    response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v0.0_l3_dswx_hls")
+    response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
     assert_cnm_r_success(response)
 
 
@@ -159,147 +159,183 @@ def test_subscriber_slc():
 
     # CSLC
 
-    cslc_ids = []
+    # 18-IW1, 18-IW2, 18-IW3
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z"
 
-    # 51-IW2, 51-IW3
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008851-IW2_VV_20221117T004741Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008851-IW2_VV_20221117T004741Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008851-IW3_VV_20221117T004742Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008851-IW3_VV_20221117T004742Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
+    # 19-IW1, 19-IW2, 19-IW3
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z"
 
-    # 52-IW1, 52-IW2, 52-IW3
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008852-IW1_VV_20221117T004743Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008852-IW1_VV_20221117T004743Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008852-IW2_VV_20221117T004744Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008852-IW2_VV_20221117T004744Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008852-IW3_VV_20221117T004745Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008852-IW3_VV_20221117T004745Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-
-    # 53-IW1, 53-IW2, 53-IW3
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008853-IW1_VV_20221117T004746Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008853-IW1_VV_20221117T004746Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008853-IW2_VV_20221117T004747Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008853-IW2_VV_20221117T004747Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008853-IW3_VV_20221117T004748Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008853-IW3_VV_20221117T004748Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-
-    # 54-IW1, 54-IW2, 54-IW3
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008854-IW1_VV_20221117T004749Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008854-IW1_VV_20221117T004749Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008854-IW2_VV_20221117T004749Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008854-IW2_VV_20221117T004749Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008854-IW3_VV_20221117T004750Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008854-IW3_VV_20221117T004750Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-
-    # 55-IW1, 55-IW2, 55-IW3
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008855-IW1_VV_20221117T004751Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008855-IW1_VV_20221117T004751Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008855-IW2_VV_20221117T004752Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008855-IW2_VV_20221117T004752Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T005-008855-IW3_VV_20221117T004753Z_v0.0_", index="grq_v0.0_l2_cslc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_CSLC-S1A_IW_T005-008855-IW3_VV_20221117T004753Z_v0.0_(\d+)T(\d+)Z", response.hits[0]["id"])
-    cslc_ids.append(response.hits[0]["id"])
+    # 20-IW1, 20-IW2, 20-IW3
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z"
+    response = wait_for_l3(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z"
 
     # RTC
 
-    rtc_ids = []
+    # 70-IW1, 70-IW3
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147170-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147170-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
 
-    # 51-IW2, 51-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008851-IW2_20221117T004741Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008851-IW2_20221117T004741Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008851-IW3_20221117T004742Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008851-IW3_20221117T004742Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
+    # 71-IW1, 71-IW2, 71-IW3
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147171-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147171-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147171-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
 
-    # 52-IW1, 52-IW2, 52-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008852-IW1_20221117T004743Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008852-IW1_20221117T004743Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008852-IW2_20221117T004744Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008852-IW2_20221117T004744Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008852-IW3_20221117T004745Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008852-IW3_20221117T004745Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
+    # 72-IW1, 72-IW2, 72-IW3
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147172-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147172-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147172-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
 
-    # 53-IW1, 53-IW2, 53-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008853-IW1_20221117T004746Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008853-IW1_20221117T004746Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008853-IW2_20221117T004747Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008853-IW2_20221117T004747Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008853-IW3_20221117T004748Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008853-IW3_20221117T004748Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-
-    # 54-IW1, 54-IW2, 54-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008854-IW1_20221117T004749Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008854-IW1_20221117T004749Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008854-IW2_20221117T004749Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008854-IW2_20221117T004749Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008854-IW3_20221117T004750Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008854-IW3_20221117T004750Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-
-    # 55-IW1, 55-IW2, 55-IW3
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008855-IW1_20221117T004751Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008855-IW1_20221117T004751Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008855-IW2_20221117T004752Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008855-IW2_20221117T004752Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
-    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T005-008855-IW3_20221117T004753Z_", index="grq_v0.0_l2_rtc_s1", query_name="match_phrase")
-    assert re.match(r"OPERA_L2_RTC-S1_T005-008855-IW3_20221117T004753Z_(\d+)T(\d+)Z_S1A_30_v0.0", response.hits[0]["id"])
-    rtc_ids.append(response.hits[0]["id"])
+    # 73-IW1
+    response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
     logging.info("Sleeping for CNM-S execution...")
     sleep_for(300)
 
-    for cslc_id in cslc_ids:
-        response = wait_for_cnm_s_success(_id=cslc_id, index="grq_v0.0_l2_cslc_s1")
-        assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_s_success(response)
 
-    for rtc_id in rtc_ids:
-        response = wait_for_cnm_s_success(_id=rtc_id, index="grq_v0.0_l2_rtc_s1")
-        assert_cnm_s_success(response)
+    # 70-IW1, 70-IW3
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147170-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+
+    # 71-IW1, 71-IW2, 71-IW3
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+
+    # 72-IW1, 72-IW2, 72-IW3
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
+
+    # 73-IW1
+    response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_s_success(response)
 
     logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z")
+    mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z")
 
-    for cslc_id in cslc_ids:
-        mock_cnm_r_success_sqs(id=cslc_id)
+    # 70-IW1, 70-IW3
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147170-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
 
-    for rtc_id in rtc_ids:
-        mock_cnm_r_success_sqs(id=rtc_id)
+    # 71-IW1, 71-IW2, 71-IW3
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147171-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147171-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147171-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+
+    # 72-IW1, 72-IW2, 72-IW3
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147172-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147172-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147172-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
+
+    # 73-IW1
+    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
 
     logging.info("Sleeping for CNM-R execution...")
     sleep_for(300)
 
-    for cslc_id in cslc_ids:
-        response = wait_for_cnm_r_success(_id=cslc_id, index="grq_v0.0_l2_cslc_s1")
-        assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135519-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135520-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
+    assert_cnm_r_success(response)
 
-    for rtc_id in rtc_ids:
-        response = wait_for_cnm_r_success(_id=rtc_id, index="grq_v0.0_l2_rtc_s1")
-        assert_cnm_r_success(response)
+    # 70-IW1, 70-IW3
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147170-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147170-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+
+    # 71-IW1, 71-IW2, 71-IW3
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147171-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+
+    # 72-IW1, 72-IW2, 72-IW3
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW2_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147172-IW3_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
+
+    # 73-IW1
+    response = wait_for_cnm_r_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
+    assert_cnm_r_success(response)
 
 
 def assert_cnm_s_success(response):
