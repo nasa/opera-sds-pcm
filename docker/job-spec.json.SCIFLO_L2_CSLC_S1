@@ -1,8 +1,8 @@
 {
   "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
   "disk_usage":"70GB",
-  "soft_time_limit": 9300,
-  "time_limit": 9360,
+  "soft_time_limit": 4000,
+  "time_limit": 4060,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
