@@ -370,13 +370,13 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20230322-1.0.1"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0"
+    "dswx_hls" = "1.0.1"
   }
 }
 
@@ -487,7 +487,7 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4
+    # HySDS v4.1.0-beta.4 (R1)
     mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
     metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
     grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107

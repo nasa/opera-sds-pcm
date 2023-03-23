@@ -112,18 +112,12 @@ variable "queues" {
       "max_size"      = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
+      "data_dev_size" = 50
+      "min_size"      = 0
+      "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
@@ -446,13 +440,13 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20230322-1.0.1"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0"
+    "dswx_hls" = "1.0.1"
   }
 }
 

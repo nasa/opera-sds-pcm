@@ -415,7 +415,7 @@ variable "lambda_log_retention_in_days" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0"
+    "dswx_hls" = "1.0.1"
   }
 }
 
@@ -424,7 +424,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220609-1.0.0-rc.1.0"
+  default = "20230322-1.0.0"
 }
 
 variable "crid" {

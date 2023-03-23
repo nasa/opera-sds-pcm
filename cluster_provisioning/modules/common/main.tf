@@ -44,11 +44,13 @@ locals {
     "dev"  = "${var.project}-dev-daac-cnm-response"
     "int"  = "${var.project}-int-daac-cnm-response"
     "test" = "${var.project}-test-daac-cnm-response"
+	"ops"  = "${var.project}-ops-daac-cnm-response"
   }
   cnm_response_dl_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
     "int"  = "${var.project}-int-daac-cnm-response-dead-letter-queue"
     "test" = "${var.project}-test-daac-cnm-response-dead-letter-queue"
+	"ops"  = "${var.project}-ops-daac-cnm-response-dead-letter-queue"
   }
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"

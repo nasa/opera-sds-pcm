@@ -347,7 +347,7 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0"
+    "dswx_hls" = "1.0.1"
   }
 }
 
@@ -480,18 +480,12 @@ variable "queues" {
       "max_size"      = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 100
+      "data_dev_size" = 50
+      "min_size"      = 0
+      "max_size"      = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {

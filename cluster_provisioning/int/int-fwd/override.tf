@@ -40,6 +40,12 @@ variable "keypair_name" {
   default = "operasds-int-cluster-fwd"
 }
 
+####### CNM Response job vars #######
+variable "po_daac_delivery_proxy" {
+  #default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
+  default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+}
+
 ##### Bucket Names #########
 variable "docker_registry_bucket" {
   default = "opera-int-cc-fwd"

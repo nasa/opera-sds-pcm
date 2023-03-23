@@ -212,13 +212,14 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "cnm_r_venue" {
-  default = "int"
+  default = "ops"
 }
 
 ####### CNM Response job vars #######
 variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
+  default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+  #default = "arn:aws:sns:us-west-2:234498297282:podaac-ops-cumulus-throttled-provider-input-sns"
 }
 
 variable "pge_sim_mode" {
@@ -353,7 +354,7 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0"
+    "dswx_hls" = "1.0.1"
   }
 }
 
@@ -481,24 +482,11 @@ variable "queues" {
       "max_size"      = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-l3_dswx_hls_state_config" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
-      "instance_type" = ["t2.large", "t3a.large", "t3.large"]
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
       "root_dev_size" = 50
-      "data_dev_size" = 25
+      "data_dev_size" = 50
+      "min_size"      = 0
       "max_size"      = 100
       "total_jobs_metric" = true
     }

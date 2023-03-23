@@ -1,18 +1,18 @@
 VENUE: '{{VENUE}}'
 PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
-# for PRODUCTION, check with Luca again
-#DSWX_COLLECTION_NAME: "OPERA_L3_DSWX_HLS_1.0"
-#DSWX_HLS_PRODUCT_VERSION: "1.0"
 
 # for PST (CalVal products)
-DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
+#DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
+#DSWX_HLS_PRODUCT_VERSION: "0.0"
 CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_PROVISIONAL_V0"
 RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_PROVISIONAL_V0"
-
-DSWX_HLS_PRODUCT_VERSION: "0.0"
 CSLC_S1_PRODUCT_VERSION: "0.0"
 RTC_S1_PRODUCT_VERSION: "0.0"
+
+# for OPS (uncomment out this for PCM 1.0.0 release
+DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
+DSWX_HLS_PRODUCT_VERSION: "1.0"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
@@ -49,8 +49,12 @@ URGENT_RESPONSE_LATENCY:
 # during production.
 
 DSWX_HLS:
+  # Toggle ancillary overlap coverage check during processing
   CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
+  # Toggle application of ocean/shoreline masking during processing
   APPLY_OCEAN_MASKING: !!bool false
+  # Amount of margin in km to apply to staged ancillaries (DEM/worldcover)
+  ANCILLARY_MARGIN: 200
 
 PRODUCT_TYPES:
     Observation_Accountability_Report:

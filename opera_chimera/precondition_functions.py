@@ -1130,8 +1130,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.s3_bucket = s3_bucket
         args.outfile = output_filepath
         args.filepath = None
-        args.margin = 200  # KM
+        args.margin = int(self._settings.get("DSWX_HLS", {}).get("ANCILLARY_MARGIN", 50))  # KM
         args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
 
         # Provide both the bounding box and tile code, stage_dem.py should
         # give preference to the tile code over the bbox if both are provided.
@@ -1238,8 +1240,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.worldcover_ver = worldcover_ver
         args.worldcover_year = worldcover_year
         args.outfile = output_filepath
-        args.margin = 200  # KM
+        args.margin = int(self._settings.get("DSWX_HLS", {}).get("ANCILLARY_MARGIN", 50))  # KM
         args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged Worldcover')
 
         # Provide both the bounding box and tile code, stage_worldcover.py should
         # give preference to the tile code over the bbox if both are provided.
