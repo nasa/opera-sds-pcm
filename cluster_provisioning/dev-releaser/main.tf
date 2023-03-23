@@ -126,14 +126,14 @@ resource "null_resource" "mozart" {
     private_key = file(self.triggers.private_key_file)
   }
 
-  provisioner "remote-exec" {             
-    inline = [<<-EOF                      
-              set -ex                     
-              source ~/.bash_profile      
-              cd ~/.sds/files             
+  provisioner "remote-exec" {
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              cd ~/.sds/files
               ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
               echo Your cluster has been provisioned!
-    EOF                                   
+    EOF
     ]
   }
 
