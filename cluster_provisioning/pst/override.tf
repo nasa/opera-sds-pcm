@@ -45,6 +45,11 @@ variable "cluster_type" {
   default = "forward"
 }
 
+variable "clear_s3_aws_es" {
+   type = bool
+   default = false
+}
+
 ###### Security  ########
 variable "public_verdi_security_group_id" {
   default = "sg-01b0d3772049cc263"
@@ -140,18 +145,6 @@ variable "artifactory_repo" {
 
 variable "use_artifactory" {
   default = true
-}
-
-####### Release Branches #############
-variable "pge_snapshots_date" {
-  default = "20230203-1.0.0-rc.7.0"
-}
-
-variable "pge_releases" {
-  type = map(string)
-  default = {
-    "dswx_hls" = "1.0.1"
-  }
 }
 
 variable "hysds_release" {
@@ -325,9 +318,4 @@ variable "autoscale" {
 variable "run_smoke_test" {
   type = bool
   default = true
-}
-
-variable "clear_s3_aws_es" {
-   type = bool
-   default = false
 }
