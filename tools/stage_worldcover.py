@@ -259,7 +259,7 @@ def main(opts):
     if not opts.worldcover_year:
         opts.worldcover_year = WORLDCOVER_YEAR
 
-    # Determine polygon based on MGRS info or bbox
+    # Determine polygon based on MGRS grid reference with a margin, or bbox
     poly = determine_polygon(opts.tile_code, opts.bbox, opts.margin)
 
     # Check dateline crossing. Returns list of polygons
