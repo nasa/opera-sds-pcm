@@ -75,8 +75,8 @@ def determine_polygon(tile_code, bbox=None, margin_in_km=50):
         code.
     margin_in_km: float, optional
         Margin in kilometers to be added to MGRS bounding box obtained from the
-        MGRS `tile_code`. This margin is not added when the parameter `bbox` is
-        used.
+        MGRS `tile_code`. This margin is not added to the bounding box
+        defined from the input parameter `bbox`.
 
     Returns
     -------
