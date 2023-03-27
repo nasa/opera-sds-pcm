@@ -173,8 +173,6 @@ def download_worldcover(polys, worldcover_bucket, worldcover_ver,
         Path to the where the output Worldcover file is to be staged.
 
     """
-    # convert margin to degree (approx formula)
-    margin = margin / 40000 * 360
 
     # Download Worldcover map for each polygon/epsg
     file_prefix = os.path.splitext(outfile)[0]
