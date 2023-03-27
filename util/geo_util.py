@@ -9,7 +9,7 @@ from osgeo import osr
 from shapely.geometry import box, LinearRing, Point, Polygon
 
 
-def polygon_from_mgrs_tile(mgrs_tile_code):
+def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km):
     """
     Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
     a MGRS tile bounding box.
@@ -25,10 +25,17 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
     function developed by Gustavo Shiroma.
     See https://github.com/opera-adt/PROTEUS/blob/08fd57c64fec6f9d2e02da7e84aca86982f9bccd/src/proteus/core.py#L93
 
+    In the case of antimeridian crossing, `lon_max - lon_min` will be greater
+    than 180 deg, and the MGRS tile polygon will represent the complement
+    (in longitude) of the actual tile polygon. This edge case will be detected
+    and handled by the subsequent function  `check_dateline()`
+
     Returns
     -------
     poly: shapely.Geometry.Polygon
         Bounding polygon corresponding to the provided MGRS tile code.
+    margin_in_km: float, optional
+        Margin in kilometers to be added to MGRS bounding box
 
     """
     mgrs_obj = mgrs.MGRS()
@@ -70,7 +77,14 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
             # HLS tiles have 4.9 km of margin => width/length = 109.8 km
             x = x_min - 4.9 * 1000 + offset_x_multiplier * 109.8 * 1000
             y = y_min - 4.9 * 1000 + offset_y_multiplier * 109.8 * 1000
-            lat, lon, z = transformation.TransformPoint(x, y, elevation)
+
+            x_with_margin = (x + 2 * (float(offset_x_multiplier) - 0.5) *
+                             margin_in_km * 1000)
+            y_with_margin = (y + 2 * (float(offset_y_multiplier) - 0.5) *
+                             margin_in_km * 1000)
+
+            lat, lon, z = transformation.TransformPoint(
+                x_with_margin, y_with_margin, elevation)
 
             if lat_min is None or lat_min > lat:
                 lat_min = lat
@@ -81,6 +95,10 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
             if lon_max is None or lon_max < lon:
                 lon_max = lon
 
+    # In the case of antimeridian crossing, `lon_max - lon_min` will be greater
+    # than 180 deg, and the MGRS tile polygon will represent the complement
+    # (in longitude) of the actual tile polygon. This edge case will be detected
+    # and handled by the subsequent function `check_dateline()`
     coords = [lon_min, lat_min, lon_max, lat_max]
 
     poly = box(*coords)

@@ -53,7 +53,7 @@ def get_parser():
     parser.add_argument('-m', '--margin', type=int, action='store',
                         default=5, help='Margin for DEM bounding box in km.')
     parser.add_argument("--log-level",
-                        type=lambda log_level: LogLevels[log_level].value,
+                        gype=lambda log_level: LogLevels[log_level].value,
                         choices=LogLevels.list(),
                         default=LogLevels.INFO.value,
                         help="Specify a logging verbosity level.")
@@ -61,7 +61,7 @@ def get_parser():
     return parser
 
 
-def determine_polygon(tile_code, bbox=None):
+def determine_polygon(tile_code, bbox=None, margin_in_km=50):
     """
     Determine bounding polygon using MGRS tile code or user-defined bounding box.
 
@@ -73,6 +73,10 @@ def determine_polygon(tile_code, bbox=None):
         Bounding box with lat/lon coordinates (decimal degrees) in the form of
         [West, South, East, North]. If provided, takes precedence over the tile
         code.
+    margin_in_km: float, optional
+        Margin in kilometers to be added to MGRS bounding box obtained from the
+        MGRS `tile_code`. This margin is not added when the parameter `bbox` is
+        used.
 
     Returns
     -------
@@ -86,7 +90,7 @@ def determine_polygon(tile_code, bbox=None):
         poly = box(bbox[0], bbox[1], bbox[2], bbox[3])
     else:
         logger.info(f'Determining polygon from MGRS tile code {tile_code}')
-        poly = polygon_from_mgrs_tile(tile_code)
+        poly = polygon_from_mgrs_tile(tile_code, margin_in_km)
 
     logger.debug(f'Derived polygon {str(poly)}')
 
@@ -142,7 +146,7 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     )
 
 
-def download_dem(polys, epsgs, dem_bucket, margin, outfile):
+def download_dem(polys, epsgs, dem_bucket, outfile):
     """
     Download a DEM from the specified S3 bucket.
 
@@ -154,8 +158,6 @@ def download_dem(polys, epsgs, dem_bucket, margin, outfile):
         List of EPSG codes corresponding to polys.
     dem_bucket : str
         Name of the S3 bucket containing the global DEM to download from.
-    margin: float
-        Buffer margin (in km) applied for DEM download.
     outfile:
         Path to the where the output DEM file is to be staged.
 
@@ -163,16 +165,12 @@ def download_dem(polys, epsgs, dem_bucket, margin, outfile):
     # set epsg to 4326 for each element in the list
     epsgs = [4326] * len(epsgs)
 
-    # convert margin to degree (approx formula)
-    margin = margin / 40000 * 360
-
     # Download DEM for each polygon/epsg
     file_prefix = os.path.splitext(outfile)[0]
     dem_list = []
 
     for idx, (epsg, poly) in enumerate(zip(epsgs, polys)):
         vrt_filename = f'/vsis3/{dem_bucket}/EPSG{epsg}/EPSG{epsg}.vrt'
-        poly = poly.buffer(margin)
         output_path = f'{file_prefix}_{idx}.tif'
         dem_list.append(output_path)
         x_min, y_min, x_max, y_max = poly.bounds
@@ -281,8 +279,8 @@ def main(opts):
     if not opts.s3_bucket:
         opts.s3_bucket = S3_DEM_BUCKET
 
-    # Determine polygon based on MGRS info or bbox
-    poly = determine_polygon(opts.tile_code, opts.bbox)
+    # Determine polygon based on MGRS grid reference with a margin or bbox
+    poly = determine_polygon(opts.tile_code, opts.bbox, opts.margin)
 
     # Check dateline crossing. Returns list of polygons
     polys = check_dateline(poly)
@@ -314,7 +312,7 @@ def main(opts):
     logger.debug(f'Derived the following EPSG codes: {epsgs}')
 
     # Download DEM
-    download_dem(polys, epsgs, opts.s3_bucket, opts.margin, opts.outfile)
+    download_dem(polys, epsgs, opts.s3_bucket, opts.outfile)
 
     logger.info(f'Done, DEM stored locally to {opts.outfile}')
 
