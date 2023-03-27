@@ -53,7 +53,7 @@ def get_parser():
     parser.add_argument('-m', '--margin', type=int, action='store',
                         default=5, help='Margin for DEM bounding box in km.')
     parser.add_argument("--log-level",
-                        gype=lambda log_level: LogLevels[log_level].value,
+                        type=lambda log_level: LogLevels[log_level].value,
                         choices=LogLevels.list(),
                         default=LogLevels.INFO.value,
                         help="Specify a logging verbosity level.")
