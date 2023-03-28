@@ -9,7 +9,11 @@ from osgeo import osr
 from shapely.geometry import box, LinearRing, Point, Polygon
 
 
-def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km):
+EARTH_APPROX_CIRCUNFERENCE = 40075017.
+
+
+def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
+                           flag_use_m_to_deg_conversion_at_equator=True):
     """
     Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
     a MGRS tile bounding box.
@@ -18,6 +22,17 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km):
     -----------
     mgrs_tile_code : str
         MGRS tile code corresponding to the polygon to derive.
+    margin_in_km : float
+        Margin in kilometers to be added to MGRS bounding box
+    flag_use_m_to_deg_conversion_at_equator : bool
+        Flag to use the conversion from meters to lat/lon degrees at
+        the Equator, rather than adding the margin to the MGRS tile
+        grid in meters before conversion to geographic coordinates (lat/lon).
+        This option is given because of the asymmetry in converting the
+        margin in km to degrees near the poles. For example, a margin
+        of 200km near the Equator is equivalent to 1.8 deg (latitude or
+        longitude). At 82 degrees latitude, the same 200km is equivalent to
+        12.9 degrees in longitude.
 
     Notes
     -----
@@ -70,6 +85,13 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km):
     lon_min = None
     lon_max = None
 
+    # Add margin to the bounding polygon
+    if flag_use_m_to_deg_conversion_at_equator:
+        km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUNFERENCE / 360.)
+        margin_in_deg = margin_in_km * km_to_deg_at_equator
+    else:
+        margin_in_deg = 0
+
     for offset_x_multiplier in range(2):
         for offset_y_multiplier in range(2):
 
@@ -78,13 +100,17 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km):
             x = x_min - 4.9 * 1000 + offset_x_multiplier * 109.8 * 1000
             y = y_min - 4.9 * 1000 + offset_y_multiplier * 109.8 * 1000
 
-            x_with_margin = (x + 2 * (float(offset_x_multiplier) - 0.5) *
-                             margin_in_km * 1000)
-            y_with_margin = (y + 2 * (float(offset_y_multiplier) - 0.5) *
-                             margin_in_km * 1000)
+            if not flag_use_m_to_deg_conversion_at_equator:
+                x += (2 * (float(offset_x_multiplier) - 0.5) *
+                      margin_in_km * 1000)
+                y += (2 * (float(offset_y_multiplier) - 0.5) *
+                      margin_in_km * 1000)
 
-            lat, lon, z = transformation.TransformPoint(
-                x_with_margin, y_with_margin, elevation)
+            lat, lon, z = transformation.TransformPoint(x, y, elevation)
+
+            if flag_use_m_to_deg_conversion_at_equator:
+                lon += 2 * (float(offset_x_multiplier) - 0.5) * margin_in_deg
+                lat += 2 * (float(offset_y_multiplier) - 0.5) * margin_in_deg
 
             if lat_min is None or lat_min > lat:
                 lat_min = lat
@@ -125,7 +151,7 @@ def check_dateline(poly):
     x_min, _, x_max, _ = poly.bounds
 
     # Check dateline crossing
-    if (x_max - x_min) > 180.0:
+    if ((x_max - x_min > 180.0) or (x_min <= 180.0 <= x_max)):
         dateline = shapely.wkt.loads('LINESTRING( 180.0 -90.0, 180.0 90.0)')
 
         # build new polygon with all longitudes between 0 and 360
