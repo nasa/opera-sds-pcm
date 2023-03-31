@@ -59,7 +59,7 @@ def get_body() -> dict:
 def get_range(
         datetime_fieldname="creation_timestamp",
         start_dt_iso="1970-01-01T00:00:00.000000",
-        end_dt_iso="2023-01-01T00:00:00.000000"
+        end_dt_iso="9999-01-01T00:00:00.000000"
 ) -> dict:
     return {
         "range": {
@@ -156,7 +156,6 @@ missing_data_ingest_granules = more_itertools.map_reduce(
 missing_data_ingest_granules = set(missing_data_ingest_granules.keys())
 logging.info(f'Missing data ingest (granules): {len(missing_data_ingest_granules)=}')
 logging.debug(pstr(missing_data_ingest_granules))
-
 
 #######################################################################
 # GET L3 products (products used by PGE runs)
