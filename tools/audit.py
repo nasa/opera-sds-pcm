@@ -59,7 +59,7 @@ def get_body() -> dict:
 def get_range(
         datetime_fieldname="creation_timestamp",
         start_dt_iso="1970-01-01T00:00:00.000000",
-        end_dt_iso="2023-01-01T00:00:00.000000"
+        end_dt_iso="9999-01-01T00:00:00.000000"
 ) -> dict:
     return {
         "range": {
