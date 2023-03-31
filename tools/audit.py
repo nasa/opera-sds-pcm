@@ -68,6 +68,7 @@ argparser.add_argument(
     help=f'ISO formatted datetime string. Must be compatible with Python Elasticsearch Client. Defaults to "%(default)s".'
 )
 
+logging.info(f'{sys.argv=}')
 args = argparser.parse_args(sys.argv[1:])
 
 
