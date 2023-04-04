@@ -2237,19 +2237,13 @@ data "aws_iam_policy_document" "sns_topic_policy" {
       "SNS:Receive",
       "SNS:Subscribe"
     ]
-#    condition {
-#      test     = "StringEquals"
-#      variable = "AWS:SourceOwner"
-#      values = [
-#        var.aws_account_id
-#      ]
-#    }
     effect = "Allow"
     principals {
       type        = "AWS"
 	  identifiers = [
           "arn:aws:iam::${var.aws_account_id}:root",
-          "arn:aws:iam::638310961674:root"
+          "arn:aws:iam::638310961674:root",
+          "arn:aws:iam::234498297282:root"
       ]
     }
     resources = [
