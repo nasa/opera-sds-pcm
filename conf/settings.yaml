@@ -52,6 +52,10 @@ URGENT_RESPONSE_LATENCY:
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
+CSLC_S1:
+  # Toggle static layer generation during processing
+  ENABLE_STATIC_LAYERS: !!bool true
+
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
   CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
@@ -59,6 +63,10 @@ DSWX_HLS:
   APPLY_OCEAN_MASKING: !!bool false
   # Amount of margin in km to apply to staged ancillaries (DEM/worldcover)
   ANCILLARY_MARGIN: 200
+
+RTC_S1:
+  # Toggle static layer generation during processing
+  ENABLE_STATIC_LAYERS: !!bool true
 
 PRODUCT_TYPES:
     Observation_Accountability_Report:
