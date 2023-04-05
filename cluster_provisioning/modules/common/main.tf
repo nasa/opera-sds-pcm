@@ -592,8 +592,8 @@ data "aws_sqs_queue" "cnm_response" {
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
   count            = local.sqs_count
-  #event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
-  event_source_arn = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : aws_sqs_queue.cnm_response.arn
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
+  #event_source_arn = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : aws_sqs_queue.cnm_response.arn
   function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
 

@@ -424,6 +424,7 @@ variable "cnm_r_sqs_arn" {
   default = {
     dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
     int  = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
+    ops  = "arn:aws:sqs:us-west-2:907504701509:opera-ops-daac-cnm-response"
   }
 }
 
