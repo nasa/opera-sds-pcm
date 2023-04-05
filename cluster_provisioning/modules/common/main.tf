@@ -1513,8 +1513,16 @@ locals {
           "Expiration": {
             "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
           },
-          "ID" : "RS Bucket Deletion",
+          "ID" : "RS Bucket Products Deletion",
           "Prefix": "products/",
+          "Status" : "Enabled"
+        },
+        {
+          "Expiration": {
+            "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+          },
+          "ID" : "RS Bucket Inputs Deletion",
+          "Prefix": "inputs/",
           "Status" : "Enabled"
         }
       ]
