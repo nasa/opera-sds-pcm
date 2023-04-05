@@ -69,7 +69,7 @@ RunConfig:
             {%- endif %}
             {%- endfor %}
             # TODO: update descriptions as necessary when new ancillary releases are available
-            dem_description: Copernicus DEM GLO-30 2021
+            dem_description: Digital Elevation Model (DEM) for the NASA OPERA project (v1.0) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid
           static_ancillary_file_group:
             {%- for type in data.static_ancillary_file_group.keys() %}
             {%- if data.static_ancillary_file_group[ type ] is not none %}
@@ -79,14 +79,14 @@ RunConfig:
             {%- endif %}
             {%- endfor %}
           product_group:
-            processing_type: 'NOMINAL'
             product_version: {{ data.product_path_group.product_version }}
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             output_dir: {{ data.product_path_group.product_path }}
-            product_id: rtc_product
+            product_id: OPERA_L2_RTC-S1_T{burst_id}
             save_bursts: True
             save_mosaics: False
+            save_browse: True
             output_imagery_format: COG
             output_imagery_compression: ZSTD
             output_imagery_nbits: 16
@@ -112,25 +112,19 @@ RunConfig:
               output_type: gamma0
               algorithm_type: area_projection
               input_terrain_radiometry: beta0
-              rtc_min_value_db:
+              rtc_min_value_db: -30
               dem_upsampling: 2
+            num_workers: 0
             geocoding:
               algorithm_type: area_projection
               memory_mode: auto
               geogrid_upsampling: 1
 
-              # Static layer configuration, set all flags below to True to
-              # enable generation of all static layers
-              save_incidence_angle: False
-              save_local_inc_angle: False
-              save_projection_angle: False
-              save_rtc_anf_psi: False
-              save_range_slope: False
-              save_nlooks: False
-              save_rtc_anf: False
-              save_dem: False
-              save_layover_shadow_mask: False
-              # End Static layer configuration
+              save_incidence_angle: {{ data.processing.enable_static_layers }}
+              save_local_inc_angle: {{ data.processing.enable_static_layers }}
+              save_nlooks: {{ data.processing.enable_static_layers }}
+              save_rtc_anf: {{ data.processing.enable_static_layers }}
+              save_layover_shadow_mask: {{ data.processing.enable_static_layers }}
 
               abs_rad_cal: 1
               clip_max:
