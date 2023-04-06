@@ -16,6 +16,7 @@ from smart_open import open
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.query import update_url_index, run_query
+from data_subscriber.survey import run_survey
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.aws_token import supply_token
 from util.conf_util import SettingsConf
@@ -71,13 +72,15 @@ async def run(argv: list[str]):
     logging.info(f"{job_id=}")
 
     logging.info(f"{args.subparser_name=}")
-    if not (args.subparser_name == "query" or args.subparser_name == "download" or args.subparser_name == "full"):
+    if not (args.subparser_name in ["survey", "query", "download", "full"]):
         raise Exception(f"Unsupported operation. {args.subparser_name=}")
 
     username, _, password = netrc.netrc().authenticators(edl)
     token = supply_token(edl, username, password)
 
     results = {}
+    if args.subparser_name == "survey":
+        run_survey(args, token, cmr, settings)
     if args.subparser_name == "query" or args.subparser_name == "full":
         results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
     if args.subparser_name == "download" or args.subparser_name == "full":

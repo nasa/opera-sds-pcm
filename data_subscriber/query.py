@@ -185,7 +185,7 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
     }
 
 
-def get_query_timerange(args, now: datetime):
+def get_query_timerange(args, now: datetime, silent=False):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
         "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
@@ -193,11 +193,12 @@ def get_query_timerange(args, now: datetime):
     end_date = args.end_date if args.end_date else now_date
 
     query_timerange = DateTimeRange(start_date, end_date)
-    logging.info(f"{query_timerange=}")
+    if not silent:
+        logging.info(f"{query_timerange=}")
     return query_timerange
 
 
-def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime) -> list:
+def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetime, silent=False) -> list:
     page_size = 2000
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
@@ -228,7 +229,8 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-    logging.info("Temporal Range: " + temporal_range)
+    if not silent:
+        logging.info("Temporal Range: " + temporal_range)
 
     if args.use_temporal:
         params["temporal"] = temporal_range
@@ -237,10 +239,12 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
 
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
-            logging.info(f"{args.temporal_start_date=}")
+            if not silent:
+                logging.info(f"{args.temporal_start_date=}")
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    logging.info(f"{request_url=} {params=}")
+    if not silent:
+        logging.info(f"{request_url=} {params=}")
     product_granules, search_after = _request_search(args, request_url, params)
 
     while search_after:
@@ -252,7 +256,8 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
                             for granule in product_granules
                             if _match_identifier(settings, args, granule)]
 
-        logging.info(f"Found {str(len(product_granules))} total granules")
+        if not silent:
+            logging.info(f"Found {str(len(product_granules))} total granules")
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
