@@ -68,6 +68,7 @@ set_extra_pge_output_metadata:
 output_types:
   L2_CSLC:
     - h5
+    - png
     - catalog.json
     - iso.xml
     - log

@@ -68,6 +68,7 @@ output_types:
   L2_CSLC:
     - tif
     - h5
+    - png
     - catalog.json
     - iso.xml
     - log
