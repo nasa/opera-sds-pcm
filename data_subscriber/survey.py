@@ -18,9 +18,10 @@ def run_survey(args, token, cmr, settings):
     while start_dt < end_dt:
 
         now = datetime.utcnow()
+        step_time = timedelta(hours=args.step_hours)
 
         start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        end_str = (start_dt + timedelta(minutes=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_str = (start_dt + step_time).strftime("%Y-%m-%dT%H:%M:%SZ")
         args.start_date = start_str
         args.end_date = end_str
 
@@ -40,7 +41,7 @@ def run_survey(args, token, cmr, settings):
 
         logging.info(f"{start_str},{end_str},{str(count)}")
 
-        start_dt = start_dt + timedelta(minutes=60)
+        start_dt = start_dt + step_time
 
     total_g_str = "Total granules found: " + str(total_granules)
     logging.info(total_g_str)

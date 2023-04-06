@@ -207,10 +207,15 @@ def create_parser():
                           "choices": ["forward", "reprocessing", "historical"],
                           "help": "Processing mode changes SLC data processing behavior"}}
 
+    step_hours = {"positionals": ["--step-hours"],
+                           "kwargs": {"dest": "step_hours",
+                            "default": 1,
+                            "help": "Number of hours to step for each survey iteration"}}
+
     out_csv = {"positionals": ["--out-csv"],
                            "kwargs": {"dest": "out_csv",
-                                      "default": "cmr_survey.csv",
-                                      "help": "Specify name of the output CSV file"}}
+                            "default": "cmr_survey.csv",
+                            "help": "Specify name of the output CSV file"}}
 
     transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
                "kwargs": {"dest": "transfer_protocol",
@@ -224,7 +229,7 @@ def create_parser():
 
     survey_parser = subparsers.add_parser("survey")
     survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
-                              smoke_run, native_id, use_temporal, temporal_start_date, out_csv]
+                              smoke_run, native_id, use_temporal, temporal_start_date, step_hours, out_csv]
     _add_arguments(survey_parser, survey_parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
