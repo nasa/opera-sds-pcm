@@ -13,6 +13,8 @@ def run_survey(args, token, cmr, settings):
     out_csv.write("# DateTime Range:" + start_dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " to " + end_dt.strftime(
         "%Y-%m-%dT%H:%M:%SZ") + '\n')
 
+    total_granules = 0
+
     while start_dt < end_dt:
 
         now = datetime.utcnow()
@@ -27,6 +29,7 @@ def run_survey(args, token, cmr, settings):
         granules = query_cmr(args, token, cmr, settings, query_timerange, now, silent=True)
 
         count = len(granules)
+        total_granules += count
 
         out_csv.write(start_str)
         out_csv.write(',')
@@ -39,6 +42,9 @@ def run_survey(args, token, cmr, settings):
 
         start_dt = start_dt + timedelta(minutes=60)
 
+    total_g_str = "Total granules found: " + str(total_granules)
+    logging.info(total_g_str)
+    out_csv.write(total_g_str)
     out_csv.close()
 
     logging.info("Output CSV written out to file: " + str(args.out_csv))
