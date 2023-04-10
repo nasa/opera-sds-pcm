@@ -25,7 +25,9 @@ L2_CSLC_S1:
     Primary:
       # Pattern for parsing primary (per-burst) output filenames, such as:
       # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z.h5
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>tif|tiff|h5|iso\.xml)$'
+      # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z_static_layers.h5
+      # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z_BROWSE.png
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))(_static_layers|_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         verify: true
         hash: md5
     Secondary:
