@@ -19,6 +19,8 @@ import extractor.extract
 import product2dataset.product2dataset
 from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from product2dataset import product2dataset
+from tools import stage_ionosphere_file
+from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
@@ -198,6 +200,24 @@ def download_from_asf(
             stage_orbit_file.main(stage_orbit_file_args)
 
         logging.info("Added orbit file to dataset")
+
+        logging.info("Downloading associated Ionosphere Correction file")
+
+        try:
+            stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
+                [
+                    f"--output-directory={str(dataset_dir)}",
+                    str(product_filepath)
+                ]
+            )
+            stage_ionosphere_file.main(stage_ionosphere_file_args)
+
+            logging.info("Added Ionosphere correction file to dataset")
+        except IonosphereFileNotFoundException:
+            # TODO: check toggle to see if job should fail or not based on this
+            raise RuntimeError(
+                f"Could not find an Ionosphere Correction file for product {product_filepath}"
+            )
 
         logging.info(f"Removing {product_filepath}")
         product_filepath.unlink(missing_ok=True)
