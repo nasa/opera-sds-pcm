@@ -754,6 +754,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_slc_static_layers_enabled(self):
+        """Gets the setting for the static_layers_enabled flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        pge_name = self._pge_config.get('pge_name')
+        pge_shortname = pge_name[3:].upper()
+
+        logger.info(f'Getting ENABLE_STATIC_LAYERS setting for PGE {pge_shortname}')
+
+        enable_static_layers = self._settings.get(pge_shortname).get("ENABLE_STATIC_LAYERS")
+
+        rc_params = {
+            "enable_static_layers": enable_static_layers
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_slc_s1_safe_file(self):
         """
         Obtains the input SAFE file for use with an CSLC-S1 or RTC-S1 job.
