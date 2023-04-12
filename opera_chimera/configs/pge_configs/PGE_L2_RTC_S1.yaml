@@ -27,12 +27,14 @@ runconfig:
     scratch_path: /home/rtc_user/output_dir/scratch_dir
   processing:
     polarization: __CHIMERA_VAL__
+    enable_static_layers: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
   - get_slc_polarization
+  - get_slc_static_layers_enabled
   - get_slc_s1_safe_file
   - get_slc_s1_orbit_file
   - get_slc_s1_dem  # Note: this must be run after get_slc_s1_safe_file
