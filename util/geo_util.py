@@ -92,6 +92,8 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
     else:
         margin_in_deg = 0
 
+    vertices_list = []
+
     for offset_x_multiplier in range(2):
         for offset_y_multiplier in range(2):
 
@@ -112,24 +114,11 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
                 lon += 2 * (float(offset_x_multiplier) - 0.5) * margin_in_deg
                 lat += 2 * (float(offset_y_multiplier) - 0.5) * margin_in_deg
 
-            if lat_min is None or lat_min > lat:
-                lat_min = lat
-            if lat_max is None or lat_max < lat:
-                lat_max = lat
-            if lon_min is None or lon_min > lon:
-                lon_min = lon
-            if lon_max is None or lon_max < lon:
-                lon_max = lon
+            vertices_list.append([lon, lat])
 
-    # In the case of antimeridian crossing, `lon_max - lon_min` will be greater
-    # than 180 deg, and the MGRS tile polygon will represent the complement
-    # (in longitude) of the actual tile polygon. This edge case will be detected
-    # and handled by the subsequent function `check_dateline()`
-    coords = [lon_min, lat_min, lon_max, lat_max]
+    poly = Polygon(vertices_list)
 
-    poly = box(*coords)
-
-    return poly
+    return poly.envelope
 
 
 def check_dateline(poly):
