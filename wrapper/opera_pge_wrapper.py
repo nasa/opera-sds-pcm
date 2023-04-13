@@ -182,10 +182,12 @@ def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir
 
     # get the location of the home directory within the container
     container_home = job_param_by_name(context, 'container_home')
+    container_working_dir = job_param_by_name(context, 'container_working_dir')
 
     cmd = [
         f"docker run --init --rm -u {uid}:{gid}",
         " ".join(runtime_options),
+        f"-w {container_working_dir}",
         f"-v {runconfig_dir}:{container_home}/runconfig:ro",
         f"-v {input_dir}:{container_home}/input_dir:ro",
         f"-v {output_dir}:{container_home}/output_dir",

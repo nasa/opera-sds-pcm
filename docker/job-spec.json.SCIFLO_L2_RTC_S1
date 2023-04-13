@@ -72,6 +72,10 @@
     {
       "name": "container_home",
       "destination": "context"
+    },
+    {
+      "name": "container_working_dir",
+      "destination": "context"
     }
   ]
 }
