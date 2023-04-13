@@ -92,8 +92,6 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
     else:
         margin_in_deg = 0
 
-    vertices_list = []
-
     for offset_x_multiplier in range(2):
         for offset_y_multiplier in range(2):
 
@@ -114,11 +112,51 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
                 lon += 2 * (float(offset_x_multiplier) - 0.5) * margin_in_deg
                 lat += 2 * (float(offset_y_multiplier) - 0.5) * margin_in_deg
 
-            vertices_list.append([lon, lat])
+            # wrap longitude values within the range [-180, +180]
+            if lon < -180:
+                lon += 360
+            elif lon > 180:
+                lon -= 360
 
-    poly = Polygon(vertices_list)
+            if lat_min is None or lat_min > lat:
+                lat_min = lat
+            if lat_max is None or lat_max < lat:
+                lat_max = lat
 
-    return poly.envelope
+            # Need to check `offset_x_multiplier` because of the wrapping of
+            # longitude angles (example: 179 + 2 = -179 degrees)
+            #
+            # The condition `abs(lon_min - lon) < 180`` tests if both longitude
+            # values are both at the same side of the dateline (either left
+            # or right).
+            #
+            # The conditions `> 100` and `< 100` are used to test if the
+            # longitude point is at the left side of the antimeridian crossing
+            # (`> 100`) or at the right side (`< 100`)
+            #
+            # West boundaries (offset_x_multiplier == 0) update `lon_min`
+            if (offset_x_multiplier == 0 and
+                    (lon_min is None or
+                    (abs(lon_min - lon) < 180 and lon_min > lon) or
+                    (lon > 100 and lon_min < -100))):
+                lon_min = lon
+
+            # East boundaries (offset_x_multiplier == 1) update `lon_max`
+            if (offset_x_multiplier == 1 and
+                    (lon_max is None or
+                    (abs(lon_min - lon) < 180 and lon_max < lon) or
+                    (lon < -100 and lon_max > 100))):
+                lon_max = lon
+
+    # In the case of antimeridian crossing, `lon_max - lon_min` will be greater
+    # than 180 deg, and the MGRS tile polygon will represent the complement
+    # (in longitude) of the actual tile polygon. This edge case will be detected
+    # and handled by the subsequent function `check_dateline()`
+    coords = [lon_min, lat_min, lon_max, lat_max]
+
+    poly = box(*coords)
+
+    return poly
 
 
 def check_dateline(poly):
