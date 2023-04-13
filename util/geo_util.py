@@ -123,8 +123,9 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
             if lat_max is None or lat_max < lat:
                 lat_max = lat
 
-            # Need to check `offset_x_multiplier` because of the wrapping of
-            # longitude angles (example: 179 + 2 = -179 degrees)
+            # The computation of min and max longitude values may be affected
+            # by antimeridian crossing. Notice that: 179 degrees +
+            # 2 degrees = -179 degrees
             #
             # The condition `abs(lon_min - lon) < 180`` tests if both longitude
             # values are both at the same side of the dateline (either left
@@ -134,14 +135,18 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
             # longitude point is at the left side of the antimeridian crossing
             # (`> 100`) or at the right side (`< 100`)
             #
-            # West boundaries (offset_x_multiplier == 0) update `lon_min`
+            # We also want to check if the point is at the west or east
+            # side of the tile.
+            # Points at the west, i.e, where offset_x_multiplier == 0
+            # may update `lon_min`
             if (offset_x_multiplier == 0 and
                     (lon_min is None or
                     (abs(lon_min - lon) < 180 and lon_min > lon) or
                     (lon > 100 and lon_min < -100))):
                 lon_min = lon
 
-            # East boundaries (offset_x_multiplier == 1) update `lon_max`
+            # Points at the east, i.e, where offset_x_multiplier == 1
+            # may update `lon_max`
             if (offset_x_multiplier == 1 and
                     (lon_max is None or
                     (abs(lon_min - lon) < 180 and lon_max < lon) or
