@@ -5,6 +5,7 @@ import sys
 from io import StringIO
 from pathlib import PurePath
 from pprint import pprint
+from getpass import getpass
 
 import elasticsearch
 import more_itertools
@@ -24,8 +25,13 @@ config = {
     **os.environ
 }
 
+try:
+    password = config["ES_PASSWORD"]
+except:
+    password = getpass()
+
 kwargs = {
-    "http_auth": (config["ES_USER"], config["ES_PASSWORD"]),
+    "http_auth": (config["ES_USER"], password),
     "connection_class": RequestsHttpConnection,
     "use_ssl": True,
     "verify_certs": False,
