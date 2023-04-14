@@ -321,7 +321,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "instance_type" = ["c6a.2xlarge", "c6i.2xlarge"]
       "root_dev_size" = 50
-      "data_dev_size" = 100
+      "data_dev_size" = 150
       "max_size"      = 10
       "total_jobs_metric" = true
     }
