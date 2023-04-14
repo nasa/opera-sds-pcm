@@ -55,8 +55,8 @@ def test_subscriber_l30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(300)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
-    assert re.match(r"OPERA_L3_DSWx-HLS_T02LQK_20211228T211639Z_(\d+)T(\d+)Z_L8_30_v2.0", response.hits[0]["id"])
+    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_(\d+)T(\d+)Z_L8_30_v2.0", response.hits[0]["id"])
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
@@ -106,8 +106,8 @@ def test_subscriber_s30():
     logging.info("Sleeping for PGE execution...")
     sleep_for(150)
 
-    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
-    assert re.match(r"OPERA_L3_DSWx-HLS_T15TUF_20200526T165849Z_(\d+)T(\d+)Z_S2A_30_v2.0", response.hits[0]["id"])
+    response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_(\d+)T(\d+)Z_S2A_30_v2.0", response.hits[0]["id"])
 
     logging.info("CHECKING FOR CNM-S SUCCESS")
 
