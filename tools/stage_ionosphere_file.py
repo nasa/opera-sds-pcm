@@ -335,7 +335,7 @@ def main(args):
 
     # formulate the archive name and URL location based on the Julian date of the SLC archive
     # TODO: add support for the "jprg" version of the file
-    archive_name = f"jplg{doy}0.{year[2:]}i.Z"
+    archive_name = f"jplg{int(doy):03d}0.{year[2:]}i.Z"
     request_url = join(args.download_endpoint, year, doy, archive_name)
 
     # If user request the URL only, print it to standard out and the log
