@@ -24,8 +24,7 @@ runconfig:
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/compass_user/output_dir
-    # Scratch path is defined relative to output_dir to avoid file system permission issues
-    scratch_path: /home/compass_user/output_dir/scratch_dir
+    scratch_path: /home/compass_user/scratch
   processing:
     # TODO: set to __CHIMERA_VAL__ once dual-pol mode is supported by the CSLC-S1 SAS
     polarization: co-pol

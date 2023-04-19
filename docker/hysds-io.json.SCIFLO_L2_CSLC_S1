@@ -81,7 +81,7 @@
       "name": "container_working_dir",
       "from": "value",
       "type": "text",
-      "value": "/home/compass_user/output_dir"
+      "value": "/home/compass_user/scratch"
     }
   ]
 }
