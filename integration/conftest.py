@@ -64,6 +64,9 @@ def clear_pcm_test_state():
         logging.info(f'Skipping data reset. {config.get("CLEAR_DATA")=}')
         return
 
+    # empty out S3 to make it easier to inspect test outputs and side effects
+    delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")
+
     # clear job index to prevent job duplicates
     #  job duplicates are likely to happen
     #  when executing subscriber query jobs frequently
@@ -87,9 +90,6 @@ def clear_pcm_test_state():
     es_index_delete("grq_v2.0_l3_dswx_hls")
 
     es_index_delete("jobs_accountability_catalog")
-
-    # empty out S3 to make it easier to inspect test outputs and side effects
-    delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")
 
 
 def str2bool(s):

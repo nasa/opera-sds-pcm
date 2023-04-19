@@ -1513,8 +1513,16 @@ locals {
           "Expiration": {
             "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
           },
-          "ID" : "RS Bucket Deletion",
+          "ID" : "RS Bucket Products Deletion",
           "Prefix": "products/",
+          "Status" : "Enabled"
+        },
+        {
+          "Expiration": {
+            "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+          },
+          "ID" : "RS Bucket Inputs Deletion",
+          "Prefix": "inputs/",
           "Status" : "Enabled"
         }
       ]
@@ -2470,7 +2478,11 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
     }
   }
 }
@@ -2505,7 +2517,11 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
     }
   }
 }
@@ -2643,6 +2659,10 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false",
       "BOUNDING_BOX": ""
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
     }
   }
 }

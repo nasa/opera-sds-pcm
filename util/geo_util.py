@@ -112,13 +112,45 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
                 lon += 2 * (float(offset_x_multiplier) - 0.5) * margin_in_deg
                 lat += 2 * (float(offset_y_multiplier) - 0.5) * margin_in_deg
 
+            # wrap longitude values within the range [-180, +180]
+            if lon < -180:
+                lon += 360
+            elif lon > 180:
+                lon -= 360
+
             if lat_min is None or lat_min > lat:
                 lat_min = lat
             if lat_max is None or lat_max < lat:
                 lat_max = lat
-            if lon_min is None or lon_min > lon:
+
+            # The computation of min and max longitude values may be affected
+            # by antimeridian crossing. Notice that: 179 degrees +
+            # 2 degrees = -179 degrees
+            #
+            # The condition `abs(lon_min - lon) < 180`` tests if both longitude
+            # values are both at the same side of the dateline (either left
+            # or right).
+            #
+            # The conditions `> 100` and `< 100` are used to test if the
+            # longitude point is at the left side of the antimeridian crossing
+            # (`> 100`) or at the right side (`< 100`)
+            #
+            # We also want to check if the point is at the west or east
+            # side of the tile.
+            # Points at the west, i.e, where offset_x_multiplier == 0
+            # may update `lon_min`
+            if (offset_x_multiplier == 0 and
+                    (lon_min is None or
+                    (abs(lon_min - lon) < 180 and lon_min > lon) or
+                    (lon > 100 and lon_min < -100))):
                 lon_min = lon
-            if lon_max is None or lon_max < lon:
+
+            # Points at the east, i.e, where offset_x_multiplier == 1
+            # may update `lon_max`
+            if (offset_x_multiplier == 1 and
+                    (lon_max is None or
+                    (abs(lon_min - lon) < 180 and lon_max < lon) or
+                    (lon < -100 and lon_max > 100))):
                 lon_max = lon
 
     # In the case of antimeridian crossing, `lon_max - lon_min` will be greater
@@ -166,7 +198,8 @@ def check_dateline(poly):
         decomp = shapely.ops.polygonize(border_lines)
 
         polys = list(decomp)
-        for polygon_count in range(2):
+
+        for polygon_count in range(len(polys)):
             x, y = polys[polygon_count].exterior.coords.xy
             # if there are no longitude values above 180, continue
             if not any([k > 180 for k in x]):
@@ -176,7 +209,6 @@ def check_dateline(poly):
             x_wrapped_minus_360 = np.asarray(x) - 360
             polys[polygon_count] = Polygon(zip(x_wrapped_minus_360, y))
 
-        assert (len(polys) == 2)
     else:
         # If dateline is not crossed, treat input poly as list
         polys = [poly]

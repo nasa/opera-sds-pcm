@@ -65,6 +65,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         dateutil.parser.isoparse(download_timerange.end_date),
         args.use_temporal
     )
+    logging.info(f"{len(list(all_pending_downloads))=}")
 
     downloads = all_pending_downloads
     if args.batch_ids:
