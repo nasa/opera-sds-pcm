@@ -115,6 +115,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     DEM_FILE = "dem_file"
 
+    TEC_FILE = "tec_file"
+
     LANDCOVER_FILE = "landcover_file"
 
     WORLDCOVER_FILE = "worldcover_file"

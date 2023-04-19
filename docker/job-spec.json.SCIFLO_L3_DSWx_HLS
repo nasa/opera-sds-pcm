@@ -70,6 +70,10 @@
       "destination": "context"
     },
     {
+      "name": "container_working_dir",
+      "destination": "context"
+    },
+    {
       "name": "wigt",
       "destination": "context"
     },

@@ -18,25 +18,29 @@ runconfig:
     orbit_file_path: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file: __CHIMERA_VAL__
+    tec_file: __CHIMERA_VAL__
   static_ancillary_file_group:
     burst_database_file: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/compass_user/output_dir
-    # Scratch path is defined relative to output_dir to avoid file system permission issues
-    scratch_path: /home/compass_user/output_dir/scratch_dir
+    scratch_path: /home/compass_user/scratch
   processing:
-    # TODO: set to __CHIMERA_VAL__ and determine dynamically from input SLC file name
-    #       once dual-pol mode is fixed for CSLC-S1 SAS
+    # TODO: set to __CHIMERA_VAL__ once dual-pol mode is supported by the CSLC-S1 SAS
     polarization: co-pol
+    enable_static_layers: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
+  # TODO uncomment once dual-pol mode is supported by the CSLC-S1 SAS
+  # - get_slc_polarization
+  - get_slc_static_layers_enabled
   - get_slc_s1_safe_file
   - get_slc_s1_orbit_file
   - get_slc_s1_dem  # Note: this must be run after get_slc_s1_safe_file
+  - get_slc_s1_tec_file
   - get_slc_s1_burst_database
   - get_cnm_version
   - set_daac_product_type
@@ -68,6 +72,7 @@ set_extra_pge_output_metadata:
 output_types:
   L2_CSLC:
     - h5
+    - png
     - catalog.json
     - iso.xml
     - log

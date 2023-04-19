@@ -25,6 +25,9 @@ def slc_s1_lineage_metadata(context, work_dir):
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
     lineage_metadata.extend(local_dem_filepaths)
 
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "jpl*.*i"))
+    lineage_metadata.extend(local_tec_filepaths)
+
     local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite3"))
     lineage_metadata.extend(local_burstdb_filepaths)
 
@@ -78,6 +81,10 @@ def update_slc_s1_runconfig(context, work_dir):
 
     # TODO: update once better naming is implemented for ancillary files
     run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'
+
+    if "tec_file" in run_config["dynamic_ancillary_file_group"]:
+        tec_file_path = run_config["dynamic_ancillary_file_group"]["tec_file"]
+        run_config["dynamic_ancillary_file_group"]["tec_file"] = f'{container_home}/input_dir/{basename(tec_file_path)}'
 
     burst_db_file_path = run_config["static_ancillary_file_group"]["burst_database_file"]
     run_config["static_ancillary_file_group"]["burst_database_file"] = f'{container_home}/input_dir/{basename(burst_db_file_path)}'

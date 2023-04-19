@@ -150,7 +150,30 @@ def get_cslc_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     base_name_template: str = pge_config['output_base_name']
     ancillary_name_template: str = pge_config['ancillary_base_name']
 
-    if extension.endswith('h5') or extension.endswith('iso.xml'):
+    if extension.endswith('h5'):
+        for burst_id in CSLC_BURST_IDS:
+            base_name = base_name_template.format(
+                burst_id=burst_id,
+                pol='VV',
+                acquisition_ts=dataset_match.groupdict()['start_ts'],
+                product_version='v0.1',
+                creation_ts=dataset_match.groupdict()['stop_ts']
+            )
+
+            output_filenames.append(f'{base_name}.{extension}')
+            output_filenames.append(f'{base_name}_static_layers.{extension}')
+    elif extension.endswith('png'):
+        for burst_id in CSLC_BURST_IDS:
+            base_name = base_name_template.format(
+                burst_id=burst_id,
+                pol='VV',
+                acquisition_ts=dataset_match.groupdict()['start_ts'],
+                product_version='v0.1',
+                creation_ts=dataset_match.groupdict()['stop_ts']
+            )
+
+            output_filenames.append(f'{base_name}_BROWSE.{extension}')
+    elif extension.endswith('iso.xml'):
         for burst_id in CSLC_BURST_IDS:
             base_name = base_name_template.format(
                 burst_id=burst_id,
@@ -183,7 +206,7 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
     sensor = dataset_match.groupdict()['mission_id']
 
     # Primary output image product pattern, includes burst ID, acquisition time
-    # and polarization values
+    # and polarization values/static layer name
     if extension.endswith('tiff') or extension.endswith('tif'):
         for burst_id in RTC_BURST_IDS:
             base_name = base_name_template.format(
@@ -196,6 +219,11 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
 
             output_filenames.append(f'{base_name}_VV.{extension}')
             output_filenames.append(f'{base_name}_VH.{extension}')
+            output_filenames.append(f'{base_name}_incidence_angle.{extension}')
+            output_filenames.append(f'{base_name}_layover_shadow_mask.{extension}')
+            output_filenames.append(f'{base_name}_local_incidence_angle.{extension}')
+            output_filenames.append(f'{base_name}_nlooks.{extension}')
+            output_filenames.append(f'{base_name}_rtc_anf.{extension}')
     # Primary metadata product, like image product but no polarization field
     elif extension.endswith('h5') or extension.endswith('iso.xml'):
         for burst_id in RTC_BURST_IDS:
@@ -208,6 +236,18 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
             )
 
             output_filenames.append(f'{base_name}.{extension}')
+    # PNG browse product, like image product but appended with "_BROWSE"
+    elif extension.endswith('png'):
+        for burst_id in RTC_BURST_IDS:
+            base_name = base_name_template.format(
+                burst_id=burst_id,
+                acquisition_ts=dataset_match.groupdict()['start_ts'],
+                product_version='v0.1',
+                creation_ts=dataset_match.groupdict()['stop_ts'],
+                sensor=sensor
+            )
+
+            output_filenames.append(f'{base_name}_BROWSE.{extension}')
     # Ancillary output product pattern, no burst ID, acquisition time or polarization
     else:
         base_name = ancillary_name_template.format(

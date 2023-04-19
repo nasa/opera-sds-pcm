@@ -48,7 +48,7 @@ RunConfig:
             safe_file_path: list(str(), min=1)
             # Required. List of orbit (EOF) files
             orbit_file_path: list(str(), min=1)
-            # Required. The unique burst ID to process, leave empty to process all bursts
+            # Optional. Burst ID to process (empty for all bursts)
             burst_id: list(str(), min=1, required=False)
 
           dynamic_ancillary_file_group:
@@ -79,8 +79,18 @@ RunConfig:
             #     {output_dir}/{burst_id}/{product_id}_v{product_version}{suffix}.{ext}
             # If option `save_mosaics` is set, output mosaics are saved to:
             #     {output_dir}/{product_id}_v{product_version}{suffix}.{ext}
-            # If the field `product_id`` is left empty, the prefix "rtc_product"
-            # will be used instead.
+            #
+            # If the `product_id` contains the substring "_{burst_id}", the
+            # substring will be substituted by either:
+            #     - "_" followed by the burst ID, if the product is a burst; or
+            #     - An empty string, if the product is a mosaic.
+            #
+            # For example, the `product_id` = `RTC-S1_{burst_id}_S1B` will become
+            # `RTC-S1_069-147170-IW1_S1B` for the burst t069-147170-IW1; and it
+            # will become `RTC-S1_S1B` for the mosaic product.
+            #
+            # If the field `product_id`` is left empty, the prefix
+            # "OPERA_L2_RTC-S1_{burst_id}"  will be used instead.
             # `suffix` is only used when there are multiple output files.
             # `ext` is determined by geocoding_options.output_imagery_format.
             output_dir: str()
@@ -88,7 +98,13 @@ RunConfig:
 
             # RTC-S1 imagery
             save_bursts: bool(required=False)
+
+            # Save mosaic of RTC-S1 bursts
             save_mosaics: bool(required=False)
+
+            # Save browse image(s)
+            save_browse: bool(required=False)
+
             output_imagery_format: enum('HDF5', 'NETCDF', 'ENVI', 'GTiff', 'COG', required=False)
             output_imagery_compression: str(required=False)
             output_imagery_nbits: int(min=1, required=False)
@@ -161,6 +177,12 @@ processing_options:
   # Geocoding options
   geocoding: include('geocoding_options', required=False)
 
+  # Browse image
+  browse_image_group: include('browse_image_options', required=False)
+
+  # Number of parallel processes for burst processing
+  num_workers: int(required=False)
+
 rtc_options:
   # RTC output type: empty value to turn off the RTC
   # The output_type defaults to "gamma0" if the key is absent
@@ -177,6 +199,12 @@ rtc_options:
   dem_upsampling: int(min=1, required=False)
 
 geocoding_options:
+  # OPTIONAL - Apply RSLC metadata valid-samples sub-swath masking
+  apply_valid_samples_sub_swath_masking: bool(required=False)
+
+  # OPTIONAL - Apply shadow masking
+  apply_shadow_masking: bool(required=False)
+
   # Algorithm type, area projection or interpolation: sinc, bilinear, bicubic, nearest, and biquintic
   algorithm_type: enum('area_projection', 'sinc', 'bilinear', 'bicubic', 'nearest', 'biquintic', required=False)
 
@@ -251,3 +279,29 @@ geocoding_options:
   bottom_right:
     x: num(required=False)
     y: num(required=False)
+
+browse_image_options:
+
+  # If neither height or width parameters are provided, the browse
+  # image is generated with the same pixel spacing of the RTC-S1
+  # imagery (burst or mosaic).
+
+  # If the height parameter is provided but the width is not provided,
+  # a new width is assigned in order to keep the aspect ratio
+  # of the RTC-S1 geographic grid.
+
+  # Conversely, if the width parameter is provided but the height is not,
+  # a new height is assigned in order to keep the aspect ratio
+  # of the RTC-S1 geographic grid.
+
+  # Height in pixels for the PNG browse image of RTC-S1 bursts.
+  browse_image_burst_height: int(min=1, required=False)
+
+  # Width in pixels for the PNG browse image of RTC-S1 bursts
+  browse_image_burst_width: int(min=1, required=False)
+
+  # Height in pixels for the PNG browse image of RTC-S1 mosaics.
+  browse_image_mosaic_height: int(min=1, required=False)
+
+  # Width in pixels for the PNG browse image of RTC-S1 mosaics
+  browse_image_mosaic_width: int(min=1, required=False)

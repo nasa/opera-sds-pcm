@@ -58,6 +58,10 @@
       "destination": "context"
     },
     {
+      "name": "container_working_dir",
+      "destination": "context"
+    },
+    {
       "name":"input_dataset_id",
       "destination": "context"
     },
