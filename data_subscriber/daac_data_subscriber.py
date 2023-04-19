@@ -852,7 +852,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         logging.debug(f"{download_urls=}")
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, None, job_id)
+        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
 
@@ -941,7 +941,7 @@ def download_from_asf(
         if product_url.startswith("s3"):
             product = product_filepath = download_product_using_s3(
                 product_url,
-                session,
+                token,
                 target_dirpath=product_download_dir.resolve(),
                 args=args
             )
@@ -1061,7 +1061,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
     elif args.transfer_protocol.lower() == "s3":
         product_filepath = download_product_using_s3(
             product_url,
-            session,
+            token,
             target_dirpath=target_dirpath.resolve(),
             args=args
         )
