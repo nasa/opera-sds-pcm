@@ -519,7 +519,7 @@ def _get_lp_aws_creds(token):
 def _get_asf_aws_creds(token):
     logging.info("entry")
 
-    with session.get("https://sentinel1.asf.alaska.edu/s3credentials",
+    with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
                      headers={'Authorization': f'Bearer {token}'}) as r:
         r.raise_for_status()
 
