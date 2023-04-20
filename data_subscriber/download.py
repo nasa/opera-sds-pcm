@@ -147,7 +147,7 @@ def download_from_asf(
         if product_url.startswith("s3"):
             product = product_filepath = download_product_using_s3(
                 product_url,
-                session,
+                token,
                 target_dirpath=product_download_dir.resolve(),
                 args=args
             )
@@ -291,7 +291,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
     elif args.transfer_protocol.lower() == "s3":
         product_filepath = download_product_using_s3(
             product_url,
-            session,
+            token,
             target_dirpath=target_dirpath.resolve(),
             args=args
         )
@@ -299,7 +299,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
         if product_url.startswith("s3"):
             product_filepath = download_product_using_s3(
                 product_url,
-                session,
+                token,
                 target_dirpath=target_dirpath.resolve(),
                 args=args
             )
@@ -424,9 +424,9 @@ def download_product_using_https(url, session: requests.Session, token, target_d
         return product_download_path.resolve()
 
 
-def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
+def download_product_using_s3(url, token, target_dirpath: Path, args) -> Path:
     provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
-    aws_creds = _get_aws_creds(session, provider)
+    aws_creds = _get_aws_creds(token, provider)
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -497,28 +497,30 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
 
 
 @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
-def _get_aws_creds(session, provider):
+def _get_aws_creds(token, provider):
     logging.info("entry")
 
     if provider == "LPCLOUD":
-        return _get_lp_aws_creds(session)
+        return _get_lp_aws_creds(token)
     else:
-        return _get_asf_aws_creds(session)
+        return _get_asf_aws_creds(token)
 
 
-def _get_lp_aws_creds(session):
+def _get_lp_aws_creds(token):
     logging.info("entry")
 
-    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+    with requests.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials",
+                      headers={'Authorization': f'Bearer {token}'}) as r:
         r.raise_for_status()
 
         return r.json()
 
 
-def _get_asf_aws_creds(session):
+def _get_asf_aws_creds(token):
     logging.info("entry")
 
-    with session.get("https://sentinel1.asf.alaska.edu/s3credentials") as r:
+    with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
+                     headers={'Authorization': f'Bearer {token}'}) as r:
         r.raise_for_status()
 
         return r.json()
