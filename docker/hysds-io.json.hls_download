@@ -46,7 +46,7 @@
       "placeholder": "e.g. --use-temporal",
       "optional": true
     },
-	{
+    {
       "name": "transfer_protocol",
       "from": "submitter",
       "placeholder": "e.g. --transfer-protocol=auto",
