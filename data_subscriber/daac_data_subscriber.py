@@ -852,7 +852,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         logging.debug(f"{download_urls=}")
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, None, job_id)
+        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
 
     logging.info(f"Total files updated: {len(download_urls)}")
 
@@ -941,7 +941,7 @@ def download_from_asf(
         if product_url.startswith("s3"):
             product = product_filepath = download_product_using_s3(
                 product_url,
-                session,
+                token,
                 target_dirpath=product_download_dir.resolve(),
                 args=args
             )
@@ -1061,7 +1061,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
     elif args.transfer_protocol.lower() == "s3":
         product_filepath = download_product_using_s3(
             product_url,
-            session,
+            token,
             target_dirpath=target_dirpath.resolve(),
             args=args
         )
@@ -1180,8 +1180,8 @@ def download_product_using_https(url, session: requests.Session, token, target_d
         return product_download_path.resolve()
 
 
-def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
-    aws_creds = _get_aws_creds(session)
+def download_product_using_s3(url, token, target_dirpath: Path, args) -> Path:
+    aws_creds = _get_aws_creds(token)
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -1252,10 +1252,11 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
 
 
 @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
-def _get_aws_creds(session):
+def _get_aws_creds(token):
     logging.info("entry")
 
-    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+    with requests.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials",
+                      headers={'Authorization': f'Bearer {token}'}) as r:
         r.raise_for_status()
 
         return r.json()
