@@ -44,7 +44,16 @@ class MockGdal:
     # pylint: disable=all
     class MockGdalDataset:
         """Mock class for gdal.Dataset objects, as returned from an Open call."""
-        pass
+        def GetGeoTransform(self):
+            return 1, 1, 1, 1, 1, 1
+
+        def GetRasterBand(self, index):
+            class MockRasterBand:
+                def __init__(self):
+                    self.XSize = 1
+                    self.YSize = 1
+
+            return MockRasterBand()
 
     @staticmethod
     def Open(filename, filemode=None):
@@ -319,8 +328,9 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             }
         }
 
+        settings = {"DSWX_HLS": {"ANCILLARY_MARGIN": 50}}
+
         # These are not used with get_dems()
-        settings = None
         job_params = None
 
         precondition_functions = OperaPreConditionFunctions(
@@ -405,8 +415,9 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             }
         }
 
+        settings = {"DSWX_HLS": {"ANCILLARY_MARGIN": 50}}
+
         # These are not used with get_worldcover()
-        settings = None
         job_params = None
 
         precondition_functions = OperaPreConditionFunctions(

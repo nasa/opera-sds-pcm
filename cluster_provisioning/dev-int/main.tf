@@ -133,53 +133,13 @@ resource "null_resource" "mozart" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "echo \"use_daac_cnm is ${var.use_daac_cnm_r}\"",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \\",
-      "  ${var.project} \\",
-      "  ${var.environment} \\",
-      "  ${var.venue} \\",
-      "  ${module.common.counter} \\",
-      "  ${var.use_artifactory} \\",
-      "  ${var.artifactory_base_url} \\",
-      "  ${var.artifactory_repo} \\",
-      "  ${var.artifactory_mirror_url} \\",
-      "  ${var.pcm_repo} \\",
-      "  ${var.pcm_branch} \\",
-      "  ${var.product_delivery_repo} \\",
-      "  ${var.product_delivery_branch} \\",
-#	  "  ${var.delete_old_job_catalog} \\",
-      "  ${module.common.mozart.private_ip} \\",
-      "  ${module.common.isl_bucket} \\",
-      "  ${local.source_event_arn} \\",
-      "  ${var.po_daac_delivery_proxy} \\",
-      "  ${var.use_daac_cnm_r} \\",
-      "  ${local.crid} \\",
-      "  ${var.cluster_type}  || :",
-      "fi",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "  ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
-      "fi",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:",
-      "fi",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              cd ~/.sds/files
+              ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
+              echo Your cluster has been provisioned!
+    EOF
     ]
   }
 
@@ -206,9 +166,5 @@ resource "null_resource" "mozart" {
       "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
       "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
     ]
-  }
-
-  provisioner "local-exec" {
-    command = "if [ \"${var.run_smoke_test}\" = true ]; then scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml .; fi"
   }
 }

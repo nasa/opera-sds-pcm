@@ -9,7 +9,11 @@ from osgeo import osr
 from shapely.geometry import box, LinearRing, Point, Polygon
 
 
-def polygon_from_mgrs_tile(mgrs_tile_code):
+EARTH_APPROX_CIRCUNFERENCE = 40075017.
+
+
+def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
+                           flag_use_m_to_deg_conversion_at_equator=True):
     """
     Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
     a MGRS tile bounding box.
@@ -18,6 +22,17 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
     -----------
     mgrs_tile_code : str
         MGRS tile code corresponding to the polygon to derive.
+    margin_in_km : float
+        Margin in kilometers to be added to MGRS bounding box
+    flag_use_m_to_deg_conversion_at_equator : bool
+        Flag to use the conversion from meters to lat/lon degrees at
+        the Equator, rather than adding the margin to the MGRS tile
+        grid in meters before conversion to geographic coordinates (lat/lon).
+        This option is given because of the asymmetry in converting the
+        margin in km to degrees near the poles. For example, a margin
+        of 200km near the Equator is equivalent to 1.8 deg (latitude or
+        longitude). At 82 degrees latitude, the same 200km is equivalent to
+        12.9 degrees in longitude.
 
     Notes
     -----
@@ -25,10 +40,17 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
     function developed by Gustavo Shiroma.
     See https://github.com/opera-adt/PROTEUS/blob/08fd57c64fec6f9d2e02da7e84aca86982f9bccd/src/proteus/core.py#L93
 
+    In the case of antimeridian crossing, `lon_max - lon_min` will be greater
+    than 180 deg, and the MGRS tile polygon will represent the complement
+    (in longitude) of the actual tile polygon. This edge case will be detected
+    and handled by the subsequent function  `check_dateline()`
+
     Returns
     -------
     poly: shapely.Geometry.Polygon
         Bounding polygon corresponding to the provided MGRS tile code.
+    margin_in_km: float, optional
+        Margin in kilometers to be added to MGRS bounding box
 
     """
     mgrs_obj = mgrs.MGRS()
@@ -63,6 +85,13 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
     lon_min = None
     lon_max = None
 
+    # Add margin to the bounding polygon
+    if flag_use_m_to_deg_conversion_at_equator:
+        km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUNFERENCE / 360.)
+        margin_in_deg = margin_in_km * km_to_deg_at_equator
+    else:
+        margin_in_deg = 0
+
     for offset_x_multiplier in range(2):
         for offset_y_multiplier in range(2):
 
@@ -70,17 +99,64 @@ def polygon_from_mgrs_tile(mgrs_tile_code):
             # HLS tiles have 4.9 km of margin => width/length = 109.8 km
             x = x_min - 4.9 * 1000 + offset_x_multiplier * 109.8 * 1000
             y = y_min - 4.9 * 1000 + offset_y_multiplier * 109.8 * 1000
+
+            if not flag_use_m_to_deg_conversion_at_equator:
+                x += (2 * (float(offset_x_multiplier) - 0.5) *
+                      margin_in_km * 1000)
+                y += (2 * (float(offset_y_multiplier) - 0.5) *
+                      margin_in_km * 1000)
+
             lat, lon, z = transformation.TransformPoint(x, y, elevation)
+
+            if flag_use_m_to_deg_conversion_at_equator:
+                lon += 2 * (float(offset_x_multiplier) - 0.5) * margin_in_deg
+                lat += 2 * (float(offset_y_multiplier) - 0.5) * margin_in_deg
+
+            # wrap longitude values within the range [-180, +180]
+            if lon < -180:
+                lon += 360
+            elif lon > 180:
+                lon -= 360
 
             if lat_min is None or lat_min > lat:
                 lat_min = lat
             if lat_max is None or lat_max < lat:
                 lat_max = lat
-            if lon_min is None or lon_min > lon:
+
+            # The computation of min and max longitude values may be affected
+            # by antimeridian crossing. Notice that: 179 degrees +
+            # 2 degrees = -179 degrees
+            #
+            # The condition `abs(lon_min - lon) < 180`` tests if both longitude
+            # values are both at the same side of the dateline (either left
+            # or right).
+            #
+            # The conditions `> 100` and `< 100` are used to test if the
+            # longitude point is at the left side of the antimeridian crossing
+            # (`> 100`) or at the right side (`< 100`)
+            #
+            # We also want to check if the point is at the west or east
+            # side of the tile.
+            # Points at the west, i.e, where offset_x_multiplier == 0
+            # may update `lon_min`
+            if (offset_x_multiplier == 0 and
+                    (lon_min is None or
+                    (abs(lon_min - lon) < 180 and lon_min > lon) or
+                    (lon > 100 and lon_min < -100))):
                 lon_min = lon
-            if lon_max is None or lon_max < lon:
+
+            # Points at the east, i.e, where offset_x_multiplier == 1
+            # may update `lon_max`
+            if (offset_x_multiplier == 1 and
+                    (lon_max is None or
+                    (abs(lon_min - lon) < 180 and lon_max < lon) or
+                    (lon < -100 and lon_max > 100))):
                 lon_max = lon
 
+    # In the case of antimeridian crossing, `lon_max - lon_min` will be greater
+    # than 180 deg, and the MGRS tile polygon will represent the complement
+    # (in longitude) of the actual tile polygon. This edge case will be detected
+    # and handled by the subsequent function `check_dateline()`
     coords = [lon_min, lat_min, lon_max, lat_max]
 
     poly = box(*coords)
@@ -107,7 +183,7 @@ def check_dateline(poly):
     x_min, _, x_max, _ = poly.bounds
 
     # Check dateline crossing
-    if (x_max - x_min) > 180.0:
+    if ((x_max - x_min > 180.0) or (x_min <= 180.0 <= x_max)):
         dateline = shapely.wkt.loads('LINESTRING( 180.0 -90.0, 180.0 90.0)')
 
         # build new polygon with all longitudes between 0 and 360
@@ -122,7 +198,17 @@ def check_dateline(poly):
         decomp = shapely.ops.polygonize(border_lines)
 
         polys = list(decomp)
-        assert (len(polys) == 2)
+
+        for polygon_count in range(len(polys)):
+            x, y = polys[polygon_count].exterior.coords.xy
+            # if there are no longitude values above 180, continue
+            if not any([k > 180 for k in x]):
+                continue
+
+            # otherwise, wrap longitude values down by 360 degrees
+            x_wrapped_minus_360 = np.asarray(x) - 360
+            polys[polygon_count] = Polygon(zip(x_wrapped_minus_360, y))
+
     else:
         # If dateline is not crossed, treat input poly as list
         polys = [poly]

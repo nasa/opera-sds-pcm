@@ -5,7 +5,7 @@ from pytest_mock import MockerFixture
 import product2dataset.product2dataset
 
 
-def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
+def test_convert__when_L3_DSWx_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
     """Tests that PST metadata such as input granule ID and output product URLs are added to the root of the dataset metadata."""
     # ARRANGE
     create_mock_PGEOutputsConf(mocker)
@@ -31,7 +31,9 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
     mock_open.side_effect = [
         met_json := mocker.mock_open(read_data="""
             {
-                "FileSize": 0
+                "FileSize": 0,
+                "FileName": "dummy_product",
+                "id": "dummy_product"
             }
         """).return_value,
         jobs_json := mocker.mock_open(read_data="""
@@ -86,7 +88,8 @@ def test_convert__when_L3_HLS_PGE__adds_PST_metadata(mocker: MockerFixture):
     created_datasets = product2dataset.product2dataset.convert(
         "dummy_work_dir",
         "dummy_product_dir",
-        "L3_HLS")
+        "L3_DSWx_HLS",
+        product_metadata={"id": "path/to/dummy_hls_product"})
 
     # ASSERT
     assert created_datasets == ["dir1/dir2/dummy_product"]
@@ -105,7 +108,7 @@ def create_mock_SettingsConf(mocker):
 def create_mock_PGEOutputsConf(mocker):
     mock_PGEOutputsConf = MagicMock()
     mock_PGEOutputsConf.cfg = {
-        "L3_HLS": {
+        "L3_DSWx_HLS": {
             "Outputs": {}
         }
     }

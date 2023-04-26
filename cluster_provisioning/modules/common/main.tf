@@ -14,6 +14,8 @@ locals {
   lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
   clear_s3_aws_es                   = var.clear_s3_aws_es
   key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
+  sns_count                         = var.po_daac_cnm_r_event_trigger == "sns" ? 1 : 0
+  sqs_count                         = var.asf_daac_cnm_r_event_trigger == "sqs" ? 1 : 0
   cnm_r_kinesis_count               = 0
   lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
   po_daac_delivery_event_type       = split(":", var.po_daac_delivery_proxy)[2]
@@ -25,20 +27,16 @@ locals {
   asf_daac_delivery_region          = split(":", var.asf_daac_delivery_proxy)[3]
   asf_daac_delivery_account         = split(":", var.asf_daac_delivery_proxy)[4]
   asf_daac_delivery_resource_name   = split(":", var.asf_daac_delivery_proxy)[5]
+  asf_daac_proxy_cnm_r_sns_count    = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[4]
 
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
-  po_daac_delivery_proxy_maturity   = split("-", var.po_daac_delivery_proxy)[5]
-  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[5]
-
-#  timer_handler_job_type            = "timer_handler"
 #  accountability_report_job_type    = "accountability_report"
-#  hls_download_job_type             = "hls_download"
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
-
-#  slc_download_job_type             = "slc_download"
+  batch_query_job_type              = "batch_query"
   slcs1a_query_job_type             = "slcs1a_query"
 
   use_s3_uri_structure              = var.use_s3_uri_structure
@@ -86,6 +84,9 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
   }
 }
 
@@ -576,8 +577,7 @@ resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
 }
 
 resource "aws_sqs_queue" "cnm_response" {
-  name                       = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-#  name                       = "${var.project}-dev-daac-cnm-response"
+  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -591,9 +591,9 @@ data "aws_sqs_queue" "cnm_response" {
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
-#  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.po_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
-  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue]: aws_sqs_queue.cnm_response.arn
-  #event_source_arn = aws_sqs_queue.cnm_response.arn
+  count            = local.sqs_count
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
+  #event_source_arn = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : aws_sqs_queue.cnm_response.arn
   function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
 }
 
@@ -606,7 +606,10 @@ data "aws_iam_policy_document" "cnm_response" {
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = ["*"]
+      identifiers = [
+          "arn:aws:iam::${var.aws_account_id}:root",
+          "arn:aws:iam::871271927522:root"
+      ]
     }
     resources = [
       data.aws_sqs_queue.cnm_response.arn
@@ -657,23 +660,24 @@ resource "aws_sqs_queue_policy" "isl_queue_policy" {
 }
 POLICY
 }
-resource "aws_s3_bucket_object" "folder" {
-  bucket = local.isl_bucket
-  acl    = "private"
-  key    = "met_required/"
-  source = "/dev/null"
-}
 
-resource "aws_s3_bucket_notification" "sqs_isl_notification" {
-  bucket = local.isl_bucket
+# resource "aws_s3_bucket_object" "folder" {
+#  bucket = local.isl_bucket
+#  acl    = "private"
+#  key    = "met_required/"
+#  source = "/dev/null"
+#}
 
-  queue {
-    id        = "sqs_event"
-    queue_arn = aws_sqs_queue.isl_queue.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
+# resource "aws_s3_bucket_notification" "sqs_isl_notification" {
+#  bucket = local.isl_bucket
+#
+#  queue {
+#    id        = "sqs_event"
+#    queue_arn = aws_sqs_queue.isl_queue.arn
+#    events    = ["s3:ObjectCreated:*"]
+#  }
 
-}
+#}
 
 resource "aws_sqs_queue" "isl_dead_letter_queue" {
   name                       = "${var.project}-${var.venue}-${local.counter}-isl-dead-letter-queue"
@@ -877,7 +881,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       chmod 755 ~/download_artifact.sh
       chmod 400 ~/.ssh/${basename(var.private_key_file)}
@@ -1105,7 +1109,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       mv ~/.sds ~/.sds.bak
       rm -rf ~/mozart
@@ -1206,7 +1210,7 @@ resource "aws_instance" "mozart" {
   # sync bach-api and bach-ui code. start bach-ui
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
@@ -1233,13 +1237,13 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       cd ~/mozart/ops
       if [ "${var.grq_aws_es}" = true ]; then
         cp -f ~/.sds/files/supervisord.conf.grq.aws_es ~/.sds/files/supervisord.conf.grq
       fi
-      if [ "${var.factotum["instance_type"]}" = "c5.xlarge" ]; then
+      if [ "${var.factotum["instance_type"]}" = "r6i.4xlarge" ]; then
         cp -f ~/.sds/files/supervisord.conf.factotum.small_instance ~/.sds/files/supervisord.conf.factotum
       elif [ "${var.factotum["instance_type"]}" = "r5.8xlarge" ]; then
         cp -f ~/.sds/files/supervisord.conf.factotum.large_instance ~/.sds/files/supervisord.conf.factotum
@@ -1279,7 +1283,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
@@ -1388,30 +1392,10 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  # Get test data from the artifactory and put into tests directory
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
-      set -ex
-      source ~/.bash_profile
-      mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/
-      wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R1.0.0/hls_l2.tar.gz \
-           -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/hls_l2.tar.gz
-      cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L3_DSWx_HLS_PGE/test-files/
-      tar xfz hls_l2.tar.gz
-      mkdir -p /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
-      wget ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0/slc_l1.tar.gz \
-           -O /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/slc_l1.tar.gz
-      cd /export/home/hysdsops/mozart/ops/${var.project}-pcm/tests/L2_CSLC_S1_PGE/test-files/
-      tar xfz slc_l1.tar.gz
-    EOT
-    ]
-  }
-
   // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
   provisioner "remote-exec" {
     inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
       echo // grq
@@ -1446,7 +1430,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1506,7 +1490,7 @@ resource "null_resource" "destroy_es_snapshots" {
   provisioner "remote-exec" {
     when = destroy
     inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
+     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
       "set -ex",
       "source ~/.bash_profile",
       "if [ \"${self.triggers.purge_es_snapshot}\" = true ]; then",
@@ -1529,8 +1513,16 @@ locals {
           "Expiration": {
             "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
           },
-          "ID" : "RS Bucket Deletion",
+          "ID" : "RS Bucket Products Deletion",
           "Prefix": "products/",
+          "Status" : "Enabled"
+        },
+        {
+          "Expiration": {
+            "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+          },
+          "ID" : "RS Bucket Inputs Deletion",
+          "Prefix": "inputs/",
           "Status" : "Enabled"
         }
       ]
@@ -1630,6 +1622,12 @@ data "template_file" "launch_template_user_data" {
                   {
                     "file_path": "/data/work/jobs/**/run_slc_download.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slc_download.log",
+                    "timezone": "Local",
+                    "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+                  },
+                  {
+                    "file_path": "/data/work/jobs/**/run_batch_query.log",
+                    "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_batch_query.log",
                     "timezone": "Local",
                     "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
                   },
@@ -1923,6 +1921,13 @@ resource "aws_instance" "metrics" {
   volume_tags = {
     Bravo = "pcm"
   }
+
+  root_block_device {
+    volume_size           = var.metrics["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -1953,7 +1958,7 @@ resource "aws_instance" "metrics" {
 
   provisioner "remote-exec" {
     inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
@@ -2020,6 +2025,12 @@ resource "aws_instance" "grq" {
   volume_tags = {
     Bravo = "pcm"
   }
+
+  root_block_device {
+    volume_size           = var.grq["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -2051,7 +2062,7 @@ resource "aws_instance" "grq" {
 
   provisioner "remote-exec" {
     inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
       "chmod 755 ~/download_artifact.sh",
       "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
       "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
@@ -2171,7 +2182,7 @@ resource "aws_instance" "factotum" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
@@ -2271,19 +2282,13 @@ data "aws_iam_policy_document" "sns_topic_policy" {
       "SNS:Receive",
       "SNS:Subscribe"
     ]
-#    condition {
-#      test     = "StringEquals"
-#      variable = "AWS:SourceOwner"
-#      values = [
-#        var.aws_account_id
-#      ]
-#    }
     effect = "Allow"
     principals {
       type        = "AWS"
 	  identifiers = [
           "arn:aws:iam::${var.aws_account_id}:root",
-          "arn:aws:iam::638310961674:root"
+          "arn:aws:iam::638310961674:root",
+          "arn:aws:iam::234498297282:root"
       ]
     }
     resources = [
@@ -2473,7 +2478,11 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
     }
   }
 }
@@ -2508,7 +2517,11 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "CHUNK_SIZE": "1",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
-      "NO_SCHEDULE_DOWNLOAD": "false"
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
     }
   }
 }
@@ -2646,6 +2659,10 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false",
       "BOUNDING_BOX": ""
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
     }
   }
 }
@@ -2676,3 +2693,58 @@ resource "aws_lambda_permission" "slcs1a_query_timer" {
   source_arn = aws_cloudwatch_event_rule.slcs1a_query_timer.arn
   function_name = aws_lambda_function.slcs1a_query_timer.function_name
 }
+
+# Batch Query Lambda and Timer ---->
+
+resource "aws_lambda_function" "batch_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query batch data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-batch-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_IP": "${aws_instance.mozart.private_ip}",
+      "GRQ_IP": "${aws_instance.grq.private_ip}",
+      "GRQ_ES_PORT": "9200",
+      "ENDPOINT": "OPS",
+      "JOB_RELEASE": var.pcm_branch
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "batch_query_timer" {
+  depends_on = [aws_lambda_function.batch_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.batch_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "batch_query_timer" {
+  name = "${aws_lambda_function.batch_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Batch Timer Lambda"
+  schedule_expression = var.batch_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
+}
+
+resource "aws_cloudwatch_event_target" "batch_query_timer" {
+  rule = aws_cloudwatch_event_rule.batch_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.batch_query_timer.arn
+}
+
+resource "aws_lambda_permission" "batch_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.batch_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.batch_query_timer.arn
+  function_name = aws_lambda_function.batch_query_timer.function_name
+}
+
+# <------ Batch Query Lambda and Timer

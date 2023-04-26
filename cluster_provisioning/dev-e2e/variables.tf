@@ -164,7 +164,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.2xlarge"
     root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
@@ -177,6 +177,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -188,6 +189,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -198,7 +200,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "c5.xlarge"
+    instance_type = "r6i.4xlarge"
     root_dev_size = 50
     data          = "/data"
     data_dev      = "/dev/xvdb"
@@ -376,9 +378,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.6.0"
-    "cslc_s1" = "2.0.0-er.5.0"
-    "rtc_s1" = "2.0.0-er.5.0"
+    "dswx_hls" = "1.0.1"
+    "cslc_s1" = "2.0.0-rc.1.0"
+    "rtc_s1" = "2.0.0-rc.1.0"
   }
 }
 
@@ -409,6 +411,10 @@ variable "hlss30_query_timer_trigger_frequency" {
 
 variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
+}
+
+variable "batch_query_timer_trigger_frequency" {
+  default = "rate(1 minute)"
 }
 
 variable "rs_fwd_bucket_ingested_expiration" {
@@ -489,12 +495,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4
-    mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
-    metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
-    grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
-    factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
-    autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
+    # HySDS v4.1.0-beta.4 with ES 7.10 - Mar 9, 2023
+    mozart    = "ami-04f791795ef444889" # mozart v4.19 - 230215
+    metrics   = "ami-09abf2a67634a7ab2" # metrics v4.14 - 230223
+    grq       = "ami-0586f7f14177b302c" # grq v4.15 - 230223
+    factotum  = "ami-0966e4927b40b5036" # factotum v4.15 - 230308
+    autoscale = "ami-0805014721e52d629" # verdi v4.16 patchupdate - 230215
   }
 }
 

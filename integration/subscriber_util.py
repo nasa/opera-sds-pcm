@@ -84,6 +84,8 @@ def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_enviro
     environment_variables["DRY_RUN"] = "false"
     environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
     environment_variables["MINUTES"] = "rate(60 minutes)"
+    environment_variables["USE_TEMPORAL"] = "true"
+    environment_variables["TEMPORAL_START_DATETIME_MARGIN_DAYS"] = ""
 
     environment_variables.update(additional_environment_variable_updates)
 
@@ -122,6 +124,8 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environ
     environment_variables["DRY_RUN"] = "false"
     environment_variables["NO_SCHEDULE_DOWNLOAD"] = "false"
     environment_variables["MINUTES"] = "rate(60 minutes)"
+    environment_variables["USE_TEMPORAL"] = "false"
+    environment_variables["TEMPORAL_START_DATETIME_MARGIN_DAYS"] = "3"
 
     environment_variables.update(additional_environment_variable_updates)
 
@@ -224,7 +228,7 @@ def generate_payload_cloudwatch_scheduled_event_slc():
           "detail-type": "Scheduled Event",
           "source": "aws.events",
           "account": "123456789012",
-          "time": "2022-11-17T07:00:00Z",
+          "time": "2022-11-17T01:00:00Z",
           "region": "us-east-1",
           "resources": [
             "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"

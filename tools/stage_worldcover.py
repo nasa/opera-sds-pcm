@@ -67,7 +67,7 @@ def get_parser():
     return parser
 
 
-def determine_polygon(tile_code, bbox=None):
+def determine_polygon(tile_code, bbox=None, margin_in_km=50):
     """
     Determine bounding polygon using MGRS tile code or user-defined bounding box.
 
@@ -79,6 +79,10 @@ def determine_polygon(tile_code, bbox=None):
         Bounding box with lat/lon coordinates (decimal degrees) in the form of
         [West, South, East, North]. If provided, takes precedence over the tile
         code.
+    margin_in_km: float, optional
+        Margin in kilometers to be added to MGRS bounding box obtained from the
+        MGRS `tile_code`. This margin is not added to the bounding box
+        defined from the input parameter `bbox`.
 
     Returns
     -------
@@ -92,7 +96,7 @@ def determine_polygon(tile_code, bbox=None):
         poly = box(bbox[0], bbox[1], bbox[2], bbox[3])
     else:
         logger.info(f'Determining polygon from MGRS tile code {tile_code}')
-        poly = polygon_from_mgrs_tile(tile_code)
+        poly = polygon_from_mgrs_tile(tile_code, margin_in_km)
 
     logger.debug(f'Derived polygon {str(poly)}')
 
@@ -130,13 +134,26 @@ def translate_worldcover(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     logger.info(f"Translating Worldcover for projection window {str([x_min, y_max, x_max, y_min])} "
                 f"to {output_path}")
     ds = gdal.Open(vrt_filename, gdal.GA_ReadOnly)
+
+    # update cropping coordinates to not exceed the input DEM bounding box
+    input_x_min, xres, _, input_y_max, _, yres = ds.GetGeoTransform()
+    length = ds.GetRasterBand(1).YSize
+    width = ds.GetRasterBand(1).XSize
+    input_y_min = input_y_max + (length * yres)
+    input_x_max = input_x_min + (width * xres)
+
+    x_min = max(x_min, input_x_min)
+    x_max = min(x_max, input_x_max)
+    y_min = max(y_min, input_y_min)
+    y_max = min(y_max, input_y_max)
+
     gdal.Translate(
         output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
     )
 
 
 def download_worldcover(polys, worldcover_bucket, worldcover_ver,
-                        worldcover_year, margin, outfile):
+                        worldcover_year, outfile):
     """
     Download a Worldcover map from the esa-worldcover bucket.
 
@@ -152,14 +169,10 @@ def download_worldcover(polys, worldcover_bucket, worldcover_ver,
     worldcover_year : str
         Year of the full Worldcover map to download from. Becomes part of the
         S3 key used to download.
-    margin: float
-        Buffer margin (in km) applied for Worldcover download.
     outfile:
         Path to the where the output Worldcover file is to be staged.
 
     """
-    # convert margin to degree (approx formula)
-    margin = margin / 40000 * 360
 
     # Download Worldcover map for each polygon/epsg
     file_prefix = os.path.splitext(outfile)[0]
@@ -171,7 +184,6 @@ def download_worldcover(polys, worldcover_bucket, worldcover_ver,
             f'ESA_WorldCover_10m_{worldcover_year}_{worldcover_ver}_Map_AWS.vrt'
         )
 
-        poly = poly.buffer(margin)
         output_path = f'{file_prefix}_{idx}.tif'
         wc_list.append(output_path)
         x_min, y_min, x_max, y_max = poly.bounds
@@ -245,8 +257,8 @@ def main(opts):
     if not opts.worldcover_year:
         opts.worldcover_year = WORLDCOVER_YEAR
 
-    # Determine polygon based on MGRS info or bbox
-    poly = determine_polygon(opts.tile_code, opts.bbox)
+    # Determine polygon based on MGRS grid reference with a margin, or bbox
+    poly = determine_polygon(opts.tile_code, opts.bbox, opts.margin)
 
     # Check dateline crossing. Returns list of polygons
     polys = check_dateline(poly)
@@ -258,7 +270,7 @@ def main(opts):
 
     # Download Worldcover map(s)
     download_worldcover(polys, opts.s3_bucket, opts.worldcover_ver,
-                        opts.worldcover_year, opts.margin, opts.outfile)
+                        opts.worldcover_year, opts.outfile)
 
     logger.info(f'Done, Worldcover map stored locally to {opts.outfile}')
 

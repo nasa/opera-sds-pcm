@@ -73,6 +73,12 @@
       "value": "/home/conda"
     },
     {
+      "name": "container_working_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/conda"
+    },
+    {
       "name": "wigt",
       "from": "value",
       "type": "number",

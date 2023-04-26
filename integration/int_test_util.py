@@ -95,8 +95,8 @@ def wait_for_l2(_id, index):
     interval=30,
     jitter=None
 )
-def wait_for_l3(_id, index):
-    return search_es(index, _id)
+def wait_for_l3(_id, index, query_name="match"):
+    return search_es(index, _id, query_name)
 
 
 @backoff.on_predicate(
@@ -109,9 +109,9 @@ def wait_for_l3(_id, index):
     interval=60,
     jitter=None
 )
-def wait_for_cnm_s_success(_id, index):
+def wait_for_cnm_s_success(_id, index, query_name="match"):
     logging.info(f"Waiting for CNM-S success (id={_id})")
-    response = search_es(_id=_id, index=index)
+    response = search_es(_id=_id, index=index, query_name=query_name)
     return response
 
 
@@ -124,9 +124,9 @@ def wait_for_cnm_s_success(_id, index):
     interval=60,
     jitter=None
 )
-def wait_for_cnm_r_success(_id, index):
+def wait_for_cnm_r_success(_id, index, query_name="match"):
     logging.info(f"Waiting for CNM-R success ({_id=})")
-    response = search_es(_id=_id, index=index)
+    response = search_es(_id=_id, index=index, query_name=query_name)
     return response
 
 
@@ -180,11 +180,14 @@ def mock_cnm_r_success_sqs(id):
     )
 
 
-def search_es(index, _id):
+def search_es(index, _id, query_name="match"):
     logging.info(f"Searching for {_id=}")
 
-    search = Search(using=get_es_client(), index=index) \
-        .query("match", _id=_id)
+    search = Search(using=get_es_client(), index=index)
+    if query_name == "match":
+        search = search.query(query_name, _id=_id)
+    else:
+        search = search.query(query_name, id=_id)  # NOTE: this looks for a custom attribute, "id". Not the doc ID ("_id")
 
     response: Response = search.execute()
     return response

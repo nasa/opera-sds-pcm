@@ -37,6 +37,8 @@ from util.pge_util import (download_object_from_s3,
                            write_pge_metrics)
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
+from tools.stage_ionosphere_file import main as stage_ionosphere_file
+from tools.stage_ionosphere_file import DEFAULT_DOWNLOAD_ENDPOINT as DEFAULT_TEC_DOWNLOAD_ENDPOINT
 from tools.stage_worldcover import main as stage_worldcover
 
 ancillary_es = get_grq_es(logger)
@@ -754,6 +756,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_slc_static_layers_enabled(self):
+        """Gets the setting for the static_layers_enabled flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        pge_name = self._pge_config.get('pge_name')
+        pge_shortname = pge_name[3:].upper()
+
+        logger.info(f'Getting ENABLE_STATIC_LAYERS setting for PGE {pge_shortname}')
+
+        enable_static_layers = self._settings.get(pge_shortname).get("ENABLE_STATIC_LAYERS")
+
+        rc_params = {
+            "enable_static_layers": enable_static_layers
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_slc_s1_safe_file(self):
         """
         Obtains the input SAFE file for use with an CSLC-S1 or RTC-S1 job.
@@ -973,6 +994,57 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_slc_s1_tec_file(self):
+        """
+        Stages an Ionosphere Correction (TEC) file for use with a CSLC-S1
+        job. The name of the SLC archive to be processed is used to obtain
+        the date of the corresponding TEC file to download. The stage_ionosphere_file.py
+        script is then used to perform the download.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        s3_product_path = self._context['product_path']
+
+        parsed_s3_url = urlparse(s3_product_path)
+        s3_path = parsed_s3_url.path
+
+        # Strip leading forward slash from url path
+        if s3_path.startswith('/'):
+            s3_path = s3_path[1:]
+
+        # Bucket name should be first part of url path, the key is the rest
+        s3_bucket_name = s3_path.split('/')[0]
+        s3_key = '/'.join(s3_path.split('/')[1:])
+
+        s3 = boto3.resource('s3')
+
+        bucket = s3.Bucket(s3_bucket_name)
+        s3_objects = bucket.objects.filter(Prefix=s3_key)
+
+        ionosphere_file_objects = list(
+            filter(lambda s3_object: 'jplg' in s3_object.key, s3_objects)
+        )
+
+        if len(ionosphere_file_objects) < 1:
+            raise RuntimeError(
+                f'Could not find an Ionosphere file within the S3 location {s3_product_path}'
+            )
+
+        ionosphere_file_object = ionosphere_file_objects[0]
+
+        s3_ionosphere_file_path = f"s3://{s3_bucket_name}/{ionosphere_file_object.key}"
+
+        # Assign the s3 location of the Ionosphere file to the chimera config,
+        # it will be localized for us automatically
+        rc_params = {
+            oc_const.TEC_FILE: s3_ionosphere_file_path
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_bbox(self, dem_file=None):
         """
         Input : input_file_name
@@ -1050,6 +1122,34 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_ancillary_inputs_coverage_flag(self):
+        """Gets the setting for the check_ancillary_inputs_coverage flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        check_ancillary_inputs_coverage = self._settings.get("DSWX_HLS").get("CHECK_ANCILLARY_INPUTS_COVERAGE")
+
+        rc_params = {
+            "check_ancillary_inputs_coverage": check_ancillary_inputs_coverage
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_apply_ocean_masking_flag(self):
+        """Gets the setting for the apply_ocean_masking flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        apply_ocean_masking = self._settings.get("DSWX_HLS").get("APPLY_OCEAN_MASKING")
+
+        rc_params = {
+            "apply_ocean_masking": apply_ocean_masking
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_hls_dem(self):
         """
         This function downloads dems over the bbox provided in the PGE yaml config,
@@ -1102,8 +1202,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.s3_bucket = s3_bucket
         args.outfile = output_filepath
         args.filepath = None
-        args.margin = 50  # KM
+        args.margin = int(self._settings.get("DSWX_HLS", {}).get("ANCILLARY_MARGIN", 50))  # KM
         args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
 
         # Provide both the bounding box and tile code, stage_dem.py should
         # give preference to the tile code over the bbox if both are provided.
@@ -1210,8 +1312,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.worldcover_ver = worldcover_ver
         args.worldcover_year = worldcover_year
         args.outfile = output_filepath
-        args.margin = 50  # KM
+        args.margin = int(self._settings.get("DSWX_HLS", {}).get("ANCILLARY_MARGIN", 50))  # KM
         args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged Worldcover')
 
         # Provide both the bounding box and tile code, stage_worldcover.py should
         # give preference to the tile code over the bbox if both are provided.
@@ -1228,6 +1332,46 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {
             oc_const.WORLDCOVER_FILE: output_filepath
         }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_shoreline_shapefiles(self):
+        """
+        Copies the set of static shoreline shapefiles configured for use with a
+        DSWx-HLS job to the job's local working area.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        rc_params = {}
+
+        s3_bucket = self._pge_config.get(oc_const.GET_SHORELINE_SHAPEFILES, {}).get(oc_const.S3_BUCKET)
+        s3_keys = self._pge_config.get(oc_const.GET_SHORELINE_SHAPEFILES, {}).get(oc_const.S3_KEYS)
+
+        for s3_key in s3_keys:
+            output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+            pge_metrics = download_object_from_s3(
+                s3_bucket, s3_key, output_filepath, filetype="Shoreline Shapefile"
+            )
+
+            write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+            # Set up the main shapefile which is configured in the PGE RunConfig
+            if output_filepath.endswith(".shp"):
+                rc_params = {
+                    oc_const.SHORELINE_SHAPEFILE: output_filepath
+                }
+
+        # Make sure the .shp file was included in the set of files localized from S3
+        if not rc_params:
+            raise RuntimeError("No .shp file included with the localized Shoreline Shapefile dataset.")
 
         logger.info(f"rc_params : {rc_params}")
 

@@ -79,12 +79,12 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_file: {{ data.product_path_group.product_path }}
+            product_version: {{ data.product_path_group.product_version }}
           primary_executable:
             product_type: CSLC_S1
           processing:
             polarization: {{ data.processing.polarization }}
             geocoding:
-              output_format: GTiff
               flatten: True
               lines_per_block: 1000
               x_posting: 5
@@ -93,3 +93,5 @@ RunConfig:
               lines_per_block: 1000
               threshold: 1.0e-8
               numiter: 25
+            rdr2geo:
+              enabled: {{ data.processing.enable_static_layers }}

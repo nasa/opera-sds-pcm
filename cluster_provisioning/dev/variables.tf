@@ -40,7 +40,7 @@ variable "product_delivery_repo" {
 }
 
 variable "product_delivery_branch" {
-  default = "opera_delivery"
+  default = "develop"
 }
 
 variable "bach_api_repo" {
@@ -164,7 +164,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.2xlarge"
     root_dev_size = 100
     private_ip    = ""
     public_ip     = ""
@@ -177,6 +177,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -188,6 +189,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.xlarge"
+    root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
   }
@@ -198,7 +200,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "c5.xlarge"
+    instance_type = "r6i.4xlarge"
     root_dev_size = 50
     data          = "/data"
     data_dev      = "/dev/xvdb"
@@ -289,8 +291,6 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
-#The value of po_daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 # need to get SNS arn from PO DAAC and define
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
@@ -310,6 +310,7 @@ variable "po_daac_endpoint_url" {
 # need to get SNS arn from ASF DAAC and define
 variable "asf_daac_delivery_proxy" {
   default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sqs:us-west-2:871271927522:asf-cumulus-dev-opera-cnm-ingest-queue"
 }
 
 variable "asf_daac_endpoint_url" {
@@ -379,9 +380,9 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.0-rc.6.0"
-    "cslc_s1" = "2.0.0-er.5.0"
-    "rtc_s1" = "2.0.0-er.5.0"
+    "dswx_hls" = "1.0.1"
+    "cslc_s1" = "2.0.0-rc.1.0"
+    "rtc_s1" = "2.0.0-rc.1.0"
   }
 }
 

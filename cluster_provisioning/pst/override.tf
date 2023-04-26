@@ -45,6 +45,11 @@ variable "cluster_type" {
   default = "forward"
 }
 
+variable "clear_s3_aws_es" {
+   type = bool
+   default = false
+}
+
 ###### Security  ########
 variable "public_verdi_security_group_id" {
   default = "sg-01b0d3772049cc263"
@@ -142,61 +147,6 @@ variable "use_artifactory" {
   default = true
 }
 
-######### ami vars #######
-variable "amis" {
-  type = map(string)
-  default = {
-    # HySDS v4.0.1-beta.8-oraclelinux - Universal AMIs (from Suzan 10-5-22)
-    mozart    = "ami-0ea8b5e8245324b0a" # mozart v4.18
-    metrics   = "ami-0f575f73bcd1f55e4" # metrics v4.13
-    grq       = "ami-0c84c56035af7fb6c" # grq v4.14
-    factotum  = "ami-068944cd3359de653" # factotum v4.14
-    autoscale = "ami-0922fa62a31e88485" # verdi v4.14
-    ci        = "ami-0922fa62a31e88485" # verdi v4.14
-  }
-}
-
-####### Release Branches #############
-variable "pge_snapshots_date" {
-  default = "20220901-1.0.0-rc.4.0"
-}
-
-variable "pge_releases" {
-  type = map(string)
-  default = {
-    "dswx_hls" = "1.0.0-rc.6.0"
-    "cslc_s1" = "2.0.0-er.4.0"
-  }
-}
-
-variable "hysds_release" {
-  default = "v4.1.0-beta.4"
-}
-
-variable "lambda_package_release" {
-  default = "1.0.0-rc.7.0"
-}
-
-variable "pcm_commons_branch" {
-  default = "1.0.0-rc.7.0"
-}
-
-variable "pcm_branch" {
-  default = "1.0.0-rc.7.0"
-}
-
-variable "product_delivery_branch" {
-  default = "1.0.0-rc.7.0"
-}
-
-variable "bach_api_branch" {
-  default = "1.0.0-rc.7.0"
-}
-
-variable "bach_ui_branch" {
-  default = "1.0.0-rc.7.0"
-}
-
 ###### Roles ########
 variable "asg_use_role" {
   default = true
@@ -230,7 +180,7 @@ variable "es_bucket_role_arn" {
 }
 
 ####### CNM Response job vars #######
-variable "daac_delivery_proxy" {
+variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:483785460105:daac-proxy-for-opera-pst"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
@@ -249,7 +199,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r5.4xlarge"
+    instance_type = "r6i.4xlarge"
     root_dev_size = 200
     #private_ip    = "100.104.13.10"
     private_ip    = "100.104.62.10"
@@ -288,7 +238,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "r5.8xlarge"
+    instance_type = "r6i.8xlarge"
     root_dev_size = 500
     data          = "/data"
     data_dev      = "/dev/xvdb"

@@ -127,31 +127,13 @@ resource "null_resource" "mozart" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "echo \"use_daac_cnm is ${var.use_daac_cnm_r}\"",
-      "~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \\",
-      "  ${var.project} \\",
-      "  ${var.environment} \\",
-      "  ${var.venue} \\",
-      "  ${module.common.counter} \\",
-      "  ${var.use_artifactory} \\",
-      "  ${var.artifactory_base_url} \\",
-      "  ${var.artifactory_repo} \\",
-      "  ${var.artifactory_mirror_url} \\",
-      "  ${var.pcm_repo} \\",
-      "  ${var.pcm_branch} \\",
-      "  ${var.product_delivery_repo} \\",
-      "  ${var.product_delivery_branch} \\",
-#	  "  ${var.delete_old_job_catalog} \\",
-      "  ${module.common.mozart.private_ip} \\",
-      "  ${module.common.isl_bucket} \\",
-      "  ${local.source_event_arn} \\",
-      "  ${var.po_daac_delivery_proxy} \\",
-      "  ${var.use_daac_cnm_r} \\",
-      "  ${local.crid} \\",
-      "  ${var.cluster_type} || :",
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              cd ~/.sds/files
+              ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
+              echo Your cluster has been provisioned!
+    EOF
     ]
   }
 
@@ -159,26 +141,6 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      "~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-#      "cat /tmp/datasets.txt",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/datasets.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "cat /tmp/check_stamped_dataset_result.txt",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/check_stamped_dataset_result.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/check_empty_isl_result.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/check_expected_force_submits.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
-#      "SUCCESS=$(grep -c ^SUCCESS /tmp/report_datasets.txt)",
-#      "if [[ \"$${SUCCESS}\" -eq 0 ]]; then exit 1; fi",
       # publish opera-pcm and CNM_product_delivery source tarballs and HySDS packages to artifactory
       "cd /data",
       "pwd",

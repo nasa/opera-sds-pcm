@@ -1,14 +1,16 @@
+import argparse
+import logging
 import os
+import sys
 from io import StringIO
 from pathlib import PurePath
 from pprint import pprint
+from getpass import getpass
 
 import elasticsearch
 import more_itertools
 from dotenv import dotenv_values
 from elasticsearch import RequestsHttpConnection, helpers
-
-import logging
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
@@ -23,8 +25,13 @@ config = {
     **os.environ
 }
 
+try:
+    password = config["ES_PASSWORD"]
+except:
+    password = getpass()
+
 kwargs = {
-    "http_auth": (config["ES_USER"], config["ES_PASSWORD"]),
+    "http_auth": (config["ES_USER"], password),
     "connection_class": RequestsHttpConnection,
     "use_ssl": True,
     "verify_certs": False,
@@ -55,11 +62,26 @@ def get_body() -> dict:
         "aggs": {}
     }
 
+argparser = argparse.ArgumentParser(add_help=True)
+argparser.add_argument(
+    "--start-datetime",
+    default="1970-01-01T00:00:00.000000",
+    help=f'ISO formatted datetime string. Must be compatible with Python Elasticsearch Client. Defaults to "%(default)s".'
+)
+argparser.add_argument(
+    "--end-datetime",
+    default="9999-01-01T00:00:00.000000",
+    help=f'ISO formatted datetime string. Must be compatible with Python Elasticsearch Client. Defaults to "%(default)s".'
+)
+
+logging.info(f'{sys.argv=}')
+args = argparser.parse_args(sys.argv[1:])
+
 
 def get_range(
         datetime_fieldname="creation_timestamp",
-        start_dt_iso="1970-01-01T00:00:00.000000",
-        end_dt_iso="2023-01-01T00:00:00.000000"
+        start_dt_iso=args.start_datetime,
+        end_dt_iso=args.end_datetime
 ) -> dict:
     return {
         "range": {
