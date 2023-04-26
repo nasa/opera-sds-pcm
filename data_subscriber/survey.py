@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import logging
-from data_subscriber.query import get_query_timerange, query_cmr
+from data_subscriber.query import get_query_timerange, query_cmr, DateTimeRange
 
 _date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -25,9 +25,13 @@ def run_survey(args, token, cmr, settings):
         args.start_date = start_str
         args.end_date = end_str
 
-        query_timerange: DateTimeRange = get_query_timerange(args, now, silent=True)
+        logger = logging.getLogger()
+        logger.disabled = True
 
-        granules = query_cmr(args, token, cmr, settings, query_timerange, now, silent=True)
+        query_timerange: DateTimeRange = get_query_timerange(args, now)
+        granules = query_cmr(args, token, cmr, settings, query_timerange, now)
+
+        logger.disabled = False
 
         count = len(granules)
         total_granules += count
