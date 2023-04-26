@@ -306,9 +306,11 @@ variable "po_daac_endpoint_url" {
 }
 
 #The value of asf_daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+# for DEV: arn:aws:sqs:us-west-2:871271927522:asf-cumulus-dev-opera-cnm-ingest-queue
+# for dev-int: 
 variable "asf_daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  default = "arn:aws:sqs:us-west-2:156214815904:asf-cumulus-int-opera-cnm-ingest-queue"
 }
 
 variable "asf_daac_endpoint_url" {
