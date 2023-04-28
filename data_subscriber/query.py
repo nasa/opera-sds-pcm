@@ -248,15 +248,18 @@ def query_cmr(args, token, cmr, settings, timerange: DateTimeRange, now: datetim
         granules, search_after = _request_search(args, request_url, params, search_after=search_after)
         product_granules.extend(granules)
 
+    logging.info(f"Before filtering, there are {str(len(product_granules))} total granules")
+
     if args.collection in settings["SHORTNAME_FILTERS"]:
         product_granules = [granule
                             for granule in product_granules
                             if _match_identifier(settings, args, granule)]
 
+
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
 
-    logging.info(f"Found {str(len(product_granules))} total granules")
+    logging.info(f"After filtering, there are {str(len(product_granules))} total granules")
 
     return product_granules
 
