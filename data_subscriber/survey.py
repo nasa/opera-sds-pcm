@@ -5,9 +5,16 @@ from data_subscriber.query import get_query_timerange, query_cmr, DateTimeRange
 _date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 
 def run_survey(args, token, cmr, settings):
+    now = datetime.utcnow()
+    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
 
-    start_dt = datetime.strptime(args.start_date, _date_format_str)
-    end_dt = datetime.strptime(args.end_date, _date_format_str)
+    start_date = args.start_date if args.start_date else now_minus_minutes_date
+    end_date = args.end_date if args.end_date else now_date
+
+    start_dt = datetime.strptime(start_date, _date_format_str)
+    end_dt = datetime.strptime(end_date, _date_format_str)
 
     out_csv = open(args.out_csv, 'w')
     out_csv.write("# DateTime Range:" + start_dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " to " + end_dt.strftime(
