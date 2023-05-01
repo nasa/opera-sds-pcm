@@ -202,34 +202,34 @@ def download_from_asf(
 
         logging.info("Added orbit file to dataset")
 
-        logging.info("Downloading associated Ionosphere Correction file")
-
-        try:
-            stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
-                [
-                    f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPLG}"
-                    f"--output-directory={str(dataset_dir)}",
-                    str(product_filepath)
-                ]
-            )
-            stage_ionosphere_file.main(stage_ionosphere_file_args)
-            logging.info("Added JPLG Ionosphere correction file to dataset")
-        except IonosphereFileNotFoundException:
-            logging.warning("JPLG file type could not be found, querying for JPRG file type")
+        if additional_metadata.get("intersects_north_america", False):
+            logging.info("Downloading associated Ionosphere Correction file")
             try:
                 stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
                     [
-                        f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPRG}"
+                        f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPLG}",
                         f"--output-directory={str(dataset_dir)}",
                         str(product_filepath)
                     ]
                 )
                 stage_ionosphere_file.main(stage_ionosphere_file_args)
-                logging.info("Added JPRG Ionosphere correction file to dataset")
+                logging.info("Added JPLG Ionosphere correction file to dataset")
             except IonosphereFileNotFoundException:
-                logging.warning(
-                    f"Could not find any Ionosphere Correction file for product {product_filepath}"
-                )
+                logging.warning("JPLG file type could not be found, querying for JPRG file type")
+                try:
+                    stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
+                        [
+                            f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPRG}",
+                            f"--output-directory={str(dataset_dir)}",
+                            str(product_filepath)
+                        ]
+                    )
+                    stage_ionosphere_file.main(stage_ionosphere_file_args)
+                    logging.info("Added JPRG Ionosphere correction file to dataset")
+                except IonosphereFileNotFoundException:
+                    logging.warning(
+                        f"Could not find any Ionosphere Correction file for product {product_filepath}"
+                    )
 
         logging.info(f"Removing {product_filepath}")
         product_filepath.unlink(missing_ok=True)
