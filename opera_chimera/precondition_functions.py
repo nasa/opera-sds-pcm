@@ -37,8 +37,7 @@ from util.pge_util import (download_object_from_s3,
                            write_pge_metrics)
 from util.type_util import set_type
 from tools.stage_dem import main as stage_dem
-from tools.stage_ionosphere_file import main as stage_ionosphere_file
-from tools.stage_ionosphere_file import DEFAULT_DOWNLOAD_ENDPOINT as DEFAULT_TEC_DOWNLOAD_ENDPOINT
+from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
 from tools.stage_worldcover import main as stage_worldcover
 
 ancillary_es = get_grq_es(logger)
@@ -1022,15 +1021,23 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         bucket = s3.Bucket(s3_bucket_name)
         s3_objects = bucket.objects.filter(Prefix=s3_key)
 
-        ionosphere_file_objects = list(
-            filter(lambda s3_object: 'jplg' in s3_object.key, s3_objects)
-        )
+        # Find the available Ionosphere files staged by the download job
+        ionosphere_file_objects = []
+        for ionosphere_file_type in VALID_IONOSPHERE_TYPES:
+            ionosphere_file_objects.extend(
+                list(filter(lambda s3_object: ionosphere_file_type in s3_object.key, s3_objects))
+            )
 
+        logger.info(f"{ionosphere_file_objects}=")
+
+        # May not of found any Ionosphere files during download phase, so check now
         if len(ionosphere_file_objects) < 1:
             raise RuntimeError(
                 f'Could not find an Ionosphere file within the S3 location {s3_product_path}'
             )
 
+        # There should only have been one file downloaded, but any should
+        # work so just take the first
         ionosphere_file_object = ionosphere_file_objects[0]
 
         s3_ionosphere_file_path = f"s3://{s3_bucket_name}/{ionosphere_file_object.key}"
