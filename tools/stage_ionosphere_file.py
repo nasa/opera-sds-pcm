@@ -201,6 +201,9 @@ def safe_start_date_to_julian_day(safe_start_date):
     year = time_tuple.tm_year
     doy = time_tuple.tm_yday
 
+    # Make sure the DOY is zero-padded
+    doy = f"{int(doy):03d}"
+
     logger.debug(f'year: {year} doy: {doy}')
 
     return str(year), str(doy)
@@ -344,7 +347,7 @@ def main(args):
 
     # Formulate the archive name and URL location based on the file type and
     # the Julian date of the SLC archive
-    archive_name = f"{args.type}{int(doy):03d}0.{year[2:]}i.Z"
+    archive_name = f"{args.type}{doy}0.{year[2:]}i.Z"
     request_url = join(args.download_endpoint, year, doy, archive_name)
 
     # If user request the URL only, print it to standard out and the log
