@@ -31,6 +31,11 @@ DEFAULT_DOWNLOAD_ENDPOINT = "https://cddis.nasa.gov/archive/gnss/products/ionex"
 DEFAULT_EDL_ENDPOINT = "urs.earthdata.nasa.gov"
 """Default endpoint for authenticating with EarthData Login"""
 
+IONOSPHERE_TYPE_JPLG = "jplg"
+IONOSPHERE_TYPE_JPRG = "jprg"
+VALID_IONOSPHERE_TYPES = [IONOSPHERE_TYPE_JPLG, IONOSPHERE_TYPE_JPRG]
+"""The valid Ionosphere file types that this script can download"""
+
 class IonosphereFileNotFoundException(Exception):
     """Exception to identify no result found (404) for a requested Ionosphere archive"""
     pass
@@ -59,6 +64,10 @@ def get_parser():
                         help="Specify the EarthData Login password to use with "
                              "the download request. If a password is not provided, "
                              "it is obtained from the local .netrc file.")
+    parser.add_argument("-t", "--type", type=str.lower, choices=VALID_IONOSPHERE_TYPES,
+                        default=IONOSPHERE_TYPE_JPLG,
+                        help=f"Specify the type of Ionosphere file to download. "
+                             f"Must be one of {VALID_IONOSPHERE_TYPES}")
     parser.add_argument("--url-only", action="store_true",
                         help="Only output the URL from where the resulting Ionosphere "
                              "file may be downloaded from.")
@@ -192,6 +201,9 @@ def safe_start_date_to_julian_day(safe_start_date):
     year = time_tuple.tm_year
     doy = time_tuple.tm_yday
 
+    # Make sure the DOY is zero-padded
+    doy = f"{int(doy):03d}"
+
     logger.debug(f'year: {year} doy: {doy}')
 
     return str(year), str(doy)
@@ -320,7 +332,7 @@ def main(args):
         )
 
     # Get username/password from netrc file if neither were provided via command-line
-    if args.username is None and args.password is None:
+    if args.username is None and args.password is None and not args.url_only:
         args.username, _, args.password = netrc.netrc().authenticators(DEFAULT_EDL_ENDPOINT)
 
     logger.info(f"Determining Ionosphere file for input SAFE file {args.input_safe_file}")
@@ -333,9 +345,9 @@ def main(args):
     # Convert start date to Year and Day of Year (Julian date)
     year, doy = safe_start_date_to_julian_day(safe_start_date)
 
-    # formulate the archive name and URL location based on the Julian date of the SLC archive
-    # TODO: add support for the "jprg" version of the file
-    archive_name = f"jplg{int(doy):03d}0.{year[2:]}i.Z"
+    # Formulate the archive name and URL location based on the file type and
+    # the Julian date of the SLC archive
+    archive_name = f"{args.type}{doy}0.{year[2:]}i.Z"
     request_url = join(args.download_endpoint, year, doy, archive_name)
 
     # If user request the URL only, print it to standard out and the log
