@@ -7,7 +7,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must\": [{\"term\": {\"metadata.intersects_north_america\": \"true\"}}]}}",
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must\": [{\"term\": {\"metadata.intersects_north_america\": \"true\"}}], \"must_not\": [{\"term\":  {\"term\": {\"metadata.processing_mode\": \"historical\"}}]}}",
       "queue": "opera-job_worker-sciflo-l2_cslc_s1",
       "rule_name": "trigger-SCIFLO_L2_CSLC_S1",
       "username": "hysdsops",
