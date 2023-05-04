@@ -2,10 +2,10 @@ import argparse
 import logging
 import os
 import sys
+from getpass import getpass
 from io import StringIO
 from pathlib import PurePath
 from pprint import pprint
-from getpass import getpass
 
 import elasticsearch
 import more_itertools
@@ -14,8 +14,8 @@ from elasticsearch import RequestsHttpConnection, helpers
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
-    # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",
-    format="%(asctime)s %(levelname)7s %(name)s:%(filename)s:%(funcName)s:%(lineno)3s - %(message)s",
+    # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
+    format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO)
 logging.getLogger()
@@ -26,6 +26,7 @@ config = {
 }
 
 try:
+    logging.warning("Setting password via dotenv is not recommended. Leave empty to be prompted to enter password.")
     password = config["ES_PASSWORD"]
 except:
     password = getpass()
@@ -38,6 +39,7 @@ kwargs = {
     "ssl_show_warn": False,
 }
 es = elasticsearch.Elasticsearch(hosts=[config["ES_BASE_URL"]], **kwargs)
+del password
 
 
 def pstr(o):
@@ -57,7 +59,7 @@ def get_body() -> dict:
             }
         },
         "from": 0,
-        "size": 10000,
+        "size": 10_000,
         "sort": [],
         "aggs": {}
     }
@@ -99,7 +101,7 @@ def get_range(
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
 queried_or_downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 logging.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
@@ -114,10 +116,14 @@ queried_or_downloaded_granules = set(queried_or_downloaded_granules.keys())
 logging.info(f'Data queried or downloaded (granules): {len(queried_or_downloaded_granules)=:,}')
 logging.debug(f'{pstr(queried_or_downloaded_granules)=!s}')
 
+# missing_queried_or_downloaded_granules = cmr_granules - queried_or_downloaded_granules
+# logging.info(f'Missing queried (granules): {len(missing_queried_or_downloaded_granules)=:,}')
+# logging.debug(f'{pstr(missing_queried_or_downloaded_granules)=!s}')
+
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
 downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 
 logging.info(f'Data downloaded (files): {len(search_results)=:,}')
@@ -149,7 +155,7 @@ logging.debug(f'{pstr(missing_download_granules)=!s}')
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30", scroll="5m", size=10_000))
 l30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
@@ -158,7 +164,7 @@ logging.info(f'Data ingested (L30): {len(search_results)=:,}')
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_s30", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_s30", scroll="5m", size=10_000))
 s30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
@@ -197,10 +203,12 @@ logging.debug(f'{pstr(missing_data_ingest_granules)=!s}')
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
-search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10_000))
 pge_input_files = {PurePath(input).name.removesuffix(".tif")
                    for hit in search_results
                    for input in hit["_source"]["metadata"]["runconfig"]["localize"]}
+
+pge_output_granules = {hit["_id"] for hit in search_results}
 
 missing_pge_files = all_ingested_files - pge_input_files
 logging.info(f'Inputs Missing PGE: {len(missing_pge_files)=:,}')
