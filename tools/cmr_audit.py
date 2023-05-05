@@ -15,7 +15,6 @@ import aiohttp
 import backoff
 import dateutil.parser
 import more_itertools
-from compact_json import Formatter
 from dateutil.rrule import rrule, DAILY, HOURLY
 from dotenv import dotenv_values
 
@@ -49,6 +48,10 @@ argparser.add_argument(
 argparser.add_argument(
     "--end-datetime",
     required=True,
+    help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
+)
+argparser.add_argument(
+    "--output", "-o",
     help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
 )
 
@@ -255,8 +258,9 @@ def hls_granule_ids_to_dswx_native_id_patterns(cmr_granules: set[str], input_to_
 
 
 def to_dsxw_metadata_small():
-    missing_cmr_granules_details_short = {
-        i: {
+    missing_cmr_granules_details_short = [
+        {
+            "id": i,
             "revision-date": cmr_granules_details[i]["meta"]["revision-date"],
             "provider-date": next(iter(
                 cmr_granules_details[i]["umm"]["ProviderDates"]
@@ -276,7 +280,7 @@ def to_dsxw_metadata_small():
             ))
         }
         for i in missing_cmr_granules
-    }
+    ]
 
     return missing_cmr_granules_details_short
 
@@ -327,13 +331,16 @@ logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
-missing_cmr_granules_details_full = {i: cmr_granules_details[i] for i in missing_cmr_granules}
+missing_cmr_granules_details_full = [cmr_granules_details[i] for i in missing_cmr_granules]
 missing_cmr_granules_details_short = to_dsxw_metadata_small()
 
-output_file_missing_cmr_granules = f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
-logging.info(f"Writing granule list to file {output_file_missing_cmr_granules}")
+output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
 with open(output_file_missing_cmr_granules, mode='w') as fp:
-    formatter = Formatter(indent_spaces=2, max_inline_length=300)
-    json_str = formatter.serialize(missing_cmr_granules_details_short)
-    fp.write(json_str)
-logging.info(f"Finished writing to file {output_file_missing_cmr_granules}")
+    fp.write('\n'.join(missing_cmr_granules))
+    # DEV: uncomment to export granules and metadata
+    # from compact_json import Formatter
+    # formatter = Formatter(indent_spaces=2, max_inline_length=300)
+    # json_str = formatter.serialize(missing_cmr_granules_details_short)
+    # fp.write(json_str)
+logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
