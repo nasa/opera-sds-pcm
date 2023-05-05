@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import datetime
-import json
 import logging
 import os
 import re
@@ -16,15 +15,16 @@ import aiohttp
 import backoff
 import dateutil.parser
 import more_itertools
+from compact_json import Formatter
 from dateutil.rrule import rrule, DAILY, HOURLY
 from dotenv import dotenv_values
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.basicConfig(
-    # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
-    format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
+    format="%(levelname)7s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
+    # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.DEBUG)
+    level=logging.INFO)
 logging.getLogger()
 
 config = {
@@ -43,10 +43,12 @@ def pstr(o):
 argparser = argparse.ArgumentParser(add_help=True)
 argparser.add_argument(
     "--start-datetime",
+    required=True,
     help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
 )
 argparser.add_argument(
     "--end-datetime",
+    required=True,
     help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
 )
 
@@ -252,12 +254,38 @@ def hls_granule_ids_to_dswx_native_id_patterns(cmr_granules: set[str], input_to_
     return dswx_native_id_patterns
 
 
+def to_dsxw_metadata_small():
+    missing_cmr_granules_details_short = {
+        i: {
+            "revision-date": cmr_granules_details[i]["meta"]["revision-date"],
+            "provider-date": next(iter(
+                cmr_granules_details[i]["umm"]["ProviderDates"]
+            ))["Date"],
+            "temporal-date": cmr_granules_details[i]["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
+            "hls-processing-time": next(iter(
+                next(iter(
+                    list(filter(lambda a: a["Name"] == "HLS_PROCESSING_TIME",
+                                cmr_granules_details[i]["umm"]["AdditionalAttributes"]))
+                ))["Values"]
+            )),
+            "sensing-time": next(iter(
+                next(iter(
+                    list(filter(lambda a: a["Name"] == "SENSING_TIME",
+                                cmr_granules_details[i]["umm"]["AdditionalAttributes"]))
+                ))["Values"]
+            ))
+        }
+        for i in missing_cmr_granules
+    }
+
+    return missing_cmr_granules_details_short
+
+
 loop = asyncio.get_event_loop()
 
 logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
-cmr_start_dt_str = '2023-04-25T00:00:00Z'
-cmr_end_dt_str = '2023-04-25T01:00:00Z'
-logging.info(f"{cmr_start_dt_str=}, {cmr_end_dt_str=}")
+cmr_start_dt_str = args.start_datetime
+cmr_end_dt_str = args.end_datetime
 
 cmr_granules_l30, cmr_granules_l30_details = loop.run_until_complete(async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
 cmr_granules_s30, cmr_granules_s30_details = loop.run_until_complete(async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
@@ -300,44 +328,12 @@ logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
 missing_cmr_granules_details_full = {i: cmr_granules_details[i] for i in missing_cmr_granules}
-
-
-def to_dsxw_metadata_small():
-    missing_cmr_granules_details_short = {
-        i: {
-            "revision-date": cmr_granules_details[i]["meta"]["revision-date"],
-            "provider-date": next(iter(
-                cmr_granules_details[i]["umm"]["ProviderDates"]
-            ))["Date"],
-            "temporal-date": cmr_granules_details[i]["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
-            "hls-processing-time": next(iter(
-                next(iter(
-                    list(filter(lambda a: a["Name"] == "HLS_PROCESSING_TIME",
-                                cmr_granules_details[i]["umm"]["AdditionalAttributes"]))
-                ))["Values"]
-            )),
-            "sensing-time": next(iter(
-                next(iter(
-                    list(filter(lambda a: a["Name"] == "SENSING_TIME",
-                                cmr_granules_details[i]["umm"]["AdditionalAttributes"]))
-                ))["Values"]
-            ))
-        }
-        for i in missing_cmr_granules
-    }
-
-    return missing_cmr_granules_details_short
-
-
 missing_cmr_granules_details_short = to_dsxw_metadata_small()
 
-from compact_json import Formatter
-
-formatter = Formatter()
-formatter.indent_spaces = 2
-formatter.max_inline_length = 300
-
-with open(f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.json", mode='w') as fp:
-    # json.dump(missing_cmr_granules_details_short, fp, indent=2)
+output_file_missing_cmr_granules = f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+logging.info(f"Writing granule list to file {output_file_missing_cmr_granules}")
+with open(output_file_missing_cmr_granules, mode='w') as fp:
+    formatter = Formatter(indent_spaces=2, max_inline_length=300)
     json_str = formatter.serialize(missing_cmr_granules_details_short)
     fp.write(json_str)
+logging.info(f"Finished writing to file {output_file_missing_cmr_granules}")
