@@ -54,6 +54,12 @@ argparser.add_argument(
     "--output", "-o",
     help=f'ISO formatted datetime string. Must be compatible with CMR.'
 )
+argparser.add_argument(
+    "--format",
+    default="txt",
+    choices=["txt", "json"],
+    help=f'Output file format. Defaults to "%(default)s".'
+)
 
 logging.info(f'{sys.argv=}')
 args = argparser.parse_args(sys.argv[1:])
@@ -331,11 +337,20 @@ logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
-output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
-logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-with open(output_file_missing_cmr_granules, mode='w') as fp:
-    fp.write('\n'.join(missing_cmr_granules))
-
+if args.format == "text":
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+    logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+    with open(output_file_missing_cmr_granules, mode='w') as fp:
+        fp.write('\n'.join(missing_cmr_granules))
+elif args.format == "json":
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+    with open(output_file_missing_cmr_granules, mode='w') as fp:
+        from compact_json import Formatter
+        formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+        json_str = formatter.serialize(list(missing_cmr_granules))
+        fp.write(json_str)
+else:
+    raise Exception()
 
 # DEV: uncomment to export granules and metadata
 
@@ -343,7 +358,6 @@ with open(output_file_missing_cmr_granules, mode='w') as fp:
 # missing_cmr_granules_details_short = to_dsxw_metadata_small()
 
 # with open(output_file_missing_cmr_granules, mode='w') as fp:
-#     fp.write('\n'.join(missing_cmr_granules))
     # from compact_json import Formatter
     # formatter = Formatter(indent_spaces=2, max_inline_length=300)
     # json_str = formatter.serialize(missing_cmr_granules_details_short)
