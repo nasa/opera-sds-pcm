@@ -43,16 +43,16 @@ argparser = argparse.ArgumentParser(add_help=True)
 argparser.add_argument(
     "--start-datetime",
     required=True,
-    help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
+    help=f'ISO formatted datetime string. Must be compatible with CMR.'
 )
 argparser.add_argument(
     "--end-datetime",
     required=True,
-    help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
+    help=f'ISO formatted datetime string. Must be compatible with CMR.'
 )
 argparser.add_argument(
     "--output", "-o",
-    help=f'ISO formatted datetime string. Must be compatible with CMR. Defaults to "%(default)s".'
+    help=f'ISO formatted datetime string. Must be compatible with CMR.'
 )
 
 logging.info(f'{sys.argv=}')
@@ -126,7 +126,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(lambda it: isinstance(it, Exception), await asyncio.gather(*task_chunk, return_exceptions=False))
             post_cmr_tasks_results = next(post_cmr_tasks_results)
             cmr_granules = cmr_granules.union(post_cmr_tasks_results[0])
-            cmr_granules_details.update(post_cmr_tasks_results[1])
+            # cmr_granules_details.update(post_cmr_tasks_results[1])  # TODO chrisjrd: uncomment as needed
         return cmr_granules, cmr_granules_details
 
 
@@ -186,7 +186,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
             logging.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
         logging.debug(f'CMR number of granules (cmr-query-page {current_page}/{ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
         cmr_granules = cmr_granules.union({item["meta"]["native-id"] for item in response_json["items"]})
-        cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})
+        # cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # TODO chrisjrd: uncomment as needed
 
         cmr_search_after = response.headers.get("CMR-Search-After")
         logging.debug(f"{cmr_search_after=}")
@@ -331,16 +331,22 @@ logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
-missing_cmr_granules_details_full = [cmr_granules_details[i] for i in missing_cmr_granules]
-missing_cmr_granules_details_short = to_dsxw_metadata_small()
-
 output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
 logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
 with open(output_file_missing_cmr_granules, mode='w') as fp:
     fp.write('\n'.join(missing_cmr_granules))
-    # DEV: uncomment to export granules and metadata
+
+
+# DEV: uncomment to export granules and metadata
+
+# missing_cmr_granules_details_full = [cmr_granules_details[i] for i in missing_cmr_granules]
+# missing_cmr_granules_details_short = to_dsxw_metadata_small()
+
+# with open(output_file_missing_cmr_granules, mode='w') as fp:
+#     fp.write('\n'.join(missing_cmr_granules))
     # from compact_json import Formatter
     # formatter = Formatter(indent_spaces=2, max_inline_length=300)
     # json_str = formatter.serialize(missing_cmr_granules_details_short)
     # fp.write(json_str)
+
 logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
