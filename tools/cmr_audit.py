@@ -87,7 +87,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         for day in range_days:
             logging.debug(f"{day=!s}")
             if day >= temporal_end_dt:
-                logging.debug(f"Current day is beyond the global end datetime")
+                logging.debug(f"Current day is beyond the global end datetime. Skipping")
                 break
 
             # NOTE: keep freq+interval and duration in sync
@@ -133,11 +133,16 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         # issue requests in batches
         cmr_granules = set()
         cmr_granules_details = {}
-        for task_chunk in more_itertools.chunked(post_cmr_tasks, 5):  # CMR recommends 2-5 threads.
-            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(lambda it: isinstance(it, Exception), await asyncio.gather(*task_chunk, return_exceptions=False))
-            post_cmr_tasks_results = next(post_cmr_tasks_results)
-            cmr_granules = cmr_granules.union(post_cmr_tasks_results[0])
-            # cmr_granules_details.update(post_cmr_tasks_results[1])  # TODO chrisjrd: uncomment as needed
+        for task_chunk in more_itertools.chunked(post_cmr_tasks, 24):  # CMR recommends 2-5 threads.
+            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
+                lambda it: isinstance(it, Exception),
+                await asyncio.gather(*task_chunk, return_exceptions=False))
+            for post_cmr_tasks_result in post_cmr_tasks_results:
+                cmr_granules.update(post_cmr_tasks_result[0])
+            # TODO chrisjrd: uncomment as needed
+            # for post_cmr_tasks_result in post_cmr_tasks_results:
+            #     cmr_granules_details.update(post_cmr_tasks_result[1])
+        logging.info(f"{collection_short_name} {len(cmr_granules)=}")
         return cmr_granules, cmr_granules_details
 
 
@@ -171,8 +176,8 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False)
             )
-            post_cmr_tasks_results = next(post_cmr_tasks_results)
-            dswx_granules = dswx_granules.union(post_cmr_tasks_results[0])
+            for post_cmr_tasks_result in post_cmr_tasks_results:
+                dswx_granules.update(post_cmr_tasks_result[0])
         return dswx_granules
 
 
@@ -199,7 +204,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
         if current_page == 1:
             logging.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
         logging.debug(f'CMR number of granules (cmr-query-page {current_page}/{ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
-        cmr_granules = cmr_granules.union({item["meta"]["native-id"] for item in response_json["items"]})
+        cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
         # cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # TODO chrisjrd: uncomment as needed
 
         cmr_search_after = response.headers.get("CMR-Search-After")
@@ -337,11 +342,11 @@ missing_cmr_dswx_granules_prefixes = cmr_dswx_prefix_expected - cmr_dswx_prefix_
 #######################################################################
 # CMR_AUDIT SUMMARY
 #######################################################################
-logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
+# logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
 
 missing_cmr_granules = {next(iter(output_dswx_to_inputs_hls_map[prefix])) for prefix in missing_cmr_dswx_granules_prefixes}
 
-logging.info(f"{pstr(missing_cmr_granules)=!s}")
+# logging.debug(f"{pstr(missing_cmr_granules)=!s}")
 logging.info(f"Expected input (granules): {len(cmr_granules)=:,}")
 logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
