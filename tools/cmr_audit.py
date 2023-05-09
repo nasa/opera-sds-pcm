@@ -347,7 +347,7 @@ logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
-if args.format == "text":
+if args.format == "txt":
     output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
     logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
     with open(output_file_missing_cmr_granules, mode='w') as fp:
