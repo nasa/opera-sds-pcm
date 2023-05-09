@@ -10,6 +10,7 @@ from collections import defaultdict
 from io import StringIO
 from math import ceil
 from pprint import pprint
+from typing import Iterable, Union
 
 import aiohttp
 import backoff
@@ -17,6 +18,7 @@ import dateutil.parser
 import more_itertools
 from dateutil.rrule import rrule, DAILY, HOURLY
 from dotenv import dotenv_values
+from more_itertools import always_iterable
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.basicConfig(
@@ -69,7 +71,8 @@ args = argparser.parse_args(sys.argv[1:])
 # CMR AUDIT
 #######################################################################
 
-async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str):
+async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
+                                 platform_short_name: Union[str, Iterable[str]]):
     logging.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=})")
 
     async with aiohttp.ClientSession() as session:
@@ -115,6 +118,8 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                         "&sort_key=-start_date"
                         # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
                         f"&temporal[]={urllib.parse.quote(local_start_dt_str, safe='/:')},{urllib.parse.quote(local_end_dt_str, safe='/:')}"
+                        "&options[platform][exclude_collection]=true"
+                        f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
                         ""
                 )
                 post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
@@ -162,7 +167,10 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
         # issue requests in batches
         dswx_granules = set()
         for task_chunk in more_itertools.chunked(post_cmr_tasks, 5):  # CMR recommends 2-5 threads.
-            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(lambda it: isinstance(it, Exception), await asyncio.gather(*task_chunk, return_exceptions=False))
+            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
+                lambda it: isinstance(it, Exception),
+                await asyncio.gather(*task_chunk, return_exceptions=False)
+            )
             post_cmr_tasks_results = next(post_cmr_tasks_results)
             dswx_granules = dswx_granules.union(post_cmr_tasks_results[0])
         return dswx_granules
@@ -210,7 +218,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
     return cmr_granules, cmr_granules_detailed
 
 
-def giveup(e):
+def giveup_cmr_requests(e):
     if isinstance(e, aiohttp.ClientResponseError):
         if e.status == 413 and e.message == "Payload Too Large":  # give up. Fix bug
             return True
@@ -226,7 +234,7 @@ def giveup(e):
     exception=(aiohttp.ClientResponseError, aiohttp.ClientOSError),  # ClientOSError happens when connection is closed by peer
     max_tries=3,
     jitter=None,
-    giveup=giveup
+    giveup=giveup_cmr_requests
 )
 async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers):
     return await session.post(url, data=data, headers=headers, raise_for_status=True)
@@ -297,8 +305,10 @@ logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
 cmr_start_dt_str = args.start_datetime
 cmr_end_dt_str = args.end_datetime
 
-cmr_granules_l30, cmr_granules_l30_details = loop.run_until_complete(async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
-cmr_granules_s30, cmr_granules_s30_details = loop.run_until_complete(async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
+cmr_granules_l30, cmr_granules_l30_details = loop.run_until_complete(
+    async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str, platform_short_name="LANDSAT-8"))
+cmr_granules_s30, cmr_granules_s30_details = loop.run_until_complete(
+    async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str, platform_short_name=["Sentinel-2A", "Sentinel-2B"]))
 cmr_granules = cmr_granules_l30.union(cmr_granules_s30)
 cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_l30_details); cmr_granules_details.update(cmr_granules_s30_details)
 logging.info(f"Expected input (granules): {len(cmr_granules)=:,}")
