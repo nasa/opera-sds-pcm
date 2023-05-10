@@ -297,7 +297,7 @@ def dswx_native_ids_to_prefixes(cmr_dswx_native_ids):
     return {re.match(dswx_regex_pattern, prefix).group(0) for prefix in cmr_dswx_native_ids}
 
 
-def to_dsxw_metadata_small():
+def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details):
     missing_cmr_granules_details_short = [
         {
             "id": i,
@@ -384,7 +384,7 @@ else:
 # DEV: uncomment to export granules and metadata
 
 # missing_cmr_granules_details_full = [cmr_granules_details[i] for i in missing_cmr_granules]
-# missing_cmr_granules_details_short = to_dsxw_metadata_small()
+# missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details)
 
 # with open(output_file_missing_cmr_granules, mode='w') as fp:
     # from compact_json import Formatter
