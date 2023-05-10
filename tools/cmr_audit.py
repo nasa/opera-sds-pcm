@@ -25,7 +25,7 @@ logging.basicConfig(
     format="%(levelname)7s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.INFO)
+    level=logging.DEBUG)
 logging.getLogger()
 
 config = {
@@ -70,6 +70,16 @@ args = argparser.parse_args(sys.argv[1:])
 #######################################################################
 # CMR AUDIT
 #######################################################################
+
+def async_get_cmr_granules_hls_l30(temporal_date_start: str, temporal_date_end: str):
+    return async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=temporal_date_start,
+                                  temporal_date_end=temporal_date_end, platform_short_name="LANDSAT-8")
+
+
+def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date_end: str):
+    return async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=temporal_date_start,
+                                  temporal_date_end=temporal_date_end, platform_short_name=["Sentinel-2A", "Sentinel-2B"])
+
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
                                  platform_short_name: Union[str, Iterable[str]]):
@@ -133,13 +143,13 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         # issue requests in batches
         cmr_granules = set()
         cmr_granules_details = {}
-        for task_chunk in more_itertools.chunked(post_cmr_tasks, 24):  # CMR recommends 2-5 threads.
+        for task_chunk in more_itertools.chunked(post_cmr_tasks, 30):  # CMR recommends 2-5 threads.
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False))
             for post_cmr_tasks_result in post_cmr_tasks_results:
                 cmr_granules.update(post_cmr_tasks_result[0])
-            # TODO chrisjrd: uncomment as needed
+            # DEV: uncomment as needed
             # for post_cmr_tasks_result in post_cmr_tasks_results:
             #     cmr_granules_details.update(post_cmr_tasks_result[1])
         logging.info(f"{collection_short_name} {len(cmr_granules)=}")
@@ -171,7 +181,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
 
         # issue requests in batches
         dswx_granules = set()
-        for task_chunk in more_itertools.chunked(post_cmr_tasks, 5):  # CMR recommends 2-5 threads.
+        for task_chunk in more_itertools.chunked(post_cmr_tasks, 30):  # CMR recommends 2-5 threads.
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False)
@@ -276,6 +286,17 @@ def hls_granule_ids_to_dswx_native_id_patterns(cmr_granules: set[str], input_to_
     return dswx_native_id_patterns
 
 
+def dswx_native_ids_to_prefixes(cmr_dswx_native_ids):
+    dswx_regex_pattern = (
+        r'(?P<project>OPERA)_'
+        r'(?P<level>L3)_'
+        r'(?P<product_type>DSWx)-(?P<source>HLS)_'
+        r'(?P<tile_id>T[^\W_]{5})_'
+        r'(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_'
+    )
+    return {re.match(dswx_regex_pattern, prefix).group(0) for prefix in cmr_dswx_native_ids}
+
+
 def to_dsxw_metadata_small():
     missing_cmr_granules_details_short = [
         {
@@ -311,9 +332,10 @@ cmr_start_dt_str = args.start_datetime
 cmr_end_dt_str = args.end_datetime
 
 cmr_granules_l30, cmr_granules_l30_details = loop.run_until_complete(
-    async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str, platform_short_name="LANDSAT-8"))
+    async_get_cmr_granules_hls_l30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
 cmr_granules_s30, cmr_granules_s30_details = loop.run_until_complete(
-    async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str, platform_short_name=["Sentinel-2A", "Sentinel-2B"]))
+    async_get_cmr_granules_hls_s30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
+
 cmr_granules = cmr_granules_l30.union(cmr_granules_s30)
 cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_l30_details); cmr_granules_details.update(cmr_granules_s30_details)
 logging.info(f"Expected input (granules): {len(cmr_granules)=:,}")
@@ -327,16 +349,8 @@ dswx_native_id_patterns = hls_granule_ids_to_dswx_native_id_patterns(
 logging.info("Querying CMR for list of expected DSWx granules")
 cmr_dswx_products = loop.run_until_complete(async_get_cmr_dswx(dswx_native_id_patterns))
 
-dswx_regex_pattern = (
-    r'(?P<project>OPERA)_'
-    r'(?P<level>L3)_'
-    r'(?P<product_type>DSWx)-(?P<source>HLS)_'
-    r'(?P<tile_id>T[^\W_]{5})_'
-    r'(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_'
-)
-
 cmr_dswx_prefix_expected = {prefix[:-1] for prefix in dswx_native_id_patterns}
-cmr_dswx_prefix_actual = {re.match(dswx_regex_pattern, prefix).group(0) for prefix in cmr_dswx_products}
+cmr_dswx_prefix_actual = dswx_native_ids_to_prefixes(cmr_dswx_products)
 missing_cmr_dswx_granules_prefixes = cmr_dswx_prefix_expected - cmr_dswx_prefix_actual
 
 #######################################################################
