@@ -369,7 +369,6 @@ missing_cmr_granules = {next(iter(output_dswx_to_inputs_hls_map[prefix])) for pr
 logging.info(f"Expected input (granules): {len(cmr_granules)=:,}")
 logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
-logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
 if args.format == "txt":
     output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
