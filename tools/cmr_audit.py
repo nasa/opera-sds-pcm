@@ -146,7 +146,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         cmr_granules_details = {}
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
         for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
-            logging.debug(f"Processing batch {i}/{len(task_chunks)}")
+            logging.debug(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False))
@@ -216,7 +216,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
 
         if current_page == 1:
             logging.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
-        logging.debug(f'CMR number of granules (cmr-query-page {current_page}/{ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
+        logging.debug(f'CMR number of granules (cmr-query-page {current_page} of {ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
         cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
         cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
 
@@ -226,7 +226,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
             headers.update({"CMR-Search-After": response.headers["CMR-Search-After"]})
 
         if len(response_json["items"]) < page_size:
-            logging.debug("reached end of CMR search results. Ending query.")
+            logging.debug("Reached end of CMR search results. Ending query.")
             break
 
         current_page += 1
