@@ -71,13 +71,13 @@ args = argparser.parse_args(sys.argv[1:])
 # CMR AUDIT
 #######################################################################
 
-def async_get_cmr_granules_hls_l30(temporal_date_start: str, temporal_date_end: str):
-    return async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=temporal_date_start,
+async def async_get_cmr_granules_hls_l30(temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=temporal_date_start,
                                   temporal_date_end=temporal_date_end, platform_short_name="LANDSAT-8")
 
 
-def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date_end: str):
-    return async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=temporal_date_start,
+async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=temporal_date_start,
                                   temporal_date_end=temporal_date_end, platform_short_name=["Sentinel-2A", "Sentinel-2B"])
 
 
@@ -132,6 +132,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                         f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
                         ""
                 )
+                logging.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
                 post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
@@ -140,18 +141,20 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
 
         logging.debug(f"Number of query requests to make: {len(post_cmr_tasks)=}")
 
-        # issue requests in batches
+        logging.debug("Batching tasks")
         cmr_granules = set()
         cmr_granules_details = {}
-        for task_chunk in more_itertools.chunked(post_cmr_tasks, 30):  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
+        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+            logging.debug(f"Processing batch {i}/{len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False))
             for post_cmr_tasks_result in post_cmr_tasks_results:
                 cmr_granules.update(post_cmr_tasks_result[0])
             # DEV: uncomment as needed
-            # for post_cmr_tasks_result in post_cmr_tasks_results:
-            #     cmr_granules_details.update(post_cmr_tasks_result[1])
+                cmr_granules_details.update(post_cmr_tasks_result[1])
+
         logging.info(f"{collection_short_name} {len(cmr_granules)=}")
         return cmr_granules, cmr_granules_details
 
@@ -215,7 +218,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
             logging.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
         logging.debug(f'CMR number of granules (cmr-query-page {current_page}/{ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
         cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
-        # cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # TODO chrisjrd: uncomment as needed
+        cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
 
         cmr_search_after = response.headers.get("CMR-Search-After")
         logging.debug(f"{cmr_search_after=}")
@@ -297,21 +300,23 @@ def dswx_native_ids_to_prefixes(cmr_dswx_native_ids):
     return {re.match(dswx_regex_pattern, prefix).group(0) for prefix in cmr_dswx_native_ids}
 
 
-def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details):
+def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map):
     missing_cmr_granules_details_short = [
         {
             "id": i,
+            "expected-dswx-id-prefix": next(iter(input_hls_to_outputs_dswx_map[i])),
             "revision-date": cmr_granules_details[i]["meta"]["revision-date"],
-            "provider-date": next(iter(
-                cmr_granules_details[i]["umm"]["ProviderDates"]
-            ))["Date"],
-            "temporal-date": cmr_granules_details[i]["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
-            "hls-processing-time": next(iter(
-                next(iter(
-                    list(filter(lambda a: a["Name"] == "HLS_PROCESSING_TIME",
-                                cmr_granules_details[i]["umm"]["AdditionalAttributes"]))
-                ))["Values"]
-            )),
+            # TODO chrisjrd: commented out for ad-hoc request. 5/10/2023
+            # "provider-date": next(iter(
+            #     cmr_granules_details[i]["umm"]["ProviderDates"]
+            # ))["Date"],
+            # "temporal-date": cmr_granules_details[i]["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"],
+            # "hls-processing-time": next(iter(
+            #     next(iter(
+            #         list(filter(lambda a: a["Name"] == "HLS_PROCESSING_TIME",
+            #                     cmr_granules_details[i]["umm"]["AdditionalAttributes"]))
+            #     ))["Values"]
+            # )),
             "sensing-time": next(iter(
                 next(iter(
                     list(filter(lambda a: a["Name"] == "SENSING_TIME",
@@ -383,13 +388,12 @@ else:
 
 # DEV: uncomment to export granules and metadata
 
-# missing_cmr_granules_details_full = [cmr_granules_details[i] for i in missing_cmr_granules]
-# missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details)
+missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)
 
-# with open(output_file_missing_cmr_granules, mode='w') as fp:
-    # from compact_json import Formatter
-    # formatter = Formatter(indent_spaces=2, max_inline_length=300)
-    # json_str = formatter.serialize(missing_cmr_granules_details_short)
-    # fp.write(json_str)
+with open(f'{output_file_missing_cmr_granules.replace(".json", " - details.json")}', mode='w') as fp:
+    from compact_json import Formatter
+    formatter = Formatter(indent_spaces=2, max_inline_length=300)
+    json_str = formatter.serialize(missing_cmr_granules_details_short)
+    fp.write(json_str)
 
 logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
