@@ -164,7 +164,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
     dswx_native_id_patterns = more_itertools.always_iterable(dswx_native_id_patterns)
-    dswx_native_id_pattern_batches = more_itertools.chunked(dswx_native_id_patterns, 1000)  # 100 == 5,700 char URL, 1000 == 55,100
+    dswx_native_id_pattern_batches = more_itertools.chunked(dswx_native_id_patterns, 1000)  # 1000 == 55,100 length
 
     request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
@@ -179,12 +179,16 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
+            logging.debug(f"Creating request task")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
         logging.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
+        logging.debug("Batching tasks")
         dswx_granules = set()
-        for task_chunk in more_itertools.chunked(post_cmr_tasks, 30):  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
+        for i, task_chunk in enumerate(task_chunks):  # CMR recommends 2-5 threads.
+            logging.debug(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False)
