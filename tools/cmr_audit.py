@@ -386,13 +386,11 @@ else:
     raise Exception()
 
 # DEV: uncomment to export granules and metadata
-
-missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)
-
-with open(f'{output_file_missing_cmr_granules.replace(".json", " - details.json")}', mode='w') as fp:
-    from compact_json import Formatter
-    formatter = Formatter(indent_spaces=2, max_inline_length=300)
-    json_str = formatter.serialize(missing_cmr_granules_details_short)
-    fp.write(json_str)
+# missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)
+# with open(output_file_missing_cmr_granules.replace(".json", " - details.json"), mode='w') as fp:
+#     from compact_json import Formatter
+#     formatter = Formatter(indent_spaces=2, max_inline_length=300)
+#     json_str = formatter.serialize(missing_cmr_granules_details_short)
+#     fp.write(json_str)
 
 logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
