@@ -609,7 +609,8 @@ data "aws_iam_policy_document" "cnm_response" {
       identifiers = [
           "arn:aws:iam::${var.aws_account_id}:root",
           "arn:aws:iam::871271927522:root",
-          "arn:aws:iam::156214815904:root"
+          "arn:aws:iam::156214815904:root",
+          "arn:aws:iam::097260566921:root"
       ]
     }
     resources = [
