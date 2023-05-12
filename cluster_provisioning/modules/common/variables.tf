@@ -289,32 +289,11 @@ variable "lambda_package_release" {
 
 variable "queues" {
   default = {
-    "opera-job_worker-small" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-large" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
     "opera-job_worker-hls_data_ingest" = {
       "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size" = 50
       "data_dev_size" = 25
       "min_size"      = 0
-      "max_size"      = 10
-      "total_jobs_metric" = true
-    }
-    "opera-job_worker-purge_isl" = {
-      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size" = 50
-      "data_dev_size" = 25
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -396,6 +375,31 @@ variable "queues" {
       "data_dev_size" = 100
       "max_size"      = 10
       "total_jobs_metric" = false
+    }
+    "opera-job_worker-slc_data_query_hist" = {
+      "instance_type" = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size" = 50
+      "data_dev_size" = 25
+      "min_size"      = 0
+      "max_size"      = 10
+      "total_jobs_metric" = false
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_download_hist" = {
+      "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
+      "root_dev_size" = 50
+      "data_dev_size" = 100
+      "min_size"      = 0
+      "max_size"      = 80
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-sciflo-l2_cslc_s1_hist" = {
+      "instance_type" = ["c6a.2xlarge", "c6i.2xlarge"]
+      "root_dev_size" = 50
+      "data_dev_size" = 150
+      "max_size"      = 10
+      "total_jobs_metric" = true
     }
   }
 }

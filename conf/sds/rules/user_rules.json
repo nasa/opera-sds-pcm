@@ -7,12 +7,26 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must\": [{\"term\": {\"metadata.intersects_north_america\": \"true\"}}]}}",
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must\": [{\"term\": {\"metadata.intersects_north_america\": \"true\"}}], \"must_not\": [{\"term\": {\"metadata.processing_mode\": \"historical\"}}]}}",
       "queue": "opera-job_worker-sciflo-l2_cslc_s1",
       "rule_name": "trigger-SCIFLO_L2_CSLC_S1",
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L2_CSLC_S1:__TAG__",
       "job_spec": "job-SCIFLO_L2_CSLC_S1:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-SCIFLO_L2_CSLC_S1_hist:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must\": [{\"term\": {\"metadata.intersects_north_america\": \"true\"}}, {\"term\": {\"metadata.processing_mode\": \"historical\"}}]}}",
+      "queue": "opera-job_worker-sciflo-l2_cslc_s1_hist",
+      "rule_name": "trigger-SCIFLO_L2_CSLC_S1_hist",
+      "username": "hysdsops",
+      "workflow": "hysds-io-SCIFLO_L2_CSLC_S1:__TAG__",
+      "job_spec": "job-SCIFLO_L2_CSLC_S1_hist:__TAG__"
     },
     {
       "enabled": true,
