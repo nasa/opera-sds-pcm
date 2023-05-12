@@ -2,10 +2,10 @@ import argparse
 import logging
 import os
 import sys
+from getpass import getpass
 from io import StringIO
 from pathlib import PurePath
 from pprint import pprint
-from getpass import getpass
 
 import elasticsearch
 import more_itertools
@@ -14,8 +14,8 @@ from elasticsearch import RequestsHttpConnection, helpers
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
-    # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",
-    format="%(asctime)s %(levelname)7s %(name)s:%(filename)s:%(funcName)s:%(lineno)3s - %(message)s",
+    # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
+    format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO)
 logging.getLogger()
@@ -26,6 +26,7 @@ config = {
 }
 
 try:
+    logging.warning("Setting password via dotenv is not recommended. Leave empty to be prompted to enter password.")
     password = config["ES_PASSWORD"]
 except:
     password = getpass()
@@ -38,6 +39,7 @@ kwargs = {
     "ssl_show_warn": False,
 }
 es = elasticsearch.Elasticsearch(hosts=[config["ES_BASE_URL"]], **kwargs)
+del password
 
 
 def pstr(o):
@@ -57,7 +59,7 @@ def get_body() -> dict:
             }
         },
         "from": 0,
-        "size": 10000,
+        "size": 10_000,
         "sort": [],
         "aggs": {}
     }
@@ -99,41 +101,53 @@ def get_range(
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
 queried_or_downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
-logging.debug(pstr(queried_or_downloaded_files))
+logging.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
-logging.info(f'Data queried or downloaded (files): {len(search_results)=}')
-logging.debug(pstr(queried_or_downloaded_files))
+logging.info(f'Data queried or downloaded (files): {len(search_results)=:,}')
+logging.debug(f'{pstr(queried_or_downloaded_files)=!s}')
+
+queried_or_downloaded_granules = more_itertools.map_reduce(
+    queried_or_downloaded_files,
+    lambda k: PurePath(k).with_suffix("").name
+)
+queried_or_downloaded_granules = set(queried_or_downloaded_granules.keys())
+logging.info(f'Data queried or downloaded (granules): {len(queried_or_downloaded_granules)=:,}')
+logging.debug(f'{pstr(queried_or_downloaded_granules)=!s}')
+
+# missing_queried_or_downloaded_granules = cmr_granules - queried_or_downloaded_granules
+# logging.info(f'Missing queried (granules): {len(missing_queried_or_downloaded_granules)=:,}')
+# logging.debug(f'{pstr(missing_queried_or_downloaded_granules)=!s}')
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
 downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 
-logging.info(f'Data downloaded (files): {len(search_results)=}')
-logging.debug(pstr(downloaded_files))
+logging.info(f'Data downloaded (files): {len(search_results)=:,}')
+logging.debug(f'{pstr(downloaded_files)=!s}')
 
 downloaded_granules = more_itertools.map_reduce(
     downloaded_files,
     lambda k: PurePath(k).with_suffix("").name
 )
 downloaded_granules = set(downloaded_granules.keys())
-logging.info(f'Data downloaded (granules): {len(downloaded_granules)=}')
-logging.debug(pstr(downloaded_granules))
+logging.info(f'Data downloaded (granules): {len(downloaded_granules)=:,}')
+logging.debug(f'{pstr(downloaded_granules)=!s}')
 
 missing_download_files = queried_or_downloaded_files - downloaded_files
-logging.info(f'Missing download (files): {len(missing_download_files)=}')
-logging.debug(pstr(missing_download_files))
+logging.info(f'Missing download (files): {len(missing_download_files)=:,}')
+logging.debug(f'{pstr(missing_download_files)=!s}')
 
 missing_download_granules = more_itertools.map_reduce(
     missing_download_files,
     lambda k: PurePath(k).with_suffix("").name
 )
 missing_download_granules = set(missing_download_granules.keys())
-logging.info(f'Missing download (granules): {len(missing_download_granules)=}')
-logging.debug(pstr(missing_download_granules))
+logging.info(f'Missing download (granules): {len(missing_download_granules)=:,}')
+logging.debug(f'{pstr(missing_download_granules)=!s}')
 
 #######################################################################
 # GET L2 products (data ingested)
@@ -141,43 +155,43 @@ logging.debug(pstr(missing_download_granules))
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30", scroll="5m", size=10_000))
 l30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
 
-logging.info(f'Data ingested (L30): {len(search_results)=}')
+logging.info(f'Data ingested (L30): {len(search_results)=:,}')
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_s30", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_s30", scroll="5m", size=10_000))
 s30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
 
-logging.info(f'Data ingested (S30): {len(search_results)=}')
+logging.info(f'Data ingested (S30): {len(search_results)=:,}')
 
 all_ingested_files = l30_ingested_files.union(s30_ingested_files)
-logging.info(f'Data ingested (total) (files): {len(all_ingested_files)=}')
+logging.info(f'Data ingested (total) (files): {len(all_ingested_files)=:,}')
 
 all_ingested_granules = more_itertools.map_reduce(
     all_ingested_files,
     lambda k: PurePath(k).with_suffix("").name
 )
 all_ingested_granules = set(all_ingested_granules.keys())
-logging.info(f'Data ingested (total) (granules): {len(all_ingested_granules)=}')
+logging.info(f'Data ingested (total) (granules): {len(all_ingested_granules)=:,}')
 
 missing_data_ingest_files = downloaded_files - all_ingested_files
-logging.info(f'Missing data ingest (files): {len(missing_data_ingest_files)=}')
-logging.debug(pstr(missing_data_ingest_files))
+logging.info(f'Missing data ingest (files): {len(missing_data_ingest_files)=:,}')
+logging.debug(f'{pstr(missing_data_ingest_files)=!s}')
 
 missing_data_ingest_granules = more_itertools.map_reduce(
     missing_data_ingest_files,
     lambda k: PurePath(k).with_suffix("").name
 )
 missing_data_ingest_granules = set(missing_data_ingest_granules.keys())
-logging.info(f'Missing data ingest (granules): {len(missing_data_ingest_granules)=}')
-logging.debug(pstr(missing_data_ingest_granules))
+logging.info(f'Missing data ingest (granules): {len(missing_data_ingest_granules)=:,}')
+logging.debug(f'{pstr(missing_data_ingest_granules)=!s}')
 
 #######################################################################
 # GET L3 products (products used by PGE runs)
@@ -189,21 +203,23 @@ logging.debug(pstr(missing_data_ingest_granules))
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
-search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10000))
+search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10_000))
 pge_input_files = {PurePath(input).name.removesuffix(".tif")
                    for hit in search_results
                    for input in hit["_source"]["metadata"]["runconfig"]["localize"]}
 
+pge_output_granules = {hit["_id"] for hit in search_results}
+
 missing_pge_files = all_ingested_files - pge_input_files
-logging.info(f'Inputs Missing PGE: {len(missing_pge_files)=}')
-logging.debug(pstr(missing_pge_files))
+logging.info(f'Inputs Missing PGE: {len(missing_pge_files)=:,}')
+logging.debug(f'{pstr(missing_pge_files)=!s}')
 
 missing_pge_granules = more_itertools.map_reduce(
     missing_pge_files,
     lambda k: PurePath(k).with_suffix("").name
 )
 missing_pge_granules = set(missing_pge_granules.keys())
-logging.info(f'Inputs Missing PGE: {len(missing_pge_granules)=}')
+logging.info(f'Inputs Missing PGE: {len(missing_pge_granules)=:,}')
 
 pge_input_granules = more_itertools.map_reduce(
     pge_input_files,
@@ -223,10 +239,10 @@ cnm_s_input_granules = {PurePath(input).name.removesuffix(".tif")
                         for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx_HLS"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"}
 
 missing_cnm_s_files = pge_input_files - cnm_s_input_files
-logging.info(f'Inputs Missing successful CNM-S (files): {len(missing_cnm_s_files)=}')
+logging.info(f'Inputs Missing successful CNM-S (files): {len(missing_cnm_s_files)=:,}')
 missing_cnm_s_granules = pge_input_granules - cnm_s_input_granules
-logging.info(f'Inputs Missing successful CNM-S (granules): {len(missing_cnm_s_granules)=}')
-logging.debug(pstr(missing_cnm_s_granules))
+logging.info(f'Inputs Missing successful CNM-S (granules): {len(missing_cnm_s_granules)=:,}')
+logging.debug(f'{pstr(missing_cnm_s_granules)=!s}')
 
 cnm_r_input_files = {PurePath(input).name.removesuffix(".tif")
                         for hit in search_results
@@ -236,26 +252,26 @@ cnm_r_input_granules = {PurePath(input).name.removesuffix(".tif")
                         for input in hit["_source"]["metadata"]["accountability"]["L3_DSWx_HLS"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"}
 
 missing_cnm_r_files = cnm_s_input_files - cnm_r_input_files
-logging.info(f'Inputs Missing successful CNM-R (files): {len(missing_cnm_r_files)=}')
+logging.info(f'Inputs Missing successful CNM-R (files): {len(missing_cnm_r_files)=:,}')
 missing_cnm_r_granules = cnm_s_input_granules - cnm_r_input_granules
-logging.info(f'Inputs Missing successful CNM-R (granules): {len(missing_cnm_r_granules)=}')
-logging.debug(pstr(missing_cnm_r_granules))
+logging.info(f'Inputs Missing successful CNM-R (granules): {len(missing_cnm_r_granules)=:,}')
+logging.debug(f'{pstr(missing_cnm_r_granules)=!s}')
 
 #######################################################################
 # Summary
 #######################################################################
-all_unpublished = missing_download_files \
+all_unpublished_files = missing_download_files \
     .union(missing_data_ingest_files) \
     .union(missing_pge_files) \
     .union(missing_cnm_s_files) \
     .union(missing_cnm_r_files)
-logging.info(pstr(all_unpublished))
-logging.info(f'ALL Unpublished (files): {len(all_unpublished)=}')
+logging.debug(f'{pstr(all_unpublished_files)=!s}')
+logging.info(f'ALL Unpublished (files): {len(all_unpublished_files)=:,}')
 
-all_unpublished = missing_download_granules \
+all_unpublished_granules = missing_download_granules \
     .union(missing_data_ingest_granules) \
     .union(missing_pge_granules) \
     .union(missing_cnm_s_granules) \
     .union(missing_cnm_r_granules)
-logging.info(pstr(all_unpublished))
-logging.info(f'ALL Unpublished (granules): {len(all_unpublished)=}')
+logging.info(f'{pstr(all_unpublished_granules)=!s}')
+logging.info(f'ALL Unpublished (granules): {len(all_unpublished_granules)=:,}')
