@@ -2,8 +2,8 @@
 
 # Audit
 
-The audit tool can be used to compare input products and output product quantities.
-See `audit.py --help`, documentation comments, and source code for more details.
+The audit tools can be used to compare input products and output product quantities.
+See `*audit.py --help`, documentation comments, and source code for more details.
 
 ## Getting Started
 
@@ -18,11 +18,12 @@ See `audit.py --help`, documentation comments, and source code for more details.
 1. Create a python virtual environment.
     1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
 2. Activate the virtual environment and install the script dependencies referenced in the imports section as needed.
+    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install '.[audit]' && pip uninstall $(python setup.py --name) --yes'`
 
 ### Running locally
 
 1. Configure `.env` as needed.
-1. Run `python audit.py` from the same directory.
+1. Run `python *audit.py` from the same directory.
 
 # CMR Audit
 
@@ -42,6 +43,7 @@ See `cmr_audit.py --help`, documentation comments, and source code for more deta
 1. Create a python virtual environment.
     1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
 2. Activate the virtual environment and install the script dependencies referenced in the imports section as needed.
+    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install '.[cmr_audit]' && pip uninstall $(python setup.py --name) --yes'`
 
 ### Running locally
 
