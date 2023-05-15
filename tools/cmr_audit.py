@@ -101,8 +101,8 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                 break
 
             # NOTE: keep freq+interval and duration in sync
-            range_hours = rrule(freq=HOURLY, dtstart=day, interval=6, until=day + datetime.timedelta(days=1))
-            duration = datetime.timedelta(hours=6)
+            range_hours = rrule(freq=HOURLY, dtstart=day, interval=12, until=day + datetime.timedelta(days=1))
+            duration = datetime.timedelta(hours=12)
             for hour in range_hours:
                 logging.debug(f"{hour=!s}")
 
