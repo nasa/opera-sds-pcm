@@ -155,7 +155,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
             # DEV: uncomment as needed
                 cmr_granules_details.update(post_cmr_tasks_result[1])
 
-        logging.info(f"{collection_short_name} {len(cmr_granules)=}")
+        logging.info(f"{collection_short_name} {len(cmr_granules)=:,}")
         return cmr_granules, cmr_granules_details
 
 
