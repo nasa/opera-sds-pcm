@@ -101,8 +101,8 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                 break
 
             # NOTE: keep freq+interval and duration in sync
-            range_hours = rrule(freq=HOURLY, dtstart=day, interval=12, until=day + datetime.timedelta(days=1))
-            duration = datetime.timedelta(hours=12)
+            range_hours = rrule(freq=HOURLY, dtstart=day, interval=6, until=day + datetime.timedelta(days=1))
+            duration = datetime.timedelta(hours=6)
             for hour in range_hours:
                 logging.debug(f"{hour=!s}")
 
@@ -187,7 +187,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
         logging.debug("Batching tasks")
         dswx_granules = set()
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
-        for i, task_chunk in enumerate(task_chunks):  # CMR recommends 2-5 threads.
+        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
             logging.debug(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
