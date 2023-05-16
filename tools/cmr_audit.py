@@ -213,7 +213,10 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
 
     current_page = 1
     cmr_search_after = ""
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Client-Id': f'nasa.jpl.opera.sds.pcm.cmr_audit.{os.environ["USER"]}'
+    }
     while current_page <= max_pages:
         async with await fetch_post_url(session, url, data, headers) as response:
             response_json = await response.json()
