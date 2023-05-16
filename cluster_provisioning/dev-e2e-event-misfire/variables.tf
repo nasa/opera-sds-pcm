@@ -383,7 +383,7 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-rc.1.1"
+    "cslc_s1" = "2.0.0-rc.1.2"
     "rtc_s1" = "2.0.0-rc.1.1"
   }
 }
