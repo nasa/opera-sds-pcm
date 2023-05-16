@@ -17,6 +17,7 @@ from dotenv import dotenv_values
 from elasticsearch import RequestsHttpConnection, helpers
 from more_itertools import chunked
 
+logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
     # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
