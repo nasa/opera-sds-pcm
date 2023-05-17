@@ -33,6 +33,10 @@ DEFAULT_USERNAME = 'gnssguest'
 DEFAULT_PASSWORD = 'gnssguest'
 """Default username and password for a public account provided by SciHub"""
 
+DEFAULT_POE_TIME_RANGE = 1  # days
+DEFAULT_RES_TIME_RANGE = 3  # hours
+"""Default query time range values for each Orbit file type"""
+
 ORBIT_TYPE_POE = 'POEORB'
 """Orbit type identifier for Precise Orbit Ephemeris"""
 
@@ -88,6 +92,15 @@ def get_parser():
                         help="Specify the download service URL endpoint from which "
                              "the Orbit file will be obtained from. Has no effect when "
                              "--url-only is provided.")
+    parser.add_argument("--query-time-range", type=int, action='store',
+                        help="Specify a time range to pad to each end of the "
+                             "input SLC time range when querying for an associated "
+                             "Orbit file. The value of this argument is interpreted "
+                             "according to the type of Orbit file to query for. "
+                             "For POEORB, this value is the number of days, and for "
+                             "RESORB it is the number of hours. If not specified, "
+                             f"defaults to {DEFAULT_POE_TIME_RANGE} day(s) for POEORB, "
+                             f"or {DEFAULT_RES_TIME_RANGE} hour(s) for RESORB.")
     parser.add_argument("--log-level",
                         type=lambda log_level: LogLevels[log_level].value,
                         choices=LogLevels.list(),
@@ -165,7 +178,7 @@ def parse_orbit_time_range_from_safe(input_safe_file):
     return mission_id, safe_start_time, safe_stop_time
 
 
-def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_stop_time):
+def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_stop_time, query_range=None):
     """
     Constructs the query used with the query endpoint URL to determine the
     available Orbit files for the given time range.
@@ -186,6 +199,10 @@ def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_sto
         The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
     safe_stop_time : str
         The stop time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
+    query_range : int, optional
+        The time delta to append to each end of the input SLC time range when
+        deriving the query time range. If not provided, the default for the
+        appropriate Orbit file type is used.
 
     Returns
     -------
@@ -203,9 +220,13 @@ def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_sto
     # Pad the start/stop times on each side to ensure we can find
     # a corresponding Orbit file that encompasses the SAFE time range
     if orbit_type == ORBIT_TYPE_POE:
-        query_delta = timedelta(days=1)
+        delta = query_range or DEFAULT_POE_TIME_RANGE
+        logger.info(f'Using query time range of {delta} day(s) for POEORB')
+        query_delta = timedelta(days=delta)
     else:
-        query_delta = timedelta(hours=3)
+        delta = query_range or DEFAULT_RES_TIME_RANGE
+        logger.info(f'Using query time range of {delta} hour(s) for RESORB')
+        query_delta = timedelta(hours=delta)
 
     query_start_date = safe_start_date - query_delta
     query_stop_date = safe_stop_date + query_delta
@@ -467,7 +488,7 @@ def main(args):
 
     # Construct the query based on the time range parsed from the input file
     query = construct_orbit_file_query(
-        mission_id, args.orbit_type, safe_start_time, safe_stop_time
+        mission_id, args.orbit_type, safe_start_time, safe_stop_time, args.query_time_range
     )
 
     # Make the query to determine what Orbit files are available for the time
