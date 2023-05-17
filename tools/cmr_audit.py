@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import datetime
+import functools
 import logging
 import os
 import re
@@ -71,19 +72,33 @@ args = argparser.parse_args(sys.argv[1:])
 # CMR AUDIT
 #######################################################################
 
+async def async_get_cmr_granules_slc_s1a(temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr_granules("SENTINEL-1A_SLC",
+                                  temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                                  platform_short_name="SENTINEL-1A")
+
+
+async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr_granules("SENTINEL-1B_SLC",
+                                  temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                                  platform_short_name="SENTINEL-1B")
+
+
 async def async_get_cmr_granules_hls_l30(temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr_granules(collection_short_name="HLSL30", temporal_date_start=temporal_date_start,
-                                  temporal_date_end=temporal_date_end, platform_short_name="LANDSAT-8")
+    return await async_get_cmr_granules(collection_short_name="HLSL30",
+                                        temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                                        platform_short_name="LANDSAT-8")
 
 
 async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr_granules(collection_short_name="HLSS30", temporal_date_start=temporal_date_start,
-                                  temporal_date_end=temporal_date_end, platform_short_name=["Sentinel-2A", "Sentinel-2B"])
+    return await async_get_cmr_granules(collection_short_name="HLSS30",
+                                        temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                                        platform_short_name=["Sentinel-2A", "Sentinel-2B"])
 
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
                                  platform_short_name: Union[str, Iterable[str]]):
-    logging.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=})")
+    logging.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
     async with aiohttp.ClientSession() as session:
         request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
@@ -121,17 +136,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                     local_end_dt = hour + duration
                 local_end_dt_str = local_end_dt.isoformat(timespec="milliseconds")
 
-                request_body = (
-                        "provider=LPCLOUD"
-                        f"&ShortName[]={collection_short_name}"
-                        "&bounding_box=-180,-90,180,90"
-                        "&sort_key=-start_date"
-                        # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
-                        f"&temporal[]={urllib.parse.quote(local_start_dt_str, safe='/:')},{urllib.parse.quote(local_end_dt_str, safe='/:')}"
-                        "&options[platform][exclude_collection]=true"
-                        f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
-                        ""
-                )
+                request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name)
                 logging.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
                 post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
 
@@ -157,6 +162,34 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
 
         logging.info(f"{collection_short_name} {len(cmr_granules)=:,}")
         return cmr_granules, cmr_granules_details
+
+
+def request_body_supplier(collection_short_name, temporal_date_start: str, temporal_date_end: str, platform_short_name: Union[str, Iterable[str]]):
+    if collection_short_name == "HLSL30" or collection_short_name == "HLSS30":
+        return (
+            "provider=LPCLOUD"
+            f"&ShortName[]={collection_short_name}"
+            "&bounding_box=-180,-90,180,90"
+            "&sort_key=-start_date"
+            # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
+            f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
+            "&options[platform][exclude_collection]=true"
+            f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
+            ""
+        )
+    if collection_short_name == "SENTINEL-1A_SLC" or collection_short_name == "SENTINEL-1B_SLC":
+        return (
+            "provider=ASF"
+            f"&ShortName[]={collection_short_name}"
+            "&bounding_box=-180,-90,180,90"
+            "&sort_key=-start_date"
+            # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
+            f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
+            f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
+            "&attribute[]=string,BEAM_MODE,IW"
+        )
+    raise Exception(f"Unsupported collection short name. {collection_short_name=}")
+
 
 
 async def async_get_cmr_dswx(dswx_native_id_patterns: set):
@@ -196,6 +229,45 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
             for post_cmr_tasks_result in post_cmr_tasks_results:
                 dswx_granules.update(post_cmr_tasks_result[0])
         return dswx_granules
+
+
+async def async_get_cmr_rtc(rtc_native_id_patterns: set):
+    logging.debug(f"entry({len(rtc_native_id_patterns)=:,})")
+
+    # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
+    rtc_native_id_patterns = more_itertools.always_iterable(rtc_native_id_patterns)
+    rtc_native_id_pattern_batches = more_itertools.chunked(rtc_native_id_patterns, 1000)  # 1000 == 55,100 length
+
+    request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
+
+    async with aiohttp.ClientSession() as session:
+        post_cmr_tasks = []
+        for rtc_native_id_pattern_batch in rtc_native_id_pattern_batches:
+            dswx_native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(rtc_native_id_pattern_batch)
+
+            request_body = (
+                "provider=ASF"
+                "&ShortName[]=OPERA_RTC_S1""&ShortName[]=OPERA_CSLC_S1"  # TODO chrisjrd: separate?
+                "&options[native-id][pattern]=true"
+                f"{dswx_native_id_patterns_query_params}"
+            )
+            logging.debug(f"Creating request task")
+            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
+        logging.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
+
+        # issue requests in batches
+        logging.debug("Batching tasks")
+        rtc_granules = set()
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
+        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+            logging.debug(f"Processing batch {i} of {len(task_chunks)}")
+            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
+                lambda it: isinstance(it, Exception),
+                await asyncio.gather(*task_chunk, return_exceptions=False)
+            )
+            for post_cmr_tasks_result in post_cmr_tasks_results:
+                rtc_granules.update(post_cmr_tasks_result[0])
+        return rtc_granules
 
 
 async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
@@ -267,6 +339,37 @@ async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers
 
 def raise_(ex: Exception):
     raise ex
+
+
+def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
+    rtc_native_id_patterns = set()
+    for granule in cmr_granules:
+        m = re.match(
+            r'(?P<mission_id>S1A|S1B)_'
+            r'(?P<beam_mode>IW)_'
+            r'(?P<product_type>SLC)'
+            r'(?P<resolution>_)_'
+            r'(?P<level>1)'
+            r'(?P<class>S)'
+            r'(?P<pol>SH|SV|DH|DV)_'
+            r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
+            r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
+            r'(?P<orbit_num>\d{6})_'
+            r'(?P<data_take_id>[0-9A-F]{6})_'
+            r'(?P<product_id>[0-9A-F]{4})-'
+            r'SLC$',
+            granule
+        )
+        rtc_acquisition_dt_str = m.group("start_ts")
+
+        rtc_native_id_pattern = f'OPERA_L2_RTC-S1_*_{rtc_acquisition_dt_str}Z_*Z_S1?_30_v*'
+        rtc_native_id_patterns.add(rtc_native_id_pattern)
+
+        # bi-directional mapping of HLS-DSWx inputs and outputs
+        input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
+        output_to_inputs_map[rtc_native_id_pattern].add(granule)
+
+    return rtc_native_id_patterns
 
 
 def hls_granule_ids_to_dswx_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
@@ -343,17 +446,48 @@ logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
 cmr_start_dt_str = args.start_datetime
 cmr_end_dt_str = args.end_datetime
 
+cmr_granules_slc_s1a, cmr_granules_slc_s1a_details = loop.run_until_complete(
+    async_get_cmr_granules_slc_s1a(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
+cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = loop.run_until_complete(
+    async_get_cmr_granules_slc_s1b(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
+
+cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
+cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_slc_s1a_details); cmr_granules_details.update(cmr_granules_slc_s1b_details)
+logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
+
+rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
+    cmr_granules_slc,
+    input_slc_to_outputs_rtc_map := defaultdict(set),
+    output_rtc_to_inputs_slc_map := defaultdict(set)
+)
+
+logging.info("Querying CMR for list of expected RTC granules")
+cmr_rtc_products = loop.run_until_complete(async_get_cmr_rtc(rtc_native_id_patterns))
+
+rtc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in rtc_native_id_patterns}
+
+found_rtc_regexps = set()
+for i, cmr_rtc_product in enumerate(cmr_rtc_products, start=1):
+    logging.debug(f"Validating {i} of {len(cmr_rtc_products)}: {cmr_rtc_product=}")
+    for rtc_native_id_regexp in rtc_native_id_regexps:
+        if re.match(rtc_native_id_regexp, cmr_rtc_product) is not None:
+            found_rtc_regexps.add(rtc_native_id_regexp)
+            rtc_native_id_regexps.remove(rtc_native_id_regexp)  # OPTIMIZATION: remove already processed regex
+            break
+missing_rtc_regexp = rtc_native_id_regexps  # only missing regexes left
+missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_rtc_regexp}
+
 cmr_granules_l30, cmr_granules_l30_details = loop.run_until_complete(
     async_get_cmr_granules_hls_l30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
 cmr_granules_s30, cmr_granules_s30_details = loop.run_until_complete(
     async_get_cmr_granules_hls_s30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
 
-cmr_granules = cmr_granules_l30.union(cmr_granules_s30)
+cmr_granules_hls = cmr_granules_l30.union(cmr_granules_s30)
 cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_l30_details); cmr_granules_details.update(cmr_granules_s30_details)
-logging.info(f"Expected input (granules): {len(cmr_granules)=:,}")
+logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
 
 dswx_native_id_patterns = hls_granule_ids_to_dswx_native_id_patterns(
-    cmr_granules,
+    cmr_granules_hls,
     input_hls_to_outputs_dswx_map := defaultdict(set),
     output_dswx_to_inputs_hls_map := defaultdict(set)
 )
@@ -368,22 +502,48 @@ missing_cmr_dswx_granules_prefixes = cmr_dswx_prefix_expected - cmr_dswx_prefix_
 #######################################################################
 # CMR_AUDIT SUMMARY
 #######################################################################
+# logging.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
+
+missing_cmr_granules_slc = set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[x] for x in missing_rtc_native_id_patterns]))
+
+# logging.debug(f"{pstr(missing_slc)=!s}")
+logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
+logging.info(f"Fully published (granules): {len(cmr_rtc_products)=:,}")
+logging.info(f"Missing processed (granules): {len(missing_cmr_granules_slc)=:,}")
+
+if args.format == "txt":
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+    logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+    with open(output_file_missing_cmr_granules, mode='w') as fp:
+        fp.write('\n'.join(missing_cmr_granules_slc))
+elif args.format == "json":
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+    with open(output_file_missing_cmr_granules, mode='w') as fp:
+        from compact_json import Formatter
+        formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+        json_str = formatter.serialize(list(missing_cmr_granules_slc))
+        fp.write(json_str)
+else:
+    raise Exception()
+
+logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+
 # logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
 
 missing_cmr_granules = {next(iter(output_dswx_to_inputs_hls_map[prefix])) for prefix in missing_cmr_dswx_granules_prefixes}
 
 # logging.debug(f"{pstr(missing_cmr_granules)=!s}")
-logging.info(f"Expected input (granules): {len(cmr_granules)=:,}")
+logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
 logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
 if args.format == "txt":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - HLS - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
     logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
     with open(output_file_missing_cmr_granules, mode='w') as fp:
         fp.write('\n'.join(missing_cmr_granules))
 elif args.format == "json":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - HLS - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
     with open(output_file_missing_cmr_granules, mode='w') as fp:
         from compact_json import Formatter
         formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
@@ -392,6 +552,8 @@ elif args.format == "json":
 else:
     raise Exception()
 
+logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+
 # DEV: uncomment to export granules and metadata
 # missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)
 # with open(output_file_missing_cmr_granules.replace(".json", " - details.json"), mode='w') as fp:
@@ -399,5 +561,3 @@ else:
 #     formatter = Formatter(indent_spaces=2, max_inline_length=300)
 #     json_str = formatter.serialize(missing_cmr_granules_details_short)
 #     fp.write(json_str)
-
-logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
