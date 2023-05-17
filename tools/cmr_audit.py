@@ -538,12 +538,12 @@ logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules)=:,}")
 
 if args.format == "txt":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - HLS - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
     logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
     with open(output_file_missing_cmr_granules, mode='w') as fp:
         fp.write('\n'.join(missing_cmr_granules))
 elif args.format == "json":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - HLS - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
     with open(output_file_missing_cmr_granules, mode='w') as fp:
         from compact_json import Formatter
         formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
