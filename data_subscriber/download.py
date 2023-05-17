@@ -185,6 +185,7 @@ def download_from_asf(
                 [
                     f"--output-directory={str(dataset_dir)}",
                     "--orbit-type=POEORB",
+                    f"--query-time-range={settings_cfg.get('POE_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_POE_TIME_RANGE)}",
                     str(product_filepath)
                 ]
             )
@@ -195,6 +196,7 @@ def download_from_asf(
                 [
                     f"--output-directory={str(dataset_dir)}",
                     "--orbit-type=RESORB",
+                    f"--query-time-range={settings_cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
                     str(product_filepath)
                 ]
             )
