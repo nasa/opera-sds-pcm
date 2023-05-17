@@ -5,7 +5,7 @@ import urllib
 from typing import Union, Iterable
 
 import aiohttp
-import dateutil
+import dateutil.parser
 import more_itertools
 from dateutil.rrule import rrule, HOURLY, DAILY
 from more_itertools import always_iterable

@@ -8,10 +8,12 @@ import sys
 from collections import defaultdict
 from io import StringIO
 from pprint import pprint
+from typing import Union, Iterable
 
 import aiohttp
 import more_itertools
 from dotenv import dotenv_values
+from more_itertools import always_iterable
 
 from tools.cmr_audit.cmr_audit_utils import async_get_cmr_granules
 from tools.cmr_audit.cmr_client import async_cmr_post
@@ -79,7 +81,15 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
                                   platform_short_name="SENTINEL-1B")
 
 
+async def async_get_cmr_cslc(cslc_native_id_patterns: set):
+    return await async_get_cmr(cslc_native_id_patterns, platform_short_name="OPERA_CSLC_S1")
+
+
 async def async_get_cmr_rtc(rtc_native_id_patterns: set):
+    return await async_get_cmr(rtc_native_id_patterns, platform_short_name="OPERA_RTC_S1")
+
+
+async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[str, Iterable[str]]):
     logging.debug(f"entry({len(rtc_native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
@@ -95,7 +105,7 @@ async def async_get_cmr_rtc(rtc_native_id_patterns: set):
 
             request_body = (
                 "provider=ASF"
-                "&ShortName[]=OPERA_RTC_S1""&ShortName[]=OPERA_CSLC_S1"  # TODO chrisjrd: separate?
+                f'{"&ShortName[]=" + "&ShortName[]=".join(always_iterable(platform_short_name))}'
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
@@ -116,6 +126,68 @@ async def async_get_cmr_rtc(rtc_native_id_patterns: set):
             for post_cmr_tasks_result in post_cmr_tasks_results:
                 rtc_granules.update(post_cmr_tasks_result[0])
         return rtc_granules
+
+
+def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
+    rtc_native_id_patterns = set()
+    for granule in cmr_granules:
+        m = re.match(
+            r'(?P<mission_id>S1A|S1B)_'
+            r'(?P<beam_mode>IW)_'
+            r'(?P<product_type>SLC)'
+            r'(?P<resolution>_)_'
+            r'(?P<level>1)'
+            r'(?P<class>S)'
+            r'(?P<pol>SH|SV|DH|DV)_'
+            r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
+            r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
+            r'(?P<orbit_num>\d{6})_'
+            r'(?P<data_take_id>[0-9A-F]{6})_'
+            r'(?P<product_id>[0-9A-F]{4})-'
+            r'SLC$',
+            granule
+        )
+        cslc_acquisition_dt_str = m.group("start_ts")
+
+        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1?_IW_*_{cslc_acquisition_dt_str}Z_v*_*'
+        rtc_native_id_patterns.add(rtc_native_id_pattern)
+
+        # bi-directional mapping of HLS-DSWx inputs and outputs
+        input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
+        output_to_inputs_map[rtc_native_id_pattern].add(granule)
+
+    return rtc_native_id_patterns
+
+
+def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
+    rtc_native_id_patterns = set()
+    for granule in cmr_granules:
+        m = re.match(
+            r'(?P<mission_id>S1A|S1B)_'
+            r'(?P<beam_mode>IW)_'
+            r'(?P<product_type>SLC)'
+            r'(?P<resolution>_)_'
+            r'(?P<level>1)'
+            r'(?P<class>S)'
+            r'(?P<pol>SH|SV|DH|DV)_'
+            r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
+            r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
+            r'(?P<orbit_num>\d{6})_'
+            r'(?P<data_take_id>[0-9A-F]{6})_'
+            r'(?P<product_id>[0-9A-F]{4})-'
+            r'SLC$',
+            granule
+        )
+        cslc_acquisition_dt_str = m.group("start_ts")
+
+        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1?_IW_*_{cslc_acquisition_dt_str}Z_v*_*'
+        rtc_native_id_patterns.add(rtc_native_id_pattern)
+
+        # bidirectional mapping of HLS-DSWx inputs and outputs
+        input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
+        output_to_inputs_map[rtc_native_id_pattern].add(granule)
+
+    return rtc_native_id_patterns
 
 
 def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
@@ -142,16 +214,28 @@ def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_o
         rtc_native_id_pattern = f'OPERA_L2_RTC-S1_*_{rtc_acquisition_dt_str}Z_*Z_S1?_30_v*'
         rtc_native_id_patterns.add(rtc_native_id_pattern)
 
-        # bi-directional mapping of HLS-DSWx inputs and outputs
+        # bidirectional mapping of HLS-DSWx inputs and outputs
         input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
         output_to_inputs_map[rtc_native_id_pattern].add(granule)
 
     return rtc_native_id_patterns
 
 
+def cmr_products_regexp_diff(cmr_products, cmr_native_id_regexps):
+    found_cmr_native_id_regexps = set()
+    for i, cmr_product in enumerate(cmr_products, start=1):
+        logging.debug(f"Validating {i} of {len(cmr_products)}: {cmr_product=}")
+        for cmr_native_id_regexp in cmr_native_id_regexps:
+            if re.match(cmr_native_id_regexp, cmr_product) is not None:
+                found_cmr_native_id_regexps.add(cmr_native_id_regexp)
+                cmr_native_id_regexps.remove(cmr_native_id_regexp)  # OPTIMIZATION: remove already processed regex
+                break
+    return found_cmr_native_id_regexps
+
+
 loop = asyncio.get_event_loop()
 
-logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
+logging.info("Querying CMR for list of expected SLC granules")
 cmr_start_dt_str = args.start_datetime
 cmr_end_dt_str = args.end_datetime
 
@@ -164,25 +248,32 @@ cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
 cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_slc_s1a_details); cmr_granules_details.update(cmr_granules_slc_s1b_details)
 logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
 
+cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
+    cmr_granules_slc,
+    input_slc_to_outputs_cslc_map := defaultdict(set),
+    output_cslc_to_inputs_slc_map := defaultdict(set)
+)
+
 rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
     cmr_granules_slc,
     input_slc_to_outputs_rtc_map := defaultdict(set),
     output_rtc_to_inputs_slc_map := defaultdict(set)
 )
 
+logging.info("Querying CMR for list of expected CSLC granules")
+cmr_cslc_products = loop.run_until_complete(async_get_cmr_cslc(cslc_native_id_patterns))
+
 logging.info("Querying CMR for list of expected RTC granules")
 cmr_rtc_products = loop.run_until_complete(async_get_cmr_rtc(rtc_native_id_patterns))
 
-rtc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in rtc_native_id_patterns}
 
-found_rtc_regexps = set()
-for i, cmr_rtc_product in enumerate(cmr_rtc_products, start=1):
-    logging.debug(f"Validating {i} of {len(cmr_rtc_products)}: {cmr_rtc_product=}")
-    for rtc_native_id_regexp in rtc_native_id_regexps:
-        if re.match(rtc_native_id_regexp, cmr_rtc_product) is not None:
-            found_rtc_regexps.add(rtc_native_id_regexp)
-            rtc_native_id_regexps.remove(rtc_native_id_regexp)  # OPTIMIZATION: remove already processed regex
-            break
+cslc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in cslc_native_id_patterns}
+found_cslc_regexps = cmr_products_regexp_diff(cmr_products=cmr_cslc_products, cmr_native_id_regexps=cslc_native_id_regexps)
+missing_cslc_regexp = cslc_native_id_regexps  # only missing regexes left
+missing_cslc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_cslc_regexp}
+
+rtc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in rtc_native_id_patterns}
+found_rtc_regexps = cmr_products_regexp_diff(cmr_products=cmr_rtc_products, cmr_native_id_regexps=rtc_native_id_regexps)
 missing_rtc_regexp = rtc_native_id_regexps  # only missing regexes left
 missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_rtc_regexp}
 
@@ -191,20 +282,23 @@ missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for
 #######################################################################
 # logging.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
-missing_cmr_granules_slc = set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[x] for x in missing_rtc_native_id_patterns]))
+missing_cmr_granules_slc = set()
+missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_cslc_to_inputs_slc_map[x] for x in missing_cslc_native_id_patterns])))
+missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[x] for x in missing_rtc_native_id_patterns])))
 
 # logging.debug(f"{pstr(missing_slc)=!s}")
 logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
-logging.info(f"Fully published (granules): {len(cmr_rtc_products)=:,}")
+logging.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
+logging.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
 logging.info(f"Missing processed (granules): {len(missing_cmr_granules_slc)=:,}")
 
 if args.format == "txt":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
     logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
     with open(output_file_missing_cmr_granules, mode='w') as fp:
         fp.write('\n'.join(missing_cmr_granules_slc))
 elif args.format == "json":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
     with open(output_file_missing_cmr_granules, mode='w') as fp:
         from compact_json import Formatter
         formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
