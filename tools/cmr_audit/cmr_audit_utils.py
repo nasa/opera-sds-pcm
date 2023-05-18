@@ -2,6 +2,8 @@ import asyncio
 import datetime
 import logging
 import urllib
+from io import StringIO
+from pprint import pprint
 from typing import Union, Iterable
 
 import aiohttp
@@ -106,3 +108,10 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
             "&attribute[]=string,BEAM_MODE,IW"
         )
     raise Exception(f"Unsupported collection short name. {collection_short_name=}")
+
+
+def pstr(o):
+    sio = StringIO()
+    pprint(o, stream=sio)
+    sio.seek(0)
+    return sio.read()

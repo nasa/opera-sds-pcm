@@ -7,8 +7,6 @@ import os
 import re
 import sys
 from collections import defaultdict
-from io import StringIO
-from pprint import pprint
 
 import aiohttp
 import more_itertools
@@ -31,37 +29,29 @@ config = {
 }
 
 
-def pstr(o):
-    sio = StringIO()
-    pprint(o, stream=sio)
-    sio.seek(0)
-    return sio.read()
-
-
-argparser = argparse.ArgumentParser(add_help=True)
-argparser.add_argument(
-    "--start-datetime",
-    required=True,
-    help=f'ISO formatted datetime string. Must be compatible with CMR.'
-)
-argparser.add_argument(
-    "--end-datetime",
-    required=True,
-    help=f'ISO formatted datetime string. Must be compatible with CMR.'
-)
-argparser.add_argument(
-    "--output", "-o",
-    help=f'ISO formatted datetime string. Must be compatible with CMR.'
-)
-argparser.add_argument(
-    "--format",
-    default="txt",
-    choices=["txt", "json"],
-    help=f'Output file format. Defaults to "%(default)s".'
-)
-
-logging.info(f'{sys.argv=}')
-args = argparser.parse_args(sys.argv[1:])
+def create_parser():
+    argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument(
+        "--start-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+    )
+    argparser.add_argument(
+        "--end-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+    )
+    argparser.add_argument(
+        "--output", "-o",
+        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+    )
+    argparser.add_argument(
+        "--format",
+        default="txt",
+        choices=["txt", "json"],
+        help=f'Output file format. Defaults to "%(default)s".'
+    )
+    return argparser
 
 
 #######################################################################
@@ -191,67 +181,71 @@ def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls
 # CMR AUDIT
 #######################################################################
 
-loop = asyncio.get_event_loop()
+async def run(argv: list[str]):
+    logging.info(f'{argv=}')
+    args = create_parser().parse_args(argv[1:])
 
-logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
-cmr_start_dt_str = args.start_datetime
-cmr_end_dt_str = args.end_datetime
+    logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
+    cmr_start_dt_str = args.start_datetime
+    cmr_end_dt_str = args.end_datetime
 
-cmr_granules_l30, cmr_granules_l30_details = loop.run_until_complete(
-    async_get_cmr_granules_hls_l30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
-cmr_granules_s30, cmr_granules_s30_details = loop.run_until_complete(
-    async_get_cmr_granules_hls_s30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
+    cmr_granules_l30, cmr_granules_l30_details = await async_get_cmr_granules_hls_l30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    cmr_granules_s30, cmr_granules_s30_details = await async_get_cmr_granules_hls_s30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
-cmr_granules_hls = cmr_granules_l30.union(cmr_granules_s30)
-cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_l30_details); cmr_granules_details.update(cmr_granules_s30_details)
-logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
+    cmr_granules_hls = cmr_granules_l30.union(cmr_granules_s30)
+    cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_l30_details); cmr_granules_details.update(cmr_granules_s30_details)
+    logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
 
-dswx_native_id_patterns = hls_granule_ids_to_dswx_native_id_patterns(
-    cmr_granules_hls,
-    input_hls_to_outputs_dswx_map := defaultdict(set),
-    output_dswx_to_inputs_hls_map := defaultdict(set)
-)
+    dswx_native_id_patterns = hls_granule_ids_to_dswx_native_id_patterns(
+        cmr_granules_hls,
+        input_hls_to_outputs_dswx_map := defaultdict(set),
+        output_dswx_to_inputs_hls_map := defaultdict(set)
+    )
 
-logging.info("Querying CMR for list of expected DSWx granules")
-cmr_dswx_products = loop.run_until_complete(async_get_cmr_dswx(dswx_native_id_patterns))
+    logging.info("Querying CMR for list of expected DSWx granules")
+    cmr_dswx_products = await async_get_cmr_dswx(dswx_native_id_patterns)
 
-cmr_dswx_prefix_expected = {prefix[:-1] for prefix in dswx_native_id_patterns}
-cmr_dswx_prefix_actual = dswx_native_ids_to_prefixes(cmr_dswx_products)
-missing_cmr_dswx_granules_prefixes = cmr_dswx_prefix_expected - cmr_dswx_prefix_actual
+    cmr_dswx_prefix_expected = {prefix[:-1] for prefix in dswx_native_id_patterns}
+    cmr_dswx_prefix_actual = dswx_native_ids_to_prefixes(cmr_dswx_products)
+    missing_cmr_dswx_granules_prefixes = cmr_dswx_prefix_expected - cmr_dswx_prefix_actual
 
-#######################################################################
-# CMR_AUDIT SUMMARY
-#######################################################################
-# logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
+    #######################################################################
+    # CMR_AUDIT SUMMARY
+    #######################################################################
+    # logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
 
-missing_cmr_granules_hls = set(functools.reduce(set.union, [output_dswx_to_inputs_hls_map[prefix] for prefix in missing_cmr_dswx_granules_prefixes]))
+    missing_cmr_granules_hls = set(functools.reduce(set.union, [output_dswx_to_inputs_hls_map[prefix] for prefix in missing_cmr_dswx_granules_prefixes]))
 
-# logging.debug(f"{pstr(missing_cmr_granules)=!s}")
-logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
-logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
-logging.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
+    # logging.debug(f"{pstr(missing_cmr_granules)=!s}")
+    logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
+    logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
+    logging.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
 
-if args.format == "txt":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
-    logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-    with open(output_file_missing_cmr_granules, mode='w') as fp:
-        fp.write('\n'.join(missing_cmr_granules_hls))
-elif args.format == "json":
-    output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
-    with open(output_file_missing_cmr_granules, mode='w') as fp:
-        from compact_json import Formatter
-        formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-        json_str = formatter.serialize(list(missing_cmr_granules_hls))
-        fp.write(json_str)
-else:
-    raise Exception()
+    if args.format == "txt":
+        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            fp.write('\n'.join(missing_cmr_granules_hls))
+    elif args.format == "json":
+        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            from compact_json import Formatter
+            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+            json_str = formatter.serialize(list(missing_cmr_granules_hls))
+            fp.write(json_str)
+    else:
+        raise Exception()
 
-logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+    logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-# DEV: uncomment to export granules and metadata
-# missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)
-# with open(output_file_missing_cmr_granules.replace(".json", " - details.json"), mode='w') as fp:
-#     from compact_json import Formatter
-#     formatter = Formatter(indent_spaces=2, max_inline_length=300)
-#     json_str = formatter.serialize(missing_cmr_granules_details_short)
-#     fp.write(json_str)
+    # DEV: uncomment to export granules and metadata
+    # missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)
+    # with open(output_file_missing_cmr_granules.replace(".json", " - details.json"), mode='w') as fp:
+    #     from compact_json import Formatter
+    #     formatter = Formatter(indent_spaces=2, max_inline_length=300)
+    #     json_str = formatter.serialize(missing_cmr_granules_details_short)
+    #     fp.write(json_str)
+
+
+if __name__ == "__main__":
+    asyncio.run(run(sys.argv))
