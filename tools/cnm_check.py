@@ -83,7 +83,8 @@ def get_body() -> dict:
         "from": 0,
         "size": 10_000,
         "sort": [],
-        "aggs": {}
+        "aggs": {},
+        "_source": {"includes": [], "excludes": []}
     }
 
 logging.info(f'{sys.argv=}')
