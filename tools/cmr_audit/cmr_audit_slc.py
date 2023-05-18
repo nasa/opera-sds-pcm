@@ -15,6 +15,7 @@ import more_itertools
 from dotenv import dotenv_values
 from more_itertools import always_iterable
 
+from geo.geo_util import does_bbox_intersect_north_america
 from tools.cmr_audit.cmr_audit_utils import async_get_cmr_granules
 from tools.cmr_audit.cmr_client import async_cmr_post
 
@@ -250,7 +251,22 @@ cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = loop.run_until_complete(
     async_get_cmr_granules_slc_s1b(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str))
 
 cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
-cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_slc_s1a_details); cmr_granules_details.update(cmr_granules_slc_s1b_details)
+cmr_granules_slc_details = {}; cmr_granules_slc_details.update(cmr_granules_slc_s1a_details); cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
+
+logging.info("Filtering North America granules")
+cmr_granules_slc_na = set()
+cmr_granules_slc_details_na = {}
+for granule_id, granule_details in cmr_granules_slc_details.items():
+    bounding_box = [
+        {"lat": point["Latitude"], "lon": point["Longitude"]}
+        for point in granule_details["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"][0]["Boundary"]["Points"]
+    ]
+    if does_bbox_intersect_north_america(bounding_box):
+        cmr_granules_slc_na.add(granule_id)
+        cmr_granules_slc_details_na[granule_id] = granule_details
+cmr_granules_slc = cmr_granules_slc_na
+cmr_granules_slc_details = cmr_granules_slc_details_na
+
 logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
 
 cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
