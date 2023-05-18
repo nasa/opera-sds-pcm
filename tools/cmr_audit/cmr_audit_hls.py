@@ -86,13 +86,13 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
     dswx_native_id_patterns = more_itertools.always_iterable(dswx_native_id_patterns)
-    dswx_native_id_pattern_batches = more_itertools.chunked(dswx_native_id_patterns, 1000)  # 1000 == 55,100 length
+    dswx_native_id_pattern_batches = list(more_itertools.chunked(dswx_native_id_patterns, 1000))  # 1000 == 55,100 length
 
     request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
-        for dswx_native_id_pattern_batch in dswx_native_id_pattern_batches:
+        for i, dswx_native_id_pattern_batch in enumerate(dswx_native_id_pattern_batches, start=1):
             dswx_native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(dswx_native_id_pattern_batch)
 
             request_body = (
@@ -101,7 +101,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
-            logging.debug(f"Creating request task")
+            logging.debug(f"Creating request task {i} of {len(dswx_native_id_pattern_batches)}")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
         logging.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 

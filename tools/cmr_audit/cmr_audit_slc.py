@@ -94,13 +94,13 @@ async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
     rtc_native_id_patterns = more_itertools.always_iterable(rtc_native_id_patterns)
-    rtc_native_id_pattern_batches = more_itertools.chunked(rtc_native_id_patterns, 1000)  # 1000 == 55,100 length
+    rtc_native_id_pattern_batches = list(more_itertools.chunked(rtc_native_id_patterns, 1000))  # 1000 == 55,100 length
 
     request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
 
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
-        for rtc_native_id_pattern_batch in rtc_native_id_pattern_batches:
+        for i, rtc_native_id_pattern_batch in enumerate(rtc_native_id_pattern_batches, start=1):
             dswx_native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(rtc_native_id_pattern_batch)
 
             request_body = (
@@ -109,7 +109,7 @@ async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
-            logging.debug(f"Creating request task")
+            logging.debug(f"Creating request task {i} of {len(rtc_native_id_pattern_batches)}")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
         logging.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
