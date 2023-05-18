@@ -97,6 +97,7 @@ async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[
     rtc_native_id_pattern_batches = list(more_itertools.chunked(rtc_native_id_patterns, 1000))  # 1000 == 55,100 length
 
     request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
+    logging.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
 
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
