@@ -139,20 +139,12 @@ variable "amis" {
     #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
     #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
 
-	# HySDS v4.1.0-beta.4 with ES 7.10 - May 2, 2023
-	mozart    = "ami-0fd88bd3fb153cf0b" # mozart v4.19 - 230502
-	metrics   = "ami-0c9e158e347d31fd2" # metrics v4.14 - 230502
-	grq       = "ami-04ad27835f0f0415f" # grq v4.15.1 - 230502
-	factotum  = "ami-06e5d7e4ded54c393" # factotum v4.15 - 230502
-	autoscale = "ami-084cd8a23f570e7c9" # verdi v4.16 patchupdate - 230502
-
-    # HySDS v4.1.0-beta.4 with ES 7.10 - May 15, 2023
-	# doesn't work - can't login to hysds_ui
-    #mozart    = "ami-0e0ca87868d2c597e" # mozart v4.20 - 230515
-    #metrics   = "ami-0e15afb83c719da99" # metrics v4.15 - 230515
-    #grq       = "ami-0512ad42a4e1627c3" # grq v4.16 - 230515
-    #factotum  = "ami-06243a58f8e8ea802" # factotum v4.16 - 230515
-    #autoscale = "ami-084cd8a23f570e7c9" # verdi v4.16 patchdate - 20230502
+    # HySDS v4.1.0-beta.4 with ES 7.10 - May 2, 2023
+    mozart    = "ami-0fd88bd3fb153cf0b" # mozart v4.19 - 230502
+    metrics   = "ami-0c9e158e347d31fd2" # metrics v4.14 - 230502
+    grq       = "ami-04ad27835f0f0415f" # grq v4.15.1 - 230502
+    factotum  = "ami-06e5d7e4ded54c393" # factotum v4.15 - 230502
+    autoscale = "ami-084cd8a23f570e7c9" # verdi v4.16 patchupdate - 230502
   }
 }
 
