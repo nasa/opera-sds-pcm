@@ -23,7 +23,7 @@ logging.basicConfig(
     format="%(levelname)7s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.DEBUG)
+    level=logging.INFO)
 logging.getLogger()
 
 config = {
@@ -66,7 +66,7 @@ args = argparser.parse_args(sys.argv[1:])
 
 
 #######################################################################
-# CMR AUDIT
+# CMR AUDIT FUNCTIONS
 #######################################################################
 
 async def async_get_cmr_granules_slc_s1a(temporal_date_start: str, temporal_date_end: str):
@@ -233,6 +233,10 @@ def cmr_products_regexp_diff(cmr_products, cmr_native_id_regexps):
     return found_cmr_native_id_regexps
 
 
+#######################################################################
+# CMR AUDIT
+#######################################################################
+
 loop = asyncio.get_event_loop()
 
 logging.info("Querying CMR for list of expected SLC granules")
@@ -283,8 +287,8 @@ missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for
 # logging.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
 missing_cmr_granules_slc = set()
-missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_cslc_to_inputs_slc_map[x] for x in missing_cslc_native_id_patterns])))
-missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[x] for x in missing_rtc_native_id_patterns])))
+missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns])))
+missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns])))
 
 # logging.debug(f"{pstr(missing_slc)=!s}")
 logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")

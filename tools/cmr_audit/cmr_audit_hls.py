@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import datetime
+import functools
 import logging
 import os
 import re
@@ -64,7 +65,7 @@ args = argparser.parse_args(sys.argv[1:])
 
 
 #######################################################################
-# CMR AUDIT
+# CMR AUDIT FUNCTIONS
 #######################################################################
 
 async def async_get_cmr_granules_hls_l30(temporal_date_start: str, temporal_date_end: str):
@@ -186,6 +187,9 @@ def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls
 
     return missing_cmr_granules_details_short
 
+#######################################################################
+# CMR AUDIT
+#######################################################################
 
 loop = asyncio.get_event_loop()
 
@@ -220,7 +224,7 @@ missing_cmr_dswx_granules_prefixes = cmr_dswx_prefix_expected - cmr_dswx_prefix_
 #######################################################################
 # logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
 
-missing_cmr_granules_hls = {next(iter(output_dswx_to_inputs_hls_map[prefix])) for prefix in missing_cmr_dswx_granules_prefixes}
+missing_cmr_granules_hls = set(functools.reduce(set.union, [output_dswx_to_inputs_hls_map[prefix] for prefix in missing_cmr_dswx_granules_prefixes]))
 
 # logging.debug(f"{pstr(missing_cmr_granules)=!s}")
 logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
