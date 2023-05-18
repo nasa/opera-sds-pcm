@@ -57,12 +57,16 @@ def pstr(o):
 
 argparser = argparse.ArgumentParser(add_help=True)
 argparser.add_argument(
+    nargs="?",
+    default=sys.stdin,
+    type=argparse.FileType('r'),
     help=f'Input filepath.',
     dest="input"
 )
 argparser.add_argument(
     "--output", "-o",
     default=f'{__file__}.json',
+    type=argparse.FileType('w'),
     help=f'Output filepath.'
 )
 
@@ -124,7 +128,7 @@ def simplify_output(results):
         del result["_index"], result["_type"], result["_score"], result["sort"], result["_source"]
 
 
-with open(args.input) as fp:
+with args.input as fp:
     hls_granules = set(json.load(fp))
 logging.info(f'input file {len(hls_granules)=}')
 
@@ -154,7 +158,7 @@ logging.info(f'results {len(results)=}')
 
 simplify_output(results)
 
-with open(args.output, mode='w') as fp:
+with args.output as fp:
     formatter = Formatter(indent_spaces=2, max_inline_length=300)
     json_str = formatter.serialize(results)
     fp.write(json_str)

@@ -100,7 +100,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
         dswx_granules = set()
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
         for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
-            logging.debug(f"Processing batch {i} of {len(task_chunks)}")
+            logging.info(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False)
