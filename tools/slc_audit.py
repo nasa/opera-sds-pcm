@@ -61,7 +61,8 @@ def get_body() -> dict:
         "from": 0,
         "size": 10_000,
         "sort": [],
-        "aggs": {}
+        "aggs": {},
+        "_source": {"includes": [], "excludes": []}
     }
 
 argparser = argparse.ArgumentParser(add_help=True)
@@ -100,6 +101,7 @@ def get_range(
 #######################################################################
 
 body = get_body()
+body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 search_results = list(helpers.scan(es, body, index="slc_catalog", scroll="5m", size=10_000))
 queried_or_downloaded_files = {hit["_id"] for hit in search_results}
@@ -121,6 +123,7 @@ logging.debug(f'{pstr(queried_or_downloaded_granules)=!s}')
 # logging.debug(f'{pstr(missing_queried_or_downloaded_granules)=!s}')
 
 body = get_body()
+body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
 search_results = list(helpers.scan(es, body, index="slc_catalog", scroll="5m", size=10_000))
@@ -154,6 +157,7 @@ logging.debug(f'{pstr(missing_download_granules)=!s}')
 #######################################################################
 
 body = get_body()
+body["_source"]["includes"] = ["metadata.FileName"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 search_results = list(helpers.scan(es, body, index="grq_*_l1_s1_slc", scroll="5m", size=10_000))
 slc_ingested_files = {hit["_source"]["metadata"]["FileName"]
@@ -194,8 +198,10 @@ pge_input_files = set()
 search_resultss = {}
 
 body = get_body()
+body["_source"]["includes"] = ["metadata.runconfig.input_file_group.safe_file_path", "metadata.accountability", "daac_CNM_S_status", "daac_delivery_status"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
+
 search_results = list(helpers.scan(es, body, index="grq_*_l2_cslc_s1", scroll="5m", size=10_000)); search_resultss["L2_CSLC_S1"] = search_results
 pge_input_files.update({PurePath(hit["_source"]["metadata"]["runconfig"]["input_file_group"]["safe_file_path"]).name
                         for hit in search_results})
@@ -226,6 +232,17 @@ pge_input_granules = more_itertools.map_reduce(
     lambda k: PurePath(k).with_suffix("").name
 )
 pge_input_granules = set(pge_input_granules.keys())
+
+# VALIDATE STATIC LAYER GENERATION
+body = get_body()
+body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
+body["_source"]["includes"] = "false"
+search_results = list(helpers.scan(es, body, index="grq_*_l2_rtc_s1_static_layers", scroll="5m", size=10_000))
+rtc_having_static_layers = {result["_id"].replace("_static_layers", "") for result in search_results}
+rtc = {x["_id"] for x in search_resultss["L2_RTC_S1"]}
+rtc_missing_static_layers = rtc - rtc_having_static_layers
+logging.info(f"RTC Missing static layers: {len(rtc_missing_static_layers)}")
+logging.info(f'{pstr(rtc_missing_static_layers)=!s}')
 
 
 #######################################################################
