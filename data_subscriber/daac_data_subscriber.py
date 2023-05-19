@@ -812,20 +812,35 @@ def _url_to_tile_id(url: str):
 
 
 def run_download(args, token, es_conn, netloc, username, password, job_id):
-    download_timerange = get_download_timerange(args)
-    all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-        dateutil.parser.isoparse(download_timerange.start_date),
-        dateutil.parser.isoparse(download_timerange.end_date),
-        args.use_temporal
-    )
 
-    downloads = all_pending_downloads
-    if args.batch_ids:
-        logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
-        downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
-        logging.info(f"{len(downloads)=}")
-        logging.debug(f"{downloads=}")
+    # This is a special case where we are being asked to download exactly one granule
+    # identified its unique id. In such case we shouldn't gather all pending downloads at all;
+    # simply find entries for that one granule
+    # TODO: this needs to be modified for SLC downloads. We should also refactor hls/slc catalog code at same time.
+    if args.batch_ids and len(args.batch_ids) == 1:
+        one_granule = args.batch_ids[0]
+        logging.info(f"Downloading files for the granule {one_granule}")
+        result = es_conn.es.query(index='hls_catalog',
+                 body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
+
+        downloads =  [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
+                for catalog_entry in (result or [])]
+
+    else:
+        download_timerange = get_download_timerange(args)
+        all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
+            dateutil.parser.isoparse(download_timerange.start_date),
+            dateutil.parser.isoparse(download_timerange.end_date),
+            args.use_temporal
+        )
+
+        downloads = all_pending_downloads
+        if args.batch_ids:
+            logging.info(f"Filtering pending downloads by {args.batch_ids=}")
+            id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
+            downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
+            logging.info(f"{len(downloads)=}")
+            logging.debug(f"{downloads=}")
 
     if not downloads:
         logging.info(f"No undownloaded files found in index.")
