@@ -153,37 +153,6 @@ def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_
     return rtc_native_id_patterns
 
 
-def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
-    rtc_native_id_patterns = set()
-    for granule in cmr_granules:
-        m = re.match(
-            r'(?P<mission_id>S1A|S1B)_'
-            r'(?P<beam_mode>IW)_'
-            r'(?P<product_type>SLC)'
-            r'(?P<resolution>_)_'
-            r'(?P<level>1)'
-            r'(?P<class>S)'
-            r'(?P<pol>SH|SV|DH|DV)_'
-            r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
-            r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
-            r'(?P<orbit_num>\d{6})_'
-            r'(?P<data_take_id>[0-9A-F]{6})_'
-            r'(?P<product_id>[0-9A-F]{4})-'
-            r'SLC$',
-            granule
-        )
-        cslc_acquisition_dt_str = m.group("start_ts")
-
-        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1?_IW_*_{cslc_acquisition_dt_str}Z_v*_*'
-        rtc_native_id_patterns.add(rtc_native_id_pattern)
-
-        # bidirectional mapping of HLS-DSWx inputs and outputs
-        input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
-        output_to_inputs_map[rtc_native_id_pattern].add(granule)
-
-    return rtc_native_id_patterns
-
-
 def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
     rtc_native_id_patterns = set()
     for granule in cmr_granules:
@@ -216,15 +185,30 @@ def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_o
 
 
 def cmr_products_regexp_diff(cmr_products, cmr_native_id_regexps):
-    found_cmr_native_id_regexps = set()
-    for i, cmr_product in enumerate(cmr_products, start=1):
-        logging.debug(f"Validating {i} of {len(cmr_products)}: {cmr_product=}")
-        for cmr_native_id_regexp in cmr_native_id_regexps:
-            if re.match(cmr_native_id_regexp, cmr_product) is not None:
-                found_cmr_native_id_regexps.add(cmr_native_id_regexp)
-                cmr_native_id_regexps.remove(cmr_native_id_regexp)  # OPTIMIZATION: remove already processed regex
-                break
-    return found_cmr_native_id_regexps
+    # hashmap
+    type_time_to_products_map = defaultdict(set)
+    for cmr_product in cmr_products:
+        product_type = "RTC" if "RTC" in cmr_product else "CSLC"
+        if product_type == "CSLC":
+            acquisition_time = cmr_product[40:55]
+        else:  # product_type == "RTC"
+            acquisition_time = cmr_product[32:47]
+        type_time_to_products_map[(product_type, acquisition_time)].add(cmr_product)
+
+    type_time_to_native_id_regexps_map = defaultdict(set)
+    for regexp in cmr_native_id_regexps:
+        product_type = "RTC" if "RTC" in regexp else "CSLC"
+        if product_type == "CSLC":
+            acquisition_time = regexp[28:43]
+        else:  # product_type == "RTC"
+            acquisition_time = regexp[21:36]
+        type_time_to_native_id_regexps_map[(product_type, acquisition_time)].add(regexp)
+
+    actual = type_time_to_products_map.keys()
+    expected = type_time_to_native_id_regexps_map.keys()
+    missing = expected - actual
+    missing_regexps = functools.reduce(set.union, [type_time_to_native_id_regexps_map[x] for x in missing])
+    return missing_regexps
 
 
 #######################################################################
@@ -279,16 +263,13 @@ async def run(argv: list[str]):
     logging.info("Querying CMR for list of expected RTC granules")
     cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns)
 
-
     cslc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in cslc_native_id_patterns}
-    found_cslc_regexps = cmr_products_regexp_diff(cmr_products=cmr_cslc_products, cmr_native_id_regexps=cslc_native_id_regexps)
-    missing_cslc_regexp = cslc_native_id_regexps  # only missing regexes left
-    missing_cslc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_cslc_regexp}
+    missing_cslc_regexps = cmr_products_regexp_diff(cmr_products=cmr_cslc_products, cmr_native_id_regexps=cslc_native_id_regexps)
+    missing_cslc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_cslc_regexps}
 
     rtc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in rtc_native_id_patterns}
-    found_rtc_regexps = cmr_products_regexp_diff(cmr_products=cmr_rtc_products, cmr_native_id_regexps=rtc_native_id_regexps)
-    missing_rtc_regexp = rtc_native_id_regexps  # only missing regexes left
-    missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_rtc_regexp}
+    missing_rtc_regexps = cmr_products_regexp_diff(cmr_products=cmr_rtc_products, cmr_native_id_regexps=rtc_native_id_regexps)
+    missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_rtc_regexps}
 
     #######################################################################
     # CMR_AUDIT SUMMARY
