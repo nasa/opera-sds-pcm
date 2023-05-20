@@ -184,31 +184,30 @@ def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_o
     return rtc_native_id_patterns
 
 
-def cmr_products_regexp_diff(cmr_products, cmr_native_id_regexps):
-    # hashmap
-    type_time_to_products_map = defaultdict(set)
+def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
+    product_type_and_acquisition_time_to_products_map = defaultdict(set)
     for cmr_product in cmr_products:
         product_type = "RTC" if "RTC" in cmr_product else "CSLC"
         if product_type == "CSLC":
             acquisition_time = cmr_product[40:55]
         else:  # product_type == "RTC"
             acquisition_time = cmr_product[32:47]
-        type_time_to_products_map[(product_type, acquisition_time)].add(cmr_product)
+        product_type_and_acquisition_time_to_products_map[(product_type, acquisition_time)].add(cmr_product)
 
-    type_time_to_native_id_regexps_map = defaultdict(set)
-    for regexp in cmr_native_id_regexps:
-        product_type = "RTC" if "RTC" in regexp else "CSLC"
+    product_type_acquisition_time_to_native_id_pattern_map = defaultdict(set)
+    for native_id_pattern in cmr_native_id_patterns:
+        product_type = "RTC" if "RTC" in native_id_pattern else "CSLC"
         if product_type == "CSLC":
-            acquisition_time = regexp[28:43]
+            acquisition_time = native_id_pattern[23:38]
         else:  # product_type == "RTC"
-            acquisition_time = regexp[21:36]
-        type_time_to_native_id_regexps_map[(product_type, acquisition_time)].add(regexp)
+            acquisition_time = native_id_pattern[18:33]
+        product_type_acquisition_time_to_native_id_pattern_map[(product_type, acquisition_time)].add(native_id_pattern)
 
-    actual = type_time_to_products_map.keys()
-    expected = type_time_to_native_id_regexps_map.keys()
-    missing = expected - actual
-    missing_regexps = functools.reduce(set.union, [type_time_to_native_id_regexps_map[x] for x in missing])
-    return missing_regexps
+    cmr_product_refs = product_type_and_acquisition_time_to_products_map.keys()
+    expected_product_refs = product_type_acquisition_time_to_native_id_pattern_map.keys()
+    missing_product_refs = expected_product_refs - cmr_product_refs
+    missing_product_native_id_patterns = functools.reduce(set.union, [product_type_acquisition_time_to_native_id_pattern_map[type_time] for type_time in missing_product_refs])
+    return missing_product_native_id_patterns
 
 
 #######################################################################
@@ -263,13 +262,9 @@ async def run(argv: list[str]):
     logging.info("Querying CMR for list of expected RTC granules")
     cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns)
 
-    cslc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in cslc_native_id_patterns}
-    missing_cslc_regexps = cmr_products_regexp_diff(cmr_products=cmr_cslc_products, cmr_native_id_regexps=cslc_native_id_regexps)
-    missing_cslc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_cslc_regexps}
+    missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
 
-    rtc_native_id_regexps = {x.replace("*", "(.+)").replace("?", "(.)") for x in rtc_native_id_patterns}
-    missing_rtc_regexps = cmr_products_regexp_diff(cmr_products=cmr_rtc_products, cmr_native_id_regexps=rtc_native_id_regexps)
-    missing_rtc_native_id_patterns = {x.replace("(.+)", "*").replace("(.)", "?") for x in missing_rtc_regexps}
+    missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
 
     #######################################################################
     # CMR_AUDIT SUMMARY
