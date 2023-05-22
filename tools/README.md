@@ -11,7 +11,7 @@ See `*audit.py --help`, documentation comments, and source code for more details
 
 1. Git.
 2. Python (see `.python-version`).
-4. A clone of the `opera-sds-pcm` repo.
+3. A clone of the `opera-sds-pcm` repo.
 
 ### Installation
 
@@ -47,4 +47,4 @@ See `cmr_audit.py --help`, documentation comments, and source code for more deta
 
 ### Running locally
 
-1. Run `python cmr_audit.py` from the same directory.
+1. Run `python cmr_audit*.py` from the same directory.
