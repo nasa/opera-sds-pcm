@@ -84,34 +84,36 @@ async def async_get_cmr_rtc(rtc_native_id_patterns: set):
     return await async_get_cmr(rtc_native_id_patterns, platform_short_name="OPERA_RTC_S1")
 
 
-async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[str, Iterable[str]]):
-    logger.debug(f"entry({len(rtc_native_id_patterns)=:,})")
+async def async_get_cmr(native_id_patterns: set, platform_short_name: Union[str, Iterable[str]]):
+    logger.debug(f"entry({len(native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
-    rtc_native_id_patterns = more_itertools.always_iterable(rtc_native_id_patterns)
-    rtc_native_id_pattern_batches = list(more_itertools.chunked(rtc_native_id_patterns, 1000))  # 1000 == 55,100 length
+    native_id_patterns = more_itertools.always_iterable(native_id_patterns)
+    native_id_pattern_batches = list(more_itertools.chunked(native_id_patterns, 1000))  # 1000 == 55,100 length
 
     request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
     logger.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
 
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
-        for i, rtc_native_id_pattern_batch in enumerate(rtc_native_id_pattern_batches, start=1):
-            dswx_native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(rtc_native_id_pattern_batch)
+        for i, rtc_native_id_pattern_batch in enumerate(native_id_pattern_batches, start=1):
+            native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(rtc_native_id_pattern_batch)
 
             request_body = (
                 "provider=ASF"
                 f'{"&ShortName[]=" + "&ShortName[]=".join(always_iterable(platform_short_name))}'
+                "&collection_concept_id[]=C1257337155-ASF"  # CSLC
+                "&collection_concept_id[]=C1257337044-ASF"  # RTC
                 "&options[native-id][pattern]=true"
-                f"{dswx_native_id_patterns_query_params}"
+                f"{native_id_patterns_query_params}"
             )
-            logger.debug(f"Creating request task {i} of {len(rtc_native_id_pattern_batches)}")
+            logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
         logger.debug("Batching tasks")
-        rtc_granules = set()
+        cmr_granules = set()
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
         for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
             logger.info(f"Processing batch {i} of {len(task_chunks)}")
@@ -120,8 +122,8 @@ async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[
                 await asyncio.gather(*task_chunk, return_exceptions=False)
             )
             for post_cmr_tasks_result in post_cmr_tasks_results:
-                rtc_granules.update(post_cmr_tasks_result[0])
-        return rtc_granules
+                cmr_granules.update(post_cmr_tasks_result[0])
+        return cmr_granules
 
 
 def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
@@ -208,7 +210,11 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
     cmr_product_refs = product_type_and_acquisition_time_to_products_map.keys()
     expected_product_refs = product_type_acquisition_time_to_native_id_pattern_map.keys()
     missing_product_refs = expected_product_refs - cmr_product_refs
-    missing_product_native_id_patterns = functools.reduce(set.union, [product_type_acquisition_time_to_native_id_pattern_map[type_time] for type_time in missing_product_refs])
+    missing_product_native_id_patterns = [product_type_acquisition_time_to_native_id_pattern_map[type_time] for type_time in missing_product_refs]
+    if not missing_product_native_id_patterns:
+        missing_product_native_id_patterns = set()
+    else:
+        missing_product_native_id_patterns = functools.reduce(set.union, missing_product_native_id_patterns)
     return missing_product_native_id_patterns
 
 
@@ -278,8 +284,17 @@ async def run(argv: list[str]):
     #######################################################################
     # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
-    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]))
-    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]))
+    missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
+    if not missing_cmr_granules_slc_cslc:
+        missing_cmr_granules_slc_cslc = set()
+    else:
+        missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc))
+
+    missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
+    if not missing_cmr_granules_slc_rtc:
+        missing_cmr_granules_slc_rtc = set()
+    else:
+        missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc))
 
     # logger.debug(f"{pstr(missing_slc)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
