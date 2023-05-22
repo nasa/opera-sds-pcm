@@ -14,10 +14,12 @@ from more_itertools import always_iterable
 
 from tools.cmr_audit.cmr_client import async_cmr_post
 
+logger = logging.getLogger(__name__)
+
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
                                  platform_short_name: Union[str, Iterable[str]]):
-    logging.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
+    logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
     async with aiohttp.ClientSession() as session:
         request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
@@ -29,48 +31,48 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         temporal_end_dt = dateutil.parser.isoparse(temporal_date_end)
         range_days = rrule(freq=DAILY, dtstart=temporal_start_dt, interval=1, until=temporal_end_dt)
         for day in range_days:
-            logging.debug(f"{day=!s}")
+            logger.debug(f"{day=!s}")
             if day >= temporal_end_dt:
-                logging.debug(f"Current day is beyond the global end datetime. Skipping")
+                logger.debug(f"Current day is beyond the global end datetime. Skipping")
                 break
 
             # NOTE: keep freq+interval and duration in sync
             range_hours = rrule(freq=HOURLY, dtstart=day, interval=12, until=day + datetime.timedelta(days=1))
             duration = datetime.timedelta(hours=12)
             for hour in range_hours:
-                logging.debug(f"{hour=!s}")
+                logger.debug(f"{hour=!s}")
 
                 if hour == temporal_end_dt:  # reached global end datetime
-                    logging.debug("EDGECASE: hour matches global end datetime. Skipping")
+                    logger.debug("EDGECASE: hour matches global end datetime. Skipping")
                     break
                 if hour >= day + datetime.timedelta(days=1):  # current hour goes into the next day. skip and let next day iteration handle.
-                    logging.debug("EDGECASE: hour goes into next day (i.e. next outer loop iteration). Skipping")
+                    logger.debug("EDGECASE: hour goes into next day (i.e. next outer loop iteration). Skipping")
                     break
 
                 local_start_dt_str = hour.isoformat(timespec="milliseconds")
                 if temporal_end_dt < hour + duration:  # if on last partial hour, use global end datetime
-                    logging.debug("Clamping local end datetime for trailing partial duration")
+                    logger.debug("Clamping local end datetime for trailing partial duration")
                     local_end_dt = temporal_end_dt
                 else:
                     local_end_dt = hour + duration
                 local_end_dt_str = local_end_dt.isoformat(timespec="milliseconds")
 
                 request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name)
-                logging.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
+                logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
                 post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
-                    logging.debug("EDGECASE: processed last partial hour. Preempting")
+                    logger.debug("EDGECASE: processed last partial hour. Preempting")
                     break
 
-        logging.debug(f"Number of query requests to make: {len(post_cmr_tasks)=}")
+        logger.debug(f"Number of query requests to make: {len(post_cmr_tasks)=}")
 
-        logging.debug("Batching tasks")
+        logger.debug("Batching tasks")
         cmr_granules = set()
         cmr_granules_details = {}
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
         for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
-            logging.debug(f"Processing batch {i} of {len(task_chunks)}")
+            logger.debug(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False))
@@ -79,7 +81,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
             # DEV: uncomment as needed
                 cmr_granules_details.update(post_cmr_tasks_result[1])
 
-        logging.info(f"{collection_short_name} {len(cmr_granules)=:,}")
+        logger.info(f"{collection_short_name} {len(cmr_granules)=:,}")
         return cmr_granules, cmr_granules_details
 
 

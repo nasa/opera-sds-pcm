@@ -21,7 +21,7 @@ logging.basicConfig(
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.DEBUG)
-logging.getLogger()
+logger = logging.getLogger()
 
 config = {
     **dotenv_values("../../.env"),
@@ -72,7 +72,7 @@ async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_dswx(dswx_native_id_patterns: set):
-    logging.debug(f"entry({len(dswx_native_id_patterns)=:,})")
+    logger.debug(f"entry({len(dswx_native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
     dswx_native_id_patterns = more_itertools.always_iterable(dswx_native_id_patterns)
@@ -91,16 +91,16 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
-            logging.debug(f"Creating request task {i} of {len(dswx_native_id_pattern_batches)}")
+            logger.debug(f"Creating request task {i} of {len(dswx_native_id_pattern_batches)}")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
-        logging.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
+        logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
-        logging.debug("Batching tasks")
+        logger.debug("Batching tasks")
         dswx_granules = set()
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
         for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
-            logging.info(f"Processing batch {i} of {len(task_chunks)}")
+            logger.info(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False)
@@ -182,10 +182,10 @@ def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls
 #######################################################################
 
 async def run(argv: list[str]):
-    logging.info(f'{argv=}')
+    logger.info(f'{argv=}')
     args = create_parser().parse_args(argv[1:])
 
-    logging.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
+    logger.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
     cmr_start_dt_str = args.start_datetime
     cmr_end_dt_str = args.end_datetime
 
@@ -194,7 +194,7 @@ async def run(argv: list[str]):
 
     cmr_granules_hls = cmr_granules_l30.union(cmr_granules_s30)
     cmr_granules_details = {}; cmr_granules_details.update(cmr_granules_l30_details); cmr_granules_details.update(cmr_granules_s30_details)
-    logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
+    logger.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
 
     dswx_native_id_patterns = hls_granule_ids_to_dswx_native_id_patterns(
         cmr_granules_hls,
@@ -202,7 +202,7 @@ async def run(argv: list[str]):
         output_dswx_to_inputs_hls_map := defaultdict(set)
     )
 
-    logging.info("Querying CMR for list of expected DSWx granules")
+    logger.info("Querying CMR for list of expected DSWx granules")
     cmr_dswx_products = await async_get_cmr_dswx(dswx_native_id_patterns)
 
     cmr_dswx_prefix_expected = {prefix[:-1] for prefix in dswx_native_id_patterns}
@@ -212,18 +212,18 @@ async def run(argv: list[str]):
     #######################################################################
     # CMR_AUDIT SUMMARY
     #######################################################################
-    # logging.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
+    # logger.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
 
     missing_cmr_granules_hls = set(functools.reduce(set.union, [output_dswx_to_inputs_hls_map[prefix] for prefix in missing_cmr_dswx_granules_prefixes]))
 
-    # logging.debug(f"{pstr(missing_cmr_granules)=!s}")
-    logging.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
-    logging.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
-    logging.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
+    # logger.debug(f"{pstr(missing_cmr_granules)=!s}")
+    logger.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
+    logger.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
+    logger.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
 
     if args.format == "txt":
         output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
-        logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_hls))
     elif args.format == "json":
@@ -236,7 +236,7 @@ async def run(argv: list[str]):
     else:
         raise Exception()
 
-    logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+    logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
     # DEV: uncomment to export granules and metadata
     # missing_cmr_granules_details_short = to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls_to_outputs_dswx_map)

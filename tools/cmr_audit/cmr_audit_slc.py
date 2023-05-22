@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import concurrent.futures
 import functools
 import logging
 import os
@@ -20,12 +21,13 @@ from tools.cmr_audit.cmr_audit_utils import async_get_cmr_granules
 from tools.cmr_audit.cmr_client import async_cmr_post
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
+logging.getLogger("geo.get_util").setLevel(level=logging.WARNING)
 logging.basicConfig(
     format="%(levelname)7s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO)
-logging.getLogger()
+logger = logging.getLogger()
 
 config = {
     **dotenv_values("../../.env"),
@@ -83,14 +85,14 @@ async def async_get_cmr_rtc(rtc_native_id_patterns: set):
 
 
 async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[str, Iterable[str]]):
-    logging.debug(f"entry({len(rtc_native_id_patterns)=:,})")
+    logger.debug(f"entry({len(rtc_native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
     rtc_native_id_patterns = more_itertools.always_iterable(rtc_native_id_patterns)
     rtc_native_id_pattern_batches = list(more_itertools.chunked(rtc_native_id_patterns, 1000))  # 1000 == 55,100 length
 
     request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
-    logging.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
+    logger.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
 
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
@@ -103,16 +105,16 @@ async def async_get_cmr(rtc_native_id_patterns: set, platform_short_name: Union[
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
-            logging.debug(f"Creating request task {i} of {len(rtc_native_id_pattern_batches)}")
+            logger.debug(f"Creating request task {i} of {len(rtc_native_id_pattern_batches)}")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
-        logging.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
+        logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
-        logging.debug("Batching tasks")
+        logger.debug("Batching tasks")
         rtc_granules = set()
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
         for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
-            logging.info(f"Processing batch {i} of {len(task_chunks)}")
+            logger.info(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False)
@@ -215,10 +217,10 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
 #######################################################################
 
 async def run(argv: list[str]):
-    logging.info(f'{argv=}')
+    logger.info(f'{argv=}')
     args = create_parser().parse_args(argv[1:])
 
-    logging.info("Querying CMR for list of expected SLC granules")
+    logger.info("Querying CMR for list of expected SLC granules")
     cmr_start_dt_str = args.start_datetime
     cmr_end_dt_str = args.end_datetime
 
@@ -228,24 +230,30 @@ async def run(argv: list[str]):
     cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
     cmr_granules_slc_details = {}; cmr_granules_slc_details.update(cmr_granules_slc_s1a_details); cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
 
-    logging.info("Filtering North America granules")
+    logger.info("Filtering North America granules")
     cmr_granules_slc_na = set()
     cmr_granules_slc_details_na = {}
-    for granule_id, granule_details in cmr_granules_slc_details.items():
-        bounding_box = [
-            {"lat": point["Latitude"], "lon": point["Longitude"]}
-            for point in granule_details["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"][0]["Boundary"]["Points"]
-        ]
-        if does_bbox_intersect_north_america(bounding_box):
-            cmr_granules_slc_na.add(granule_id)
-            cmr_granules_slc_details_na[granule_id] = granule_details
-    cmr_granules_slc = cmr_granules_slc_na
-    cmr_granules_slc_details = cmr_granules_slc_details_na
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        does_bbox_intersect_north_america([])  # DEV: optimization to force initial cache load of geojson file
+        future_to_granule_map = {}
+        for granule_id, granule_details in cmr_granules_slc_details.items():
+            bounding_box = [
+                {"lat": point["Latitude"], "lon": point["Longitude"]}
+                for point in granule_details["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"][0]["Boundary"]["Points"]
+            ]
+            future_to_granule_map[executor.submit(does_bbox_intersect_north_america, bbox=bounding_box)] = (granule_id, granule_details)
+        for future in concurrent.futures.as_completed(future_to_granule_map):
+            is_granule_in_na = future.result()
+            if is_granule_in_na:
+                granule_id, granule_details = future_to_granule_map[future]
+                cmr_granules_slc_na.add(granule_id)
+                cmr_granules_slc_details_na[granule_id] = granule_details
 
-    logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
+    logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
+    logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
 
     cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
-        cmr_granules_slc,
+        cmr_granules_slc_na,
         input_slc_to_outputs_cslc_map := defaultdict(set),
         output_cslc_to_inputs_slc_map := defaultdict(set)
     )
@@ -256,47 +264,61 @@ async def run(argv: list[str]):
         output_rtc_to_inputs_slc_map := defaultdict(set)
     )
 
-    logging.info("Querying CMR for list of expected CSLC granules")
+    logger.info("Querying CMR for list of expected CSLC granules")
     cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns)
 
-    logging.info("Querying CMR for list of expected RTC granules")
+    logger.info("Querying CMR for list of expected RTC granules")
     cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns)
 
     missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
-
     missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
 
     #######################################################################
     # CMR_AUDIT SUMMARY
     #######################################################################
-    # logging.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
+    # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
-    missing_cmr_granules_slc = set()
-    missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns])))
-    missing_cmr_granules_slc.update(set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns])))
+    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]))
+    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]))
 
-    # logging.debug(f"{pstr(missing_slc)=!s}")
-    logging.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
-    logging.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
-    logging.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
-    logging.info(f"Missing processed (granules): {len(missing_cmr_granules_slc)=:,}")
+    # logger.debug(f"{pstr(missing_slc)=!s}")
+    logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
+    logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
+    logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
+    logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
+    logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
     if args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
-        logging.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to CSLC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc))
+            fp.write('\n'.join(missing_cmr_granules_slc_cslc))
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+
+        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            fp.write('\n'.join(missing_cmr_granules_slc_cslc))
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to CSLC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-            json_str = formatter.serialize(list(missing_cmr_granules_slc))
+            json_str = formatter.serialize(list(missing_cmr_granules_slc_cslc))
             fp.write(json_str)
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+
+        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            from compact_json import Formatter
+            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+            json_str = formatter.serialize(list(missing_cmr_granules_slc_rtc))
+            fp.write(json_str)
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
     else:
         raise Exception()
-
-    logging.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
 
 if __name__ == "__main__":
