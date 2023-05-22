@@ -59,21 +59,44 @@ class SessionWithHeaderRedirection(requests.Session):
 
 def run_download(args, token, es_conn, netloc, username, password, job_id):
     provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
-    download_timerange = get_download_timerange(args)
-    all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-        dateutil.parser.isoparse(download_timerange.start_date),
-        dateutil.parser.isoparse(download_timerange.end_date),
-        args.use_temporal
-    )
-    logging.info(f"{len(list(all_pending_downloads))=}")
 
-    downloads = all_pending_downloads
-    if args.batch_ids:
-        logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_granule_id if provider == "LPCLOUD" else _to_orbit_number
-        downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
+    # This is a special case where we are being asked to download exactly one granule
+    # identified its unique id. In such case we shouldn't gather all pending downloads at all;
+    # simply find entries for that one granule
+    # TODO: We should refactor hls/slc catalog code at same time.
+    if args.batch_ids and len(args.batch_ids) == 1:
+        one_granule = args.batch_ids[0]
+        logging.info(f"Downloading files for the granule {one_granule}")
+
+        if args.collection=='HLSL30' or args.collection=='HLSS30':
+            result = es_conn.es.query(index='hls_catalog',
+                     body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
+        else if args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
+            result = es_conn.es.query(index='slc_catalog',
+                     body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
+
+        downloads =  [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
+                for catalog_entry in (result or [])]
+
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
+
+    else:
+        download_timerange = get_download_timerange(args)
+        all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
+            dateutil.parser.isoparse(download_timerange.start_date),
+            dateutil.parser.isoparse(download_timerange.end_date),
+            args.use_temporal
+        )
+        logging.info(f"{len(list(all_pending_downloads))=}")
+
+        downloads = all_pending_downloads
+        if args.batch_ids:
+            logging.info(f"Filtering pending downloads by {args.batch_ids=}")
+            id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
+            downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
+            logging.info(f"{len(downloads)=}")
+            logging.debug(f"{downloads=}")
 
     if not downloads:
         logging.info(f"No undownloaded files found in index.")
