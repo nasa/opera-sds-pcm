@@ -71,7 +71,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         if args.collection=='HLSL30' or args.collection=='HLSS30':
             result = es_conn.es.query(index='hls_catalog',
                      body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
-        else if args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
+        elif args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
             result = es_conn.es.query(index='slc_catalog',
                      body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
 
