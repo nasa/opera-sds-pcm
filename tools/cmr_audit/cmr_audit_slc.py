@@ -77,14 +77,14 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_cslc(cslc_native_id_patterns: set):
-    return await async_get_cmr(cslc_native_id_patterns, platform_short_name="OPERA_CSLC_S1")
+    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1")
 
 
 async def async_get_cmr_rtc(rtc_native_id_patterns: set):
-    return await async_get_cmr(rtc_native_id_patterns, platform_short_name="OPERA_RTC_S1")
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1")
 
 
-async def async_get_cmr(native_id_patterns: set, platform_short_name: Union[str, Iterable[str]]):
+async def async_get_cmr(native_id_patterns: set, collection_short_name: Union[str, Iterable[str]]):
     logger.debug(f"entry({len(native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
@@ -101,7 +101,7 @@ async def async_get_cmr(native_id_patterns: set, platform_short_name: Union[str,
 
             request_body = (
                 "provider=ASF"
-                f'{"&ShortName[]=" + "&ShortName[]=".join(always_iterable(platform_short_name))}'
+                f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
                 "&collection_concept_id[]=C1257337155-ASF"  # CSLC
                 "&collection_concept_id[]=C1257337044-ASF"  # RTC
                 "&options[native-id][pattern]=true"

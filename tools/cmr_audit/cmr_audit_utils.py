@@ -89,7 +89,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
     if collection_short_name == "HLSL30" or collection_short_name == "HLSS30":
         return (
             "provider=LPCLOUD"
-            f"&ShortName[]={collection_short_name}"
+            f"&short_name[]={collection_short_name}"
             "&bounding_box=-180,-90,180,90"
             "&sort_key=-start_date"
             # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
@@ -101,7 +101,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
     if collection_short_name == "SENTINEL-1A_SLC" or collection_short_name == "SENTINEL-1B_SLC":
         return (
             "provider=ASF"
-            f"&ShortName[]={collection_short_name}"
+            f"&short_name[]={collection_short_name}"
             "&bounding_box=-180,-90,180,90"
             "&sort_key=-start_date"
             # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes

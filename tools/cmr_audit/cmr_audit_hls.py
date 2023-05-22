@@ -87,7 +87,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
 
             request_body = (
                 "provider=POCLOUD"
-                "&ShortName[]=OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
+                "&short_name[]=OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
                 "&options[native-id][pattern]=true"
                 f"{dswx_native_id_patterns_query_params}"
             )
