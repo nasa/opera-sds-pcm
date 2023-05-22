@@ -47,8 +47,13 @@ URGENT_RESPONSE_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
 #    RRST_EVALUATOR: 60
 
+
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
+
+# Time range values to use when querying for Orbit files for use with SLC-based jobs
+POE_ORBIT_TIME_RANGE: 2  # Days
+RES_ORBIT_TIME_RANGE: 3  # Hours
 
 CSLC_S1:
   # Toggle static layer generation during processing
@@ -65,6 +70,8 @@ DSWX_HLS:
 RTC_S1:
   # Toggle static layer generation during processing
   ENABLE_STATIC_LAYERS: !!bool true
+
+# End PGE Configuration section
 
 PRODUCT_TYPES:
     Observation_Accountability_Report:
