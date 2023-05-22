@@ -214,6 +214,7 @@ pge_input_files = {PurePath(input).name.removesuffix(".tif")
                    for input in hit["_source"]["metadata"]["runconfig"]["localize"]}
 
 pge_output_granules = {hit["_id"] for hit in search_results}
+logger.info(f'Data produced by PGE(s) (DSWx): {len(pge_output_granules)}')
 
 logger.info(f'Data processed through PGE(s): {len(pge_input_files)}')
 

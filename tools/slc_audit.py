@@ -207,12 +207,14 @@ pge_input_files.update({PurePath(hit["_source"]["metadata"]["runconfig"]["input_
                         for hit in search_results})
 
 pge_output_granules = {hit["_id"] for hit in search_results}
+logger.info(f'Data produced by PGE(s) (CSLC): {len(pge_output_granules)}')
 
 search_results = list(helpers.scan(es, body, index="grq_*_l2_rtc_s1", scroll="5m", size=10_000)); search_resultss["L2_RTC_S1"] = search_results
 pge_input_files.update({PurePath(hit["_source"]["metadata"]["runconfig"]["input_file_group"]["safe_file_path"]).name
                         for hit in search_results})
 
 pge_output_granules = {hit["_id"] for hit in search_results}
+logger.info(f'Data produced by PGE(s) (RTC): {len(pge_output_granules)}')
 
 logger.info(f'Data processed through PGE(s): {len(pge_input_files)}')
 
