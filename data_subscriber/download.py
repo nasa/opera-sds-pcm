@@ -76,8 +76,11 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
             result = es_conn.es.query(index='slc_catalog',
                      body={"query": {"bool": {"must": [{"match": {"id" : one_granule}}]}}})
 
-        downloads =  [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url"),
-                       "processing_mode": catalog_entry["_source"].get("processing_mode")}
+        downloads =  [{"s3_url": catalog_entry["_source"].get("s3_url"), 
+                       "https_url": catalog_entry["_source"].get("https_url"),
+                       "processing_mode": catalog_entry["_source"].get("processing_mode"), 
+                       "intersects_north_america": catalog_entry["_source"].get("intersects_north_america"),
+                       "temporal_extent_beginning_datetime": catalog_entry["_source"].get("temporal_extent_beginning_datetime")}
                 for catalog_entry in (result or [])]
 
         logging.info(f"{len(downloads)=}")
