@@ -68,10 +68,10 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         one_granule = args.batch_ids[0]
         logging.info(f"Downloading files for the granule {one_granule}")
 
-        if args.collection=='HLSL30' or args.collection=='HLSS30':
+        if 'HLS' in one_granule:
             result = es_conn.es.query(index='hls_catalog',
                      body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
-        elif args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
+        elif 'SLC' in ond_granule:
             result = es_conn.es.query(index='slc_catalog',
                      body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
 
