@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import sys
+import urllib.parse
 from collections import defaultdict
 from io import StringIO
 from pprint import pprint
@@ -76,15 +77,21 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
                                   platform_short_name="SENTINEL-1B")
 
 
-async def async_get_cmr_cslc(cslc_native_id_patterns: set):
-    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1", collection_concept_id="C1257337155-ASF")
+async def async_get_cmr_cslc(cslc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1", collection_concept_id="C1257337155-ASF",
+                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
 
 
-async def async_get_cmr_rtc(rtc_native_id_patterns: set):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1", collection_concept_id="C1257337044-ASF")
+async def async_get_cmr_rtc(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1", collection_concept_id="C1257337044-ASF",
+                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
 
 
-async def async_get_cmr(native_id_patterns: set, collection_short_name: Union[str, Iterable[str]], collection_concept_id: str):
+async def async_get_cmr(
+        native_id_patterns: set,
+        collection_short_name: Union[str, Iterable[str]],
+        collection_concept_id: str,
+        temporal_date_start: str, temporal_date_end: str):
     logger.debug(f"entry({len(native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
@@ -107,6 +114,7 @@ async def async_get_cmr(native_id_patterns: set, collection_short_name: Union[st
                 "&platform[]=Sentinel-1B"
                 "&options[native-id][pattern]=true"
                 f"{native_id_patterns_query_params}"
+                f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
             logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
             post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
@@ -272,10 +280,10 @@ async def run(argv: list[str]):
     )
 
     logger.info("Querying CMR for list of expected CSLC granules")
-    cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns)
+    cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
     logger.info("Querying CMR for list of expected RTC granules")
-    cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns)
+    cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
     missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
     missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
