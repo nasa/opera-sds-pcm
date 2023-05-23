@@ -116,6 +116,13 @@ setup(
             "compact-json",
             "more-itertools",
             "python-dateutil"
+        ],
+        "cnm_check": [
+            "compact-json",
+            "elasticsearch[async]",
+            "more-itertools",
+            "python-dateutil",
+            "python-dotenv"
         ]
     }
 )
