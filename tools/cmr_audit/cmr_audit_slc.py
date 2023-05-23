@@ -21,7 +21,7 @@ from tools.cmr_audit.cmr_audit_utils import async_get_cmr_granules
 from tools.cmr_audit.cmr_client import async_cmr_post
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
-logging.getLogger("geo.get_util").setLevel(level=logging.WARNING)
+logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
 logging.basicConfig(
     format="%(levelname)7s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
@@ -77,14 +77,14 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_cslc(cslc_native_id_patterns: set):
-    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1")
+    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1", collection_concept_id="C1257337155-ASF")
 
 
 async def async_get_cmr_rtc(rtc_native_id_patterns: set):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1")
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1", collection_concept_id="C1257337044-ASF")
 
 
-async def async_get_cmr(native_id_patterns: set, collection_short_name: Union[str, Iterable[str]]):
+async def async_get_cmr(native_id_patterns: set, collection_short_name: Union[str, Iterable[str]], collection_concept_id: str):
     logger.debug(f"entry({len(native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
@@ -102,8 +102,9 @@ async def async_get_cmr(native_id_patterns: set, collection_short_name: Union[st
             request_body = (
                 "provider=ASF"
                 f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
-                "&collection_concept_id[]=C1257337155-ASF"  # CSLC
-                "&collection_concept_id[]=C1257337044-ASF"  # RTC
+                f"&collection_concept_id={collection_concept_id}"
+                "&platform[]=Sentinel-1A"
+                "&platform[]=Sentinel-1B"
                 "&options[native-id][pattern]=true"
                 f"{native_id_patterns_query_params}"
             )
