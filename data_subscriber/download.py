@@ -74,7 +74,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         #elif "SLC" in one_granule:
         else:
             result = es_conn.es.query(index='slc_catalog',
-                     body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
+                     body={"query": {"bool": {"must": [{"match": {"id" : one_granule}}]}}})
 
         downloads =  [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
                 for catalog_entry in (result or [])]
