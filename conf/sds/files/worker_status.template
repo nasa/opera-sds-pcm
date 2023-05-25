@@ -1,0 +1,151 @@
+{
+  "index_patterns": [
+    "worker_status*"
+  ],
+  "template": {
+      "mappings": {
+        "properties": {
+          "resource": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "type": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "status": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "tags": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "celery_hostname": {
+            "type": "text",
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "uuid": {
+            "type": "text",
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "id": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "event": {
+            "properties": {
+              "sw_sys": {
+                "type": "text",
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "local_received": {
+                "type": "date"
+              },
+              "clock": {
+                "type": "integer"
+              },
+              "timestamp": {
+                "type": "date"
+              },
+              "hostname": {
+                "type": "text",
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "pid": {
+                "type": "integer"
+              },
+              "sw_ver": {
+                "type": "text",
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "utcoffset": {
+                "type": "integer"
+              },
+              "loadavg": {
+                "type": "double"
+              },
+              "processed": {
+                "type": "integer"
+              },
+              "active": {
+                "type": "integer"
+              },
+              "freq": {
+                "type": "double"
+              },
+              "type": {
+                "type": "text",
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "sw_ident": {
+                "type": "text",
+                "copy_to": [
+                  "text_fields"
+                ]
+              }
+            }
+          },
+          "text_fields": {
+            "type": "text"
+          }
+        }
+      },
+      "settings": {
+        "number_of_shards": 5,
+        "index": {
+          "refresh_interval": "5s",
+          "lifecycle": {
+            "name": "ilm_policy_mozart"
+          }
+        },
+        "analysis": {
+          "analyzer": {
+            "default": {
+              "filter": [
+                "lowercase",
+                "word_delimiter"
+              ],
+              "tokenizer": "keyword"
+            }
+          }
+        }
+      },
+      "aliases": {
+        "worker_status": {},
+        "worker_status-current": {},
+        "job_status": {}
+      }
+  }
+}

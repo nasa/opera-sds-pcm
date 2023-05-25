@@ -1,0 +1,102 @@
+{
+  "index_patterns": [
+    "event_status*"
+  ],
+  "template": {
+      "mappings": {
+        "properties": {
+          "resource": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "type": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "status": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "timestamp": {
+            "type": "date"
+          },
+          "hostname": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "uuid": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "id": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "tags": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            },
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "event": {
+            "type": "object",
+            "enabled": false
+          },
+          "text_fields": {
+            "type": "text"
+          }
+        }
+      },
+      "settings": {
+        "number_of_shards": 5,
+        "index": {
+          "refresh_interval": "5s",
+          "lifecycle": {
+            "name": "ilm_policy_mozart"
+          }
+        },
+        "analysis": {
+          "analyzer": {
+            "default": {
+              "filter": [
+                "lowercase",
+                "word_delimiter"
+              ],
+              "tokenizer": "keyword"
+            }
+          }
+        }
+      },
+      "aliases": {
+        "job_status": {},
+        "event_status": {},
+        "event_status-current": {}
+      }
+  }
+}

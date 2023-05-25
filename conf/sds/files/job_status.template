@@ -1,0 +1,711 @@
+{
+  "index_patterns": [
+    "job_status*"
+  ],
+  "template": {
+      "mappings": {
+        "properties": {
+          "resource": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "type": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "status": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "timestamp": {
+            "type": "date"
+          },
+          "context": {
+            "type": "object",
+            "enabled": false
+          },
+          "msg": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "msg_details": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "job": {
+            "properties": {
+              "command": {
+                "type": "object",
+                "enabled": false
+              },
+              "container_image_name": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "container_image_url": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "context": {
+                "type": "object",
+                "enabled": false
+              },
+              "priority": {
+                "type": "integer"
+              },
+              "delivery_info": {
+                "properties": {
+                  "priority": {
+                    "type": "integer"
+                  },
+                  "routing_key": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "exchange": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "redelivered": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "job_info": {
+                "properties": {
+                  "context": {
+                    "type": "object",
+                    "enabled": false
+                  },
+                  "payload": {
+                    "type": "object",
+                    "enabled": false
+                  },
+                  "payload_hash": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "dedup": {
+                    "type": "boolean"
+                  },
+                  "dedup_job": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "job_queue": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "status": {
+                    "type": "integer"
+                  },
+                  "time_start": {
+                    "type": "date"
+                  },
+                  "error_queue": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "completed_queue": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "execute_node": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "time_queued": {
+                    "type": "date"
+                  },
+                  "index": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "job_status_exchange": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "job_dir": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "time_end": {
+                    "type": "date"
+                  },
+                  "cmd_start": {
+                    "type": "date"
+                  },
+                  "cmd_end": {
+                    "type": "date"
+                  },
+                  "cmd_duration": {
+                    "type": "double"
+                  },
+                  "public_ip": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "facts": {
+                    "properties": {
+                      "swapsize": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "ec2_instance_type": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "is_virtual": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "architecture": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "ec2_placement_availability_zone": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "memorytotal": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "virtual": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "physicalprocessorcount": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "ec2_ami_id": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "processorcount": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      }
+                    }
+                  },
+                  "host": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "job_url": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "metrics": {
+                    "properties": {
+                      "inputs_localized": {
+                        "properties": {
+                          "disk_usage": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "time_start": {
+                            "type": "date"
+                          },
+                          "url": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "time_end": {
+                            "type": "date"
+                          },
+                          "duration": {
+                            "type": "double"
+                          },
+                          "transfer_rate": {
+                            "type": "double"
+                          },
+                          "path": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          }
+                        }
+                      },
+                      "products_staged": {
+                        "properties": {
+                          "path": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "disk_usage": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "time_start": {
+                            "type": "date"
+                          },
+                          "time_end": {
+                            "type": "date"
+                          },
+                          "duration": {
+                            "type": "double"
+                          },
+                          "transfer_rate": {
+                            "type": "double"
+                          },
+                          "id": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "urls": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "browse_urls": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "dataset": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "ipath": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "system_version": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "dataset_level": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "dataset_type": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          }
+                        }
+                      },
+                      "job_dir_size": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "product_provenance": {
+                        "properties": {
+                          "product_type": {
+                            "type": "keyword",
+                            "ignore_above": 256,
+                            "copy_to": [
+                              "text_fields"
+                            ]
+                          },
+                          "acquisition_start_time": {
+                            "type": "date"
+                          },
+                          "source_production_time": {
+                            "type": "date"
+                          },
+                          "availability_time": {
+                            "type": "date"
+                          },
+                          "processing_start_time": {
+                            "type": "date"
+                          },
+                          "ground_system_latency": {
+                            "type": "double"
+                          },
+                          "access_latency": {
+                            "type": "double"
+                          },
+                          "processing_latency": {
+                            "type": "double"
+                          },
+                          "total_latency": {
+                            "type": "double"
+                          },
+                          "location": {
+                            "type": "geo_shape",
+                            "strategy": "recursive"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "duration": {
+                    "type": "double"
+                  },
+                  "id": {
+                    "type": "keyword",
+                    "ignore_above": 256,
+                    "copy_to": [
+                      "text_fields"
+                    ]
+                  },
+                  "job_payload": {
+                    "properties": {
+                      "job_type": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      },
+                      "payload_task_id": {
+                        "type": "keyword",
+                        "ignore_above": 256,
+                        "copy_to": [
+                          "text_fields"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "localize_urls": {
+                "type": "object",
+                "enabled": false
+              },
+              "params": {
+                "type": "object",
+                "enabled": false
+              },
+              "type": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "name": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "job_id": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "task_id": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "tag": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "username": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              },
+              "job_hash": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "copy_to": [
+                  "text_fields"
+                ]
+              }
+            }
+          },
+          "uuid": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "id": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "job_id": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "payload_id": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "payload_hash": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "dedup": {
+            "type": "boolean"
+          },
+          "dedup_job": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "dedup_msg": {
+            "type": "text",
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "error": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            },
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "short_error": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            },
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "traceback": {
+            "type": "text",
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "signum": {
+            "type": "integer"
+          },
+          "celery_hostname": {
+            "type": "keyword",
+            "ignore_above": 256,
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "celery_timestamp": {
+            "type": "date"
+          },
+          "celery_pid": {
+            "type": "integer"
+          },
+          "celery_runtime": {
+            "type": "double"
+          },
+          "tags": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            },
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "user_tags": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            },
+            "copy_to": [
+              "text_fields"
+            ]
+          },
+          "text_fields": {
+            "type": "text"
+          }
+        }
+      },
+      "settings": {
+        "number_of_shards": 5,
+        "index": {
+          "refresh_interval": "5s",
+          "lifecycle": {
+            "name": "ilm_policy_mozart"
+          }
+        },
+        "analysis": {
+          "analyzer": {
+            "default": {
+              "filter": [
+                "lowercase",
+                "word_delimiter"
+              ],
+              "tokenizer": "keyword"
+            }
+          }
+        }
+      },
+      "aliases": {
+        "job_status": {},
+        "job_status-current": {}
+      }
+  }
+}
