@@ -48,7 +48,7 @@ def run_survey(args, token, cmr, settings):
             update_temporal_delta_hrs = update_temporal_delta.total_seconds() / 3600
             logging.debug(f"{g_id}, {g_rd}, {g_td}, delta: {update_temporal_delta_hrs} hrs")
             if (g_id in all_granules):
-                (og_rd, og_td) = all_granules[g_id]
+                (og_rd, og_td, _) = all_granules[g_id]
                 logging.warning(f"{g_id} had already been found {og_rd=} {og_td=}")
             else:
                 raw_csv.write(g_id+","+g_rd+","+g_td+","+str(update_temporal_delta_hrs)+"\n")
