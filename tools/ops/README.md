@@ -48,3 +48,11 @@ See `cmr_audit/cmr_audit.py --help`, documentation comments, and source code for
 ### Running locally
 
 1. Run `python cmr_audit*.py` from the same directory.
+
+
+# Elasticsearch Query Executor
+
+The Elasticsearch Query Executor script is a script for executing version-controlled Elasticsearch queries, including for clean-up purposes.
+
+Please see the `README.md` located in `es_query_executor/README.md` for more information.
+

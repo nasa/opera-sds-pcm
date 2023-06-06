@@ -1,0 +1,26 @@
+{
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "should": [
+                {
+                  "match": {
+                    "dataset_type": "L2_HLS_S30"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "range": {
+              "@timestamp": {
+                "lt": "now-14d/d"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
