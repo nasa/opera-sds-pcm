@@ -46,7 +46,7 @@ async def run(argv: list[str]):
         logger.info(f"Processing {product_id=}")
 
         additional_metadata = {}
-        dataset_dir = downloads_dir.resolve() / product_id
+        dataset_dir = downloads_dir / product_id
         dataset_dir.mkdir(exist_ok=True)
 
         logger.info("Downloading orbit file")
@@ -55,31 +55,32 @@ async def run(argv: list[str]):
         if additional_metadata.get("intersects_north_america", False):
             logger.info("Downloading ionosphere correction file")
             output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
+            output_ionosphere_filepath = PurePath(output_ionosphere_filepath)
             ionosphere_url = get_ionosphere_correction_file_url(dataset_dir, product_id)
             logger.info(f"{output_ionosphere_filepath=}")
             logger.info(f"{ionosphere_url=}")
 
-            slc_dataset_s3_url = next(iter(filter(lambda url: url.startswith("s3"), slc_dataset["browse_urls"])))
+            slc_dataset_s3_url = next(iter(filter(lambda url: url.startswith("s3"), slc_dataset["_source"]["browse_urls"])))
             logger.info(f"{slc_dataset_s3_url=}")
 
             s3_uri_tokens = slc_dataset_s3_url.split('/')
-            s3_bucket = s3_uri_tokens[0]
-            s3_key = '/'.join(s3_uri_tokens[1:])
+            s3_bucket = s3_uri_tokens[3]
+            s3_key = '/'.join(s3_uri_tokens[5:])  # skip redundant `/browse/` fragment at index 4
 
             s3_client: S3Client = boto3.client("s3")
-            s3_client.upload_file(Filename=PurePath(output_ionosphere_filepath).name, Bucket=s3_bucket, Key=s3_key)
+            s3_client.upload_file(Filename=str(output_ionosphere_filepath), Bucket=s3_bucket, Key=f"{s3_key}/{output_ionosphere_filepath.name}")
 
             ionosphere_metadata = {
                 "ionosphere": {
                     "job_id": job_util.supply_job_id(),
-                    "s3_url": f"s3://{s3_bucket}/{s3_key}/{PurePath(output_ionosphere_filepath).name}",
+                    "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
                     "source_url": ionosphere_url,
-                    "FileName": PurePath(output_ionosphere_filepath).name,
+                    "FileName": output_ionosphere_filepath.name,
                     "FileSize": "",
                     "FileLocation": ""
                 }
             }
-            update_slc_dataset_with_ionosphere_metadata(product_id=product_id, ionosphere_metadata=ionosphere_metadata)
+            update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=product_id, ionosphere_metadata=ionosphere_metadata)
 
             logger.info(f"Removing {output_ionosphere_filepath}")
             Path(output_ionosphere_filepath).unlink()
@@ -188,7 +189,7 @@ def download_ionosphere_correction_file(dataset_dir, product_filepath):
                 f"Could not find any Ionosphere Correction file for product {product_filepath}"
             )
 
-        return output_ionosphere_file_path
+    return output_ionosphere_file_path
 
 
 def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
@@ -222,7 +223,7 @@ def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
                 f"Could not find any Ionosphere Correction file for product {product_filepath}"
             )
 
-        return ionosphere_url
+    return ionosphere_url
 
 
 if __name__ == "__main__":

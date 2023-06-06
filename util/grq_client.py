@@ -31,9 +31,9 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     return search_results
 
 
-def update_slc_dataset_with_ionosphere_metadata(product_id, ionosphere_metadata):
+def update_slc_dataset_with_ionosphere_metadata(index, product_id, ionosphere_metadata):
     es: Elasticsearch = es_conn_util.get_es_connection(logger).es
-    es.update("grq_*_l1_s1_slc*", product_id, body=ionosphere_metadata)
+    es.update(index, product_id, body={"doc": {**ionosphere_metadata}})
 
 
 def get_body() -> dict:
