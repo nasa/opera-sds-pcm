@@ -3,7 +3,7 @@
 # Audit
 
 The audit tools can be used to compare input products and output product quantities.
-See `*audit.py --help`, documentation comments, and source code for more details.
+See `pcm_audit/*audit.py --help`, documentation comments, and source code for more details.
 
 ## Getting Started
 
@@ -28,7 +28,7 @@ See `*audit.py --help`, documentation comments, and source code for more details
 # CMR Audit
 
 The CMR audit tool can be used to compare input products and output product IDs and quantities.
-See `cmr_audit.py --help`, documentation comments, and source code for more details.
+See `cmr_audit/cmr_audit.py --help`, documentation comments, and source code for more details.
 
 ## Getting Started
 
