@@ -22,11 +22,12 @@ module "int-main" {
   docker_registry_bucket                  = var.docker_registry_bucket
   use_daac_cnm_r                          = var.use_daac_cnm_r
   run_smoke_test                          = var.run_smoke_test
-  pge_sim_mode                        = var.pge_sim_mode
+  pge_sim_mode                            = var.pge_sim_mode
   git_auth_key                            = var.git_auth_key
   jenkins_api_key                         = var.jenkins_api_key
   artifactory_fn_user                     = var.artifactory_fn_user
   artifactory_fn_api_key                  = var.artifactory_fn_api_key
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
+  cnm_r_venue                             = var.cnm_r_venue
 }

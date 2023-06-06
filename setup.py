@@ -103,6 +103,26 @@ setup(
             "elasticsearch[async]",
             "more-itertools==8.13.0",
             'pytest-asyncio==0.20.3'
+        ],
+        "audit": [
+            "elasticsearch[async]",
+            "more-itertools",
+            "python-dateutil",
+            "python-dotenv"
+        ],
+        "cmr_audit": [
+            "aiohttp[speedups]",
+            "backoff",
+            "compact-json",
+            "more-itertools",
+            "python-dateutil"
+        ],
+        "cnm_check": [
+            "compact-json",
+            "elasticsearch[async]",
+            "more-itertools",
+            "python-dateutil",
+            "python-dotenv"
         ]
     }
 )

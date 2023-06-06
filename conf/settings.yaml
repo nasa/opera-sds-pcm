@@ -6,21 +6,15 @@ CRID: '{{ CRID }}'
 DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 DSWX_HLS_PRODUCT_VERSION: "0.0"
 
-CSLC_COLLECTION_NAME: "OPERA_CSLC-S1_PROVISIONAL_V0"
-RTC_COLLECTION_NAME: "OPERA_RTC-S1_PROVISIONAL_V0"
+# uncomment out for OPS in R1
+#DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
+#DSWX_HLS_PRODUCT_VERSION: "1.0"
 
-#CSLC_S1_PRODUCT_VERSION: "0.1.4"
-#RTC_S1_PRODUCT_VERSION: "0.3.0"
-
-# used in DEV venue initial testing
-#CSLC_COLLECTION_NAME: "OPERA_CSLC_S1"
-#RTC_COLLECTION_NAME: "OPERA_RTC_S1"
+CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_BETA_V0"
+RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_BETA_V0"
 CSLC_S1_PRODUCT_VERSION: "0.0"
 RTC_S1_PRODUCT_VERSION: "0.0"
 
-# uncomment out for OPS
-#DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
-#DSWX_HLS_PRODUCT_VERSION: "1.0"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
@@ -53,8 +47,17 @@ URGENT_RESPONSE_LATENCY:
     # Latency period in minutes. Expiration time is calculated from when the LDF is being processed.
 #    RRST_EVALUATOR: 60
 
+
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
+
+# Time range values to use when querying for Orbit files for use with SLC-based jobs
+POE_ORBIT_TIME_RANGE: 2  # Days
+RES_ORBIT_TIME_RANGE: 3  # Hours
+
+CSLC_S1:
+  # Toggle static layer generation during processing
+  ENABLE_STATIC_LAYERS: !!bool true
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
@@ -63,6 +66,12 @@ DSWX_HLS:
   APPLY_OCEAN_MASKING: !!bool false
   # Amount of margin in km to apply to staged ancillaries (DEM/worldcover)
   ANCILLARY_MARGIN: 200
+
+RTC_S1:
+  # Toggle static layer generation during processing
+  ENABLE_STATIC_LAYERS: !!bool true
+
+# End PGE Configuration section
 
 PRODUCT_TYPES:
     Observation_Accountability_Report:
@@ -163,8 +172,9 @@ PRODUCT_TYPES:
     L2_CSLC_S1:
         # Pattern for parsing output L2_CSLC-S1 product filenames, such as:
         # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z.h5
+        # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z.h5
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>tif|tiff|h5|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -175,12 +185,28 @@ PRODUCT_TYPES:
             Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
+    L2_CSLC_S1_static_layers:
+      # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:
+      # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z_static_layers.h5
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_static_layers)[.](?P<ext>h5)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+        Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
     L2_RTC_S1:
         # Pattern for parsing output L2_RTC-S1 product filenames, such as:
         # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0.h5
         # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_VV.tif
+        # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_BROWSE.png
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?[.](?P<ext>tif|tiff|h5|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -190,6 +216,23 @@ PRODUCT_TYPES:
           #  Note: this affects the data product index name
           Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
+
+    L2_RTC_S1_static_layers:
+      # Pattern for parsing output L2_RTC-S1 static layer product filenames, such as:
+      # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_nlooks.tif
+      # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_layover_shadow_mask.tif
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))_(?P<static_layer_name>incidence_angle|layover_shadow_mask|local_incidence_angle|nlooks|rtc_anf)[.](?P<ext>tif|tiff)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Suffix: '_static_layers'
+      Configuration:
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+        Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
 
     L3_DSWx_HLS:
         # Pattern for parsing filenames such as:

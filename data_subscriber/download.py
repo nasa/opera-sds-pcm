@@ -19,6 +19,8 @@ import extractor.extract
 import product2dataset.product2dataset
 from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from product2dataset import product2dataset
+from tools import stage_ionosphere_file
+from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
@@ -145,7 +147,7 @@ def download_from_asf(
         if product_url.startswith("s3"):
             product = product_filepath = download_product_using_s3(
                 product_url,
-                session,
+                token,
                 target_dirpath=product_download_dir.resolve(),
                 args=args
             )
@@ -183,22 +185,53 @@ def download_from_asf(
                 [
                     f"--output-directory={str(dataset_dir)}",
                     "--orbit-type=POEORB",
+                    f"--query-time-range={settings_cfg.get('POE_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_POE_TIME_RANGE)}",
                     str(product_filepath)
                 ]
             )
             stage_orbit_file.main(stage_orbit_file_args)
         except NoQueryResultsException:
-            logging.warning("No POEORB file could be found, querying for Restituted Orbit (ROEORB) file")
+            logging.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
             stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
                 [
                     f"--output-directory={str(dataset_dir)}",
                     "--orbit-type=RESORB",
+                    f"--query-time-range={settings_cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
                     str(product_filepath)
                 ]
             )
             stage_orbit_file.main(stage_orbit_file_args)
 
         logging.info("Added orbit file to dataset")
+
+        if additional_metadata.get("intersects_north_america", False):
+            logging.info("Downloading associated Ionosphere Correction file")
+            try:
+                stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
+                    [
+                        f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPLG}",
+                        f"--output-directory={str(dataset_dir)}",
+                        str(product_filepath)
+                    ]
+                )
+                stage_ionosphere_file.main(stage_ionosphere_file_args)
+                logging.info("Added JPLG Ionosphere correction file to dataset")
+            except IonosphereFileNotFoundException:
+                logging.warning("JPLG file type could not be found, querying for JPRG file type")
+                try:
+                    stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
+                        [
+                            f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPRG}",
+                            f"--output-directory={str(dataset_dir)}",
+                            str(product_filepath)
+                        ]
+                    )
+                    stage_ionosphere_file.main(stage_ionosphere_file_args)
+                    logging.info("Added JPRG Ionosphere correction file to dataset")
+                except IonosphereFileNotFoundException:
+                    logging.warning(
+                        f"Could not find any Ionosphere Correction file for product {product_filepath}"
+                    )
 
         logging.info(f"Removing {product_filepath}")
         product_filepath.unlink(missing_ok=True)
@@ -271,7 +304,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
     elif args.transfer_protocol.lower() == "s3":
         product_filepath = download_product_using_s3(
             product_url,
-            session,
+            token,
             target_dirpath=target_dirpath.resolve(),
             args=args
         )
@@ -279,7 +312,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
         if product_url.startswith("s3"):
             product_filepath = download_product_using_s3(
                 product_url,
-                session,
+                token,
                 target_dirpath=target_dirpath.resolve(),
                 args=args
             )
@@ -404,9 +437,9 @@ def download_product_using_https(url, session: requests.Session, token, target_d
         return product_download_path.resolve()
 
 
-def download_product_using_s3(url, session: requests.Session, target_dirpath: Path, args) -> Path:
+def download_product_using_s3(url, token, target_dirpath: Path, args) -> Path:
     provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
-    aws_creds = _get_aws_creds(session, provider)
+    aws_creds = _get_aws_creds(token, provider)
     logging.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -477,28 +510,30 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
 
 
 @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
-def _get_aws_creds(session, provider):
+def _get_aws_creds(token, provider):
     logging.info("entry")
 
     if provider == "LPCLOUD":
-        return _get_lp_aws_creds(session)
+        return _get_lp_aws_creds(token)
     else:
-        return _get_asf_aws_creds(session)
+        return _get_asf_aws_creds(token)
 
 
-def _get_lp_aws_creds(session):
+def _get_lp_aws_creds(token):
     logging.info("entry")
 
-    with session.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials") as r:
+    with requests.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials",
+                      headers={'Authorization': f'Bearer {token}'}) as r:
         r.raise_for_status()
 
         return r.json()
 
 
-def _get_asf_aws_creds(session):
+def _get_asf_aws_creds(token):
     logging.info("entry")
 
-    with session.get("https://sentinel1.asf.alaska.edu/s3credentials") as r:
+    with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
+                     headers={'Authorization': f'Bearer {token}'}) as r:
         r.raise_for_status()
 
         return r.json()

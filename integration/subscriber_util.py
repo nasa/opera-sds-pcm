@@ -228,7 +228,7 @@ def generate_payload_cloudwatch_scheduled_event_slc():
           "detail-type": "Scheduled Event",
           "source": "aws.events",
           "account": "123456789012",
-          "time": "2022-11-17T07:00:00Z",
+          "time": "2022-11-17T01:00:00Z",
           "region": "us-east-1",
           "resources": [
             "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"

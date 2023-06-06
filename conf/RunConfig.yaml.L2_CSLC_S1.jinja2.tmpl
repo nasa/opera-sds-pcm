@@ -79,12 +79,12 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_file: {{ data.product_path_group.product_path }}
+            product_version: "{{ data.product_path_group.product_version }}"
           primary_executable:
             product_type: CSLC_S1
           processing:
             polarization: {{ data.processing.polarization }}
             geocoding:
-              output_format: GTiff
               flatten: True
               lines_per_block: 1000
               x_posting: 5
@@ -94,12 +94,4 @@ RunConfig:
               threshold: 1.0e-8
               numiter: 25
             rdr2geo:
-              # Static layer configuration, set all flags below to True to
-              # enable generation of all static layers
-              enabled: False
-              compute_layover_shadow_mask: False
-              compute_incidence_angle: False
-              compute_local_incidence_angle: False
-              compute_azimuth_angle: False
-              geocode_metadata_layers: False
-              # End Static layer configuration
+              enabled: {{ data.processing.enable_static_layers }}
