@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 async def run(argv: list[str]):
     parser = create_parser()
     args = parser.parse_args(argv[1:])
-
     logger.info(f"{argv=}")
 
     results = {}
@@ -74,12 +73,15 @@ async def run(argv: list[str]):
                 "ionosphere": {
                     "job_id": job_util.supply_job_id(),
                     "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
-                    "source_url": ionosphere_url,
-                    "FileName": output_ionosphere_filepath.name,
-                    "FileSize": "",
-                    "FileLocation": ""
+                    "source_url": ionosphere_url
                 }
             }
+
+            # DEV: compare to CoreMetExtractor.py
+            ionosphere_metadata["ionosphere"]["FileLocation"] = str(output_ionosphere_filepath.parent)
+            ionosphere_metadata["ionosphere"]["FileSize"] = Path(output_ionosphere_filepath).stat().st_size
+            ionosphere_metadata["ionosphere"]["FileName"] = output_ionosphere_filepath.name
+
             update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=product_id, ionosphere_metadata=ionosphere_metadata)
 
             logger.info(f"Removing {output_ionosphere_filepath}")
