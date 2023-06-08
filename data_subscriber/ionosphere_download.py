@@ -3,11 +3,15 @@ import asyncio
 import logging
 import shutil
 import sys
+import uuid
 from collections import namedtuple
+from functools import partial
 from pathlib import Path, PurePath
 
 import boto3
 import dateutil.parser
+from hysds_commons.job_utils import submit_mozart_job
+from more_itertools import chunked, always_iterable
 from mypy_boto3_s3 import S3Client
 
 from tools import stage_ionosphere_file
@@ -87,7 +91,8 @@ async def run(argv: list[str]):
             logger.info(f"Removing {output_ionosphere_filepath}")
             Path(output_ionosphere_filepath).unlink()
 
-            # TODO chrisjrd: submit CSLC job
+# TODO chrisjrd: merge results objects
+            await submit_cslc_job(product_id)
     logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
     results["download"] = None
@@ -96,6 +101,115 @@ async def run(argv: list[str]):
     logger.info("END")
 
     return results
+
+
+async def submit_cslc_job(product_ids):
+    logging.info(f"{product_ids=}")
+    product_ids = always_iterable(product_ids)
+    MyNamedTuple = namedtuple("MyNamedTuple",
+                              ["chunk_size", "release_version", "collection", "smoke_run", "dry_run", "endpoint",
+                               "use_temporal", "transfer_protocol", "proc_mode", "job_queue"])
+    args = MyNamedTuple(chunk_size=1, release_version="2.0.0", collection="TBD", smoke_run=True, dry_run=True,
+                        endpoint="TBD", use_temporal=True, transfer_protocol="s3", proc_mode="TBD", job_queue="TBD")
+
+    job_submission_tasks = []
+    loop = asyncio.get_event_loop()
+    logging.info(f"{args.chunk_size=}")
+    for chunk in chunked(product_ids, n=args.chunk_size):
+        chunk_id = str(uuid.uuid4())
+        logging.info(f"{chunk_id=}")
+
+        chunk_product_ids = []
+        for product_id in chunk:
+            chunk_product_ids.append(product_id)
+
+        job_submission_tasks.append(
+            loop.run_in_executor(
+                executor=None,
+                func=partial(
+                    submit_cslc_job_helper,
+                    release_version=args.release_version,
+                    params=[
+                        {
+                            "name": "smoke_run",
+                            "value": "--smoke-run" if args.smoke_run else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "dry_run",
+                            "value": "--dry-run" if args.dry_run else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "endpoint",
+                            "value": f"--endpoint={args.endpoint}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "use_temporal",
+                            "value": "--use-temporal" if args.use_temporal else "",
+                            "from": "value"
+                        },
+                        {
+                            "name": "transfer_protocol",
+                            "value": f"--transfer-protocol={args.transfer_protocol}",
+                            "from": "value"
+                        },
+                        {
+                            "name": "proc_mode",
+                            "value": f"--processing-mode={args.proc_mode}",
+                            "from": "value"
+                        }
+                    ],
+                    job_queue=args.job_queue
+                )
+            )
+        )
+
+    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+    logging.info(f"{len(results)=}")
+    logging.info(f"{results=}")
+
+    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+    logging.info(f"{succeeded=}")
+    failed = [e for e in results if isinstance(e, Exception)]
+    logging.info(f"{failed=}")
+
+    return {
+        "success": succeeded,
+        "fail": failed
+    }
+
+
+def submit_cslc_job_helper(*, release_version=None, params: list[dict[str, str]],
+                           job_queue: str) -> str:
+    job_spec_str = f"job-SCIFLO_L2_CSLC_S1:{release_version}"
+
+    return _submit_mozart_job_minimal(hysdsio={"id": str(uuid.uuid4()),
+                                               "params": params,
+                                               "job-specification": job_spec_str},
+                                      job_queue=job_queue)
+
+
+def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
+    return submit_mozart_job(
+        hysdsio=hysdsio,
+        product={},
+        rule={
+            "rule_name": f"trigger-SCIFLO_L2_CSLC_S1",
+            "queue": job_queue,
+            "priority": "0",
+            "kwargs": "{}",
+            "enable_dedup": True
+        },
+        queue=None,
+        job_name=f"job-WF-SCIFLO_L2_CSLC_S1",
+        payload_hash=None,
+        enable_dedup=None,
+        soft_time_limit=None,
+        time_limit=None,
+        component=None
+    )
 
 
 def create_parser():
