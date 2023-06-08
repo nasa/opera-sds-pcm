@@ -1589,7 +1589,8 @@ data "template_file" "launch_template_user_data" {
                   {
                     "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
                     "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
-                    "timezone": "UTC"
+                    "timezone": "UTC",
+                    "retention_in_days" : 30
                   },
                   {
                     "file_path": "/data/work/jobs/**/run_hlsl30_query.log",
