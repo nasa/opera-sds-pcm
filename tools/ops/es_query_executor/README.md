@@ -26,9 +26,9 @@ This script includes a number of pre-configured Elasticsearch queries described 
 - [queries/job_status-current/jobs_nominal_old.json](queries/job_status-current/jobs_nominal_old.json) - (Mozart) if status in {completed, revoked, deduped} AND creation timestamp > 14 days old 
 - [queries/job_status-current/jobs_failed_old.json](queries/job_status-current/jobs_failed_old.json) - (Mozart) if status = failed AND creation timestamp > 30 days old
 - [queries/task_status-current/resources_old.json](queries/task_status-current/resources_old.json) - (Mozart) if resource in {task, event, worker} AND creation timestamp > 7 days old 
-- [queries/grq_v1.0_l3_dswx_hls/old.json](queries/grq_v1.0_l3_dswx_hls/old.json) - (GRQ) if dataset in {L2_HLS_L30, L2_HLS_S30} AND creation timestamp > 14 days old 
-- [queries/grq_v2.0_l2_hls_l30/old.json](queries/grq_v2.0_l2_hls_l30/old.json) - (GRQ) if dataset L2_HLS_L30 AND creation timestamp > 14 days old 
-- [queries/grq_v2.0_l2_hls_s30/old.json](queries/grq_v2.0_l2_hls_s30/old.json) - (GRQ) if dataset L2_HLS_S30 AND creation timestamp > 14 days old 
+- [queries/grq_v1.0_l3_dswx_hls/old.json](queries/grq_v1.0_l3_dswx_hls/old.json) - (GRQ) if dataset in {L2_HLS_L30, L2_HLS_S30} AND creation timestamp > 30 days old 
+- [queries/grq_v2.0_l2_hls_l30/old.json](queries/grq_v2.0_l2_hls_l30/old.json) - (GRQ) if dataset L2_HLS_L30 AND creation timestamp > 30 days old 
+- [queries/grq_v2.0_l2_hls_s30/old.json](queries/grq_v2.0_l2_hls_s30/old.json) - (GRQ) if dataset L2_HLS_S30 AND creation timestamp > 30 days old 
 - [queries/grq_v1.1.10_triaged_job/old.json](queries/grq_v1.1.10_triaged_job/old.json) - (GRQ) triaged jobs dataset AND creation timestamp > 30 days old
 
 ## Contents

@@ -16,7 +16,7 @@
           {
             "range": {
               "@timestamp": {
-                "lt": "now-14d/d"
+                "lt": "now-30d/d"
               }
             }
           }
