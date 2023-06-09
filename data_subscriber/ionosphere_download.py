@@ -34,31 +34,25 @@ async def run(argv: list[str]):
     logger.info(f"{argv=}")
 
     results = {}
-    slc_dataset_timerange = get_arg_timerange(args)
-    slc_datasets = grq_client.get_slc_datasets_without_ionosphere_data(
-        dateutil.parser.isoparse(slc_dataset_timerange.start_date),
-        dateutil.parser.isoparse(slc_dataset_timerange.end_date)
-    )
+
+    slc_datasets = get_pending_slc_datasets(args)
+
     settings_cfg = SettingsConf().cfg  # has metadata extractor config
     logger.info("Creating directories to process products")
-    # house all file downloads
-    downloads_dir = Path("downloads")
+    downloads_dir = Path("downloads")  # house all file downloads
     downloads_dir.mkdir(exist_ok=True)
     for slc_dataset in slc_datasets:
         product_id = slc_dataset["_id"]
         logger.info(f"Processing {product_id=}")
 
-        additional_metadata = {}
         dataset_dir = downloads_dir / product_id
         dataset_dir.mkdir(exist_ok=True)
 
-        logger.info("Downloading orbit file")
         download_orbit_file(dataset_dir, product_id, settings_cfg)
 
-        if additional_metadata.get("intersects_north_america", False):
+        if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
             logger.info("Downloading ionosphere correction file")
             output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
-            output_ionosphere_filepath = PurePath(output_ionosphere_filepath)
             ionosphere_url = get_ionosphere_correction_file_url(dataset_dir, product_id)
             logger.info(f"{output_ionosphere_filepath=}")
             logger.info(f"{ionosphere_url=}")
@@ -91,8 +85,9 @@ async def run(argv: list[str]):
             logger.info(f"Removing {output_ionosphere_filepath}")
             Path(output_ionosphere_filepath).unlink()
 
-# TODO chrisjrd: merge results objects
-            await submit_cslc_job(product_id)
+            job_submission_result = await submit_cslc_job(product_id)
+            if job_submission_result["fail"]:
+                raise next(iter(job_submission_result["fail"]))
     logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
     results["download"] = None
@@ -103,14 +98,26 @@ async def run(argv: list[str]):
     return results
 
 
+def get_pending_slc_datasets(args):
+    slc_dataset_timerange = get_arg_timerange(args)
+    slc_datasets = grq_client.get_slc_datasets_without_ionosphere_data(
+        dateutil.parser.isoparse(slc_dataset_timerange.start_date),
+        dateutil.parser.isoparse(slc_dataset_timerange.end_date)
+    )
+    return slc_datasets
+
+
 async def submit_cslc_job(product_ids):
-    logging.info(f"{product_ids=}")
+    logger.info(f"Submitting CSLC job for {product_ids=}")
+
     product_ids = always_iterable(product_ids)
     MyNamedTuple = namedtuple("MyNamedTuple",
-                              ["chunk_size", "release_version", "collection", "smoke_run", "dry_run", "endpoint",
-                               "use_temporal", "transfer_protocol", "proc_mode", "job_queue"])
-    args = MyNamedTuple(chunk_size=1, release_version="2.0.0", collection="TBD", smoke_run=True, dry_run=True,
-                        endpoint="TBD", use_temporal=True, transfer_protocol="s3", proc_mode="TBD", job_queue="TBD")
+                              ["chunk_size", "release_version",
+                               "product_path", "dataset_type", "input_dataset_id", "product_metadata",
+                               "job_queue"])
+    args = MyNamedTuple(chunk_size=1, release_version="2.0.0",
+                        product_path="s3://", dataset_type="dataset_jpath:_source.dataset", input_dataset_id="dataset_jpath:_id", product_metadata="lambda ds: { 'metadata': ds['metadata'] }",
+                        job_queue="TBD")
 
     job_submission_tasks = []
     loop = asyncio.get_event_loop()
@@ -131,33 +138,23 @@ async def submit_cslc_job(product_ids):
                     release_version=args.release_version,
                     params=[
                         {
-                            "name": "smoke_run",
-                            "value": "--smoke-run" if args.smoke_run else "",
+                            "name": "product_path",
+                            "value": args.product_path,
                             "from": "value"
                         },
                         {
-                            "name": "dry_run",
-                            "value": "--dry-run" if args.dry_run else "",
+                            "name": "dataset_type",
+                            "value": args.dataset_type,
                             "from": "value"
                         },
                         {
-                            "name": "endpoint",
-                            "value": f"--endpoint={args.endpoint}",
+                            "name": "input_dataset_id",
+                            "value": args.input_dataset_id,
                             "from": "value"
                         },
                         {
-                            "name": "use_temporal",
-                            "value": "--use-temporal" if args.use_temporal else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "transfer_protocol",
-                            "value": f"--transfer-protocol={args.transfer_protocol}",
-                            "from": "value"
-                        },
-                        {
-                            "name": "proc_mode",
-                            "value": f"--processing-mode={args.proc_mode}",
+                            "name": "product_metadata",
+                            "value": args.product_metadata,
                             "from": "value"
                         }
                     ],
@@ -305,7 +302,7 @@ def download_ionosphere_correction_file(dataset_dir, product_filepath):
                 f"Could not find any Ionosphere Correction file for product {product_filepath}"
             )
 
-    return output_ionosphere_file_path
+    return PurePath(output_ionosphere_file_path)
 
 
 def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
