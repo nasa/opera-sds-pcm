@@ -3,12 +3,12 @@ import asyncio
 import logging
 import shutil
 import sys
-import uuid
 from collections import namedtuple
 from functools import partial
 from pathlib import Path, PurePath
 
 import boto3
+import dateutil.parser
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked, always_iterable
@@ -50,7 +50,8 @@ async def run(argv: list[str]):
 
         download_orbit_file(dataset_dir, product_id, settings_cfg)
 
-        if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
+        if True:  # TODO chrisjrd: remove after testing
+        # if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
             logger.info("Downloading ionosphere correction file")
             output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
             ionosphere_url = get_ionosphere_correction_file_url(dataset_dir, product_id)
@@ -85,7 +86,7 @@ async def run(argv: list[str]):
             logger.info(f"Removing {output_ionosphere_filepath}")
             Path(output_ionosphere_filepath).unlink()
 
-            job_submission_result = await submit_cslc_job(product_id)
+            job_submission_result = await submit_cslc_job(slc_dataset)
             if job_submission_result["fail"]:
                 raise next(iter(job_submission_result["fail"]))
     logger.info(f"Removing directory tree. {downloads_dir}")
@@ -107,63 +108,118 @@ def get_pending_slc_datasets(args):
     return slc_datasets
 
 
-async def submit_cslc_job(product_ids):
-    logger.info(f"Submitting CSLC job for {product_ids=}")
-
-    product_ids = always_iterable(product_ids)
+async def submit_cslc_job(products):
+    # logger.info(f"Submitting CSLC job for {product_id=}")
+    products = always_iterable(products) if not isinstance(products, dict) else [products]
     MyNamedTuple = namedtuple("MyNamedTuple",
                               ["chunk_size", "release_version",
-                               "product_path", "dataset_type", "input_dataset_id", "product_metadata",
+                               "dataset_type", "input_dataset_id", "product_metadata",
                                "job_queue"])
-    args = MyNamedTuple(chunk_size=1, release_version="2.0.0",
-                        product_path="s3://", dataset_type="dataset_jpath:_source.dataset", input_dataset_id="dataset_jpath:_id", product_metadata="lambda ds: { 'metadata': ds['metadata'] }",
+    args = MyNamedTuple(chunk_size=1, release_version="issue_478",
+                        dataset_type="dataset_jpath:_source.dataset", input_dataset_id="dataset_jpath:_id", product_metadata="lambda ds: { 'metadata': ds['metadata'] }",
                         job_queue="TBD")
 
+    results = []
     job_submission_tasks = []
     loop = asyncio.get_event_loop()
     logging.info(f"{args.chunk_size=}")
-    for chunk in chunked(product_ids, n=args.chunk_size):
-        chunk_id = str(uuid.uuid4())
-        logging.info(f"{chunk_id=}")
-
-        chunk_product_ids = []
-        for product_id in chunk:
-            chunk_product_ids.append(product_id)
-
-        job_submission_tasks.append(
-            loop.run_in_executor(
-                executor=None,
-                func=partial(
-                    submit_cslc_job_helper,
-                    release_version=args.release_version,
-                    params=[
-                        {
-                            "name": "product_path",
-                            "value": args.product_path,
-                            "from": "value"
-                        },
-                        {
-                            "name": "dataset_type",
-                            "value": args.dataset_type,
-                            "from": "value"
-                        },
-                        {
-                            "name": "input_dataset_id",
-                            "value": args.input_dataset_id,
-                            "from": "value"
-                        },
-                        {
-                            "name": "product_metadata",
-                            "value": args.product_metadata,
-                            "from": "value"
-                        }
-                    ],
-                    job_queue=args.job_queue
+    for chunk in chunked(products, n=args.chunk_size):
+        for product in chunk:
+            job_submission_tasks.append(
+                loop.run_in_executor(
+                    executor=None,
+                    func=partial(
+                        submit_cslc_job_helper,
+                        release_version=args.release_version,
+                        params=[
+                            # TODO chrisjrd: see if literal values are accepted, otherwise copy from hysds-io.
+                            {
+                                "name": "product_path",
+                                "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]",
+                                "from": "value"
+                            },
+                            {
+                                "name": "dataset_type",
+                                "value": args.dataset_type,
+                                "from": "value"
+                            },
+                            {
+                                "name": "input_dataset_id",
+                                "value": args.input_dataset_id,
+                                "from": "value"
+                            },
+                            {
+                                "name": "product_metadata",
+                                "value": args.product_metadata,
+                                "from": "value"
+                            },
+                            # TODO chrisjrd: find a way to avoid this duplication of hysds-io. May not be avoidable.
+                            {
+                              "name": "module_path",
+                              "from": "value",
+                              "type": "text",
+                              "value": "/home/ops/verdi/ops/opera-pcm"
+                            },
+                            {
+                              "name": "wf_dir",
+                              "from": "value",
+                              "type": "text",
+                              "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+                            },
+                            {
+                              "name": "wf_name",
+                              "from": "value",
+                              "type": "text",
+                              "value": "L2_CSLC_S1"
+                            },
+                            {
+                              "name": "accountability_module_path",
+                              "from": "value",
+                              "type": "text",
+                              "value": "opera_chimera.accountability"
+                            },
+                            {
+                              "name": "accountability_class",
+                              "from": "value",
+                              "type": "text",
+                              "value": "OperaAccountability"
+                            },
+                            {
+                              "name": "pge_runconfig_dir",
+                              "from": "value",
+                              "type": "text",
+                              "value": "pge_runconfig_dir"
+                            },
+                            {
+                              "name": "pge_input_dir",
+                              "from": "value",
+                              "type": "text",
+                              "value": "pge_input_dir"
+                            },
+                            {
+                              "name": "pge_output_dir",
+                              "from": "value",
+                              "type": "text",
+                              "value": "pge_output_dir"
+                            },
+                            {
+                              "name": "container_home",
+                              "from": "value",
+                              "type": "text",
+                              "value": "/home/compass_user"
+                            },
+                            {
+                              "name": "container_working_dir",
+                              "from": "value",
+                              "type": "text",
+                              "value": "/home/compass_user/scratch"
+                            }
+                        ],
+                        product=product
+                    )
                 )
             )
-        )
-
-    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+        results.extend(await asyncio.gather(*job_submission_tasks, return_exceptions=True))
     logging.info(f"{len(results)=}")
     logging.info(f"{results=}")
 
@@ -178,23 +234,18 @@ async def submit_cslc_job(product_ids):
     }
 
 
-def submit_cslc_job_helper(*, release_version=None, params: list[dict[str, str]],
-                           job_queue: str) -> str:
-    job_spec_str = f"job-SCIFLO_L2_CSLC_S1:{release_version}"
-
-    return _submit_mozart_job_minimal(hysdsio={"id": str(uuid.uuid4()),
-                                               "params": params,
-                                               "job-specification": job_spec_str},
-                                      job_queue=job_queue)
+def submit_cslc_job_helper(*, release_version=None, product: dict) -> str:
+    return _submit_mozart_job_minimal(release_version=release_version, product=product)
 
 
-def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
+def _submit_mozart_job_minimal(*, release_version: str, product: dict) -> str:
     return submit_mozart_job(
-        hysdsio=hysdsio,
-        product={},
+        hysdsio=None,  # setting None forces lookup based on rule and component.
+        product=product,
         rule={
+            "job_type": f"hysds-io-SCIFLO_L2_CSLC_S1:{release_version}",
             "rule_name": f"trigger-SCIFLO_L2_CSLC_S1",
-            "queue": job_queue,
+            "queue": "opera-job_worker-sciflo-l2_cslc_s1",
             "priority": "0",
             "kwargs": "{}",
             "enable_dedup": True
@@ -205,7 +256,7 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str) -> str:
         enable_dedup=None,
         soft_time_limit=None,
         time_limit=None,
-        component=None
+        component="grq"  # hysds-io information is in the hysds_ios-grq index rather thann hysds_ios-mozart
     )
 
 

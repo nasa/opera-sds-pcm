@@ -13,8 +13,9 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     es: Elasticsearch = es_conn_util.get_es_connection(logger).es
 
     body = get_body()
-    body["_source"]["includes"] = "false"
-    body["_source"]["includes"] = ["metadata.intersects_north_america", "browse_urls"]
+    # TODO chrisjrd: limit data returned by query?
+    # body["_source"]["includes"] = "false"
+    # body["_source"]["includes"] = ["metadata.intersects_north_america", "browse_urls"]
 
     body["query"]["bool"]["must"].append(get_range("creation_timestamp", creation_timestamp_start_dt.isoformat(), creation_timestamp_end_dt.isoformat()))
     body["query"]["bool"]["must"].append({"term": {"metadata.intersects_north_america": "true"}})
