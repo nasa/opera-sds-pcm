@@ -28,10 +28,14 @@ logger = logging.getLogger(__name__)
 
 
 @exec_wrapper
+def main():
+    asyncio.run(run(sys.argv))
+
+
 async def run(argv: list[str]):
+    logger.info(f"{argv=}")
     parser = create_parser()
     args = parser.parse_args(argv[1:])
-    logger.info(f"{argv=}")
 
     results = {}
 
@@ -298,4 +302,4 @@ def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
 
 
 if __name__ == "__main__":
-    asyncio.run(run(sys.argv))
+    main()
