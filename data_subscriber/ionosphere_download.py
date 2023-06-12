@@ -111,13 +111,8 @@ def get_pending_slc_datasets(args):
 async def submit_cslc_job(products):
     # logger.info(f"Submitting CSLC job for {product_id=}")
     products = always_iterable(products) if not isinstance(products, dict) else [products]
-    MyNamedTuple = namedtuple("MyNamedTuple",
-                              ["chunk_size", "release_version",
-                               "dataset_type", "input_dataset_id", "product_metadata",
-                               "job_queue"])
-    args = MyNamedTuple(chunk_size=1, release_version="issue_478",
-                        dataset_type="dataset_jpath:_source.dataset", input_dataset_id="dataset_jpath:_id", product_metadata="lambda ds: { 'metadata': ds['metadata'] }",
-                        job_queue="TBD")
+    MyNamedTuple = namedtuple("MyNamedTuple", ["chunk_size", "release_version", "job_queue"])
+    args = MyNamedTuple(chunk_size=1, release_version="issue_478", job_queue="TBD")
 
     results = []
     job_submission_tasks = []
@@ -128,95 +123,7 @@ async def submit_cslc_job(products):
             job_submission_tasks.append(
                 loop.run_in_executor(
                     executor=None,
-                    func=partial(
-                        submit_cslc_job_helper,
-                        release_version=args.release_version,
-                        params=[
-                            # TODO chrisjrd: see if literal values are accepted, otherwise copy from hysds-io.
-                            {
-                                "name": "product_path",
-                                "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]",
-                                "from": "value"
-                            },
-                            {
-                                "name": "dataset_type",
-                                "value": args.dataset_type,
-                                "from": "value"
-                            },
-                            {
-                                "name": "input_dataset_id",
-                                "value": args.input_dataset_id,
-                                "from": "value"
-                            },
-                            {
-                                "name": "product_metadata",
-                                "value": args.product_metadata,
-                                "from": "value"
-                            },
-                            # TODO chrisjrd: find a way to avoid this duplication of hysds-io. May not be avoidable.
-                            {
-                              "name": "module_path",
-                              "from": "value",
-                              "type": "text",
-                              "value": "/home/ops/verdi/ops/opera-pcm"
-                            },
-                            {
-                              "name": "wf_dir",
-                              "from": "value",
-                              "type": "text",
-                              "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
-                            },
-                            {
-                              "name": "wf_name",
-                              "from": "value",
-                              "type": "text",
-                              "value": "L2_CSLC_S1"
-                            },
-                            {
-                              "name": "accountability_module_path",
-                              "from": "value",
-                              "type": "text",
-                              "value": "opera_chimera.accountability"
-                            },
-                            {
-                              "name": "accountability_class",
-                              "from": "value",
-                              "type": "text",
-                              "value": "OperaAccountability"
-                            },
-                            {
-                              "name": "pge_runconfig_dir",
-                              "from": "value",
-                              "type": "text",
-                              "value": "pge_runconfig_dir"
-                            },
-                            {
-                              "name": "pge_input_dir",
-                              "from": "value",
-                              "type": "text",
-                              "value": "pge_input_dir"
-                            },
-                            {
-                              "name": "pge_output_dir",
-                              "from": "value",
-                              "type": "text",
-                              "value": "pge_output_dir"
-                            },
-                            {
-                              "name": "container_home",
-                              "from": "value",
-                              "type": "text",
-                              "value": "/home/compass_user"
-                            },
-                            {
-                              "name": "container_working_dir",
-                              "from": "value",
-                              "type": "text",
-                              "value": "/home/compass_user/scratch"
-                            }
-                        ],
-                        product=product
-                    )
+                    func=partial(submit_cslc_job_helper, release_version=args.release_version, product=product)
                 )
             )
         results.extend(await asyncio.gather(*job_submission_tasks, return_exceptions=True))
