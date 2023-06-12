@@ -1,5 +1,5 @@
 {
-  "label": "Download SLC data",
+  "label": "Download SLC ionosphere correction data",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
