@@ -1432,7 +1432,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1470,7 +1470,7 @@ resource "null_resource" "install_pcm_and_pges_iems" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1506,7 +1506,7 @@ resource "null_resource" "setup_trigger_rules" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -2585,7 +2585,7 @@ resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlsl30_query_timer_trigger_frequency
   is_enabled = local.enable_download_timer
-  depends_on = [null_resource.install_pcm_and_pges]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 
 resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
@@ -2613,7 +2613,7 @@ resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlss30_query_timer_trigger_frequency
   is_enabled = local.enable_download_timer
-  depends_on = [null_resource.install_pcm_and_pges]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 
 resource "aws_cloudwatch_event_target" "hlss30_query_timer" {
@@ -2731,7 +2731,7 @@ resource "aws_cloudwatch_event_rule" "slcs1a_query_timer" {
   description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.slcs1a_query_timer_trigger_frequency
   is_enabled = local.enable_download_timer
-  depends_on = [null_resource.install_pcm_and_pges]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 
 resource "aws_cloudwatch_event_target" "slcs1a_query_timer" {
@@ -2784,7 +2784,7 @@ resource "aws_cloudwatch_event_rule" "batch_query_timer" {
   description = "Cloudwatch event to trigger the Batch Timer Lambda"
   schedule_expression = var.batch_query_timer_trigger_frequency
   is_enabled = local.enable_download_timer
-  depends_on = [null_resource.install_pcm_and_pges]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 
 resource "aws_cloudwatch_event_target" "batch_query_timer" {
