@@ -33,13 +33,11 @@ locals {
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
-  # refer to job spec file extension
 #  accountability_report_job_type    = "accountability_report"
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
   batch_query_job_type              = "batch_query"
   slcs1a_query_job_type             = "slcs1a_query"
-  slc_ionosphere_download_job_type  = "slc_download_ionosphere"
 
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
@@ -1434,7 +1432,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1472,7 +1470,7 @@ resource "null_resource" "install_pcm_and_pges_iems" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1508,7 +1506,7 @@ resource "null_resource" "setup_trigger_rules" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1910,4 +1908,897 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
         value = "${var.project}-${var.venue}-${local.counter}-${each.key}"
       }
 
+      metric_dimension {
+        name  = "Queue"
+        value = each.key
+      }
+      metric_name = "${lookup(each.value, "total_jobs_metric", false) ? "JobsPerInstance" : "JobsWaitingPerInstance"}-${var.project}-${var.venue}-${local.counter}-${each.key}"
+      unit        = "None"
+      namespace   = "HySDS"
+      statistic   = "Maximum"
+    }
+   # target_value     = 1.0
+	target_value     = lookup(each.value, "total_jobs_metric_target_value", 1.0)
+    disable_scale_in = true
+  }
 
+}
+
+
+######################
+# metrics
+######################
+
+resource "aws_instance" "metrics" {
+  ami                  = var.amis["metrics"]
+  instance_type        = var.metrics["instance_type"]
+  key_name             = local.key_name
+  availability_zone    = var.az
+  iam_instance_profile = var.pcm_cluster_role["name"]
+  private_ip           = var.metrics["private_ip"] != "" ? var.metrics["private_ip"] : null
+  user_data            = <<-EOT
+              #!/bin/bash
+
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
+  tags = {
+    Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
+    Bravo = "pcm"
+  }
+  volume_tags = {
+    Bravo = "pcm"
+  }
+
+  root_block_device {
+    volume_size           = var.metrics["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
+  #This is very important, as it tells terraform to not mess with tags
+  lifecycle {
+    ignore_changes = [tags, volume_tags]
+  }
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.cluster_security_group_id]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.metrics.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "local-exec" {
+    command = "echo export METRICS_IP=${aws_instance.metrics.private_ip} > metrics_ip.sh"
+  }
+
+  provisioner "file" {
+    content     = templatefile("${path.module}/bash_profile.metrics.tmpl", {})
+    destination = ".bash_profile"
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/../../../tools/download_artifact.sh"
+    destination = "download_artifact.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
+      "chmod 755 ~/download_artifact.sh",
+      "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
+      "  mkdir -p ~/conda",
+      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
+      "  export PATH=$HOME/conda/bin:$PATH",
+      "  conda-unpack",
+      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz\"",
+      "  tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz",
+      "  rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz",
+      "fi"
+    ]
+  }
+}
+
+
+######################
+# grq
+######################
+
+resource "aws_instance" "grq" {
+  ami                  = var.amis["grq"]
+  instance_type        = var.grq["instance_type"]
+  key_name             = local.key_name
+  availability_zone    = var.az
+  iam_instance_profile = var.pcm_cluster_role["name"]
+  private_ip           = var.grq["private_ip"] != "" ? var.grq["private_ip"] : null
+  user_data            = <<-EOT
+              #!/bin/bash
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
+  tags = {
+    Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
+    Bravo = "pcm"
+  }
+  volume_tags = {
+    Bravo = "pcm"
+  }
+
+  root_block_device {
+    volume_size           = var.grq["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+  #This is very important, as it tells terraform to not mess with tags
+  lifecycle {
+    ignore_changes = [tags, volume_tags]
+  }
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.cluster_security_group_id]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.grq.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+
+  provisioner "local-exec" {
+    command = "echo export GRQ_IP=${aws_instance.grq.private_ip} > grq_ip.sh"
+  }
+
+  provisioner "file" {
+    content     = templatefile("${path.module}/bash_profile.grq.tmpl", {})
+    destination = ".bash_profile"
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/../../../tools/download_artifact.sh"
+    destination = "download_artifact.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
+      "chmod 755 ~/download_artifact.sh",
+      "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
+      "  mkdir -p ~/conda",
+      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
+      "  export PATH=$HOME/conda/bin:$PATH",
+      "  conda-unpack",
+      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz\"",
+      "  tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz",
+      "  rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz",
+      "fi",
+      "if [ \"${var.use_artifactory}\" = true ]; then",
+      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
+      "  tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz",
+      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api",
+      "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
+      "else",
+      "  git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
+      "fi"
+    ]
+  }
+
+}
+
+
+######################
+# factotum
+######################
+
+resource "aws_instance" "factotum" {
+  ami                  = var.amis["factotum"]
+  instance_type        = var.factotum["instance_type"]
+  key_name             = local.key_name
+  availability_zone    = var.az
+  iam_instance_profile = var.pcm_cluster_role["name"]
+  private_ip           = var.factotum["private_ip"] != "" ? var.factotum["private_ip"] : null
+  user_data            = <<-EOT
+              #!/bin/bash
+
+              PROJECT=${var.project}
+              ENVIRONMENT=${var.environment}
+
+              echo "PASS" >> /tmp/user_data_test.txt
+
+              mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+              touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              echo '{
+                "agent": {
+                  "metrics_collection_interval": 10,
+                  "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+                },
+                "logs": {
+                  "logs_collected": {
+                    "files": {
+                      "collect_list": [
+                        {
+                          "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                          "log_group_name": "/opera/sds/${var.project}-${var.venue}-${local.counter}/amazon-cloudwatch-agent.log",
+                          "timezone": "UTC"
+                        }
+                      ]
+                    }
+                  },
+                  "force_flush_interval" : 15
+                }
+              }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+              EOT
+  tags = {
+    Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
+    Bravo = "pcm"
+  }
+  volume_tags = {
+    Bravo = "pcm"
+  }
+  #This is very important, as it tells terraform to not mess with tags
+  lifecycle {
+    ignore_changes = [tags, volume_tags]
+  }
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.cluster_security_group_id]
+
+  root_block_device {
+    volume_size           = var.factotum["root_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
+  ebs_block_device {
+    device_name           = var.factotum["data_dev"]
+    volume_size           = var.factotum["data_dev_size"]
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.factotum.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "local-exec" {
+    command = "echo export FACTOTUM_IP=${aws_instance.factotum.private_ip} > factotum_ip.sh"
+  }
+
+  provisioner "file" {
+    content     = templatefile("${path.module}/bash_profile.verdi.tmpl", {})
+    destination = ".bash_profile"
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/../../../tools/download_artifact.sh"
+    destination = "download_artifact.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      chmod 755 ~/download_artifact.sh
+      if [ "${var.hysds_release}" != "develop" ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        mkdir -p ~/conda
+        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        export PATH=$HOME/conda/bin:$PATH
+        conda-unpack
+        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
+      fi
+    EOT
+    ]
+  }
+}
+
+resource "aws_lambda_function" "sns_cnm_response_handler" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to process CNM Response messages"
+  function_name = "${var.project}-${var.venue}-${local.counter}-daac-sns-cnm_response-handler"
+  handler       = "lambda_function.lambda_handler"
+  timeout       = 300
+  role          = var.lambda_role_arn
+  runtime       = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  environment {
+    variables = {
+      "EVENT_TRIGGER" = "sns"
+      "JOB_TYPE"      = var.cnm_r_handler_job_type
+      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_QUEUE"     = var.cnm_r_job_queue
+      "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
+      "PRODUCT_TAG"   = "true"
+    }
+  }
+}
+
+resource "aws_lambda_function" "sqs_cnm_response_handler" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to process CNM Response messages"
+  function_name = "${var.project}-${var.venue}-${local.counter}-daac-sqs-cnm_response-handler"
+  handler       = "lambda_function.lambda_handler"
+  timeout       = 300
+  role          = var.lambda_role_arn
+  runtime       = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  environment {
+    variables = {
+      "EVENT_TRIGGER" = "sqs"
+      "JOB_TYPE"      = var.cnm_r_handler_job_type
+      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_QUEUE"     = var.cnm_r_job_queue
+      "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
+      "PRODUCT_TAG"   = "true"
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "cnm_response_handler" {
+  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-daac-cnm_response-handler"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_sns_topic" "cnm_response" {
+  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+}
+
+data "aws_sns_topic" "cnm_response" {
+  depends_on = [aws_sns_topic.cnm_response]
+  name       = aws_sns_topic.cnm_response.name
+}
+
+resource "aws_sns_topic_policy" "cnm_response" {
+  depends_on = [aws_sns_topic.cnm_response, data.aws_iam_policy_document.sns_topic_policy]
+  arn        = aws_sns_topic.cnm_response.arn
+  policy     = data.aws_iam_policy_document.sns_topic_policy.json
+}
+
+data "aws_iam_policy_document" "sns_topic_policy" {
+  depends_on = [aws_sns_topic.cnm_response]
+  policy_id  = "__default_policy_ID"
+  statement {
+    actions = [
+      "SNS:Publish",
+      "SNS:SetTopicAttributes",
+      "SNS:ListSubscriptionsByTopic",
+      "SNS:GetTopicAttributes",
+      "SNS:Receive",
+      "SNS:Subscribe"
+    ]
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+	  identifiers = [
+          "arn:aws:iam::${var.aws_account_id}:root",
+          "arn:aws:iam::638310961674:root",
+          "arn:aws:iam::234498297282:root"
+      ]
+    }
+    resources = [
+      aws_sns_topic.cnm_response.arn
+    ]
+    sid = "__default_statement_ID"
+  }
+}
+
+resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
+  depends_on = [aws_sns_topic.cnm_response, aws_lambda_function.sns_cnm_response_handler]
+  topic_arn  = aws_sns_topic.cnm_response.arn
+  protocol   = "lambda"
+  endpoint   = aws_lambda_function.sns_cnm_response_handler.arn
+}
+
+resource "aws_lambda_permission" "allow_sns_cnm_r" {
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.sns_cnm_response_handler.function_name
+  principal     = "sns.amazonaws.com"
+  statement_id  = "ID-1"
+  source_arn    = aws_sns_topic.cnm_response.arn
+}
+
+resource "aws_kinesis_stream" "cnm_response" {
+  count       = local.cnm_r_kinesis_count
+  name        = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  shard_count = 1
+}
+
+resource "aws_lambda_event_source_mapping" "kinesis_event_source_mapping" {
+  depends_on        = [aws_kinesis_stream.cnm_response, aws_lambda_function.sns_cnm_response_handler]
+  count             = local.cnm_r_kinesis_count
+  event_source_arn  = aws_kinesis_stream.cnm_response[count.index].arn
+  function_name     = aws_lambda_function.sns_cnm_response_handler.arn
+  starting_position = "TRIM_HORIZON"
+}
+
+data "aws_ebs_snapshot" "docker_verdi_registry" {
+  most_recent = true
+
+  filter {
+    name   = "tag:Verdi"
+    values = [var.hysds_release]
+  }
+  filter {
+    name   = "tag:Registry"
+    values = ["2"]
+  }
+  filter {
+    name   = "tag:Logstash"
+    values = ["7.9.3"]
+  }
+}
+
+resource "aws_lambda_function" "event-misfire_lambda" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_e-misfire_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to process data from EVENT-MISFIRE bucket"
+  function_name = "${var.project}-${var.venue}-${local.counter}-event-misfire-lambda"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.8"
+  timeout       = 500
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  environment {
+    variables = {
+      "JOB_TYPE"                    = var.lambda_job_type
+      "JOB_RELEASE"                 = var.pcm_branch
+      "JOB_QUEUE"                   = var.lambda_job_queue
+      "MOZART_ES_URL"               = "http://${aws_instance.mozart.private_ip}:9200"
+      "DATASET_S3_ENDPOINT"         = "s3-us-west-2.amazonaws.com"
+      "SIGNAL_FILE_BUCKET"          = local.isl_bucket
+      "DELAY_THRESHOLD"             = var.event_misfire_delay_threshold_seconds
+      "E_MISFIRE_METRIC_ALARM_NAME" = local.e_misfire_metric_alarm_name
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "event-misfire_lambda" {
+  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-event-misfire-lambda"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "event-misfire_lambda" {
+  name                = "${aws_lambda_function.event-misfire_lambda.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger event misfire monitoring lambda"
+  schedule_expression = var.event_misfire_trigger_frequency
+}
+
+resource "aws_cloudwatch_event_target" "event-misfire_lambda" {
+  rule      = aws_cloudwatch_event_rule.event-misfire_lambda.name
+  target_id = "Lambda"
+  arn       = aws_lambda_function.event-misfire_lambda.arn
+}
+
+resource "aws_lambda_permission" "event-misfire_lambda" {
+  statement_id  = aws_cloudwatch_event_rule.event-misfire_lambda.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.event-misfire_lambda.arn
+  function_name = aws_lambda_function.event-misfire_lambda.function_name
+}
+
+# Resources to provision the Data Subscriber timers
+#resource "aws_lambda_function" "hls_download_timer" {
+#  depends_on = [null_resource.download_lambdas]
+#  filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
+#  description = "Lambda function to submit a job that will create a Data Subscriber"
+#  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
+#  handler = "lambda_function.lambda_handler"
+#  role = var.lambda_role_arn
+#  runtime = "python3.8"
+#  vpc_config {
+#    security_group_ids = [var.cluster_security_group_id]
+#    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+#  }
+#  timeout = 30
+#  environment {
+#    variables = {
+#      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+#      "JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
+#      "JOB_TYPE": local.hls_download_job_type,
+#      "JOB_RELEASE": var.pcm_branch,
+#      "ENDPOINT": "OPS",
+#      "SMOKE_RUN": "true",
+#      "DRY_RUN": "true"
+#    }
+#  }
+#}
+
+#resource "aws_cloudwatch_log_group" "hls_download_timer" {
+#  depends_on = [aws_lambda_function.hls_download_timer]
+#  name = "/aws/lambda/${aws_lambda_function.hls_download_timer.function_name}"
+#  retention_in_days = var.lambda_log_retention_in_days
+#}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+#resource "aws_cloudwatch_event_rule" "hls_download_timer" {
+#  name = "${aws_lambda_function.hls_download_timer.function_name}-Trigger"
+#  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+#  schedule_expression = var.hls_download_timer_trigger_frequency
+#  is_enabled = local.enable_download_timer
+#  depends_on = [null_resource.install_pcm_and_pges]
+#}
+
+#resource "aws_cloudwatch_event_target" "hls_download_timer" {
+#  rule = aws_cloudwatch_event_rule.hls_download_timer.name
+#  target_id = "Lambda"
+#  arn = aws_lambda_function.hls_download_timer.arn
+#}
+
+#resource "aws_lambda_permission" "hls_download_timer" {
+#  statement_id = aws_cloudwatch_event_rule.hls_download_timer.name
+#  action = "lambda:InvokeFunction"
+#  principal = "events.amazonaws.com"
+#  source_arn = aws_cloudwatch_event_rule.hls_download_timer.arn
+#  function_name = aws_lambda_function.hls_download_timer.function_name
+#}
+
+resource "aws_lambda_function" "hlsl30_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query HLSL30 data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-hlsl30-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-hls_data_query",
+      "JOB_TYPE": local.hlsl30_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "MINUTES": var.hlsl30_query_timer_trigger_frequency,
+      "PROVIDER": var.hls_provider,
+	  "ENDPOINT": "OPS",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
+      "CHUNK_SIZE": "1",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
+  depends_on = [aws_lambda_function.hlsl30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlsl30_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_lambda_function" "hlss30_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query HLSS30 data"
+  function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-hls_data_query",
+      "JOB_TYPE": local.hlss30_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "PROVIDER": var.hls_provider,
+	  "ENDPOINT": "OPS",
+      "MINUTES": var.hlss30_query_timer_trigger_frequency,
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
+      "CHUNK_SIZE": "1",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
+    }
+  }
+}
+
+resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
+  name = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.hlsl30_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.setup_trigger_rules]
+}
+
+resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
+  rule = aws_cloudwatch_event_rule.hlsl30_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.hlsl30_query_timer.arn
+}
+
+resource "aws_lambda_permission" "hlsl30_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.hlsl30_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.hlsl30_query_timer.arn
+  function_name = aws_lambda_function.hlsl30_query_timer.function_name
+}
+
+resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
+  depends_on = [aws_lambda_function.hlss30_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.hlss30_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
+  name = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.hlss30_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.setup_trigger_rules]
+}
+
+resource "aws_cloudwatch_event_target" "hlss30_query_timer" {
+  rule = aws_cloudwatch_event_rule.hlss30_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.hlss30_query_timer.arn
+}
+
+resource "aws_lambda_permission" "hlss30_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.hlss30_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.hlss30_query_timer.arn
+  function_name = aws_lambda_function.hlss30_query_timer.function_name
+}
+
+#resource "aws_lambda_function" "slc_download_timer" {
+#  depends_on = [null_resource.download_lambdas]
+#  filename = "${var.lambda_data-subscriber-download_handler_package_name}-${var.lambda_package_release}.zip"
+#  description = "Lambda function to submit a job that will create a Data Subscriber Download"
+#  function_name = "${var.project}-${var.venue}-${local.counter}-data-subscriber-download-timer"
+#  handler = "lambda_function.lambda_handler"
+#  role = var.lambda_role_arn
+#  runtime = "python3.8"
+#  vpc_config {
+#    security_group_ids = [var.cluster_security_group_id]
+#    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+#  }
+#  timeout = 30
+#  environment {
+#    variables = {
+#      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+#      "JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
+#      "JOB_TYPE": local.slc_download_job_type,
+#      "JOB_RELEASE": var.pcm_branch,
+#      "ENDPOINT": "OPS",
+#      "SMOKE_RUN": "true",
+#      "DRY_RUN": "true"
+#    }
+#  }
+#}
+
+#resource "aws_cloudwatch_log_group" "slc_download_timer" {
+#  depends_on = [aws_lambda_function.slc_download_timer]
+#  name = "/aws/lambda/${aws_lambda_function.slc_download_timer.function_name}"
+#  retention_in_days = var.lambda_log_retention_in_days
+#}
+
+# Cloudwatch event that will trigger a Lambda that submits the Data Subscriber timer job
+#resource "aws_cloudwatch_event_rule" "slc_download_timer" {
+#  name = "${aws_lambda_function.slc_download_timer.function_name}-Trigger"
+#  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+#  schedule_expression = var.slc_download_timer_trigger_frequency
+#  is_enabled = local.enable_download_timer
+#  depends_on = [null_resource.install_pcm_and_pges]
+#}
+
+#resource "aws_cloudwatch_event_target" "slc_download_timer" {
+#  rule = aws_cloudwatch_event_rule.slc_download_timer.name
+#  target_id = "Lambda"
+#  arn = aws_lambda_function.slc_download_timer.arn
+#}
+
+#resource "aws_lambda_permission" "slc_download_timer" {
+#  statement_id = aws_cloudwatch_event_rule.slc_download_timer.name
+#  action = "lambda:InvokeFunction"
+#  principal = "events.amazonaws.com"
+#  source_arn = aws_cloudwatch_event_rule.slc_download_timer.arn
+#  function_name = aws_lambda_function.slc_download_timer.function_name
+#}
+
+resource "aws_lambda_function" "slcs1a_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query Sentinel SLC 1A data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-slcs1a-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-slc_data_query",
+      "JOB_TYPE": local.slcs1a_query_job_type,
+      "JOB_RELEASE": var.pcm_branch,
+      "MINUTES": var.slcs1a_query_timer_trigger_frequency,
+      "PROVIDER": var.slc_provider,
+      "ENDPOINT": "OPS",
+      "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
+      "CHUNK_SIZE": "1",
+      "SMOKE_RUN": "false",
+      "DRY_RUN": "false",
+      "NO_SCHEDULE_DOWNLOAD": "false",
+      "BOUNDING_BOX": ""
+      "USE_TEMPORAL": "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME": "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "slcs1a_query_timer" {
+  depends_on = [aws_lambda_function.slcs1a_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.slcs1a_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "slcs1a_query_timer" {
+  name = "${aws_lambda_function.slcs1a_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.slcs1a_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.setup_trigger_rules]
+}
+
+resource "aws_cloudwatch_event_target" "slcs1a_query_timer" {
+  rule = aws_cloudwatch_event_rule.slcs1a_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.slcs1a_query_timer.arn
+}
+
+resource "aws_lambda_permission" "slcs1a_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.slcs1a_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.slcs1a_query_timer.arn
+  function_name = aws_lambda_function.slcs1a_query_timer.function_name
+}
+
+# Batch Query Lambda and Timer ---->
+
+resource "aws_lambda_function" "batch_query_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will query batch data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-batch-query-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_IP": "${aws_instance.mozart.private_ip}",
+      "GRQ_IP": "${aws_instance.grq.private_ip}",
+      "GRQ_ES_PORT": "9200",
+      "ENDPOINT": "OPS",
+      "JOB_RELEASE": var.pcm_branch
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "batch_query_timer" {
+  depends_on = [aws_lambda_function.batch_query_timer]
+  name = "/aws/lambda/${aws_lambda_function.batch_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "batch_query_timer" {
+  name = "${aws_lambda_function.batch_query_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Batch Timer Lambda"
+  schedule_expression = var.batch_query_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.setup_trigger_rules]
+}
+
+resource "aws_cloudwatch_event_target" "batch_query_timer" {
+  rule = aws_cloudwatch_event_rule.batch_query_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.batch_query_timer.arn
+}
+
+resource "aws_lambda_permission" "batch_query_timer" {
+  statement_id = aws_cloudwatch_event_rule.batch_query_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.batch_query_timer.arn
+  function_name = aws_lambda_function.batch_query_timer.function_name
+}
+
+# <------ Batch Query Lambda and Timer
