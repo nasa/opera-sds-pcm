@@ -1417,7 +1417,7 @@ resource "aws_instance" "mozart" {
 
 }
 
-# Resource to install PCM and its dependencies
+# Resource to install PCM and its dependencies, container-nasa-xxx-sds-pcm
 resource "null_resource" "install_pcm_and_pges" {
   depends_on = [
     aws_instance.mozart
@@ -1432,7 +1432,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -1441,7 +1441,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
       if [ "${var.use_artifactory}" = true ]; then
           ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
-	      sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
+        sds pkg import container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
           rm -rf container-nasa_${var.project}-sds-pcm-${var.pcm_branch}.sdspkg.tar
           fab -f ~/.sds/cluster.py -R mozart load_container_in_registry:"container-nasa_${var.project}-sds-pcm:${lower(var.pcm_branch)}"
       else
@@ -1450,23 +1450,75 @@ resource "null_resource" "install_pcm_and_pges" {
           sds -d ci remove_job -b ${var.pcm_branch} https://${var.pcm_repo}
       fi
 
+    EOT
+    ]
+  }
+}
+
+# Resource to install PCM and its dependencies,container-iems-sds_cnm_product_delivery
+resource "null_resource" "install_pcm_and_pges_iems" {
+  depends_on = [
+    aws_instance.mozart
+  ]
+
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      set -ex
+      source ~/.bash_profile
+
+      echo build/import opera-pcm
+      echo Build container
+
       echo build/import CNM product delivery
       if [ "${var.use_artifactory}" = true ]; then
           ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
           sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
           rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
       else
+          sleep 300
           sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
           sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
           sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
       fi
 
-      echo Set up trigger rules
-      sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}
     EOT
     ]
   }
 }
+
+resource "null_resource" "setup_trigger_rules" {
+  depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; sleep 5; done
+      set -ex
+      source ~/.bash_profile
+
+      echo Set up trigger rules
+      sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}
+
+    EOT
+    ]
+  }
+}
+
+
 
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
