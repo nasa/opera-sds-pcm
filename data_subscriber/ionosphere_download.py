@@ -81,18 +81,19 @@ async def run(argv: list[str]):
                     pass
 
                 if results["fail"]:
-                    logging.warning("Job submission failure result. Collecting exception result. Skipping to next SLC dataset.")
+                    logging.info(f"Job submission failure result for {product_id=}. Collecting exception result. Skipping to next SLC dataset.")
                     exceptions.extend(results["fail"])
                     continue
 
                 ionosphere_metadata = generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_bucket, s3_key)
                 try_update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=product_id, ionosphere_metadata=ionosphere_metadata)
         except Exception as e:
+            logging.info(f"An exception occurred while processing {product_id=}. Collecting exception. Skipping to next SLC dataset.")
             exceptions.append(e)
             continue
 
     if exceptions:
-        logging.error(f"{len(exceptions)} exceptions occurred. Wrapping and raising.")
+        logging.error(f"During job execution, {len(exceptions)} exceptions occurred. Wrapping and raising.")
         raise Exception(exceptions)
 
     logger.info(f"Removing directory tree. {downloads_dir}")
