@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+import backoff
 from elasticsearch import Elasticsearch
 from elasticsearch import helpers
 
