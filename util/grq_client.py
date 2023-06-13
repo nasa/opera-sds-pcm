@@ -32,7 +32,8 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     return search_results
 
 
-def update_slc_dataset_with_ionosphere_metadata(index, product_id, ionosphere_metadata):
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
+def try_update_slc_dataset_with_ionosphere_metadata(index, product_id, ionosphere_metadata):
     es: Elasticsearch = es_conn_util.get_es_connection(logger).es
     es.update(index, product_id, body={"doc": {**ionosphere_metadata}})
 

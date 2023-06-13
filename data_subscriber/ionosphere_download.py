@@ -3,15 +3,16 @@ import asyncio
 import logging
 import shutil
 import sys
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from functools import partial
 from pathlib import Path, PurePath
 
+import backoff
 import boto3
 import dateutil.parser
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
-from more_itertools import chunked, always_iterable
+from more_itertools import chunked, partition
 from mypy_boto3_s3 import S3Client
 
 from tools import stage_ionosphere_file
@@ -19,9 +20,8 @@ from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import NoQueryResultsException
 from util import grq_client as grq_client, job_util
-from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
-from util.grq_client import update_slc_dataset_with_ionosphere_metadata
+from util.grq_client import try_update_slc_dataset_with_ionosphere_metadata
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,70 +37,97 @@ async def run(argv: list[str]):
     parser = create_parser()
     args = parser.parse_args(argv[1:])
 
-    results = {}
+    results = defaultdict(list)
+    exceptions = []
 
     slc_datasets = get_pending_slc_datasets(args)
 
-    settings_cfg = SettingsConf().cfg  # has metadata extractor config
     logger.info("Creating directories to process products")
     downloads_dir = Path("downloads")  # house all file downloads
     downloads_dir.mkdir(exist_ok=True)
-    for slc_dataset in slc_datasets:
+
+    for i, slc_dataset in enumerate(slc_datasets, start=1):
         product_id = slc_dataset["_id"]
-        logger.info(f"Processing {product_id=}")
-
+        logger.info(f"Processing {product_id=}. {i} of {len(slc_datasets)} products")
         dataset_dir = downloads_dir / product_id
-        dataset_dir.mkdir(exist_ok=True)
 
-        download_orbit_file(dataset_dir, product_id, settings_cfg)
+        try:
+            if not slc_dataset["_source"]["metadata"].get("intersects_north_america"):
+                logging.info("dataset doesn't cover North America. Skipping.")
+                continue
 
-        if True:  # TODO chrisjrd: remove after testing
-        # if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
-            logger.info("Downloading ionosphere correction file")
-            output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
-            ionosphere_url = get_ionosphere_correction_file_url(dataset_dir, product_id)
-            logger.info(f"{output_ionosphere_filepath=}")
-            logger.info(f"{ionosphere_url=}")
+            if True:  # TODO chrisjrd: remove after testing
+            # if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
+                dataset_dir.mkdir(exist_ok=True)
 
-            slc_dataset_s3_url = next(iter(filter(lambda url: url.startswith("s3"), slc_dataset["_source"]["browse_urls"])))
-            logger.info(f"{slc_dataset_s3_url=}")
+                logger.info("Downloading ionosphere correction file")
+                output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
+                ionosphere_url = get_ionosphere_correction_file_url(dataset_dir, product_id)
+                logger.info(f"{output_ionosphere_filepath=}")
+                logger.info(f"{ionosphere_url=}")
 
-            s3_uri_tokens = slc_dataset_s3_url.split('/')
-            s3_bucket = s3_uri_tokens[3]
-            s3_key = '/'.join(s3_uri_tokens[5:])  # skip redundant `/browse/` fragment at index 4
+                slc_dataset_s3_url: str = next(iter(filter(lambda url: url.startswith("s3"), slc_dataset["_source"]["browse_urls"])))
+                logger.info(f"{slc_dataset_s3_url=}")
 
-            s3_client: S3Client = boto3.client("s3")
-            s3_client.upload_file(Filename=str(output_ionosphere_filepath), Bucket=s3_bucket, Key=f"{s3_key}/{output_ionosphere_filepath.name}")
+                s3_bucket, s3_key = try_s3_upload_file(slc_dataset_s3_url, output_ionosphere_filepath)
 
-            ionosphere_metadata = {
-                "ionosphere": {
-                    "job_id": job_util.supply_job_id(),
-                    "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
-                    "source_url": ionosphere_url
-                }
-            }
+                job_submission_results = await submit_cslc_jobs([slc_dataset], args)
 
-            # DEV: compare to CoreMetExtractor.py
-            ionosphere_metadata["ionosphere"]["FileLocation"] = str(output_ionosphere_filepath.parent)
-            ionosphere_metadata["ionosphere"]["FileSize"] = Path(output_ionosphere_filepath).stat().st_size
-            ionosphere_metadata["ionosphere"]["FileName"] = output_ionosphere_filepath.name
+                if job_submission_results["success"]:
+                    results["success"].extend(job_submission_results["success"])
+                elif job_submission_results["fail"]:
+                    results["fail"].extend(job_submission_results["fail"])
+                else:
+                    pass
 
-            update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=product_id, ionosphere_metadata=ionosphere_metadata)
+                if results["fail"]:
+                    logging.warning("Job submission failure result. Collecting exception result. Skipping to next SLC dataset.")
+                    exceptions.extend(results["fail"])
+                    continue
 
-            logger.info(f"Removing {output_ionosphere_filepath}")
-            Path(output_ionosphere_filepath).unlink()
+                ionosphere_metadata = generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_bucket, s3_key)
+                try_update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=product_id, ionosphere_metadata=ionosphere_metadata)
+        except Exception as e:
+            exceptions.append(e)
+            continue
 
-            job_submission_result = await submit_cslc_job(slc_dataset)
-            if job_submission_result["fail"]:
-                raise next(iter(job_submission_result["fail"]))
+    if exceptions:
+        logging.error(f"{len(exceptions)} exceptions occurred. Wrapping and raising.")
+        raise Exception(exceptions)
+
     logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
-    results["download"] = None
 
     logger.info(f"{results=}")
     logger.info("END")
 
     return results
+
+
+def generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_bucket, s3_key):
+    ionosphere_metadata = {
+        "ionosphere": {
+            "job_id": job_util.supply_job_id(),
+            "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
+            "source_url": ionosphere_url
+        }
+    }
+    # DEV: compare to CoreMetExtractor.py
+    ionosphere_metadata["ionosphere"]["FileLocation"] = str(output_ionosphere_filepath.parent)
+    ionosphere_metadata["ionosphere"]["FileSize"] = Path(output_ionosphere_filepath).stat().st_size
+    ionosphere_metadata["ionosphere"]["FileName"] = output_ionosphere_filepath.name
+
+    return ionosphere_metadata
+
+
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
+def try_s3_upload_file(slc_dataset_s3_url, output_ionosphere_filepath):
+    s3_uri_tokens = slc_dataset_s3_url.split('/')
+    s3_bucket = s3_uri_tokens[3]
+    s3_key = '/'.join(s3_uri_tokens[5:])  # skip redundant `/browse/` fragment at index 4
+    s3_client: S3Client = boto3.client("s3")
+    s3_client.upload_file(Filename=str(output_ionosphere_filepath), Bucket=s3_bucket, Key=f"{s3_key}/{output_ionosphere_filepath.name}")
+    return s3_bucket, s3_key
 
 
 def get_pending_slc_datasets(args):
@@ -112,40 +139,58 @@ def get_pending_slc_datasets(args):
     return slc_datasets
 
 
-async def submit_cslc_job(products):
-    # logger.info(f"Submitting CSLC job for {product_id=}")
-    products = always_iterable(products) if not isinstance(products, dict) else [products]
-    MyNamedTuple = namedtuple("MyNamedTuple", ["chunk_size", "release_version", "job_queue"])
-    args = MyNamedTuple(chunk_size=1, release_version="issue_478", job_queue="TBD")
+async def submit_cslc_jobs(products, args):
+    job_submission_tasks = _create_job_submission_tasks(args, products)
+    job_submission_task_results = await _execute_job_submission_tasks(job_submission_tasks)
 
-    results = []
-    job_submission_tasks = []
-    loop = asyncio.get_event_loop()
-    logging.info(f"{args.chunk_size=}")
-    for chunk in chunked(products, n=args.chunk_size):
-        for product in chunk:
-            job_submission_tasks.append(
-                loop.run_in_executor(
-                    executor=None,
-                    func=partial(submit_cslc_job_helper, release_version=args.release_version, product=product)
-                )
-            )
-        results.extend(await asyncio.gather(*job_submission_tasks, return_exceptions=True))
-    logging.info(f"{len(results)=}")
-    logging.info(f"{results=}")
+    logging.info(f"{len(job_submission_task_results)=}")
+    logging.debug(f"{job_submission_task_results=}")
 
-    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
-    logging.info(f"{succeeded=}")
-    failed = [e for e in results if isinstance(e, Exception)]
-    logging.info(f"{failed=}")
+    task_successes, task_failures = partition(lambda it: isinstance(it, Exception), job_submission_task_results)
+    cslc_job_ids = list(task_successes)
+    task_exceptions = list(task_failures)
 
-    return {
-        "success": succeeded,
-        "fail": failed
+    results = {
+        "success": cslc_job_ids,
+        "fail": task_exceptions
     }
+    return results
+
+
+async def _execute_job_submission_tasks(job_submission_tasks):
+    job_submission_task_results = []
+    task_chunks = list(chunked(job_submission_tasks, 1))
+    for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+        logger.info(f"Processing batch {i} of {len(task_chunks)}")
+        task_results = await asyncio.gather(*task_chunk, return_exceptions=True)
+        job_submission_task_results.extend(task_results)
+
+    return job_submission_task_results
+
+
+def _create_job_submission_tasks(args, products):
+    job_submission_tasks = []
+    for product in products:
+        job_submission_tasks.append(_create_job_submission_task(args, product))
+
+    return job_submission_tasks
+
+
+def _create_job_submission_task(args, product):
+    logger.info(f'Creating CSLC job submission task for {product["_id"]=}')
+    loop = asyncio.get_event_loop()
+    job_submission_task = loop.run_in_executor(
+        executor=None,
+        func=partial(submit_cslc_job_helper, release_version=args.release_version, product=product))
+    return job_submission_task
 
 
 def submit_cslc_job_helper(*, release_version=None, product: dict) -> str:
+    return _try_submit_mozart_job_minimal(release_version=release_version, product=product)
+
+
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
+def _try_submit_mozart_job_minimal(*, release_version: str, product: dict) -> str:
     return _submit_mozart_job_minimal(release_version=release_version, product=product)
 
 
@@ -174,19 +219,23 @@ def _submit_mozart_job_minimal(*, release_version: str, product: dict) -> str:
 def create_parser():
     parser = argparse.ArgumentParser()
 
-    start_date = {"positionals": ["-s", "--start-date"],
+    start_date = {"positionals": ["--start-date"],
                   "kwargs": {"dest": "start_date",
                              "default": None,
                              "help": "The ISO date time after which data should be retrieved. For Example, "
                                      "--start-date 2021-01-14T00:00:00Z"}}
 
-    end_date = {"positionals": ["-e", "--end-date"],
+    end_date = {"positionals": ["--end-date"],
                 "kwargs": {"dest": "end_date",
                            "default": None,
                            "help": "The ISO date time before which data should be retrieved. For Example, --end-date "
                                    "2021-01-14T00:00:00Z"}}
 
-    parser_arg_list = [start_date, end_date]
+    release_version = {"positionals": ["--release-version"],
+                       "kwargs": {"dest": "release_version",
+                                  "help": "The release version of the CSLC job-spec."}}
+
+    parser_arg_list = [start_date, end_date, release_version]
     _add_arguments(parser, parser_arg_list)
 
     return parser
