@@ -1,0 +1,20 @@
+{
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "match": {
+              "status": "job-failed"
+            }
+          },
+          {
+            "range": {
+              "@timestamp": {
+                "lt": "now-30d/d"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
