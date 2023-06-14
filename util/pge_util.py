@@ -161,7 +161,7 @@ def get_cslc_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             )
 
             output_filenames.append(f'{base_name}.{extension}')
-            output_filenames.append(f'{base_name}_static_layers.{extension}')
+            output_filenames.append(f'{base_name}_Static.{extension}')
     elif extension.endswith('png'):
         for burst_id in CSLC_BURST_IDS:
             base_name = base_name_template.format(
@@ -219,11 +219,11 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
 
             output_filenames.append(f'{base_name}_VV.{extension}')
             output_filenames.append(f'{base_name}_VH.{extension}')
-            output_filenames.append(f'{base_name}_incidence_angle.{extension}')
-            output_filenames.append(f'{base_name}_layover_shadow_mask.{extension}')
-            output_filenames.append(f'{base_name}_local_incidence_angle.{extension}')
-            output_filenames.append(f'{base_name}_nlooks.{extension}')
-            output_filenames.append(f'{base_name}_rtc_anf.{extension}')
+            output_filenames.append(f'{base_name}_static_incidence_angle.{extension}')
+            output_filenames.append(f'{base_name}_static_layover_shadow_mask.{extension}')
+            output_filenames.append(f'{base_name}_static_local_incidence_angle.{extension}')
+            output_filenames.append(f'{base_name}_static_nlooks.{extension}')
+            output_filenames.append(f'{base_name}_static_rtc_anf_gamma0_to_beta0.{extension}')
     # Primary metadata product, like image product but no polarization field
     elif extension.endswith('h5') or extension.endswith('iso.xml'):
         for burst_id in RTC_BURST_IDS:
