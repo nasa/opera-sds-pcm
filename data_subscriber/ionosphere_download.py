@@ -261,7 +261,7 @@ def get_arg_timerange(args):
     return download_timerange
 
 
-@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None, giveup=lambda e: isinstance(e, IonosphereFileNotFoundException))
 def download_ionosphere_correction_file(dataset_dir, product_filepath):
     logger.info("Downloading associated Ionosphere Correction file")
     try:
