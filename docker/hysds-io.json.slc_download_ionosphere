@@ -14,6 +14,11 @@
       "from": "submitter",
       "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z",
       "optional": true
+    },
+    {
+      "name": "cslc_job_release",
+      "from": "submitter",
+      "placeholder": "e.g. --release-version=<release_version>"
     }
   ]
 }

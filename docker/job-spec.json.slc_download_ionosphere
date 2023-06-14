@@ -18,6 +18,10 @@
     {
       "name": "end_datetime",
       "destination": "positional"
+    },
+    {
+      "name": "cslc_job_release",
+      "destination": "positional"
     }
   ]
 }
