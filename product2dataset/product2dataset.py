@@ -178,18 +178,7 @@ def convert(
             dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
             dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
 
-        if "dswx-hls" in dataset_id.lower():
-            collection_name = settings.get("DSWX_COLLECTION_NAME")
-            product_version = settings.get("DSWX_HLS_PRODUCT_VERSION")
-        elif "cslc-s1" in dataset_id.lower():
-            collection_name = settings.get("CSLC_COLLECTION_NAME")
-            product_version = settings.get("CSLC_S1_PRODUCT_VERSION")
-        elif "rtc-s1" in dataset_id.lower():
-            collection_name = settings.get("RTC_COLLECTION_NAME")
-            product_version = settings.get("RTC_S1_PRODUCT_VERSION")
-        else:
-            collection_name = "Unknown"
-            product_version = "Unknown"
+        collection_name, product_version = get_collection_info(dataset_id, settings)
 
         dataset_met_json["CollectionName"] = collection_name
         dataset_met_json["ProductVersion"] = product_version
@@ -204,6 +193,32 @@ def convert(
             json.dump(dataset_met_json, outfile, indent=2)
 
     return list(created_datasets)
+
+def get_collection_info(dataset_id: str, settings: dict):
+    """Returns the appropriate collection name and version for the provided dataset ID"""
+
+    if "dswx-hls" in dataset_id.lower():
+        collection_name = settings.get("DSWX_COLLECTION_NAME")
+        product_version = settings.get("DSWX_HLS_PRODUCT_VERSION")
+    elif "cslc-s1" in dataset_id.lower():
+        if "static" in dataset_id.lower():
+            collection_name = settings.get("CSLC_STATIC_COLLECTION_NAME")
+            product_version = settings.get("CSLC_S1_STATIC_PRODUCT_VERSION")
+        else:
+            collection_name = settings.get("CSLC_COLLECTION_NAME")
+            product_version = settings.get("CSLC_S1_PRODUCT_VERSION")
+    elif "rtc-s1" in dataset_id.lower():
+        if "static" in dataset_id.lower():
+            collection_name = settings.get("RTC_STATIC_COLLECTION_NAME")
+            product_version = settings.get("RTC_S1_STATIC_PRODUCT_VERSION")
+        else:
+            collection_name = settings.get("RTC_COLLECTION_NAME")
+            product_version = settings.get("RTC_S1_PRODUCT_VERSION")
+    else:
+        collection_name = "Unknown"
+        product_version = "Unknown"
+
+    return collection_name, product_version
 
 
 def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
