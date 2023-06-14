@@ -25,7 +25,7 @@ This is a simple script meant to execute an Elasticsearch query specified in an 
 This script includes a number of pre-configured Elasticsearch queries described below. Note the folder structure: `queries/[index_name]/*.json`. **This folder structure is important: the `index_name` is extracted from the folder in the path to the query JSON file.** This design prevents mistakes of running a delete query against the wrong index.
 - [queries/job_status-current/jobs_nominal_old.json](queries/job_status-current/jobs_nominal_old.json) - (Mozart) if status in {completed, revoked, deduped} AND creation timestamp > 14 days old 
 - [queries/job_status-current/jobs_failed_old.json](queries/job_status-current/jobs_failed_old.json) - (Mozart) if status = failed AND creation timestamp > 30 days old
-- [queries/task_status-current/resources_old.json](queries/task_status-current/resources_old.json) - (Mozart) if resource in {task, event, worker} AND creation timestamp > 7 days old 
+- [queries/task_status-current/resources_old.json](queries/task_status-current/resources_old.json) - (Mozart) if resource in {task, event, worker} AND creation timestamp > 14 days old 
 - [queries/grq_v1.0_l3_dswx_hls/old.json](queries/grq_v1.0_l3_dswx_hls/old.json) - (GRQ) if dataset in {L2_HLS_L30, L2_HLS_S30} AND creation timestamp > 30 days old 
 - [queries/grq_v2.0_l2_hls_l30/old.json](queries/grq_v2.0_l2_hls_l30/old.json) - (GRQ) if dataset L2_HLS_L30 AND creation timestamp > 30 days old 
 - [queries/grq_v2.0_l2_hls_s30/old.json](queries/grq_v2.0_l2_hls_s30/old.json) - (GRQ) if dataset L2_HLS_S30 AND creation timestamp > 30 days old 
