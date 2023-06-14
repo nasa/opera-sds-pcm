@@ -287,9 +287,7 @@ def download_ionosphere_correction_file(dataset_dir, product_filepath):
             output_ionosphere_file_path = stage_ionosphere_file.main(stage_ionosphere_file_args)
             logger.info("Added JPRG Ionosphere correction file to dataset")
         except IonosphereFileNotFoundException:
-            logger.warning(
-                f"Could not find any Ionosphere Correction file for product {product_filepath}"
-            )
+            logger.warning(f"Could not find any Ionosphere Correction file for product {product_filepath}")
             raise
 
     return PurePath(output_ionosphere_file_path)
@@ -323,9 +321,7 @@ def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
             ionosphere_url = stage_ionosphere_file.main(stage_ionosphere_file_args)
             logger.info("Added JPRG Ionosphere correction file to dataset")
         except IonosphereFileNotFoundException:
-            logger.warning(
-                f"Could not find any Ionosphere Correction file for product {product_filepath}"
-            )
+            logger.warning(f"Could not find any Ionosphere Correction file for product {product_filepath}")
             raise
 
     return ionosphere_url
