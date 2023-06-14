@@ -16,9 +16,7 @@ from more_itertools import chunked, partition
 from mypy_boto3_s3 import S3Client
 
 from tools import stage_ionosphere_file
-from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
-from tools.stage_orbit_file import NoQueryResultsException
 from util import grq_client as grq_client, job_util
 from util.exec_util import exec_wrapper
 from util.grq_client import try_update_slc_dataset_with_ionosphere_metadata
@@ -61,7 +59,11 @@ async def run(argv: list[str]):
                 dataset_dir.mkdir(exist_ok=True)
 
                 logger.info("Downloading ionosphere correction file")
-                output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
+                try:
+                    output_ionosphere_filepath = download_ionosphere_correction_file(dataset_dir, product_id)
+                except IonosphereFileNotFoundException:
+                    logger.info("Couldn't find an ionosphere correction file. Skipping to next SLC dataset.")
+                    continue
                 ionosphere_url = get_ionosphere_correction_file_url(dataset_dir, product_id)
                 logger.info(f"{output_ionosphere_filepath=}")
                 logger.info(f"{ionosphere_url=}")
@@ -259,32 +261,7 @@ def get_arg_timerange(args):
     return download_timerange
 
 
-def download_orbit_file(dataset_dir, product_filepath, settings_cfg):
-    logger.info("Downloading associated orbit file")
-    try:
-        logger.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
-        stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
-            [
-                f"--output-directory={str(dataset_dir)}",
-                "--orbit-type=POEORB",
-                f"--query-time-range={settings_cfg.get('POE_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_POE_TIME_RANGE)}",
-                str(product_filepath)
-            ]
-        )
-        stage_orbit_file.main(stage_orbit_file_args)
-    except NoQueryResultsException:
-        logger.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
-        stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
-            [
-                f"--output-directory={str(dataset_dir)}",
-                "--orbit-type=RESORB",
-                f"--query-time-range={settings_cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
-                str(product_filepath)
-            ]
-        )
-        stage_orbit_file.main(stage_orbit_file_args)
-
-
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
 def download_ionosphere_correction_file(dataset_dir, product_filepath):
     logger.info("Downloading associated Ionosphere Correction file")
     try:
@@ -313,10 +290,12 @@ def download_ionosphere_correction_file(dataset_dir, product_filepath):
             logger.warning(
                 f"Could not find any Ionosphere Correction file for product {product_filepath}"
             )
+            raise
 
     return PurePath(output_ionosphere_file_path)
 
 
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
 def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
     logger.info("Downloading associated Ionosphere Correction file")
     try:
@@ -347,6 +326,7 @@ def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
             logger.warning(
                 f"Could not find any Ionosphere Correction file for product {product_filepath}"
             )
+            raise
 
     return ionosphere_url
 
