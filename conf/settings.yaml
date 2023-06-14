@@ -61,7 +61,9 @@ RES_ORBIT_TIME_RANGE: 3  # Hours
 
 CSLC_S1:
   # Toggle static layer generation during processing
-  ENABLE_STATIC_LAYERS: !!bool true
+  ENABLE_STATIC_LAYERS: !!bool false
+  # Validity start time used to tag static layer products
+  DATA_VALIDITY_START_TIME: 20140403T000000
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
@@ -74,6 +76,8 @@ DSWX_HLS:
 RTC_S1:
   # Toggle static layer generation during processing
   ENABLE_STATIC_LAYERS: !!bool true
+  # Validity start time used to tag static layer products
+  DATA_VALIDITY_START_TIME: 20140403T000000
 
 # End PGE Configuration section
 

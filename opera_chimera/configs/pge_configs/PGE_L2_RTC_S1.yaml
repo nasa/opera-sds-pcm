@@ -25,6 +25,7 @@ runconfig:
     product_path: /home/rtc_user/output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: /home/rtc_user/output_dir/scratch_dir
+    data_validity_start_time: __CHIMERA_VAL__
   processing:
     polarization: __CHIMERA_VAL__
     enable_static_layers: __CHIMERA_VAL__
@@ -33,6 +34,7 @@ runconfig:
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
+  - get_data_validity_start_time
   - get_slc_polarization
   - get_slc_static_layers_enabled
   - get_slc_s1_safe_file

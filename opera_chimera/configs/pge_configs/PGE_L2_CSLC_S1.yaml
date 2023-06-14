@@ -25,6 +25,7 @@ runconfig:
     product_version: __CHIMERA_VAL__
     product_path: /home/compass_user/output_dir
     scratch_path: /home/compass_user/scratch
+    data_validity_start_time: __CHIMERA_VAL__
   processing:
     # TODO: set to __CHIMERA_VAL__ once dual-pol mode is supported by the CSLC-S1 SAS
     polarization: co-pol
@@ -34,6 +35,7 @@ runconfig:
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
+  - get_data_validity_start_time
   # TODO uncomment once dual-pol mode is supported by the CSLC-S1 SAS
   # - get_slc_polarization
   - get_slc_static_layers_enabled
