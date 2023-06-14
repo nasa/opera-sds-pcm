@@ -55,7 +55,7 @@
 #}
 
 resource "aws_lambda_function" "hlsl30_query_timer" {
-  depends_on = [null_resource.download_lambdas]
+  depends_on = [null_resource.download_lambdas, aws_instance.mozart]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will query HLSL30 data."
   function_name = "${var.project}-${var.venue}-${local.counter}-hlsl30-query-timer"
@@ -94,7 +94,7 @@ resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
   retention_in_days = var.lambda_log_retention_in_days
 }
 resource "aws_lambda_function" "hlss30_query_timer" {
-  depends_on = [null_resource.download_lambdas]
+  depends_on = [null_resource.download_lambdas, aws_instance.mozart]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will query HLSS30 data"
   function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
@@ -234,7 +234,7 @@ resource "aws_lambda_permission" "hlss30_query_timer" {
 #}
 
 resource "aws_lambda_function" "slcs1a_query_timer" {
-  depends_on = [null_resource.download_lambdas]
+  depends_on = [null_resource.download_lambdas, aws_instance.mozart]
   filename = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will query Sentinel SLC 1A data."
   function_name = "${var.project}-${var.venue}-${local.counter}-slcs1a-query-timer"
@@ -299,7 +299,7 @@ resource "aws_lambda_permission" "slcs1a_query_timer" {
 # Batch Query Lambda and Timer ---->
 
 resource "aws_lambda_function" "batch_query_timer" {
-  depends_on = [null_resource.download_lambdas]
+  depends_on = [null_resource.download_lambdas, aws_instance.mozart]
   filename = "${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
   description = "Lambda function to submit a job that will query batch data."
   function_name = "${var.project}-${var.venue}-${local.counter}-batch-query-timer"
