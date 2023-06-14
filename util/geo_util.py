@@ -149,7 +149,7 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
             # may update `lon_max`
             if (offset_x_multiplier == 1 and
                     (lon_max is None or
-                    (abs(lon_min - lon) < 180 and lon_max < lon) or
+                    (abs(lon_max - lon) < 180 and lon_max < lon) or
                     (lon < -100 and lon_max > 100))):
                 lon_max = lon
 
