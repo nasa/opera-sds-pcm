@@ -9,8 +9,14 @@ from osgeo import osr
 from shapely.geometry import box, LinearRing, Point, Polygon
 
 
-EARTH_APPROX_CIRCUNFERENCE = 40075017.
+EARTH_APPROX_CIRCUMFERENCE = 40075017.
 
+def margin_km_to_deg(margin_in_km):
+    """Converts a margin value from kilometers to degrees"""
+    km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUMFERENCE / 360.)
+    margin_in_deg = margin_in_km * km_to_deg_at_equator
+
+    return margin_in_deg
 
 def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
                            flag_use_m_to_deg_conversion_at_equator=True):
@@ -87,8 +93,7 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
 
     # Add margin to the bounding polygon
     if flag_use_m_to_deg_conversion_at_equator:
-        km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUNFERENCE / 360.)
-        margin_in_deg = margin_in_km * km_to_deg_at_equator
+        margin_in_deg = margin_km_to_deg(margin_in_km)
     else:
         margin_in_deg = 0
 
