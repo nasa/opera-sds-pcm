@@ -64,6 +64,8 @@ CSLC_S1:
   ENABLE_STATIC_LAYERS: !!bool false
   # Validity start time used to tag static layer products
   DATA_VALIDITY_START_TIME: 20140403T000000
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 50
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
@@ -78,6 +80,8 @@ RTC_S1:
   ENABLE_STATIC_LAYERS: !!bool true
   # Validity start time used to tag static layer products
   DATA_VALIDITY_START_TIME: 20140403T000000
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 50
 
 # End PGE Configuration section
 

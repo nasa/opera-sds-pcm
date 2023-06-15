@@ -966,6 +966,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         logger.info(f"Derived DEM bounding box: {bbox}")
 
+        pge_name = self._pge_config.get('pge_name')
+        pge_shortname = pge_name[3:].upper()
+
+        logger.info(f'Getting ANCILLARY_MARGIN setting for PGE {pge_shortname}')
+
+        margin = self._settings.get(pge_shortname).get("ANCILLARY_MARGIN")
+
+        logger.info(f'Using margin value of {margin} with staged DEM')
+
         # Set up arguments to stage_dem.py
         # Note that since we provide an argparse.Namespace directly,
         # all arguments must be specified, even if it's only with a null value
@@ -973,7 +982,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.s3_bucket = s3_bucket
         args.outfile = output_filepath
         args.filepath = None
-        args.margin = 5  # KM
+        args.margin = margin  # KM
         args.log_level = LogLevels.INFO.value
         args.bbox = bbox
         args.tile_code = None
