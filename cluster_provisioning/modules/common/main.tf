@@ -33,11 +33,13 @@ locals {
   pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
+  # refer to job spec file extension
 #  accountability_report_job_type    = "accountability_report"
   hlsl30_query_job_type             = "hlsl30_query"
   hlss30_query_job_type             = "hlss30_query"
   batch_query_job_type              = "batch_query"
   slcs1a_query_job_type             = "slcs1a_query"
+  slc_ionosphere_download_job_type  = "slc_download_ionosphere"
 
   use_s3_uri_structure              = var.use_s3_uri_structure
   grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
@@ -84,6 +86,9 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_data-subscriber-download-slc-ionosphere_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
@@ -2539,6 +2544,60 @@ resource "aws_lambda_permission" "slcs1a_query_timer" {
   source_arn = aws_cloudwatch_event_rule.slcs1a_query_timer.arn
   function_name = aws_lambda_function.slcs1a_query_timer.function_name
 }
+
+resource "aws_lambda_function" "slc_ionosphere_download_timer" {
+  depends_on = [null_resource.download_lambdas]
+  filename = "${var.lambda_data-subscriber-download-slc-ionosphere_handler_package_name}-${var.lambda_package_release}.zip"
+  description = "Lambda function to submit a job that will download ionosphere correction files for SLC products."
+  function_name = "${var.project}-${var.venue}-${local.counter}-slc-ionosphere-download-timer"
+  handler = "lambda_function.lambda_handler"
+  role = var.lambda_role_arn
+  runtime = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL": "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE": "opera-job_worker-slc_data_download_ionosphere",
+      "JOB_TYPE": local.slc_ionosphere_download_job_type,
+      "JOB_RELEASE": var.pcm_branch
+      "QUERY_START_DATETIME_OFFSET_HOURS": "372"  # 24h x 14d == 336h. Plus QUERY_END offset
+      "QUERY_END_DATETIME_OFFSET_HOURS": "36"  # 36h is the expected maximum latency for ionosphere availability for a *current* SLC product
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "slc_ionosphere_download_timer" {
+  depends_on = [aws_lambda_function.slc_ionosphere_download_timer]
+  name = "/aws/lambda/${aws_lambda_function.slc_ionosphere_download_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_event_rule" "slc_ionosphere_download_timer" {
+  name = "${aws_lambda_function.slc_ionosphere_download_timer.function_name}-Trigger"
+  description = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.slc_ionosphere_download_timer_trigger_frequency
+  is_enabled = local.enable_download_timer
+  depends_on = [null_resource.install_pcm_and_pges]
+}
+
+resource "aws_cloudwatch_event_target" "slc_ionosphere_download_timer" {
+  rule = aws_cloudwatch_event_rule.slc_ionosphere_download_timer.name
+  target_id = "Lambda"
+  arn = aws_lambda_function.slc_ionosphere_download_timer.arn
+}
+
+resource "aws_lambda_permission" "slc_ionosphere_download_timer" {
+  statement_id = aws_cloudwatch_event_rule.slc_ionosphere_download_timer.name
+  action = "lambda:InvokeFunction"
+  principal = "events.amazonaws.com"
+  source_arn = aws_cloudwatch_event_rule.slc_ionosphere_download_timer.arn
+  function_name = aws_lambda_function.slc_ionosphere_download_timer.function_name
+}
+
+
 
 # Batch Query Lambda and Timer ---->
 

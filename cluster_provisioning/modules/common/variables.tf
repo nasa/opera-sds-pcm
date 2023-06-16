@@ -272,6 +272,10 @@ variable "lambda_data-subscriber-query_handler_package_name" {
   default = "lambda-data-subscriber-query-handler"
 }
 
+variable "lambda_data-subscriber-download-slc-ionosphere_handler_package_name" {
+  default = "lambda-data-subscriber-download-slc-ionosphere-handler"
+}
+
 variable "lambda_report_handler_package_name" {
   default = "lambda-report-handler"
 }
@@ -361,6 +365,15 @@ variable "queues" {
       "use_private_vpc" = false
     }
     "opera-job_worker-slc_data_download" = {
+      "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
+      "root_dev_size" = 50
+      "data_dev_size" = 100
+      "min_size"      = 0
+      "max_size"      = 80
+      "total_jobs_metric" = true
+      "use_private_vpc" = false
+    }
+    "opera-job_worker-slc_data_download_ionosphere" = {
       "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 100
@@ -484,6 +497,10 @@ variable "slc_download_timer_trigger_frequency" {
 }
 
 variable "slcs1a_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slc_ionosphere_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
