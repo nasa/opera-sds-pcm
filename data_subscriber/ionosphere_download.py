@@ -50,13 +50,13 @@ async def run(argv: list[str]):
         dataset_dir = downloads_dir / product_id
 
         try:
+            dataset_dir.mkdir(exist_ok=True)
+
             if not slc_dataset["_source"]["metadata"].get("intersects_north_america"):
                 logging.info("dataset doesn't cover North America. Skipping.")
                 continue
 
-            if True:  # TODO chrisjrd: remove after testing
-            # if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
-                dataset_dir.mkdir(exist_ok=True)
+            if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
 
                 logger.info("Downloading ionosphere correction file")
                 try:
@@ -93,6 +93,9 @@ async def run(argv: list[str]):
             logging.info(f"An exception occurred while processing {product_id=}. Collecting exception. Skipping to next SLC dataset.")
             exceptions.append(e)
             continue
+        finally:
+            logging.info(f"Removing {dataset_dir=}")
+            shutil.rmtree(dataset_dir)
 
     if exceptions:
         logging.error(f"During job execution, {len(exceptions)} exceptions occurred. Wrapping and raising.")
@@ -101,6 +104,7 @@ async def run(argv: list[str]):
     logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
 
+    results = dict(results)  # convert to regular dict
     logger.info(f"{results=}")
     logger.info("END")
 
