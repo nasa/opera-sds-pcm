@@ -19,6 +19,8 @@ import extractor.extract
 import product2dataset.product2dataset
 from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from product2dataset import product2dataset
+from data_subscriber.ionosphere_download import download_ionosphere_correction_file
+from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools import stage_orbit_file
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
@@ -201,6 +203,15 @@ def download_from_asf(
             stage_orbit_file.main(stage_orbit_file_args)
 
         logging.info("Added orbit file to dataset")
+
+        if additional_metadata.get("intersects_north_america", False) \
+                and additional_metadata['processing_mode'] == "historical":
+            logging.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
+            try:
+                download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
+            except IonosphereFileNotFoundException:
+                logging.warning("Ionosphere file not found remotely. Allowing job to continue.")
+                pass
 
         logging.info(f"Removing {product_filepath}")
         product_filepath.unlink(missing_ok=True)

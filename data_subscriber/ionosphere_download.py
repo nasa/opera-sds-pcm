@@ -56,7 +56,12 @@ async def run(argv: list[str]):
                 logging.info("dataset doesn't cover North America. Skipping.")
                 continue
 
-            if slc_dataset["_source"]["metadata"].get("intersects_north_america"):
+            if not slc_dataset["_source"]["metadata"].get("processing_mode") == "forward":
+                logging.info("dataset not captured in forward processing mode. Skipping.")
+                continue
+
+            if slc_dataset["_source"]["metadata"].get("intersects_north_america") \
+                    and slc_dataset["_source"]["metadata"].get("processing_mode") == "forward":
 
                 logger.info("Downloading ionosphere correction file")
                 try:
