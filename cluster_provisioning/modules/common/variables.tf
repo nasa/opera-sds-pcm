@@ -300,7 +300,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "instance_type" = ["c6a.4xlarge", "c6i.4xlarge"]
       "root_dev_size" = 50
-      "data_dev_size" = 150
+      "data_dev_size" = 300
       "max_size"      = 10
       "total_jobs_metric" = true
     }
@@ -442,8 +442,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-rc.1.3"
-    "rtc_s1" = "2.0.0-rc.1.3"
+    "cslc_s1" = "2.0.0-rc.2.0"
+    "rtc_s1" = "2.0.0-rc.2.0"
   }
 }
 

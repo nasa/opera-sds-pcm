@@ -966,6 +966,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         logger.info(f"Derived DEM bounding box: {bbox}")
 
+        pge_name = self._pge_config.get('pge_name')
+        pge_shortname = pge_name[3:].upper()
+
+        logger.info(f'Getting ANCILLARY_MARGIN setting for PGE {pge_shortname}')
+
+        margin = self._settings.get(pge_shortname).get("ANCILLARY_MARGIN")
+
+        logger.info(f'Using margin value of {margin} with staged DEM')
+
         # Set up arguments to stage_dem.py
         # Note that since we provide an argparse.Namespace directly,
         # all arguments must be specified, even if it's only with a null value
@@ -973,7 +982,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.s3_bucket = s3_bucket
         args.outfile = output_filepath
         args.filepath = None
-        args.margin = 5  # KM
+        args.margin = margin  # KM
         args.log_level = LogLevels.INFO.value
         args.bbox = bbox
         args.tile_code = None
@@ -1123,6 +1132,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.PRODUCT_VERSION: product_version
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_data_validity_start_time(self):
+        """Gets the setting for the data_validity_start_time flag from settings.yaml"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        pge_name = self._pge_config.get('pge_name')
+        pge_shortname = pge_name[3:].upper()
+
+        logger.info(f'Getting DATA_VALIDITY_START_TIME setting for PGE {pge_shortname}')
+
+        data_validity_start_time = self._settings.get(pge_shortname).get("DATA_VALIDITY_START_TIME")
+
+        rc_params = {
+            "data_validity_start_time": data_validity_start_time
         }
 
         logger.info(f"rc_params : {rc_params}")

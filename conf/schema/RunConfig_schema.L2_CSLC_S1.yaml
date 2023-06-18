@@ -24,7 +24,9 @@ RunConfig:
         ProgramOptions: list(str(), min=0, required=False)
         ErrorCodeBase: int(required=True)
         SchemaPath: str(required=True)
-        IsoTemplatePath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
+        IsoTemplatePath: str(required=False)
+        DataValidityStartTime: regex(r'\d{8}T\d{6}', name='YYYYMMDDTHHmmss datetime', required=False)
 
       QAExecutable:
         Enabled: bool(required=True)
@@ -83,7 +85,7 @@ RunConfig:
           # This section includes parameters to tweak the workflow
           processing: include('processing_options', required=False)
 
-          # Worker options (e.g., enable/disable GPU processing, select GPU device ID)
+          # Worker options (e.g. enable/disable GPU processing, select GPU device ID)
           worker: include('worker_options', required=False)
 
           # Quality assurance options

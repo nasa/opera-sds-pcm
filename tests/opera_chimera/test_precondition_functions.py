@@ -275,13 +275,19 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         }
 
         pge_config = {
+            'pge_name': 'L2_CSLC_S1',
             oc_const.GET_SLC_S1_DEM: {
                 oc_const.S3_BUCKET: 'opera-bucket'
             }
         }
 
+        settings = {
+            'CSLC_S1': {
+                'ANCILLARY_MARGIN': 50
+            }
+        }
+
         # These are not used with get_cslc_s1_dem()
-        settings = None
         context = None
 
         precondition_functions = OperaPreConditionFunctions(
