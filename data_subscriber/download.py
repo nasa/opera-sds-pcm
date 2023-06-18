@@ -205,7 +205,7 @@ def download_from_asf(
         logging.info("Added orbit file to dataset")
 
         if additional_metadata.get("intersects_north_america", False) \
-                and additional_metadata['processing_mode'] == "historical":
+                and (additional_metadata['processing_mode'] == "historical" or additional_metadata['processing_mode'] == "reprocessing"):
             logging.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
             try:
                 download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
