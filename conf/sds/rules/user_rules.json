@@ -35,7 +35,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\": {\"must\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"should\": [{\"term\": {\"metadata.processing_mode\": [\"forward\",\"reprocessing\"]}}]}}",
+      "query_string": "{\"bool\": {\"must\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must_not\": [{\"term\": {\"metadata.processing_mode\": \"historical\"}}]}}",
       "queue": "opera-job_worker-sciflo-l2_rtc_s1",
       "rule_name": "trigger-SCIFLO_L2_RTC_S1",
       "username": "hysdsops",
