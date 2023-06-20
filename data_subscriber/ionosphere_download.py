@@ -87,9 +87,9 @@ async def run(argv: list[str]):
                 else:
                     pass
 
-                if results["fail"]:
+                if job_submission_results["fail"]:
                     logging.info(f"Job submission failure result for {product_id=}. Collecting exception result. Skipping to next SLC dataset.")
-                    exceptions.extend(results["fail"])
+                    exceptions.extend(job_submission_results["fail"])
                     continue
 
                 ionosphere_metadata = generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_bucket, s3_key)
