@@ -46,6 +46,7 @@ setup(
         ],
         "subscriber": [
             "boto3",
+			"mypy-boto3-s3",
             "python-dateutil",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
