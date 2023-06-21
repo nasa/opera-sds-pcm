@@ -302,7 +302,7 @@ def download_ionosphere_correction_file(dataset_dir, product_filepath):
     return PurePath(output_ionosphere_file_path)
 
 
-@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None, giveup=lambda e: isinstance(e, IonosphereFileNotFoundException))
 def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
     logger.info("Downloading associated Ionosphere Correction file")
     try:
