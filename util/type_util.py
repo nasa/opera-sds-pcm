@@ -6,7 +6,7 @@ def set_type(value):
 
     :return: The value casted to either an int, float, or str.
     """
-    constructors = [str, int, float]
+    constructors = [int, float, str]
     for c in constructors:
         try:
             return c(value)
