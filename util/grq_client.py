@@ -16,6 +16,7 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     body = get_body()
     body["query"]["bool"]["must"].append(get_range("creation_timestamp", creation_timestamp_start_dt.isoformat(), creation_timestamp_end_dt.isoformat()))
     body["query"]["bool"]["must"].append({"term": {"metadata.intersects_north_america": "true"}})
+    body["query"]["bool"]["must"].append({"term": {"metadata.processing_mode": "forward"}})
 
     body["query"]["bool"]["must_not"].append({"exists": {"field": "metadata.ionosphere.job_id"}})
     body["query"]["bool"]["must_not"].append({"exists": {"field": "metadata.ionosphere.s3_url"}})
