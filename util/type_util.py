@@ -12,4 +12,4 @@ def set_type(value):
             return c(value)
         except ValueError:
             pass
-    raise ValueError("{} is not one of these types: {}".format(c, constructors))
+    raise ValueError("{} is not one of these types: {}".format(value, constructors))
