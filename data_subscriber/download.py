@@ -17,11 +17,11 @@ from smart_open import open
 
 import extractor.extract
 import product2dataset.product2dataset
+from data_subscriber import ionosphere_download
 from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from product2dataset import product2dataset
-from data_subscriber.ionosphere_download import download_ionosphere_correction_file
-from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools import stage_orbit_file
+from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
@@ -208,7 +208,16 @@ def download_from_asf(
                 and additional_metadata['processing_mode'] in ("historical", "reprocessing"):
             logging.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
             try:
-                download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
+                output_ionosphere_filepath: PurePath = ionosphere_download.download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
+                ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(dataset_dir=dataset_dir, product_filepath=product_filepath)
+
+                # add ionosphere metadata to the dataset about to be ingested
+                ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url=ionosphere_url, s3_bucket="...", s3_key="...")
+                with Path(dataset_dir / "met.json").open("r") as fp:
+                    met_json: dict = json.load(fp)
+                met_json.update(ionosphere_metadata)
+                with Path(dataset_dir / "met.json").open("w") as fp:
+                    json.dump(met_json, fp)
             except IonosphereFileNotFoundException:
                 logging.warning("Ionosphere file not found remotely. Allowing job to continue.")
                 pass
