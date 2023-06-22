@@ -351,7 +351,6 @@ resource "aws_lambda_permission" "slc_ionosphere_download_timer" {
   function_name = aws_lambda_function.slc_ionosphere_download_timer.function_name
 }
 
-
 # Batch Query Lambda and Timer ---->
 
 resource "aws_lambda_function" "batch_query_timer" {
