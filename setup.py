@@ -120,7 +120,7 @@ setup(
             "backoff",
             "compact-json",
             "more-itertools",
-            "python-dateutil"
+            "python-dateutil",
             "python-dotenv"
         ],
         "cnm_check": [
