@@ -226,10 +226,14 @@ def download_from_asf(
 
 
 def update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir: PurePath, ionosphere_metadata: dict):
-    with Path(dataset_dir / "met.json").open("r") as fp:
+    logging.info("Updating dataset's met.json with ionosphere metadata")
+
+    with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
         met_json: dict = json.load(fp)
+
     met_json.update(ionosphere_metadata)
-    with Path(dataset_dir / "met.json").open("w") as fp:
+
+    with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("w") as fp:
         json.dump(met_json, fp)
 
 
