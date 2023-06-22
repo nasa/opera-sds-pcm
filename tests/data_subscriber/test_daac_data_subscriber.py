@@ -496,9 +496,28 @@ def test_download_from_asf(monkeypatch):
 
     mock_stage_ionosphere_file = MagicMock()
     monkeypatch.setattr(
-        download,
-        download.download_ionosphere_correction_file.__name__,
+        download.ionosphere_download,
+        download.ionosphere_download.download_ionosphere_correction_file.__name__,
         mock_stage_ionosphere_file
+    )
+
+    mock_stage_ionosphere_file_url = MagicMock()
+    monkeypatch.setattr(
+        download.ionosphere_download,
+        download.ionosphere_download.get_ionosphere_correction_file_url.__name__,
+        mock_stage_ionosphere_file_url
+    )
+
+    monkeypatch.setattr(
+        download.ionosphere_download,
+        download.ionosphere_download.generate_ionosphere_metadata.__name__,
+        MagicMock()
+    )
+
+    monkeypatch.setattr(
+        download,
+        download.update_pending_dataset_metadata_with_ionosphere_metadata.__name__,
+        MagicMock()
     )
 
     # ACT
@@ -519,6 +538,7 @@ def test_download_from_asf(monkeypatch):
     mock_extract_one_to_one.assert_called_once()
     mock_stage_orbit_file.assert_called_once()
     mock_stage_ionosphere_file.assert_called_once()
+    mock_stage_ionosphere_file_url.assert_called_once()
 
 
 def mock_token(*args):
