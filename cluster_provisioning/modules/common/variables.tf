@@ -374,6 +374,7 @@ variable "queues" {
       "use_private_vpc" = false
     }
     "opera-job_worker-slc_data_download_ionosphere" = {
+     ""instance_type" = ["m5a.large", "m6a.large", "m5.large", "m6a.large", "m5ad.large", "m5d.large"]
       "instance_type" = ["c5n.2xlarge", "m5dn.2xlarge"]
       "root_dev_size" = 50
       "data_dev_size" = 100
