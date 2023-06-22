@@ -19,7 +19,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession):
     # page_num, offset (0-based), page_size, sort_key
     # You can not page past the 1 millionth item.
     # Additionally granule queries which do not target a set of collections are limited to paging up to the 10000th item.
-    max_pages = int(100_000/2000)  # cap the number of pages (requests) to scroll through results. CMR's hard limit is page_size * max_pages <= 100,000
+    max_pages = int(100_000/page_size)  # cap the number of pages (requests) to scroll through results. CMR's hard limit is page_size * max_pages <= 100,000
 
     current_page = 1
     cmr_search_after = ""

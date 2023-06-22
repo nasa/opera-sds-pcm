@@ -355,7 +355,7 @@ def main(args):
         logger.info('URL-only requested')
         logger.info(request_url)
         print(request_url)
-        return 0
+        return request_url
 
     # Download the compressed archive file from the endpoint
     logger.info(f"Downloading for Ionosphere Correction archive file(s) from "

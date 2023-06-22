@@ -39,10 +39,14 @@ setup(
 
             "python-dateutil",
             "validators",
-            "cachetools==5.2.0"
+            "cachetools==5.2.0",
+
+            "boto3-stubs",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
         ],
         "subscriber": [
             "boto3",
+			"mypy-boto3-s3",
             "python-dateutil",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
