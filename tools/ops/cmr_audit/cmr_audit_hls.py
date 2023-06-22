@@ -12,8 +12,8 @@ import aiohttp
 import more_itertools
 from dotenv import dotenv_values
 
-from tools.cmr_audit.cmr_audit_utils import async_get_cmr_granules
-from tools.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
+from tools.ops.cmr_audit.cmr_client import async_cmr_post
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.basicConfig(

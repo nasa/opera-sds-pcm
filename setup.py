@@ -46,7 +46,8 @@ setup(
         ],
         "subscriber": [
             "boto3",
-			"mypy-boto3-s3",
+            "boto3-stubs",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "python-dateutil",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
@@ -120,6 +121,7 @@ setup(
             "compact-json",
             "more-itertools",
             "python-dateutil"
+            "python-dotenv"
         ],
         "cnm_check": [
             "compact-json",

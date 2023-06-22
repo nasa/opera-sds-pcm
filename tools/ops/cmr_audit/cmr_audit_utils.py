@@ -12,7 +12,7 @@ import more_itertools
 from dateutil.rrule import rrule, HOURLY, DAILY
 from more_itertools import always_iterable
 
-from tools.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_client import async_cmr_post
 
 logger = logging.getLogger(__name__)
 
