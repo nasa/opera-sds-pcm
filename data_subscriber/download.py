@@ -213,11 +213,7 @@ def download_from_asf(
 
                 # add ionosphere metadata to the dataset about to be ingested
                 ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url=ionosphere_url, s3_bucket="...", s3_key="...")
-                with Path(dataset_dir / "met.json").open("r") as fp:
-                    met_json: dict = json.load(fp)
-                met_json.update(ionosphere_metadata)
-                with Path(dataset_dir / "met.json").open("w") as fp:
-                    json.dump(met_json, fp)
+                update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
             except IonosphereFileNotFoundException:
                 logging.warning("Ionosphere file not found remotely. Allowing job to continue.")
                 pass
@@ -227,6 +223,14 @@ def download_from_asf(
 
     logging.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
+
+
+def update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir: PurePath, ionosphere_metadata: dict):
+    with Path(dataset_dir / "met.json").open("r") as fp:
+        met_json: dict = json.load(fp)
+    met_json.update(ionosphere_metadata)
+    with Path(dataset_dir / "met.json").open("w") as fp:
+        json.dump(met_json, fp)
 
 
 def download_granules(
