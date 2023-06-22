@@ -208,7 +208,7 @@ def download_from_asf(
                 and additional_metadata['processing_mode'] in ("historical", "reprocessing"):
             logging.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
             try:
-                output_ionosphere_filepath: PurePath = ionosphere_download.download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
+                output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
                 ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(dataset_dir=dataset_dir, product_filepath=product_filepath)
 
                 # add ionosphere metadata to the dataset about to be ingested
