@@ -18,8 +18,8 @@ from dotenv import dotenv_values
 from more_itertools import always_iterable
 
 from geo.geo_util import does_bbox_intersect_north_america
-from tools.cmr_audit.cmr_audit_utils import async_get_cmr_granules
-from tools.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
+from tools.ops.cmr_audit.cmr_client import async_cmr_post
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
