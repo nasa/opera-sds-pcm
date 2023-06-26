@@ -389,25 +389,6 @@ resource "aws_lambda_event_source_mapping" "isl_queue_event_source_mapping" {
 #####################################
 # sds config  QUEUE block generation
 #####################################
-data "template_file" "config" {
-  template = file("${path.module}/config.tmpl")
-  count    = length(var.queues)
-  #the spacing in inst is determined by trial and error, so the resulting terraform generated YAML is valid
-  vars = {
-    queue = element(keys(var.queues), count.index)
-    inst  = join("\n      - ", lookup(lookup(var.queues, element(keys(var.queues), count.index)), "instance_type"))
-    tot_jobs_met  = lookup(lookup(var.queues, element(keys(var.queues), count.index)), "total_jobs_metric", false)
-  }
-}
-
-data "template_file" "q_config" {
-  template = file("${path.module}/config2.tmpl")
-  #the spacing in queue is determined by trial and error, so the resulting terraform generated YAML is valid
-  vars = {
-    queue = join("\n", data.template_file.config.*.rendered)
-  }
-}
-
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
     private_key_file   = var.private_key_file

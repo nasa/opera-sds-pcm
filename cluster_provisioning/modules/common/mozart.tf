@@ -1,6 +1,20 @@
 ######################
 # mozart
 ######################
+locals {
+  q_config = <<EOT
+QUEUES:
+    %{~ for queue, queue_config in var.queues ~}
+  - QUEUE_NAME: ${queue}
+    INSTANCE_TYPES:
+    %{~ for instance_type in queue_config["instance_type"] ~}
+      - ${instance_type}
+    %{~ endfor ~}
+    TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
+    %{~ endfor ~}
+  EOT
+}
+
 resource "aws_instance" "mozart" {
   depends_on           = [aws_instance.metrics, aws_autoscaling_group.autoscaling_group]
   ami                  = var.amis["mozart"]
@@ -87,7 +101,7 @@ resource "aws_instance" "mozart" {
   }
 
   provisioner "file" {
-    content     = data.template_file.q_config.rendered
+    content     = local.q_config
     destination = "q_config"
   }
 
