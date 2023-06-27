@@ -36,10 +36,6 @@ class NoJobUtilsFilter(logging.Filter):
         )
 
 
-logger_hysds_commons = logging.getLogger("hysds_commons")
-logger_hysds_commons.addFilter(NoJobUtilsFilter())
-
-
 class NoBaseFilter(logging.Filter):
     def filter(self, record):
         if not record.filename == "base.py":
@@ -52,12 +48,14 @@ class NoBaseFilter(logging.Filter):
             and "/containers/_doc/" not in record.getMessage()
 
 
-logger_elasticsearch = logging.getLogger("elasticsearch")
-logger_elasticsearch.addFilter(NoBaseFilter())
-
-
 @exec_wrapper
 def main():
+    logger_hysds_commons = logging.getLogger("hysds_commons")
+    logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+    logger_elasticsearch = logging.getLogger("elasticsearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+
     asyncio.run(run(sys.argv))
 
 
