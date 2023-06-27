@@ -25,6 +25,34 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class NoJobUtilsFilter(logging.Filter):
+    def filter(self, record):
+        if not record.filename == "job_utils.py":
+            return True
+
+        return record.funcName not in (
+            "resolve_mozart_job", "get_params_for_submission", "submit_mozart_job",
+            "resolve_hysds_job", "submit_hysds_job"
+        )
+
+
+class NoBaseFilter(logging.Filter):
+    def filter(self, record):
+        if not record.filename == "base.py":
+            return True
+        if not record.funcName == "log_request_success":
+            return True
+
+        return "/job_specs/_doc/" not in record.getMessage() \
+            and "/hysds_ios-grq/_doc/" not in record.getMessage() \
+            and "/containers/_doc/" not in record.getMessage()
+
+
+logger_hysds_commons = logging.getLogger("hysds_commons")
+logger_hysds_commons.addFilter(NoJobUtilsFilter())
+logger_hysds_commons.addFilter(NoBaseFilter())
+
+
 @exec_wrapper
 def main():
     asyncio.run(run(sys.argv))
