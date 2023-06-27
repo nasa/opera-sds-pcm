@@ -36,6 +36,10 @@ class NoJobUtilsFilter(logging.Filter):
         )
 
 
+logger_hysds_commons = logging.getLogger("hysds_commons")
+logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+
 class NoBaseFilter(logging.Filter):
     def filter(self, record):
         if not record.filename == "base.py":
@@ -48,9 +52,8 @@ class NoBaseFilter(logging.Filter):
             and "/containers/_doc/" not in record.getMessage()
 
 
-logger_hysds_commons = logging.getLogger("hysds_commons")
-logger_hysds_commons.addFilter(NoJobUtilsFilter())
-logger_hysds_commons.addFilter(NoBaseFilter())
+logger_elasticsearch = logging.getLogger("elasticsearch")
+logger_elasticsearch.addFilter(NoBaseFilter())
 
 
 @exec_wrapper
@@ -67,6 +70,7 @@ async def run(argv: list[str]):
     exceptions = []
 
     slc_datasets = get_pending_slc_datasets(args)
+    logger.info(f"{len(slc_datasets)=}")
 
     logger.info("Creating directories to process products")
     downloads_dir = Path("downloads")  # house all file downloads
