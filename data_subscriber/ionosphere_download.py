@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 
 
 class NoJobUtilsFilter(logging.Filter):
+
+    """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its
+    handlers."""
     def filter(self, record):
         if not record.filename == "job_utils.py":
             return True
@@ -37,6 +40,9 @@ class NoJobUtilsFilter(logging.Filter):
 
 
 class NoBaseFilter(logging.Filter):
+    """Filters out lower-level elasticsearch HTTP chatter. Apply to the logger named "elasticsearch" or to one of its
+    handlers."""
+
     def filter(self, record):
         if not record.filename == "base.py":
             return True
