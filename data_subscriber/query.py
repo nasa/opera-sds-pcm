@@ -39,6 +39,7 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     for granule in granules:
         additional_fields = {}
 
+        additional_fields["revision_id"] = granule.get("revision_id")
         additional_fields["processing_mode"] = args.proc_mode
 
         # If processing mode is historical,
@@ -292,6 +293,7 @@ def _request_search(args, request_url, params, search_after=None):
 
     if items and "umm" in items[0]:
         return [{"granule_id": item.get("umm").get("GranuleUR"),
+                 "revision_id": item.get("meta").get("revision-id"),
                  "provider": item.get("meta").get("provider-id"),
                  "production_datetime": item.get("umm").get("DataGranule").get("ProductionDateTime"),
                  "temporal_extent_beginning_datetime": item["umm"]["TemporalExtent"]["RangeDateTime"][
