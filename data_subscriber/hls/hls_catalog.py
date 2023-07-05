@@ -65,10 +65,15 @@ class HLSProductCatalog:
             **kwargs
     ):
         filename = Path(url).name
-        result = self._query_existence(filename)
+        r_id = str(kwargs['revision_id'])
+        doc_id = filename[:-3] + r_id + '.tif'
+
+        # We're not doing anything w the query result so comment it out to save resources
+        #result = self._query_existence(filename)
+
         doc = {
-            "id": filename,
-            "granule_id": granule_id,
+            "id": doc_id,
+            "granule_id": granule_id + "." + r_id,
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
             "query_datetime": query_dt,
@@ -85,7 +90,7 @@ class HLSProductCatalog:
 
         doc.update(kwargs)
 
-        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc_id)
         return True
 
     def product_is_downloaded(self, url):
