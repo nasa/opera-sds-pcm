@@ -160,10 +160,11 @@ def test_subscriber_slc():
     assert response["StatusCode"] == 200
     job_id = response["Payload"].read().decode().strip("\"")
     logging.info(f"{job_id=}")
-    wait_for_job(job_id)
 
     logging.info("Sleeping for SLC ionosphere download job execution...")
     sleep_for(300)
+
+    wait_for_job(job_id)
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
