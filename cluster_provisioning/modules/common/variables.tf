@@ -146,8 +146,8 @@ variable "amis" {
     #factotum  = "ami-0b988a1203b7e5a58" # factotum v4.16
     #autoscale = "ami-082d3efc94d50659f" # verdi v4.16 patchupdate - 20230525
 
-    # HySDS v5.0.0-beta.6 - July 2, 2023 
-    mozart    = "ami-07b87aef4cf5def57" # mozart v4.20 - 230605
+    # HySDS v5.0.0-beta.6 - July 10, 2023 
+    mozart    = "ami-0d1d5539d77a6cde2" # mozart v4.21 - 230710
     metrics   = "ami-0aa63c81611c8cb2a" # metrics v4.15 - 230626
     grq       = "ami-0ab96904359fa481b" # grq v4.16 - 230605
     factotum  = "ami-04fb19cdf4289592f" # factotum v4.16 - 230702
