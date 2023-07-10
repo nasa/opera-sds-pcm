@@ -3,9 +3,6 @@ from pathlib import Path
 
 from data_subscriber import es_conn_util
 
-ES_INDEX = "hls_catalog"
-
-
 class HLSProductCatalog:
     """
     Class to track products downloaded by daac_data_subscriber.py
@@ -23,8 +20,9 @@ class HLSProductCatalog:
     def __init__(self, /, logger=None):
         self.logger = logger
         self.es = es_conn_util.get_es_connection(logger)
+        self.ES_INDEX = "hls_catalog"
 
-    def create_index(self, index=ES_INDEX, delete_old_index=False):
+    def create_index(self, delete_old_index=False):
         if delete_old_index is True:
             self.es.es.indices.delete(index=index, ignore=404)
             if self.logger:
@@ -39,22 +37,22 @@ class HLSProductCatalog:
                                              "creation_timestamp": {"type": "date"},
                                              "download_datetime": {"type": "date"},
                                              "downloaded": {"type": "boolean"}}}},
-                               index=ES_INDEX)
+                               index=self.ES_INDEX)
         if self.logger:
-            self.logger.info("Successfully created index: {}".format(ES_INDEX))
+            self.logger.info("Successfully created index: {}".format(self.ES_INDEX))
 
     def delete_index(self):
-        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
+        self.es.es.indices.delete(ignore=404)
         if self.logger:
-            self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
+            self.logger.info("Successfully deleted index: {}".format(self.ES_INDEX))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
         return [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
                 for catalog_entry in (hls_catalog or [])]
 
-    def process_url(
-            self,
+    @staticmethod
+    def _create_doc(
             url: str,
             granule_id: str,
             job_id: str,
@@ -69,7 +67,7 @@ class HLSProductCatalog:
         doc_id = filename[:-3] + r_id + '.tif'
 
         # We're not doing anything w the query result so comment it out to save resources
-        #result = self._query_existence(filename)
+        # result = self._query_existence(filename)
 
         doc = {
             "id": doc_id,
@@ -90,7 +88,23 @@ class HLSProductCatalog:
 
         doc.update(kwargs)
 
-        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc_id)
+        return doc
+
+    def process_url(
+            self,
+            url: str,
+            granule_id: str,
+            job_id: str,
+            query_dt: datetime,
+            temporal_extent_beginning_dt: datetime,
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
+    ):
+        doc = HLSProductCatalog._create_doc(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
+                            **kwargs)
+
+        self.es.update_document(index=self.ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc_id)
         return True
 
     def product_is_downloaded(self, url):
@@ -114,19 +128,19 @@ class HLSProductCatalog:
                     "download_job_id": job_id,
                 }
             },
-            index=ES_INDEX
+            index=self.ES_INDEX
         )
 
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
     def _post(self, filename, body):
-        result = self.es.index_document(index=ES_INDEX, body=body, id=filename)
+        result = self.es.index_document(body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, filename, index=ES_INDEX):
+    def _query_existence(self, filename):
         try:
             result = self.es.get_by_id(index=index, id=filename)
             if self.logger:
@@ -139,7 +153,7 @@ class HLSProductCatalog:
 
         return result
 
-    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
+    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(index=index,
