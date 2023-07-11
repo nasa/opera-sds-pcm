@@ -33,6 +33,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.1"
     "cslc_s1" = "2.0.0-rc.2.0"
     "rtc_s1" = "2.0.0-rc.2.0"
+    "dswx_s1" = "3.0.0-er.2.0"
   }
 }
 
