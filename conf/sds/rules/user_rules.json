@@ -69,6 +69,20 @@
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DSWx_HLS:__TAG__",
       "job_spec": "job-SCIFLO_L3_DSWx_HLS:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-SCIFLO_L3_DSWx_S1:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"should\": [{\"terms\": {\"dataset_type.keyword\": [\"L2_RTC_S1_tile_group\"]}}]}}",
+      "queue": "opera-job_worker-sciflo-l3_dswx_s1",
+      "rule_name": "trigger-SCIFLO_L3_DSWx_S1",
+      "username": "hysdsops",
+      "workflow": "hysds-io-SCIFLO_L3_DSWx_S1:__TAG__",
+      "job_spec": "job-SCIFLO_L3_DSWx_S1:__TAG__"
     }
   ],
   "mozart": []
