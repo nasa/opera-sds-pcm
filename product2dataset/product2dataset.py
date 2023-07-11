@@ -198,7 +198,7 @@ def get_collection_info(dataset_id: str, settings: dict):
     """Returns the appropriate collection name and version for the provided dataset ID"""
 
     if "dswx-hls" in dataset_id.lower():
-        collection_name = settings.get("DSWX_COLLECTION_NAME")
+        collection_name = settings.get("DSWX_HLS_COLLECTION_NAME")
         product_version = settings.get("DSWX_HLS_PRODUCT_VERSION")
     elif "cslc-s1" in dataset_id.lower():
         if "static" in dataset_id.lower():
