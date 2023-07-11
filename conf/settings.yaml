@@ -285,6 +285,34 @@ PRODUCT_TYPES:
             Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
+    L3_DSWx_S1:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DSWx-S1_T18MVA_20200702T231843Z_20230317T190549Z_v0.1_B01_WTR.tif"
+      # This pattern groups the metadata information in the filename using named groups.
+      #
+      # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+      # TODO: update once full file name conventions are implemented
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+))(_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF))?[.](?P<ext>tif|tiff|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        # For example, "20210211T163901":
+        #   year: 2021
+        #   month: 02 (February)
+        #   day of month: 11 (the 11th)
+        #   hour (24hr): 16
+        #   minute: 39
+        #   second: 01
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # WARNING: ONLY MODIFY THE SETTINGS BELOW IF YOU KNOW WHAT YOU'RE DOING !!!!!!!!!!!!!!
