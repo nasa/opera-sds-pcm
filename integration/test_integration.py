@@ -11,7 +11,7 @@ from int_test_util import \
     wait_for_l3
 from subscriber_util import \
     wait_for_query_job, \
-    wait_for_download_jobs, \
+    wait_for_download_job, \
     invoke_l30_subscriber_query_lambda, \
     update_env_vars_l30_subscriber_query_lambda, \
     reset_env_vars_l30_subscriber_query_lambda, \
@@ -20,7 +20,8 @@ from subscriber_util import \
     reset_env_vars_s30_subscriber_query_lambda, \
     invoke_slc_subscriber_query_lambda, \
     update_env_vars_slc_subscriber_query_lambda, \
-    reset_env_vars_slc_subscriber_query_lambda
+    reset_env_vars_slc_subscriber_query_lambda, invoke_slc_subscriber_ionosphere_download_lambda, \
+    update_env_vars_subscriber_slc_ionosphere_download_lambda, wait_for_job
 
 config = conftest.config
 
@@ -44,11 +45,11 @@ def test_subscriber_l30():
     logging.info("Sleeping for query job execution...")
     sleep_for(300)
 
-    wait_for_query_job(job_id)
+    wait_for_query_job(job_id, index="hls_catalog")
 
     logging.info("Sleeping for download job execution...")
     sleep_for(300)
-    wait_for_download_jobs(job_id)
+    wait_for_download_job(job_id, index="hls_catalog")
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
@@ -95,11 +96,11 @@ def test_subscriber_s30():
     logging.info("Sleeping for query job execution...")
     sleep_for(150)
 
-    wait_for_query_job(job_id)
+    wait_for_query_job(job_id, index="hls_catalog")
 
     logging.info("Sleeping for download job execution...")
     sleep_for(150)
-    wait_for_download_jobs(job_id)
+    wait_for_download_job(job_id, index="hls_catalog")
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
@@ -150,7 +151,20 @@ def test_subscriber_slc():
 
     logging.info("Sleeping for download job execution...")
     sleep_for(300)
-    wait_for_download_jobs(job_id, index="slc_catalog")
+    wait_for_download_job(job_id, index="slc_catalog")
+
+    logging.info("TRIGGERING SLC IONOSPHERE DOWNLOAD")
+    update_env_vars_subscriber_slc_ionosphere_download_lambda()
+    sleep_for(30)
+    response = invoke_slc_subscriber_ionosphere_download_lambda()
+    assert response["StatusCode"] == 200
+    job_id = response["Payload"].read().decode().strip("\"")
+    logging.info(f"{job_id=}")
+
+    logging.info("Sleeping for SLC ionosphere download job execution...")
+    sleep_for(300)
+
+    wait_for_job(job_id)
 
     logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
