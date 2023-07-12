@@ -5,7 +5,7 @@ from typing import Any
 
 
 def _to_granule_id(dl_doc: dict[str, Any]):
-    return _hls_url_to_granule_id(_to_url(dl_doc))
+    return dl_doc['granule_id']
 
 
 def _hls_url_to_granule_id(url: str):

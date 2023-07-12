@@ -31,6 +31,11 @@ PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
                         "SENTINEL-1A_SLC": "ASF",
                         "SENTINEL-1B_SLC": "ASF"}
 
+class HLSDownload:
+    def __init__(self):
+        self.granule_id = None
+        self.revision_id = None
+        self.es_ids_urls = []
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -88,12 +93,20 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     if provider == "ASF":
         download_from_asf(session=session, es_conn=es_conn, downloads=downloads, args=args, token=token, job_id=job_id)
     else:
-        download_urls = [_to_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
+        download_map = defaultdict(HLSDownload)
+        for download in downloads:
+            granule_id = download['granule_id']
+            revision_id = download['revision_id']
+            key = granule_id + "." + revision_id
 
-        granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
+            download_url = _to_url(download)
+            es_id = download['_id']
 
-        download_granules(session, es_conn, granule_id_to_download_urls_map, args, token, job_id)
+            download_map[key].granule_id = granule_id
+            download_map[key].revision_id = revision_id
+            download_map[key].es_ids_urls.append((es_id,download_url))
+
+        download_granules(session, es_conn, download_map, args, token, job_id)
 
 
 def get_download_timerange(args):
@@ -240,7 +253,7 @@ def update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir: PurePa
 def download_granules(
         session: requests.Session,
         es_conn,
-        granule_id_to_product_urls_map: dict[str, list[str]],
+        download_map: dict[str, HLSDownload],
         args,
         token,
         job_id
@@ -255,33 +268,35 @@ def download_granules(
         logging.info(f"{args.dry_run=}. Skipping downloads.")
 
     if args.smoke_run:
-        granule_id_to_product_urls_map = dict(itertools.islice(granule_id_to_product_urls_map.items(), 1))
+        download_map = dict(itertools.islice(download_map.items(), 1))
 
-    for granule_id, product_urls in granule_id_to_product_urls_map.items():
-        logging.info(f"Processing {granule_id=}")
+    # One HLSDownload object contains multiple es_id and url pairs
+    for key, downloads in download_map.items():
+        logging.info(f"Processing {key=}")
 
-        granule_download_dir = downloads_dir / granule_id
+        granule_download_dir = downloads_dir / key
         granule_download_dir.mkdir(exist_ok=True)
 
         # download products in granule
         products = []
         product_urls_downloaded = []
-        for product_url in product_urls:
+        for download in downloads.es_ids_urls:
+            product_url = download[1]
             if args.dry_run:
                 logging.debug(f"{args.dry_run=}. Skipping download.")
                 break
             product_filepath = download_product(product_url, session, token, args, granule_download_dir)
             products.append(product_filepath)
             product_urls_downloaded.append(product_url)
-        logging.info(f"{products=}")
 
-        logging.info(f"Marking as downloaded. {granule_id=}")
-        for product_url in product_urls_downloaded:
-            es_conn.mark_product_as_downloaded(product_url, job_id)
+            # Mark as downloaded
+            es_id = download[0]
+            es_conn.mark_product_as_downloaded(es_id, job_id)
+        logging.info(f"{products=}")
 
         logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
 
-        extract_many_to_one(products, granule_id, cfg)
+        extract_many_to_one(products, key, cfg)
 
         logging.info(f"Removing directory {granule_download_dir}")
         shutil.rmtree(granule_download_dir)
@@ -374,11 +389,15 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         shutil.copy(product, target_dataset_dir.resolve())
     logging.info("Copied input products to dataset directory")
 
+    # group_dataset_id coming in is the ES _id which contains the revision-id from CMR as
+    # the last .# So we split that out
+    granule_id = '.'.join(group_dataset_id.split('.')[:-1])
+
     logging.info("update merged *.met.json with additional, top-level metadata")
     merged_met_dict.update(shared_met_entries_dict)
     merged_met_dict["FileSize"] = total_product_file_sizes
-    merged_met_dict["FileName"] = group_dataset_id
-    merged_met_dict["id"] = group_dataset_id
+    merged_met_dict["FileName"] = granule_id
+    merged_met_dict["id"] = granule_id
     logging.debug(f"{merged_met_dict=}")
 
     # write out merged *.met.json
@@ -393,7 +412,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         ds_met={},
         alt_ds_met={}
     )
-    granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
+    granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{granule_id}.dataset.json"
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)
     logging.info(f"Wrote {granule_dataset_json_filepath=!s}")

@@ -32,6 +32,7 @@ class HLSProductCatalog:
                                      "mappings": {
                                          "properties": {
                                              "granule_id": {"type": "keyword"},
+                                             "revision_id": {"type": "integer"},
                                              "s3_url": {"type": "keyword"},
                                              "https_url": {"type": "keyword"},
                                              "creation_timestamp": {"type": "date"},
@@ -42,13 +43,16 @@ class HLSProductCatalog:
             self.logger.info("Successfully created index: {}".format(self.ES_INDEX))
 
     def delete_index(self):
-        self.es.es.indices.delete(ignore=404)
+        self.es.es.indices.delete(index=self.ES_INDEX, ignore=404)
         if self.logger:
             self.logger.info("Successfully deleted index: {}".format(self.ES_INDEX))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
-        return [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
+        return [{"_id": catalog_entry["_id"], "granule_id": catalog_entry["_source"].get("granule_id"),
+                 "revision_id": catalog_entry["_source"].get("revision_id"),
+                 "s3_url": catalog_entry["_source"].get("s3_url"),
+                 "https_url": catalog_entry["_source"].get("https_url")}
                 for catalog_entry in (hls_catalog or [])]
 
     @staticmethod
@@ -63,15 +67,13 @@ class HLSProductCatalog:
             **kwargs
     ):
         filename = Path(url).name
-        r_id = str(kwargs['revision_id'])
-        doc_id = filename[:-3] + r_id + '.tif'
 
         # We're not doing anything w the query result so comment it out to save resources
         # result = self._query_existence(filename)
 
         doc = {
-            "id": doc_id,
-            "granule_id": granule_id + "." + r_id,
+            "id": filename,
+            "granule_id": granule_id,
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
             "query_datetime": query_dt,
@@ -104,7 +106,7 @@ class HLSProductCatalog:
         doc = HLSProductCatalog._create_doc(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
                             **kwargs)
 
-        self.es.update_document(index=self.ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc_id)
+        self.es.update_document(index=self.ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc['id']+"."+str(doc['revision_id']))
         return True
 
     def product_is_downloaded(self, url):
@@ -116,10 +118,9 @@ class HLSProductCatalog:
         else:
             return False
 
-    def mark_product_as_downloaded(self, url, job_id):
-        filename = url.split("/")[-1]
+    def mark_product_as_downloaded(self, id, job_id):
         result = self.es.update_document(
-            id=filename,
+            id=id,
             body={
                 "doc_as_upsert": True,
                 "doc": {
@@ -156,7 +157,7 @@ class HLSProductCatalog:
     def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
-            result = self.es.query(index=index,
+            result = self.es.query(index=self.ES_INDEX,
                                 body={"sort": [{"creation_timestamp": "asc"}],
                                       "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),
