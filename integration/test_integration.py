@@ -45,7 +45,7 @@ def test_subscriber_l30():
     logging.info("Sleeping for query job execution...")
     sleep_for(300)
 
-    wait_for_query_job(job_id, index="hls_catalog")
+    wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
     sleep_for(300)
@@ -96,7 +96,7 @@ def test_subscriber_s30():
     logging.info("Sleeping for query job execution...")
     sleep_for(150)
 
-    wait_for_query_job(job_id, index="hls_catalog")
+    wait_for_query_job(job_id)
 
     logging.info("Sleeping for download job execution...")
     sleep_for(150)
