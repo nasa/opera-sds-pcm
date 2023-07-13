@@ -18,7 +18,7 @@ from smart_open import open
 import extractor.extract
 import product2dataset.product2dataset
 from data_subscriber import ionosphere_download
-from data_subscriber.url import _to_granule_id, _to_orbit_number, _has_url, _to_url, _to_https_url
+from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from product2dataset import product2dataset
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
@@ -75,7 +75,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     downloads = all_pending_downloads
     if args.batch_ids:
         logging.info(f"Filtering pending downloads by {args.batch_ids=}")
-        id_func = _to_granule_id if provider == "LPCLOUD" else _to_orbit_number
+        id_func = _to_batch_id if provider == "LPCLOUD" else _to_orbit_number
         downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
         logging.info(f"{len(downloads)=}")
         logging.debug(f"{downloads=}")
