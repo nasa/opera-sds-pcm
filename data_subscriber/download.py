@@ -96,7 +96,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         download_map = defaultdict(HLSDownload)
         for download in downloads:
             granule_id = download['granule_id']
-            revision_id = download['revision_id']
+            revision_id = str(download['revision_id'])
             key = granule_id + "." + revision_id
 
             download_url = _to_url(download)

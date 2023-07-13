@@ -5,7 +5,7 @@ from typing import Any
 
 
 def _to_batch_id(dl_doc: dict[str, Any]):
-    return dl_doc['granule_id']+'.'+dl_doc['revision_id']
+    return dl_doc['granule_id']+'.'+str(dl_doc['revision_id'])
 
 
 def _hls_url_to_granule_id(url: str):
