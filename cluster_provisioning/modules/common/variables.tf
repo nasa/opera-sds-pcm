@@ -294,14 +294,14 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-sciflo-l2_cslc_s1_hist" = {
+    "opera-job_worker-sciflo-l2_cslc_s1" = {
       "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c6a.2xlarge", "c6i.2xlarge", "c5a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 300
       "max_size"          = 10
       "total_jobs_metric" = true
     }
-    "opera-job_worker-sciflo-l2_cslc_s1" = {
+    "opera-job_worker-sciflo-l2_cslc_s1_hist" = {
       "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c6a.2xlarge", "c6i.2xlarge", "c5a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 300
@@ -364,7 +364,25 @@ variable "queues" {
       "total_jobs_metric" = false
       "use_private_vpc"   = false
     }
+    "opera-job_worker-slc_data_query_hist" = {
+      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
     "opera-job_worker-slc_data_download" = {
+      "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 80
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
+    }
+    "opera-job_worker-slc_data_download_hist" = {
       "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -388,24 +406,6 @@ variable "queues" {
       "data_dev_size"     = 100
       "max_size"          = 10
       "total_jobs_metric" = false
-    }
-    "opera-job_worker-slc_data_query_hist" = {
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "min_size"          = 0
-      "max_size"          = 10
-      "total_jobs_metric" = false
-      "use_private_vpc"   = false
-    }
-    "opera-job_worker-slc_data_download_hist" = {
-      "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 100
-      "min_size"          = 0
-      "max_size"          = 80
-      "total_jobs_metric" = true
-      "use_private_vpc"   = false
     }
   }
 }
