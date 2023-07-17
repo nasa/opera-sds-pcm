@@ -2,7 +2,7 @@ import asyncio
 import logging
 import re
 import uuid
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 
@@ -13,7 +13,7 @@ from more_itertools import map_reduce, chunked
 
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
-from data_subscriber.url import _hls_url_to_granule_id, _slc_url_to_chunk_id
+from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
@@ -36,10 +36,17 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
     download_urls: list[str] = []
 
-    for granule in granules:
-        additional_fields = {}
+    # group URLs by this mapping func. E.g. group URLs by granule_id
+    keyfunc = form_batch_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
+    batch_id_to_urls_map = defaultdict(set)
 
-        additional_fields["revision_id"] = granule.get("revision_id")
+    for granule in granules:
+
+        granule_id = granule.get("granule_id")
+        revision_id = granule.get("revision_id")
+
+        additional_fields = {}
+        additional_fields["revision_id"] = revision_id
         additional_fields["processing_mode"] = args.proc_mode
 
         # If processing mode is historical,
@@ -56,7 +63,7 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
         update_url_index(
             es_conn,
             granule.get("filtered_urls"),
-            granule.get("granule_id"),
+            granule_id,
             job_id,
             query_dt,
             temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
@@ -72,7 +79,8 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
             update_granule_index(spatial_catalog_conn, granule)
 
         if granule.get("filtered_urls"):
-            download_urls.extend(granule.get("filtered_urls"))
+            for filter_url in granule.get("filtered_urls"):
+                batch_id_to_urls_map[form_batch_id(granule_id, revision_id)].add(filter_url)
 
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")
@@ -86,14 +94,12 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
         logging.info(f"{args.chunk_size=}. Skipping download job submission.")
         return
 
-    # group URLs by this mapping func. E.g. group URLs by granule_id
-    keyfunc = _hls_url_to_granule_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
-    batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
-        iterable=download_urls,
+    '''batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
+        iterable=granules,
         keyfunc=keyfunc,
         valuefunc=lambda url: url,
         reducefunc=set
-    )
+    )'''
 
     logging.info(f"{batch_id_to_urls_map=}")
     job_submission_tasks = []
