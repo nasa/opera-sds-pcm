@@ -25,22 +25,17 @@ resource "aws_cloudwatch_log_group" "run_hls_download" {
 }
 
 resource "aws_cloudwatch_log_group" "run_slcs1a_query" {
-  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slcs1b_query.log"
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slcs1a_query.log"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
-resource "aws_cloudwatch_log_group" "run_slcs1a_query" {
+resource "aws_cloudwatch_log_group" "run_slcs1b_query" {
   name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slcs1b_query.log"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
 resource "aws_cloudwatch_log_group" "run_slc_download" {
   name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_slc_download.log"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-resource "aws_cloudwatch_log_group" "run_ionosphere_download" {
-  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_ionosphere_download.log"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
