@@ -524,8 +524,13 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "cnm_response_handler" {
+resource "aws_cloudwatch_log_group" "sns_cnm_response_handler" {
   name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-daac-sns-cnm_response-handler"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_log_group" "sqs_cnm_response_handler" {
+  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-daac-sqs-cnm_response-handler"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
