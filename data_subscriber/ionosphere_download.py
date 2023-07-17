@@ -25,8 +25,43 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class NoJobUtilsFilter(logging.Filter):
+
+    """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its
+    handlers."""
+    def filter(self, record):
+        if not record.filename == "job_utils.py":
+            return True
+
+        return record.funcName not in (
+            "resolve_mozart_job", "get_params_for_submission", "submit_mozart_job",
+            "resolve_hysds_job", "submit_hysds_job"
+        )
+
+
+class NoBaseFilter(logging.Filter):
+    """Filters out lower-level elasticsearch HTTP chatter. Apply to the logger named "elasticsearch" or to one of its
+    handlers."""
+
+    def filter(self, record):
+        if not record.filename == "base.py":
+            return True
+        if not record.funcName == "log_request_success":
+            return True
+
+        return "/job_specs/_doc/" not in record.getMessage() \
+            and "/hysds_ios-grq/_doc/" not in record.getMessage() \
+            and "/containers/_doc/" not in record.getMessage()
+
+
 @exec_wrapper
 def main():
+    logger_hysds_commons = logging.getLogger("hysds_commons")
+    logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+    logger_elasticsearch = logging.getLogger("elasticsearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+
     asyncio.run(run(sys.argv))
 
 
@@ -39,6 +74,7 @@ async def run(argv: list[str]):
     exceptions = []
 
     slc_datasets = get_pending_slc_datasets(args)
+    logger.info(f"{len(slc_datasets)=}")
 
     logger.info("Creating directories to process products")
     downloads_dir = Path("downloads")  # house all file downloads

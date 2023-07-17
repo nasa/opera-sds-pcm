@@ -25,6 +25,8 @@ from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
+logger = logging.getLogger(__name__)
+
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
                         "HLSS30": "LPCLOUD",
@@ -65,22 +67,22 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         dateutil.parser.isoparse(download_timerange.end_date),
         args.use_temporal
     )
-    logging.info(f"{len(list(all_pending_downloads))=}")
+    logger.info(f"{len(list(all_pending_downloads))=}")
 
     downloads = all_pending_downloads
     if args.batch_ids:
-        logging.info(f"Filtering pending downloads by {args.batch_ids=}")
+        logger.info(f"Filtering pending downloads by {args.batch_ids=}")
         id_func = _to_granule_id if provider == "LPCLOUD" else _to_orbit_number
         downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
-        logging.info(f"{len(downloads)=}")
-        logging.debug(f"{downloads=}")
+        logger.info(f"{len(downloads)=}")
+        logger.debug(f"{downloads=}")
 
     if not downloads:
-        logging.info(f"No undownloaded files found in index.")
+        logger.info(f"No undownloaded files found in index.")
         return
 
     if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
+        logger.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
         args.batch_ids = args.batch_ids[:1]
 
     session = SessionWithHeaderRedirection(username, password, netloc)
@@ -89,7 +91,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
         download_from_asf(session=session, es_conn=es_conn, downloads=downloads, args=args, token=token, job_id=job_id)
     else:
         download_urls = [_to_url(download) for download in downloads if _has_url(download)]
-        logging.debug(f"{download_urls=}")
+        logger.debug(f"{download_urls=}")
 
         granule_id_to_download_urls_map = group_download_urls_by_granule_id(download_urls)
 
@@ -101,7 +103,7 @@ def get_download_timerange(args):
     end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     download_timerange = DateTimeRange(start_date, end_date)
-    logging.info(f"{download_timerange=}")
+    logger.info(f"{download_timerange=}")
     return download_timerange
 
 
@@ -114,7 +116,7 @@ def download_from_asf(
         job_id
 ):
     settings_cfg = SettingsConf().cfg  # has metadata extractor config
-    logging.info("Creating directories to process products")
+    logger.info("Creating directories to process products")
     provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
 
     # house all file downloads
@@ -122,7 +124,7 @@ def download_from_asf(
     downloads_dir.mkdir(exist_ok=True)
 
     if args.dry_run:
-        logging.info(f"{args.dry_run=}. Skipping downloads.")
+        logger.info(f"{args.dry_run=}. Skipping downloads.")
 
     for download in downloads:
         if not _has_url(download):
@@ -133,7 +135,7 @@ def download_from_asf(
         else:
             product_url = _to_url(download)
 
-        logging.info(f"Processing {product_url=}")
+        logger.info(f"Processing {product_url=}")
         product_id = PurePath(product_url).name
 
         product_download_dir = downloads_dir / product_id
@@ -141,7 +143,7 @@ def download_from_asf(
 
         # download product
         if args.dry_run:
-            logging.debug(f"{args.dry_run=}. Skipping download.")
+            logger.debug(f"{args.dry_run=}. Skipping download.")
             continue
 
         if product_url.startswith("s3"):
@@ -156,31 +158,31 @@ def download_from_asf(
                 product_url, token, product_download_dir
             )
 
-        logging.info(f"{product_filepath=}")
+        logger.info(f"{product_filepath=}")
 
-        logging.info(f"Marking as downloaded. {product_url=}")
+        logger.info(f"Marking as downloaded. {product_url=}")
         es_conn.mark_product_as_downloaded(product_url, job_id)
 
-        logging.info(f"product_url_downloaded={product_url}")
+        logger.info(f"product_url_downloaded={product_url}")
 
         additional_metadata = {}
         try:
             additional_metadata['processing_mode'] = download['processing_mode']
         except:
-            logging.warning("processing_mode not found in the slc_catalog ES index")
+            logger.warning("processing_mode not found in the slc_catalog ES index")
 
         if provider == "ASF":
             if download.get("intersects_north_america"):
-                logging.info("adding additional dataset metadata (intersects_north_america)")
+                logger.info("adding additional dataset metadata (intersects_north_america)")
                 additional_metadata["intersects_north_america"] = True
 
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
                                          extra_metadata=additional_metadata)
 
-        logging.info("Downloading associated orbit file")
+        logger.info("Downloading associated orbit file")
 
         try:
-            logging.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
+            logger.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
             stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
                 [
                     f"--output-directory={str(dataset_dir)}",
@@ -191,7 +193,7 @@ def download_from_asf(
             )
             stage_orbit_file.main(stage_orbit_file_args)
         except NoQueryResultsException:
-            logging.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
+            logger.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
             stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
                 [
                     f"--output-directory={str(dataset_dir)}",
@@ -202,11 +204,11 @@ def download_from_asf(
             )
             stage_orbit_file.main(stage_orbit_file_args)
 
-        logging.info("Added orbit file to dataset")
+        logger.info("Added orbit file to dataset")
 
         if additional_metadata.get("intersects_north_america", False) \
                 and additional_metadata['processing_mode'] in ("historical", "reprocessing"):
-            logging.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
+            logger.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
             try:
                 output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
                 ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(dataset_dir=dataset_dir, product_filepath=product_filepath)
@@ -215,18 +217,18 @@ def download_from_asf(
                 ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url=ionosphere_url, s3_bucket="...", s3_key="...")
                 update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
             except IonosphereFileNotFoundException:
-                logging.warning("Ionosphere file not found remotely. Allowing job to continue.")
+                logger.warning("Ionosphere file not found remotely. Allowing job to continue.")
                 pass
 
-        logging.info(f"Removing {product_filepath}")
+        logger.info(f"Removing {product_filepath}")
         product_filepath.unlink(missing_ok=True)
 
-    logging.info(f"Removing directory tree. {downloads_dir}")
+    logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
 
 
 def update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir: PurePath, ionosphere_metadata: dict):
-    logging.info("Updating dataset's met.json with ionosphere metadata")
+    logger.info("Updating dataset's met.json with ionosphere metadata")
 
     with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
         met_json: dict = json.load(fp)
@@ -246,19 +248,19 @@ def download_granules(
         job_id
 ):
     cfg = SettingsConf().cfg  # has metadata extractor config
-    logging.info("Creating directories to process granules")
+    logger.info("Creating directories to process granules")
     # house all file downloads
     downloads_dir = Path("downloads")
     downloads_dir.mkdir(exist_ok=True)
 
     if args.dry_run:
-        logging.info(f"{args.dry_run=}. Skipping downloads.")
+        logger.info(f"{args.dry_run=}. Skipping downloads.")
 
     if args.smoke_run:
         granule_id_to_product_urls_map = dict(itertools.islice(granule_id_to_product_urls_map.items(), 1))
 
     for granule_id, product_urls in granule_id_to_product_urls_map.items():
-        logging.info(f"Processing {granule_id=}")
+        logger.info(f"Processing {granule_id=}")
 
         granule_download_dir = downloads_dir / granule_id
         granule_download_dir.mkdir(exist_ok=True)
@@ -268,25 +270,25 @@ def download_granules(
         product_urls_downloaded = []
         for product_url in product_urls:
             if args.dry_run:
-                logging.debug(f"{args.dry_run=}. Skipping download.")
+                logger.debug(f"{args.dry_run=}. Skipping download.")
                 break
             product_filepath = download_product(product_url, session, token, args, granule_download_dir)
             products.append(product_filepath)
             product_urls_downloaded.append(product_url)
-        logging.info(f"{products=}")
+        logger.info(f"{products=}")
 
-        logging.info(f"Marking as downloaded. {granule_id=}")
+        logger.info(f"Marking as downloaded. {granule_id=}")
         for product_url in product_urls_downloaded:
             es_conn.mark_product_as_downloaded(product_url, job_id)
 
-        logging.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
+        logger.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
 
         extract_many_to_one(products, granule_id, cfg)
 
-        logging.info(f"Removing directory {granule_download_dir}")
+        logger.info(f"Removing directory {granule_download_dir}")
         shutil.rmtree(granule_download_dir)
 
-    logging.info(f"Removing directory tree. {downloads_dir}")
+    logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
 
 
@@ -325,7 +327,7 @@ def download_product(product_url, session: requests.Session, token: str, args, t
 
 
 def download_asf_product(product_url, token: str, target_dirpath: Path):
-    logging.info(f"Requesting from {product_url}")
+    logger.info(f"Requesting from {product_url}")
 
     asf_response = _handle_url_redirect(product_url, token)
     asf_response.raise_for_status()
@@ -356,7 +358,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         extract_one_to_one(product, settings_cfg, working_dir=product_extracts_dir)
         for product in products
     ]
-    logging.info(f"{dataset_dirs=}")
+    logger.info(f"{dataset_dirs=}")
 
     # generate merge metadata from single-product datasets
     shared_met_entries_dict = {}  # this is updated, when merging, with metadata common to multiple input files
@@ -365,27 +367,27 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
             str(product_extracts_dir.resolve()),
             extra_met=shared_met_entries_dict  # copy some common metadata from each product.
         )
-    logging.debug(f"{merged_met_dict=}")
+    logger.debug(f"{merged_met_dict=}")
 
-    logging.info("Creating target dataset directory")
+    logger.info("Creating target dataset directory")
     target_dataset_dir = Path(group_dataset_id)
     target_dataset_dir.mkdir(exist_ok=True)
     for product in products:
         shutil.copy(product, target_dataset_dir.resolve())
-    logging.info("Copied input products to dataset directory")
+    logger.info("Copied input products to dataset directory")
 
-    logging.info("update merged *.met.json with additional, top-level metadata")
+    logger.info("update merged *.met.json with additional, top-level metadata")
     merged_met_dict.update(shared_met_entries_dict)
     merged_met_dict["FileSize"] = total_product_file_sizes
     merged_met_dict["FileName"] = group_dataset_id
     merged_met_dict["id"] = group_dataset_id
-    logging.debug(f"{merged_met_dict=}")
+    logger.debug(f"{merged_met_dict=}")
 
     # write out merged *.met.json
     merged_met_json_filepath = target_dataset_dir.resolve() / f"{target_dataset_dir.name}.met.json"
     with open(merged_met_json_filepath, mode="w") as output_file:
         json.dump(merged_met_dict, output_file)
-    logging.info(f"Wrote {merged_met_json_filepath=!s}")
+    logger.info(f"Wrote {merged_met_json_filepath=!s}")
 
     # write out basic *.dataset.json file (value + created_timestamp)
     dataset_json_dict = extractor.extract.create_dataset_json(
@@ -396,7 +398,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)
-    logging.info(f"Wrote {granule_dataset_json_filepath=!s}")
+    logger.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
     shutil.rmtree(extracts_dir)
 
@@ -411,14 +413,14 @@ def extract_one_to_one(product: Path, settings_cfg: dict, working_dir: Path, ext
     """
     # create dataset dir for product
     # (this also extracts the metadata to *.met.json file)
-    logging.info("Creating dataset directory")
+    logger.info("Creating dataset directory")
     dataset_dir = extractor.extract.extract(
         product=str(product),
         product_types=settings_cfg["PRODUCT_TYPES"],
         workspace=str(working_dir.resolve()),
         extra_met=extra_metadata
     )
-    logging.info(f"{dataset_dir=}")
+    logger.info(f"{dataset_dir=}")
     return PurePath(dataset_dir)
 
 
@@ -437,7 +439,7 @@ def download_product_using_https(url, session: requests.Session, token, target_d
 def download_product_using_s3(url, token, target_dirpath: Path, args) -> Path:
     provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
     aws_creds = _get_aws_creds(token, provider)
-    logging.debug(f"{_get_aws_creds.cache_info()=}")
+    logger.debug(f"{_get_aws_creds.cache_info()=}")
 
     s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                        aws_secret_access_key=aws_creds['secretAccessKey'],
@@ -455,7 +457,7 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
     upload_start_time = datetime.utcnow()
 
     try:
-        logging.info(f"Requesting from {url}")
+        logger.info(f"Requesting from {url}")
         r = _handle_url_redirect(url, token)
         if r.status_code != 200:
             r.raise_for_status()
@@ -463,7 +465,7 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
         with open("https.tmp", "wb") as file:
             file.write(r.content)
 
-        logging.info(f"Uploading {file_name} to {bucket=}, {key=}")
+        logger.info(f"Uploading {file_name} to {bucket=}, {key=}")
         with open("https.tmp", "rb") as file:
             s3 = boto3.client("s3")
             s3.upload_fileobj(file, bucket, key)
@@ -475,11 +477,11 @@ def _https_transfer(url, bucket_name, token, staging_area=""):
                         "upload_duration (in seconds)": upload_duration.total_seconds(),
                         "upload_start_time": _convert_datetime(upload_start_time),
                         "upload_end_time": _convert_datetime(upload_end_time)}
-        logging.debug(f"{upload_stats=}")
+        logger.debug(f"{upload_stats=}")
 
         return upload_stats
     except (Exception, ConnectionResetError, requests.exceptions.HTTPError) as e:
-        logging.error(e)
+        logger.error(e)
         return {"failed_download": e}
 
 
@@ -508,7 +510,7 @@ def _to_s3_url(dl_dict: dict[str, Any]) -> str:
 
 @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
 def _get_aws_creds(token, provider):
-    logging.info("entry")
+    logger.info("entry")
 
     if provider == "LPCLOUD":
         return _get_lp_aws_creds(token)
@@ -517,7 +519,7 @@ def _get_aws_creds(token, provider):
 
 
 def _get_lp_aws_creds(token):
-    logging.info("entry")
+    logger.info("entry")
 
     with requests.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials",
                       headers={'Authorization': f'Bearer {token}'}) as r:
@@ -527,7 +529,7 @@ def _get_lp_aws_creds(token):
 
 
 def _get_asf_aws_creds(token):
-    logging.info("entry")
+    logger.info("entry")
 
     with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
                      headers={'Authorization': f'Bearer {token}'}) as r:
