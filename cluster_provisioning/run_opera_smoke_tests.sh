@@ -23,17 +23,20 @@ Usage:
 Examples:
   $cmdname --mozart-ip=123.123.123.123 ...
 Options:
-      --mozart-ip                                The private IP address of the PCM's mozart instance.
-      --grq-host                                 The hostname and port of GRQ.
-      --cnm-r-topic-arn                          The CNM-R SNS topic ARN.
-      --cnm-r-queue-url                          The CNM-R SQS queue URL.
-      --isl-bucket                               The ISL S3 bucket name.
-      --rs-bucket                                The RS S3 bucket name.
-      --L30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits L30 query jobs.
-      --S30-data-subscriber-query-lambda         The name of the AWS Lambda function that submits S30 query jobs.
-      --SLC-data-subscriber-query-lambda         The name of the AWS Lambda function that submits SLC query jobs.
-      --artifactory-fn-api-key                   The Artifactory FN API Key. Used to download the sample data.
-      --sample-data-artifactory-dir              The repository path to the "hls_l2.tar.gz" sample data's parent directory.
+      --mozart-ip                                      The private IP address of the PCM's mozart instance.
+      --grq-host                                       The hostname and port of GRQ.
+      --cnm-r-topic-arn                                The CNM-R SNS topic ARN.
+      --cnm-r-queue-url                                The CNM-R SQS queue URL.
+      --isl-bucket                                     The ISL S3 bucket name.
+      --rs-bucket                                      The RS S3 bucket name.
+      --L30-data-subscriber-query-lambda               The name of the AWS Lambda function that submits L30 query jobs.
+      --S30-data-subscriber-query-lambda               The name of the AWS Lambda function that submits S30 query jobs.
+      --SLC-data-subscriber-query-lambda               The name of the AWS Lambda function that submits SLC query jobs.
+      --SLC-data-subscriber-ionosphere-download-lambda The name of the AWS Lambda function that submits SLC ionosphere
+                                                       download jobs.
+      --artifactory-fn-api-key                         The Artifactory FN API Key. Used to download the sample data.
+      --sample-data-artifactory-dir                    The repository path to the "hls_l2.tar.gz" sample data's parent
+                                                       directory.
 USAGE
 }
 
@@ -92,6 +95,10 @@ for i in "$@"; do
       SLC_data_subscriber_query_lambda="${i#*=}"
       shift
       ;;
+    --SLC-data-subscriber-ionosphere-download-lambda=*)
+      SLC_data_subscriber_ionosphere_download_lambda="${i#*=}"
+      shift
+      ;;
     --artifactory-fn-api-key=*)
       artifactory_fn_api_key="${i#*=}"
       shift
@@ -125,6 +132,7 @@ export RS_BUCKET=${rs_bucket}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 export SLC_DATA_SUBSCRIBER_QUERY_LAMBDA=${SLC_data_subscriber_query_lambda}
+export SLC_DATA_SUBSCRIBER_IONOSPHERE_DOWNLOAD_LAMBDA=${SLC_data_subscriber_ionosphere_download_lambda}
 
 set -e
 echo Executing integration tests. This can take at least 20 or 40 minutes...
