@@ -87,7 +87,7 @@ resource "aws_instance" "mozart" {
   }
 
   provisioner "file" {
-    content     = data.template_file.q_config.rendered
+    content     = local.q_config
     destination = "q_config"
   }
 
