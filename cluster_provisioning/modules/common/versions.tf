@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.0.11"
-#  required_version = ">= 0.13"
+  #  required_version = ">= 0.13"
 
   required_providers {
     # TODO: remove this pin once this ticket is resolved:
@@ -15,9 +15,6 @@ terraform {
     }
     random = {
       source = "hashicorp/random"
-    }
-    template = {
-      source = "hashicorp/template"
     }
   }
 }

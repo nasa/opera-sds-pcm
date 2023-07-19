@@ -1,48 +1,48 @@
 locals {
-  counter                           = var.counter != "" ? var.counter : random_id.counter.hex
-  default_dataset_bucket            = "${var.project}-${var.environment}-rs-fwd-${var.venue}"
-  dataset_bucket                    = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
-  default_code_bucket               = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
-  code_bucket                       = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
-  default_isl_bucket                = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
-  isl_bucket                        = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
-  default_osl_bucket                = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
-  osl_bucket                        = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
-  default_triage_bucket             = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
-  triage_bucket                     = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
-  default_lts_bucket                = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
-  lts_bucket                        = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
-  clear_s3_aws_es                   = var.clear_s3_aws_es
-  key_name                          = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
-  sns_count                         = var.po_daac_cnm_r_event_trigger == "sns" ? 1 : 0
-  sqs_count                         = var.asf_daac_cnm_r_event_trigger == "sqs" ? 1 : 0
-  cnm_r_kinesis_count               = 0
-  lambda_repo                       = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
-  po_daac_delivery_event_type       = split(":", var.po_daac_delivery_proxy)[2]
-  po_daac_delivery_region           = split(":", var.po_daac_delivery_proxy)[3]
-  po_daac_delivery_account          = split(":", var.po_daac_delivery_proxy)[4]
-  po_daac_delivery_resource_name    = split(":", var.po_daac_delivery_proxy)[5]
+  counter                        = var.counter != "" ? var.counter : random_id.counter.hex
+  default_dataset_bucket         = "${var.project}-${var.environment}-rs-fwd-${var.venue}"
+  dataset_bucket                 = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
+  default_code_bucket            = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
+  code_bucket                    = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
+  default_isl_bucket             = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
+  isl_bucket                     = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
+  default_osl_bucket             = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
+  osl_bucket                     = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
+  default_triage_bucket          = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
+  triage_bucket                  = var.triage_bucket != "" ? var.triage_bucket : local.default_triage_bucket
+  default_lts_bucket             = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
+  lts_bucket                     = var.lts_bucket != "" ? var.lts_bucket : local.default_lts_bucket
+  clear_s3_aws_es                = var.clear_s3_aws_es
+  key_name                       = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
+  sns_count                      = var.po_daac_cnm_r_event_trigger == "sns" ? 1 : 0
+  sqs_count                      = var.asf_daac_cnm_r_event_trigger == "sqs" ? 1 : 0
+  cnm_r_kinesis_count            = 0
+  lambda_repo                    = "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lambda"
+  po_daac_delivery_event_type    = split(":", var.po_daac_delivery_proxy)[2]
+  po_daac_delivery_region        = split(":", var.po_daac_delivery_proxy)[3]
+  po_daac_delivery_account       = split(":", var.po_daac_delivery_proxy)[4]
+  po_daac_delivery_resource_name = split(":", var.po_daac_delivery_proxy)[5]
 
-  asf_daac_delivery_event_type      = split(":", var.asf_daac_delivery_proxy)[2]
-  asf_daac_delivery_region          = split(":", var.asf_daac_delivery_proxy)[3]
-  asf_daac_delivery_account         = split(":", var.asf_daac_delivery_proxy)[4]
-  asf_daac_delivery_resource_name   = split(":", var.asf_daac_delivery_proxy)[5]
-  asf_daac_proxy_cnm_r_sns_count    = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
-  asf_daac_delivery_proxy_maturity  = split("-", var.asf_daac_delivery_proxy)[4]
+  asf_daac_delivery_event_type     = split(":", var.asf_daac_delivery_proxy)[2]
+  asf_daac_delivery_region         = split(":", var.asf_daac_delivery_proxy)[3]
+  asf_daac_delivery_account        = split(":", var.asf_daac_delivery_proxy)[4]
+  asf_daac_delivery_resource_name  = split(":", var.asf_daac_delivery_proxy)[5]
+  asf_daac_proxy_cnm_r_sns_count   = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  asf_daac_delivery_proxy_maturity = split("-", var.asf_daac_delivery_proxy)[4]
 
-  pge_artifactory_dev_url           = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
-  pge_artifactory_release_url       = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
+  pge_artifactory_dev_url     = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
+  pge_artifactory_release_url = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
 
   # refer to job spec file extension
-#  accountability_report_job_type    = "accountability_report"
-  hlsl30_query_job_type             = "hlsl30_query"
-  hlss30_query_job_type             = "hlss30_query"
-  batch_query_job_type              = "batch_query"
-  slcs1a_query_job_type             = "slcs1a_query"
-  slc_ionosphere_download_job_type  = "slc_download_ionosphere"
+  #  accountability_report_job_type    = "accountability_report"
+  hlsl30_query_job_type            = "hlsl30_query"
+  hlss30_query_job_type            = "hlss30_query"
+  batch_query_job_type             = "batch_query"
+  slcs1a_query_job_type            = "slcs1a_query"
+  slc_ionosphere_download_job_type = "slc_download_ionosphere"
 
-  use_s3_uri_structure              = var.use_s3_uri_structure
-  grq_es_url                        = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+  use_s3_uri_structure = var.use_s3_uri_structure
+  grq_es_url           = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
   cnm_response_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response"
@@ -56,8 +56,8 @@ locals {
   }
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  enable_query_timer = var.cluster_type == "reprocessing" ? false : true
-  enable_download_timer = false
+  enable_query_timer          = var.cluster_type == "reprocessing" ? false : true
+  enable_download_timer       = false
 
   delete_old_job_catalog = true
 }
@@ -160,11 +160,11 @@ data "aws_iam_policy_document" "operator_notify" {
 # sqs
 ######################
 resource "aws_sqs_queue" "harikiri_queue" {
-  name                       = "${var.project}-${var.venue}-${local.counter}-queue"
-  delay_seconds              = 0
-  max_message_size           = 2048
-  message_retention_seconds  = 86400
-  receive_wait_time_seconds  = 0
+  name                      = "${var.project}-${var.venue}-${local.counter}-queue"
+  delay_seconds             = 0
+  max_message_size          = 2048
+  message_retention_seconds = 86400
+  receive_wait_time_seconds = 0
   #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 600
 }
@@ -195,14 +195,14 @@ POLICY
 }
 
 resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
-  name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
-#  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
+  name = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
+  #  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
   #sqs_managed_sse_enabled   = true
 }
 
 resource "aws_sqs_queue" "cnm_response" {
-  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  name                       = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
   redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -219,7 +219,7 @@ resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   count            = local.sqs_count
   event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
   #event_source_arn = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : aws_sqs_queue.cnm_response.arn
-  function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
+  function_name = aws_lambda_function.sqs_cnm_response_handler.arn
 }
 
 data "aws_iam_policy_document" "cnm_response" {
@@ -230,12 +230,12 @@ data "aws_iam_policy_document" "cnm_response" {
     ]
     effect = "Allow"
     principals {
-      type        = "AWS"
+      type = "AWS"
       identifiers = [
-          "arn:aws:iam::${var.aws_account_id}:root",
-          "arn:aws:iam::871271927522:root",
-          "arn:aws:iam::156214815904:root",
-          "arn:aws:iam::097260566921:root"
+        "arn:aws:iam::${var.aws_account_id}:root",
+        "arn:aws:iam::871271927522:root",
+        "arn:aws:iam::156214815904:root",
+        "arn:aws:iam::097260566921:root"
       ]
     }
     resources = [
@@ -251,11 +251,11 @@ resource "aws_sqs_queue_policy" "cnm_response" {
 }
 
 resource "aws_sqs_queue" "isl_queue" {
-  name                       = "${var.project}-${var.venue}-${local.counter}-isl-queue"
-  delay_seconds              = 0
-  max_message_size           = 2048
-  message_retention_seconds  = 86400
-  receive_wait_time_seconds  = 10
+  name                      = "${var.project}-${var.venue}-${local.counter}-isl-queue"
+  delay_seconds             = 0
+  max_message_size          = 2048
+  message_retention_seconds = 86400
+  receive_wait_time_seconds = 10
   #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 60
   redrive_policy = jsonencode({
@@ -307,11 +307,11 @@ POLICY
 #}
 
 resource "aws_sqs_queue" "isl_dead_letter_queue" {
-  name                       = "${var.project}-${var.venue}-${local.counter}-isl-dead-letter-queue"
-  delay_seconds              = 0
-  max_message_size           = 2048
-  message_retention_seconds  = 86400
-  receive_wait_time_seconds  = 0
+  name                      = "${var.project}-${var.venue}-${local.counter}-isl-dead-letter-queue"
+  delay_seconds             = 0
+  max_message_size          = 2048
+  message_retention_seconds = 86400
+  receive_wait_time_seconds = 0
   #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 500
 }
@@ -389,25 +389,6 @@ resource "aws_lambda_event_source_mapping" "isl_queue_event_source_mapping" {
 #####################################
 # sds config  QUEUE block generation
 #####################################
-data "template_file" "config" {
-  template = file("${path.module}/config.tmpl")
-  count    = length(var.queues)
-  #the spacing in inst is determined by trial and error, so the resulting terraform generated YAML is valid
-  vars = {
-    queue = element(keys(var.queues), count.index)
-    inst  = join("\n      - ", lookup(lookup(var.queues, element(keys(var.queues), count.index)), "instance_type"))
-    tot_jobs_met  = lookup(lookup(var.queues, element(keys(var.queues), count.index)), "total_jobs_metric", false)
-  }
-}
-
-data "template_file" "q_config" {
-  template = file("${path.module}/config2.tmpl")
-  #the spacing in queue is determined by trial and error, so the resulting terraform generated YAML is valid
-  vars = {
-    queue = join("\n", data.template_file.config.*.rendered)
-  }
-}
-
 resource "null_resource" "destroy_es_snapshots" {
   triggers = {
     private_key_file   = var.private_key_file
@@ -432,7 +413,7 @@ resource "null_resource" "destroy_es_snapshots" {
   provisioner "remote-exec" {
     when = destroy
     inline = [
-     "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
       "set -ex",
       "source ~/.bash_profile",
       "if [ \"${self.triggers.purge_es_snapshot}\" = true ]; then",
@@ -450,21 +431,21 @@ resource "null_resource" "destroy_es_snapshots" {
 locals {
   rs_fwd_lifecycle_configuration_json = jsonencode(
     {
-      "Rules": [
+      "Rules" : [
         {
-          "Expiration": {
-            "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+          "Expiration" : {
+            "Days" : var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
           },
           "ID" : "RS Bucket Products Deletion",
-          "Prefix": "products/",
+          "Prefix" : "products/",
           "Status" : "Enabled"
         },
         {
-          "Expiration": {
-            "Days": var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+          "Expiration" : {
+            "Days" : var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
           },
           "ID" : "RS Bucket Inputs Deletion",
-          "Prefix": "inputs/",
+          "Prefix" : "inputs/",
           "Status" : "Enabled"
         }
       ]
@@ -476,9 +457,9 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
   depends_on = [local.rs_fwd_lifecycle_configuration_json, aws_instance.mozart]
 
   connection {
-    type     = "ssh"
-    host     = aws_instance.mozart.private_ip
-    user     = "hysdsops"
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
     private_key = file(var.private_key_file)
   }
 
@@ -543,8 +524,13 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "cnm_response_handler" {
-  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-daac-cnm_response-handler"
+resource "aws_cloudwatch_log_group" "sns_cnm_response_handler" {
+  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-daac-sns-cnm_response-handler"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_log_group" "sqs_cnm_response_handler" {
+  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-daac-sqs-cnm_response-handler"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
@@ -577,11 +563,11 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     ]
     effect = "Allow"
     principals {
-      type        = "AWS"
-	  identifiers = [
-          "arn:aws:iam::${var.aws_account_id}:root",
-          "arn:aws:iam::638310961674:root",
-          "arn:aws:iam::234498297282:root"
+      type = "AWS"
+      identifiers = [
+        "arn:aws:iam::${var.aws_account_id}:root",
+        "arn:aws:iam::638310961674:root",
+        "arn:aws:iam::234498297282:root"
       ]
     }
     resources = [
