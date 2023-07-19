@@ -403,7 +403,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     logger.debug(f"{merged_met_dict=}")
 
     # write out merged *.met.json
-    merged_met_json_filepath = target_dataset_dir.resolve() / f"{granule_id}.met.json"
+    merged_met_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.met.json"
     with open(merged_met_json_filepath, mode="w") as output_file:
         json.dump(merged_met_dict, output_file)
     logger.info(f"Wrote {merged_met_json_filepath=!s}")
@@ -414,7 +414,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         ds_met={},
         alt_ds_met={}
     )
-    granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{granule_id}.dataset.json"
+    granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)
     logger.info(f"Wrote {granule_dataset_json_filepath=!s}")
