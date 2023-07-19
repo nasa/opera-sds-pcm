@@ -30,4 +30,5 @@ module "int-main" {
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
   cnm_r_venue                             = var.cnm_r_venue
+  asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
 }
