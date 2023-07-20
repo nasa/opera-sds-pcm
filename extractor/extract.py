@@ -270,6 +270,10 @@ def create_dataset_json(product_metadata, ds_met, alt_ds_met):
     dataset_info.update({"version": version})
     dataset_info.update({"creation_timestamp": datetime.utcnow().isoformat("T")[:-3]})
 
+    # update with index config. E.g. {"index": {"suffix": "-1970-01-01"}}
+    if ds_met and ds_met.get("index"):
+        dataset_info.update({"index": ds_met["index"]})
+
     if "Bounding_Polygon" in product_metadata:
         logger.info(f"Bounding_Polygon is {product_metadata['Bounding_Polygon']}")
         m = shape(product_metadata["Bounding_Polygon"])

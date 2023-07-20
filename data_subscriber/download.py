@@ -389,9 +389,14 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         json.dump(merged_met_dict, output_file)
     logger.info(f"Wrote {merged_met_json_filepath=!s}")
 
-    # write out basic *.dataset.json file (value + created_timestamp)
+    # write out basic *.dataset.json file (version + created_timestamp)
     dataset_json_dict = extractor.extract.create_dataset_json(
-        product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
+        product_metadata={
+            "dataset_version": merged_met_dict["dataset_version"],
+            "index": {  # suffix index name with `_YYYYMMDDHHmmSS
+                "suffix": datetime.utcnow().strftime("%Y%m%d%H%M%S")  # TODO chrisjrd: update with final suffix
+            }
+        },
         ds_met={},
         alt_ds_met={}
     )
