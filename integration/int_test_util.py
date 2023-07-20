@@ -9,7 +9,6 @@ import backoff
 import boto3
 import elasticsearch
 from botocore.config import Config
-
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch_dsl import Search, Index
 from elasticsearch_dsl.response import Response
@@ -197,6 +196,12 @@ def es_index_delete(index):
     logging.info(f"Deleting {index=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
         Index(name=index, using=get_es_client()).delete()
+
+
+def es_index_alias_delete(index):
+    logging.info(f"Deleting alias {index=}")
+    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
+        Index(name=index, using=get_es_client()).delete_alias(name=index)
 
 
 def mozart_es_index_delete(index):
