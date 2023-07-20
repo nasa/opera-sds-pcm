@@ -391,13 +391,8 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
 
     # write out basic *.dataset.json file (version + created_timestamp)
     dataset_json_dict = extractor.extract.create_dataset_json(
-        product_metadata={
-            "dataset_version": merged_met_dict["dataset_version"],
-            "index": {  # suffix index name with `_YYYYMMDDHHmmSS
-                "suffix": datetime.utcnow().strftime("%Y%m%d%H%M%S")  # TODO chrisjrd: update with final suffix
-            }
-        },
-        ds_met={},
+        product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
+        ds_met={"index": {"suffix": datetime.utcnow().strftime("%Y%m%d%H%M%S")}},  # suffix index name with `_YYYYMMDDHHmmSS # TODO chrisjrd: update with final suffix
         alt_ds_met={}
     )
     granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
