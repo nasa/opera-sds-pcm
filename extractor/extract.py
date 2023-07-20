@@ -7,25 +7,24 @@ Adapted for OPERA PCM by Scott Collins
 """
 from __future__ import print_function
 
-import sys
+import argparse
+import json
 import os
 import shutil
-import json
-import argparse
 import subprocess
+import sys
 import traceback
+from datetime import datetime
+from importlib import import_module
 from typing import Dict, Optional
 
-from util.conf_util import SettingsConf
-from datetime import datetime
-
-from commons.logger import logger
-from commons.constants import product_metadata as pm
-
-from shapely.ops import transform
 from shapely.geometry import shape, mapping
+from shapely.ops import transform
 
-from importlib import import_module
+from commons.constants import product_metadata as pm
+from commons.logger import logger
+from util.conf_util import SettingsConf
+from util.exec_util import exec_wrapper
 
 REGEX_ID_KEY = "id"
 EXTRACTOR_KEY = "Extractor"
@@ -331,6 +330,7 @@ def get_parser():
     return parser
 
 
+@exec_wrapper
 def main():
     """
     Main entry point
