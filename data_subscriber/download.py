@@ -394,13 +394,13 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
         ds_met={
             "index": {
-                "suffix": "%s_%s_%s" % (
-                    merged_met_dict['dataset_version'],
-                    merged_met_dict['ProductType'],
-                    datetime.utcnow().strftime('%Y%m%d%H%M%S')
-                )
+                "suffix": ("{version}_{dataset}_{date}".format(
+                    version=merged_met_dict['dataset_version'],
+                    dataset=merged_met_dict['ProductType'],
+                    date=datetime.utcnow().strftime('%Y.%m.%d.%H%M%S')  # TODO chrisjrd: update with final suffix
+                )).lower()  # suffix index name with `_YYYY.MM
             }
-        },  # suffix index name with `_YYYYMMDDHHmmSS # TODO chrisjrd: update with final suffix
+        },
         alt_ds_met={}
     )
     granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
