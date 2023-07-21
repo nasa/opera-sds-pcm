@@ -1,6 +1,3 @@
-import io
-from unittest.mock import MagicMock
-
 from pytest_mock import MockerFixture
 from ruamel.yaml.util import RegExp
 
@@ -18,7 +15,7 @@ def test_extract(mocker: MockerFixture):
     mocker.patch("os.path.getsize")
 
     mocker.patch("extractor.extract.create_dataset_id", return_value="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask")
-    mocker.patch("extractor.extract.extract_metadata", return_value=(True, {}, {"type": "L2_HLS_L30"}, {}))
+    mocker.patch("extractor.extract.extract_metadata", return_value=(True, {"dataset_version": "dummy_dataset_version", "ProductType":"dummy_product_type"}, {"type": "L2_HLS_L30"}, {}))
     mocker.patch("extractor.extract.create_dataset_json", return_value={})
 
     mock_open = mocker.mock_open()
@@ -52,7 +49,7 @@ def test_extract_multiple(mocker: MockerFixture):
         "granule_1.Fmask.tif",
         "granule_1.B01.tif"
     ])
-    mocker.patch("extractor.extract.extract_metadata", return_value=(True, {}, {"type": "L2_HLS_L30"}, {}))
+    mocker.patch("extractor.extract.extract_metadata", return_value=(True, {"dataset_version": "dummy_dataset_version", "ProductType":"dummy_product_type"}, {"type": "L2_HLS_L30"}, {}))
     mocker.patch("extractor.extract.create_dataset_json", return_value={})
     mocker.patch("builtins.open", mocker.mock_open())  # *.met.json
 
