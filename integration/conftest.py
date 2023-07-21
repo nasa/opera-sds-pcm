@@ -86,9 +86,9 @@ def clear_pcm_test_state():
 
     # clear PGE indexes
     es_index_delete_by_prefix("grq_v0.1_l2_rtc_s1")
-    es_index_delete("grq_v0.1_l2_rtc_s1_static_layers")
+    es_index_delete_by_prefix("grq_v0.1_l2_rtc_s1_static_layers")
     es_index_delete_by_prefix("grq_v0.1_l2_cslc_s1")
-    es_index_delete("grq_v0.1_l2_cslc_s1_static_layers")
+    es_index_delete_by_prefix("grq_v0.1_l2_cslc_s1_static_layers")
     es_index_delete_by_prefix("grq_v2.0_l3_dswx_hls")
 
     es_index_delete("jobs_accountability_catalog")
