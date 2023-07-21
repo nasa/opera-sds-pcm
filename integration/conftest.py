@@ -58,7 +58,7 @@ def clear_pcm_test_state():
     from integration.int_test_util import \
         es_index_delete, \
         delete_output_files, \
-        es_index_alias_delete
+        es_index_delete_by_prefix
 
     if not str2bool(config.get("CLEAR_DATA")):
         logging.info(f'Skipping data reset. {config.get("CLEAR_DATA")=}')
@@ -70,7 +70,7 @@ def clear_pcm_test_state():
     # clear job index to prevent job duplicates
     #  job duplicates are likely to happen
     #  when executing subscriber query jobs frequently
-    es_index_alias_delete("job_status-current")
+    es_index_delete_by_prefix("job_status", from_="mozart")
 
     # clear data subscriber indexes
     es_index_delete("hls_catalog")
@@ -79,17 +79,17 @@ def clear_pcm_test_state():
     es_index_delete("slc_spatial_catalog")
 
     # clear ingest data indexes
-    es_index_delete("grq_1_l1_s1_slc")
+    es_index_delete_by_prefix("grq_1_l1_s1_slc")
 
-    es_index_delete("grq_v2.0_l2_hls_l30")
-    es_index_delete("grq_v2.0_l2_hls_s30")
+    es_index_delete_by_prefix("grq_v2.0_l2_hls_l30")
+    es_index_delete_by_prefix("grq_v2.0_l2_hls_s30")
 
     # clear PGE indexes
     es_index_delete("grq_v0.1_l2_rtc_s1")
     es_index_delete("grq_v0.1_l2_rtc_s1_static_layers")
     es_index_delete("grq_v0.1_l2_cslc_s1")
     es_index_delete("grq_v0.1_l2_cslc_s1_static_layers")
-    es_index_delete("grq_v2.0_l3_dswx_hls")
+    es_index_delete_by_prefix("grq_v2.0_l3_dswx_hls")
 
     es_index_delete("jobs_accountability_catalog")
 

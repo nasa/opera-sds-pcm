@@ -194,22 +194,29 @@ def search_es(index, _id, query_name="match"):
     return response
 
 
-def es_index_delete(index):
+def es_index_delete(index, from_="grq"):
     logger.info(f"Deleting {index=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
-        Index(name=index, using=get_es_client()).delete()
+        Index(name=index, using=get_es_client_by_name(name=from_)).delete()
 
 
-def es_index_alias_delete(index):
-    logger.info(f"Deleting alias {index=}")
+def es_index_delete_by_prefix(index_prefix, from_="grq"):
+    logger.info(f"Deleting index by prefix {index_prefix=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
-        Index(name=index, using=get_es_client()).delete_alias(name=index)
+        index_to_details_map: dict[str, dict] = Index(name="_all", using=get_es_client_by_name(name=from_)).get()
+        for index in index_to_details_map.keys():
+            if index.startswith(f"{index_prefix}-"):
+                logger.info(f"Deleting index {index=}")
+                Index(name=index, using=get_es_client_by_name(name=from_)).delete()
 
 
-def mozart_es_index_delete(index):
-    logger.info(f"Deleting {index=}")
-    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
-        Index(name=index, using=get_mozart_es_client()).delete()
+def get_es_client_by_name(name):
+    if name == "grq":
+        return get_es_client()
+    elif name == "mozart":
+        return get_mozart_es_client()
+    else:
+        raise
 
 
 def get(response: Response, key: str):
