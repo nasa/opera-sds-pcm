@@ -179,6 +179,8 @@ def download_from_asf(
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
                                          extra_metadata=additional_metadata)
 
+        update_pending_dataset_with_index_name(dataset_dir)
+
         logger.info("Downloading associated orbit file")
 
         try:
@@ -225,6 +227,29 @@ def download_from_asf(
 
     logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
+
+
+def update_pending_dataset_with_index_name(dataset_dir: PurePath):
+    logger.info("Updating dataset's dataset.json with index name")
+
+    with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("r") as fp:
+        dataset_json: dict = json.load(fp)
+
+    with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
+        met_dict: dict = json.load(fp)
+
+        dataset_json.update({
+            "index": {
+                "suffix": ("{version}_{dataset}_{date}".format(
+                    version=met_dict['dataset_version'],
+                    dataset=met_dict['ProductType'],
+                    date=datetime.utcnow().strftime('%Y.%m.%d.%H%M%S')  # TODO chrisjrd: update with final suffix
+                )).lower()  # suffix index name with `_YYYY.MM
+            }
+        })
+
+    with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
+        json.dump(dataset_json, fp)
 
 
 def update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir: PurePath, ionosphere_metadata: dict):

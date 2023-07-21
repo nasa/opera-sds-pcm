@@ -483,10 +483,17 @@ def test_download_from_asf(monkeypatch):
     )
 
     monkeypatch.setattr(
+        download,
+        download.update_pending_dataset_with_index_name.__name__,
+        MagicMock()
+    )
+
+    monkeypatch.setattr(
         download.stage_orbit_file,
         download.stage_orbit_file.get_parser.__name__,
         MagicMock()
     )
+
     mock_stage_orbit_file = MagicMock()
     monkeypatch.setattr(
         download.stage_orbit_file,
