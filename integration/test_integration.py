@@ -23,11 +23,13 @@ from subscriber_util import \
     reset_env_vars_slc_subscriber_query_lambda, invoke_slc_subscriber_ionosphere_download_lambda, \
     update_env_vars_subscriber_slc_ionosphere_download_lambda, wait_for_job
 
+logger = logging.getLogger(__name__)
+
 config = conftest.config
 
     
 def test_subscriber_l30():
-    logging.info("TRIGGERING DATA SUBSCRIBE")
+    logger.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_l30_subscriber_query_lambda()
     sleep_for(30)
@@ -40,37 +42,37 @@ def test_subscriber_l30():
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
-    logging.info(f"{job_id=}")
+    logger.info(f"{job_id=}")
 
-    logging.info("Sleeping for query job execution...")
+    logger.info("Sleeping for query job execution...")
     sleep_for(300)
 
     wait_for_query_job(job_id)
 
-    logging.info("Sleeping for download job execution...")
+    logger.info("Sleeping for download job execution...")
     sleep_for(300)
     wait_for_download_job(job_id, index="hls_catalog")
 
-    logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
+    logger.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
-    logging.info("Sleeping for PGE execution...")
+    logger.info("Sleeping for PGE execution...")
     sleep_for(300)
 
     response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
     assert re.match(r"OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_(\d+)T(\d+)Z_L8_30_v2.0", response.hits[0]["id"])
 
-    logging.info("CHECKING FOR CNM-S SUCCESS")
+    logger.info("CHECKING FOR CNM-S SUCCESS")
 
-    logging.info("Sleeping for CNM-S execution...")
+    logger.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
     response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
-    logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+    logger.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
     mock_cnm_r_success_sns(id=response.hits[0]["id"])
 
-    logging.info("Sleeping for CNM-R execution...")
+    logger.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
     response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
@@ -78,7 +80,7 @@ def test_subscriber_l30():
 
 
 def test_subscriber_s30():
-    logging.info("TRIGGERING DATA SUBSCRIBE")
+    logger.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_s30_subscriber_query_lambda()
     sleep_for(30)
@@ -91,37 +93,37 @@ def test_subscriber_s30():
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
-    logging.info(f"{job_id=}")
+    logger.info(f"{job_id=}")
 
-    logging.info("Sleeping for query job execution...")
+    logger.info("Sleeping for query job execution...")
     sleep_for(150)
 
     wait_for_query_job(job_id)
 
-    logging.info("Sleeping for download job execution...")
+    logger.info("Sleeping for download job execution...")
     sleep_for(150)
     wait_for_download_job(job_id, index="hls_catalog")
 
-    logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
+    logger.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
-    logging.info("Sleeping for PGE execution...")
+    logger.info("Sleeping for PGE execution...")
     sleep_for(150)
 
     response = wait_for_l3(_id="OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_", index="grq_v2.0_l3_dswx_hls", query_name="match_phrase")
     assert re.match(r"OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_(\d+)T(\d+)Z_S2A_30_v2.0", response.hits[0]["id"])
 
-    logging.info("CHECKING FOR CNM-S SUCCESS")
+    logger.info("CHECKING FOR CNM-S SUCCESS")
 
-    logging.info("Sleeping for CNM-S execution...")
+    logger.info("Sleeping for CNM-S execution...")
     sleep_for(150)
 
     response = wait_for_cnm_s_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
     assert_cnm_s_success(response)
 
-    logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+    logger.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
     mock_cnm_r_success_sns(id=response.hits[0]["id"])
 
-    logging.info("Sleeping for CNM-R execution...")
+    logger.info("Sleeping for CNM-R execution...")
     sleep_for(150)
 
     response = wait_for_cnm_r_success(_id=response.hits[0]["id"], index="grq_v2.0_l3_dswx_hls")
@@ -129,7 +131,7 @@ def test_subscriber_s30():
 
 
 def test_subscriber_slc():
-    logging.info("TRIGGERING DATA SUBSCRIBE")
+    logger.info("TRIGGERING DATA SUBSCRIBE")
 
     update_env_vars_slc_subscriber_query_lambda()
     sleep_for(30)
@@ -142,33 +144,33 @@ def test_subscriber_slc():
     assert response["StatusCode"] == 200
 
     job_id = response["Payload"].read().decode().strip("\"")
-    logging.info(f"{job_id=}")
+    logger.info(f"{job_id=}")
 
-    logging.info("Sleeping for query job execution...")
+    logger.info("Sleeping for query job execution...")
     sleep_for(300)
 
     wait_for_query_job(job_id)
 
-    logging.info("Sleeping for download job execution...")
+    logger.info("Sleeping for download job execution...")
     sleep_for(300)
     wait_for_download_job(job_id, index="slc_catalog")
 
-    logging.info("TRIGGERING SLC IONOSPHERE DOWNLOAD")
+    logger.info("TRIGGERING SLC IONOSPHERE DOWNLOAD")
     update_env_vars_subscriber_slc_ionosphere_download_lambda()
     sleep_for(30)
     response = invoke_slc_subscriber_ionosphere_download_lambda()
     assert response["StatusCode"] == 200
     job_id = response["Payload"].read().decode().strip("\"")
-    logging.info(f"{job_id=}")
+    logger.info(f"{job_id=}")
 
-    logging.info("Sleeping for SLC ionosphere download job execution...")
+    logger.info("Sleeping for SLC ionosphere download job execution...")
     sleep_for(300)
 
     wait_for_job(job_id)
 
-    logging.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
+    logger.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
-    logging.info("Sleeping for PGE execution...")
+    logger.info("Sleeping for PGE execution...")
     sleep_for(300)
 
     # CSLC
@@ -225,9 +227,9 @@ def test_subscriber_slc():
     response = wait_for_l3(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert response.hits[0]["id"] == "OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1"
 
-    logging.info("CHECKING FOR CNM-S SUCCESS")
+    logger.info("CHECKING FOR CNM-S SUCCESS")
 
-    logging.info("Sleeping for CNM-S execution...")
+    logger.info("Sleeping for CNM-S execution...")
     sleep_for(300)
 
     response = wait_for_cnm_s_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
@@ -275,7 +277,7 @@ def test_subscriber_slc():
     response = wait_for_cnm_s_success(_id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1", index="grq_v0.1_l2_rtc_s1")
     assert_cnm_s_success(response)
 
-    logging.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+    logger.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
     mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z")
     mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW2_VV_20221117T004741Z_v0.1_20221117T004756Z")
     mock_cnm_r_success_sqs(id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW3_VV_20221117T004741Z_v0.1_20221117T004756Z")
@@ -303,7 +305,7 @@ def test_subscriber_slc():
     # 73-IW1
     mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
 
-    logging.info("Sleeping for CNM-R execution...")
+    logger.info("Sleeping for CNM-R execution...")
     sleep_for(300)
 
     response = wait_for_cnm_r_success(_id="OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20221117T004741Z_v0.1_20221117T004756Z", index="grq_v0.1_l2_cslc_s1")
@@ -372,6 +374,6 @@ def assert_cnm_r_success(response):
 
 
 def sleep_for(sec=None):
-    logging.info(f"Sleeping for {sec} seconds...")
+    logger.info(f"Sleeping for {sec} seconds...")
     time.sleep(sec)
-    logging.info("Done sleeping.")
+    logger.info("Done sleeping.")

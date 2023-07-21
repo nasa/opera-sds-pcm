@@ -15,6 +15,8 @@ from elasticsearch_dsl.response import Response
 
 import conftest
 
+logger = logging.getLogger(__name__)
+
 config = conftest.config
 
 s3_client = boto3.client("s3", config=(Config(max_pool_connections=30)))
@@ -28,7 +30,7 @@ def index_not_found(e: elasticsearch.exceptions.NotFoundError):
 
 def success_handler(details):
     if details["tries"] > 1:
-        logging.info(f'Successfully called {details["target"].__name__}(...) after {details["tries"]} tries and {details["elapsed"]:f} seconds')
+        logger.info(f'Successfully called {details["target"].__name__}(...) after {details["tries"]} tries and {details["elapsed"]:f} seconds')
 
 
 def raise_(ex: Exception):
@@ -109,7 +111,7 @@ def wait_for_l3(_id, index, query_name="match"):
     jitter=None
 )
 def wait_for_cnm_s_success(_id, index, query_name="match"):
-    logging.info(f"Waiting for CNM-S success (id={_id})")
+    logger.info(f"Waiting for CNM-S success (id={_id})")
     response = search_es(_id=_id, index=index, query_name=query_name)
     return response
 
@@ -124,13 +126,13 @@ def wait_for_cnm_s_success(_id, index, query_name="match"):
     jitter=None
 )
 def wait_for_cnm_r_success(_id, index, query_name="match"):
-    logging.info(f"Waiting for CNM-R success ({_id=})")
+    logger.info(f"Waiting for CNM-R success ({_id=})")
     response = search_es(_id=_id, index=index, query_name=query_name)
     return response
 
 
 def mock_cnm_r_success_sns(id):
-    logging.info(f"Mocking CNM-R success ({id=})")
+    logger.info(f"Mocking CNM-R success ({id=})")
 
     sns_client.publish(
         TopicArn=config["CNMR_TOPIC"],
@@ -155,7 +157,7 @@ def mock_cnm_r_success_sns(id):
 
 
 def mock_cnm_r_success_sqs(id):
-    logging.info(f"Mocking CNM-R success ({id=})")
+    logger.info(f"Mocking CNM-R success ({id=})")
 
     sqs_client.send_message(
         QueueUrl=config["CNMR_QUEUE"],
@@ -180,7 +182,7 @@ def mock_cnm_r_success_sqs(id):
 
 
 def search_es(index, _id, query_name="match"):
-    logging.info(f"Searching for {_id=}")
+    logger.info(f"Searching for {_id=}")
 
     search = Search(using=get_es_client(), index=index)
     if query_name == "match":
@@ -193,19 +195,19 @@ def search_es(index, _id, query_name="match"):
 
 
 def es_index_delete(index):
-    logging.info(f"Deleting {index=}")
+    logger.info(f"Deleting {index=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
         Index(name=index, using=get_es_client()).delete()
 
 
 def es_index_alias_delete(index):
-    logging.info(f"Deleting alias {index=}")
+    logger.info(f"Deleting alias {index=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
         Index(name=index, using=get_es_client()).delete_alias(name=index)
 
 
 def mozart_es_index_delete(index):
-    logging.info(f"Deleting {index=}")
+    logger.info(f"Deleting {index=}")
     with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
         Index(name=index, using=get_mozart_es_client()).delete()
 
@@ -215,7 +217,7 @@ def get(response: Response, key: str):
         return response.hits.hits[0]["_source"][key]
     except (IndexError, KeyError):
         # intentionally ignore
-        logging.debug("Couldn't retrieve document attribute. Returning None.")
+        logger.debug("Couldn't retrieve document attribute. Returning None.")
         return None
 
 
@@ -270,7 +272,7 @@ def upload_file(filepath: Union[Path, str], bucket=config["ISL_BUCKET"], object_
     :param object_name: S3 object name. If not specified then file_name is used
     :return: True if file was uploaded, else False
     """
-    logging.info(f"Uploading {filepath}")
+    logger.info(f"Uploading {filepath}")
 
     if isinstance(filepath, Path):
         filepath = str(filepath)
@@ -289,14 +291,14 @@ def delete_output_files(bucket=None, prefix=None):
     :param prefix: S3 object prefix. e.g. "folder1/"
     :return:
     """
-    logging.info(f"Deleting S3 objects at s3://{bucket}/{prefix}")
+    logger.info(f"Deleting S3 objects at s3://{bucket}/{prefix}")
 
     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
     try:
         objects = [{"Key": obj["Key"]} for obj in response["Contents"]]
         s3_client.delete_objects(Bucket=bucket, Delete={"Objects": objects})
-        logging.info(f"Deleted {len(objects)} S3 objects")
-        logging.debug(f"Objects deleted. {objects=}")
+        logger.info(f"Deleted {len(objects)} S3 objects")
+        logger.debug(f"Objects deleted. {objects=}")
     except KeyError:
-        logging.warning("Error while deleting objects. Ignoring.")
+        logger.warning("Error while deleting objects. Ignoring.")
