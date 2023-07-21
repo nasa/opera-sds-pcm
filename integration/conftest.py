@@ -65,6 +65,7 @@ def clear_pcm_test_state():
         return
 
     # empty out S3 to make it easier to inspect test outputs and side effects
+    delete_output_files(bucket=config["RS_BUCKET"], prefix="inputs/")
     delete_output_files(bucket=config["RS_BUCKET"], prefix="products/")
 
     # clear job index to prevent job duplicates
