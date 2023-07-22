@@ -426,8 +426,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
                 version=merged_met_dict["dataset_version"],
                 # not all products have dataset_version metadata. see settings.yaml, Dataset_Version_Key.
                 dataset=merged_met_dict["ProductType"],
-                date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")
-                # TODO chrisjrd: update with final suffix
+                date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
             )).lower()  # suffix index name with `-YYYY.MM
         }
     })

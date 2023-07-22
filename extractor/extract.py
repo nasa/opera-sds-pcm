@@ -122,14 +122,13 @@ def extract(
         if not os.path.exists(dataset_met_file):
 
             dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
+
             dataset_met.update({
                 "index": {
                     "suffix": ("{version}_{dataset}-{date}".format(
                         version=product_met["dataset_version"],
-                        # not all products have dataset_version metadata. see settings.yaml, Dataset_Version_Key.
                         dataset=product_met["ProductType"],
-                        date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")
-                        # TODO chrisjrd: update with final suffix
+                        date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
                     )).lower()  # suffix index name with `-YYYY.MM
                 }
             })
