@@ -128,7 +128,7 @@ def extract(
                     "suffix": ("{version}_{dataset}-{date}".format(
                         version=product_met["dataset_version"],
                         dataset=product_met["ProductType"],
-                        date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
+                        date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
                     )).lower()  # suffix index name with `-YYYY.MM
                 }
             })
