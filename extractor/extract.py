@@ -120,16 +120,19 @@ def extract(
         dataset_met_file = os.path.join(dataset_dir, dataset_id + ".dataset.json")
 
         if not os.path.exists(dataset_met_file):
-            ds_met.update({
+
+            dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
+            dataset_met.update({
                 "index": {
                     "suffix": ("{version}_{dataset}-{date}".format(
-                        version=product_met['dataset_version'],
-                        dataset=product_met['ProductType'],
-                        date=datetime.utcnow().strftime('%Y.%m.%d.%H%M%S')  # TODO chrisjrd: update with final suffix
+                        version=product_met["dataset_version"],
+                        # not all products have dataset_version metadata. see settings.yaml, Dataset_Version_Key.
+                        dataset=product_met["ProductType"],
+                        date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")
+                        # TODO chrisjrd: update with final suffix
                     )).lower()  # suffix index name with `-YYYY.MM
                 }
             })
-            dataset_met = create_dataset_json( product_met, ds_met, alt_ds_met)
 
             with open(dataset_met_file, "w") as outfile:
                 json.dump(dataset_met, outfile, indent=2)

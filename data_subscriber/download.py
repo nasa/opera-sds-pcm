@@ -238,15 +238,15 @@ def update_pending_dataset_with_index_name(dataset_dir: PurePath):
     with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
         met_dict: dict = json.load(fp)
 
-        dataset_json.update({
-            "index": {
-                "suffix": ("{version}_{dataset}-{date}".format(
-                    version=met_dict['dataset_version'],
-                    dataset=met_dict['ProductType'],
-                    date=datetime.utcnow().strftime('%Y.%m.%d.%H%M%S')  # TODO chrisjrd: update with final suffix
-                )).lower()  # suffix index name with `-YYYY.MM
-            }
-        })
+    dataset_json.update({
+        "index": {
+            "suffix": ("{version}_{dataset}-{date}".format(
+                version=met_dict["dataset_version"],
+                dataset=met_dict["ProductType"],
+                date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
+            )).lower()  # suffix index name with `-YYYY.MM
+        }
+    })
 
     with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
         json.dump(dataset_json, fp)
@@ -417,17 +417,20 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
     # write out basic *.dataset.json file (version + created_timestamp)
     dataset_json_dict = extractor.extract.create_dataset_json(
         product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
-        ds_met={
-            "index": {
-                "suffix": ("{version}_{dataset}-{date}".format(
-                    version=merged_met_dict['dataset_version'],
-                    dataset=merged_met_dict['ProductType'],
-                    date=datetime.utcnow().strftime('%Y.%m.%d.%H%M%S')  # TODO chrisjrd: update with final suffix
-                )).lower()  # suffix index name with `-YYYY.MM
-            }
-        },
+        ds_met={},
         alt_ds_met={}
     )
+    dataset_json_dict.update({
+        "index": {
+            "suffix": ("{version}_{dataset}-{date}".format(
+                version=merged_met_dict["dataset_version"],
+                # not all products have dataset_version metadata. see settings.yaml, Dataset_Version_Key.
+                dataset=merged_met_dict["ProductType"],
+                date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S%Y.%m.%d.%H%M%S")
+                # TODO chrisjrd: update with final suffix
+            )).lower()  # suffix index name with `-YYYY.MM
+        }
+    })
     granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)
