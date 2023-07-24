@@ -50,7 +50,7 @@ def test_extract_multiple(mocker: MockerFixture):
         "granule_1.B01.tif"
     ])
     mocker.patch("extractor.extract.extract_metadata", return_value=(True, {"version": "dummy_version", "ProductType":"dummy_product_type"}, {"type": "L2_HLS_L30"}, {}))
-    mocker.patch("extractor.extract.create_dataset_json", return_value={})
+    mocker.patch("extractor.extract.create_dataset_json", return_value={"version": "dummy_version"})
     mocker.patch("builtins.open", mocker.mock_open())  # *.met.json
 
     # ACT
