@@ -239,7 +239,7 @@ def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
 
             # Extract a copy of the "Product*" key/values to include at the top level
             # They should be the same values for each file in the dataset
-            product_keys = list(filter(lambda key: key.startswith("Product") or key == "dataset_version", met_json.keys()))
+            product_keys = list(filter(lambda key: key.startswith("Product") or key == "version", met_json.keys()))
 
             for product_key in product_keys:
                 extra_met[product_key] = met_json[product_key]
