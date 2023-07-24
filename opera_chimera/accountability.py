@@ -79,6 +79,10 @@ class OperaAccountability(Accountability):
             input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+        elif self.input_files_type in ('L2_RTC_S1',):
+            # TODO: unsure about this
+            self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+            input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 
