@@ -21,10 +21,16 @@ from hysds.utils import get_disk_usage
 
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
-DSWX_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
-                   'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
+DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
+                       'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
 """
 List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
+PGE.
+"""
+
+DSWX_S1_BAND_NAMES = ['WTR', 'BWTR', 'CONF']
+"""
+List of band identifiers for the multiple tif outputs produced by the DSWx-S1
 PGE.
 """
 
@@ -38,6 +44,9 @@ RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
                  'T069-147172-IW2', 'T069-147172-IW3', 'T069-147173-IW1']
 """List of sample burst ID's to simulate RTC-S1 multi-product output"""
 
+DSWX_S1_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
+                 'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
+"""List of sample MGRS tile ID's to simulate DSWx-S1 multi-product output"""
 
 def get_input_hls_dataset_tile_code(context: Dict) -> str:
     product_metadata = context["product_metadata"]["metadata"]
@@ -116,9 +125,14 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     pge_name: str = pge_config['pge_name']
     input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
 
+    input_dataset_id = get_input_dataset_id(context)
+
+    if not input_dataset_id:
+        input_dataset_id = pge_config.get('sample_input_dataset_id')
+
     for input_file_base_name_regex in input_file_base_name_regexes:
         pattern = re.compile(input_file_base_name_regex)
-        match = pattern.match(get_input_dataset_id(context))
+        match = pattern.match(input_dataset_id)
         if match:
             break
     else:
@@ -140,7 +154,8 @@ def get_input_dataset_id(context: Dict) -> str:
     for param in params:
         if param['name'] == 'input_dataset_id':
             return param['value']
-    raise
+    else:
+        return ""
 
 
 def get_cslc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
@@ -289,7 +304,7 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
 
     # Simulate the multiple output tif files created by this PGE
     if extension.endswith('tiff') or extension.endswith('tif'):
-        for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
+        for band_idx, band_name in enumerate(DSWX_HLS_BAND_NAMES, start=1):
             output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
     elif extension.endswith('png'):
         output_filenames.append(f'{base_name}_BROWSE.png')
@@ -300,13 +315,50 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
     return output_filenames
 
 
+def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DSWx-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    acq_time = dataset_match.groupdict()['acquisition_ts']
+
+    for tile_id in DSWX_S1_TILES:
+        base_name = base_name_template.format(
+            tile_id=tile_id,
+            acquisition_ts=acq_time,
+            # make creation time a duplicate of the acquisition time for ease of testing
+            creation_ts=acq_time,
+            product_version=dataset_match.groupdict()['product_version']
+        )
+
+        # Simulate the multiple output tif files created by this PGE
+        if extension.endswith('tiff') or extension.endswith('tif'):
+            for band_idx, band_name in enumerate(DSWX_S1_BAND_NAMES, start=1):
+                output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+        elif extension.endswith('iso.xml'):
+            output_filenames.append(f'{base_name}.iso.xml')
+        # Ancillary output product pattern, no burst ID, acquisition time or polarization
+        else:
+            base_name = ancillary_name_template.format(creation_ts=acq_time)
+
+            ancillary_file_name = f'{base_name}.{extension}'
+
+            # Should only be one of these files per simulated run
+            if ancillary_file_name not in output_filenames:
+                output_filenames.append(ancillary_file_name)
+
+    return output_filenames
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
         base_name_map = {
             'L2_CSLC_S1': get_cslc_s1_simulated_output_filenames,
             'L2_RTC_S1': get_rtc_s1_simulated_output_filenames,
-            'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames
+            'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames,
+            'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames
         }
 
         try:
