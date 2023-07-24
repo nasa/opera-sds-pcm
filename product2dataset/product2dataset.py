@@ -160,6 +160,9 @@ def convert(
         elif pge_name == "L2_CSLC_S1" or pge_name == "L2_RTC_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
+        elif pge_name == "L3_DSWx_S1":
+            # TODO: this is probably insufficient, as there will be multiple input granule ID's for each DSWx-S1 job
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
@@ -214,6 +217,9 @@ def get_collection_info(dataset_id: str, settings: dict):
         else:
             collection_name = settings.get("RTC_COLLECTION_NAME")
             product_version = settings.get("RTC_S1_PRODUCT_VERSION")
+    elif "dswx-s1" in dataset_id.lower():
+        collection_name = settings.get("DSWX_S1_COLLECTION_NAME")
+        product_version = settings.get("DSWX_S1_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"
