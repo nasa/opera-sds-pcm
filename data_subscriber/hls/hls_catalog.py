@@ -127,15 +127,6 @@ class HLSProductCatalog:
         self.es.update_document(index=generate_es_index_name(), body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
-    def product_is_downloaded(self, url):
-        filename = url.split("/")[-1]
-        result = self._query_existence(filename)
-
-        if result:
-            return result["_source"]["downloaded"]
-        else:
-            return False
-
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split("/")[-1]
         result = self.es.update_document(

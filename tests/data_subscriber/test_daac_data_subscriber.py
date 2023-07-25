@@ -402,7 +402,6 @@ def test_download_granules_using_https(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     mock_es_conn = MagicMock()
-    mock_es_conn.product_is_downloaded.return_value = False
 
     from dataclasses import dataclass
 
@@ -438,7 +437,6 @@ def test_download_granules_using_s3(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     mock_es_conn = MagicMock()
-    mock_es_conn.product_is_downloaded.return_value = False
 
     from dataclasses import dataclass
 
