@@ -113,7 +113,11 @@ class HLSProductCatalog:
             pass
         else:
             pass
-        self.es.update_document(index="hls_catalog-*", body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        if self.logger:
+            self.logger.info(f"{result=}")
+
+        # TODO chrisjrd: use ID of existing record, when possible
+        self.es.update_document(index=generate_es_index_name(), body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
     def product_is_downloaded(self, url):
