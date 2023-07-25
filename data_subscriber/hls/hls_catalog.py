@@ -1,8 +1,19 @@
 from datetime import datetime
+from logging import Logger
 from pathlib import Path
 
 from data_subscriber import es_conn_util
 
+
+class NullLogger(Logger):
+    """No-op logger to simplify logging in this module."""
+    def info(self, *args, **kwargs): pass
+    def debug(self, *args, **kwargs): pass
+    def warning(self, *args, **kwargs): pass
+    def error(self, *args, **kwargs): pass
+
+
+null_logger = NullLogger(__name__)
 
 # ES_INDEX = "hls_catalog"  # TODO chrisjrd: replace
 
@@ -26,15 +37,14 @@ class HLSProductCatalog:
         update_document
     """
     def __init__(self, /, logger=None):
-        self.logger = logger
+        self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self, index="hls_catalog-*", delete_old_index=False):
         # TODO chrisjrd: verify index deletion
         if delete_old_index is True:
             self.es.es.indices.delete(index=index, ignore=404)
-            if self.logger:
-                self.logger.info("Deleted old index: {}".format(index))
+            self.logger.info("Deleted old index: {}".format(index))
 
         self.es.es.indices.put_index_template(
             name="hls_catalog_template",
@@ -60,16 +70,14 @@ class HLSProductCatalog:
             }
         )
 
-        if self.logger:
-            self.logger.info("Successfully created index template: {}".format("hls_catalog_template"))
+        self.logger.info("Successfully created index template: {}".format("hls_catalog_template"))
 
     def delete_index(self):
         index = "hls_catalog-*"
         # TODO chrisjrd: verify index deletion
         # TODO chrisjrd: call existing delete_index function
         self.es.es.indices.delete(index=index, ignore=404)
-        if self.logger:
-            self.logger.info("Successfully deleted index: {}".format(index))
+        self.logger.info("Successfully deleted index: {}".format(index))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
@@ -113,8 +121,7 @@ class HLSProductCatalog:
             pass
         else:
             pass
-        if self.logger:
-            self.logger.info(f"{result=}")
+        self.logger.info(f"{result=}")
 
         # TODO chrisjrd: use ID of existing record, when possible
         self.es.update_document(index=generate_es_index_name(), body={"doc_as_upsert": True, "doc": doc}, id=filename)
@@ -144,25 +151,21 @@ class HLSProductCatalog:
             index=generate_es_index_name()  # TODO chrisjrd: find out if we can accurately update an existing record regardless of index date
         )
 
-        if self.logger:
-            self.logger.info(f"Document updated: {result}")
+        self.logger.info(f"Document updated: {result}")
 
     def _post(self, filename, body):
         result = self.es.index_document(index=generate_es_index_name(), body=body, id=filename)
 
-        if self.logger:
-            self.logger.info(f"Document indexed: {result}")
+        self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, filename, index="hls_catalog-*"):
         try:
             result = self.es.get_by_id(index=index, id=filename)
-            if self.logger:
-                self.logger.debug(f"Query result: {result}")
+            self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
-            if self.logger:
-                self.logger.debug(f"{filename} does not exist in {index}")
+            self.logger.debug(f"{filename} does not exist in {index}")
 
         return result
 
@@ -174,8 +177,7 @@ class HLSProductCatalog:
                                       "query": {"bool": {"must": [{"range": {range_str: {
                                                                       "gte": start_dt.isoformat(),
                                                                       "lt": end_dt.isoformat()}}}]}}})
-            if self.logger:
-                self.logger.debug(f"Query result: {result}")
+            self.logger.debug(f"Query result: {result}")
 
         except:
             result = None
