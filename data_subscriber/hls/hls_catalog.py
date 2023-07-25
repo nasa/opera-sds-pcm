@@ -3,7 +3,12 @@ from pathlib import Path
 
 from data_subscriber import es_conn_util
 
-ES_INDEX = "hls_catalog"
+
+# ES_INDEX = "hls_catalog"  # TODO chrisjrd: replace
+
+
+def generate_es_index_name():
+    return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
 
 
 class HLSProductCatalog:
@@ -24,29 +29,47 @@ class HLSProductCatalog:
         self.logger = logger
         self.es = es_conn_util.get_es_connection(logger)
 
-    def create_index(self, index=ES_INDEX, delete_old_index=False):
+    def create_index(self, index="hls_catalog-*", delete_old_index=False):
+        # TODO chrisjrd: verify index deletion
         if delete_old_index is True:
             self.es.es.indices.delete(index=index, ignore=404)
             if self.logger:
                 self.logger.info("Deleted old index: {}".format(index))
 
-        self.es.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
-                                     "mappings": {
-                                         "properties": {
-                                             "granule_id": {"type": "keyword"},
-                                             "s3_url": {"type": "keyword"},
-                                             "https_url": {"type": "keyword"},
-                                             "creation_timestamp": {"type": "date"},
-                                             "download_datetime": {"type": "date"},
-                                             "downloaded": {"type": "boolean"}}}},
-                               index=ES_INDEX)
+        self.es.es.indices.put_index_template(
+            name="hls_catalog_template",
+            create=True,
+            index_patterns=index,
+            template={
+                "settings": {
+                    "index": {
+                        "sort.field": "creation_timestamp",
+                        "sort.order": "asc"
+                    }
+                },
+                "mappings": {
+                    "properties": {
+                        "granule_id": {"type": "keyword"},
+                        "s3_url": {"type": "keyword"},
+                        "https_url": {"type": "keyword"},
+                        "creation_timestamp": {"type": "date"},
+                        "download_datetime": {"type": "date"},
+                        "downloaded": {"type": "boolean"}
+                    }
+                }
+            }
+        )
+
         if self.logger:
-            self.logger.info("Successfully created index: {}".format(ES_INDEX))
+            self.logger.info("Successfully created index template: {}".format("hls_catalog_template"))
 
     def delete_index(self):
-        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
+        index = "hls_catalog-*"
+        # TODO chrisjrd: verify index deletion
+        # TODO chrisjrd: call existing delete_index function
+        self.es.es.indices.delete(index=index, ignore=404)
         if self.logger:
-            self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
+            self.logger.info("Successfully deleted index: {}".format(index))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
@@ -85,7 +108,12 @@ class HLSProductCatalog:
 
         doc.update(kwargs)
 
-        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        # TODO chrisjrd: fix update
+        if not result:
+            pass
+        else:
+            pass
+        self.es.update_document(index="hls_catalog-*", body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
     def product_is_downloaded(self, url):
@@ -109,19 +137,19 @@ class HLSProductCatalog:
                     "download_job_id": job_id,
                 }
             },
-            index=ES_INDEX
+            index="hls_catalog-*"
         )
 
         if self.logger:
             self.logger.info(f"Document updated: {result}")
 
     def _post(self, filename, body):
-        result = self.es.index_document(index=ES_INDEX, body=body, id=filename)
+        result = self.es.index_document(index=generate_es_index_name(), body=body, id=filename)
 
         if self.logger:
             self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, filename, index=ES_INDEX):
+    def _query_existence(self, filename, index="hls_catalog-*"):
         try:
             result = self.es.get_by_id(index=index, id=filename)
             if self.logger:
@@ -134,7 +162,7 @@ class HLSProductCatalog:
 
         return result
 
-    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
+    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index="hls_catalog-*"):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(index=index,
