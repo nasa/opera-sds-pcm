@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 from data_subscriber import es_conn_util
+from data_subscriber.url import form_batch_id
 
 class HLSProductCatalog:
     """
@@ -72,7 +73,7 @@ class HLSProductCatalog:
         # result = self._query_existence(filename)
 
         doc = {
-            "id": filename,
+            "id": form_batch_id(filename, kwargs['revision_id']),
             "granule_id": granule_id,
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
@@ -106,7 +107,7 @@ class HLSProductCatalog:
         doc = HLSProductCatalog._create_doc(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
                             **kwargs)
 
-        self.es.update_document(index=self.ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc['id']+"."+str(doc['revision_id']))
+        self.es.update_document(index=self.ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
         return True
 
     def product_is_downloaded(self, url):
