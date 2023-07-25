@@ -159,7 +159,7 @@ logger.debug(f'{pstr(missing_download_granules)=!s}')
 body = get_body()
 body["_source"]["includes"] = ["metadata.Files"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30-*", scroll="5m", size=10_000))
 l30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
@@ -208,7 +208,7 @@ body = get_body()
 body["_source"]["includes"] = ["metadata.runconfig.localize", "metadata.accountability", "daac_CNM_S_status", "daac_delivery_status"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
-search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls-*", scroll="5m", size=10_000))
 pge_input_files = {PurePath(input).name.removesuffix(".tif")
                    for hit in search_results
                    for input in hit["_source"]["metadata"]["runconfig"]["localize"]}
