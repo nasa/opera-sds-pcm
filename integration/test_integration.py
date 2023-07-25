@@ -51,7 +51,7 @@ def test_subscriber_l30():
 
     logger.info("Sleeping for download job execution...")
     sleep_for(300)
-    wait_for_download_job(job_id, index="hls_catalog")
+    wait_for_download_job(job_id, index="hls_catalog-*")
 
     logger.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
@@ -102,7 +102,7 @@ def test_subscriber_s30():
 
     logger.info("Sleeping for download job execution...")
     sleep_for(150)
-    wait_for_download_job(job_id, index="hls_catalog")
+    wait_for_download_job(job_id, index="hls_catalog-*")
 
     logger.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
 
