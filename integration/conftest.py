@@ -56,7 +56,6 @@ def setup_session(tmp_path_factory, worker_id):
 
 def clear_pcm_test_state():
     from integration.int_test_util import \
-        es_index_delete, \
         delete_output_files, \
         es_index_delete_by_prefix
 
@@ -74,10 +73,10 @@ def clear_pcm_test_state():
     es_index_delete_by_prefix("job_status", from_="mozart")
 
     # clear data subscriber indexes
-    es_index_delete("hls_catalog")
-    es_index_delete("hls_spatial_catalog")
-    es_index_delete("slc_catalog")
-    es_index_delete("slc_spatial_catalog")
+    es_index_delete_by_prefix("hls_catalog")
+    es_index_delete_by_prefix("hls_spatial_catalog")
+    es_index_delete_by_prefix("slc_catalog")
+    es_index_delete_by_prefix("slc_spatial_catalog")
 
     # clear ingest data indexes
     es_index_delete_by_prefix("grq_1_l1_s1_slc")
@@ -86,13 +85,13 @@ def clear_pcm_test_state():
     es_index_delete_by_prefix("grq_v2.0_l2_hls_s30")
 
     # clear PGE indexes
-    es_index_delete_by_prefix("grq_v0.1_l2_rtc_s1")
-    es_index_delete_by_prefix("grq_v0.1_l2_rtc_s1_static_layers")
+    es_index_delete_by_prefix("grq_v0.4_l2_rtc_s1")
+    es_index_delete_by_prefix("grq_v0.4_l2_rtc_s1_static_layers")
     es_index_delete_by_prefix("grq_v0.1_l2_cslc_s1")
     es_index_delete_by_prefix("grq_v0.1_l2_cslc_s1_static_layers")
-    es_index_delete_by_prefix("grq_v2.0_l3_dswx_hls")
+    es_index_delete_by_prefix("grq_v1.0_l3_dswx_hls")
 
-    es_index_delete("jobs_accountability_catalog")
+    es_index_delete_by_prefix("jobs_accountability_catalog")
 
 
 def str2bool(s):
