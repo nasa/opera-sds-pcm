@@ -390,9 +390,7 @@ def update_url_index(
         *args,
         **kwargs
 ):
-    for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
-                            **kwargs)
+    es_conn.process_url(urls, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
