@@ -55,7 +55,7 @@ class SLCProductCatalog:
 
     def process_url(
             self,
-            url: str,
+            urls: list[str],
             granule_id: str,
             job_id: str,
             query_dt: datetime,
@@ -64,7 +64,7 @@ class SLCProductCatalog:
             *args,
             **kwargs
     ):
-        filename = Path(url).name
+        filename = Path(urls[0]).name
         result = self._query_existence(filename)
         doc = {
             "id": filename,
@@ -76,12 +76,15 @@ class SLCProductCatalog:
             "revision_date": revision_date_dt
         }
 
-        if "https://" in url:
-            doc["https_url"] = url
-        elif "s3://" in url:
-            doc["s3_url"] = url
-        else:
-            raise Exception(f"Unrecognized URL format. {url=}")
+        for url in urls:
+            if "https://" in url:
+                doc["https_url"] = url
+
+            if "s3://" in url:
+                doc["s3_url"] = url
+
+            if "https://" not in url and "s3://" not in url:
+                raise Exception(f"Unrecognized URL format. {url=}")
 
         doc.update(kwargs)
 
