@@ -701,7 +701,7 @@ def mock_create_merged_files(monkeypatch):
     monkeypatch.setattr(
         download.product2dataset,
         download.product2dataset.merge_dataset_met_json.__name__,
-        MagicMock(return_value=(1, {"version": "v2.0", "ProductType": "dummy_product_type"}))
+        MagicMock(return_value=(1, {"dataset_version": "v2.0", "ProductType": "dummy_product_type"}))
     )
     monkeypatch.setattr(
         download.extractor.extract,
