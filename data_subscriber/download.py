@@ -416,7 +416,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
 
     # write out basic *.dataset.json file (version + created_timestamp)
     dataset_json_dict = extractor.extract.create_dataset_json(
-        product_metadata={"dataset_version": merged_met_dict["version"]},
+        product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
         ds_met={},
         alt_ds_met={}
     )
