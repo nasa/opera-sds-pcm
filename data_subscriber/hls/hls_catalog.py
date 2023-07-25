@@ -141,7 +141,7 @@ class HLSProductCatalog:
                     "download_job_id": job_id,
                 }
             },
-            index="hls_catalog-*"
+            index=generate_es_index_name()  # TODO chrisjrd: find out if we can accurately update an existing record regardless of index date
         )
 
         if self.logger:
