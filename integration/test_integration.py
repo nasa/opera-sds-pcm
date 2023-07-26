@@ -153,7 +153,7 @@ def test_subscriber_slc():
 
     logger.info("Sleeping for download job execution...")
     sleep_for(300)
-    wait_for_download_job(job_id, index="slc_catalog")
+    wait_for_download_job(job_id, index="slc_catalog-*")
 
     logger.info("TRIGGERING SLC IONOSPHERE DOWNLOAD")
     update_env_vars_subscriber_slc_ionosphere_download_lambda()
