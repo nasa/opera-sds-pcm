@@ -141,12 +141,12 @@ variable "artifactory_repo" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4 with ES 7.10 - Mar 9, 2023
-    mozart    = "ami-04f791795ef444889" # mozart v4.19 - 230215
-    metrics   = "ami-09abf2a67634a7ab2" # metrics v4.14 - 230223
-    grq       = "ami-0586f7f14177b302c" # grq v4.15 - 230223
-    factotum  = "ami-0966e4927b40b5036" # factotum v4.15 - 230308
-    autoscale = "ami-0805014721e52d629" # verdi v4.16 patchupdate - 230215
+    # HySDS v5.0.0-beta.6 - May 25, 2023 - R2 RC8.0
+    mozart    = "ami-02cf73926477eae15" # mozart v4.20
+    metrics   = "ami-0e1371110b9744042" # metrics v4.15
+    grq       = "ami-01de15c2a056ba449" # grq v4.16
+    factotum  = "ami-0b988a1203b7e5a58" # factotum v4.16
+    autoscale = "ami-082d3efc94d50659f" # verdi v4.16 patchupdate - 20230525
   }
 }
 
@@ -173,37 +173,37 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-er.5.0"
-    "rtc_s1" = "2.0.0-er.5.1"
+    "cslc_s1" = "2.0.0-rc.2.0"
+    "rtc_s1" = "2.0.0-rc.2.0"
   }
 }
 
 variable "hysds_release" {
-  default = "v4.1.0-beta.4"
+  default = "v5.0.0-beta.6"
 }
 
 variable "lambda_package_release" {
-  default = "2.0.0-rc.4.0"
+  default = "2.0.0-rc.8.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "2.0.0-rc.4.0"
+  default = "2.0.0-rc.8.0"
 }
 
 variable "pcm_branch" {
-  default = "2.0.0-rc.4.0"
+  default = "2.0.0-rc.8.0"
 }
 
 variable "product_delivery_branch" {
-  default = "2.0.0-rc.4.0"
+  default = "2.0.0-rc.8.0"
 }
 
 variable "bach_api_branch" {
-  default = "2.0.0-rc.4.0"
+  default = "2.0.0-rc.8.0"
 }
 
 variable "bach_ui_branch" {
-  default = "2.0.0-rc.4.0"
+  default = "2.0.0-rc.8.0"
 }
 
 ###### Roles ########

@@ -1,4 +1,4 @@
-# globals
+#m globals
 #
 # venue : userId
 # counter : 1-n
@@ -306,9 +306,11 @@ variable "po_daac_endpoint_url" {
 }
 
 #The value of asf_daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
+# for DEV: arn:aws:sqs:us-west-2:871271927522:asf-cumulus-dev-opera-cnm-ingest-queue
+# for dev-int:
 variable "asf_daac_delivery_proxy" {
   default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
+  #default = "arn:aws:sqs:us-west-2:156214815904:asf-cumulus-int-opera-cnm-ingest-queue"
 }
 
 variable "asf_daac_endpoint_url" {
@@ -379,8 +381,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-rc.1.0"
-    "rtc_s1" = "2.0.0-rc.1.0"
+    "cslc_s1" = "2.0.0-rc.2.0"
+    "rtc_s1" = "2.0.0-rc.2.0"
   }
 }
 
@@ -495,12 +497,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4 with ES 7.10 - Mar 9, 2023
-    mozart    = "ami-04f791795ef444889" # mozart v4.19 - 230215
-    metrics   = "ami-09abf2a67634a7ab2" # metrics v4.14 - 230223
-    grq       = "ami-0586f7f14177b302c" # grq v4.15 - 230223
-    factotum  = "ami-0966e4927b40b5036" # factotum v4.15 - 230308
-    autoscale = "ami-0805014721e52d629" # verdi v4.16 patchupdate - 230215
+    # HySDS v5.0.0-beta.6 - July 10, 2023
+    mozart    = "ami-0d1d5539d77a6cde2" # mozart v4.21 - 230710
+    metrics   = "ami-0aa63c81611c8cb2a" # metrics v4.15 - 230626
+    grq       = "ami-0ab96904359fa481b" # grq v4.16 - 230605
+    factotum  = "ami-04fb19cdf4289592f" # factotum v4.16 - 230702
+    autoscale = "ami-07abb668e56ddc95e" # verdi v4.16 patchdate - 20230702
   }
 }
 

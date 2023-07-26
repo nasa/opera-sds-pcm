@@ -17,16 +17,29 @@ ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 def exec_wrapper(func):
     """Execution wrapper to dump alternate errors and tracebacks."""
 
-    def wrapper(*args, **kwargs):
-        try:
-            status = func(*args, **kwargs)
-        except (Exception, SystemExit) as e:
-            with open("_alt_error.txt", "w") as f:
-                f.write("%s\n" % str(e))
-            with open("_alt_traceback.txt", "w") as f:
-                f.write("%s\n" % traceback.format_exc())
-            raise
-        sys.exit(status)
+    import inspect
+    if inspect.iscoroutinefunction(func):
+        async def wrapper(*args, **kwargs):
+            try:
+                status = await func(*args, **kwargs)
+            except (Exception, SystemExit) as e:
+                with open("_alt_error.txt", "w") as f:
+                    f.write("%s\n" % str(e))
+                with open("_alt_traceback.txt", "w") as f:
+                    f.write("%s\n" % traceback.format_exc())
+                raise
+            sys.exit(status)
+    else:
+        def wrapper(*args, **kwargs):
+            try:
+                status = func(*args, **kwargs)
+            except (Exception, SystemExit) as e:
+                with open("_alt_error.txt", "w") as f:
+                    f.write("%s\n" % str(e))
+                with open("_alt_traceback.txt", "w") as f:
+                    f.write("%s\n" % traceback.format_exc())
+                raise
+            sys.exit(status)
 
     return wrapper
 

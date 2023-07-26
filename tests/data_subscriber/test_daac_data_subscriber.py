@@ -494,25 +494,51 @@ def test_download_from_asf(monkeypatch):
         mock_stage_orbit_file
     )
 
-    monkeypatch.setattr(
-        download.stage_ionosphere_file,
-        download.stage_ionosphere_file.get_parser.__name__,
-        MagicMock()
-    )
     mock_stage_ionosphere_file = MagicMock()
     monkeypatch.setattr(
-        download.stage_ionosphere_file,
-        download.stage_ionosphere_file.main.__name__,
+        download.ionosphere_download,
+        download.ionosphere_download.download_ionosphere_correction_file.__name__,
         mock_stage_ionosphere_file
     )
 
+    mock_stage_ionosphere_file_url = MagicMock()
+    monkeypatch.setattr(
+        download.ionosphere_download,
+        download.ionosphere_download.get_ionosphere_correction_file_url.__name__,
+        mock_stage_ionosphere_file_url
+    )
+
+    monkeypatch.setattr(
+        download.ionosphere_download,
+        download.ionosphere_download.generate_ionosphere_metadata.__name__,
+        MagicMock()
+    )
+
+    monkeypatch.setattr(
+        download,
+        download.update_pending_dataset_metadata_with_ionosphere_metadata.__name__,
+        MagicMock()
+    )
+
     # ACT
-    download.download_from_asf(session=MagicMock(), es_conn=MagicMock(), downloads=[{"https_url": "https://www.example.com/dummy_slc_product.zip"}], args=Args(), token=None, job_id=None)
+    download.download_from_asf(session=MagicMock(),
+                               es_conn=MagicMock(),
+                               downloads=[
+                                   {
+                                       "https_url": "https://www.example.com/dummy_slc_product.zip",
+                                       "intersects_north_america": True,
+                                       "processing_mode": "historical"
+                                   }
+                               ],
+                               args=Args(),
+                               token=None,
+                               job_id=None)
 
     # ASSERT
     mock_extract_one_to_one.assert_called_once()
     mock_stage_orbit_file.assert_called_once()
     mock_stage_ionosphere_file.assert_called_once()
+    mock_stage_ionosphere_file_url.assert_called_once()
 
 
 def mock_token(*args):

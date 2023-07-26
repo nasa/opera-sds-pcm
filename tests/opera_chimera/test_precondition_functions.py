@@ -235,6 +235,78 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         expected_s3_path = "s3://opera-bucket/fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"
         self.assertEqual(rc_params[oc_const.ORBIT_FILE_PATH], expected_s3_path)
 
+    def test_get_slc_static_layers_enabled(self):
+        """Unit tests for the get_slc_static_layers_enabled function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "processing_mode": oc_const.PROCESSING_MODE_FORWARD
+                }
+            }
+        }
+
+        pge_config = {
+            'pge_name': oc_const.L2_RTC_S1
+        }
+
+        settings = {
+            'RTC_S1':  {
+                'ENABLE_STATIC_LAYERS': True
+            }
+        }
+
+        # These are not used by get_slc_s1_orbit_file
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        # For standard case (forward processing) we should get the value assigned
+        # in settings.yaml
+        rc_params = precondition_functions.get_slc_static_layers_enabled()
+
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn('enable_static_layers', rc_params)
+        self.assertTrue(rc_params['enable_static_layers'])
+
+        # Make sure static layer generation is disabled when in "historical" mode
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "processing_mode": oc_const.PROCESSING_MODE_HISTORICAL
+                }
+            }
+        }
+
+        pge_config = {
+            'pge_name': oc_const.L2_CSLC_S1
+        }
+
+        settings = {
+            'CSLC_S1': {
+                'ENABLE_STATIC_LAYERS': True
+            }
+        }
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        with self.assertLogs() as cm:
+            rc_params = precondition_functions.get_slc_static_layers_enabled()
+
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn('enable_static_layers', rc_params)
+        self.assertFalse(rc_params['enable_static_layers'])
+
+        # Check that we logged the flag being set to False
+        self.assertIn('INFO:opera_pcm:Processing mode for L2_CSLC_S1 is set to historical, '
+                      'static layer generation will be DISABLED.', cm.output)
+
     @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
     @patch.object(tools.stage_dem, "gdal", MockGdal)
     def test_get_slc_s1_dem(self):
@@ -275,13 +347,19 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         }
 
         pge_config = {
+            'pge_name': 'L2_CSLC_S1',
             oc_const.GET_SLC_S1_DEM: {
                 oc_const.S3_BUCKET: 'opera-bucket'
             }
         }
 
+        settings = {
+            'CSLC_S1': {
+                'ANCILLARY_MARGIN': 50
+            }
+        }
+
         # These are not used with get_cslc_s1_dem()
-        settings = None
         context = None
 
         precondition_functions = OperaPreConditionFunctions(

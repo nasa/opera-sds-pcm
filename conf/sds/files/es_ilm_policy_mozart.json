@@ -1,0 +1,43 @@
+{
+  "policy": {
+    "phases": {
+      "hot": {
+        "min_age": "0ms",
+        "actions": {
+          "set_priority" : {
+            "priority": 100
+          }
+        }
+      },
+      "warm": {
+        "min_age": "90d",
+        "actions": {
+          "migrate": {
+            "enabled": false
+          },
+          "set_priority" : {
+            "priority": 50
+          }
+        }
+      },
+      "cold": {
+        "min_age": "97d",
+        "actions": {
+          "set_priority" : {
+            "priority": 0
+          },
+	      "migrate": {
+            "enabled": false
+          },
+          "freeze": {}
+        }
+      },
+      "delete": {
+        "min_age": "104d",
+        "actions": {
+          "delete": {}
+        }
+      }
+    }
+  }
+}

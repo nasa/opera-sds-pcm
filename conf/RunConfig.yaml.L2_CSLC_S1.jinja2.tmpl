@@ -38,6 +38,7 @@ RunConfig:
         ErrorCodeBase: 200000
         SchemaPath: /home/compass_user/opera/pge/cslc_s1/schema/cslc_s1_sas_schema.yaml
         IsoTemplatePath: /home/compass_user/opera/pge/cslc_s1/templates/OPERA_ISO_metadata_L2_CSLC_S1_template.xml.jinja2
+        DataValidityStartTime: {{ data.product_path_group.data_validity_start_time }}
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -79,7 +80,7 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_file: {{ data.product_path_group.product_path }}
-            product_version: {{ data.product_path_group.product_version }}
+            product_version: "{{ data.product_path_group.product_version }}"
           primary_executable:
             product_type: CSLC_S1
           processing:

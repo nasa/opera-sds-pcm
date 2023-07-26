@@ -200,7 +200,8 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "r6i.4xlarge"
+#    instance_type = "r6i.4xlarge"
+    instance_type = "r5.8xlarge"
     root_dev_size = 50
     data          = "/data"
     data_dev      = "/dev/xvdb"
@@ -381,8 +382,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-rc.1.0"
-    "rtc_s1" = "2.0.0-rc.1.0"
+    "cslc_s1" = "2.0.0-rc.2.0"
+    "rtc_s1" = "2.0.0-rc.2.0"
   }
 }
 

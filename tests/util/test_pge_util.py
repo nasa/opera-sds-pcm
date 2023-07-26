@@ -43,7 +43,7 @@ def test_simulate_cslc_s1_pge():
     try:
         for burst_id in pge_util.CSLC_BURST_IDS:
             assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.h5').exists()
-            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_static_layers.h5').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_Static.h5').exists()
             assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_BROWSE.png').exists()
             assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.iso.xml').exists()
 
@@ -87,11 +87,11 @@ def test_simulate_rtc_s1_pge():
         for burst_id in pge_util.RTC_BURST_IDS:
             assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_VV.tif').exists()
             assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_VH.tif').exists()
-            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_incidence_angle.tif').exists()
-            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_layover_shadow_mask.tif').exists()
-            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_local_incidence_angle.tif').exists()
-            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_nlooks.tif').exists()
-            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_rtc_anf.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_static_incidence_angle.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_static_layover_shadow_mask.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_static_local_incidence_angle.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_static_nlooks.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}_static_rtc_anf_gamma0_to_beta0.tif').exists()
             assert Path(f'/tmp/{expected_output_basename.format(burst_id=burst_id)}.iso.xml').exists()
 
         assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()

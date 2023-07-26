@@ -13,7 +13,6 @@ import json
 import re
 from datetime import datetime
 from extractor.CoreMetExtractor import CoreMetExtractor
-from util.type_util import set_type
 
 from commons.constants import product_metadata as pm
 
@@ -126,6 +125,30 @@ class FilenameRegexMetExtractor(CoreMetExtractor):
                         metadata[key] = set_type(value)
 
         return metadata
+
+
+def set_type(value: str):
+    """
+    Modified version of util.type_util.py::set_type for use in filename metadata extraction.
+
+    Note: parsing floats from filename fragments is NOT supported.
+    """
+    constructors = [int, float, str]
+    for c in constructors:
+        if c == float:
+            # >=2 means E in beginning, middle, or end. At least 1 E overall.  ==1 means no E present.
+            value_has_e = len(value.split("E")) >= 2 or len(value.split("e")) >= 2
+            if value_has_e:
+                continue  # skip. Not supporting parsing floats in exponential notation from filenames.
+            else:
+                pass
+
+        try:
+            return c(value)
+        except ValueError:
+            pass
+
+    raise ValueError("{} is not one of these types: {}".format(value, constructors))
 
 
 def main():

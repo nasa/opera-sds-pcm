@@ -6,6 +6,8 @@ from typing import TypedDict
 
 from osgeo import ogr
 
+logger = logging.getLogger(__name__)
+
 
 class Coordinate(TypedDict):
     lat: float
@@ -23,7 +25,7 @@ def does_bbox_intersect_north_america(bbox: list[Coordinate]) -> bool:
                  `bbox["lon"]` refers to the longitudinal component of the coordinate.
     :return: True if the given coordinates intersect with North America (OPERA). Otherwise False.
     """
-    logging.info(f"{bbox=}")
+    logger.info(f"{bbox=}")
 
     bbox_ring = ogr.Geometry(ogr.wkbLinearRing)
     for coordinate in bbox:
@@ -34,7 +36,7 @@ def does_bbox_intersect_north_america(bbox: list[Coordinate]) -> bool:
     na_geom = _load_north_america_opera_geometry_collection()
 
     is_bbox_in_north_america = na_geom.Intersects(bbox_poly)
-    logging.info(f"{is_bbox_in_north_america=}")
+    logger.info(f"{is_bbox_in_north_america=}")
     return is_bbox_in_north_america
 
 
@@ -46,7 +48,7 @@ def _load_north_america_opera_geometry_collection() -> ogr.Geometry:
     for feature in north_america_opera_geojson["features"]:
         na_geoms.AddGeometry(ogr.CreateGeometryFromJson(json.dumps(feature["geometry"])))
 
-    logging.info("Loaded geojson as osgeo GeometryCollection")
+    logger.info("Loaded geojson as osgeo GeometryCollection")
     return na_geoms
 
 
@@ -56,5 +58,5 @@ def _cached_load_north_america_opera_geojson() -> dict:
     with Path(__file__).parent.joinpath('north_america_opera.geojson').open() as fp:
         geojson_obj: dict = json.load(fp)
 
-    logging.info("Loaded geojson")
+    logger.info("Loaded geojson")
     return geojson_obj

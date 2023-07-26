@@ -39,10 +39,15 @@ setup(
 
             "python-dateutil",
             "validators",
-            "cachetools==5.2.0"
+            "cachetools==5.2.0",
+
+            "boto3-stubs",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
         ],
         "subscriber": [
             "boto3",
+            "boto3-stubs",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "python-dateutil",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
@@ -103,6 +108,27 @@ setup(
             "elasticsearch[async]",
             "more-itertools==8.13.0",
             'pytest-asyncio==0.20.3'
+        ],
+        "audit": [
+            "elasticsearch[async]",
+            "more-itertools",
+            "python-dateutil",
+            "python-dotenv"
+        ],
+        "cmr_audit": [
+            "aiohttp[speedups]",
+            "backoff",
+            "compact-json",
+            "more-itertools",
+            "python-dateutil",
+            "python-dotenv"
+        ],
+        "cnm_check": [
+            "compact-json",
+            "elasticsearch[async]",
+            "more-itertools",
+            "python-dateutil",
+            "python-dotenv"
         ]
     }
 )
