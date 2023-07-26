@@ -40,6 +40,7 @@ class HLSProductCatalog:
             # self.es.es.indices.delete(index=index, ignore=404)
             # self.logger.info("Deleted old index: {}".format(index))
             pass
+        return  # TODO chrisjrd: remove todo
 
         self.es.es.indices.put_index_template(
             name="hls_catalog_template",
