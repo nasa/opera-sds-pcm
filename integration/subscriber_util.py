@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import backoff
@@ -12,11 +13,11 @@ from botocore.config import Config
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response import Hit
 from mypy_boto3_lambda import LambdaClient
+from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef, FunctionConfigurationResponseMetadataTypeDef
 from requests import Response
 
 import conftest
-from int_test_util import \
-    success_handler, raise_, get_es_host, get_es_client, index_not_found
+from int_test_util import success_handler, raise_, get_es_host, get_es_client, index_not_found
 
 config = conftest.config
 
@@ -26,7 +27,7 @@ aws_lambda: LambdaClient = boto3.client("lambda", config=(Config(max_pool_connec
 def invoke_l30_subscriber_query_lambda():
     logging.info("Invoking data subscriber query timer lambda")
 
-    response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
+    response: InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["L30_DATA_SUBSCRIBER_QUERY_LAMBDA"],
         Payload=generate_payload_cloudwatch_scheduled_event()
     )
@@ -36,7 +37,7 @@ def invoke_l30_subscriber_query_lambda():
 def invoke_s30_subscriber_query_lambda():
     logging.info("Invoking data subscriber query timer lambda")
 
-    response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
+    response: InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["S30_DATA_SUBSCRIBER_QUERY_LAMBDA"],
         Payload=generate_payload_cloudwatch_scheduled_event()
     )
@@ -46,9 +47,19 @@ def invoke_s30_subscriber_query_lambda():
 def invoke_slc_subscriber_query_lambda():
     logging.info("Invoking data subscriber query timer lambda")
 
-    response: mypy_boto3_lambda.type_defs.InvocationResponseTypeDef = aws_lambda.invoke(
+    response: InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["SLC_DATA_SUBSCRIBER_QUERY_LAMBDA"],
         Payload=generate_payload_cloudwatch_scheduled_event_slc()
+    )
+    return response
+
+
+def invoke_slc_subscriber_ionosphere_download_lambda():
+    logging.info("Invoking data subscriber query timer lambda")
+
+    response: InvocationResponseTypeDef = aws_lambda.invoke(
+        FunctionName=config["SLC_DATA_SUBSCRIBER_IONOSPHERE_DOWNLOAD_LAMBDA"],
+        Payload=generate_payload_cloudwatch_scheduled_event_current_time()
     )
     return response
 
@@ -77,7 +88,7 @@ def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_enviro
     if additional_environment_variable_updates is None:
         additional_environment_variable_updates = {}
 
-    response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    response: FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
     environment_variables["SMOKE_RUN"] = "true"
@@ -86,6 +97,31 @@ def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_enviro
     environment_variables["MINUTES"] = "rate(60 minutes)"
     environment_variables["USE_TEMPORAL"] = "true"
     environment_variables["TEMPORAL_START_DATETIME_MARGIN_DAYS"] = ""
+
+    environment_variables.update(additional_environment_variable_updates)
+
+    aws_lambda.update_function_configuration(
+        FunctionName=FunctionName,
+        Environment={"Variables": environment_variables}
+    )
+
+
+def update_env_vars_subscriber_slc_ionosphere_download_lambda():
+    logging.info("updating data subscriber SLC ionosphere download timer lambda environment variables")
+    update_env_vars_subscriber_slc_ionosphere_download_lambda_helper(
+        FunctionName=config["SLC_DATA_SUBSCRIBER_IONOSPHERE_DOWNLOAD_LAMBDA"],
+        additional_environment_variable_updates={
+            "QUERY_END_DATETIME_OFFSET_HOURS": "0"  # ensure no offset so ionosphere download timerange covers integration test data
+        }
+    )
+
+
+def update_env_vars_subscriber_slc_ionosphere_download_lambda_helper(FunctionName: str, additional_environment_variable_updates: Optional[dict] = None):
+    if additional_environment_variable_updates is None:
+        additional_environment_variable_updates = {}
+
+    response: FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    environment_variables: dict = response["Environment"]["Variables"]
 
     environment_variables.update(additional_environment_variable_updates)
 
@@ -135,6 +171,12 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environ
     )
 
 
+def wait_for_query_job(job_id):
+    logging.info(f"Checking query job status. {job_id=}")
+
+    return wait_for_job(job_id)
+
+
 @backoff.on_predicate(
     backoff.constant,
     lambda job_status: job_status["success"] is not True or job_status["status"] != "job-completed",
@@ -151,8 +193,8 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environ
     giveup=index_not_found,
     jitter=None
 )
-def wait_for_query_job(job_id):
-    logging.info(f"Checking query job status. {job_id=}")
+def wait_for_job(job_id):
+    logging.info(f"Checking job status. {job_id=}")
 
     response: Response
     if config.get("ES_USER") and config.get("ES_PASSWORD"):
@@ -184,7 +226,7 @@ def wait_for_query_job(job_id):
     giveup=index_not_found,
     jitter=None
 )
-def wait_for_download_jobs(job_id, index="hls_catalog"):
+def wait_for_download_job(job_id, index):
     logging.info(f"Checking download job status. {job_id=}")
 
     response: elasticsearch_dsl.response.Response = Search(using=get_es_client(),
@@ -236,3 +278,20 @@ def generate_payload_cloudwatch_scheduled_event_slc():
           "detail": {}
         }
     """
+
+
+def generate_payload_cloudwatch_scheduled_event_current_time():
+    return (f"""
+        {{
+          "id": "cdc73f9d-aea9-11e3-9d5a-835b769c0d9c",
+          "detail-type": "Scheduled Event",
+          "source": "aws.events",
+          "account": "123456789012",
+          "time": "{(datetime.now(timezone.utc) - timedelta(hours=0)).isoformat(timespec="seconds").replace("+00:00", "Z")}",
+          "region": "us-east-1",
+          "resources": [
+            "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"
+          ],
+          "detail": {{}}
+        }}
+    """).encode("utf-8")

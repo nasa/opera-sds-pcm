@@ -10,14 +10,14 @@ import boto3
 import shapely.wkt
 
 from osgeo import gdal
-from shapely.geometry import Polygon, box
+from shapely.geometry import Polygon
 
 from commons.logger import logger
 from commons.logger import LogLevels
 from util.geo_util import (check_dateline,
                            epsg_from_polygon,
+                           polygon_from_bounding_box,
                            polygon_from_mgrs_tile,
-                           margin_km_to_deg,
                            transform_polygon_coords_to_epsg)
 
 # Enable exceptions
@@ -88,12 +88,7 @@ def determine_polygon(tile_code, bbox=None, margin_in_km=50):
     """
     if bbox:
         logger.info('Determining polygon from bounding box')
-        poly = box(bbox[0], bbox[1], bbox[2], bbox[3])
-
-        # convert margin to degree
-        margin_in_deg = margin_km_to_deg(margin_in_km)
-
-        poly = poly.buffer(margin_in_deg)
+        poly = polygon_from_bounding_box(bbox, margin_in_km)
     else:
         logger.info(f'Determining polygon from MGRS tile code {tile_code}')
         poly = polygon_from_mgrs_tile(tile_code, margin_in_km)

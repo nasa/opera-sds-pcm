@@ -67,7 +67,7 @@ resource "aws_instance" "mozart" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-#    ignore_changes = [tags]
+    #    ignore_changes = [tags]
     ignore_changes = [tags, volume_tags]
   }
   subnet_id              = var.subnet_id
@@ -591,7 +591,7 @@ resource "aws_instance" "mozart" {
     inline = [<<-EOT
       set -ex
       source ~/.bash_profile
-      %{ for pge_name, pge_version in var.pge_releases ~}
+      %{for pge_name, pge_version in var.pge_releases~}
       if [[ \"${pge_version}\" == \"develop\"* ]]; then
           python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \
           --image_names opera_pge-${pge_name} \
@@ -613,7 +613,7 @@ resource "aws_instance" "mozart" {
           --username ${var.artifactory_fn_user} \
           --api_key ${var.artifactory_fn_api_key}
       fi
-      %{ endfor ~}
+      %{endfor~}
       sds -d kibana import -f
       sds -d cloud storage ship_style --bucket ${local.dataset_bucket}
       sds -d cloud storage ship_style --bucket ${local.osl_bucket}
@@ -653,9 +653,9 @@ resource "null_resource" "install_pcm_and_pges" {
   ]
 
   connection {
-    type = "ssh"
-    host = aws_instance.mozart.private_ip
-    user = "hysdsops"
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
     private_key = file(var.private_key_file)
   }
 
@@ -691,9 +691,9 @@ resource "null_resource" "install_pcm_and_pges_iems" {
   ]
 
   connection {
-    type = "ssh"
-    host = aws_instance.mozart.private_ip
-    user = "hysdsops"
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
     private_key = file(var.private_key_file)
   }
 
@@ -727,9 +727,9 @@ resource "null_resource" "setup_trigger_rules" {
   depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
 
   connection {
-    type = "ssh"
-    host = aws_instance.mozart.private_ip
-    user = "hysdsops"
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
     private_key = file(var.private_key_file)
   }
 
