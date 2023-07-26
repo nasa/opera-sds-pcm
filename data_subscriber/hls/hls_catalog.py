@@ -66,11 +66,13 @@ class HLSProductCatalog:
         self.logger.info("Successfully created index template: {}".format("hls_catalog_template"))
 
     def delete_index(self):
-        index = "hls_catalog-*"
-        # TODO chrisjrd: verify index deletion
-        # TODO chrisjrd: call existing delete_index function
-        self.es.es.indices.delete(index=index, ignore=404)
-        self.logger.info("Successfully deleted index: {}".format(index))
+        # TODO chrisjrd: commented out because code is potentially unnecessary. remove code before final submission
+        # index = "hls_catalog-*"
+        # # TODO chrisjrd: verify index deletion
+        # # TODO chrisjrd: call existing delete_index function
+        # self.es.es.indices.delete(index=index, ignore=404)
+        # self.logger.info("Successfully deleted index: {}".format(index))
+        pass
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
