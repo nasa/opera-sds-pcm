@@ -95,7 +95,6 @@ class HLSProductCatalog:
             **kwargs
     ):
         filename = Path(urls[0]).name
-        result = self._query_existence(filename)
         doc = {
             "id": filename,
             "granule_id": granule_id,
@@ -119,18 +118,28 @@ class HLSProductCatalog:
         doc.update(kwargs)
 
         # TODO chrisjrd: fix update
-        if not result:
-            pass
-        else:
-            pass
+        result = self._query_existence(filename)
         self.logger.info(f"{result=}")
+        if not result:  # EDGECASE: index doesn't exist yet
+            index = generate_es_index_name()
+        else:  # reprocessed or revised product. assume reprocessed. update existing record
+            index = result["_index"]
 
         # TODO chrisjrd: use ID of existing record, when possible
-        self.es.update_document(index=generate_es_index_name(), body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
 
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split("/")[-1]
+
+        # TODO chrisjrd: fix update
+        result = self._query_existence(filename)
+        self.logger.info(f"{result=}")
+        if not result:  # EDGECASE: index doesn't exist yet
+            index = generate_es_index_name()
+        else:  # reprocessed or revised product. assume reprocessed. update existing record
+            index = result["_index"]
+
         result = self.es.update_document(
             id=filename,
             body={
@@ -141,7 +150,7 @@ class HLSProductCatalog:
                     "download_job_id": job_id,
                 }
             },
-            index=generate_es_index_name()  # TODO chrisjrd: find out if we can accurately update an existing record regardless of index date
+            index=index  # TODO chrisjrd: find out if we can accurately update an existing record regardless of index date
         )
 
         self.logger.info(f"Document updated: {result}")
