@@ -382,7 +382,7 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py ;
-      conda install gdal=3.4.1 --yes --quiet ;
+      conda install conda==22.11.1 gdal==3.6.2 --yes --quiet ;
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -396,8 +396,8 @@ resource "aws_instance" "mozart" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
-        echo installing gdal for manual execution of daac_data_subscriber.py ;
-        conda install gdal=3.4.1 --yes --quiet ;
+        echo installing gdal for manual execution of daac_data_subscriber.py
+        conda install conda==22.11.1 gdal==3.6.2 --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
