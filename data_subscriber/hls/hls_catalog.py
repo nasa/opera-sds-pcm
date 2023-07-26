@@ -44,22 +44,24 @@ class HLSProductCatalog:
         self.es.es.indices.put_index_template(
             name="hls_catalog_template",
             create=True,
-            index_patterns=index,
-            template={
-                "settings": {
-                    "index": {
-                        "sort.field": "creation_timestamp",
-                        "sort.order": "asc"
-                    }
-                },
-                "mappings": {
-                    "properties": {
-                        "granule_id": {"type": "keyword"},
-                        "s3_url": {"type": "keyword"},
-                        "https_url": {"type": "keyword"},
-                        "creation_timestamp": {"type": "date"},
-                        "download_datetime": {"type": "date"},
-                        "downloaded": {"type": "boolean"}
+            body={
+                "index_patterns": [index],
+                "template": {
+                    "settings": {
+                        "index": {
+                            "sort.field": "creation_timestamp",
+                            "sort.order": "asc"
+                        }
+                    },
+                    "mappings": {
+                        "properties": {
+                            "granule_id": {"type": "keyword"},
+                            "s3_url": {"type": "keyword"},
+                            "https_url": {"type": "keyword"},
+                            "creation_timestamp": {"type": "date"},
+                            "download_datetime": {"type": "date"},
+                            "downloaded": {"type": "boolean"}
+                        }
                     }
                 }
             }
