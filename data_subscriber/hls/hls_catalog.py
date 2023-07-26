@@ -1,19 +1,12 @@
+import logging
 from datetime import datetime
-from logging import Logger
 from pathlib import Path
 
 from data_subscriber import es_conn_util
 
-
-class NullLogger(Logger):
-    """No-op logger to simplify logging in this module."""
-    def info(self, *args, **kwargs): pass
-    def debug(self, *args, **kwargs): pass
-    def warning(self, *args, **kwargs): pass
-    def error(self, *args, **kwargs): pass
-
-
-null_logger = NullLogger(__name__)
+null_logger = logging.getLogger('dummy')
+null_logger.addHandler(logging.NullHandler())
+null_logger.propagate = False
 
 # ES_INDEX = "hls_catalog"  # TODO chrisjrd: replace
 
