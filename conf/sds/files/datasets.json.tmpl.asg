@@ -196,7 +196,7 @@
       "ipath": "hysds::data/L2_HLS_L30",
       "level": "L2",
       "type": "L2_HLS_L30",
-      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<revision_id>\\d+))$",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[-]r(?P<revision_id>\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -220,7 +220,7 @@
       "ipath": "hysds::data/L2_HLS_S30",
       "level": "L2",
       "type": "L2_HLS_S30",
-      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[.](?P<revision_id>\\d+))$",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[-]r(?P<revision_id>\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
