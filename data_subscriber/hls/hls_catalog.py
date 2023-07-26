@@ -36,8 +36,10 @@ class HLSProductCatalog:
     def create_index(self, index="hls_catalog-*", delete_old_index=False):
         # TODO chrisjrd: verify index deletion
         if delete_old_index is True:
-            self.es.es.indices.delete(index=index, ignore=404)
-            self.logger.info("Deleted old index: {}".format(index))
+            # TODO chrisjrd: commented out because code is potentially unnecessary. remove code before final submission
+            # self.es.es.indices.delete(index=index, ignore=404)
+            # self.logger.info("Deleted old index: {}".format(index))
+            pass
 
         self.es.es.indices.put_index_template(
             name="hls_catalog_template",
