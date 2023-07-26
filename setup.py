@@ -49,8 +49,8 @@ setup(
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "python-dateutil",
-            "elasticsearch==7.13.4",
-            "elasticsearch[async]>=7.13.4",
+            "elasticsearch==7.17.9",
+            "elasticsearch[async]>=7.17.9",
             "more-itertools==8.13.0",
             "requests==2.27.1",
             "validators",
@@ -71,8 +71,8 @@ setup(
             "click==8.1.3",
             # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "Shapely",
-            "elasticsearch==7.13.4",
-            "elasticsearch[async]>=7.13.4",
+            "elasticsearch==7.17.9",
+            "elasticsearch[async]>=7.17.9",
             "requests==2.27.1",
             "pytest==7.2.1",
             "pytest-mock>=3.8.2",
@@ -92,7 +92,7 @@ setup(
             "boto3",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "boto3-stubs[sns]",
-            "elasticsearch==7.13.4",
+            "elasticsearch==7.17.9",
             "elasticsearch-dsl==7.3.0",
             "requests==2.27.1",
             "backoff==1.11.1",
