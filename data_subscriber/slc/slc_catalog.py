@@ -38,7 +38,7 @@ class SLCProductCatalog:
             self.delete_index()
 
         self.es.es.indices.put_index_template(
-            name="hls_catalog_template",
+            name="slc_catalog_template",
             create=True,
             body={
                 "index_patterns": [index],
