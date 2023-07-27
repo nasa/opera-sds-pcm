@@ -10,8 +10,9 @@ def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
-    return _slc_url_to_chunk_id(_to_url(dl_doc))
-
+    chunk_id = _slc_url_to_chunk_id(_to_url(dl_doc))
+    print("--------------", chunk_id)
+    return form_batch_id(chunk_id, dl_doc['revision_id'])
 
 def _slc_url_to_chunk_id(url: str):
     input_filename = Path(url).name
