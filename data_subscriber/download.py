@@ -19,6 +19,8 @@ import extractor.extract
 import product2dataset.product2dataset
 from data_subscriber import ionosphere_download
 from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url
+from data_subscriber.cmr import PRODUCT_PROVIDER_MAP
+from data_subscriber.query import DateTimeRange
 from product2dataset import product2dataset
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
@@ -26,12 +28,6 @@ from tools.stage_orbit_file import NoQueryResultsException
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
-
-DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
-                        "HLSS30": "LPCLOUD",
-                        "SENTINEL-1A_SLC": "ASF",
-                        "SENTINEL-1B_SLC": "ASF"}
 
 class HLSDownload:
     def __init__(self):
