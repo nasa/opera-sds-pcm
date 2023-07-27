@@ -59,7 +59,16 @@ def get_product_metadata(job_json_dict: Dict) -> Dict:
     params = job_json_dict['job_specification']['params']
     for param in params:
         if param['name'] == 'product_metadata':
-            return param['value']['metadata']
+            metadata = param['value']
+
+            if isinstance(metadata, dict):
+                metadata = metadata['metadata']
+            elif isinstance(metadata, str):
+                metadata = json.loads(param['value'])['metadata']
+            else:
+                raise ValueError(f'Unknown product_metadata format: {metadata}')
+
+            return metadata
 
     raise
 
