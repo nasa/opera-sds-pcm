@@ -118,12 +118,15 @@ class HLSProductCatalog:
         doc.update(kwargs)
 
         # TODO chrisjrd: fix update
-        result = self._query_existence(filename)
-        self.logger.info(f"{result=}")
-        if not result:  # EDGECASE: index doesn't exist yet
+        results = self._query_existence(filename)
+        self.logger.info(f"{results=}")
+        if not results:  # EDGECASE: index doesn't exist yet
             index = generate_es_index_name()
         else:  # reprocessed or revised product. assume reprocessed. update existing record
-            index = result["_index"]
+            if results["hits"]["total"]["value"]:  # found results
+                index = results["hits"]["hits"][0]["_id"]  # get the ID of the most recent record
+            else:
+                index = generate_es_index_name()
 
         # TODO chrisjrd: use ID of existing record, when possible
         self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=filename)
@@ -133,12 +136,15 @@ class HLSProductCatalog:
         filename = url.split("/")[-1]
 
         # TODO chrisjrd: fix update
-        result = self._query_existence(filename)
-        self.logger.info(f"{result=}")
-        if not result:  # EDGECASE: index doesn't exist yet
+        results = self._query_existence(filename)
+        self.logger.info(f"{results=}")
+        if not results:  # EDGECASE: index doesn't exist yet
             index = generate_es_index_name()
         else:  # reprocessed or revised product. assume reprocessed. update existing record
-            index = result["_index"]
+            if results["hits"]["total"]["value"]:  # found results
+                index = results["hits"]["hits"][0]["_id"]  # get the ID of the most recent record
+            else:
+                index = generate_es_index_name()
 
         result = self.es.update_document(
             id=filename,
@@ -162,14 +168,21 @@ class HLSProductCatalog:
 
     def _query_existence(self, filename, index="hls_catalog-*"):
         try:
-            result = self.es.get_by_id(index=index, id=filename)
-            self.logger.debug(f"Query result: {result}")
+            results = self.es.query(
+                index=index,
+                body={
+                    "query": {"bool": {"must": [{"term": {"_id": filename}}]}},
+                    "sort": [{"creation_timestamp": "desc"}],
+                    "_source": {"includes": "false", "excludes": []}
+                }
+            )
+            self.logger.debug(f"Query results: {results}")
 
         except:
-            result = None
+            results = None
             self.logger.debug(f"{filename} does not exist in {index}")
 
-        return result
+        return results
 
     def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index="hls_catalog-*"):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
