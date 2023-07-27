@@ -103,7 +103,7 @@ def get_range(
 body = get_body()
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index="hls_catalog-*", scroll="5m", size=10_000))
 queried_or_downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 logger.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
@@ -126,7 +126,7 @@ body = get_body()
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index="hls_catalog-*", scroll="5m", size=10_000))
 downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 
 logger.info(f'Data downloaded (files): {len(search_results)=:,}')
