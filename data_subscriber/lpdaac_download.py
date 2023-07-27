@@ -7,7 +7,7 @@ import shutil
 import requests
 import requests.utils
 from product2dataset import product2dataset
-from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url
+from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url, form_batch_id
 
 from data_subscriber.download import DaacDownload
 
@@ -42,7 +42,7 @@ class DaacDownloadLpdaac(DaacDownload):
         for download in downloads:
             granule_id = download['granule_id']
             revision_id = str(download['revision_id'])
-            key = granule_id + "." + revision_id
+            key = form_batch_id(granule_id, revision_id)
             download_url = _to_url(download)
             es_id = download['_id']
 
@@ -161,7 +161,8 @@ class DaacDownloadLpdaac(DaacDownload):
 
         # group_dataset_id coming in is the ES _id which contains the revision-id from CMR as
         # the last .# So we split that out
-        granule_id = '.'.join(group_dataset_id.split('.')[:-1])
+        #TODO: Make this a function in url
+        granule_id = group_dataset_id.split('-')[0]
 
         logger.info("update merged *.met.json with additional, top-level metadata")
         merged_met_dict.update(shared_met_entries_dict)
