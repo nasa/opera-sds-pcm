@@ -7,7 +7,7 @@ null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
-ES_INDEX = "hls_spatial_catalog-*"
+ES_INDEX = ["hls_spatial_catalog", "hls_spatial_catalog-*"]
 
 
 def generate_es_index_name():
@@ -37,7 +37,7 @@ class HLSSpatialProductCatalog:
             name="hls_spatial_catalog_template",
             create=True,
             body={
-                "index_patterns": [ES_INDEX],
+                "index_patterns": ES_INDEX,
                 "template": {
                     "settings": {},
                     "mappings": {
@@ -101,7 +101,7 @@ class HLSSpatialProductCatalog:
     def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=ES_INDEX,
+                index=",".join(ES_INDEX),
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],

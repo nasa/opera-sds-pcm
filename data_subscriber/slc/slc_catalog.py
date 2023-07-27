@@ -8,7 +8,7 @@ null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
-ES_INDEX = "slc_catalog-*"
+ES_INDEX = ["slc_catalog", "slc_catalog-*"]
 
 
 def generate_es_index_name():
@@ -38,7 +38,7 @@ class SLCProductCatalog:
             name="slc_catalog_template",
             create=True,
             body={
-                "index_patterns": [ES_INDEX],
+                "index_patterns": ES_INDEX,
                 "template": {
                     "settings": {
                         "index": {
@@ -153,7 +153,7 @@ class SLCProductCatalog:
     def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=ES_INDEX,
+                index=",".join(ES_INDEX),
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],
@@ -172,7 +172,7 @@ class SLCProductCatalog:
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
-                index=ES_INDEX,
+                index=",".join(ES_INDEX),
                 body={
                     "sort": [{"creation_timestamp": "asc"}],
                     "query": {
