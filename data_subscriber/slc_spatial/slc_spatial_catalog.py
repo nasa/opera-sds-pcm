@@ -1,8 +1,17 @@
+import logging
 from datetime import datetime
 
 from data_subscriber import es_conn_util
 
-ES_INDEX = "slc_spatial_catalog"
+null_logger = logging.getLogger('dummy')
+null_logger.addHandler(logging.NullHandler())
+null_logger.propagate = False
+
+ES_INDEX = "slc_spatial_catalog-*"
+
+
+def generate_es_index_name():
+    return "hls_spatial_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
 
 
 class SLCSpatialProductCatalog:
@@ -20,58 +29,87 @@ class SLCSpatialProductCatalog:
         update_document
     """
     def __init__(self, /, logger=None):
-        self.logger = logger
+        self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
 
     def create_index(self):
-        self.es.es.indices.create(body={"settings": {},
-                                     "mappings": {
-                                         "properties": {
-                                             "bounding_box": {"type": "geo_point"},
-                                             "short_name": {"type": "keyword"},
-                                             "product_id": {"type": "keyword"},
-                                             "production_datetime": {"type": "date"},
-                                             "creation_timestamp": {"type": "date"}}}},
-                               index=ES_INDEX)
-        if self.logger:
-            self.logger.info("Successfully created index: {}".format(ES_INDEX))
+        self.es.es.indices.put_index_template(
+            body={
+                "index_patterns": [ES_INDEX],
+                "template": {
+                    "settings": {},
+                    "mappings": {
+                        "properties": {
+                            "bounding_box": {"type": "geo_point"},
+                            "short_name": {"type": "keyword"},
+                            "product_id": {"type": "keyword"},
+                            "production_datetime": {"type": "date"},
+                            "creation_timestamp": {"type": "date"}
+                        }
+                    }
+                }
+            }
+        )
+
+        self.logger.info("Successfully created index template: {}".format("slc_spatial_catalog_template"))
 
     def delete_index(self):
-        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
-        if self.logger:
-            self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
+        self.logger.warning(f"Index deletion not supported for {ES_INDEX}")
+        pass
 
     def process_granule(self, granule):
-        result = self._query_existence(granule["granule_id"])
+        results = self._query_existence(granule["granule_id"])
 
-        if not result:
-            doc = {
-                "id": granule['granule_id'],
-                "provider": granule["provider"],
-                "production_datetime": granule["production_datetime"],
-                "short_name": granule["short_name"],
-                "product_id": granule["identifier"],
-                "bounding_box": granule["bounding_box"],
-                "creation_timestamp": datetime.now()
-            }
+        if results:
+            self.logger.warning(f'Granule {granule["granule_id"]} exists in DB. Returning.')
+            return
 
-            self._post(granule['granule_id'], doc)
+        doc = {
+            "id": granule["granule_id"],
+            "provider": granule["provider"],
+            "production_datetime": granule["production_datetime"],
+            "short_name": granule["short_name"],
+            "product_id": granule["identifier"],
+            "bounding_box": granule["bounding_box"],
+            "creation_timestamp": datetime.now()
+        }
+        self._post(granule["granule_id"], doc)
 
     def _post(self, granule_id, body):
-        result = self.es.index_document(index=ES_INDEX, body=body, id=granule_id)
+        result = self.es.index_document(index=generate_es_index_name(), body=body, id=granule_id)
 
-        if self.logger:
-            self.logger.info(f"Document indexed: {result}")
+        self.logger.info(f"Document updated: {result}")
 
-    def _query_existence(self, granule_id, index=ES_INDEX):
+    def _get_index_name_for(self, _id, default=None):
+        """Gets the index name for the most recent ES doc matching the given _id"""
+        if default is None:
+            raise
+
+        results = self._query_existence(_id)
+        self.logger.debug(f"{results=}")
+        if not results:  # EDGECASE: index doesn't exist yet
+            index = default
+        else:  # reprocessed or revised product. assume reprocessed. update existing record
+            if results:  # found results
+                index = results[0]["_index"]  # get the ID of the most recent record
+            else:
+                index = default
+        return index
+
+    def _query_existence(self, _id, index=ES_INDEX):
         try:
-            result = self.es.get_by_id(index=index, id=granule_id)
-            if self.logger:
-                self.logger.debug(f"Query result: {result}")
+            results = self.es.query(
+                index=index,
+                body={
+                    "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
+                    "sort": [{"creation_timestamp": "desc"}],
+                    "_source": {"includes": "false", "excludes": []}  # NOTE: returned object is different than when `"includes": []` is used
+                }
+            )
+            self.logger.debug(f"Query results: {results}")
 
         except:
-            result = None
-            if self.logger:
-                self.logger.debug(f"{granule_id} does not exist in {index}")
+            self.logger.info(f"{_id} does not exist in {index}")
+            results = None
 
-        return result
+        return results
