@@ -26,4 +26,4 @@ if __name__ == "__main__":
         delete_old_catalog = True
 
     data_subscriber_catalog = get_hls_catalog_connection(LOGGER)
-    data_subscriber_catalog.create_index(delete_old_index=delete_old_catalog)
+    data_subscriber_catalog.create_index()
