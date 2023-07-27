@@ -118,15 +118,7 @@ class HLSProductCatalog:
         doc.update(kwargs)
 
         # TODO chrisjrd: fix update
-        results = self._query_existence(filename)
-        self.logger.info(f"{results=}")
-        if not results:  # EDGECASE: index doesn't exist yet
-            index = generate_es_index_name()
-        else:  # reprocessed or revised product. assume reprocessed. update existing record
-            if results:  # found results
-                index = results[0]["_id"]  # get the ID of the most recent record
-            else:
-                index = generate_es_index_name()
+        index = self._get_index_name_for(id=filename, default=generate_es_index_name())
 
         # TODO chrisjrd: use ID of existing record, when possible
         self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=filename)
@@ -136,15 +128,7 @@ class HLSProductCatalog:
         filename = url.split("/")[-1]
 
         # TODO chrisjrd: fix update
-        results = self._query_existence(filename)
-        self.logger.info(f"{results=}")
-        if not results:  # EDGECASE: index doesn't exist yet
-            index = generate_es_index_name()
-        else:  # reprocessed or revised product. assume reprocessed. update existing record
-            if results:  # found results
-                index = results[0]["_id"]  # get the ID of the most recent record
-            else:
-                index = generate_es_index_name()
+        index = self._get_index_name_for(id=filename, default=generate_es_index_name())
 
         result = self.es.update_document(
             id=filename,
@@ -160,6 +144,21 @@ class HLSProductCatalog:
         )
 
         self.logger.info(f"Document updated: {result}")
+
+    def _get_index_name_for(self, id, default=None):
+        if default is None:
+            raise
+
+        results = self._query_existence(id)
+        self.logger.info(f"{results=}")
+        if not results:  # EDGECASE: index doesn't exist yet
+            index = default
+        else:  # reprocessed or revised product. assume reprocessed. update existing record
+            if results:  # found results
+                index = results[0]["_index"]  # get the ID of the most recent record
+            else:
+                index = default
+        return index
 
     def _post(self, filename, body):
         result = self.es.index_document(index=generate_es_index_name(), body=body, id=filename)
