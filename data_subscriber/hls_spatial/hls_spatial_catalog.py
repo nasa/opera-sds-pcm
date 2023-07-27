@@ -111,7 +111,7 @@ class HLSSpatialProductCatalog:
             self.logger.debug(f"Query results: {results}")
 
         except:
-            self.logger.info(f"{_id} does not exist in {index}")
+            self.logger.info(f"{_id} does not exist in {ES_INDEX}")
             results = None
 
         return results
