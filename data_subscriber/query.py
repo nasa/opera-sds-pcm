@@ -74,7 +74,7 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
 
         if granule.get("filtered_urls"):
             for filter_url in granule.get("filtered_urls"):
-                batch_id_to_urls_map[form_batch_id(granule_id, revision_id)].add(filter_url)
+                batch_id_to_urls_map[keyfunc(granule_id, revision_id)].add(filter_url)
 
     if args.subparser_name == "full":
         logging.info(f"{args.subparser_name=}. Skipping download job submission.")

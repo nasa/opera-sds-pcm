@@ -10,14 +10,13 @@ def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
-    chunk_id = _slc_url_to_chunk_id(_to_url(dl_doc))
-    print("--------------", chunk_id)
-    return form_batch_id(chunk_id, dl_doc['revision_id'])
+    url = _to_url(dl_doc)
+    print("--------------", url)
+    return _slc_url_to_chunk_id(url, dl_doc['revision_id'])
 
-def _slc_url_to_chunk_id(url: str):
+def _slc_url_to_chunk_id(url, revision_id):
     input_filename = Path(url).name
-    return input_filename
-
+    return form_batch_id(input_filename, revision_id)
 
 def _to_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("s3_url"):
