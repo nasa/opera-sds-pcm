@@ -8,7 +8,7 @@ null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
-ES_INDEX = "slc_catalog"
+ES_INDEX = "slc_catalog-*"
 
 
 def generate_es_index_name():
