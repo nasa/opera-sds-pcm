@@ -123,8 +123,8 @@ class HLSProductCatalog:
         if not results:  # EDGECASE: index doesn't exist yet
             index = generate_es_index_name()
         else:  # reprocessed or revised product. assume reprocessed. update existing record
-            if results["hits"]["total"]["value"]:  # found results
-                index = results["hits"]["hits"][0]["_id"]  # get the ID of the most recent record
+            if results:  # found results
+                index = results[0]["_id"]  # get the ID of the most recent record
             else:
                 index = generate_es_index_name()
 
@@ -141,8 +141,8 @@ class HLSProductCatalog:
         if not results:  # EDGECASE: index doesn't exist yet
             index = generate_es_index_name()
         else:  # reprocessed or revised product. assume reprocessed. update existing record
-            if results["hits"]["total"]["value"]:  # found results
-                index = results["hits"]["hits"][0]["_id"]  # get the ID of the most recent record
+            if results:  # found results
+                index = results[0]["_id"]  # get the ID of the most recent record
             else:
                 index = generate_es_index_name()
 
