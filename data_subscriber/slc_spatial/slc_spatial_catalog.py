@@ -34,6 +34,8 @@ class SLCSpatialProductCatalog:
 
     def create_index(self):
         self.es.es.indices.put_index_template(
+            name="slc_spatial_catalog_template",
+            create=True,
             body={
                 "index_patterns": [ES_INDEX],
                 "template": {
