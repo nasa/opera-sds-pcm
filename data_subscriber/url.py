@@ -9,12 +9,6 @@ def form_batch_id(granule_id, revision_id):
 def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
 
-'''def _hls_url_to_batch_id(url: str):
-    # remove both suffixes to get granule ID (e.g. removes .Fmask.tif) and then appends the revision_id
-    granule_id = PurePath(url).with_suffix("").with_suffix("").name
-    return granule_id'''
-
-
 def _to_orbit_number(dl_doc: dict[str, Any]):
     return _slc_url_to_chunk_id(_to_url(dl_doc))
 
