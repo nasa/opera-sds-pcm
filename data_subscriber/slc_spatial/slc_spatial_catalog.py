@@ -98,10 +98,10 @@ class SLCSpatialProductCatalog:
                 index = default
         return index
 
-    def _query_existence(self, _id, index=ES_INDEX):
+    def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=index,
+                index=ES_INDEX,
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],

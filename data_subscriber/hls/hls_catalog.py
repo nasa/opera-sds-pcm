@@ -33,15 +33,12 @@ class HLSProductCatalog:
         self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
 
-    def create_index(self, index=ES_INDEX, delete_old_index=False):
-        if delete_old_index is True:
-            self.delete_index()
-
+    def create_index(self):
         self.es.es.indices.put_index_template(
             name="hls_catalog_template",
             create=True,
             body={
-                "index_patterns": [index],
+                "index_patterns": [ES_INDEX],
                 "template": {
                     "settings": {
                         "index": {
@@ -154,10 +151,10 @@ class HLSProductCatalog:
 
         self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, _id, index=ES_INDEX):
+    def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=index,
+                index=ES_INDEX,
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],
@@ -167,16 +164,16 @@ class HLSProductCatalog:
             self.logger.debug(f"Query results: {results}")
 
         except:
-            self.logger.info(f"{_id} does not exist in {index}")
+            self.logger.info(f"{_id} does not exist in {ES_INDEX}")
             results = None
 
         return results
 
-    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
+    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
-                index=index,
+                index=ES_INDEX,
                 body={
                     "sort": [{"creation_timestamp": "asc"}],
                     "query": {
