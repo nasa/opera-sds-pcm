@@ -11,7 +11,7 @@ ES_INDEX = "slc_spatial_catalog-*"
 
 
 def generate_es_index_name():
-    return "hls_spatial_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
+    return "slc_spatial_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
 
 
 class SLCSpatialProductCatalog:
