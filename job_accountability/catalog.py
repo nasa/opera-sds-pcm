@@ -52,10 +52,6 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
             )
 
     def create_index(self):
-        self.es.indices.create(index=ES_INDEX)
-        if self.logger:
-            self.logger.info("Successfully created index: {}".format(ES_INDEX))
-
         self.__add_mapping(ES_INDEX, mapping_type=ES_TYPE)  # Add mapping
         if self.logger:
             self.logger.info("Successfully add mapping to index {}".format(ES_INDEX))
