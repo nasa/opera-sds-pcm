@@ -1,11 +1,17 @@
-import os
 import json
+from datetime import datetime
+from pathlib import Path
+
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 REFREC_ID = "refrec_id"
-ES_INDEX = "jobs_accountability_catalog"
+ES_INDEX = ["jobs_accountability_catalog", "jobs_accountability_catalog-*"]
 ES_TYPE = "job"
 HEADER = "header"
+
+
+def generate_es_index_name():
+    return "jobs_accountability_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
 
 
 class JobAccountabilityCatalog(ElasticsearchUtility):
@@ -24,33 +30,37 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
     """
 
     def __add_mapping(self, index, mapping_type):
-        current_directory = os.path.dirname(os.path.abspath(__file__))
-        mappings_file = "{}_mappings.json".format(mapping_type)
-        mappings_file = os.path.join(current_directory, "es_mapping", mappings_file)
+        current_dirpath = Path(__file__).absolute().parent
+        mappings_filepath = current_dirpath / "es_mapping" / f"{mapping_type}_mappings.json"
 
-        with open(mappings_file) as json_file:
-            self.es.indices.put_mapping(index=index, body=json.load(json_file))
+        with mappings_filepath.open() as mappings_fp:
+            self.es.es.indices.put_index_template(
+                name="hls_catalog_template",
+                create=True,
+                body={
+                    "index_patterns": index,
+                    "template": {
+                        "settings": {
+                            "index": {
+                                "sort.field": "creation_timestamp",
+                                "sort.order": "asc"
+                            }
+                        },
+                        "mappings": json.load(mappings_fp)
+                    }
+                }
+            )
 
-    def create_index(self, index=ES_INDEX, mapping_type=ES_TYPE, delete_old_index=False):
-        if delete_old_index is True:
-            self.es.indices.delete(index=index, ignore=404)
-            if self.logger:
-                self.logger.info("Deleted old index: {}".format(index))
-
+    def create_index(self):
         self.es.indices.create(index=ES_INDEX)
         if self.logger:
-            self.logger.info("Successfully created index: {}".format(index))
+            self.logger.info("Successfully created index: {}".format(ES_INDEX))
 
-        self.__add_mapping(index, mapping_type)  # Add mapping
+        self.__add_mapping(ES_INDEX, mapping_type=ES_TYPE)  # Add mapping
         if self.logger:
-            self.logger.info("Successfully add mapping to index {}".format(index))
+            self.logger.info("Successfully add mapping to index {}".format(ES_INDEX))
 
-    def delete_index(self, index=ES_INDEX):
-        self.es.indices.delete(index=index, ignore=404)
-        if self.logger:
-            self.logger.info("Successfully deleted index: {}".format(index))
-
-    def post(self, records, header=None, index=ES_INDEX):
+    def post(self, records, header=None):
         """
         Post records into ElasticSearch.
 
@@ -67,7 +77,7 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
                 record[HEADER] = {}
             if self.logger:
                 self.logger.info("record: {}".format(record))
-            self.__post_to_es(record, index)
+            self.__post_to_es(record, generate_es_index_name())
 
     def __post_to_es(self, document, index):
         """
