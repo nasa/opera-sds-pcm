@@ -35,7 +35,7 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
 
         with mappings_filepath.open() as mappings_fp:
             self.es.indices.put_index_template(
-                name="hls_catalog_template",
+                name="jobs_accountability_catalog_template",
                 create=True,
                 body={
                     "index_patterns": index_patterns,
