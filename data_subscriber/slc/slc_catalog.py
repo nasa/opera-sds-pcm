@@ -154,6 +154,7 @@ class SLCProductCatalog:
         try:
             results = self.es.query(
                 index=",".join(ES_INDEX),
+                ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],
@@ -173,6 +174,7 @@ class SLCProductCatalog:
         try:
             result = self.es.query(
                 index=",".join(ES_INDEX),
+                ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "sort": [{"creation_timestamp": "asc"}],
                     "query": {
