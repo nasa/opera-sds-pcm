@@ -5,7 +5,7 @@ from pathlib import Path
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 REFREC_ID = "refrec_id"
-ES_INDEX = ["jobs_accountability_catalog", "jobs_accountability_catalog-*"]
+ES_INDEX_PATTERNS = ["jobs_accountability_catalog", "jobs_accountability_catalog-*"]
 ES_TYPE = "job"
 HEADER = "header"
 
@@ -29,7 +29,7 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
         update_document
     """
 
-    def __add_mapping(self, index, mapping_type):
+    def __add_template(self, index_patterns, mapping_type):
         current_dirpath = Path(__file__).absolute().parent
         mappings_filepath = current_dirpath / "es_mapping" / f"{mapping_type}_mappings.json"
 
@@ -38,7 +38,7 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
                 name="hls_catalog_template",
                 create=True,
                 body={
-                    "index_patterns": index,
+                    "index_patterns": index_patterns,
                     "template": {
                         "settings": {
                             "index": {
@@ -52,9 +52,9 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
             )
 
     def create_index(self):
-        self.__add_mapping(ES_INDEX, mapping_type=ES_TYPE)  # Add mapping
+        self.__add_template(ES_INDEX_PATTERNS, mapping_type=ES_TYPE)  # Add mapping
         if self.logger:
-            self.logger.info("Successfully add mapping to index {}".format(ES_INDEX))
+            self.logger.info("Successfully add mapping to indexes {}".format(ES_INDEX_PATTERNS))
 
     def post(self, records, header=None):
         """

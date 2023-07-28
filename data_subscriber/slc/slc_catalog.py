@@ -8,7 +8,7 @@ null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
-ES_INDEX = ["slc_catalog", "slc_catalog-*"]
+ES_INDEX_PATTERNS = ["slc_catalog", "slc_catalog-*"]
 
 
 def generate_es_index_name():
@@ -38,7 +38,7 @@ class SLCProductCatalog:
             name="slc_catalog_template",
             create=True,
             body={
-                "index_patterns": ES_INDEX,
+                "index_patterns": ES_INDEX_PATTERNS,
                 "template": {
                     "settings": {
                         "index": {
@@ -63,7 +63,7 @@ class SLCProductCatalog:
         self.logger.info("Successfully created index template: {}".format("slc_catalog_template"))
 
     def delete_index(self):
-        self.logger.warning(f"Index deletion not supported for {ES_INDEX}")
+        self.logger.warning(f"Index deletion not supported for {ES_INDEX_PATTERNS}")
         pass
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
@@ -153,7 +153,7 @@ class SLCProductCatalog:
     def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=",".join(ES_INDEX),
+                index=",".join(ES_INDEX_PATTERNS),
                 ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
@@ -164,7 +164,7 @@ class SLCProductCatalog:
             self.logger.debug(f"Query results: {results}")
 
         except:
-            self.logger.info(f"{_id} does not exist in {ES_INDEX}")
+            self.logger.info(f"{_id} does not exist in {ES_INDEX_PATTERNS}")
             results = None
 
         return results
@@ -173,7 +173,7 @@ class SLCProductCatalog:
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
-                index=",".join(ES_INDEX),
+                index=",".join(ES_INDEX_PATTERNS),
                 ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "sort": [{"creation_timestamp": "asc"}],
