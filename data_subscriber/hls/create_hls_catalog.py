@@ -23,6 +23,7 @@ if __name__ == "__main__":
 
     delete_old_catalog = False
     if args.delete_old_catalog:
+        LOGGER.warning(f"{args.delete_old_catalog=} is no longer supported")
         delete_old_catalog = True
 
     data_subscriber_catalog = get_hls_catalog_connection(LOGGER)

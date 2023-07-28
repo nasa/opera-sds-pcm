@@ -1,8 +1,7 @@
-import logging
 import argparse
+import logging
 
 from job_accountability.es_connection import get_job_accountability_connection
-
 
 logging.basicConfig(level=logging.INFO)  # Set up logging
 LOGGER = logging.getLogger(__name__)
@@ -28,7 +27,8 @@ if __name__ == "__main__":
 
     delete_old_catalog = False
     if args.delete_old_catalog:
+        LOGGER.warning(f"{args.delete_old_catalog=} is no longer supported")
         delete_old_catalog = True
 
     job_catalog = get_job_accountability_connection(LOGGER)
-    job_catalog.create_index(delete_old_index=delete_old_catalog)
+    job_catalog.create_index()
