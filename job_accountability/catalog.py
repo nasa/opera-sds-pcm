@@ -34,7 +34,7 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
         mappings_filepath = current_dirpath / "es_mapping" / f"{mapping_type}_mappings.json"
 
         with mappings_filepath.open() as mappings_fp:
-            self.es.es.indices.put_index_template(
+            self.es.indices.put_index_template(
                 name="hls_catalog_template",
                 create=True,
                 body={
