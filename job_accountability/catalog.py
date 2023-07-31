@@ -40,12 +40,6 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
                 body={
                     "index_patterns": index_patterns,
                     "template": {
-                        "settings": {
-                            "index": {
-                                "sort.field": "creation_timestamp",
-                                "sort.order": "asc"
-                            }
-                        },
                         "mappings": json.load(mappings_fp)
                     }
                 }
