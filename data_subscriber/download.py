@@ -59,6 +59,8 @@ class DaacDownload:
         self.provider = provider
         self.cfg = SettingsConf().cfg  # has metadata extractor config
 
+        self.downloads_dir = None
+
     @staticmethod
     def get_download_object(args):
         provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
@@ -98,7 +100,19 @@ class DaacDownload:
 
         session = SessionWithHeaderRedirection(username, password, netloc)
 
+        logger.info("Creating directories to process products")
+
+        # house all file downloads
+        self.downloads_dir = Path("downloads")
+        self.downloads_dir.mkdir(exist_ok=True)
+
+        if args.dry_run:
+            logger.info(f"{args.dry_run=}. Skipping downloads.")
+
         self.perform_download(session, es_conn, downloads, args, token, job_id)
+
+        logger.info(f"Removing directory tree. {self.downloads_dir}")
+        shutil.rmtree(self.downloads_dir)
 
     def perform_download(self, session, es_conn, downloads, args, token, job_id):
         pass

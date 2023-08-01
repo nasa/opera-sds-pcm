@@ -11,11 +11,11 @@ def _to_batch_id(dl_doc: dict[str, Any]):
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
     url = _to_url(dl_doc)
-    print("--------------", url)
     return _slc_url_to_chunk_id(url, dl_doc['revision_id'])
 
 def _slc_url_to_chunk_id(url, revision_id):
     input_filename = Path(url).name
+    input_filename = input_filename[:-4]+'.zip'
     return form_batch_id(input_filename, revision_id)
 
 def _to_url(dl_dict: dict[str, Any]) -> str:

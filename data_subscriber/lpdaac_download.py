@@ -30,14 +30,6 @@ class DaacDownloadLpdaac(DaacDownload):
             job_id
     ):
 
-        logger.info("Creating directories to process granules")
-        # house all file downloads
-        downloads_dir = Path("downloads")
-        downloads_dir.mkdir(exist_ok=True)
-
-        if args.dry_run:
-            logger.info(f"{args.dry_run=}. Skipping downloads.")
-
         download_map = defaultdict(HLSDownload)
         for download in downloads:
             granule_id = download['granule_id']
@@ -57,7 +49,7 @@ class DaacDownloadLpdaac(DaacDownload):
         for key, downloads in download_map.items():
             logger.info(f"Processing {key=}")
 
-            granule_download_dir = downloads_dir / key
+            granule_download_dir = self.downloads_dir / key
             granule_download_dir.mkdir(exist_ok=True)
 
             # download products in granule
@@ -84,9 +76,6 @@ class DaacDownloadLpdaac(DaacDownload):
 
             logger.info(f"Removing directory {granule_download_dir}")
             shutil.rmtree(granule_download_dir)
-
-        logger.info(f"Removing directory tree. {downloads_dir}")
-        shutil.rmtree(downloads_dir)
 
 
     def download_product(self, product_url, session, token: str, args, target_dirpath: Path):
