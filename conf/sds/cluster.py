@@ -1,5 +1,7 @@
 import os
 
+from fabric.api import execute
+from fabric.contrib.project import rsync_project
 from sdscli.adapters.hysds.fabfile import (
     get_context,
     run,
@@ -25,8 +27,6 @@ from sdscli.adapters.hysds.fabfile import (
     extra_opts
 )
 
-from fabric.api import execute
-from fabric.contrib.project import rsync_project
 
 #####################################
 # add custom fabric functions below
@@ -244,6 +244,14 @@ def update_es_template():
             f"{hysds_dir}/ops/grq2/config/es_template.json",
         )
         execute(install_es_template, roles=[role])
+
+        print(f"Creating ILM policy for {role}")
+        copy(
+            "~/.sds/files/es_ilm_policy_grq.json",
+            f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
+        )
+        run("curl --request PUT --url 'localhost:9200/_ilm/policy/my_policy?pretty' "
+            f"--json@{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json")
 
 
 def load_container_in_registry(container_name):

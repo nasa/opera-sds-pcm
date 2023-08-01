@@ -528,6 +528,7 @@ resource "aws_instance" "mozart" {
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
+
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
@@ -542,6 +543,7 @@ resource "aws_instance" "mozart" {
       fi
       fab -f ~/.sds/cluster.py -R grq update_es_template
       sds -d ship
+
       cd ~/mozart/pkgs
       sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress

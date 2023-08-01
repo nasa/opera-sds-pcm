@@ -1,0 +1,57 @@
+{
+  "policy": {
+    "phases": {
+      "hot": {
+        "min_age": "0ms",
+        "actions": {
+          "rollover": {
+            "max_primary_shard_size": "50gb"
+          },
+          "set_priority": {
+            "priority": 100
+          }
+        }
+      },
+      "warm": {
+        "min_age": "2d",
+        "actions": {
+          "migrate": {
+            "enabled": true
+          },
+          "readonly": {},
+          "set_priority": {
+            "priority": 50
+          },
+          "shrink": {
+            "max_primary_shard_size": "50gb"
+          }
+        }
+      },
+      "cold": {
+        "actions": {
+          "migrate": {
+            "enabled": true
+          },
+          "readonly": {},
+          "set_priority": {
+            "priority": 0
+          }
+        }
+      },
+      "frozen": {
+        "min_age": "30d",
+        "actions": {
+          "force_merge_index": true
+        }
+      },
+      "delete": {
+        "min_age": "90d",
+        "actions": {
+          "delete": {
+            "delete_searchable_snapshot": true
+          }
+        }
+      }
+    }
+  }
+}
