@@ -383,6 +383,30 @@
           "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_S1/{id}"
         ]
       }
+    },
+    {
+      "ipath": "hysds::data/L3_DISP_S1",
+      "level": "L3",
+      "type": "L3_DISP_S1",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_(?P<mode>IW)_(?P<frame_id>F\\d{5})_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<ref_datetime>\\d{8}T\\d{6}Z)_(?P<sec_datetime>\\d{8}T\\d{6}Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DISP_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DISP_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1/{id}"
+        ]
+      }
     }
   ]
 }
