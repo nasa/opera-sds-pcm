@@ -4,24 +4,24 @@
       "hot": {
         "min_age": "0ms",
         "actions": {
+          "set_priority": {
+            "priority": 100
+          },
           "rollover": {
             "max_size": "50gb",
             "max_age": "2d"
-          },
-          "set_priority": {
-            "priority": 100
           }
         }
       },
       "warm": {
         "min_age": "2d",
         "actions": {
-          "migrate": {
-            "enabled": true
-          },
-          "readonly": {},
           "set_priority": {
             "priority": 50
+          },
+          "readonly": {},
+          "migrate": {
+            "enabled": true
           },
           "shrink": {
             "number_of_shards": 1
@@ -30,11 +30,11 @@
       },
       "cold": {
         "actions": {
-          "migrate": {
-            "enabled": true
-          },
           "set_priority": {
             "priority": 0
+          },
+          "migrate": {
+            "enabled": true
           }
         }
       },
