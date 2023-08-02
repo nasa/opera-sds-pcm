@@ -260,7 +260,8 @@ def create_ilm_policies():
             f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
         )
         run(
-            "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' --fail-with-body "
+            "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' "
+            "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
         )
 
