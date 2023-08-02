@@ -1,0 +1,20 @@
+{
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "match": {
+              "dataset_type": "triaged_job"
+            }
+          },
+          {
+            "range": {
+              "@timestamp": {
+                "lt": "now-30d/d"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
