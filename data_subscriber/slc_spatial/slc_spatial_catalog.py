@@ -48,6 +48,10 @@ class SLCSpatialProductCatalog:
                             "production_datetime": {"type": "date"},
                             "creation_timestamp": {"type": "date"}
                         }
+                    },
+                    "aliases": {
+                      "catalog_alias": {},
+                      "slc_spatial_catalog_alias": {}
                     }
                 }
             }

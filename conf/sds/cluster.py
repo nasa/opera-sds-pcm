@@ -250,7 +250,7 @@ def update_es_template():
             "~/.sds/files/es_ilm_policy_grq.json",
             f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
         )
-        run("curl --request PUT --url 'localhost:9200/_ilm/policy/my_policy?pretty' "
+        run("curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' "
             f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json")
 
 

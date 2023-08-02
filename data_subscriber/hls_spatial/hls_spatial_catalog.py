@@ -48,6 +48,10 @@ class HLSSpatialProductCatalog:
                             "production_datetime": {"type": "date"},
                             "creation_timestamp": {"type": "date"}
                         }
+                    },
+                    "aliases": {
+                      "catalog_alias": {},
+                      "hls_spatial_catalog_alias": {}
                     }
                 }
             }

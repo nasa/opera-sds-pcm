@@ -44,7 +44,8 @@ class HLSProductCatalog:
                         "index": {
                             "sort.field": "creation_timestamp",
                             "sort.order": "asc"
-                        }
+                        },
+                        "index.lifecycle.name": "opera_grq_ilm_policy"
                     },
                     "mappings": {
                         "properties": {
@@ -55,6 +56,10 @@ class HLSProductCatalog:
                             "download_datetime": {"type": "date"},
                             "downloaded": {"type": "boolean"}
                         }
+                    },
+                    "aliases": {
+                      "catalog_alias": {},
+                      "hls_catalog_alias": {}
                     }
                 }
             }

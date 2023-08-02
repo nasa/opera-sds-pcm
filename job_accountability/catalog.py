@@ -40,7 +40,13 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
                 body={
                     "index_patterns": index_patterns,
                     "template": {
-                        "mappings": json.load(mappings_fp)
+                        "settings": {
+                            "index.lifecycle.name": "opera_grq_ilm_policy"
+                        },
+                        "mappings": json.load(mappings_fp),
+                        "aliases": {
+                          "jobs_accountability_catalog_alias": {}
+                        }
                     }
                 }
             )
