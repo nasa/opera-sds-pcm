@@ -4,14 +4,14 @@
 locals {
   q_config = <<EOT
 QUEUES:
-    %{~for queue, queue_config in var.queues~}
+    %{~ for queue, queue_config in var.queues ~}
   - QUEUE_NAME: ${queue}
     INSTANCE_TYPES:
-    %{~for instance_type in queue_config["instance_type"]~}
+    %{~ for instance_type in queue_config["instance_type"] ~}
       - ${instance_type}
-    %{~endfor~}
+    %{~ endfor ~}
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
-    %{~endfor~}
+    %{~ endfor ~}
   EOT
 }
 

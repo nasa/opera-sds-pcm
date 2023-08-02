@@ -756,7 +756,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return rc_params
 
     def get_slc_static_layers_enabled(self):
-        """Gets the setting for the static_layers_enabled flag from settings.yaml"""
+        """Gets the setting for the enable_static_layers flag from settings.yaml"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         pge_name = self._pge_config.get('pge_name')
@@ -765,6 +765,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f'Getting ENABLE_STATIC_LAYERS setting for PGE {pge_shortname}')
 
         enable_static_layers = self._settings.get(pge_shortname).get("ENABLE_STATIC_LAYERS")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        processing_mode = metadata[oc_const.PROCESSING_MODE_KEY]
+
+        # Static layer generation should always be disabled for historical processing mode
+        if processing_mode == oc_const.PROCESSING_MODE_HISTORICAL:
+            logger.info(f"Processing mode for {pge_name} is set to {processing_mode}, "
+                        f"static layer generation will be DISABLED.")
+            enable_static_layers = False
 
         rc_params = {
             "enable_static_layers": enable_static_layers

@@ -29,7 +29,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "USE_TEMPORAL": "false",
       # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
       "TEMPORAL_START_DATETIME": "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "30",
       "REVISION_START_DATETIME_MARGIN_MINS": "0"
     }
   }
@@ -69,7 +69,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "USE_TEMPORAL": "false",
       # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
       "TEMPORAL_START_DATETIME": "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "30",
       "REVISION_START_DATETIME_MARGIN_MINS": "0"
     }
   }
@@ -156,7 +156,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "USE_TEMPORAL": "false",
       # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
       "TEMPORAL_START_DATETIME": "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "30",
       "REVISION_START_DATETIME_MARGIN_MINS": "0"
     }
   }

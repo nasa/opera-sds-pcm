@@ -497,12 +497,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.0-beta.6 - May 25, 2023 - R2 RC8.0
-    mozart    = "ami-02cf73926477eae15" # mozart v4.20
-    metrics   = "ami-0e1371110b9744042" # metrics v4.15
-    grq       = "ami-01de15c2a056ba449" # grq v4.16
-    factotum  = "ami-0b988a1203b7e5a58" # factotum v4.16
-    autoscale = "ami-082d3efc94d50659f" # verdi v4.16 patchupdate - 20230525
+    # HySDS v5.0.0-beta.6 - July 10, 2023
+    mozart    = "ami-0d1d5539d77a6cde2" # mozart v4.21 - 230710
+    metrics   = "ami-0aa63c81611c8cb2a" # metrics v4.15 - 230626
+    grq       = "ami-0ab96904359fa481b" # grq v4.16 - 230605
+    factotum  = "ami-04fb19cdf4289592f" # factotum v4.16 - 230702
+    autoscale = "ami-07abb668e56ddc95e" # verdi v4.16 patchdate - 20230702
   }
 }
 
