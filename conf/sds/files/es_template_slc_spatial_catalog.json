@@ -1,0 +1,19 @@
+{
+  "index_patterns": ["slc_spatial_catalog", "slc_spatial_catalog-*"],
+  "template": {
+    "settings": {},
+    "mappings": {
+      "properties": {
+        "bounding_box"       : {"type": "geo_point"},
+        "short_name"         : {"type": "keyword"  },
+        "product_id"         : {"type": "keyword"  },
+        "production_datetime": {"type": "date"     },
+        "creation_timestamp" : {"type": "date"     }
+      }
+    },
+    "aliases": {
+      "catalog_alias": {},
+      "slc_spatial_catalog_alias": {}
+    }
+  }
+}
