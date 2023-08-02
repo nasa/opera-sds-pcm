@@ -5,6 +5,7 @@
   ],
   "settings": {
     "index.refresh_interval": "5s",
+    "index.lifecycle.name": "opera_grq_ilm_policy",
     "analysis": {
       "analyzer": {
         "default": {
