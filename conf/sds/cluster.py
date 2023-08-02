@@ -259,8 +259,10 @@ def create_ilm_policies():
             "~/.sds/files/es_ilm_policy_grq.json",
             f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
         )
-        run("curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' --fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json")
+        run(
+            "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' --fail-with-body "
+            f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
+        )
 
 
 def create_index_templates():
@@ -272,33 +274,41 @@ def create_index_templates():
             "~/.sds/files/es_template_hls_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
         )
-        run("curl --request PUT --url 'localhost:9200/_index_template/hls_catalog_template?pretty&create=true' "
+        run(
+            "curl --request PUT --url 'localhost:9200/_index_template/hls_catalog_template?pretty&create=true' "
             "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json")
+            f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
+        )
 
         copy(
             "~/.sds/files/es_template_hls_spatial_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
         )
-        run("curl --request PUT --url 'localhost:9200/_index_template/hls_spatial_catalog_template?pretty&create=true' "
+        run(
+            "curl --request PUT --url 'localhost:9200/_index_template/hls_spatial_catalog_template?pretty&create=true' "
             "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json")
+            f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
+        )
 
         copy(
             "~/.sds/files/es_template_hls_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
         )
-        run("curl --request PUT --url 'localhost:9200/_index_template/slc_catalog_template?pretty&create=true' "
+        run(
+            "curl --request PUT --url 'localhost:9200/_index_template/slc_catalog_template?pretty&create=true' "
             "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json")
+            f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
+        )
 
         copy(
             "~/.sds/files/es_template_slc_spatial_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
         )
-        run("curl --request PUT --url 'localhost:9200/_index_template/slc_spatial_catalog_template?pretty&create=true' "
+        run(
+            "curl --request PUT --url 'localhost:9200/_index_template/slc_spatial_catalog_template?pretty&create=true' "
             "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json")
+            f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
+        )
 
 
 def load_container_in_registry(container_name):
