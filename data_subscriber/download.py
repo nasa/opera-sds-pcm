@@ -68,7 +68,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     # TODO: this needs to be modified for SLC downloads. We should also refactor hls/slc catalog code at same time.
     if args.batch_ids and len(args.batch_ids) == 1:
         one_granule = args.batch_ids[0]
-        logging.info(f"Downloading files for the granule {one_granule}")
+        logger.info(f"Downloading files for the granule {one_granule}")
         result = es_conn.es.query(index='hls_catalog',
                  body={"query": {"bool": {"must": [{"match": {"granule_id" : one_granule}}]}}})
 
@@ -86,11 +86,11 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
 
         downloads = all_pending_downloads
         if args.batch_ids:
-            logging.info(f"Filtering pending downloads by {args.batch_ids=}")
+            logger.info(f"Filtering pending downloads by {args.batch_ids=}")
             id_func = _to_granule_id if args.provider == "LPCLOUD" else _to_orbit_number
             downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
-            logging.info(f"{len(downloads)=}")
-            logging.debug(f"{downloads=}")
+            logger.info(f"{len(downloads)=}")
+            logger.debug(f"{downloads=}")
 
 
     if not downloads:
