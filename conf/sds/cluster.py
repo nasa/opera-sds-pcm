@@ -245,6 +245,13 @@ def update_es_template():
         )
         execute(install_es_template, roles=[role])
 
+        create_ilm_policies()
+
+
+def create_ilm_policies():
+    role, hysds_dir, _ = resolve_role()
+
+    if role == 'grq':
         print(f"Creating ILM policy for {role}")
         copy(
             "~/.sds/files/es_ilm_policy_grq.json",
