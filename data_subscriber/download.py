@@ -126,7 +126,7 @@ class DaacDownload:
         return download_timerange
 
 
-    def extract_one_to_one(self, product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None) -> PurePath:
+    def extract_one_to_one(self, product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None, name_postscript='') -> PurePath:
         """Creates a dataset for the given product.
 
         :param product: the product to create datasets for.
@@ -141,7 +141,8 @@ class DaacDownload:
             product=str(product),
             product_types=settings_cfg["PRODUCT_TYPES"],
             workspace=str(working_dir.resolve()),
-            extra_met=extra_metadata
+            extra_met=extra_metadata,
+            name_postscript=name_postscript
         )
         logger.info(f"{dataset_dir=}")
         return PurePath(dataset_dir)

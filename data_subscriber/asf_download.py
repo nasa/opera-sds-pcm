@@ -77,7 +77,8 @@ class DaacDownloadAsf(DaacDownload):
                 additional_metadata["intersects_north_america"] = True
 
             dataset_dir = self.extract_one_to_one(product, self.cfg, working_dir=Path.cwd(),
-                                             extra_metadata=additional_metadata)
+                                             extra_metadata=additional_metadata,
+                                             name_postscript='-r'+str(download['revision_id']))
 
             # Rename the dataset_dir to match the pattern w revision_id
             new_dataset_dir = dataset_dir.parent / form_batch_id(dataset_dir.name, str(download['revision_id']))

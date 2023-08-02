@@ -59,7 +59,8 @@ def extract(
         product: str,
         product_types: Dict,
         workspace: str,
-        extra_met: Optional[Dict] = None
+        extra_met: Optional[Dict] = None,
+        name_postscript = ''
 ):
     """Create a dataset (directory), with metadata extracted from the input product.
 
@@ -103,7 +104,7 @@ def extract(
                 product_met.update(extra_met)
 
             product_met_file = os.path.join(
-                dataset_dir, f"{os.path.splitext(os.path.basename(product))[0]}.met.json"
+                dataset_dir, f"{os.path.splitext(os.path.basename(product))[0]}{name_postscript}.met.json"
             )
 
             with open(product_met_file, "w") as outfile:
@@ -118,7 +119,7 @@ def extract(
             raise ValueError(msg)
 
         # Create the dataset.json file, if it hasn't been created already
-        dataset_met_file = os.path.join(dataset_dir, dataset_id + ".dataset.json")
+        dataset_met_file = os.path.join(dataset_dir, dataset_id + name_postscript + ".dataset.json")
 
         if not os.path.exists(dataset_met_file):
             dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
