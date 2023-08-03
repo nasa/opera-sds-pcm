@@ -240,14 +240,19 @@ def update_es_template():
 
     if role == 'grq':
         create_ilm_policies()
+        override_default_index_template()
+        create_index_templates()
 
+
+def override_default_index_template():
+    role, hysds_dir, _ = resolve_role()
+
+    if role == 'grq':
         copy(
             "~/.sds/files/es_template.json",
             f"{hysds_dir}/ops/grq2/config/es_template.json",
         )
         execute(install_es_template, roles=[role])
-
-        create_index_templates()
 
 
 def create_ilm_policies():
