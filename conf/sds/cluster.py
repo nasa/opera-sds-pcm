@@ -277,6 +277,16 @@ def create_index_templates_grq():
 
     print(f"Creating index templates for {role}")
     copy(
+        "~/.sds/files/elasticsearch/es_template_jobs_accountability_catalog.json",
+        f"{hysds_dir}/ops/grq2/config/es_template_jobs_accountability_catalog.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/jobs_accountability_catalog_template?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_template_jobs_accountability_catalog.json"
+    )
+
+    copy(
         "~/.sds/files/elasticsearch/es_template_hls_catalog.json",
         f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
     )

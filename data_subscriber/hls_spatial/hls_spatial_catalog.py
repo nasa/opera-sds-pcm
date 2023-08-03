@@ -11,7 +11,7 @@ ES_INDEX_PATTERNS = ["hls_spatial_catalog", "hls_spatial_catalog-*"]
 
 
 def generate_es_index_name():
-    return "hls_spatial_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
+    return "hls_spatial_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))  # TODO chrisjrd: update with final suffix
 
 
 class HLSSpatialProductCatalog:

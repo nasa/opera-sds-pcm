@@ -559,13 +559,6 @@ resource "aws_instance" "mozart" {
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
       pip install --progress-bar off -e .
-
-      echo create accountability Elasticsearch index
-      if [ "${local.delete_old_job_catalog}" = true ]; then
-          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-      else
-          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
-      fi
     EOT
     ]
   }

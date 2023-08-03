@@ -1,6 +1,4 @@
-import json
 from datetime import datetime
-from pathlib import Path
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
@@ -11,7 +9,7 @@ HEADER = "header"
 
 
 def generate_es_index_name():
-    return "jobs_accountability_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))
+    return "jobs_accountability_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))  # TODO chrisjrd: update with final suffix
 
 
 class JobAccountabilityCatalog(ElasticsearchUtility):
@@ -28,33 +26,6 @@ class JobAccountabilityCatalog(ElasticsearchUtility):
         delete_by_id
         update_document
     """
-
-    def __add_template(self, index_patterns, mapping_type):
-        current_dirpath = Path(__file__).absolute().parent
-        mappings_filepath = current_dirpath / "es_mapping" / f"{mapping_type}_mappings.json"
-
-        with mappings_filepath.open() as mappings_fp:
-            self.es.indices.put_index_template(
-                name="jobs_accountability_catalog_template",
-                create=True,
-                body={
-                    "index_patterns": index_patterns,
-                    "template": {
-                        "settings": {
-                            "index.lifecycle.name": "opera_grq_ilm_policy"
-                        },
-                        "mappings": json.load(mappings_fp),
-                        "aliases": {
-                          "jobs_accountability_catalog_alias": {}
-                        }
-                    }
-                }
-            )
-
-    def create_index(self):
-        self.__add_template(ES_INDEX_PATTERNS, mapping_type=ES_TYPE)  # Add mapping
-        if self.logger:
-            self.logger.info("Successfully add mapping to indexes {}".format(ES_INDEX_PATTERNS))
 
     def post(self, records, header=None):
         """
