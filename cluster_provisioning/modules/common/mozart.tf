@@ -541,7 +541,10 @@ resource "aws_instance" "mozart" {
       if [ "${var.grq_aws_es}" = true ] && [ "${var.use_grq_aws_es_private_verdi}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart update_celery_config
       fi
-      fab -f ~/.sds/cluster.py -R grq update_es_template
+
+      fab -f ~/.sds/cluster.py -R grq update_grq_es
+      fab -f ~/.sds/cluster.py -R metrics update_metrics_es
+
       sds -d ship
 
       cd ~/mozart/pkgs
@@ -620,7 +623,7 @@ resource "aws_instance" "mozart" {
 
       echo // metrics
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*
     EOT
     ]
   }

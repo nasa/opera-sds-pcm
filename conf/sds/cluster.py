@@ -217,9 +217,7 @@ def deploy_hysds_ui():
 
 def create_all_user_rules_index():
     """Create user_rules index on grq."""
-
     role, hysds_dir, _ = resolve_role()
-
     if role == "grq":
         send_template(
             "user_rules_dataset.mapping",
@@ -234,87 +232,143 @@ def create_all_user_rules_index():
         create_user_rules_index()
 
 
-def update_es_template():
-    # Overwrites the default ES template with OPERA's custom one
+def update_grq_es():
+    role, hysds_dir, hostname = resolve_role()
+    if role != 'grq':
+        raise
+
+    create_ilm_policy_grq()
+    override_grq_default_index_template()
+    create_index_templates_grq()
+
+
+def create_ilm_policy_grq():
     role, hysds_dir, _ = resolve_role()
+    if role != 'grq':
+        raise
 
-    if role == 'grq':
-        create_ilm_policies()
-        override_default_index_template()
-        create_index_templates()
+    copy(
+        "~/.sds/files/elasticsearch/es_ilm_policy_grq.json",
+        f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
+    )
 
 
-def create_ilm_policies():
+def override_grq_default_index_template():
     role, hysds_dir, _ = resolve_role()
+    if role != 'grq':
+        raise
 
-    if role == 'grq':
-        print(f"Creating ILM policy for {role}")
-        copy(
-            "~/.sds/files/elasticsearch/es_ilm_policy_grq.json",
-            f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
-        )
-        run(
-            "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' "
-            "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
-        )
+    copy(
+        "~/.sds/files/es_template.json",
+        f"{hysds_dir}/ops/grq2/config/es_template.json",
+    )
+    execute(install_es_template, roles=[role])
 
 
-def override_default_index_template():
+def create_index_templates_grq():
     role, hysds_dir, _ = resolve_role()
+    if role != 'grq':
+        raise
 
-    if role == 'grq':
-        copy(
-            "~/.sds/files/es_template.json",
-            f"{hysds_dir}/ops/grq2/config/es_template.json",
-        )
-        execute(install_es_template, roles=[role])
+    print(f"Creating index templates for {role}")
+    copy(
+        "~/.sds/files/elasticsearch/es_template_hls_catalog.json",
+        f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/hls_catalog_template?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
+    )
+
+    copy(
+        "~/.sds/files/elasticsearch/es_template_hls_spatial_catalog.json",
+        f"{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/hls_spatial_catalog_template?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
+    )
+
+    copy(
+        "~/.sds/files/elasticsearch/es_template_slc_catalog.json",
+        f"{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/slc_catalog_template?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
+    )
+
+    copy(
+        "~/.sds/files/elasticsearch/es_template_slc_spatial_catalog.json",
+        f"{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/slc_spatial_catalog_template?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
+    )
 
 
-def create_index_templates():
+def update_metrics_es():
+    role, hysds_dir, hostname = resolve_role()
+    if role != "metrics":
+        raise
+
+    # Need to create this directory first as it does not exist
+    context = get_context()
+    mkdir(f"{hysds_dir}/ops/metrics/config", context['OPS_USER'], context['OPS_USER'])
+
+    create_ilm_policy_metrics()
+    create_index_templates_metrics()
+
+
+def create_ilm_policy_metrics():
     role, hysds_dir, _ = resolve_role()
+    if role != "metrics":
+        raise
 
-    if role == 'grq':
-        print(f"Creating index templates for {role}")
-        copy(
-            "~/.sds/files/elasticsearch/es_template_hls_catalog.json",
-            f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
-        )
-        run(
-            "curl --request PUT --url 'localhost:9200/_index_template/hls_catalog_template?pretty&create=true' "
-            "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
-        )
+    send_template(
+        "es_ilm_policy_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/es_ilm_policy_metrics.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_metrics_ilm_policy?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/es_ilm_policy_metrics.json"
+    )
 
-        copy(
-            "~/.sds/files/elasticsearch/es_template_hls_spatial_catalog.json",
-            f"{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
-        )
-        run(
-            "curl --request PUT --url 'localhost:9200/_index_template/hls_spatial_catalog_template?pretty&create=true' "
-            "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
-        )
 
-        copy(
-            "~/.sds/files/elasticsearch/es_template_slc_catalog.json",
-            f"{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
-        )
-        run(
-            "curl --request PUT --url 'localhost:9200/_index_template/slc_catalog_template?pretty&create=true' "
-            "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
-        )
+def create_index_templates_metrics():
+    role, hysds_dir, _ = resolve_role()
+    if role != "metrics":
+        raise
 
-        copy(
-            "~/.sds/files/elasticsearch/es_template_slc_spatial_catalog.json",
-            f"{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
-        )
-        run(
-            "curl --request PUT --url 'localhost:9200/_index_template/slc_spatial_catalog_template?pretty&create=true' "
-            "--fail-with-body "
-            f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
-        )
+    send_template(
+        "es_template_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/es_template_metrics.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/ilm-indices?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/es_template_metrics.json"
+    )
+    send_template(
+        "es_template_metrics-logstash.json",
+        f"{hysds_dir}/ops/metrics/config/es_template_metrics-logstash.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/ilm-logstash?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/es_template_metrics-logstash.json"
+    )
 
 
 def load_container_in_registry(container_name):
