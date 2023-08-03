@@ -250,7 +250,7 @@ def create_ilm_policies():
     if role == 'grq':
         print(f"Creating ILM policy for {role}")
         copy(
-            "~/.sds/files/es_ilm_policy_grq.json",
+            "~/.sds/files/elasticsearch/es_ilm_policy_grq.json",
             f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
         )
         run(
@@ -277,7 +277,7 @@ def create_index_templates():
     if role == 'grq':
         print(f"Creating index templates for {role}")
         copy(
-            "~/.sds/files/es_template_hls_catalog.json",
+            "~/.sds/files/elasticsearch/es_template_hls_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
         )
         run(
@@ -287,7 +287,7 @@ def create_index_templates():
         )
 
         copy(
-            "~/.sds/files/es_template_hls_spatial_catalog.json",
+            "~/.sds/files/elasticsearch/es_template_hls_spatial_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
         )
         run(
@@ -297,7 +297,7 @@ def create_index_templates():
         )
 
         copy(
-            "~/.sds/files/es_template_slc_catalog.json",
+            "~/.sds/files/elasticsearch/es_template_slc_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
         )
         run(
@@ -307,7 +307,7 @@ def create_index_templates():
         )
 
         copy(
-            "~/.sds/files/es_template_slc_spatial_catalog.json",
+            "~/.sds/files/elasticsearch/es_template_slc_spatial_catalog.json",
             f"{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
         )
         run(
