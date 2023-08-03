@@ -244,17 +244,6 @@ def update_es_template():
         create_index_templates()
 
 
-def override_default_index_template():
-    role, hysds_dir, _ = resolve_role()
-
-    if role == 'grq':
-        copy(
-            "~/.sds/files/es_template.json",
-            f"{hysds_dir}/ops/grq2/config/es_template.json",
-        )
-        execute(install_es_template, roles=[role])
-
-
 def create_ilm_policies():
     role, hysds_dir, _ = resolve_role()
 
@@ -269,6 +258,17 @@ def create_ilm_policies():
             "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
         )
+
+
+def override_default_index_template():
+    role, hysds_dir, _ = resolve_role()
+
+    if role == 'grq':
+        copy(
+            "~/.sds/files/es_template.json",
+            f"{hysds_dir}/ops/grq2/config/es_template.json",
+        )
+        execute(install_es_template, roles=[role])
 
 
 def create_index_templates():
