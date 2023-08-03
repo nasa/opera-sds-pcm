@@ -33,44 +33,6 @@ class HLSProductCatalog:
         self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
 
-    def create_index(self):
-        self.es.es.indices.put_index_template(
-            name="hls_catalog_template",
-            create=True,
-            body={
-                "index_patterns": ES_INDEX_PATTERNS,
-                "template": {
-                    "settings": {
-                        "index": {
-                            "sort.field": "creation_timestamp",
-                            "sort.order": "asc"
-                        },
-                        "index.lifecycle.name": "opera_grq_ilm_policy"
-                    },
-                    "mappings": {
-                        "properties": {
-                            "granule_id": {"type": "keyword"},
-                            "s3_url": {"type": "keyword"},
-                            "https_url": {"type": "keyword"},
-                            "creation_timestamp": {"type": "date"},
-                            "download_datetime": {"type": "date"},
-                            "downloaded": {"type": "boolean"}
-                        }
-                    },
-                    "aliases": {
-                      "catalog_alias": {},
-                      "hls_catalog_alias": {}
-                    }
-                }
-            }
-        )
-
-        self.logger.info("Successfully created index template: {}".format("hls_catalog_template"))
-
-    def delete_index(self):
-        self.logger.warning(f"Index deletion not supported for {ES_INDEX_PATTERNS}")
-        pass
-
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
         return [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}

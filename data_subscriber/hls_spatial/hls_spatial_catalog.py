@@ -32,37 +32,6 @@ class HLSSpatialProductCatalog:
         self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
 
-    def create_index(self):
-        self.es.es.indices.put_index_template(
-            name="hls_spatial_catalog_template",
-            create=True,
-            body={
-                "index_patterns": ES_INDEX_PATTERNS,
-                "template": {
-                    "settings": {},
-                    "mappings": {
-                        "properties": {
-                            "bounding_box": {"type": "geo_point"},
-                            "short_name": {"type": "keyword"},
-                            "product_id": {"type": "keyword"},
-                            "production_datetime": {"type": "date"},
-                            "creation_timestamp": {"type": "date"}
-                        }
-                    },
-                    "aliases": {
-                      "catalog_alias": {},
-                      "hls_spatial_catalog_alias": {}
-                    }
-                }
-            }
-        )
-
-        self.logger.info("Successfully created index template: {}".format("hls_spatial_catalog_template"))
-
-    def delete_index(self):
-        self.logger.warning(f"Index deletion not supported for {ES_INDEX_PATTERNS}")
-        pass
-
     def process_granule(self, granule):
         results = self._query_existence(granule["granule_id"])
 

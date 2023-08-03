@@ -556,27 +556,6 @@ resource "aws_instance" "mozart" {
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
       pip install --progress-bar off -e .
-      echo #if [[ "$${var.pcm_release}" == "develop"* ]]; then
-      echo # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
-      echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_slc_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_slc_catalog.py
-      echo #fi
-
-      echo create data subscriber Elasticsearch indexes
-      if [ "${local.delete_old_job_catalog}" = true ]; then
-          python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/slc/delete_slc_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/delete_slc_spatial_catalog.py
-
-      fi
-      python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/slc/create_slc_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/create_slc_spatial_catalog.py
 
       echo create accountability Elasticsearch index
       if [ "${local.delete_old_job_catalog}" = true ]; then
