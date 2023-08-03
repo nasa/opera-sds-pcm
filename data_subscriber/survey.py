@@ -55,7 +55,7 @@ def run_survey(args, token, cmr, settings):
                 (og_rd, og_td, _) = all_granules[g_id]
                 logging.warning(f"{g_id} had already been found {og_rd=} {og_td=}")
             else:
-                raw_csv.write(g_id+","+g_rd+","+g_td+","+str(update_temporal_delta_hrs)+","+r_id+"\n")
+                raw_csv.write(g_id+", "+g_rd+", "+g_td+", "+"%10.2f" % update_temporal_delta_hrs+", "+r_id+"\n")
                 all_granules[g_id] = (g_rd, g_td, update_temporal_delta_hrs, r_id)
                 all_deltas.append(update_temporal_delta_hrs)
                 count += 1
