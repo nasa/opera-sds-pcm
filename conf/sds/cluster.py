@@ -336,8 +336,9 @@ def create_ilm_policy_metrics():
         raise
 
     send_template(
-        "~/.sds/files/elasticsearch/es_ilm_policy_metrics.json",
-        f"{hysds_dir}/ops/metrics/config/es_ilm_policy_metrics.json"
+        "es_ilm_policy_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/es_ilm_policy_metrics.json",
+        tmpl_dir="~/.sds/files/elasticsearch/"
     )
     run(
         "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_metrics_ilm_policy?pretty&create=true' "
@@ -352,8 +353,9 @@ def create_index_templates_metrics():
         raise
 
     send_template(
-        "~/.sds/files/elasticsearch/es_template_metrics.json",
-        f"{hysds_dir}/ops/metrics/config/es_template_metrics.json"
+        "es_template_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/es_template_metrics.json",
+        tmpl_dir="~/.sds/files/elasticsearch/"
     )
     run(
         "curl --request PUT --url 'localhost:9200/_index_template/ilm-indices?pretty&create=true' "
@@ -361,8 +363,9 @@ def create_index_templates_metrics():
         f"--json @{hysds_dir}/ops/metrics/config/es_template_metrics.json"
     )
     send_template(
-        "~/.sds/files/elasticsearch/es_template_metrics-logstash.json",
-        f"{hysds_dir}/ops/metrics/config/es_template_metrics-logstash.json"
+        "es_template_metrics-logstash.json",
+        f"{hysds_dir}/ops/metrics/config/es_template_metrics-logstash.json",
+        tmpl_dir="~/.sds/files/elasticsearch/"
     )
     run(
         "curl --request PUT --url 'localhost:9200/_index_template/ilm-logstash?pretty&create=true' "
