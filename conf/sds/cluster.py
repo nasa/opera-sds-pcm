@@ -336,7 +336,7 @@ def create_ilm_policy_metrics():
         raise
 
     send_template(
-        "es_ilm_policy_metrics.json",
+        "~/.sds/files/elasticsearch/es_ilm_policy_metrics.json",
         f"{hysds_dir}/ops/metrics/config/es_ilm_policy_metrics.json"
     )
     run(
@@ -352,7 +352,7 @@ def create_index_templates_metrics():
         raise
 
     send_template(
-        "es_template_metrics.json",
+        "~/.sds/files/elasticsearch/es_template_metrics.json",
         f"{hysds_dir}/ops/metrics/config/es_template_metrics.json"
     )
     run(
@@ -361,7 +361,7 @@ def create_index_templates_metrics():
         f"--json @{hysds_dir}/ops/metrics/config/es_template_metrics.json"
     )
     send_template(
-        "es_template_metrics-logstash.json",
+        "~/.sds/files/elasticsearch/es_template_metrics-logstash.json",
         f"{hysds_dir}/ops/metrics/config/es_template_metrics-logstash.json"
     )
     run(
