@@ -6,6 +6,7 @@ from pathlib import PurePath, Path
 import shutil
 import requests
 import requests.utils
+from data_subscriber import ionosphere_download
 from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_chunk_id, form_batch_id
 
 from tools import stage_orbit_file

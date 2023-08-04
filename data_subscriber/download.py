@@ -16,7 +16,6 @@ from cachetools.func import ttl_cache
 from smart_open import open
 
 import extractor.extract
-from data_subscriber import ionosphere_download
 from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from data_subscriber.cmr import PRODUCT_PROVIDER_MAP
 from data_subscriber.query import DateTimeRange
