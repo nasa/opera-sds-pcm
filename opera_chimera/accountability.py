@@ -9,13 +9,13 @@ from chimera.commons.accountability import Accountability
 from chimera.logger import logger
 
 import job_accountability.catalog
-from job_accountability.es_connection import get_job_accountability_connection
+from data_subscriber.es_conn_util import get_es_connection
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.conf_util import SettingsConf
 
-grq_es = get_job_accountability_connection(logger)
+grq_es = get_es_connection(logger)
 
 
 def get_dataset(key, datasets_cfg):
