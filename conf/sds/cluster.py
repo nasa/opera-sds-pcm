@@ -232,6 +232,22 @@ def create_all_user_rules_index():
         create_user_rules_index()
 
 
+def update_ilm_policy_mozart():
+    role, hysds_dir, _ = resolve_role()
+    if role != 'mozart':
+        raise
+
+    copy(
+        "~/.sds/files/es_ilm_policy_mozart.json",
+        f"{hysds_dir}/ops/grq2/config/es_ilm_policy_mozart.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_mozart.json"
+    )
+
+
 def update_grq_es():
     role, hysds_dir, hostname = resolve_role()
     if role != 'grq':
