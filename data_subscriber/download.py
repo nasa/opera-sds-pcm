@@ -66,7 +66,7 @@ def run_download(args, token, es_conn, netloc, username, password, job_id):
     # identified its unique id. In such case we shouldn't gather all pending downloads at all;
     # simply find entries for that one granule
     # TODO: this needs to be modified for SLC downloads. We should also refactor hls/slc catalog code at same time.
-    if args.batch_ids and len(args.batch_ids) == 1:
+    if args.batch_ids and len(args.batch_ids) == 1 and args.provider == "LPCLOUD":
         one_granule = args.batch_ids[0]
         logger.info(f"Downloading files for the granule {one_granule}")
         result = es_conn.es.query(index='hls_catalog',
