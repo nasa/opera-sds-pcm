@@ -9,7 +9,7 @@ HEADER = "header"
 
 
 def generate_es_index_name():
-    return "jobs_accountability_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))  # TODO chrisjrd: update with final suffix
+    return "jobs_accountability_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
 
 class JobAccountabilityCatalog(ElasticsearchUtility):

@@ -243,7 +243,7 @@ def update_pending_dataset_with_index_name(dataset_dir: PurePath):
             "suffix": ("{version}_{dataset}-{date}".format(
                 version=dataset_json["version"],
                 dataset=met_dict["ProductType"],
-                date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
+                date=datetime.utcnow().strftime("%Y.%m")
             )).lower()  # suffix index name with `-YYYY.MM
         }
     })
@@ -425,7 +425,7 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
             "suffix": ("{version}_{dataset}-{date}".format(
                 version=dataset_json_dict["version"],
                 dataset=merged_met_dict["ProductType"],
-                date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S")  # TODO chrisjrd: update with final suffix
+                date=datetime.utcnow().strftime("%Y.%m")
             )).lower()  # suffix index name with `-YYYY.MM
         }
     })

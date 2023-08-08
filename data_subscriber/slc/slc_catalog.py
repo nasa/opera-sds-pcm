@@ -12,7 +12,7 @@ ES_INDEX_PATTERNS = ["slc_catalog", "slc_catalog-*"]
 
 
 def generate_es_index_name():
-    return "slc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m.%d.%H%M%S"))  # TODO chrisjrd: update with final suffix
+    return "slc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
 
 class SLCProductCatalog:
