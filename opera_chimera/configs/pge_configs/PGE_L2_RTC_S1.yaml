@@ -25,16 +25,18 @@ runconfig:
     product_path: /home/rtc_user/output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: /home/rtc_user/output_dir/scratch_dir
-    data_validity_start_time: __CHIMERA_VAL__
+    data_validity_start_date: __CHIMERA_VAL__
   processing:
     polarization: __CHIMERA_VAL__
-    enable_static_layers: __CHIMERA_VAL__
+    product_type: __CHIMERA_VAL__
+    num_workers: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
-  - get_data_validity_start_time
+  - get_data_validity_start_date
+  - get_rtc_s1_num_workers
   - get_slc_polarization
   - get_slc_static_layers_enabled
   - get_slc_s1_safe_file
@@ -58,7 +60,7 @@ get_slc_s1_dem:
 get_slc_s1_burst_database:
   # The s3 location of the burst database file to use with each job
   s3_bucket: "opera-burstdb"
-  s3_key: "opera_burst_database_deploy_2022_1212.sqlite3"
+  s3_key: "burst_db_20230713-bbox-only.sqlite"
 
 set_daac_product_type:
   template: OPERA_L2_CSLC_S1_{cnm_version}
@@ -104,4 +106,5 @@ localize_groups:
 input_file_base_name_regexes: # regexes taken from settings.yaml
     - '(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})$'
 output_base_name: OPERA_L2_RTC-S1_{burst_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_30_{product_version}
+static_output_base_name: OPERA_L2_RTC-S1-STATIC_{burst_id}_{validity_ts}_{creation_ts}Z_{sensor}_30_{product_version}
 ancillary_base_name: OPERA_L2_RTC-S1_{creation_ts}Z_{sensor}_30_{product_version}

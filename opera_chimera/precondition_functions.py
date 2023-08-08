@@ -714,6 +714,29 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
             )
 
+    def get_rtc_s1_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an RTC-S1 as a
+        fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        # Use 3/4th of the available cores
+        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+
+        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+
+        rc_params = {
+            "num_workers": str(num_workers)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_slc_polarization(self):
         """
         Determines the polarization setting for the CSLC-S1 or RTC-S1 job based
@@ -776,7 +799,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             enable_static_layers = False
 
         rc_params = {
-            "enable_static_layers": enable_static_layers
+            "product_type": (
+                f"{pge_shortname}_STATIC" if enable_static_layers else f"{pge_shortname}"
+            )
         }
 
         logger.info(f"rc_params : {rc_params}")

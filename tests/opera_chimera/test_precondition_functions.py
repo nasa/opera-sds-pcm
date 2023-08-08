@@ -269,8 +269,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
         self.assertIsNotNone(rc_params)
         self.assertIsInstance(rc_params, dict)
-        self.assertIn('enable_static_layers', rc_params)
-        self.assertTrue(rc_params['enable_static_layers'])
+        self.assertIn('product_type', rc_params)
+        self.assertEqual(rc_params['product_type'], 'RTC_S1_STATIC')
 
         # Make sure static layer generation is disabled when in "historical" mode
         context = {
@@ -300,8 +300,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
         self.assertIsNotNone(rc_params)
         self.assertIsInstance(rc_params, dict)
-        self.assertIn('enable_static_layers', rc_params)
-        self.assertFalse(rc_params['enable_static_layers'])
+        self.assertIn('product_type', rc_params)
+        self.assertEqual(rc_params['product_type'], 'CSLC_S1')
 
         # Check that we logged the flag being set to False
         self.assertIn('INFO:opera_pcm:Processing mode for L2_CSLC_S1 is set to historical, '
