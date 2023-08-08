@@ -146,7 +146,7 @@ variable "amis" {
     #factotum  = "ami-0b988a1203b7e5a58" # factotum v4.16
     #autoscale = "ami-082d3efc94d50659f" # verdi v4.16 patchupdate - 20230525
 
-    # HySDS v5.0.0-beta.6 - July 10, 2023 
+    # HySDS v5.0.0-beta.6 - July 10, 2023
     mozart    = "ami-0d1d5539d77a6cde2" # mozart v4.21 - 230710
     metrics   = "ami-0aa63c81611c8cb2a" # metrics v4.15 - 230626
     grq       = "ami-0ab96904359fa481b" # grq v4.16 - 230605
@@ -455,8 +455,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.1"
-    "cslc_s1"  = "2.0.0-rc.2.0"
-    "rtc_s1"   = "2.0.0-rc.2.0"
+    "cslc_s1"  = "2.0.0-rc.2.1"
+    "rtc_s1"   = "2.0.0-rc.2.1"
   }
 }
 
