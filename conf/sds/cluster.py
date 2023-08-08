@@ -1,6 +1,6 @@
 import os
 
-from fabric.api import execute
+from fabric.api import execute, roles
 from fabric.contrib.project import rsync_project
 from sdscli.adapters.hysds.fabfile import (
     get_context,
@@ -232,10 +232,9 @@ def create_all_user_rules_index():
         create_user_rules_index()
 
 
+@roles("mozart")
 def update_ilm_policy_mozart():
-    role, hysds_dir, _ = resolve_role()
-    if role != 'mozart':
-        raise
+    _, hysds_dir, _ = resolve_role()
 
     copy(
         "~/.sds/files/es_ilm_policy_mozart.json",
@@ -248,20 +247,16 @@ def update_ilm_policy_mozart():
     )
 
 
+@roles("grq")
 def update_grq_es():
-    role, hysds_dir, hostname = resolve_role()
-    if role != 'grq':
-        raise
-
     create_ilm_policy_grq()
     override_grq_default_index_template()
     create_index_templates_grq()
 
 
+@roles("grq")
 def create_ilm_policy_grq():
-    role, hysds_dir, _ = resolve_role()
-    if role != 'grq':
-        raise
+    _, hysds_dir, _ = resolve_role()
 
     copy(
         "~/.sds/files/elasticsearch/es_ilm_policy_grq.json",
@@ -274,10 +269,9 @@ def create_ilm_policy_grq():
     )
 
 
+@roles("grq")
 def override_grq_default_index_template():
     role, hysds_dir, _ = resolve_role()
-    if role != 'grq':
-        raise
 
     copy(
         "~/.sds/files/es_template.json",
@@ -286,10 +280,9 @@ def override_grq_default_index_template():
     execute(install_es_template, roles=[role])
 
 
+@roles("grq")
 def create_index_templates_grq():
     role, hysds_dir, _ = resolve_role()
-    if role != 'grq':
-        raise
 
     print(f"Creating index templates for {role}")
     copy(
@@ -343,10 +336,9 @@ def create_index_templates_grq():
     )
 
 
+@roles("metrics")
 def update_metrics_es():
-    role, hysds_dir, hostname = resolve_role()
-    if role != "metrics":
-        raise
+    _, hysds_dir, _ = resolve_role()
 
     # Need to create this directory first as it does not exist
     context = get_context()
@@ -356,10 +348,9 @@ def update_metrics_es():
     create_index_templates_metrics()
 
 
+@roles("metrics")
 def create_ilm_policy_metrics():
-    role, hysds_dir, _ = resolve_role()
-    if role != "metrics":
-        raise
+    _, hysds_dir, _ = resolve_role()
 
     send_template(
         "es_ilm_policy_metrics.json",
@@ -373,10 +364,9 @@ def create_ilm_policy_metrics():
     )
 
 
+@roles("metrics")
 def create_index_templates_metrics():
-    role, hysds_dir, _ = resolve_role()
-    if role != "metrics":
-        raise
+    _, hysds_dir, _ = resolve_role()
 
     send_template(
         "es_template_metrics.json",
