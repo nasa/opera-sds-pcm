@@ -62,8 +62,8 @@ RES_ORBIT_TIME_RANGE: 3  # Hours
 CSLC_S1:
   # Toggle static layer generation during processing
   ENABLE_STATIC_LAYERS: !!bool false
-  # Validity start time used to tag static layer products
-  DATA_VALIDITY_START_TIME: 20140403T000000
+  # Validity start date used to tag static layer products
+  DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
 
@@ -78,8 +78,8 @@ DSWX_HLS:
 RTC_S1:
   # Toggle static layer generation during processing
   ENABLE_STATIC_LAYERS: !!bool false
-  # Validity start time used to tag static layer products
-  DATA_VALIDITY_START_TIME: 20140403T000000
+  # Validity start date used to tag static layer products
+  DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
 

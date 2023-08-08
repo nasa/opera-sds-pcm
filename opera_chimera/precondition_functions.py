@@ -1147,19 +1147,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_data_validity_start_time(self):
-        """Gets the setting for the data_validity_start_time flag from settings.yaml"""
+    def get_data_validity_start_date(self):
+        """Gets the setting for the data_validity_start_date flag from settings.yaml"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         pge_name = self._pge_config.get('pge_name')
         pge_shortname = pge_name[3:].upper()
 
-        logger.info(f'Getting DATA_VALIDITY_START_TIME setting for PGE {pge_shortname}')
+        logger.info(f'Getting DATA_VALIDITY_START_DATE setting for PGE {pge_shortname}')
 
-        data_validity_start_time = self._settings.get(pge_shortname).get("DATA_VALIDITY_START_TIME")
+        data_validity_start_time = self._settings.get(pge_shortname).get("DATA_VALIDITY_START_DATE")
 
         rc_params = {
-            "data_validity_start_time": data_validity_start_time
+            "data_validity_start_date": data_validity_start_time
         }
 
         logger.info(f"rc_params : {rc_params}")
