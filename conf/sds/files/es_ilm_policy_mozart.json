@@ -21,7 +21,7 @@
         }
       },
       "delete": {
-        "min_age": "31d",
+        "min_age": "32d",
         "actions": {
           "delete": {}
         }
