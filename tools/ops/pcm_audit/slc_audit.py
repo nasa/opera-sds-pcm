@@ -95,6 +95,8 @@ def get_range(
         }
     }
 
+def to_dataset_id(catalog_id):
+    return ''.join(catalog_id.split('.zip'))
 
 #######################################################################
 # GET MASTER LIST. THIS IS THE LIST OF QUERIED/DOWNLOADED FILES
@@ -104,17 +106,13 @@ body = get_body()
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 search_results = list(helpers.scan(es, body, index="slc_catalog", scroll="5m", size=10_000))
-queried_or_downloaded_files = {hit["_id"] for hit in search_results}
+queried_or_downloaded_files = {to_dataset_id(hit["_id"]) for hit in search_results}
 logger.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
 logger.info(f'Data queried or downloaded (files): {len(search_results)=:,}')
 logger.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
-queried_or_downloaded_granules = more_itertools.map_reduce(
-    queried_or_downloaded_files,
-    lambda k: PurePath(k).with_suffix("").name
-)
-queried_or_downloaded_granules = set(queried_or_downloaded_granules.keys())
+queried_or_downloaded_granules = queried_or_downloaded_files
 logger.info(f'Data queried or downloaded (granules): {len(queried_or_downloaded_granules)=:,}')
 logger.debug(f'{pstr(queried_or_downloaded_granules)=!s}')
 
@@ -127,7 +125,7 @@ body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
 search_results = list(helpers.scan(es, body, index="slc_catalog", scroll="5m", size=10_000))
-downloaded_files = {hit["_id"] for hit in search_results}
+downloaded_files = {to_dataset_id(hit["_id"]) for hit in search_results}
 
 logger.info(f'Data downloaded (files): {len(search_results)=:,}')
 logger.debug(f'{pstr(downloaded_files)=!s}')
@@ -144,11 +142,7 @@ missing_download_files = queried_or_downloaded_files - downloaded_files
 logger.info(f'Missing download (files): {len(missing_download_files)=:,}')
 logger.debug(f'{pstr(missing_download_files)=!s}')
 
-missing_download_granules = more_itertools.map_reduce(
-    missing_download_files,
-    lambda k: PurePath(k).with_suffix("").name
-)
-missing_download_granules = set(missing_download_granules.keys())
+missing_download_granules = missing_download_files
 logger.info(f'Missing download (granules): {len(missing_download_granules)=:,}')
 logger.debug(f'{pstr(missing_download_granules)=!s}')
 
@@ -160,7 +154,7 @@ body = get_body()
 body["_source"]["includes"] = ["metadata.FileName"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 search_results = list(helpers.scan(es, body, index="grq_*_l1_s1_slc", scroll="5m", size=10_000))
-slc_ingested_files = {hit["_source"]["metadata"]["FileName"]
+slc_ingested_files = {to_dataset_id(hit["_id"])
                       for hit in search_results}
 
 logger.info(f'Data ingested (SLC): {len(search_results)=:,}')
@@ -203,14 +197,14 @@ body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
 
 search_results = list(helpers.scan(es, body, index="grq_*_l2_cslc_s1", scroll="5m", size=10_000)); search_resultss["L2_CSLC_S1"] = search_results
-pge_input_files.update({PurePath(hit["_source"]["metadata"]["runconfig"]["input_file_group"]["safe_file_path"]).name
+pge_input_files.update({hit["_source"]["metadata"]["accountability"]["L2_CSLC_S1"]["trigger_dataset_id"]
                         for hit in search_results})
 
 pge_output_granules = {hit["_id"] for hit in search_results}
 logger.info(f'Data produced by PGE(s) (CSLC): {len(pge_output_granules)}')
 
 search_results = list(helpers.scan(es, body, index="grq_*_l2_rtc_s1", scroll="5m", size=10_000)); search_resultss["L2_RTC_S1"] = search_results
-pge_input_files.update({PurePath(hit["_source"]["metadata"]["runconfig"]["input_file_group"]["safe_file_path"]).name
+pge_input_files.update({hit["_source"]["metadata"]["accountability"]["L2_RTC_S1"]["trigger_dataset_id"]
                         for hit in search_results})
 
 pge_output_granules = {hit["_id"] for hit in search_results}
@@ -244,51 +238,30 @@ rtc_having_static_layers = {result["_id"].replace("_static_layers", "") for resu
 rtc = {x["_id"] for x in search_resultss["L2_RTC_S1"]}
 rtc_missing_static_layers = rtc - rtc_having_static_layers
 logger.info(f"RTC Missing static layers: {len(rtc_missing_static_layers)}")
-logger.info(f'{pstr(rtc_missing_static_layers)=!s}')
+#logger.info(f'{pstr(rtc_missing_static_layers)=!s}')
 
 
 #######################################################################
 # CNM-S & CNM-R
 #######################################################################
 cnm_s_input_files = set()
-cnm_s_input_granules = set()
+cnm_r_input_files = set()
+for data_t in ["L2_CSLC_S1", "L2_RTC_S1"]:
+    for hit in search_resultss[data_t]:
+        if hit["_source"].get("daac_CNM_S_status") == "SUCCESS":
+            cnm_s_input_files.add(hit["_source"]["metadata"]["accountability"][data_t]["trigger_dataset_id"])
+        if hit["_source"].get("daac_delivery_status") == "SUCCESS":
+            cnm_r_input_files.add(hit["_source"]["metadata"]["accountability"][data_t]["trigger_dataset_id"])
 
-cnm_s_input_files.update({PurePath(input).name
-                          for hit in search_resultss["L2_CSLC_S1"]
-                          for input in hit["_source"]["metadata"]["accountability"]["L2_CSLC_S1"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"})
-cnm_s_input_granules.update({PurePath(input).name.removesuffix(".zip")
-                             for hit in search_resultss["L2_CSLC_S1"]
-                             for input in hit["_source"]["metadata"]["accountability"]["L2_CSLC_S1"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"})
-
-cnm_s_input_files.update({PurePath(input).name
-                          for hit in search_resultss["L2_RTC_S1"]
-                          for input in hit["_source"]["metadata"]["accountability"]["L2_RTC_S1"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"})
-cnm_s_input_granules.update({PurePath(input).name.removesuffix(".zip")
-                             for hit in search_resultss["L2_RTC_S1"]
-                             for input in hit["_source"]["metadata"]["accountability"]["L2_RTC_S1"]["inputs"] if hit["_source"].get("daac_CNM_S_status") == "SUCCESS"})
+# For SLC data granules are the same as files for audit purposes
+cnm_s_input_granules = cnm_s_input_files
+cnm_r_input_granules = cnm_r_input_files
 
 missing_cnm_s_files = pge_input_files - cnm_s_input_files
 logger.info(f'Inputs Missing successful CNM-S (files): {len(missing_cnm_s_files)=:,}')
 missing_cnm_s_granules = pge_input_granules - cnm_s_input_granules
 logger.info(f'Inputs Missing successful CNM-S (granules): {len(missing_cnm_s_granules)=:,}')
 logger.debug(f'{pstr(missing_cnm_s_granules)=!s}')
-
-cnm_r_input_files = set()
-cnm_r_input_granules = set()
-
-cnm_r_input_files.update({PurePath(input).name
-                          for hit in search_resultss["L2_CSLC_S1"]
-                          for input in hit["_source"]["metadata"]["accountability"]["L2_CSLC_S1"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"})
-cnm_r_input_granules.update({PurePath(input).name.removesuffix(".zip")
-                             for hit in search_resultss["L2_CSLC_S1"]
-                             for input in hit["_source"]["metadata"]["accountability"]["L2_CSLC_S1"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"})
-
-cnm_r_input_files.update({PurePath(input).name
-                          for hit in search_resultss["L2_RTC_S1"]
-                          for input in hit["_source"]["metadata"]["accountability"]["L2_RTC_S1"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"})
-cnm_r_input_granules.update({PurePath(input).name.removesuffix(".zip")
-                             for hit in search_resultss["L2_RTC_S1"]
-                             for input in hit["_source"]["metadata"]["accountability"]["L2_RTC_S1"]["inputs"] if hit["_source"].get("daac_delivery_status") == "SUCCESS"})
 
 missing_cnm_r_files = cnm_s_input_files - cnm_r_input_files
 logger.info(f'Inputs Missing successful CNM-R (files): {len(missing_cnm_r_files)=:,}')
