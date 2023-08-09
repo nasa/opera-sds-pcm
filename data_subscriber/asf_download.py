@@ -62,8 +62,8 @@ class DaacDownloadAsf(DaacDownload):
 
             logger.info(f"{product_filepath=}")
 
-            logger.info(f"Marking as downloaded. {product_url=}")
-            es_conn.mark_product_as_downloaded(product_url, job_id)
+            logger.info(f"Marking as downloaded. {download['id']=}")
+            es_conn.mark_product_as_downloaded(download['id'], job_id)
 
             logger.info(f"product_url_downloaded={product_url}")
 
