@@ -69,7 +69,7 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
             new_list.append(granule)
         else:
             logging.warning(f"Granule {granule['granule_id']} currently has revision-id of {granule['revision_id']}\
-which is greater than the max {args.max_revision}. Ignoring and not storing or processing this granule.")
+ which is greater than the max {args.max_revision}. Ignoring and not storing or processing this granule.")
     product_granules = new_list
 
     if args.collection in settings["SHORTNAME_FILTERS"]:

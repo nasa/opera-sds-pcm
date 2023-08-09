@@ -181,6 +181,7 @@ def create_parser():
                                      "per job"}}
     max_revision = {"positionals": ["--max-revision"],
                   "kwargs": {"dest": "max_revision",
+                             "type": int,
                              "default": 1000,
                              "help": "The maximum number of revision-id to process. If the granule's revision-id is higher than this, it is ignored."}}
 
