@@ -623,7 +623,7 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
+  // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
   provisioner "remote-exec" {
     inline = [<<-EOT
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
@@ -632,18 +632,21 @@ resource "aws_instance" "mozart" {
       echo // grq
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog
+      curl -XPUT http://${local.grq_es_url}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // mozart
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers
+      curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // metrics
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*
+      curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+
     EOT
     ]
   }
-
 }
 
 # Resource to install PCM and its dependencies, container-nasa-xxx-sds-pcm
