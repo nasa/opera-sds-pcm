@@ -26,8 +26,8 @@ config = {
 }
 
 try:
-    logger.warning("Setting password via dotenv is not recommended. Leave empty to be prompted to enter password.")
     password = config["ES_PASSWORD"]
+    logger.warning("Setting password via dotenv is not recommended. Leave empty to be prompted to enter password.")
 except:
     password = getpass()
 
