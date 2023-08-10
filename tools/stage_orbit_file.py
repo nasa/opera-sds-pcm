@@ -334,6 +334,15 @@ def parse_orbit_file_query_xml(query_xml):
     query_xml : str
         The XML body containing the results of the Orbit file query.
 
+    Returns
+    -------
+    entry_elems : list of etree.Element
+        The parsed entry elements from the query xml. Each entry in the list
+        corresponds to one orbit file that matches the query.
+    namespace_map : dict
+        The XML namespace map from the parsed XML tree. This should be used
+        when parsing the query results in entry_elems.
+
     Raises
     ------
     RuntimeError
@@ -372,35 +381,105 @@ def parse_orbit_file_query_xml(query_xml):
     if not len(entry_elems):
         raise RuntimeError('Could not find any "entry" tags within parsed query results')
 
-    # TODO: for now, always take the first query hit, we'll probably need to
-    #       figure out how to select the best result from multiple hits when
-    #       such a case occurs
-    entry_elem = entry_elems[0]
+    return entry_elems, tree.nsmap
 
-    # Get the request ID from the entry element, this is the primary piece of
-    # info needed by the download service to acquire the Orbit file
-    orbit_file_request_id = entry_elem.findtext('id', namespaces=tree.nsmap)
+def select_orbit_file(entry_elems, namespace_map, safe_start_time, safe_stop_time):
+    """
+    Iterates over the results of an orbit file query, searching for the first
+    valid orbit file to download. A valid orbit file is one whose validity
+    time range fully envelops the validity time range of the corresponding
+    SLC SAFE archive.
 
-    logger.debug(f'orbit_file_request_id: {orbit_file_request_id}')
+    Parameters
+    ----------
+    entry_elems : list of etree.Element
+        The parsed XML results of the orbit file query.
+    namespace_map : dict
+        The namespace map parsed from the query result XML. Used to find
+        sub-elements within the provided element tree.
+    safe_start_time : str
+        The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
+    safe_stop_time : str
+        The stop time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
 
-    # Get all the info elements, as one will tell us the official file name to
-    # assign to the downloaded Orbit file
-    info_elems = entry_elem.findall('str', namespaces=tree.nsmap)
+    Raises
+    ------
+    RuntimeError
+        If no suitable orbit file can be found within the provided list of entries.
 
-    logger.debug(f'len(info_elems): {len(info_elems)}')
+    Returns
+    -------
+    orbit_file_name : str
+        Name of the selected orbit file.
+    orbit_file_request_id : str
+        Request ID used to perform the actual download request of the selected
+        orbit file.
 
-    # Scan the info elements for the one that corresponds to the Orbit filename
-    for info_elem in info_elems:
-        if info_elem.get('name') == 'filename':
-            orbit_file_name = info_elem.text
-            break
+    """
+    orbit_regex_pattern = (
+        r'(?P<mission_id>S1A|S1B)_(?P<file_class>OPER)_(?P<category>AUX)_'
+        r'(?P<semantic_desc>POEORB|RESORB)_(?P<site>OPOD)_'
+        r'(?P<creation_ts>\d{8}T\d{6})_V(?P<valid_start_ts>\d{8}T\d{6})_'
+        r'(?P<valid_stop_ts>\d{8}T\d{6})[.](?P<format>EOF)$'
+    )
+    orbit_regex = re.compile(orbit_regex_pattern)
+
+    # Parse each result from the query, and look for a suitable orbit file
+    # candidate among the results
+    for entry_elem in entry_elems:
+        # Get the request ID from the entry element, this is the primary piece of
+        # info needed by the download service to acquire the Orbit file
+        orbit_file_request_id = entry_elem.findtext('id', namespaces=namespace_map)
+
+        logger.debug(f'orbit_file_request_id: {orbit_file_request_id}')
+
+        # Get all the info elements, as one will tell us the official file name to
+        # assign to the downloaded Orbit file
+        info_elems = entry_elem.findall('str', namespaces=namespace_map)
+
+        logger.debug(f'len(info_elems): {len(info_elems)}')
+
+        # Scan the info elements for the one that corresponds to the Orbit filename
+        for info_elem in info_elems:
+            if info_elem.get('name') == 'filename':
+                orbit_file_name = info_elem.text
+                break
+        else:
+            logger.warning(
+                f'Could not parse the Orbit file name from query results for '
+                f'request ID {orbit_file_request_id}'
+            )
+            continue
+
+        # Parse the validity time range from the orbit file name
+        match = orbit_regex.match(orbit_file_name)
+
+        if not match:
+            logger.warning(
+                f'Orbit file name {orbit_file_name} does not conform to expected format'
+            )
+            continue
+
+        orbit_start_time = match.groupdict()['valid_start_ts']
+        orbit_stop_time = match.groupdict()['valid_stop_ts']
+
+        # Check that the validity time range of the orbit file fully envelops
+        # the SAFE validity time range parsed earlier
+        safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
+        safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
+        orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S")
+        orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S")
+
+        if orbit_start_datetime < safe_start_datetime and orbit_stop_datetime > safe_stop_datetime:
+            logger.debug(f'orbit_file_name: {orbit_file_name}')
+
+            # Return the two pieces of info we need to download the file
+            return orbit_file_name, orbit_file_request_id
+    # If here, there were no valid orbit file candidates returned from the query
     else:
-        raise RuntimeError('Could not parse the Orbit file name from query results')
-
-    logger.debug(f'orbit_file_name: {orbit_file_name}')
-
-    # Return the two pieces of info we need to download the file
-    return orbit_file_name, orbit_file_request_id
+        raise RuntimeError(
+            "No suitable orbit file could be found within the results of the query"
+        )
 
 
 def download_orbit_file(request_url, output_directory, orbit_file_name, username, password):
@@ -502,8 +581,12 @@ def main(args):
     # Parse the XML response from the query service
     logger.info("Parsing XML response from Orbit query service")
 
-    (orbit_file_name,
-     orbit_file_request_id) = parse_orbit_file_query_xml(xml_response)
+    entry_elems, namespace_map = parse_orbit_file_query_xml(xml_response)
+
+    # Select an appropriate orbit file from the list returned from the query
+    orbit_file_name, orbit_file_request_id = select_orbit_file(
+        entry_elems, namespace_map, safe_start_time, safe_stop_time
+    )
 
     # Construct the URL used to download the Orbit file
     request_url = os.path.join(

@@ -10,6 +10,7 @@ from shapely.geometry import box, LinearRing, Point, Polygon
 
 
 EARTH_APPROX_CIRCUMFERENCE = 40075017.
+EARTH_RADIUS = EARTH_APPROX_CIRCUMFERENCE / (2 * np.pi)
 
 def margin_km_to_deg(margin_in_km):
     """Converts a margin value from kilometers to degrees"""
@@ -17,6 +18,50 @@ def margin_km_to_deg(margin_in_km):
     margin_in_deg = margin_in_km * km_to_deg_at_equator
 
     return margin_in_deg
+
+def margin_km_to_longitude_deg(margin_in_km, lat=0):
+    """Converts a margin value from kilometers to degrees as a function of latitude"""
+    delta_lon = (180 * 1000 * margin_in_km /
+                 (np.pi * EARTH_RADIUS * np.cos(np.pi * lat / 180)))
+
+    return delta_lon
+
+def polygon_from_bounding_box(bounding_box, margin_in_km):
+    """
+    Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
+    a provided bounding box.
+
+    Parameters
+    -----------
+    bounding_box : list
+        Bounding box with lat/lon coordinates (decimal degrees) in the form of
+        [West, South, East, North].
+    margin_in_km : float
+        Margin in kilometers to be added to the resultant polygon.
+
+    Returns
+    -------
+    poly: shapely.Geometry.Polygon
+        Bounding polygon corresponding to the provided bounding box with
+        margin applied.
+
+    """
+    lon_min = bounding_box[0]
+    lat_min = bounding_box[1]
+    lon_max = bounding_box[2]
+    lat_max = bounding_box[3]
+
+    # note we can also use the center lat here
+    lat_worst_case = max([lat_min, lat_max])
+
+    # convert margin to degree
+    lat_margin = margin_km_to_deg(margin_in_km)
+    lon_margin = margin_km_to_longitude_deg(margin_in_km, lat=lat_worst_case)
+
+    poly = box(lon_min - lon_margin, max([lat_min - lat_margin, -90]),
+               lon_max + lon_margin, min([lat_max + lat_margin, 90]))
+
+    return poly
 
 def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
                            flag_use_m_to_deg_conversion_at_equator=True):
@@ -55,8 +100,6 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
     -------
     poly: shapely.Geometry.Polygon
         Bounding polygon corresponding to the provided MGRS tile code.
-    margin_in_km: float, optional
-        Margin in kilometers to be added to MGRS bounding box
 
     """
     mgrs_obj = mgrs.MGRS()

@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
 import logging
+import backoff
 from data_subscriber.query import get_query_timerange, query_cmr
 
 _date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
-
+@backoff.on_exception(backoff.expo, Exception, max_value=13, max_time=34)
+def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True):
+    return query_cmr(args, token, cmr, settings, query_timerange, now, silent)
 def run_survey(args, token, cmr, settings):
 
     start_dt = datetime.strptime(args.start_date, _date_format_str)
@@ -15,7 +18,7 @@ def run_survey(args, token, cmr, settings):
         "%Y-%m-%dT%H:%M:%SZ") + '\n')
 
     raw_csv = open(args.out_csv+".raw.csv", 'w')
-    raw_csv.write("# Granule ID, Revision Time, Temporal Time, Revision-Temporal Delta Hours \n")
+    raw_csv.write("# Granule ID, Revision Time, Temporal Time, Revision-Temporal Delta Hours, revision-id \n")
 
     total_granules = 0
 
@@ -35,13 +38,14 @@ def run_survey(args, token, cmr, settings):
 
         query_timerange: DateTimeRange = get_query_timerange(args, now, silent=True)
 
-        granules = query_cmr(args, token, cmr, settings, query_timerange, now, silent=True)
+        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True)
 
         count = 0
         for granule in granules:
             g_id = granule['granule_id']
             g_rd = granule['revision_date']
             g_td = granule['temporal_extent_beginning_datetime']
+            r_id = str(granule['revision_id'])
             g_rd_dt = datetime.strptime(g_rd, _date_format_str_cmr)
             g_td_dt = datetime.strptime(g_td, _date_format_str_cmr)
             update_temporal_delta = g_rd_dt - g_td_dt
@@ -51,8 +55,8 @@ def run_survey(args, token, cmr, settings):
                 (og_rd, og_td, _) = all_granules[g_id]
                 logging.warning(f"{g_id} had already been found {og_rd=} {og_td=}")
             else:
-                raw_csv.write(g_id+","+g_rd+","+g_td+","+str(update_temporal_delta_hrs)+"\n")
-                all_granules[g_id] = (g_rd, g_td, update_temporal_delta_hrs)
+                raw_csv.write(g_id+", "+g_rd+", "+g_td+", "+"%10.2f" % update_temporal_delta_hrs+", "+r_id+"\n")
+                all_granules[g_id] = (g_rd, g_td, update_temporal_delta_hrs, r_id)
                 all_deltas.append(update_temporal_delta_hrs)
                 count += 1
 
