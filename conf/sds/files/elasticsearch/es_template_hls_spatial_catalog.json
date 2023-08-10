@@ -1,0 +1,21 @@
+{
+  "index_patterns": ["hls_spatial_catalog", "hls_spatial_catalog-*"],
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "opera_grq_ilm_policy"
+    },
+    "mappings": {
+      "properties": {
+        "bounding_box"       : {"type": "geo_point"},
+        "short_name"         : {"type": "keyword" },
+        "product_id"         : {"type": "keyword" },
+        "production_datetime": {"type": "date"    },
+        "creation_timestamp" : {"type": "date"    }
+      }
+    },
+    "aliases": {
+      "catalog_alias": {},
+      "hls_spatial_catalog_alias": {}
+    }
+  }
+}

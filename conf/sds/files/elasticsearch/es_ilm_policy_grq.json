@@ -21,9 +21,11 @@
         }
       },
       "delete": {
-        "min_age": "32d",
+        "min_age": "90d",
         "actions": {
-          "delete": {}
+          "delete": {
+            "delete_searchable_snapshot": true
+          }
         }
       }
     }

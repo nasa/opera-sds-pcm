@@ -1,0 +1,17 @@
+{
+  "index_patterns": [
+    "logstash-*"
+  ],
+  "template" : {
+    "settings" : {
+      "index" : {
+        "refresh_interval": "5s",
+        "lifecycle" : {
+          "name" : "opera_metrics_ilm_policy"
+        }
+      }
+    }
+  },
+  "priority": 500,
+  "composed_of": []
+}

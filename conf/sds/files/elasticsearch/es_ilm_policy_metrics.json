@@ -23,7 +23,9 @@
       "delete": {
         "min_age": "32d",
         "actions": {
-          "delete": {}
+          "delete": {
+            "delete_searchable_snapshot": true
+          }
         }
       }
     }

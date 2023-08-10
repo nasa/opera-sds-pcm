@@ -179,6 +179,8 @@ def download_from_asf(
         dataset_dir = extract_one_to_one(product, settings_cfg, working_dir=Path.cwd(),
                                          extra_metadata=additional_metadata)
 
+        update_pending_dataset_with_index_name(dataset_dir)
+
         logger.info("Downloading associated orbit file")
 
         try:
@@ -225,6 +227,29 @@ def download_from_asf(
 
     logger.info(f"Removing directory tree. {downloads_dir}")
     shutil.rmtree(downloads_dir)
+
+
+def update_pending_dataset_with_index_name(dataset_dir: PurePath):
+    logger.info("Updating dataset's dataset.json with index name")
+
+    with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("r") as fp:
+        dataset_json: dict = json.load(fp)
+
+    with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
+        met_dict: dict = json.load(fp)
+
+    dataset_json.update({
+        "index": {
+            "suffix": ("{version}_{dataset}-{date}".format(
+                version=dataset_json["version"],
+                dataset=met_dict["ProductType"],
+                date=datetime.utcnow().strftime("%Y.%m")
+            )).lower()  # suffix index name with `-YYYY.MM
+        }
+    })
+
+    with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
+        json.dump(dataset_json, fp)
 
 
 def update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir: PurePath, ionosphere_metadata: dict):
@@ -389,12 +414,21 @@ def extract_many_to_one(products: list[Path], group_dataset_id, settings_cfg: di
         json.dump(merged_met_dict, output_file)
     logger.info(f"Wrote {merged_met_json_filepath=!s}")
 
-    # write out basic *.dataset.json file (value + created_timestamp)
+    # write out basic *.dataset.json file (version + created_timestamp)
     dataset_json_dict = extractor.extract.create_dataset_json(
         product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
         ds_met={},
         alt_ds_met={}
     )
+    dataset_json_dict.update({
+        "index": {
+            "suffix": ("{version}_{dataset}-{date}".format(
+                version=dataset_json_dict["version"],
+                dataset=merged_met_dict["ProductType"],
+                date=datetime.utcnow().strftime("%Y.%m")
+            )).lower()  # suffix index name with `-YYYY.MM
+        }
+    })
     granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
     with open(granule_dataset_json_filepath, mode="w") as output_file:
         json.dump(dataset_json_dict, output_file)

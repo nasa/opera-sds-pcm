@@ -1,0 +1,19 @@
+{
+  "index_patterns": [
+    "mozart-logs-*",
+    "factotum-logs-*",
+    "grq-logs-*",
+    "sdswatch-*"
+  ],
+  "template" : {
+    "settings" : {
+      "index" : {
+        "lifecycle" : {
+          "name" : "opera_metrics_ilm_policy"
+        }
+      }
+    }
+  },
+  "priority": 500,
+  "composed_of": []
+}

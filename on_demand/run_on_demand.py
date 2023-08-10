@@ -8,18 +8,21 @@ import os
 import sys
 
 from chimera.run_sciflo import main as run_sciflo
+
 from commons.es_connection import get_grq_es
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.ctx_util import JobContext
+from util.exec_util import exec_wrapper
 
 ancillary_es = get_grq_es(logger)
 
 BASE_PATH = os.path.dirname(__file__)
 
 
+@exec_wrapper
 def main(context_file):
     context_file = os.path.abspath(context_file)
 
