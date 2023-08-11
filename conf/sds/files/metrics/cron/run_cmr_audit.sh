@@ -20,7 +20,7 @@ end_dt=$(date --iso-8601=s -d "$now - 2 weeks")
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
 
 source venv_cmr_audit/bin/activate
-python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit.py \
+python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit/cmr_audit_hls.py \
   --start-datetime=$start_dt \
   --end-datetime=$end_dt
 deactivate
