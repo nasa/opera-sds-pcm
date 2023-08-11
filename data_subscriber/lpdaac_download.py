@@ -166,12 +166,21 @@ class DaacDownloadLpdaac(DaacDownload):
             json.dump(merged_met_dict, output_file)
         logger.info(f"Wrote {merged_met_json_filepath=!s}")
 
-        # write out basic *.dataset.json file (value + created_timestamp)
+        # write out basic *.dataset.json file (version + created_timestamp)
         dataset_json_dict = extractor.extract.create_dataset_json(
             product_metadata={"dataset_version": merged_met_dict["dataset_version"]},
             ds_met={},
             alt_ds_met={}
         )
+        dataset_json_dict.update({
+            "index": {
+                "suffix": ("{version}_{dataset}-{date}".format(
+                    version=dataset_json_dict["version"],
+                    dataset=merged_met_dict["ProductType"],
+                    date=datetime.utcnow().strftime("%Y.%m")
+                )).lower()  # suffix index name with `-YYYY.MM
+            }
+        })
         granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
         with open(granule_dataset_json_filepath, mode="w") as output_file:
             json.dump(dataset_json_dict, output_file)

@@ -81,6 +81,8 @@ class DaacDownloadAsf(DaacDownload):
                                              extra_metadata=additional_metadata,
                                              name_postscript='-r'+str(download['revision_id']))
 
+            self.update_pending_dataset_with_index_name(dataset_dir)
+
             # Rename the dataset_dir to match the pattern w revision_id
             new_dataset_dir = dataset_dir.parent / form_batch_id(dataset_dir.name, str(download['revision_id']))
             logger.info(f"{new_dataset_dir}")
@@ -155,6 +157,28 @@ class DaacDownloadAsf(DaacDownload):
 
         with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("w") as fp:
             json.dump(met_json, fp)
+
+    def update_pending_dataset_with_index_name(dataset_dir: PurePath):
+        logger.info("Updating dataset's dataset.json with index name")
+
+        with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("r") as fp:
+            dataset_json: dict = json.load(fp)
+
+        with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
+            met_dict: dict = json.load(fp)
+
+        dataset_json.update({
+            "index": {
+                "suffix": ("{version}_{dataset}-{date}".format(
+                    version=dataset_json["version"],
+                    dataset=met_dict["ProductType"],
+                    date=datetime.utcnow().strftime("%Y.%m")
+                )).lower()  # suffix index name with `-YYYY.MM
+            }
+        })
+
+        with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
+            json.dump(dataset_json, fp)
 
     def _get_aws_creds(self, token):
         logger.info("entry")

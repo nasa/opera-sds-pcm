@@ -1,5 +1,4 @@
 from chimera.commons.constants import ChimeraConstants
-from job_accountability.catalog import ES_INDEX as job_accountability_index
 
 
 class OperaChimeraConstants(ChimeraConstants):
@@ -207,8 +206,6 @@ class OperaChimeraConstants(ChimeraConstants):
     L3_DISP_S1 = "L3_DISP_S1"
 
     # Other Constants
-    JOB_ACCOUNTABILITY_INDEX = job_accountability_index
-
     TASK_INDEX = "task_status-current"
 
     TASK_ID_FIELD = "task_id"

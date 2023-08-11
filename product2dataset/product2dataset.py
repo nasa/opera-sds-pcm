@@ -15,7 +15,7 @@ import subprocess
 import sys
 import traceback
 from pathlib import PurePath
-from typing import Dict, List, Union, Tuple
+from typing import Union, Tuple
 
 from commons.logger import logger
 from extractor import extract
@@ -36,10 +36,10 @@ def convert(
         pge_name: str,
         rc_file: str = None,
         pge_output_conf_file:str = None,
-        settings_conf_file: Union[str, SettingsConf, Dict, None] = None,
-        extra_met: Dict = None,
+        settings_conf_file: Union[str, SettingsConf, dict, None] = None,
+        extra_met: dict = None,
         **kwargs
-) -> List:
+) -> list:
     """Convert a PGE product (directory of files) into a list of datasets.
 
     :param work_dir: The working directory (Verdi workspace) the worker executes jobs from.
@@ -131,7 +131,7 @@ def convert(
             datasets_json_dict = json.load(fp)
 
         logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
-        product_metadata: Dict = kwargs["product_metadata"]
+        product_metadata: dict = kwargs["product_metadata"]
 
         dataset_type = job_json_dict["params"]["dataset_type"]
 
@@ -221,18 +221,18 @@ def get_collection_info(dataset_id: str, settings: dict):
     return collection_name, product_version
 
 
-def merge_dataset_met_json(dataset: str, extra_met: Dict) -> Tuple[int, Dict]:
+def merge_dataset_met_json(datasets_parent_dir: str, extra_met: dict) -> Tuple[int, dict]:
     """Merges all the dataset *.met.json metadata into a single dataset metadata dict that can be subsequently saved as *.met.json.
     Returns a tuple of the combined product file sizes and the merged dataset metadata dict.
 
-    :param dataset: the ancestral parent directory of all *.met.json filepaths that should be merged.
+    :param datasets_parent_dir: the ancestral parent directory of all *.met.json filepaths that should be merged.
     :param extra_met: extra product metadata. This is removed from the dict and added to the dataset metadata.
                       This dict is updated with additional properties from the source dataset *.met.json files.
                       Such properties are prevented from appearing in the merged metadata to prevent duplication.
     """
     dataset_met_json = {"Files": []}
     combined_file_size = 0
-    for met_json_file in glob.iglob(os.path.join(dataset, '**/*.met.json'), recursive=True):
+    for met_json_file in glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True):
         with open(met_json_file, 'r') as infile:
             met_json = json.load(infile)
             combined_file_size += int(met_json["FileSize"])

@@ -119,7 +119,6 @@ class DaacDownload:
     def get_download_timerange(self, args):
         start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
         end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-
         download_timerange = DateTimeRange(start_date, end_date)
         logger.info(f"{download_timerange=}")
         return download_timerange
@@ -127,7 +126,6 @@ class DaacDownload:
 
     def extract_one_to_one(self, product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None, name_postscript='') -> PurePath:
         """Creates a dataset for the given product.
-
         :param product: the product to create datasets for.
         :param settings_cfg: the settings.yaml config as a dict.
         :param working_dir: the working directory for the extract process. Serves as the output directory for the extraction.
@@ -151,7 +149,6 @@ class DaacDownload:
 
         aws_creds = self.get_aws_creds(token)
         logger.debug(f"{self.get_aws_creds.cache_info()=}")
-
         s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                            aws_secret_access_key=aws_creds['secretAccessKey'],
                            aws_session_token=aws_creds['sessionToken'],

@@ -1,23 +1,21 @@
+import json
+import os
+import re
+from datetime import datetime
 from typing import Dict
 
 import backoff
-import re
-import json
-import os
-from datetime import datetime
-
 from chimera.commons.accountability import Accountability
+from chimera.logger import logger
 
+import job_accountability.catalog
+from data_subscriber.es_conn_util import get_es_connection
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
-
 from util.conf_util import SettingsConf
-from chimera.logger import logger
 
-from job_accountability.es_connection import get_job_accountability_connection
-
-grq_es = get_job_accountability_connection(logger)
+grq_es = get_es_connection(logger)
 
 
 def get_dataset(key, datasets_cfg):
@@ -98,7 +96,7 @@ class OperaAccountability(Accountability):
             }
             if self.input_metadata:
                 payload["metadata"] = self.input_metadata
-            grq_es.index_document(index=oc_const.JOB_ACCOUNTABILITY_INDEX, id=self.job_id, body=payload)
+            grq_es.index_document(index=job_accountability.catalog.generate_es_index_name(), id=self.job_id, body=payload)
         else:
             raise Exception("Unable to create job_accountability_catalog entry: {}".format(self.product_paths))
 

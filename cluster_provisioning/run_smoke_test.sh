@@ -49,12 +49,6 @@ cd ~/.sds/files
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify --desired-capacity 5
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 5
 
-#if [ "${delete_old_job_catalog}" = true ]; then
-#  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-#else
-#  python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
-#fi
-
 # ingest Sacramento AOI to test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
 

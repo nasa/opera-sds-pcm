@@ -7,25 +7,24 @@ Adapted for OPERA PCM by Scott Collins
 """
 from __future__ import print_function
 
-import sys
+import argparse
+import json
 import os
 import shutil
-import json
-import argparse
 import subprocess
+import sys
 import traceback
+from datetime import datetime
+from importlib import import_module
 from typing import Dict, Optional
 
-from util.conf_util import SettingsConf
-from datetime import datetime
-
-from commons.logger import logger
-from commons.constants import product_metadata as pm
-
-from shapely.ops import transform
 from shapely.geometry import shape, mapping
+from shapely.ops import transform
 
-from importlib import import_module
+from commons.constants import product_metadata as pm
+from commons.logger import logger
+from util.conf_util import SettingsConf
+from util.exec_util import exec_wrapper
 
 REGEX_ID_KEY = "id"
 EXTRACTOR_KEY = "Extractor"
@@ -122,7 +121,18 @@ def extract(
         dataset_met_file = os.path.join(dataset_dir, dataset_id + name_postscript + ".dataset.json")
 
         if not os.path.exists(dataset_met_file):
+
             dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
+
+            dataset_met.update({
+                "index": {
+                    "suffix": ("{version}_{dataset}-{date}".format(
+                        version=dataset_met["version"],
+                        dataset=product_met["ProductType"],
+                        date=datetime.utcnow().strftime("%Y.%m")
+                    )).lower()  # suffix index name with `-YYYY.MM
+                }
+            })
 
             with open(dataset_met_file, "w") as outfile:
                 json.dump(dataset_met, outfile, indent=2)
@@ -271,6 +281,10 @@ def create_dataset_json(product_metadata, ds_met, alt_ds_met):
     dataset_info.update({"version": version})
     dataset_info.update({"creation_timestamp": datetime.utcnow().isoformat("T")[:-3]})
 
+    # update with index config. E.g. {"index": {"suffix": f"{version}_{ProductType}-1970-01-01"}}
+    if ds_met and ds_met.get("index"):
+        dataset_info.update({"index": ds_met["index"]})
+
     if "Bounding_Polygon" in product_metadata:
         logger.info(f"Bounding_Polygon is {product_metadata['Bounding_Polygon']}")
         m = shape(product_metadata["Bounding_Polygon"])
@@ -328,6 +342,7 @@ def get_parser():
     return parser
 
 
+@exec_wrapper
 def main():
     """
     Main entry point

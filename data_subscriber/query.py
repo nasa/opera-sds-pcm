@@ -4,6 +4,7 @@ import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
+from pathlib import Path
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
@@ -242,9 +243,14 @@ def update_url_index(
         *args,
         **kwargs
 ):
+    # group pairs of URLs (http and s3) by filename
+    filename_to_urls_map = defaultdict(list)
     for url in urls:
-        es_conn.process_url(url, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args,
-                            **kwargs)
+        filename = Path(url).name
+        filename_to_urls_map[filename].append(url)
+
+    for filename, filename_urls in filename_to_urls_map.items():
+        es_conn.process_url(filename_urls, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
