@@ -4,4 +4,5 @@ SHELL=/bin/bash
 # hysdsops user crontab
 #######################################################################
 
-@weekly hysdsops /export/home/hysdsops/cmr_audit/opera-sds-pcm/conf/sds/files/metrics/cron/run_cmr_audit.sh
+@weekly hysdsops /export/home/hysdsops/cmr_audit/opera-sds-pcm/conf/sds/files/metrics/cron/run_cmr_audit.sh --hls
+@weekly hysdsops /export/home/hysdsops/cmr_audit/opera-sds-pcm/conf/sds/files/metrics/cron/run_cmr_audit.sh --slc
