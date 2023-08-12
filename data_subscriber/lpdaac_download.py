@@ -6,6 +6,7 @@ from collections import defaultdict
 import shutil
 import requests
 import requests.utils
+from datetime import datetime
 from product2dataset import product2dataset
 from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url, form_batch_id
 

@@ -73,9 +73,9 @@ class HLSProductCatalog:
 
         doc.update(kwargs)
 
-        index = self._get_index_name_for(_id=filename, default=self.generate_es_index_name())
+        index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
 
-        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
         return True
 
     def mark_product_as_downloaded(self, url, job_id):
