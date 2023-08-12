@@ -6,6 +6,7 @@ from pathlib import PurePath, Path
 import shutil
 import requests
 import requests.utils
+from datetime import datetime
 from data_subscriber import ionosphere_download
 from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_chunk_id, form_batch_id
 
@@ -81,7 +82,7 @@ class DaacDownloadAsf(DaacDownload):
                                              extra_metadata=additional_metadata,
                                              name_postscript='-r'+str(download['revision_id']))
 
-            self.update_pending_dataset_with_index_name(dataset_dir)
+            self.update_pending_dataset_with_index_name(dataset_dir, '-r'+str(download['revision_id']))
 
             # Rename the dataset_dir to match the pattern w revision_id
             new_dataset_dir = dataset_dir.parent / form_batch_id(dataset_dir.name, str(download['revision_id']))
@@ -158,13 +159,13 @@ class DaacDownloadAsf(DaacDownload):
         with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("w") as fp:
             json.dump(met_json, fp)
 
-    def update_pending_dataset_with_index_name(dataset_dir: PurePath):
+    def update_pending_dataset_with_index_name(self, dataset_dir: PurePath, postscript):
         logger.info("Updating dataset's dataset.json with index name")
 
-        with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("r") as fp:
+        with Path(dataset_dir / f"{dataset_dir.name}{postscript}.dataset.json").open("r") as fp:
             dataset_json: dict = json.load(fp)
 
-        with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
+        with Path(dataset_dir / f"{dataset_dir.name}{postscript}.met.json").open("r") as fp:
             met_dict: dict = json.load(fp)
 
         dataset_json.update({
