@@ -15,7 +15,7 @@ setup(
         "docker": [
             "more-itertools",
 
-            "pytest==7.2.1",
+            "pytest==7.4.0",
             "scripttest",
             "mock",
             "mockito",
@@ -24,7 +24,7 @@ setup(
             "flake8-junit-report",
             "flake8-string-format",
             "xmltodict",
-            "yamale==3.0.6",
+            "yamale==4.0.4",
             "ruamel.yaml",
             "elasticmock",
             "geopandas",
@@ -39,7 +39,7 @@ setup(
 
             "python-dateutil",
             "validators",
-            "cachetools==5.2.0",
+            "cachetools==5.3.0",
 
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
@@ -49,12 +49,12 @@ setup(
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "python-dateutil",
-            "elasticsearch==7.13.4",
-            "elasticsearch[async]>=7.13.4",
-            "more-itertools==8.13.0",
-            "requests==2.27.1",
+            "elasticsearch==8.9.0",
+            "elasticsearch[async]>=8.9.0",
+            "more-itertools==10.1.0",
+            "requests==2.31.0",
             "validators",
-            "cachetools==5.2.0"
+            "cachetools==5.3.1"
         ],
         "test": [
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz",
@@ -68,46 +68,46 @@ setup(
             "jinja2",
             "boto3",
             "botocore",
-            "click==8.1.3",
+            "click==8.1.6",
             # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "Shapely",
-            "elasticsearch==7.13.4",
-            "elasticsearch[async]>=7.13.4",
-            "requests==2.27.1",
-            "pytest==7.2.1",
-            "pytest-mock>=3.8.2",
-            "pytest-asyncio==0.20.3",
-            "pytest-cov==4.0.0",
+            "elasticsearch==8.9.0",
+            "elasticsearch[async]>=8.9.0",
+            "requests==2.31.0",
+            "pytest==7.4.0",
+            "pytest-mock>=3.11.1",
+            "pytest-asyncio==0.21.1",
+            "pytest-cov==4.1.0",
             "mgrs",
             "pyproj",
             "validators",
-            "cachetools==5.2.0",
+            "cachetools==5.3.1",
             "matplotlib",
             "numpy",
-            "more-itertools==8.13.0",
+            "more-itertools==8.13.18",
             "ruamel.yaml"  # NOTE: deployed instances use ruamel-yaml-conda
         ],
         "integration": [
-            "pytest==7.2.1",
+            "pytest==7.4.0",
             "boto3",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "boto3-stubs[sns]",
-            "elasticsearch==7.13.4",
-            "elasticsearch-dsl==7.3.0",
-            "requests==2.27.1",
-            "backoff==1.11.1",
-            "python-dotenv==0.20.0",
-            "pytest-xdist==3.1.0",
+            "elasticsearch==8.9.0",
+            "elasticsearch-dsl==8.13.18",
+            "requests==2.31.0",
+            "backoff==2.2.1",
+            "python-dotenv==1.0.0",
+            "pytest-xdist==3.1.1",
             "pytest-xdist[psutil]",
-            "filelock==3.6.0"
+            "filelock==3.12.2"
         ],
         "benchmark": [
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "botocore",
             "elasticsearch[async]",
-            "more-itertools==8.13.0",
-            'pytest-asyncio==0.20.3'
+            "more-itertools==10.1.0",
+            'pytest-asyncio==0.21.1'
         ],
         "audit": [
             "elasticsearch[async]",
