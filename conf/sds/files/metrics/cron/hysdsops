@@ -2,7 +2,13 @@ SHELL=/bin/bash
 
 #######################################################################
 # hysdsops user crontab
+#
+# log output to system log using `logger`. On Oracle Linux 8, logs are
+#  written to /var/log/messages (on other systems: /var/log/syslog).
+#  System logging configuration at /etc/rsyslog.conf.
+#
+#
 #######################################################################
 
-@weekly hysdsops /export/home/hysdsops/cmr_audit/opera-sds-pcm/conf/sds/files/metrics/cron/run_cmr_audit.sh --hls | logger -i -p user.notice -t cmr_audit_hls-task
-@weekly hysdsops /export/home/hysdsops/cmr_audit/opera-sds-pcm/conf/sds/files/metrics/cron/run_cmr_audit.sh --slc | logger -i -p user.notice -t cmr_audit_slc-task
+@weekly hysdsops /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --hls | logger -i -p user.notice -t cmr_audit_hls-task
+@weekly hysdsops /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --slc | logger -i -p user.notice -t cmr_audit_slc-task
