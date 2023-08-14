@@ -25,7 +25,7 @@ class SLCProductCatalog(HLSProductCatalog):
     """
     def __init__(self, /, logger=None):
         super().__init__(logger=logger)
-        self.ES_INDEX_PATTERNS = ["slc_catalog", "slc_catalog-*"]
+        self.ES_INDEX_PATTERNS = "slc_catalog*"
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         undownloaded = self._query_catalog(start_dt, end_dt, use_temporal)

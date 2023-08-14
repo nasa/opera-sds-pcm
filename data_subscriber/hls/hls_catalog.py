@@ -26,7 +26,7 @@ class HLSProductCatalog:
     def __init__(self, /, logger=None):
         self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
-        self.ES_INDEX_PATTERNS = ["hls_catalog", "hls_catalog-*"]
+        self.ES_INDEX_PATTERNS = "hls_catalog*"
 
     def generate_es_index_name(self):
         return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
@@ -120,8 +120,8 @@ class HLSProductCatalog:
     def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=",".join(self.ES_INDEX_PATTERNS),
-                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                index=self.ES_INDEX_PATTERNS,
+                #ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],
@@ -140,8 +140,8 @@ class HLSProductCatalog:
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
-                index=",".join(self.ES_INDEX_PATTERNS),
-                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                index=self.ES_INDEX_PATTERNS,
+                #ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "sort": [{"creation_timestamp": "asc"}],
                     "query": {
@@ -162,7 +162,8 @@ class HLSProductCatalog:
             )
             self.logger.debug(f"Query result: {result}")
 
-        except:
+        except Exception as e:
+            self.logger.error(f"Query Error: {e}")
             result = None
 
         return result
