@@ -88,9 +88,9 @@ set +e
 deactivate
 set -e
 
-now=$(date)
-start_dt=$(date --iso-8601=s -d "$now - 2 week")
-end_dt=$(date --iso-8601=s -d "$now - 1 weeks")
+now=$(date --iso-8601=d)
+start_dt=$(date --iso-8601=s -d "$now - 2 weeks")
+end_dt=$(date --iso-8601=s -d "$now - 1 week")
 
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
 
