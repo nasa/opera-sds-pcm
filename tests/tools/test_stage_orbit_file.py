@@ -117,8 +117,15 @@ class TestStageOrbitFile(unittest.TestCase):
             </feed>
         """
 
-        (orbit_file_name,
-         orbit_file_request_id) = tools.stage_orbit_file.parse_orbit_file_query_xml(valid_xml_response)
+        safe_start_time = '20220430T230000'
+        safe_stop_time = '20220430T233000'
+
+        entry_elems, namespace_map = tools.stage_orbit_file.parse_orbit_file_query_xml(valid_xml_response)
+
+        # Select an appropriate orbit file from the list returned from the query
+        orbit_file_name, orbit_file_request_id = tools.stage_orbit_file.select_orbit_file(
+            entry_elems, namespace_map, safe_start_time, safe_stop_time
+        )
 
         # Make sure we parsed the results as expected
         self.assertEquals(
@@ -127,6 +134,20 @@ class TestStageOrbitFile(unittest.TestCase):
         self.assertEquals(
             orbit_file_request_id, "a4c32eea-7c42-4bd7-ae4e-404151a11120"
         )
+
+        # Test with valid XML, but no suitable orbit file that covers SAFE time range
+        safe_start_time = '20220430T225942'
+        safe_stop_time = '20220502T005942'
+
+        with self.assertRaises(RuntimeError) as err:
+            entry_elems, namespace_map = tools.stage_orbit_file.parse_orbit_file_query_xml(valid_xml_response)
+
+            tools.stage_orbit_file.select_orbit_file(
+                entry_elems, namespace_map, safe_start_time, safe_stop_time
+            )
+
+        self.assertIn('No suitable orbit file could be found within the results of the query',
+                      str(err.exception))
 
         # Test with invalid XML (missing totalResults)
         invalid_xml_response = """<?xml version="1.0" encoding="utf-8"?>
@@ -219,7 +240,11 @@ class TestStageOrbitFile(unittest.TestCase):
         """
 
         with self.assertRaises(RuntimeError) as err:
-            tools.stage_orbit_file.parse_orbit_file_query_xml(invalid_xml_response)
+            entry_elems, namespace_map = tools.stage_orbit_file.parse_orbit_file_query_xml(invalid_xml_response)
 
-        self.assertIn('Could not parse the Orbit file name from query results',
+            tools.stage_orbit_file.select_orbit_file(
+                entry_elems, namespace_map, safe_start_time, safe_stop_time
+            )
+
+        self.assertIn('No suitable orbit file could be found within the results of the query',
                       str(err.exception))

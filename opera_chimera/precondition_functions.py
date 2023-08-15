@@ -714,6 +714,29 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 )
             )
 
+    def get_rtc_s1_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an RTC-S1 as a
+        fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        # Use 3/4th of the available cores
+        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+
+        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+
+        rc_params = {
+            "num_workers": str(num_workers)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_slc_polarization(self):
         """
         Determines the polarization setting for the CSLC-S1 or RTC-S1 job based
@@ -756,7 +779,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return rc_params
 
     def get_slc_static_layers_enabled(self):
-        """Gets the setting for the static_layers_enabled flag from settings.yaml"""
+        """Gets the setting for the enable_static_layers flag from settings.yaml"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         pge_name = self._pge_config.get('pge_name')
@@ -766,8 +789,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         enable_static_layers = self._settings.get(pge_shortname).get("ENABLE_STATIC_LAYERS")
 
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        processing_mode = metadata[oc_const.PROCESSING_MODE_KEY]
+
+        # Static layer generation should always be disabled for historical processing mode
+        if processing_mode == oc_const.PROCESSING_MODE_HISTORICAL:
+            logger.info(f"Processing mode for {pge_name} is set to {processing_mode}, "
+                        f"static layer generation will be DISABLED.")
+            enable_static_layers = False
+
         rc_params = {
-            "enable_static_layers": enable_static_layers
+            "product_type": (
+                f"{pge_shortname}_STATIC" if enable_static_layers else f"{pge_shortname}"
+            )
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1138,19 +1172,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_data_validity_start_time(self):
-        """Gets the setting for the data_validity_start_time flag from settings.yaml"""
+    def get_data_validity_start_date(self):
+        """Gets the setting for the data_validity_start_date flag from settings.yaml"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         pge_name = self._pge_config.get('pge_name')
         pge_shortname = pge_name[3:].upper()
 
-        logger.info(f'Getting DATA_VALIDITY_START_TIME setting for PGE {pge_shortname}')
+        logger.info(f'Getting DATA_VALIDITY_START_DATE setting for PGE {pge_shortname}')
 
-        data_validity_start_time = self._settings.get(pge_shortname).get("DATA_VALIDITY_START_TIME")
+        data_validity_start_time = self._settings.get(pge_shortname).get("DATA_VALIDITY_START_DATE")
 
         rc_params = {
-            "data_validity_start_time": data_validity_start_time
+            "data_validity_start_date": data_validity_start_time
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1490,7 +1524,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             # Example publish location: "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
             publish_location = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
                 .removeprefix("s3:/").removeprefix("/")  # handle prefix changed by PurePath
-            product_path = f's3://{publish_location}/{metadata["FileName"]}/{file["FileName"]}'
+            product_path = f's3://{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
             product_paths.append(product_path)
 
 

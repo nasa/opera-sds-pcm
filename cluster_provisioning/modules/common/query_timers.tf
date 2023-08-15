@@ -23,13 +23,14 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
 	  "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "1",
+      "MAX_REVISION": "1000",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false",
       "USE_TEMPORAL": "false",
       # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
       "TEMPORAL_START_DATETIME": "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "30",
       "REVISION_START_DATETIME_MARGIN_MINS": "0"
     }
   }
@@ -63,13 +64,14 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "MINUTES": var.hlss30_query_timer_trigger_frequency,
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-hls_data_download",
       "CHUNK_SIZE": "1",
+      "MAX_REVISION": "1000",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false",
       "USE_TEMPORAL": "false",
       # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
       "TEMPORAL_START_DATETIME": "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "30",
       "REVISION_START_DATETIME_MARGIN_MINS": "0"
     }
   }
@@ -149,6 +151,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "ENDPOINT": "OPS",
       "DOWNLOAD_JOB_QUEUE": "${var.project}-job_worker-slc_data_download",
       "CHUNK_SIZE": "1",
+      "MAX_REVISION": "1000",
       "SMOKE_RUN": "false",
       "DRY_RUN": "false",
       "NO_SCHEDULE_DOWNLOAD": "false",
@@ -156,7 +159,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "USE_TEMPORAL": "false",
       # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
       "TEMPORAL_START_DATETIME": "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "3",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS": "30",
       "REVISION_START_DATETIME_MARGIN_MINS": "0"
     }
   }

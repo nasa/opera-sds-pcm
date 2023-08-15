@@ -53,6 +53,14 @@
       "optional": true
     },
     {
+      "name": "max_revision",
+      "from": "submitter",
+      "placeholder": "e.g. --max-revision=<max_revision>",
+      "type": "text",
+      "default": "--max-revision=1000",
+      "optional": true
+    },
+    {
       "name": "smoke_run",
       "from": "submitter",
       "placeholder": "e.g. --smoke-run",

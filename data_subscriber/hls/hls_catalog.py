@@ -3,17 +3,11 @@ from datetime import datetime
 from pathlib import Path
 
 from data_subscriber import es_conn_util
+from data_subscriber.url import form_batch_id
 
 null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
-
-ES_INDEX_PATTERNS = ["hls_catalog", "hls_catalog-*"]
-
-
-def generate_es_index_name():
-    return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
-
 
 class HLSProductCatalog:
     """
@@ -32,10 +26,17 @@ class HLSProductCatalog:
     def __init__(self, /, logger=None):
         self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
+        self.ES_INDEX_PATTERNS = "hls_catalog*"
+
+    def generate_es_index_name(self):
+        return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
-        return [{"s3_url": catalog_entry["_source"].get("s3_url"), "https_url": catalog_entry["_source"].get("https_url")}
+        return [{"_id": catalog_entry["_id"], "granule_id": catalog_entry["_source"].get("granule_id"),
+                 "revision_id": catalog_entry["_source"].get("revision_id"),
+                 "s3_url": catalog_entry["_source"].get("s3_url"),
+                 "https_url": catalog_entry["_source"].get("https_url")}
                 for catalog_entry in (hls_catalog or [])]
 
     def process_url(
@@ -51,7 +52,7 @@ class HLSProductCatalog:
     ):
         filename = Path(urls[0]).name
         doc = {
-            "id": filename,
+            "id": form_batch_id(filename, kwargs['revision_id']),
             "granule_id": granule_id,
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
@@ -72,16 +73,15 @@ class HLSProductCatalog:
 
         doc.update(kwargs)
 
-        index = self._get_index_name_for(_id=filename, default=generate_es_index_name())
+        index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
 
-        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
         return True
 
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split("/")[-1]
 
-        index = self._get_index_name_for(_id=filename, default=generate_es_index_name())
-
+        index = self._get_index_name_for(_id=filename, default=self.generate_es_index_name())
         result = self.es.update_document(
             id=filename,
             body={
@@ -114,15 +114,14 @@ class HLSProductCatalog:
         return index
 
     def _post(self, filename, body):
-        result = self.es.index_document(index=generate_es_index_name(), body=body, id=filename)
-
+        result = self.es.index_document(index=self.generate_es_index_name(), body=body, id=filename)
         self.logger.info(f"Document indexed: {result}")
 
     def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=",".join(ES_INDEX_PATTERNS),
-                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                index=self.ES_INDEX_PATTERNS,
+                #ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],
@@ -141,8 +140,8 @@ class HLSProductCatalog:
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
-                index=",".join(ES_INDEX_PATTERNS),
-                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                index=self.ES_INDEX_PATTERNS,
+                #ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "sort": [{"creation_timestamp": "asc"}],
                     "query": {
@@ -163,7 +162,8 @@ class HLSProductCatalog:
             )
             self.logger.debug(f"Query result: {result}")
 
-        except:
+        except Exception as e:
+            self.logger.error(f"Query Error: {e}")
             result = None
 
         return result

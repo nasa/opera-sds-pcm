@@ -19,6 +19,12 @@ class OperaChimeraConstants(ChimeraConstants):
 
     PROCESSING_MODE_KEY = "processing_mode"
 
+    PROCESSING_MODE_FORWARD = "forward"
+
+    PROCESSING_MODE_HISTORICAL = "historical"
+
+    PROCESSING_MODE_REPROCESSING = "reprocessing"
+
     GET_PRODUCT_METADATA = "get_product_metadata"
 
     GET_METADATA = "get_metadata"
@@ -189,7 +195,15 @@ class OperaChimeraConstants(ChimeraConstants):
     S3_KEYS = "s3_keys"
 
     # PGE names
-    #L3_DSWX_HLS = "L3_DSWX_HLS"
+    L3_DSWX_HLS = "L3_DSWX_HLS"
+
+    L2_RTC_S1 = "L2_RTC_S1"
+
+    L2_CSLC_S1 = "L2_CSLC_S1"
+
+    L3_DSWx_S1 = "L3_DSWx_S1"
+
+    L3_DISP_S1 = "L3_DISP_S1"
 
     # Other Constants
     TASK_INDEX = "task_status-current"

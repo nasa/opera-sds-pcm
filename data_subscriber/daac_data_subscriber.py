@@ -179,6 +179,11 @@ def create_parser():
                              "type": int,
                              "help": "chunk-size = 1 means 1 tile per job. chunk-size > 1 means multiple (N) tiles "
                                      "per job"}}
+    max_revision = {"positionals": ["--max-revision"],
+                  "kwargs": {"dest": "max_revision",
+                             "type": int,
+                             "default": 1000,
+                             "help": "The maximum number of revision-id to process. If the granule's revision-id is higher than this, it is ignored."}}
 
     batch_ids = {"positionals": ["--batch-ids"],
                  "kwargs": {"dest": "batch_ids",
@@ -228,19 +233,19 @@ def create_parser():
     _add_arguments(parser, parser_arg_list)
 
     survey_parser = subparsers.add_parser("survey")
-    survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes,
+    survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, use_temporal, temporal_start_date, step_hours, out_csv]
     _add_arguments(survey_parser, survey_parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
-                            dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
+                            dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
-                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size,
+                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
 

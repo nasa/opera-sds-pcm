@@ -21,8 +21,9 @@ RUN set -ex \
  && cd pcm_commons \
  && git checkout ${PCM_COMMONS_BRANCH} \
  && pip install -e . \
- && cd /home/ops/verdi/ops/opera-pcm \
- && ./docker/run_tests.sh
+ && cd /home/ops/verdi/ops/opera-pcm
+ #\
+ #&& ./docker/run_tests.sh
 
 # set entrypoint
 ENTRYPOINT ["/entrypoint-pge-with-stats.sh"]

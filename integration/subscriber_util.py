@@ -7,13 +7,12 @@ import boto3
 import elasticsearch
 import elasticsearch_dsl.response
 import elasticsearch_dsl.response
-import mypy_boto3_lambda
 import requests
 from botocore.config import Config
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response import Hit
 from mypy_boto3_lambda import LambdaClient
-from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef, FunctionConfigurationResponseMetadataTypeDef
+from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef, FunctionConfigurationResponseTypeDef
 from requests import Response
 
 import conftest
@@ -88,7 +87,7 @@ def update_env_vars_subscriber_query_lambda(FunctionName: str, additional_enviro
     if additional_environment_variable_updates is None:
         additional_environment_variable_updates = {}
 
-    response: FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    response: FunctionConfigurationResponseTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
     environment_variables["SMOKE_RUN"] = "true"
@@ -120,7 +119,7 @@ def update_env_vars_subscriber_slc_ionosphere_download_lambda_helper(FunctionNam
     if additional_environment_variable_updates is None:
         additional_environment_variable_updates = {}
 
-    response: FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    response: FunctionConfigurationResponseTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
     environment_variables.update(additional_environment_variable_updates)
@@ -153,7 +152,7 @@ def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environ
     if additional_environment_variable_updates is None:
         additional_environment_variable_updates = {}
 
-    response: mypy_boto3_lambda.type_defs.FunctionConfigurationResponseMetadataTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
+    response: FunctionConfigurationResponseTypeDef = aws_lambda.get_function_configuration(FunctionName=FunctionName)
     environment_variables: dict = response["Environment"]["Variables"]
 
     environment_variables["SMOKE_RUN"] = "false"
