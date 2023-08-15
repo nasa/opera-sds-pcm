@@ -265,9 +265,9 @@
       }
     },
     {
-      "ipath": "hysds::data/L2_CSLC_S1_STATIC",
+      "ipath": "hysds::data/L2_CSLC_S1_static_layers",
       "level": "L2",
-      "type": "L2_CSLC_S1_STATIC",
+      "type": "L2_CSLC_S1_static_layers",
       "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
@@ -313,9 +313,9 @@
       }
     },
     {
-      "ipath": "hysds::data/L2_RTC_S1_STATIC",
+      "ipath": "hysds::data/L2_RTC_S1_static_layers",
       "level": "L2",
-      "type": "L2_RTC_S1_STATIC",
+      "type": "L2_RTC_S1_static_layers",
       "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
