@@ -121,6 +121,7 @@ resource "null_resource" "setup_cron" {
 
       pwd
       mkdir -p metrics/conf/sds/files/metrics/cron
+      mkdir -p .local/bin/cron
     EOT
     ]
   }
@@ -136,12 +137,13 @@ resource "null_resource" "setup_cron" {
       source ~/.bash_profile
       set -ex
 
-      crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
-
       chmod +x ~/metrics/conf/sds/files/metrics/cron/install_cmr_audit.sh
       ~/metrics/conf/sds/files/metrics/cron/install_cmr_audit.sh --branch=${var.pcm_branch}
 
       chmod +x ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh
+      mv ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh ~/.local/bin/cron/
+
+      crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
     EOT
     ]
   }

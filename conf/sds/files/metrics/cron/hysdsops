@@ -1,5 +1,6 @@
 SHELL=/bin/bash
 
+
 #######################################################################
 # hysdsops user crontab
 #
@@ -10,5 +11,5 @@ SHELL=/bin/bash
 #
 #######################################################################
 
-#@weekly /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --hls 2>&1 | logger -i -p user.notice -t cmr_audit_hls-task
-#@weekly /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --slc 2>&1 | logger -i -p user.notice -t cmr_audit_slc-task
+#@weekly $HOME/.local/bin/cron/run_cmr_audit.sh --hls 2>&1 | logger -i -p user.notice -t cmr_audit_hls-task
+#@weekly $HOME/.local/bin/cron/run_cmr_audit.sh --slc 2>&1 | logger -i -p user.notice -t cmr_audit_slc-task
