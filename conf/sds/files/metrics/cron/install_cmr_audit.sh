@@ -85,7 +85,7 @@ git --version
 git clone --quiet -b "${branch_or_tag}" --filter=blob:none --no-checkout https://github.com/nasa/opera-sds-pcm.git
 
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
-git sparse-checkout set --cone
+git sparse-checkout init --cone
 git sparse-checkout set tools
 git checkout
 
