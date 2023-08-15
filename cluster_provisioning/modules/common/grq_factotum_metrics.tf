@@ -101,18 +101,6 @@ resource "aws_instance" "metrics" {
     EOT
     ]
   }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
-      set -ex
-      source ~/.bash_profile
-
-      pwd
-      mkdir -p metrics/conf/sds/files/metrics/cron
-    EOT
-    ]
-  }
 }
 
 resource "null_resource" "setup_cron" {
@@ -123,6 +111,18 @@ resource "null_resource" "setup_cron" {
     host        = aws_instance.metrics.private_ip
     user        = "hysdsops"
     private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      source ~/.bash_profile
+      set -ex
+
+      pwd
+      mkdir -p metrics/conf/sds/files/metrics/cron
+    EOT
+    ]
   }
 
   provisioner "file" {
