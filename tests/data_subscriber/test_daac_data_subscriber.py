@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from data_subscriber import daac_data_subscriber, download, query, aws_token, url
+from data_subscriber import daac_data_subscriber, download, query
 
 
 def setup_module():
@@ -402,7 +402,6 @@ def test_download_granules_using_https(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     mock_es_conn = MagicMock()
-    mock_es_conn.product_is_downloaded.return_value = False
 
     from dataclasses import dataclass
 
@@ -438,7 +437,6 @@ def test_download_granules_using_s3(monkeypatch):
     mock_create_merged_files(monkeypatch)
 
     mock_es_conn = MagicMock()
-    mock_es_conn.product_is_downloaded.return_value = False
 
     from dataclasses import dataclass
 
@@ -483,10 +481,17 @@ def test_download_from_asf(monkeypatch):
     )
 
     monkeypatch.setattr(
+        download,
+        download.update_pending_dataset_with_index_name.__name__,
+        MagicMock()
+    )
+
+    monkeypatch.setattr(
         download.stage_orbit_file,
         download.stage_orbit_file.get_parser.__name__,
         MagicMock()
     )
+
     mock_stage_orbit_file = MagicMock()
     monkeypatch.setattr(
         download.stage_orbit_file,
@@ -694,12 +699,12 @@ def mock_create_merged_files(monkeypatch):
     monkeypatch.setattr(
         download.product2dataset,
         download.product2dataset.merge_dataset_met_json.__name__,
-        MagicMock(return_value=(1, {"dataset_version": "v2.0"}))
+        MagicMock(return_value=(1, {"dataset_version": "v2.0", "ProductType": "dummy_product_type"}))
     )
     monkeypatch.setattr(
         download.extractor.extract,
         download.extractor.extract.create_dataset_json.__name__,
-        MagicMock(return_value={})
+        MagicMock(return_value={"version": "v2.0"})
     )
 
 

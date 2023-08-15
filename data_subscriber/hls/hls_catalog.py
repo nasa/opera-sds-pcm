@@ -1,9 +1,18 @@
+import logging
 from datetime import datetime
 from pathlib import Path
 
 from data_subscriber import es_conn_util
 
-ES_INDEX = "hls_catalog"
+null_logger = logging.getLogger('dummy')
+null_logger.addHandler(logging.NullHandler())
+null_logger.propagate = False
+
+ES_INDEX_PATTERNS = ["hls_catalog", "hls_catalog-*"]
+
+
+def generate_es_index_name():
+    return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
 
 class HLSProductCatalog:
@@ -21,32 +30,8 @@ class HLSProductCatalog:
         update_document
     """
     def __init__(self, /, logger=None):
-        self.logger = logger
+        self.logger = logger or null_logger
         self.es = es_conn_util.get_es_connection(logger)
-
-    def create_index(self, index=ES_INDEX, delete_old_index=False):
-        if delete_old_index is True:
-            self.es.es.indices.delete(index=index, ignore=404)
-            if self.logger:
-                self.logger.info("Deleted old index: {}".format(index))
-
-        self.es.es.indices.create(body={"settings": {"index": {"sort.field": "creation_timestamp", "sort.order": "asc"}},
-                                     "mappings": {
-                                         "properties": {
-                                             "granule_id": {"type": "keyword"},
-                                             "s3_url": {"type": "keyword"},
-                                             "https_url": {"type": "keyword"},
-                                             "creation_timestamp": {"type": "date"},
-                                             "download_datetime": {"type": "date"},
-                                             "downloaded": {"type": "boolean"}}}},
-                               index=ES_INDEX)
-        if self.logger:
-            self.logger.info("Successfully created index: {}".format(ES_INDEX))
-
-    def delete_index(self):
-        self.es.es.indices.delete(index=ES_INDEX, ignore=404)
-        if self.logger:
-            self.logger.info("Successfully deleted index: {}".format(ES_INDEX))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
@@ -55,7 +40,7 @@ class HLSProductCatalog:
 
     def process_url(
             self,
-            url: str,
+            urls: list[str],
             granule_id: str,
             job_id: str,
             query_dt: datetime,
@@ -64,8 +49,7 @@ class HLSProductCatalog:
             *args,
             **kwargs
     ):
-        filename = Path(url).name
-        result = self._query_existence(filename)
+        filename = Path(urls[0]).name
         doc = {
             "id": filename,
             "granule_id": granule_id,
@@ -76,29 +60,28 @@ class HLSProductCatalog:
             "revision_date": revision_date_dt
         }
 
-        if "https://" in url:
-            doc["https_url"] = url
-        elif "s3://" in url:
-            doc["s3_url"] = url
-        else:
-            raise Exception(f"Unrecognized URL format. {url=}")
+        for url in urls:
+            if "https://" in url:
+                doc["https_url"] = url
+
+            if "s3://" in url:
+                doc["s3_url"] = url
+
+            if "https://" not in url and "s3://" not in url:
+                raise Exception(f"Unrecognized URL format. {url=}")
 
         doc.update(kwargs)
 
-        self.es.update_document(index=ES_INDEX, body={"doc_as_upsert": True, "doc": doc}, id=filename)
+        index = self._get_index_name_for(_id=filename, default=generate_es_index_name())
+
+        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=filename)
         return True
-
-    def product_is_downloaded(self, url):
-        filename = url.split("/")[-1]
-        result = self._query_existence(filename)
-
-        if result:
-            return result["_source"]["downloaded"]
-        else:
-            return False
 
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split("/")[-1]
+
+        index = self._get_index_name_for(_id=filename, default=generate_es_index_name())
+
         result = self.es.update_document(
             id=filename,
             body={
@@ -109,41 +92,76 @@ class HLSProductCatalog:
                     "download_job_id": job_id,
                 }
             },
-            index=ES_INDEX
+            index=index
         )
 
-        if self.logger:
-            self.logger.info(f"Document updated: {result}")
+        self.logger.info(f"Document updated: {result}")
+
+    def _get_index_name_for(self, _id, default=None):
+        """Gets the index name for the most recent ES doc matching the given _id"""
+        if default is None:
+            raise
+
+        results = self._query_existence(_id)
+        self.logger.debug(f"{results=}")
+        if not results:  # EDGECASE: index doesn't exist yet
+            index = default
+        else:  # reprocessed or revised product. assume reprocessed. update existing record
+            if results:  # found results
+                index = results[0]["_index"]  # get the ID of the most recent record
+            else:
+                index = default
+        return index
 
     def _post(self, filename, body):
-        result = self.es.index_document(index=ES_INDEX, body=body, id=filename)
+        result = self.es.index_document(index=generate_es_index_name(), body=body, id=filename)
 
-        if self.logger:
-            self.logger.info(f"Document indexed: {result}")
+        self.logger.info(f"Document indexed: {result}")
 
-    def _query_existence(self, filename, index=ES_INDEX):
+    def _query_existence(self, _id):
         try:
-            result = self.es.get_by_id(index=index, id=filename)
-            if self.logger:
-                self.logger.debug(f"Query result: {result}")
+            results = self.es.query(
+                index=",".join(ES_INDEX_PATTERNS),
+                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                body={
+                    "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
+                    "sort": [{"creation_timestamp": "desc"}],
+                    "_source": {"includes": "false", "excludes": []}  # NOTE: returned object is different than when `"includes": []` is used
+                },
+            )
+            self.logger.debug(f"Query results: {results}")
 
         except:
-            result = None
-            if self.logger:
-                self.logger.debug(f"{filename} does not exist in {index}")
+            self.logger.info(f"{_id} does not exist in {ES_INDEX_PATTERNS}")
+            results = None
 
-        return result
+        return results
 
-    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool, index=ES_INDEX):
+    def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
-            result = self.es.query(index=index,
-                                body={"sort": [{"creation_timestamp": "asc"}],
-                                      "query": {"bool": {"must": [{"range": {range_str: {
-                                                                      "gte": start_dt.isoformat(),
-                                                                      "lt": end_dt.isoformat()}}}]}}})
-            if self.logger:
-                self.logger.debug(f"Query result: {result}")
+            result = self.es.query(
+                index=",".join(ES_INDEX_PATTERNS),
+                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                body={
+                    "sort": [{"creation_timestamp": "asc"}],
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "range": {
+                                        range_str: {
+                                            "gte": start_dt.isoformat(),
+                                            "lt": end_dt.isoformat()
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            )
+            self.logger.debug(f"Query result: {result}")
 
         except:
             result = None

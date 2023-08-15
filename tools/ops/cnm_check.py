@@ -149,7 +149,7 @@ for dswx_granules_patterns_batch in dswx_granules_patterns_batches:
     # body["_source"]["includes"] = "false"  # NOTE: uncomment to return barebones response
     for dswx_granules_pattern in dswx_granules_patterns_batch:
         body["query"]["bool"]["should"].append({"match_phrase_prefix": {"metadata.id": dswx_granules_pattern}})
-    search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10_000))
+    search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls-*", scroll="5m", size=10_000))
     results.extend(search_results)
 logging.info(f'results {len(results)=}')
 

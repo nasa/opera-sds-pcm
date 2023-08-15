@@ -103,7 +103,7 @@ def get_range(
 body = get_body()
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="5m", size=10_000))
 queried_or_downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 logger.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
@@ -126,7 +126,7 @@ body = get_body()
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
-search_results = list(helpers.scan(es, body, index="hls_catalog", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="5m", size=10_000))
 downloaded_files = {hit["_id"].removesuffix(".tif") for hit in search_results}
 
 logger.info(f'Data downloaded (files): {len(search_results)=:,}')
@@ -159,7 +159,7 @@ logger.debug(f'{pstr(missing_download_granules)=!s}')
 body = get_body()
 body["_source"]["includes"] = ["metadata.Files"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_l30", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l2_hls_l30", "grq_*_l2_hls_l30-*"]), scroll="5m", size=10_000))
 l30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
@@ -168,7 +168,7 @@ logger.info(f'Data ingested (L30): {len(search_results)=:,}')
 
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index="grq_*_l2_hls_s30", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l2_hls_s30", "grq_*_l2_hls_s30-*"]), scroll="5m", size=10_000))
 s30_ingested_files = {input["FileName"].removesuffix(".tif")
                       for hit in search_results
                       for input in hit["_source"]["metadata"]["Files"]}
@@ -208,7 +208,7 @@ body = get_body()
 body["_source"]["includes"] = ["metadata.runconfig.localize", "metadata.accountability", "daac_CNM_S_status", "daac_delivery_status"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
-search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l3_dswx_hls", "grq_*_l3_dswx_hls-*"]), scroll="5m", size=10_000))
 pge_input_files = {PurePath(input).name.removesuffix(".tif")
                    for hit in search_results
                    for input in hit["_source"]["metadata"]["runconfig"]["localize"]}

@@ -382,7 +382,7 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py ;
-      conda install gdal=3.4.1 --yes --quiet ;
+      conda install conda==22.11.1 gdal==3.6.2 --yes --quiet ;
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -396,8 +396,8 @@ resource "aws_instance" "mozart" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
-        echo installing gdal for manual execution of daac_data_subscriber.py ;
-        conda install gdal=3.4.1 --yes --quiet ;
+        echo installing gdal for manual execution of daac_data_subscriber.py
+        conda install conda==22.11.1 gdal==3.6.2 --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
@@ -528,6 +528,7 @@ resource "aws_instance" "mozart" {
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
+
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
@@ -540,8 +541,12 @@ resource "aws_instance" "mozart" {
       if [ "${var.grq_aws_es}" = true ] && [ "${var.use_grq_aws_es_private_verdi}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart update_celery_config
       fi
-      fab -f ~/.sds/cluster.py -R grq update_es_template
+
+      fab -f ~/.sds/cluster.py -R grq update_grq_es
+      fab -f ~/.sds/cluster.py -R metrics update_metrics_es
+
       sds -d ship
+
       cd ~/mozart/pkgs
       sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
@@ -554,34 +559,6 @@ resource "aws_instance" "mozart" {
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
       pip install --progress-bar off -e .
-      echo #if [[ "$${var.pcm_release}" == "develop"* ]]; then
-      echo # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
-      echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_slc_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_slc_catalog.py
-      echo #fi
-
-      echo create data subscriber Elasticsearch indexes
-      if [ "${local.delete_old_job_catalog}" = true ]; then
-          python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/slc/delete_slc_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/delete_slc_spatial_catalog.py
-
-      fi
-      python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/slc/create_slc_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/create_slc_spatial_catalog.py
-
-      echo create accountability Elasticsearch index
-      if [ "${local.delete_old_job_catalog}" = true ]; then
-          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-      else
-          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
-      fi
     EOT
     ]
   }
@@ -623,7 +600,7 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
+  // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
   provisioner "remote-exec" {
     inline = [<<-EOT
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
@@ -632,18 +609,21 @@ resource "aws_instance" "mozart" {
       echo // grq
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog
+      curl -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // mozart
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers
+      curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // metrics
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*
+      curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+
     EOT
     ]
   }
-
 }
 
 # Resource to install PCM and its dependencies, container-nasa-xxx-sds-pcm
