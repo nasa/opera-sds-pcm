@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import concurrent.futures
+import datetime
 import functools
 import logging
 import os
@@ -41,12 +42,12 @@ def create_parser():
     argparser.add_argument(
         "--start-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--end-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--output", "-o",
@@ -312,21 +313,32 @@ async def run(argv: list[str]):
     logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
     logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
+    now = datetime.datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    start_dt_str = cmr_end_dt_str.replace("-","")
+    start_dt_str = start_dt_str.replace("T", "-")
+    start_dt_str = start_dt_str.replace(":", "")
+
+    end_dt_str = cmr_end_dt_str.replace("-", "")
+    end_dt_str = end_dt_str.replace("T", "-")
+    end_dt_str = end_dt_str.replace(":", "")
+    outfilename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
+
     if args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to CSLC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_slc_cslc))
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_slc_cslc))
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to CSLC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
@@ -334,7 +346,7 @@ async def run(argv: list[str]):
             fp.write(json_str)
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
