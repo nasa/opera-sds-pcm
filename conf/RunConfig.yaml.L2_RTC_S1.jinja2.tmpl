@@ -39,7 +39,7 @@ RunConfig:
         ErrorCodeBase: 300000
         SchemaPath: /home/rtc_user/opera/pge/rtc_s1/schema/rtc_s1_sas_schema.yaml
         IsoTemplatePath: /home/rtc_user/opera/pge/rtc_s1/templates/OPERA_ISO_metadata_L2_RTC_S1_template.xml.jinja2
-        DataValidityStartTime: {{ data.product_path_group.data_validity_start_time }}
+        DataValidityStartDate: {{ data.product_path_group.data_validity_start_date }}
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -84,59 +84,27 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             output_dir: {{ data.product_path_group.product_path }}
-            product_id: OPERA_L2_RTC-S1_{burst_id}
+            product_id:
+            rtc_s1_static_validity_start_date: {{ data.product_path_group.data_validity_start_date }}
             save_bursts: True
             save_mosaics: False
             save_browse: True
             output_imagery_format: COG
-            output_imagery_compression: ZSTD
-            output_imagery_nbits: 16
-            save_secondary_layers_as_hdf5: False
             save_metadata: True
           primary_executable:
-            product_type: RTC_S1
+            product_type: {{ data.processing.product_type }}
           processing:
             check_ancillary_inputs_coverage: True
             polarization: {{ data.processing.polarization }}
-            geo2rdr:
-              threshold: 1.0e-7
-              numiter: 50
-            rdr2geo:
-              threshold: 1.0e-7
-              numiter: 25
-            apply_absolute_radiometric_correction: True
-            apply_thermal_noise_correction: True
-            apply_rtc: True
-            apply_bistatic_delay_correction: True
-            apply_dry_tropospheric_delay_correction: True
             rtc:
               output_type: gamma0
-              algorithm_type: area_projection
-              input_terrain_radiometry: beta0
-              rtc_min_value_db: -30
-              dem_upsampling: 2
-            num_workers: 0
+
+            num_workers: {{ data.processing.num_workers }}
+
             geocoding:
-              algorithm_type: area_projection
               memory_mode: auto
-              geogrid_upsampling: 1
 
-              save_incidence_angle: {{ data.processing.enable_static_layers }}
-              save_local_inc_angle: {{ data.processing.enable_static_layers }}
-              save_nlooks: {{ data.processing.enable_static_layers }}
-              save_rtc_anf: {{ data.processing.enable_static_layers }}
-              save_layover_shadow_mask: {{ data.processing.enable_static_layers }}
-
-              abs_rad_cal: 1
-              clip_max:
-              clip_min:
-              upsample_radargrid: False
               bursts_geogrid:
-                output_epsg:
-                x_posting: 30
-                y_posting: 30
-                x_snap: 30
-                y_snap: 30
                 top_left:
                   x:
                   y:
@@ -146,7 +114,3 @@ RunConfig:
 
             mosaicking:
               mosaic_mode: first
-
-            browse_image_group:
-              browse_image_burst_height: 1024
-              browse_image_mosaic_height: 1024

@@ -26,7 +26,7 @@ RunConfig:
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
-        DataValidityStartTime: regex(r'\d{8}T\d{6}', name='YYYYMMDDTHHmmss datetime', required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:
         Enabled: bool(required=True)
@@ -42,14 +42,23 @@ RunConfig:
         name: str()
 
         groups:
+          primary_executable:
+            # Required. Output product type: "RTC_S1" or "RTC_S1_STATIC"
+            product_type: enum('RTC_S1', 'RTC_S1_STATIC')
+
           pge_name_group:
             pge_name: enum('RTC_S1_PGE')
 
           input_file_group:
             # Required. List of SAFE files (min=1)
             safe_file_path: list(str(), min=1)
+
+            # Location from where the source data can be retrieved (URL or DOI)
+            source_data_access: str(required=False)
+
             # Required. List of orbit (EOF) files
             orbit_file_path: list(str(), min=1)
+
             # Optional. Burst ID to process (empty for all bursts)
             burst_id: list(str(), min=1, required=False)
 
@@ -65,9 +74,6 @@ RunConfig:
             # burst database sqlite file
             burst_database_file: str(required=False)
 
-          primary_executable:
-            product_type: enum('RTC_S1')
-
           product_group:
 
             processing_type: enum('NOMINAL', 'URGENT', 'CUSTOM', 'UNDEFINED', required=False)
@@ -80,9 +86,9 @@ RunConfig:
             scratch_path: str()
 
             # If option `save_bursts` is set, output bursts are saved to:
-            #     {output_dir}/{burst_id}/{product_id}_v{product_version}{suffix}.{ext}
+            #     {output_dir}/{burst_id}/{product_id}{suffix}.{ext}
             # If option `save_mosaics` is set, output mosaics are saved to:
-            #     {output_dir}/{product_id}_v{product_version}{suffix}.{ext}
+            #     {output_dir}/{product_id}{suffix}.{ext}
             #
             # If the `product_id` contains the substring "_{burst_id}", the
             # substring will be substituted by either:
@@ -93,14 +99,31 @@ RunConfig:
             # `RTC-S1_069-147170-IW1_S1B` for the burst t069-147170-IW1; and it
             # will become `RTC-S1_S1B` for the mosaic product.
             #
-            # If the field `product_id`` is left empty, the prefix
-            # "OPERA_L2_RTC-S1_{burst_id}"  will be used instead.
+            # For RTC-S1 products, if the field `product_id` is left empty,
+            # the burst product ID will follow the RTC-S1 file naming conventions:
+            # `OPERA_L2_RTC-S1_{burst_id}_{sensing_start_datetime}_
+            # {processing_datetime}_{sensor}_{pixel_spacing}
+            #  _{product_version}`.
+            #
+            # For RTC-S1-STATIC products, if the field `product_id` is left empty,
+            # the burst product ID will follow the RTC-S1-STATIC file naming
+            # conventions:
+            # `OPERA_L2_RTC-S1-STATIC_{burst_id}_{rtc_s1_static_validity_start_date}_
+            # {processing_datetime}_{sensor}_{pixel_spacing}
+            #  _{product_version}`.
+            #
             # `suffix` is only used when there are multiple output files.
             # `ext` is determined by geocoding_options.output_imagery_format.
             output_dir: str()
-            product_id: str()
+            product_id: str(required=False)
 
-            # RTC-S1 imagery
+            # Validity start date for RTC-S1-STATIC products in the format YYYYMMDD
+            rtc_s1_static_validity_start_date: int(min=20000101, max=21991231, required=False)
+
+            # Location from where the output product can be retrieved (URL or DOI)
+            product_data_access: str(required=False)
+
+            # Save RTC-S1 products
             save_bursts: bool(required=False)
 
             # Save mosaic of RTC-S1 bursts
@@ -216,10 +239,12 @@ rtc_options:
   # RTC DEM upsampling
   dem_upsampling: int(min=1, required=False)
 
+  # RTC area beta mode
+  area_beta_mode: enum('auto', 'pixel_area', 'projection_angle', required=False)
 
 geocoding_options:
 
-  # OPTIONAL - Apply RSLC metadata valid-samples sub-swath masking
+  # OPTIONAL - Apply valid-samples sub-swath masking
   apply_valid_samples_sub_swath_masking: bool(required=False)
 
   # OPTIONAL - Apply shadow masking
@@ -249,23 +274,26 @@ geocoding_options:
 
   # Save the RTC area normalization factor (ANF) computed with
   # the projection angle method
-  save_rtc_anf_psi: bool(required=False)
+  save_rtc_anf_projection_angle: bool(required=False)
 
   # Save the range slope angle
   save_range_slope: bool(required=False)
 
-  # Save the number of looks used to generate the RTC product
+  # Save the number of looks used to generate the RTC-S1 product
   save_nlooks: bool(required=False)
 
   # Save the RTC area normalization factor (ANF) used to generate
   # the RTC product
   save_rtc_anf: bool(required=False)
 
-  # Save the interpolated DEM used to generate the RTC product
+  # Save the RTC area normalization factor (ANF) gamma0 to sigma0
+  save_rtc_anf_gamma0_to_sigma0: bool(required=False)
+
+  # Save the interpolated DEM used to generate the RTC-S1 product
   save_dem: bool(required=False)
 
   # Save layover/shadow mask
-  save_layover_shadow_mask: bool(required=False)
+  save_mask: bool(required=False)
 
   # Layover/shadow mask dilation size of shadow pixels
   shadow_dilation_size: int(min=0, required=False)
@@ -324,6 +352,7 @@ output_grid_options:
   bottom_right:
     x: num(required=False)
     y: num(required=False)
+
 
 browse_image_options:
 

@@ -34,12 +34,12 @@ def create_parser():
     argparser.add_argument(
         "--start-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--end-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--output", "-o",
@@ -221,13 +221,24 @@ async def run(argv: list[str]):
     logger.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
     logger.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
 
+    now = datetime.datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    start_dt_str = cmr_end_dt_str.replace("-","")
+    start_dt_str = start_dt_str.replace("T", "-")
+    start_dt_str = start_dt_str.replace(":", "")
+
+    end_dt_str = cmr_end_dt_str.replace("-", "")
+    end_dt_str = end_dt_str.replace("T", "-")
+    end_dt_str = end_dt_str.replace(":", "")
+    outfilename = f"missing_granules_HLS-DSWx_{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
+
     if args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_hls))
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
