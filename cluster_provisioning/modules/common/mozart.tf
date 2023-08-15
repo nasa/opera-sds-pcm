@@ -638,7 +638,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -676,7 +676,7 @@ resource "null_resource" "install_pcm_and_pges_iems" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -712,7 +712,7 @@ resource "null_resource" "setup_trigger_rules" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 
