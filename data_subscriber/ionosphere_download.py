@@ -81,7 +81,7 @@ async def run(argv: list[str]):
     downloads_dir.mkdir(exist_ok=True)
 
     for i, slc_dataset in enumerate(slc_datasets, start=1):
-        product_id = slc_dataset["_id"]
+        product_id = slc_dataset["_source"]["metadata"]["id"]
         logger.info(f"Processing {product_id=}. {i} of {len(slc_datasets)} products")
         dataset_dir = downloads_dir / product_id
 

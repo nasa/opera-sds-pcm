@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import logging
 import backoff
 from data_subscriber.query import get_query_timerange, query_cmr
+from data_subscriber.cmr import query_cmr
 
 _date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
@@ -95,3 +96,4 @@ def run_survey(args, token, cmr, settings):
     logging.info("Saving histogram figure as " + args.out_csv+".svg")
     plt.savefig(args.out_csv+".svg", format="svg", dpi=1200)
     plt.show()
+

@@ -7,7 +7,7 @@ null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
-ES_INDEX_PATTERNS = ["hls_spatial_catalog", "hls_spatial_catalog-*"]
+ES_INDEX_PATTERNS = "hls_spatial_catalog*"
 
 
 def generate_es_index_name():
@@ -74,8 +74,8 @@ class HLSSpatialProductCatalog:
     def _query_existence(self, _id):
         try:
             results = self.es.query(
-                index=",".join(ES_INDEX_PATTERNS),
-                ignore_unavailable=True,  # EDGECASE: index might not exist yet
+                index=ES_INDEX_PATTERNS,
+                #ignore_unavailable=True,  # EDGECASE: index might not exist yet
                 body={
                     "query": {"bool": {"must": [{"term": {"_id": _id}}]}},
                     "sort": [{"creation_timestamp": "desc"}],

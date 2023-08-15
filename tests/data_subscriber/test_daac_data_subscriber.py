@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from data_subscriber import daac_data_subscriber, download, query
+from data_subscriber.hls.hls_catalog import HLSProductCatalog
 
 
 def setup_module():
@@ -31,6 +32,8 @@ def teardown_module():
     job_context = Path("_job.json")
     job_context.unlink(missing_ok=True)
 
+def test_doc_creation():
+    pass
 
 @pytest.mark.asyncio
 async def test_full(monkeypatch):
