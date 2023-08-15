@@ -10,5 +10,5 @@ SHELL=/bin/bash
 #
 #######################################################################
 
-@weekly hysdsops /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --hls 2>&1 | logger -i -p user.notice -t cmr_audit_hls-task
-@weekly hysdsops /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --slc 2>&1 | logger -i -p user.notice -t cmr_audit_slc-task
+#@weekly /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --hls 2>&1 | logger -i -p user.notice -t cmr_audit_hls-task
+#@weekly /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh --slc 2>&1 | logger -i -p user.notice -t cmr_audit_slc-task
