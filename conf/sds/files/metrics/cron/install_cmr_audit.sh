@@ -6,7 +6,7 @@
 # This script will setup the execution environment for cmr_audit.py
 #######################################################################
 
-set -ex
+set -e
 
 cmdname=$(basename $0)
 
@@ -85,15 +85,13 @@ git clone --quiet -b "${branch_or_tag}" --filter=blob:none --no-checkout https:/
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
 git sparse-checkout init --cone
 git sparse-checkout set tools
-git checkout
+git checkout --quiet
 
 # DEV: emergency handle
 # git sparse-checkout disable
 
 # deactivate any existing python virtual environments (typically "metrics")
-set +e
-deactivate
-set -e
+set +e ; deactivate ; set -e
 
 # create virtual environment and install dependencies
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
@@ -102,5 +100,5 @@ python -m venv venv_cmr_audit
 
 source ./venv_cmr_audit/bin/activate
 python -m pip install --upgrade pip
-pip install -e '.[cmr_audit]'
+pip install --progress-bar off -e '.[cmr_audit]'
 deactivate
