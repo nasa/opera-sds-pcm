@@ -97,7 +97,7 @@ class TestStageOrbitFile(unittest.TestCase):
             <opensearch:startIndex>0</opensearch:startIndex>
             <opensearch:itemsPerPage>10</opensearch:itemsPerPage>
             <entry>
-            <title>S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942</title>
+            <title>S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T200000_20220502T005942</title>
             <id>a4c32eea-7c42-4bd7-ae4e-404151a11120</id>
             <str name="format">EOF</str>
             <str name="size">4.2 MB</str>
@@ -105,13 +105,13 @@ class TestStageOrbitFile(unittest.TestCase):
             <str name="platformshortname">S1</str>
             <str name="platformnumber">A</str>
             <str name="platformserialidentifier">1A</str>
-            <str name="filename">S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942.EOF</str>
+            <str name="filename">S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T200000_20220502T005942.EOF</str>
             <str name="producttype">AUX_POEORB</str>
             <str name="filedescription">Precise Orbit Ephemerides (POE) Orbit File</str>
             <str name="fileclass">OPER</str>
             <str name="creator">OPOD</str>
             <str name="creatorversion">1.11.6</str>
-            <str name="identifier">S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942</str>
+            <str name="identifier">S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T200000_20220502T005942</str>
             <str name="uuid">a4c32eea-7c42-4bd7-ae4e-404151a11120</str>
             </entry>
             </feed>
@@ -129,7 +129,7 @@ class TestStageOrbitFile(unittest.TestCase):
 
         # Make sure we parsed the results as expected
         self.assertEquals(
-            orbit_file_name, "S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T225942_20220502T005942.EOF"
+            orbit_file_name, "S1A_OPER_AUX_POEORB_OPOD_20220521T081912_V20220430T200000_20220502T005942.EOF"
         )
         self.assertEquals(
             orbit_file_request_id, "a4c32eea-7c42-4bd7-ae4e-404151a11120"

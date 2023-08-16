@@ -46,6 +46,17 @@ ORBIT_TYPE_RES = 'RESORB'
 VALID_ORBIT_TYPES = (ORBIT_TYPE_POE, ORBIT_TYPE_RES)
 """List of the valid orbit types that this script supports querying for"""
 
+T_ORBIT = (12 * 86400.0) / 175.0
+"""
+Orbital period of Sentinel-1 in seconds: 12 days * 86400.0 seconds/day, 
+divided into 175 orbits
+"""
+
+SAFE_START_TIME_MARGIN = timedelta(seconds=T_ORBIT + 60.0)
+"""
+Temporal margin to apply to the start time of a frame to make sure that the 
+ascending node crossing is included when choosing the orbit file
+"""
 
 class NoQueryResultsException(Exception):
     """Custom exception to identify empty results from a query"""
@@ -469,6 +480,10 @@ def select_orbit_file(entry_elems, namespace_map, safe_start_time, safe_stop_tim
         safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
         orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S")
         orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S")
+
+        # Apply the start time margin to the beginning of the SAFE time range
+        # to ensure we select an orbit file with appropriate padding up-front
+        safe_start_datetime -= SAFE_START_TIME_MARGIN
 
         if orbit_start_datetime < safe_start_datetime and orbit_stop_datetime > safe_stop_datetime:
             logger.debug(f'orbit_file_name: {orbit_file_name}')
