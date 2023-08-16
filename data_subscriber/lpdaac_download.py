@@ -1,3 +1,4 @@
+import itertools
 import logging
 import json
 import extractor.extract
