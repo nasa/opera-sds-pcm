@@ -81,6 +81,7 @@ async def run(argv: list[str]):
     downloads_dir.mkdir(exist_ok=True)
 
     for i, slc_dataset in enumerate(slc_datasets, start=1):
+        db_id = slc_dataset["_id"]
         product_id = slc_dataset["_source"]["metadata"]["id"]
         logger.info(f"Processing {product_id=}. {i} of {len(slc_datasets)} products")
         dataset_dir = downloads_dir / product_id
@@ -129,7 +130,7 @@ async def run(argv: list[str]):
                     continue
 
                 ionosphere_metadata = generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_bucket, s3_key)
-                try_update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=product_id, ionosphere_metadata=ionosphere_metadata)
+                try_update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=db_id, ionosphere_metadata=ionosphere_metadata)
         except Exception as e:
             logging.info(f"An exception occurred while processing {product_id=}. Collecting exception. Skipping to next SLC dataset.")
             exceptions.append(e)
