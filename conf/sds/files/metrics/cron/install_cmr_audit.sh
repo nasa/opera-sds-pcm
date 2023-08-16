@@ -91,7 +91,9 @@ git checkout --quiet
 # git sparse-checkout disable
 
 # deactivate any existing python virtual environments (typically "metrics")
-set +e ; deactivate ; set -e
+set +e
+deactivate
+set -e
 
 # create virtual environment and install dependencies
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
