@@ -131,7 +131,7 @@ class HLSProductCatalog:
             self.logger.debug(f"Query results: {results}")
 
         except:
-            self.logger.info(f"{_id} does not exist in {ES_INDEX_PATTERNS}")
+            self.logger.info(f"{_id} does not exist in {self.ES_INDEX_PATTERNS}")
             results = None
 
         return results
