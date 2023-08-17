@@ -1066,11 +1066,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # Find the available Ionosphere files staged by the download job
         ionosphere_file_objects = []
-        for ionosphere_file_type in VALID_IONOSPHERE_TYPES:
+        for ionosphere_file_type in VALID_IONOSPHERE_TYPES + ['RAP', 'FIN']:
             ionosphere_file_objects.extend(
                 list(filter(lambda s3_object: ionosphere_file_type in s3_object.key, s3_objects))
             )
-
         logger.info(f"{ionosphere_file_objects}=")
 
         # May not of found any Ionosphere files during download phase, so check now

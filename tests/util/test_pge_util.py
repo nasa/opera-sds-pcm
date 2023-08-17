@@ -29,7 +29,7 @@ def test_simulate_cslc_s1_pge():
                 "params": [
                     {
                         "name": "input_dataset_id",
-                        "value": "S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC"
+                        "value": "S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC-r1"
                     }
                 ]
             }
@@ -80,7 +80,7 @@ def test_simulate_rtc_s1_pge():
                 "params": [
                     {
                         "name": "input_dataset_id",
-                        "value": "S1B_IW_SLC__1SDV_20180504T104507_20180504T104535_010770_013AEE_919F"
+                        "value": "S1B_IW_SLC__1SDV_20180504T104507_20180504T104535_010770_013AEE_919F-r1"
                     }
                 ]
             }
@@ -144,7 +144,7 @@ def test_simulate_dswx_hls_pge_with_l30():
                     "params": [
                         {
                             "name": "input_dataset_id",
-                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0"
+                            "value": "HLS.L30.T22VEQ.2021248T143156.v2.0-r1"
                         }
                     ]
                 }
@@ -193,7 +193,7 @@ def test_simulate_dswx_hls_pge_with_s30():
                     "params": [
                         {
                             "name": "input_dataset_id",
-                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0"
+                            "value": "HLS.S30.T15SXR.2021250T163901.v2.0-r1"
                         }
                     ]
                 }
@@ -238,7 +238,7 @@ def test_simulate_dswx_hls_pge_with_unsupported():
                         "params": [
                             {
                                 "name": "input_dataset_id",
-                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0"
+                                "value": "HLS.X30.T15SXR.2021250T163901.v2.0-r1"
                             }
                         ]
                     }
