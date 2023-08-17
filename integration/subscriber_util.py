@@ -54,7 +54,7 @@ def invoke_slc_subscriber_query_lambda():
 
 
 def invoke_slc_subscriber_ionosphere_download_lambda():
-    logging.info("Invoking data subscriber query timer lambda")
+    logging.info("Invoking ionosphere download timer lambda")
 
     response: InvocationResponseTypeDef = aws_lambda.invoke(
         FunctionName=config["SLC_DATA_SUBSCRIBER_IONOSPHERE_DOWNLOAD_LAMBDA"],
