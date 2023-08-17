@@ -320,9 +320,6 @@ def test_subscriber_slc():
     # 73-IW1
     mock_cnm_r_success_sqs(id=response_rtc_9.hits[0]["id"])
 
-    # 73-IW1
-    mock_cnm_r_success_sqs(id="OPERA_L2_RTC-S1_T069-147173-IW1_20221117T004741Z_20221117T004756Z_S1A_30_v0.1")
-
     logger.info("Sleeping for CNM-R execution...")
     sleep_for(300)  # max queue dwell time
 
