@@ -1,0 +1,62 @@
+name: General Task Form
+description: Describe a general task that needs to be done
+title: "[Task]: "
+labels: "task"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > _Thank you for describing a task. Your input helps improve the process. Kindly detail the task below._
+
+  - type: dropdown
+    id: checked-for-duplicates
+    attributes:
+      label: Checked for similar tasks
+      description: Have you checked for similar task tickets?
+      multiple: false
+      options:
+        - "Yes - I've already checked"
+        - "No - I haven't checked"
+    validations:
+      required: yes
+
+  - type: textarea
+    id: task-description
+    attributes:
+      label: Describe the task
+      description: Give a clear and concise description of the task. Outline objectives, expected outcomes, and any specific considerations.
+      placeholder: What needs to be done?
+      value: "The task is to [...] and the objective is [...]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: prerequisites
+    attributes:
+      label: Prerequisites or Requirements
+      description: Detail any prerequisites or requirements to start this task. Are there tools, data, or permissions needed?
+      value: |
+        1.
+        2.
+        3.
+        ...
+      render: bash
+
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Expected Deliverables
+      description: "What are the expected outputs or deliverables once the task is completed?"
+      value: |
+        1.
+        2.
+        3.
+        ...
+      render: bash
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: "Is there any additional information or context regarding the task? Background information, links, or related tasks are welcome."
+      placeholder: Add any other context or information about the task here.
