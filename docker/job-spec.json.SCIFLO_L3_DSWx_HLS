@@ -72,54 +72,6 @@
     {
       "name": "container_working_dir",
       "destination": "context"
-    },
-    {
-      "name": "wigt",
-      "destination": "context"
-    },
-    {
-      "name": "awgt",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_mndwi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_nir",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_swir1",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_ndvi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_mndwi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_blue",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_nir",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_swir1",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_swir2",
-      "destination": "context"
-    },
-    {
-      "name": "lcmask_nir",
-      "destination": "context"
     }
   ]
 }
