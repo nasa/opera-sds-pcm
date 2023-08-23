@@ -24,7 +24,9 @@ RunConfig:
         ProgramOptions: list(str(), min=0, required=False)
         ErrorCodeBase: int(required=True)
         SchemaPath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:
         Enabled: bool(required=True)
