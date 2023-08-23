@@ -138,7 +138,7 @@ variable "amis" {
     #grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
     #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
     #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
-    
+
     # HySDS v5.0.0-beta.6 - Aug 3, 2023 - R2
     mozart    = "ami-0c70da559d13163d8" # mozart v4.21 - 230802
     metrics   = "ami-02b0f6841c5d818b6" # metrics v4.15 - 230802
@@ -447,7 +447,7 @@ variable "lambda_log_retention_in_days" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.1"
+    "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.0.0-rc.2.1"
     "rtc_s1"   = "2.0.0-rc.2.1"
   }
