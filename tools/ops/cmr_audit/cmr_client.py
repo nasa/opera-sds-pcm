@@ -72,7 +72,7 @@ def giveup_cmr_requests(e):
 @backoff.on_exception(
     backoff.expo,
     exception=(aiohttp.ClientResponseError, aiohttp.ClientOSError),  # ClientOSError happens when connection is closed by peer
-    max_tries=3,
+    max_tries=7,
     jitter=None,
     giveup=giveup_cmr_requests
 )
