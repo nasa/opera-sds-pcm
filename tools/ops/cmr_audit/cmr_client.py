@@ -2,11 +2,11 @@ import asyncio
 import contextlib
 import logging
 import os
+from math import ceil
 from typing import Optional
 
 import aiohttp
 import backoff
-from math import ceil
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def giveup_cmr_requests(e):
 @backoff.on_exception(
     backoff.expo,
     exception=(aiohttp.ClientResponseError, aiohttp.ClientOSError),  # ClientOSError happens when connection is closed by peer
-    max_tries=7,
+    max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
     jitter=None,
     giveup=giveup_cmr_requests
 )
