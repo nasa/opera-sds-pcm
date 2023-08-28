@@ -103,8 +103,14 @@ def polygon_from_bounding_box(bounding_box, margin_in_km):
     lat_margin = margin_km_to_deg(margin_in_km)
     lon_margin = margin_km_to_longitude_deg(margin_in_km, lat=lat_worst_case)
 
-    poly = box(lon_min - lon_margin, max([lat_min - lat_margin, -90]),
-               lon_max + lon_margin, min([lat_max + lat_margin, 90]))
+    # Check if the bbox crosses the antimeridian and apply the margin accordingly
+    # so that any resultant DEM is split properly by check_dateline
+    if lon_max - lon_min > 180:
+        poly = box(lon_min + lon_margin, max([lat_min - lat_margin, -90]),
+                   lon_max - lon_margin, min([lat_max + lat_margin, 90]))
+    else:
+        poly = box(lon_min - lon_margin, max([lat_min - lat_margin, -90]),
+                   lon_max + lon_margin, min([lat_max + lat_margin, 90]))
 
     return poly
 
