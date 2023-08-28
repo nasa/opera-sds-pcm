@@ -11,10 +11,8 @@ import json
 import os
 import re
 import traceback
-import zipfile
 from datetime import datetime
 from pathlib import PurePath
-from lxml import etree as ET
 from typing import Dict, List
 from urllib.parse import urlparse
 
@@ -32,6 +30,7 @@ from opera_chimera.constants.opera_chimera_const import (
 )
 from util import datasets_json_util
 from util.common_util import convert_datetime, get_working_dir
+from util.geo_util import bounding_box_from_slc_granule
 from util.pge_util import (download_object_from_s3,
                            get_input_hls_dataset_tile_code,
                            write_pge_metrics)
@@ -954,7 +953,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # get the local file path of the input SAFE archive (should have already
         # been downloaded by the get_safe_file precondition function)
         safe_file_path = self._job_params.get(oc_const.SAFE_FILE_PATH)
-        safe_file_name = os.path.splitext(os.path.basename(safe_file_path))[0]
 
         # get s3_bucket param
         s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_DEM, {}).get(oc_const.S3_BUCKET)
@@ -971,38 +969,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                f'job parameters. Please ensure the get_safe_file '
                                f'precondition function has been run prior to this one.')
 
-        # Extract the contents of the manifest.safe XML file from the top-level
-        # of the zip archive. This file contains the bounding box of the full
-        # SLC swath covered by the data
-        with zipfile.ZipFile(safe_file_path) as myzip:
-            with myzip.open(f'{safe_file_name}.SAFE/manifest.safe', 'r') as infile:
-                manifest_tree = ET.parse(infile)
-
-        coordinates_elem = manifest_tree.xpath('.//*[local-name()="coordinates"]')
-
-        if coordinates_elem is None:
-            raise RuntimeError(
-                'Could not find gml:coordinates element within the manifest.safe '
-                'of the provided SAFE archive, cannot determine DEM bounding box.'
-            )
-
-        coordinates_str = coordinates_elem[0].text
-        coordinates = coordinates_str.split()
-        lats = [float(coordinate.split(',')[0]) for coordinate in coordinates]
-        lons = [float(coordinate.split(',')[-1]) for coordinate in coordinates]
-
-        lat_min = min(lats)
-        lat_max = max(lats)
-        lon_min = min(lons)
-        lon_max = max(lons)
-
-        # check for the antimeridian crossing:
-        if lon_max - lon_min > 180:
-            lons = [lon + (lon < 0) * 360 for lon in lons]
-            lon_min = min(lons)
-            lon_max = max(lons)
-
-        bbox = [lon_min, lat_min, lon_max, lat_max]  # WSEN order
+        bbox = bounding_box_from_slc_granule(safe_file_path)
 
         logger.info(f"Derived DEM bounding box: {bbox}")
 

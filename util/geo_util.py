@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+import os
+import zipfile
+
+from lxml import etree as ET
+
 import mgrs
 import numpy as np
 import shapely.ops
@@ -25,6 +30,46 @@ def margin_km_to_longitude_deg(margin_in_km, lat=0):
                  (np.pi * EARTH_RADIUS * np.cos(np.pi * lat / 180)))
 
     return delta_lon
+
+def bounding_box_from_slc_granule(safe_file_path):
+    """Extracts the bounding box footprint from the given SLC SAFE archive"""
+    safe_file_name = os.path.splitext(os.path.basename(safe_file_path))[0]
+
+    # Extract the contents of the manifest.safe XML file from the top-level
+    # of the zip archive. This file contains the bounding box of the full
+    # SLC swath covered by the data
+    with zipfile.ZipFile(safe_file_path) as myzip:
+        with myzip.open(f'{safe_file_name}.SAFE/manifest.safe', 'r') as infile:
+            manifest_tree = ET.parse(infile)
+
+    coordinates_elem = manifest_tree.xpath('.//*[local-name()="coordinates"]')
+
+    if coordinates_elem is None:
+        raise RuntimeError(
+            'Could not find gml:coordinates element within the manifest.safe '
+            'of the provided SAFE archive, cannot determine DEM bounding box.'
+        )
+
+    coordinates_str = coordinates_elem[0].text
+    coordinates = coordinates_str.split()
+    lats = [float(coordinate.split(',')[0]) for coordinate in coordinates]
+    lons = [float(coordinate.split(',')[-1]) for coordinate in coordinates]
+
+    lat_min = min(lats)
+    lat_max = max(lats)
+    lon_min = min(lons)
+    lon_max = max(lons)
+
+    # Check if the bbox crosses the antimeridian and "unwrap" the coordinates
+    # so that any resultant DEM is split properly by check_dateline
+    if lon_max - lon_min > 180:
+        lons = [lon + 360 if lon < 0 else lon for lon in lons]
+        lon_min = min(lons)
+        lon_max = max(lons)
+
+    bbox = (lon_min, lat_min, lon_max, lat_max)  # WSEN order
+
+    return bbox
 
 def polygon_from_bounding_box(bounding_box, margin_in_km):
     """
