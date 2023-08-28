@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/dswx_hls:1.0.1",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.1.tar.gz",
+      "container_image_name": "opera_pge/dswx_hls:1.0.2",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.2.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
@@ -71,54 +71,6 @@
     },
     {
       "name": "container_working_dir",
-      "destination": "context"
-    },
-    {
-      "name": "wigt",
-      "destination": "context"
-    },
-    {
-      "name": "awgt",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_mndwi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_nir",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_swir1",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_1_ndvi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_mndwi",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_blue",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_nir",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_swir1",
-      "destination": "context"
-    },
-    {
-      "name": "pswt_2_swir2",
-      "destination": "context"
-    },
-    {
-      "name": "lcmask_nir",
       "destination": "context"
     }
   ]

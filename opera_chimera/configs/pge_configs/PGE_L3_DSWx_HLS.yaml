@@ -32,19 +32,6 @@ runconfig:
   processing:
     check_ancillary_inputs_coverage: __CHIMERA_VAL__
     apply_ocean_masking: __CHIMERA_VAL__
-  hls_thresholds:
-    wigt: __CHIMERA_VAL__           # Modified Normalized Difference Wetness Index (MNDWI) Threshold
-    awgt: __CHIMERA_VAL__           # Automated Water Extent Shadow Threshold
-    pswt_1_mndwi: __CHIMERA_VAL__   # Partial Surface Water Test-1 MNDWI Threshold
-    pswt_1_nir: __CHIMERA_VAL__     # Partial Surface Water Test-1 NIR Threshold
-    pswt_1_swir1: __CHIMERA_VAL__   # Partial Surface Water Test-1 SWIR1 Threshold
-    pswt_1_ndvi: __CHIMERA_VAL__    # Partial Surface Water Test-1 NDVI Threshold
-    pswt_2_mndwi: __CHIMERA_VAL__   # Partial Surface Water Test-2 MNDWI Threshold
-    pswt_2_blue: __CHIMERA_VAL__    # Partial Surface Water Test-2 Blue Threshold
-    pswt_2_nir: __CHIMERA_VAL__     # Partial Surface Water Test-2 NIR Threshold
-    pswt_2_swir1: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR1 Threshold
-    pswt_2_swir2: __CHIMERA_VAL__   # Partial Surface Water Test-2 SWIR2 Threshold
-    lcmask_nir: __CHIMERA_VAL__     # Land Cover Mask based test Near Infrared
   cnm_version: "__CHIMERA_VAL__"
 
   product_paths:
@@ -54,10 +41,9 @@ runconfig:
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
-  - get_metadata
-  - get_hls_dswx_pge_input_filepaths
   - get_cnm_version
   - set_daac_product_type
+  - get_dswx_hls_input_filepaths
   - get_dswx_hls_dem
   - get_landcover
   - get_worldcover
@@ -71,23 +57,6 @@ postprocess:
 
 get_product_version:
   version_key: "DSWX_HLS_PRODUCT_VERSION"
-
-# For any of the precondition evaluation steps listed in the preconditions area,
-# specify function arguments here
-get_metadata:
-  keys:
-    - wigt
-    - awgt
-    - pswt_1_mndwi
-    - pswt_1_nir
-    - pswt_1_swir1
-    - pswt_1_ndvi
-    - pswt_2_mndwi
-    - pswt_2_blue
-    - pswt_2_nir
-    - pswt_2_swir1
-    - pswt_2_swir2
-    - lcmask_nir
 
 get_dswx_hls_dem:
   # Specify a specific bounding box to obtain the corresponding DEM for.
