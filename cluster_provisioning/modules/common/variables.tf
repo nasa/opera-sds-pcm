@@ -140,11 +140,18 @@ variable "amis" {
     #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
     
     # HySDS v5.0.0-beta.6 - Aug 3, 2023 - R2
-    mozart    = "ami-0c70da559d13163d8" # mozart v4.21 - 230802
-    metrics   = "ami-02b0f6841c5d818b6" # metrics v4.15 - 230802
-    grq       = "ami-08622ebc2ac35bfe6" # grq v4.16 - 230802
-    factotum  = "ami-0b7c82edf1d6ef969" # factotum v4.16 - 230802
-    autoscale = "ami-07abb668e56ddc95e" # verdi v4.16 patchdate - 20230702
+    #mozart    = "ami-0c70da559d13163d8" # mozart v4.21 - 230802
+    #metrics   = "ami-02b0f6841c5d818b6" # metrics v4.15 - 230802
+    #grq       = "ami-08622ebc2ac35bfe6" # grq v4.16 - 230802
+    #factotum  = "ami-0b7c82edf1d6ef969" # factotum v4.16 - 230802
+    #autoscale = "ami-07abb668e56ddc95e" # verdi v4.16 patchdate - 20230702
+
+    # HySDS v5.0.0-beta.6 - Aug 17, 2023 - R2
+    mozart  = "ami-0e506aa4e4184cfd4" # mozart v4.21
+    metrics  = "ami-02a74622bf1f0877a" # metrics v4.15 - 230816
+    grq    = "ami-084894a026eea9898" # grq v4.16 - 230816
+    factotum = "ami-0e741497f19ebaa31" # factotum v4.16 - 230816
+    autoscale = "ami-0b3b047af6d70bc82" # verdi v4.16 patchdate - 20230816
   }
 }
 
