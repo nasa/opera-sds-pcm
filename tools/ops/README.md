@@ -18,7 +18,7 @@ See `pcm_audit/*audit.py --help`, documentation comments, and source code for mo
 1. Create a python virtual environment.
     1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
 2. Activate the virtual environment and install the script dependencies referenced in the imports section as needed.
-    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install '.[audit]'`
+    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install -e '.[audit]'`
 
 ### Running locally
 
@@ -43,7 +43,7 @@ See `cmr_audit/cmr_audit.py --help`, documentation comments, and source code for
 1. Create a python virtual environment.
     1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
 2. Activate the virtual environment and install the script dependencies referenced in the imports section as needed.
-    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install '.[cmr_audit]'`
+    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install -e '.[cmr_audit]'`
 
 ### Running locally
 
