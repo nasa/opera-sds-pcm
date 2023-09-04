@@ -996,12 +996,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         lon_min = min(lons)
         lon_max = max(lons)
 
-        # check for the antimeridian crossing:
-        if lon_max - lon_min > 180:
-            lons = [lon + (lon < 0) * 360 for lon in lons]
-            lon_min = min(lons)
-            lon_max = max(lons)
-
         bbox = [lon_min, lat_min, lon_max, lat_max]  # WSEN order
 
         logger.info(f"Derived DEM bounding box: {bbox}")
