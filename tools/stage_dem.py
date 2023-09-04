@@ -135,7 +135,7 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     length = ds.GetRasterBand(1).YSize
     width = ds.GetRasterBand(1).XSize
 
-    # GDAL translate will snap `projWin` coordinates to the map grid
+    # GDAL translate snaps `projWin` coordinates to the map grid
     # of the input dataset. We add `0.4` to the maximum length and
     # width to make sure that GDAL Translate will not round down the ending
     # coordinates and remove the last pixel in X or Y directions
