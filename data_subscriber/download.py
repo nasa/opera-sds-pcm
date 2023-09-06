@@ -73,21 +73,35 @@ class DaacDownload:
         raise Exception("Unknown product provider: " + provider)
 
     def run_download(self, args, token, es_conn, netloc, username, password, job_id):
-        download_timerange = self.get_download_timerange(args)
-        all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-            dateutil.parser.isoparse(download_timerange.start_date),
-            dateutil.parser.isoparse(download_timerange.end_date),
-            args.use_temporal
-        )
-        logger.info(f"{len(list(all_pending_downloads))=}")
 
-        downloads = all_pending_downloads
-        if args.batch_ids:
-            logger.info(f"Filtering pending downloads by {args.batch_ids=}")
-            id_func = _to_batch_id if self.provider == "LPCLOUD" else _to_orbit_number
-            downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
-            logger.info(f"{len(downloads)=}")
-            logger.debug(f"{downloads=}")
+        # This is a special case where we are being asked to download exactly one granule
+        # identified its unique id. In such case we shouldn't gather all pending downloads at all;
+        # simply find entries for that one granule
+        if args.batch_ids and len(args.batch_ids) == 1:
+            one_granule = args.batch_ids[0]
+            logger.info(f"Downloading files for the granule {one_granule}")
+
+            result = es_conn.es.query(index=es_conn.ES_INDEX_PATTERNS,
+                                  body={"query": {"bool": {"must": [{"match": {"id": one_granule}}]}}})
+
+            downloads = es_conn.filter_query_result(result)
+
+        else:
+            download_timerange = self.get_download_timerange(args)
+            all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
+                dateutil.parser.isoparse(download_timerange.start_date),
+                dateutil.parser.isoparse(download_timerange.end_date),
+                args.use_temporal
+            )
+            logger.info(f"{len(list(all_pending_downloads))=}")
+
+            downloads = all_pending_downloads
+            if args.batch_ids:
+                logger.info(f"Filtering pending downloads by {args.batch_ids=}")
+                id_func = _to_batch_id if self.provider == "LPCLOUD" else _to_orbit_number
+                downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
+                logger.info(f"{len(downloads)=}")
+                logger.debug(f"{downloads=}")
 
         if not downloads:
             logger.info(f"No undownloaded files found in index.")

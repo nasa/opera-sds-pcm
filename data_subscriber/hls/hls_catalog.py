@@ -31,13 +31,20 @@ class HLSProductCatalog:
     def generate_es_index_name(self):
         return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
-    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
-        hls_catalog = self._query_catalog(start_dt, end_dt, use_temporal)
+    def filter_query_result(self, query_result):
         return [{"_id": catalog_entry["_id"], "granule_id": catalog_entry["_source"].get("granule_id"),
                  "revision_id": catalog_entry["_source"].get("revision_id"),
                  "s3_url": catalog_entry["_source"].get("s3_url"),
                  "https_url": catalog_entry["_source"].get("https_url")}
-                for catalog_entry in (hls_catalog or [])]
+                for catalog_entry in (query_result or [])]
+    def get_download_by_id(self, id):
+        downloads = self.es.query(index=self.ES_INDEX_PATTERNS,
+                                  body={"query": {"bool": {"must": [{"match": {"id": id}}]}}})
+        return self.filter_query_result(downloads)
+
+    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
+        downloads = self._query_catalog(start_dt, end_dt, use_temporal)
+        return self.filter_query_result(downloads)
 
     def process_url(
             self,
