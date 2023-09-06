@@ -2,7 +2,8 @@
   "index_patterns": ["hls_spatial_catalog", "hls_spatial_catalog-*"],
   "template": {
     "settings": {
-      "index.lifecycle.name": "opera_grq_ilm_policy"
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
     },
     "mappings": {
       "properties": {
