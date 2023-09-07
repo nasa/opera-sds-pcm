@@ -80,11 +80,7 @@ class DaacDownload:
         if args.batch_ids and len(args.batch_ids) == 1:
             one_granule = args.batch_ids[0]
             logger.info(f"Downloading files for the granule {one_granule}")
-
-            result = es_conn.es.query(index=es_conn.ES_INDEX_PATTERNS,
-                                  body={"query": {"bool": {"must": [{"match": {"id": one_granule}}]}}})
-
-            downloads = es_conn.filter_query_result(result)
+            downloads = es_conn.get_download_granule_revision(one_granule)
 
         else:
             download_timerange = self.get_download_timerange(args)
