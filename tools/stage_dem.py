@@ -7,6 +7,7 @@ import os
 import backoff
 
 import boto3
+import numpy as np
 import shapely.wkt
 
 from osgeo import gdal
@@ -135,13 +136,23 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     length = ds.GetRasterBand(1).YSize
     width = ds.GetRasterBand(1).XSize
 
-    # GDAL translate will snap `projWin` coordinates to the map grid
-    # of the input dataset. We add `0.4` to the maximum length and
-    # width to make sure that GDAL Translate will not round down the ending
-    # coordinates and remove the last pixel in X or Y directions
-    logger.info('Adjusting projWin coordinates by 0.4')
-    input_y_min = input_y_max + ((length + 0.4) * yres)
-    input_x_max = input_x_min + ((width + 0.4) * xres)
+    # declare lambda function to snap min/max X and Y coordinates over the
+    # DEM grid
+    snap_coord = \
+        lambda val, snap, offset, round_func: round_func(
+            float(val - offset) / snap) * snap + offset
+
+    # Snap edge coordinates using the DEM pixel spacing
+    # (xres and yres) and starting coordinates (input_x_min and
+    # input_x_max). Maximum values are rounded using np.ceil
+    # and minimum values are rounded using np.floor
+    x_min = snap_coord(x_min, xres, input_x_min, np.floor)
+    x_max = snap_coord(x_max, xres, input_x_min, np.ceil)
+    y_min = snap_coord(y_min, yres, input_y_max, np.floor)
+    y_max = snap_coord(y_max, yres, input_y_max, np.ceil)
+
+    input_y_min = input_y_max + length * yres
+    input_x_max = input_x_min + width * xres
 
     x_min = max(x_min, input_x_min)
     x_max = min(x_max, input_x_max)
