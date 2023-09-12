@@ -6,7 +6,8 @@
         "sort.field": "creation_timestamp",
         "sort.order": "asc"
       },
-      "index.lifecycle.name": "opera_grq_ilm_policy"
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
     },
     "mappings": {
       "properties": {
