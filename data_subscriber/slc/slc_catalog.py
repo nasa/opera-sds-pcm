@@ -26,15 +26,13 @@ class SLCProductCatalog(HLSProductCatalog):
     def __init__(self, /, logger=None):
         super().__init__(logger=logger)
         self.ES_INDEX_PATTERNS = "slc_catalog*"
-
-    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
-        undownloaded = self._query_catalog(start_dt, end_dt, use_temporal)
-
-        return [result['_source'] for result in (undownloaded or [])]
+    def granule_and_revision(self, es_id):
+        '''For S1A_IW_SLC__1SDV_20220601T000522_20220601T000549_043462_05308F_86F3.zip-r5 returns:
+                S1A_IW_SLC__1SDV_20220601T000522_20220601T000549_043462_05308F_86F3-SLC and 5 '''
+        return es_id.split('.zip')[0]+'-SLC', es_id.split('-r')[1]
 
     def generate_es_index_name(self):
         return "slc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
-    def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
-        undownloaded = self._query_catalog(start_dt, end_dt, use_temporal)
-        return [result['_source'] for result in (undownloaded or [])]
+    def filter_query_result(self, query_result):
+        return [result['_source'] for result in (query_result or [])]
