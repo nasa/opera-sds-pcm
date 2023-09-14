@@ -2,7 +2,8 @@
   "index_patterns": ["slc_spatial_catalog", "slc_spatial_catalog-*"],
   "template": {
     "settings": {
-      "index.lifecycle.name": "opera_grq_ilm_policy"
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
     },
     "mappings": {
       "properties": {

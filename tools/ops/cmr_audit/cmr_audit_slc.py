@@ -9,8 +9,6 @@ import re
 import sys
 import urllib.parse
 from collections import defaultdict
-from io import StringIO
-from pprint import pprint
 from typing import Union, Iterable
 
 import aiohttp
@@ -102,6 +100,7 @@ async def async_get_cmr(
     request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
     logger.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
 
+    sem = asyncio.Semaphore(15)
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
         for i, rtc_native_id_pattern_batch in enumerate(native_id_pattern_batches, start=1):
@@ -118,14 +117,14 @@ async def async_get_cmr(
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
             logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
-            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
+            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session, sem))
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
         logger.debug("Batching tasks")
         cmr_granules = set()
-        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
-        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
+        for i, task_chunk in enumerate(task_chunks, start=1):
             logger.info(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),

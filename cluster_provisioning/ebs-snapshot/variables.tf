@@ -30,7 +30,7 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.1"
+    "dswx_hls" = "1.0.2"
     "cslc_s1" = "2.0.0-rc.2.1"
     "rtc_s1" = "2.0.0-rc.2.1"
   }
@@ -76,8 +76,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name = "verdi"
-	#ami = "ami-003e368c872ea1099"
-	ami = "ami-0805014721e52d629" # verdi v4.16 patchupdate - 230215
+    ami = "ami-0b3b047af6d70bc82" # verdi v4.16 patchdate - 20230816
     instance_type = "t3.medium"
     device_name = "/dev/sda1"
     device_size = 50

@@ -2,7 +2,8 @@
   "index_patterns": ["jobs_accountability_catalog", "jobs_accountability_catalog-*"],
   "template": {
     "settings": {
-      "index.lifecycle.name": "opera_grq_ilm_policy"
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
     },
     "mappings": {
       "properties": {
