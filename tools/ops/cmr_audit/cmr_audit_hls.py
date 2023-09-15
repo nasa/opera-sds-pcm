@@ -224,7 +224,7 @@ async def run(argv: list[str]):
 
     now = datetime.datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
-    start_dt_str = cmr_end_dt_str.replace("-","")
+    start_dt_str = cmr_start_dt_str.replace("-","")
     start_dt_str = start_dt_str.replace("T", "-")
     start_dt_str = start_dt_str.replace(":", "")
 
