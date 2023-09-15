@@ -17,7 +17,7 @@ from dotenv import dotenv_values
 from more_itertools import always_iterable
 
 from geo.geo_util import does_bbox_intersect_north_america
-from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
+from tools.ops.cmr_audit.cmr_granules
 from tools.ops.cmr_audit.cmr_client import async_cmr_post
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
@@ -314,7 +314,7 @@ async def run(argv: list[str]):
 
     now = datetime.datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
-    start_dt_str = cmr_end_dt_str.replace("-","")
+    start_dt_str = cmr_start_dt_str.replace("-","")
     start_dt_str = start_dt_str.replace("T", "-")
     start_dt_str = start_dt_str.replace(":", "")
 
