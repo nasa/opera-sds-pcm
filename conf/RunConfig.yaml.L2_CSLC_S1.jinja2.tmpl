@@ -28,7 +28,7 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: CSLC_S1
-        ProductVersion: {{ data.product_path_group.product_version }}
+        ProductVersion: "{{ data.product_path_group.product_version }}"
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -68,6 +68,9 @@ RunConfig:
             {{ type }}:
             {%- endif %}
             {%- endfor %}
+
+            # TODO: update descriptions as necessary when new ancillary releases are available
+            dem_description: "Digital Elevation Model (DEM) for the NASA OPERA project version 1.1 (v1.1) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid"
           static_ancillary_file_group:
             {%- for type in data.static_ancillary_file_group.keys() %}
             {%- if data.static_ancillary_file_group[ type ] is not none %}
@@ -81,6 +84,7 @@ RunConfig:
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_file: {{ data.product_path_group.product_path }}
             product_version: "{{ data.product_path_group.product_version }}"
+            product_specification_version: "{{ data.product_path_group.product_specification_version }}"
           primary_executable:
             product_type: {{ data.processing.product_type }}
           processing:
