@@ -82,6 +82,12 @@ RTC_S1:
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
+  # Estimated geometric accuracy values needed for CEOS compliance
+  ESTIMATED_GEOMETRIC_ACCURACY:
+    BIAS_X: -72.0
+    BIAS_Y: -67.0
+    STDDEV_X: 70.0
+    STDDEV_Y: 62.0
 
 # End PGE Configuration section
 
