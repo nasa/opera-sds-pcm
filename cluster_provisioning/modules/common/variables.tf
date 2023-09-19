@@ -145,7 +145,6 @@ variable "amis" {
     grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915 
     factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
     autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
-    
   }
 }
 
