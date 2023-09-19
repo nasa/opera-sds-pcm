@@ -165,6 +165,35 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
         return {oc_const.GPU_ENABLED: gpu_enabled}
 
+    def get_cslc_product_specification_version(self):
+        """
+        Returns the appropriate product spec version for a CSLC-S1 job based
+        on the enabled workflow (baseline vs. static layer).
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        product_type = self.get_slc_static_layers_enabled()["product_type"]
+
+        pge_shortname = oc_const.L2_CSLC_S1[3:].upper()
+
+        if product_type == "CSLC_S1":
+            product_spec_version = self._settings.get(pge_shortname).get("CSLC_PRODUCT_SPEC_VER")
+        elif product_type == "CSLC_S1_STATIC":
+            product_spec_version = self._settings.get(pge_shortname).get("CSLC_STATIC_PRODUCT_SPEC_VER")
+        else:
+            raise RuntimeError(
+                f"Unknown product type from get_slc_static_layers_enabled: {product_type}"
+            )
+
+        rc_params = {
+            "product_specification_version": product_spec_version
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_rtc_s1_num_workers(self):
         """
         Determines the number of workers/cores to assign to an RTC-S1 as a
