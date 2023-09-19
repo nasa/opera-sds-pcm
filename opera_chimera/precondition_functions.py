@@ -956,12 +956,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # get s3_bucket param
         s3_bucket = self._pge_config.get(oc_const.GET_SLC_S1_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_SLC_S1_DEM, {}).get(oc_const.S3_KEY)
 
         output_filepath = os.path.join(working_dir, 'dem.vrt')
 
         logger.info(f"working_dir : {working_dir}")
         logger.info(f"safe_file_path: {safe_file_path}")
         logger.info(f"s3_bucket: {s3_bucket}")
+        logger.info(f"s3_key: {s3_key}")
         logger.info(f"output_filepath: {output_filepath}")
 
         if not safe_file_path:
@@ -987,6 +989,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # all arguments must be specified, even if it's only with a null value
         args = argparse.Namespace()
         args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
         args.outfile = output_filepath
         args.filepath = None
         args.margin = margin  # KM
@@ -1241,6 +1244,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # all arguments must be specified, even if it's only with a null value
         args = argparse.Namespace()
         args.s3_bucket = s3_bucket
+        args.s3_key = ""
         args.outfile = output_filepath
         args.filepath = None
         args.margin = int(self._settings.get("DSWX_HLS", {}).get("ANCILLARY_MARGIN", 50))  # KM
@@ -1350,6 +1354,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # all arguments must be specified, even if it's only with a null value
         args = argparse.Namespace()
         args.s3_bucket = s3_bucket
+        args.s3_key = ""
         args.worldcover_ver = worldcover_ver
         args.worldcover_year = worldcover_year
         args.outfile = output_filepath
