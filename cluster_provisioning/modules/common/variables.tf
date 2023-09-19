@@ -139,12 +139,13 @@ variable "amis" {
     #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
     #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
     
-    # HySDS v5.0.0-beta.6 - Aug 17, 2023 - R2
-    mozart    = "ami-0e506aa4e4184cfd4" # mozart v4.21
-    metrics   = "ami-02a74622bf1f0877a" # metrics v4.15 - 230816
-    grq       = "ami-084894a026eea9898" # grq v4.16 - 230816
-    factotum  = "ami-0e741497f19ebaa31" # factotum v4.16 - 230816
-    autoscale = "ami-0b3b047af6d70bc82" # verdi v4.16 patchdate - 20230816
+    # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
+    mozart    = "ami-041d8915f74b63b0e" # mozart v4.23-1 - 230915
+    metrics   = "ami-09b61e7c48c4c22a5" # metrics v4.16.1 - 230915
+    grq       = "ami-0f726cf7d555064a4" # grq v4.17-1 - 230915
+    factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
+    autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
+    
   }
 }
 
