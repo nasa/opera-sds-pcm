@@ -61,7 +61,7 @@ class MockGdal:
         return MockGdal.MockGdalDataset()
 
 
-def _check_aws_connection_patch(bucket_name):
+def _check_aws_connection_patch(bucket_name, dem_key=""):
     """
     No-op patch function for use with testing precondition functions that attempt
     AWS access
