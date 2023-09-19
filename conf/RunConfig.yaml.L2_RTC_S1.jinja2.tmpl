@@ -28,7 +28,11 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: RTC_S1
+        {%- if data.processing.product_type == 'RTC_S1' %}
         ProductVersion: "{{ data.product_path_group.product_version }}"
+        {%- else %}
+        ProductVersion: "{{ data.product_path_group.static_product_version }}"
+        {%- endif %}
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -82,7 +86,11 @@ RunConfig:
             {%- endif %}
             {%- endfor %}
           product_group:
+            {%- if data.processing.product_type == 'RTC_S1' %}
             product_version: "{{ data.product_path_group.product_version }}"
+            {%- else %}
+            product_version: "{{ data.product_path_group.static_product_version }}"
+            {%- endif %}
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             output_dir: {{ data.product_path_group.product_path }}

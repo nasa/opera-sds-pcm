@@ -30,6 +30,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     PRODUCT_VERSION = "product_version"
 
+    STATIC_PRODUCT_VERSION = "static_product_version"
+
     POLARIZATION = "polarization"
 
     SAFE_FILE_PATH = "safe_file_path"
@@ -89,6 +91,8 @@ class OperaChimeraConstants(ChimeraConstants):
     GET_SLC_S1_DEM = "get_slc_s1_dem"
 
     GET_PRODUCT_VERSION = "get_product_version"
+
+    GET_STATIC_PRODUCT_VERSION = "get_static_product_version"
 
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 

@@ -22,6 +22,7 @@ runconfig:
     burst_database_file: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
+    static_product_version: __CHIMERA_VAL__
     product_path: /home/rtc_user/output_dir
     # Scratch path is defined relative to output_dir to avoid file system permission issues
     scratch_path: /home/rtc_user/output_dir/scratch_dir
@@ -39,6 +40,7 @@ runconfig:
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
+  - get_static_product_version
   - get_data_validity_start_date
   - get_rtc_s1_estimated_geometric_accuracy_values
   - get_rtc_s1_num_workers
@@ -57,6 +59,9 @@ postprocess:
 
 get_product_version:
   version_key: "RTC_S1_PRODUCT_VERSION"
+
+get_static_product_version:
+  version_key: "RTC_S1_STATIC_PRODUCT_VERSION"
 
 get_slc_s1_dem:
   # The s3 location containing the global DEM(s) to download regions from

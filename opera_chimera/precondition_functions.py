@@ -596,6 +596,27 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_static_product_version(self):
+        """Assigns the static layer product version specified in settings.yaml to PGE RunConfig"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        version_key = self._pge_config.get(oc_const.GET_STATIC_PRODUCT_VERSION, {}).get(oc_const.VERSION_KEY)
+
+        product_version = self._settings.get(version_key)
+
+        if not product_version:
+            raise RuntimeError(
+                f"No value set for {version_key} in settings.yaml"
+            )
+
+        rc_params = {
+            oc_const.STATIC_PRODUCT_VERSION: product_version
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_data_validity_start_date(self):
         """Gets the setting for the data_validity_start_date flag from settings.yaml"""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")

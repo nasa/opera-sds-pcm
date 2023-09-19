@@ -28,7 +28,11 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: CSLC_S1
+        {%- if data.processing.product_type == 'CSLC_S1' %}
         ProductVersion: "{{ data.product_path_group.product_version }}"
+        {%- else %}
+        ProductVersion: "{{ data.product_path_group.static_product_version }}"
+        {%- endif %}
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -83,7 +87,11 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_file: {{ data.product_path_group.product_path }}
+            {%- if data.processing.product_type == 'CSLC_S1' %}
             product_version: "{{ data.product_path_group.product_version }}"
+            {%- else %}
+            product_version: "{{ data.product_path_group.static_product_version }}"
+            {%- endif %}
             product_specification_version: "{{ data.product_path_group.product_specification_version }}"
           primary_executable:
             product_type: {{ data.processing.product_type }}
