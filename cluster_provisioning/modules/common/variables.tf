@@ -140,9 +140,9 @@ variable "amis" {
     #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
     
     # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
-    mozart    = "ami-041d8915f74b63b0e" # mozart v4.23-1 - 230915
-    metrics   = "ami-09b61e7c48c4c22a5" # metrics v4.16.1 - 230915
-    grq       = "ami-0f726cf7d555064a4" # grq v4.17-1 - 230915
+    mozart    = "ami-0110888ace2a34f62" # mozart v4.23 - 230908
+    metrics   = "ami-0a5444fafcbf1f75b" # metrics v4.15 - 230915
+    grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915 
     factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
     autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
     
