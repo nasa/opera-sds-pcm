@@ -30,12 +30,17 @@ runconfig:
     polarization: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
     num_workers: __CHIMERA_VAL__
+    estimated_geometric_accuracy_bias_x: __CHIMERA_VAL__
+    estimated_geometric_accuracy_bias_y: __CHIMERA_VAL__
+    estimated_geometric_accuracy_stddev_x: __CHIMERA_VAL__
+    estimated_geometric_accuracy_stddev_y: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
   - get_product_version
   - get_data_validity_start_date
+  - get_rtc_s1_estimated_geometric_accuracy_values
   - get_rtc_s1_num_workers
   - get_slc_polarization
   - get_slc_static_layers_enabled
@@ -54,13 +59,14 @@ get_product_version:
   version_key: "RTC_S1_PRODUCT_VERSION"
 
 get_slc_s1_dem:
-  # The s3 bucket containing the global DEM(s) to download regions from
+  # The s3 location containing the global DEM(s) to download regions from
   s3_bucket: "opera-dem"
+  s3_key: "v1.1"
 
 get_slc_s1_burst_database:
   # The s3 location of the burst database file to use with each job
   s3_bucket: "opera-burstdb"
-  s3_key: "burst_db_20230713-bbox-only.sqlite"
+  s3_key: "burst_db_0.2.0_230831-bbox-only.sqlite"
 
 set_daac_product_type:
   template: OPERA_L2_CSLC_S1_{cnm_version}
