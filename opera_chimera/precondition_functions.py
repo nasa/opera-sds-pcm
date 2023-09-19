@@ -194,6 +194,30 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_rtc_s1_estimated_geometric_accuracy_values(self):
+        """
+        Returns the estimated geometric accuracy values from settings.yaml
+        for inclusion in the instantiated RTC-S1 RunConfig. These values are
+        needed for CEOS metadata compliance.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        pge_shortname = oc_const.L2_RTC_S1[3:].upper()
+
+        estimated_geographic_accuracy_values = self._settings.get(pge_shortname).get("ESTIMATED_GEOMETRIC_ACCURACY")
+
+        rc_params = {
+            "estimated_geometric_accuracy_bias_x": estimated_geographic_accuracy_values["BIAS_X"],
+            "estimated_geometric_accuracy_bias_y": estimated_geographic_accuracy_values["BIAS_Y"],
+            "estimated_geometric_accuracy_stddev_x": estimated_geographic_accuracy_values["STDDEV_X"],
+            "estimated_geometric_accuracy_stddev_y": estimated_geographic_accuracy_values["STDDEV_Y"]
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_rtc_s1_num_workers(self):
         """
         Determines the number of workers/cores to assign to an RTC-S1 as a
