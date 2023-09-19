@@ -66,6 +66,11 @@ CSLC_S1:
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
+  # TODO: update product spec version numbers as necessary with subsequent deliveries
+  # Product specification version for baseline products
+  CSLC_PRODUCT_SPEC_VER: 0.1.7
+  # Product specification version for static layer products
+  CSLC_STATIC_PRODUCT_SPEC_VER: 0.1.2
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
