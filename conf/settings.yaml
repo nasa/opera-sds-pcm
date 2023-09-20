@@ -57,7 +57,7 @@ URGENT_RESPONSE_LATENCY:
 
 # Time range values to use when querying for Orbit files for use with SLC-based jobs
 POE_ORBIT_TIME_RANGE: 2  # Days
-RES_ORBIT_TIME_RANGE: 3  # Hours
+RES_ORBIT_TIME_RANGE: 4  # Hours
 
 CSLC_S1:
   # Toggle static layer generation during processing
