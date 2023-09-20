@@ -392,17 +392,16 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         if len(orbit_file_objects) < 1:
             raise RuntimeError(
-                f'Could not find an orbit file within the S3 location {s3_product_path}'
+                f'Could not find any orbit files within the S3 location {s3_product_path}'
             )
 
-        orbit_file_object = orbit_file_objects[0]
-
-        s3_orbit_file_path = f"s3://{s3_bucket_name}/{orbit_file_object.key}"
+        s3_orbit_file_paths = [f"s3://{s3_bucket_name}/{orbit_file_object.key}"
+                               for orbit_file_object in orbit_file_objects]
 
         # Assign the s3 location of the orbit file to the chimera config,
         # it will be localized for us automatically
         rc_params = {
-            oc_const.ORBIT_FILE_PATH: s3_orbit_file_path
+            oc_const.ORBIT_FILE_PATH: s3_orbit_file_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
