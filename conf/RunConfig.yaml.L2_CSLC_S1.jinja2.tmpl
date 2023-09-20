@@ -7,8 +7,14 @@ RunConfig:
       InputFilesGroup:
         InputFilePaths:
           {%- for input in data.input_file_group.values() %}
+          {%- if input is iterable and input is not string %}
+          {%- for value in input %}
+          - {{ value }}
+          {%- endfor %}{# for value in input #}
+          {%- else %}
           - {{ input }}
-          {%- endfor %}
+          {%- endif %}{# if input is iterable and input is not string #}
+          {%- endfor %}{# for input in data.input_file_group.values() #}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
           {%- for type in data.dynamic_ancillary_file_group.keys() %}
@@ -60,9 +66,15 @@ RunConfig:
             {%- for type in data.input_file_group.keys() %}
             {%- if data.input_file_group[ type ] is not none %}
             {{ type }}:
+            {%- if data.input_file_group[ type ] is iterable and data.input_file_group[ type ] is not string %}
+            {%- for value in data.input_file_group[ type ] %}
+              - {{ value }}
+            {%- endfor %}{# for value in data.input_file_group[ type ] #}
+            {%- else %}
               - {{ data.input_file_group[ type ] }}
-            {%- endif %}
-            {%- endfor %}
+            {%- endif %}{# if data.input_file_group[ type ] is iterable and data.input_file_group[ type ] is not string #}
+            {%- endif %}{# if data.input_file_group[ type ] is not none #}
+            {%- endfor %}{# for type in data.input_file_group.keys() #}
             burst_id:
           dynamic_ancillary_file_group:
             {%- for type in data.dynamic_ancillary_file_group.keys() %}
