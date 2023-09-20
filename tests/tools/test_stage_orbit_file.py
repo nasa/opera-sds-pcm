@@ -4,7 +4,8 @@ import unittest
 import tools.stage_orbit_file
 from tools.stage_orbit_file import (ORBIT_TYPE_POE,
                                     ORBIT_TYPE_RES,
-                                    NoQueryResultsException)
+                                    NoQueryResultsException,
+                                    NoSuitableOrbitFileException)
 
 class TestStageOrbitFile(unittest.TestCase):
     """Unit tests for the stage_orbit_file.py script"""
@@ -64,7 +65,7 @@ class TestStageOrbitFile(unittest.TestCase):
         # Check that all portions of the query were constructed with the inputs
         # as expected
         self.assertIn("beginPosition:[2022-04-30T00:00:00.000000Z TO 2022-05-01T00:00:00.000000Z]", query)
-        self.assertIn("endPosition:[2022-05-01T00:00:30.000000Z TO 2022-05-02T00:00:30.000000Z]", query)
+        self.assertIn("endPosition:[2022-05-01T00:00:00.000000Z TO 2022-05-02T00:00:30.000000Z]", query)
         self.assertIn("platformname:Sentinel-1", query)
         self.assertIn("filename:S1A_*", query)
         self.assertIn("producttype:AUX_POEORB", query)
@@ -77,7 +78,7 @@ class TestStageOrbitFile(unittest.TestCase):
         )
 
         self.assertIn("beginPosition:[2022-04-30T21:00:00.000000Z TO 2022-05-01T00:00:00.000000Z]", query)
-        self.assertIn("endPosition:[2022-05-01T00:00:30.000000Z TO 2022-05-01T03:00:30.000000Z]", query)
+        self.assertIn("endPosition:[2022-05-01T00:00:00.000000Z TO 2022-05-01T03:00:30.000000Z]", query)
         self.assertIn("platformname:Sentinel-1", query)
         self.assertIn("filename:S1A_*", query)
         self.assertIn("producttype:AUX_RESORB", query)
@@ -139,7 +140,7 @@ class TestStageOrbitFile(unittest.TestCase):
         safe_start_time = '20220430T225942'
         safe_stop_time = '20220502T005942'
 
-        with self.assertRaises(RuntimeError) as err:
+        with self.assertRaises(NoSuitableOrbitFileException) as err:
             entry_elems, namespace_map = tools.stage_orbit_file.parse_orbit_file_query_xml(valid_xml_response)
 
             tools.stage_orbit_file.select_orbit_file(
@@ -239,7 +240,7 @@ class TestStageOrbitFile(unittest.TestCase):
             </feed>
         """
 
-        with self.assertRaises(RuntimeError) as err:
+        with self.assertRaises(NoSuitableOrbitFileException) as err:
             entry_elems, namespace_map = tools.stage_orbit_file.parse_orbit_file_query_xml(invalid_xml_response)
 
             tools.stage_orbit_file.select_orbit_file(
