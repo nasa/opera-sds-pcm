@@ -326,7 +326,7 @@ resource "aws_lambda_function" "harikiri_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-harikiri-autoscaling"
   role          = var.lambda_role_arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.7"
+  runtime       = "python3.8"
   timeout       = 600
 }
 
