@@ -18,7 +18,7 @@ RunConfig:
 
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
-        ProductVersion: num(required=False)
+        ProductVersion: any(str(), num(), required=False)
         CompositeReleaseID: str(required=False)
         ProgramPath: str(required=True)
         ProgramOptions: list(str(), min=0, required=False)
@@ -78,7 +78,7 @@ RunConfig:
 
             processing_type: enum('NOMINAL', 'URGENT', 'CUSTOM', 'UNDEFINED', required=False)
 
-            product_version: num(required=False)
+            product_version: any(str(), num(), required=False)
 
             # Directory where PGE will place results
             product_path: str()
@@ -122,6 +122,9 @@ RunConfig:
 
             # Location from where the output product can be retrieved (URL or DOI)
             product_data_access: str(required=False)
+
+            # Location of the static layers product associated with this product (URL or DOI
+            static_layers_data_access: str(required=False)
 
             # Save RTC-S1 products
             save_bursts: bool(required=False)
@@ -190,9 +193,6 @@ processing_options:
   # Apply thermal noise correction
   apply_thermal_noise_correction: bool(required=False)
 
-  # Compute geolocation correction LUTs and apply it
-  apply_correction_luts: bool(required=False)
-
   # slant range spacing of the correction LUT in meters
   correction_lut_range_spacing_in_meters: num(required=False)
 
@@ -205,8 +205,8 @@ processing_options:
   # Apply bistatic delay correction
   apply_bistatic_delay_correction: bool(required=False)
 
-  # Apply dry tropospheric delay correction
-  apply_dry_tropospheric_delay_correction: bool(required=False)
+  # Apply static tropospheric delay correction
+  apply_static_tropospheric_delay_correction: bool(required=False)
 
   # Radiometric Terrain Correction (RTC)
   rtc: include('rtc_options', required=False)
@@ -309,6 +309,13 @@ geocoding_options:
 
   # Double SLC sampling in the range direction
   upsample_radargrid: bool(required=False)
+
+  # Fields to populate the products' metadata required by
+  # CEOS Analysis Ready Data specifications
+  estimated_geometric_accuracy_bias_x: num(required=False)
+  estimated_geometric_accuracy_bias_y: num(required=False)
+  estimated_geometric_accuracy_stddev_x: num(required=False)
+  estimated_geometric_accuracy_stddev_y: num(required=False)
 
   # Bursts geographic grid
   bursts_geogrid: include('output_grid_options', required=False)

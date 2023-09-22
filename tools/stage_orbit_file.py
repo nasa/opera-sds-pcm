@@ -52,15 +52,33 @@ Orbital period of Sentinel-1 in seconds: 12 days * 86400.0 seconds/day,
 divided into 175 orbits
 """
 
-SAFE_START_TIME_MARGIN = timedelta(seconds=T_ORBIT + 60.0)
+ORBIT_PAD = 60
+"""Time padding to be applied to temporal queries"""
+
+DEFAULT_SENSING_START_MARGIN = timedelta(seconds=T_ORBIT + ORBIT_PAD)
 """
 Temporal margin to apply to the start time of a frame to make sure that the 
+ascending node crossing is included when choosing the orbit file
+"""
+
+DEFAULT_SENSING_STOP_MARGIN = timedelta(seconds=ORBIT_PAD)
+"""
+Temporal margin to apply to the stop time of a frame to make sure that the 
 ascending node crossing is included when choosing the orbit file
 """
 
 class NoQueryResultsException(Exception):
     """Custom exception to identify empty results from a query"""
     pass
+
+
+class NoSuitableOrbitFileException(Exception):
+    """Custom exception to identify no orbit files meeting overlap criteria"""
+
+
+def to_datetime(value):
+    """Helper function to covert command-line arg to datetime object"""
+    return datetime.strptime(value, "%Y%m%dT%H%M%S")
 
 
 def get_parser():
@@ -112,6 +130,16 @@ def get_parser():
                              "RESORB it is the number of hours. If not specified, "
                              f"defaults to {DEFAULT_POE_TIME_RANGE} day(s) for POEORB, "
                              f"or {DEFAULT_RES_TIME_RANGE} hour(s) for RESORB.")
+    parser.add_argument("--sensing-start-range", type=to_datetime, action='store',
+                        default=None, metavar='YYYYmmddTHHMMSS',
+                        help="Datetime of the sensing range start time used to select "
+                             "an overlapping orbit file. If not provided, the "
+                             "sensing start time of the input SAFE file is used.")
+    parser.add_argument("--sensing-stop-range", type=to_datetime, action='store',
+                        default=None, metavar='YYYYmmddTHHMMSS',
+                        help="Datetime of the sensing range stop time used to select "
+                             "an overlapping orbit file. If not provided, the "
+                             "sensing stop time of the input SAFE file is used.")
     parser.add_argument("--log-level",
                         type=lambda log_level: LogLevels[log_level].value,
                         choices=LogLevels.list(),
@@ -261,7 +289,7 @@ def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_sto
     )
 
     query_stop_range = time_range_template.format(
-        start_date=safe_stop_date.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+        start_date=safe_start_date.strftime("%Y-%m-%dT%H:%M:%S.%f"),
         stop_date=query_stop_date.strftime("%Y-%m-%dT%H:%M:%S.%f")
     )
 
@@ -394,12 +422,14 @@ def parse_orbit_file_query_xml(query_xml):
 
     return entry_elems, tree.nsmap
 
-def select_orbit_file(entry_elems, namespace_map, safe_start_time, safe_stop_time):
+def select_orbit_file(entry_elems, namespace_map, safe_start_time, safe_stop_time,
+                      sensing_start_range=None, sensing_stop_range=None):
     """
     Iterates over the results of an orbit file query, searching for the first
     valid orbit file to download. A valid orbit file is one whose validity
     time range fully envelops the validity time range of the corresponding
-    SLC SAFE archive.
+    SLC SAFE archive after the start/stop margins are applied to the SAFE
+    start/stop times.
 
     Parameters
     ----------
@@ -412,10 +442,16 @@ def select_orbit_file(entry_elems, namespace_map, safe_start_time, safe_stop_tim
         The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
     safe_stop_time : str
         The stop time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
+    sensing_start_range : datetime, optional
+        Start time for the sensing range used when searching for an overlapping
+        orbit file. If not provided, safe_start_time is used.
+    sensing_stop_range : datetime, optional
+        Stop time for the sensing range used when searching for an overlapping
+        orbit file. If not provided, safe_stop_time is used.
 
     Raises
     ------
-    RuntimeError
+    NoSuitableOrbitFileException
         If no suitable orbit file can be found within the provided list of entries.
 
     Returns
@@ -481,18 +517,30 @@ def select_orbit_file(entry_elems, namespace_map, safe_start_time, safe_stop_tim
         orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S")
         orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S")
 
-        # Apply the start time margin to the beginning of the SAFE time range
-        # to ensure we select an orbit file with appropriate padding up-front
-        safe_start_datetime -= SAFE_START_TIME_MARGIN
+        if not sensing_start_range:
+            sensing_start_range = safe_start_datetime
 
-        if orbit_start_datetime < safe_start_datetime and orbit_stop_datetime > safe_stop_datetime:
+        if not sensing_stop_range:
+            sensing_stop_range = safe_stop_datetime
+
+        logger.info(f'Evaluating orbit file {orbit_file_name}')
+        logger.info(f'safe_start_datetime={safe_start_datetime.strftime("%Y%m%dT%H%M%S")}')
+        logger.info(f'safe_stop_datetime={safe_stop_datetime.strftime("%Y%m%dT%H%M%S")}')
+        logger.info(f'sensing_start_range={sensing_start_range.strftime("%Y%m%dT%H%M%S")}')
+        logger.info(f'sensing_stop_range={sensing_stop_range.strftime("%Y%m%dT%H%M%S")}')
+        logger.info(f'orbit_start_time={orbit_start_datetime.strftime("%Y%m%dT%H%M%S")}')
+        logger.info(f'orbit_stop_time={orbit_stop_datetime.strftime("%Y%m%dT%H%M%S")}')
+
+        if orbit_start_datetime < sensing_start_range and orbit_stop_datetime > sensing_stop_range:
             logger.debug(f'orbit_file_name: {orbit_file_name}')
 
             # Return the two pieces of info we need to download the file
             return orbit_file_name, orbit_file_request_id
+        else:
+            logger.info('Orbit file time range does not fully overlap sensing time range, skipping')
     # If here, there were no valid orbit file candidates returned from the query
     else:
-        raise RuntimeError(
+        raise NoSuitableOrbitFileException(
             "No suitable orbit file could be found within the results of the query"
         )
 
@@ -600,7 +648,8 @@ def main(args):
 
     # Select an appropriate orbit file from the list returned from the query
     orbit_file_name, orbit_file_request_id = select_orbit_file(
-        entry_elems, namespace_map, safe_start_time, safe_stop_time
+        entry_elems, namespace_map, safe_start_time, safe_stop_time,
+        args.sensing_start_range, args.sensing_stop_range
     )
 
     # Construct the URL used to download the Orbit file

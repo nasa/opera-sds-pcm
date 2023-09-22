@@ -46,6 +46,12 @@ def get_parser():
                         default=S3_DEM_BUCKET, dest='s3_bucket',
                         help='Name of the S3 bucket containing the global DEM '
                              'to extract from.')
+    parser.add_argument('-k', '--s3-key', type=str, action='store',
+                        default="", dest="s3_key",
+                        help='S3 key path utilized with the bucket name to derive '
+                             'the location of the DEM to extract from. If the '
+                             'desired DEM is at the top-level of the provided '
+                             'bucket, this argument is not needed.')
     parser.add_argument('-t', '--tile-code', type=str, default=None,
                         help='MGRS tile code identifier for the DEM region')
     parser.add_argument('-b', '--bbox', type=float, action='store',
@@ -166,7 +172,7 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     )
 
 
-def download_dem(polys, epsgs, dem_bucket, outfile):
+def download_dem(polys, epsgs, dem_location, outfile):
     """
     Download a DEM from the specified S3 bucket.
 
@@ -176,8 +182,8 @@ def download_dem(polys, epsgs, dem_bucket, outfile):
         List of shapely polygons.
     epsgs: list of str
         List of EPSG codes corresponding to polys.
-    dem_bucket : str
-        Name of the S3 bucket containing the global DEM to download from.
+    dem_location : str
+       S3 bucket and key containing the global DEM to download from.
     outfile:
         Path to the where the output DEM file is to be staged.
 
@@ -190,7 +196,7 @@ def download_dem(polys, epsgs, dem_bucket, outfile):
     dem_list = []
 
     for idx, (epsg, poly) in enumerate(zip(epsgs, polys)):
-        vrt_filename = f'/vsis3/{dem_bucket}/EPSG{epsg}/EPSG{epsg}.vrt'
+        vrt_filename = f'/vsis3/{dem_location}/EPSG{epsg}/EPSG{epsg}.vrt'
         output_path = f'{file_prefix}_{idx}.tif'
         dem_list.append(output_path)
         x_min, y_min, x_max, y_max = poly.bounds
@@ -241,7 +247,7 @@ def check_dem_overlap(dem_filepath, polys):
     return perc_area
 
 
-def check_aws_connection(dem_bucket):
+def check_aws_connection(dem_bucket, dem_key=""):
     """
     Check connection to the provided S3 bucket.
 
@@ -249,6 +255,8 @@ def check_aws_connection(dem_bucket):
     ----------
     dem_bucket : str
         Name of the bucket to use with the connection test.
+    dem_key : str, optional
+        S3 key path to append to the bucket.
 
     Raises
     ------
@@ -257,7 +265,8 @@ def check_aws_connection(dem_bucket):
 
     """
     s3 = boto3.resource('s3')
-    obj = s3.Object(dem_bucket, 'EPSG4326/EPSG4326.vrt')
+    key = '/'.join([dem_key, 'EPSG4326/EPSG4326.vrt']) if dem_key else 'EPSG4326/EPSG4326.vrt'
+    obj = s3.Object(dem_bucket, key)
 
     try:
         logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
@@ -322,7 +331,7 @@ def main(opts):
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')
 
-    check_aws_connection(opts.s3_bucket)
+    check_aws_connection(opts.s3_bucket, dem_key=opts.s3_key)
 
     # Determine EPSG code
     logger.info("Determining EPSG code(s) for region polygon(s)")
@@ -332,7 +341,8 @@ def main(opts):
     logger.debug(f'Derived the following EPSG codes: {epsgs}')
 
     # Download DEM
-    download_dem(polys, epsgs, opts.s3_bucket, opts.outfile)
+    dem_location = '/'.join([opts.s3_bucket, opts.s3_key]) if opts.s3_key else opts.s3_bucket
+    download_dem(polys, epsgs, dem_location, opts.outfile)
 
     logger.info(f'Done, DEM stored locally to {opts.outfile}')
 

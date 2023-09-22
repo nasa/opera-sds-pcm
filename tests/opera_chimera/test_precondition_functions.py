@@ -61,7 +61,7 @@ class MockGdal:
         return MockGdal.MockGdalDataset()
 
 
-def _check_aws_connection_patch(bucket_name):
+def _check_aws_connection_patch(bucket_name, dem_key=""):
     """
     No-op patch function for use with testing precondition functions that attempt
     AWS access
@@ -232,8 +232,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertIn(oc_const.ORBIT_FILE_PATH, rc_params)
 
         # Make sure the path to the orbit file was assigned to the runconfig params as expected
-        expected_s3_path = "s3://opera-bucket/fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"
-        self.assertEqual(rc_params[oc_const.ORBIT_FILE_PATH], expected_s3_path)
+        expected_s3_paths = ["s3://opera-bucket/fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"]
+        self.assertListEqual(rc_params[oc_const.ORBIT_FILE_PATH], expected_s3_paths)
 
     def test_get_slc_static_layers_enabled(self):
         """Unit tests for the get_slc_static_layers_enabled function"""

@@ -16,10 +16,16 @@ def slc_s1_lineage_metadata(context, work_dir):
     for input_filepath in run_config["input_file_group"].values():
         # By now Chimera has localized any files from S3, so we need to modify
         # s3 URI's to point to the local location on disk
-        if input_filepath.startswith('s3://'):
-            input_filepath = os.path.join(work_dir, basename(input_filepath))
+        if isinstance(input_filepath, list):
+            input_filepaths = [os.path.join(work_dir, basename(input_file))
+                               for input_file in input_filepath
+                               if input_file.startswith('s3://')]
+            lineage_metadata.extend(input_filepaths)
+        else:
+            if input_filepath.startswith('s3://'):
+                input_filepath = os.path.join(work_dir, basename(input_filepath))
 
-        lineage_metadata.append(input_filepath)
+            lineage_metadata.append(input_filepath)
 
     # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
@@ -81,8 +87,22 @@ def update_slc_s1_runconfig(context, work_dir):
 
     safe_file_path = run_config["input_file_group"]["safe_file_path"]
     orbit_file_path = run_config["input_file_group"]["orbit_file_path"]
-    run_config["input_file_group"]["safe_file_path"] = f'{container_home}/input_dir/{basename(safe_file_path)}'
-    run_config["input_file_group"]["orbit_file_path"] = f'{container_home}/input_dir/{basename(orbit_file_path)}'
+
+    if isinstance(safe_file_path, list):
+        run_config["input_file_group"]["safe_file_path"] = [
+            f'{container_home}/input_dir/{basename(safe_file)}'
+            for safe_file in safe_file_path
+        ]
+    else:
+        run_config["input_file_group"]["safe_file_path"] = f'{container_home}/input_dir/{basename(safe_file_path)}'
+
+    if isinstance(orbit_file_path, list):
+        run_config["input_file_group"]["orbit_file_path"] = [
+            f'{container_home}/input_dir/{basename(orbit_file)}'
+            for orbit_file in orbit_file_path
+        ]
+    else:
+        run_config["input_file_group"]["orbit_file_path"] = f'{container_home}/input_dir/{basename(orbit_file_path)}'
 
     # TODO: update once better naming is implemented for ancillary files
     run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home}/input_dir/dem.vrt'

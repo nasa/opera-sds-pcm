@@ -1,18 +1,20 @@
 import logging
 import json
 import os
-import extractor.extract
 from pathlib import PurePath, Path
-import shutil
 import requests
 import requests.utils
-from datetime import datetime
+from datetime import datetime, timedelta
 from data_subscriber import ionosphere_download
 from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_chunk_id, form_batch_id
 
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
-from tools.stage_orbit_file import NoQueryResultsException
+from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
+                                    NoQueryResultsException,
+                                    NoSuitableOrbitFileException,
+                                    T_ORBIT,
+                                    ORBIT_PAD)
 
 from data_subscriber.download import DaacDownload
 
@@ -91,50 +93,111 @@ class DaacDownloadAsf(DaacDownload):
 
             self.download_orbit_file(new_dataset_dir, product_filepath, additional_metadata)
 
+            if (additional_metadata.get("intersects_north_america", False) and
+                    additional_metadata['processing_mode'] in ("historical", "reprocessing")):
+                logger.info(
+                    f"Processing mode is {additional_metadata['processing_mode']}. "
+                    f"Attempting to download ionosphere correction file."
+                )
+
+                self.download_ionosphere_file(new_dataset_dir, product_filepath)
+
+            logger.info(f"Removing {product_filepath}")
+            product_filepath.unlink(missing_ok=True)
+
     def download_orbit_file(self, dataset_dir, product_filepath, additional_metadata):
         logger.info("Downloading associated orbit file")
 
+        (_, safe_start_time, safe_stop_time) = parse_orbit_time_range_from_safe(product_filepath)
+        safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
+        safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
+
+        sensing_start_range = safe_start_datetime - timedelta(seconds=T_ORBIT + ORBIT_PAD)
+        sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)
+
         try:
             logger.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
+
             stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
                 [
                     f"--output-directory={str(dataset_dir)}",
                     "--orbit-type=POEORB",
+                    f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
+                    f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
                     f"--query-time-range={self.cfg.get('POE_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_POE_TIME_RANGE)}",
                     str(product_filepath)
                 ]
             )
             stage_orbit_file.main(stage_orbit_file_args)
-        except NoQueryResultsException:
-            logger.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
-            stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
-                [
-                    f"--output-directory={str(dataset_dir)}",
-                    "--orbit-type=RESORB",
-                    f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
-                    str(product_filepath)
-                ]
-            )
-            stage_orbit_file.main(stage_orbit_file_args)
-
-        logger.info("Added orbit file to dataset")
-
-        if additional_metadata.get("intersects_north_america", False) \
-                and additional_metadata['processing_mode'] in ("historical", "reprocessing"):
-            logger.info(f"Processing mode is {additional_metadata['processing_mode']}. Attempting to download ionosphere correction file.")
+        except (NoQueryResultsException, NoSuitableOrbitFileException):
             try:
-                output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(dataset_dir=dataset_dir, product_filepath=product_filepath)
-                ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(dataset_dir=dataset_dir, product_filepath=product_filepath)
+                logger.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
+                stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                    [
+                        f"--output-directory={str(dataset_dir)}",
+                        "--orbit-type=RESORB",
+                        f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
+                        f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
+                        f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
+                        str(product_filepath)
+                    ]
+                )
+                stage_orbit_file.main(stage_orbit_file_args)
+            except NoSuitableOrbitFileException:
+                logger.warning("Single RESORB file could not be found, querying for consecutive RESORB files")
 
-                # add ionosphere metadata to the dataset about to be ingested
-                ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url=ionosphere_url, s3_bucket="...", s3_key="...")
-                self.update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
-            except IonosphereFileNotFoundException:
-                logger.warning("Ionosphere file not found remotely. Allowing job to continue.")
-                pass
+                logger.info("Querying for RESORB with range [sensing_start - 1 min, sensing_end + 1 min]")
+                sensing_start_range = safe_start_datetime - timedelta(seconds=ORBIT_PAD)
+                sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)
 
-        logger.info(f"Removing {product_filepath}")
-        product_filepath.unlink(missing_ok=True)
+                stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                    [
+                        f"--output-directory={str(dataset_dir)}",
+                        "--orbit-type=RESORB",
+                        f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
+                        f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
+                        f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
+                        str(product_filepath)
+                    ]
+                )
+                stage_orbit_file.main(stage_orbit_file_args)
+
+                logger.info("Querying for RESORB with range [sensing_start – T_orb – 1 min, sensing_start – T_orb + 1 min]")
+                sensing_start_range = safe_start_datetime - timedelta(seconds=T_ORBIT + ORBIT_PAD)
+                sensing_stop_range = safe_start_datetime - timedelta(seconds=T_ORBIT - ORBIT_PAD)
+
+                stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                    [
+                        f"--output-directory={str(dataset_dir)}",
+                        "--orbit-type=RESORB",
+                        f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
+                        f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
+                        f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
+                        str(product_filepath)
+                    ]
+                )
+                stage_orbit_file.main(stage_orbit_file_args)
+
+        logger.info("Added orbit file(s) to dataset")
+
+    def download_ionosphere_file(self, dataset_dir, product_filepath):
+        try:
+            output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(
+                dataset_dir=dataset_dir, product_filepath=product_filepath
+            )
+            ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(
+                dataset_dir=dataset_dir, product_filepath=product_filepath
+            )
+
+            # add ionosphere metadata to the dataset about to be ingested
+            ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(
+                output_ionosphere_filepath, ionosphere_url=ionosphere_url,
+                s3_bucket="...", s3_key="..."
+            )
+            self.update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
+        except IonosphereFileNotFoundException:
+            logger.warning("Ionosphere file not found remotely. Allowing job to continue.")
+            pass
 
     def download_asf_product(self, product_url, token: str, target_dirpath: Path):
         logger.info(f"Requesting from {product_url}")

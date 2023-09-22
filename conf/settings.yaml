@@ -15,10 +15,10 @@ CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_PROVISIONAL_V0"
 RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_PROVISIONAL_V0"
 CSLC_STATIC_COLLECTION_NAME: "OPERA_L2_CSLC-S1-STATIC_PROVISIONAL_V0"
 RTC_STATIC_COLLECTION_NAME: "OPERA_L2_RTC-S1-STATIC_PROVISIONAL_V0"
-CSLC_S1_PRODUCT_VERSION: "0.1"
-RTC_S1_PRODUCT_VERSION: "0.4"
-CSLC_S1_STATIC_PRODUCT_VERSION: "0.1"
-RTC_S1_STATIC_PRODUCT_VERSION: "0.4"
+CSLC_S1_PRODUCT_VERSION: "1.0"
+RTC_S1_PRODUCT_VERSION: "1.0"
+CSLC_S1_STATIC_PRODUCT_VERSION: "1.0"
+RTC_S1_STATIC_PRODUCT_VERSION: "1.0"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
@@ -57,7 +57,7 @@ URGENT_RESPONSE_LATENCY:
 
 # Time range values to use when querying for Orbit files for use with SLC-based jobs
 POE_ORBIT_TIME_RANGE: 2  # Days
-RES_ORBIT_TIME_RANGE: 3  # Hours
+RES_ORBIT_TIME_RANGE: 4  # Hours
 
 CSLC_S1:
   # Toggle static layer generation during processing
@@ -66,6 +66,11 @@ CSLC_S1:
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
+  # TODO: update product spec version numbers as necessary with subsequent deliveries
+  # Product specification version for baseline products
+  CSLC_PRODUCT_SPEC_VER: 0.1.7
+  # Product specification version for static layer products
+  CSLC_STATIC_PRODUCT_SPEC_VER: 0.1.2
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
@@ -82,6 +87,12 @@ RTC_S1:
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
+  # Estimated geometric accuracy values needed for CEOS compliance
+  ESTIMATED_GEOMETRIC_ACCURACY:
+    BIAS_X: -72.0
+    BIAS_Y: -67.0
+    STDDEV_X: 70.0
+    STDDEV_Y: 62.0
 
 # End PGE Configuration section
 

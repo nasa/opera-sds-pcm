@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/rtc_s1:2.0.0-rc.2.1",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.0.0-rc.2.1.tar.gz",
+      "container_image_name": "opera_pge/rtc_s1:2.0.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.0.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
