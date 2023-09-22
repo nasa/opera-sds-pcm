@@ -374,7 +374,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20230921-2.0.0"
 }
 
 variable "pge_releases" {
@@ -497,12 +497,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-	# HySDS v5.0.0-beta.6 - Aug 3, 2023 - R2
-    mozart    = "ami-0c70da559d13163d8" # mozart v4.21 - 230802
-    metrics   = "ami-02b0f6841c5d818b6" # metrics v4.15 - 230802
-    grq       = "ami-08622ebc2ac35bfe6" # grq v4.16 - 230802
-    factotum  = "ami-0b7c82edf1d6ef969" # factotum v4.16 - 230802
-    autoscale = "ami-07abb668e56ddc95e" # verdi v4.16 patchdate - 20230702
+    # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
+    mozart    = "ami-0110888ace2a34f62" # mozart v4.23 - 230908
+    metrics   = "ami-0a5444fafcbf1f75b" # metrics v4.15 - 230915
+    grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915
+    factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
+    autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
   }
 }
 
