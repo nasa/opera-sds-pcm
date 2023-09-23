@@ -64,8 +64,8 @@ class TestStageOrbitFile(unittest.TestCase):
 
         # Check that all portions of the query were constructed with the inputs
         # as expected
-        self.assertIn("beginPosition:[2022-04-30T00:00:00.000000Z TO 2022-05-01T00:00:00.000000Z]", query)
-        self.assertIn("endPosition:[2022-05-01T00:00:00.000000Z TO 2022-05-02T00:00:30.000000Z]", query)
+        self.assertIn("beginPosition:[2022-04-30T00:00:00.000000Z TO 2022-05-02T00:00:30.000000Z]", query)
+        self.assertIn("endPosition:[2022-04-30T00:00:00.000000Z TO 2022-05-02T00:00:30.000000Z]", query)
         self.assertIn("platformname:Sentinel-1", query)
         self.assertIn("filename:S1A_*", query)
         self.assertIn("producttype:AUX_POEORB", query)
@@ -77,8 +77,8 @@ class TestStageOrbitFile(unittest.TestCase):
             mission_id, orbit_type, safe_start_time, safe_stop_time
         )
 
-        self.assertIn("beginPosition:[2022-04-30T21:00:00.000000Z TO 2022-05-01T00:00:00.000000Z]", query)
-        self.assertIn("endPosition:[2022-05-01T00:00:00.000000Z TO 2022-05-01T03:00:30.000000Z]", query)
+        self.assertIn("beginPosition:[2022-04-30T21:00:00.000000Z TO 2022-05-01T03:00:30.000000Z]", query)
+        self.assertIn("endPosition:[2022-04-30T21:00:00.000000Z TO 2022-05-01T03:00:30.000000Z]", query)
         self.assertIn("platformname:Sentinel-1", query)
         self.assertIn("filename:S1A_*", query)
         self.assertIn("producttype:AUX_RESORB", query)
