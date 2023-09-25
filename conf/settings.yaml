@@ -89,10 +89,10 @@ RTC_S1:
   ANCILLARY_MARGIN: 100
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
-    BIAS_X: -72.0
-    BIAS_Y: -67.0
-    STDDEV_X: 70.0
-    STDDEV_Y: 62.0
+    BIAS_X: -0.72
+    BIAS_Y: -0.67
+    STDDEV_X: 0.70
+    STDDEV_Y: 0.62
 
 # End PGE Configuration section
 
