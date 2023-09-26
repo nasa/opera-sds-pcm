@@ -282,22 +282,16 @@ def construct_orbit_file_query(mission_id, orbit_type, safe_start_time, safe_sto
         "( (platformname:Sentinel-1 AND filename:{mission_id}_* AND producttype:AUX_{orbit_type}))"
     )
 
-    # Format the query templates using the values we were provided
-    query_start_range = time_range_template.format(
+    # Format the query template using the values we were provided
+    query_range = time_range_template.format(
         start_date=query_start_date.strftime("%Y-%m-%dT%H:%M:%S.%f"),
-        stop_date=safe_start_date.strftime("%Y-%m-%dT%H:%M:%S.%f")
-    )
-
-    query_stop_range = time_range_template.format(
-        start_date=safe_start_date.strftime("%Y-%m-%dT%H:%M:%S.%f"),
         stop_date=query_stop_date.strftime("%Y-%m-%dT%H:%M:%S.%f")
     )
 
-    logger.debug(f'query_start_range: {query_start_range}')
-    logger.debug(f'query_stop_range: {query_stop_range}')
+    logger.debug(f'query_range: {query_range}')
 
-    query = query_template.format(start_range=query_start_range,
-                                  stop_range=query_stop_range,
+    query = query_template.format(start_range=query_range,
+                                  stop_range=query_range,
                                   mission_id=mission_id,
                                   orbit_type=orbit_type)
 
