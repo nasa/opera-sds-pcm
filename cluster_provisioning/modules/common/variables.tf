@@ -449,7 +449,7 @@ variable "pge_releases" {
   default = {
     "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.0.0"
-    "rtc_s1"   = "2.0.0"
+    "rtc_s1"   = "2.0.1"
   }
 }
 
@@ -458,7 +458,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220609-1.0.0-rc.1.0"
+  default = "20230921-2.0.0"
 }
 
 variable "crid" {
