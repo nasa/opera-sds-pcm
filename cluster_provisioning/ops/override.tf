@@ -14,6 +14,10 @@ variable "venue" {
   default = "ops"
 }
 
+variable "cnm_r_venue" {
+  default = "ops"
+}
+
 variable "environment" {
   default = "ops"
 }
