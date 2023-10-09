@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L2_CSLC_S1_hist",
+  "label": "SCIFLO_L2_RTC_S1_STATIC",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": true,
   "params": [
@@ -19,7 +19,7 @@
       "name": "wf_name",
       "from": "value",
       "type": "text",
-      "value": "L2_CSLC_S1"
+      "value": "L2_RTC_S1_STATIC"
     },
     {
       "name": "product_path",
@@ -75,13 +75,13 @@
       "name": "container_home",
       "from": "value",
       "type": "text",
-      "value": "/home/compass_user"
+      "value": "/home/rtc_user"
     },
     {
       "name": "container_working_dir",
       "from": "value",
       "type": "text",
-      "value": "/home/compass_user"
+      "value": "/home/rtc_user"
     }
   ]
 }
