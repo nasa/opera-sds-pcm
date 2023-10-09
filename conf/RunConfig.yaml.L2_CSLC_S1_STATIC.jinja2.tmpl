@@ -1,9 +1,9 @@
 RunConfig:
-  Name: OPERA-RTC-S1-PGE-CONFIG
+  Name: OPERA-CSLC-S1-STATIC-PGE-CONFIG
   Groups:
     PGE:
       PGENameGroup:
-        PGEName: RTC_S1_PGE
+        PGEName: CSLC_S1_PGE
       InputFilesGroup:
         InputFilePaths:
           {%- for input in data.input_file_group.values() %}
@@ -33,31 +33,31 @@ RunConfig:
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
-        ProductIdentifier: RTC_S1
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductIdentifier: CSLC_S1
+        ProductVersion: "{{ data.product_path_group.static_product_version }}"
         ProgramPath: conda
         ProgramOptions:
           - run
-          - --no-capture-output
           - -n
-          - RTC
-          - rtc_s1.py
-        ErrorCodeBase: 300000
-        SchemaPath: /home/rtc_user/opera/pge/rtc_s1/schema/rtc_s1_sas_schema.yaml
-        IsoTemplatePath: /home/rtc_user/opera/pge/rtc_s1/templates/OPERA_ISO_metadata_L2_RTC_S1_template.xml.jinja2
+          - COMPASS
+          - s1_cslc.py
+        ErrorCodeBase: 200000
+        SchemaPath: /home/compass_user/opera/pge/cslc_s1/schema/cslc_s1_sas_schema.yaml
+        IsoTemplatePath: /home/compass_user/opera/pge/cslc_s1/templates/OPERA_ISO_metadata_L2_CSLC_S1_template.xml.jinja2
+        DataValidityStartDate: {{ data.product_path_group.data_validity_start_date }}
       QAExecutable:
         Enabled: False
         ProgramPath:
-        ProgramOptions: []
+        ProgramOptions:
       DebugLevelGroup:
         DebugSwitch: False
         ExecuteViaShell: False
     SAS:
       runconfig:
-        name: rtc_s1_workflow_default
+        name: cslc_s1_workflow_default
         groups:
           pge_name_group:
-            pge_name: RTC_S1_PGE
+            pge_name: CSLC_S1_PGE
           input_file_group:
             {%- for type in data.input_file_group.keys() %}
             {%- if data.input_file_group[ type ] is not none %}
@@ -72,7 +72,6 @@ RunConfig:
             {%- endif %}{# if data.input_file_group[ type ] is not none #}
             {%- endfor %}{# for type in data.input_file_group.keys() #}
             burst_id:
-            source_data_access: "https://search.asf.alaska.edu/#/?dataset=SENTINEL-1&productTypes=SLC"
           dynamic_ancillary_file_group:
             {%- for type in data.dynamic_ancillary_file_group.keys() %}
             {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
@@ -83,7 +82,7 @@ RunConfig:
             {%- endfor %}
 
             # TODO: update descriptions as necessary when new ancillary releases are available
-            dem_file_description: "Digital Elevation Model (DEM) for the NASA OPERA project version 1.1 (v1.1) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid"
+            dem_description: "Digital Elevation Model (DEM) for the NASA OPERA project version 1.1 (v1.1) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid"
           static_ancillary_file_group:
             {%- for type in data.static_ancillary_file_group.keys() %}
             {%- if data.static_ancillary_file_group[ type ] is not none %}
@@ -92,45 +91,21 @@ RunConfig:
             {{ type }}:
             {%- endif %}
             {%- endfor %}
-          product_group:
-            product_version: "{{ data.product_path_group.product_version }}"
+          product_path_group:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
-            output_dir: {{ data.product_path_group.product_path }}
-            product_id:
-            rtc_s1_static_validity_start_date: {{ data.product_path_group.data_validity_start_date }}
-            product_data_access: "https://search.asf.alaska.edu/#/?dataset=OPERA-S1&productTypes=RTC"
-            save_bursts: True
-            save_mosaics: False
-            save_browse: True
-            output_imagery_format: COG
-            save_metadata: True
+            sas_output_file: {{ data.product_path_group.product_path }}
+            product_version: "{{ data.product_path_group.static_product_version }}"
+            product_specification_version: "{{ data.product_path_group.product_specification_version }}"
           primary_executable:
-            product_type: RTC_S1
+            product_type: CSLC_S1_STATIC
           processing:
-            check_ancillary_inputs_coverage: True
             polarization: {{ data.processing.polarization }}
-            rtc:
-              output_type: gamma0
-
-            num_workers: {{ data.processing.num_workers }}
-
             geocoding:
-              memory_mode: auto
-
-              bursts_geogrid:
-                top_left:
-                  x:
-                  y:
-                bottom_right:
-                  x:
-                  y:
-
-              estimated_geometric_accuracy_bias_x: {{ data.processing.estimated_geometric_accuracy_bias_x }}
-              estimated_geometric_accuracy_bias_y: {{ data.processing.estimated_geometric_accuracy_bias_y }}
-              estimated_geometric_accuracy_stddev_x: {{ data.processing.estimated_geometric_accuracy_stddev_x }}
-              estimated_geometric_accuracy_stddev_y: {{ data.processing.estimated_geometric_accuracy_stddev_y }}
-            mosaicking:
-              mosaic_mode: first
-            browse_image_group:
-              browse_image_burst_height: 2048
+              flatten: True
+              x_posting: 5
+              y_posting: 10
+            geo2rdr:
+              lines_per_block: 1000
+              threshold: 1.0e-8
+              numiter: 25
