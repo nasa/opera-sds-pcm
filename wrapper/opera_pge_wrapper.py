@@ -25,14 +25,18 @@ to_json = partial(json.dumps, indent=2)
 
 lineage_metadata_functions = {
     'L2_CSLC_S1': slc_s1_lineage_metadata,
+    'L2_CSLC_S1_STATIC': slc_s1_lineage_metadata,
     'L2_RTC_S1': slc_s1_lineage_metadata,
+    'L2_RTC_S1_STATIC': slc_s1_lineage_metadata,
     'L3_DSWx_HLS': dswx_hls_lineage_metadata
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
 runconfig_update_functions = {
     'L2_CSLC_S1': update_slc_s1_runconfig,
+    'L2_CSLC_S1_STATIC': update_slc_s1_runconfig,
     'L2_RTC_S1': update_slc_s1_runconfig,
+    'L2_RTC_S1_STATIC': update_slc_s1_runconfig,
     'L3_DSWx_HLS': update_dswx_hls_runconfig
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
