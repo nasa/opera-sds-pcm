@@ -157,7 +157,7 @@ def convert(
         # PGE-specific metadata fields for inclusion into ElasticSearch should be defined here
         if pge_name == "L3_DSWx_HLS":
             dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
-        elif pge_name == "L2_CSLC_S1" or pge_name == "L2_RTC_S1":
+        elif pge_name in ("L2_CSLC_S1", "L2_CSLC_S1_STATIC", "L2_RTC_S1", "L2_RTC_S1_STATIC"):
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
 
