@@ -168,23 +168,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
     def get_cslc_product_specification_version(self):
         """
         Returns the appropriate product spec version for a CSLC-S1 job based
-        on the enabled workflow (baseline vs. static layer).
+        on the workflow (baseline vs. static layer).
 
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        product_type = self.get_slc_static_layers_enabled()["product_type"]
-
         pge_shortname = oc_const.L2_CSLC_S1[3:].upper()
 
-        if product_type == "CSLC_S1":
-            product_spec_version = self._settings.get(pge_shortname).get("CSLC_PRODUCT_SPEC_VER")
-        elif product_type == "CSLC_S1_STATIC":
-            product_spec_version = self._settings.get(pge_shortname).get("CSLC_STATIC_PRODUCT_SPEC_VER")
-        else:
-            raise RuntimeError(
-                f"Unknown product type from get_slc_static_layers_enabled: {product_type}"
-            )
+        product_spec_version = self._settings.get(pge_shortname).get(oc_const.PRODUCT_SPEC_VER)
 
         rc_params = {
             "product_specification_version": product_spec_version
@@ -205,7 +196,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         pge_shortname = oc_const.L2_RTC_S1[3:].upper()
 
-        estimated_geographic_accuracy_values = self._settings.get(pge_shortname).get("ESTIMATED_GEOMETRIC_ACCURACY")
+        estimated_geographic_accuracy_values = self._settings.get(pge_shortname).get(oc_const.ESTIMATED_GEOMETRIC_ACCURACY)
 
         rc_params = {
             "estimated_geometric_accuracy_bias_x": estimated_geographic_accuracy_values["BIAS_X"],
@@ -220,7 +211,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_rtc_s1_num_workers(self):
         """
-        Determines the number of workers/cores to assign to an RTC-S1 as a
+        Determines the number of workers/cores to assign to an RTC-S1 job as a
         fraction of the total available.
 
         """
@@ -228,8 +219,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 3/4th of the available cores
+        # Use 3/4th of the available cores for standard processing
         num_workers = max(int(round((available_cores * 3) / 4)), 1)
+
+        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+
+        rc_params = {
+            "num_workers": str(num_workers)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_rtc_s1_static_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an RTC-S1-STATIC job
+        as a fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        # Use 1/2 of the available cores for static layer processing
+        num_workers = max(int(round(available_cores / 2)), 1)
 
         logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
 
@@ -276,36 +290,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.POLARIZATION: slc_polarization
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
-    def get_slc_static_layers_enabled(self):
-        """Gets the setting for the enable_static_layers flag from settings.yaml"""
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        pge_name = self._pge_config.get('pge_name')
-        pge_shortname = pge_name[3:].upper()
-
-        logger.info(f'Getting ENABLE_STATIC_LAYERS setting for PGE {pge_shortname}')
-
-        enable_static_layers = self._settings.get(pge_shortname).get("ENABLE_STATIC_LAYERS")
-
-        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
-        processing_mode = metadata[oc_const.PROCESSING_MODE_KEY]
-
-        # Static layer generation should always be disabled for historical processing mode
-        if processing_mode == oc_const.PROCESSING_MODE_HISTORICAL:
-            logger.info(f"Processing mode for {pge_name} is set to {processing_mode}, "
-                        f"static layer generation will be DISABLED.")
-            enable_static_layers = False
-
-        rc_params = {
-            "product_type": (
-                f"{pge_shortname}_STATIC" if enable_static_layers else f"{pge_shortname}"
-            )
         }
 
         logger.info(f"rc_params : {rc_params}")
