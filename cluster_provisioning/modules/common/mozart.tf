@@ -4,14 +4,14 @@
 locals {
   q_config = <<EOT
 QUEUES:
-    %{~ for queue, queue_config in var.queues ~}
+    %{~for queue, queue_config in var.queues~}
   - QUEUE_NAME: ${queue}
     INSTANCE_TYPES:
-    %{~ for instance_type in queue_config["instance_type"] ~}
+    %{~for instance_type in queue_config["instance_type"]~}
       - ${instance_type}
-    %{~ endfor ~}
+    %{~endfor~}
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
-    %{~ endfor ~}
+    %{~endfor~}
   EOT
 }
 
@@ -434,34 +434,6 @@ resource "aws_instance" "mozart" {
 
       cp -rp ${var.project}-pcm/conf/sds ~/.sds
       cp ~/.sds.bak/config ~/.sds
-    EOT
-    ]
-  }
-
-  # sync bach-api and bach-ui code. start bach-ui
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
-      set -ex
-      cd ~/mozart/ops
-      if [ "${var.use_artifactory}" = true ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz"
-        tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
-        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api
-        rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
-        tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
-        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
-        rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
-      else
-        git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api
-        git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
-      fi
-      export PATH=~/conda/bin:$PATH
-      cd bach-ui
-      ~/conda/bin/npm install --silent --no-progress
-      sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
-      ~/conda/bin/npm run build --silent
     EOT
     ]
   }
