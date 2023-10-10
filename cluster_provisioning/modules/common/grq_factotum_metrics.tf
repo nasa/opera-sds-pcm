@@ -153,7 +153,7 @@ resource "null_resource" "setup_cron" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
-      cd ~/mozart/ops
+      cd ~/metrics/ops
       if [ "${var.use_artifactory}" = true ]; then
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz"
         tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
@@ -170,7 +170,7 @@ resource "null_resource" "setup_cron" {
       export PATH=~/conda/bin:$PATH
       cd bach-ui
       ~/conda/bin/npm install --silent --no-progress
-      sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
+      sh create_config_simlink.sh ~/.sds/config ~/metrics/ops/bach-ui
       ~/conda/bin/npm run build --silent
     EOT
     ]
