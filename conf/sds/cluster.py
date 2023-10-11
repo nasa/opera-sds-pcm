@@ -145,7 +145,7 @@ def update_bach_api():
         hysds_dirs = get_hysds_dirs()
         for hysds_dir in hysds_dirs:
             rm_rf(f'{hysds_dir}/ops/bach-api')
-            rsync_project(f'{hysds_dir}/ops/', os.path.join(ops_dir, 'metrics/ops/bach-api'),
+            rsync_project(f'{hysds_dir}/ops/', os.path.join(ops_dir, 'mozart/ops/bach-api'),
                           extra_opts=extra_opts, ssh_opts=ssh_opts)
             execute(pip_install_with_req, 'sciflo',
                     '~/sciflo/ops/bach-api', False, roles=[role])
