@@ -111,7 +111,7 @@ def update_opera_packages():
 
     if role == "metrics":
         run_sds_watch_using_local_logstash_installation()
-        update_bach_api()
+        # update_bach_api()  # TODO chrisjrd: uncomment after testing
 
     if role != "grq":
         update_opera_pcm_settings()
@@ -148,7 +148,7 @@ def update_bach_api():
             rsync_project(f'{hysds_dir}/ops/', os.path.join(ops_dir, 'mozart/ops/bach-api'),
                           extra_opts=extra_opts, ssh_opts=ssh_opts)
             execute(pip_install_with_req, 'sciflo',
-                    '~/sciflo/ops/bach-api', False, roles=[role])
+                    '~/metrics/ops/bach-api', False, roles=[role])
 
             break
 
