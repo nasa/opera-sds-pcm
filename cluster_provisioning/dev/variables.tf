@@ -292,6 +292,11 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
+variable "trace" {
+  type    = string
+  default = "dev"
+}
+
 # need to get SNS arn from PO DAAC and define
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"

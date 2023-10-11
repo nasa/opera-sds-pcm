@@ -322,6 +322,7 @@ resource "aws_instance" "mozart" {
         echo ASF_DAAC_SQS_URL: "" >> ~/.sds/config
       fi
 
+      echo TRACE: "${var.trace}\" >> ~/.sds/config
       echo PCM_COMMONS_REPO: "${var.pcm_commons_repo}" >> ~/.sds/config
       echo PCM_COMMONS_BRANCH: "${var.pcm_commons_branch}" >> ~/.sds/config
       echo CRID: "${var.crid}" >> ~/.sds/config

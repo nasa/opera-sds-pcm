@@ -139,6 +139,10 @@ variable "es_snapshot_bucket" {
   default = "opera-pst-es-bucket"
 }
 
+variable "trace" {
+  default = "opera-pst-pop1"
+}
+
 variable "artifactory_repo" {
   default = "general-stage"
 }

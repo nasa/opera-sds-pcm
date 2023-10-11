@@ -214,6 +214,10 @@ variable "cnm_r_allowed_account" {
 variable "cnm_r_venue" {
 }
 
+variable "trace" {
+  type = string
+}
+
 variable "po_daac_delivery_proxy" {
 }
 
