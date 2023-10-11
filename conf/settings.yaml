@@ -60,17 +60,18 @@ POE_ORBIT_TIME_RANGE: 2  # Days
 RES_ORBIT_TIME_RANGE: 4  # Hours
 
 CSLC_S1:
-  # Toggle static layer generation during processing
-  ENABLE_STATIC_LAYERS: !!bool false
-  # Validity start date used to tag static layer products
-  DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
-  # TODO: update product spec version numbers as necessary with subsequent deliveries
   # Product specification version for baseline products
-  CSLC_PRODUCT_SPEC_VER: 0.1.7
+  PRODUCT_SPEC_VER: 0.1.7
+
+CSLC_S1_STATIC:
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 100
+  # Validity start date used to tag static layer products
+  DATA_VALIDITY_START_DATE: 20140403
   # Product specification version for static layer products
-  CSLC_STATIC_PRODUCT_SPEC_VER: 0.1.2
+  PRODUCT_SPEC_VER: 0.1.2
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
@@ -81,8 +82,16 @@ DSWX_HLS:
   ANCILLARY_MARGIN: 200
 
 RTC_S1:
-  # Toggle static layer generation during processing
-  ENABLE_STATIC_LAYERS: !!bool false
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 100
+  # Estimated geometric accuracy values needed for CEOS compliance
+  ESTIMATED_GEOMETRIC_ACCURACY:
+    BIAS_X: -0.72
+    BIAS_Y: -0.67
+    STDDEV_X: 0.70
+    STDDEV_Y: 0.62
+
+RTC_S1_STATIC:
   # Validity start date used to tag static layer products
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
@@ -207,7 +216,7 @@ PRODUCT_TYPES:
             Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
-    L2_CSLC_S1_static_layers:
+    L2_CSLC_S1_STATIC:
       # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:
       # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_20230807T234233Z_S1A_v1.0.h5
       # This pattern groups the metadata information in the filename using named groups.
@@ -240,7 +249,7 @@ PRODUCT_TYPES:
           Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
-    L2_RTC_S1_static_layers:
+    L2_RTC_S1_STATIC:
       # Pattern for parsing output L2_RTC-S1 static layer product filenames, such as:
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0.h5
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0_incidence_angle.tif

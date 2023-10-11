@@ -94,6 +94,12 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_STATIC_PRODUCT_VERSION = "get_static_product_version"
 
+    GET_CSLC_PRODUCT_SPECIFICATION_VERSION = "get_cslc_product_specification_version"
+
+    PRODUCT_SPEC_VER = "PRODUCT_SPEC_VER"
+
+    ESTIMATED_GEOMETRIC_ACCURACY = "ESTIMATED_GEOMETRIC_ACCURACY"
+
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_LANDCOVER = "get_landcover"

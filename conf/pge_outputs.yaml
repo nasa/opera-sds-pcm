@@ -25,9 +25,28 @@ L2_CSLC_S1:
     Primary:
       # Pattern for parsing primary (per-burst) output filenames, such as:
       # OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230807T212944Z_S1A_VV_v1.0.h5
-      # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_20230807T234233Z_S1A_v1.0.h5
       # OPERA_L2_CSLC-S1_T064-135518-IW2_20220501T015035Z_20230807T212944Z_S1A_VV_v1.0_BROWSE.png
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)(-STATIC)?_(?P<burst_id>\w{4}-\w{6}-\w{3})_((?P<validity_date>\d{8})|(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z))_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        verify: true
+        hash: md5
+    Secondary:
+      # Patterns for parsing aux filenames, such as:
+      # OPERA_L2_CSLC-S1_20230807T234233Z_S1A_VV_v1.0.log
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>log|qa\.log|catalog\.json)$'
+        verify: false
+    Optional: []
+      # Pattern for optional output product filenames
+
+  Missing_Metadata: {
+    # "daac_product_type": "OPERA_L2_CSLC_S1_0.0"
+  }
+L2_CSLC_S1_STATIC:
+  Outputs:
+    Primary:
+      # Pattern for parsing primary (per-burst) output filenames, such as:
+      # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_20230807T234233Z_S1A_v1.0.h5
+      # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_20230807T234233Z_S1A_v1.0_BROWSE.h5
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_date>\d{8})_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         verify: true
         hash: md5
     Secondary:
@@ -49,9 +68,27 @@ L2_RTC_S1:
       # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_VV.tif
       # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_mask.tif
       # OPERA_L2_RTC-S1_T069-147175-IW1_20180504T104522Z_20230804T203850Z_S1B_30_v1.0_BROWSE.png
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        verify: true
+        hash: md5
+    Secondary:
+      # Patterns for parsing aux filenames, such as:
+      # OPERA_L2_RTC-S1_20230109T203121Z_S1B_30_v1.0.log
+      - regex: !!python/regexp '(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+)[.](?P<ext>log|qa\.log|catalog\.json)'
+        verify: false
+    Optional: []
+      # Pattern for optional output product filenames
+
+  Missing_Metadata: {
+    # "daac_product_type": "OPERA_L2_RTC_S1_0.0"
+  }
+L2_RTC_S1_STATIC:
+  Outputs:
+    Primary:
+      # Pattern for parsing primary (per-burst) output filenames, such as:
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0.h5
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0_incidence_angle.tif
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)(-STATIC)?_(?P<burst_id>\w{4}-\w{6}-\w{3})_((?P<validity_date>\d{8})|(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z))_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_date>\d{8})_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         verify: true
         hash: md5
     Secondary:
