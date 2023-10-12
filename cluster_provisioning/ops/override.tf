@@ -142,7 +142,7 @@ variable "es_snapshot_bucket" {
 }
 
 variable "trace" {
-  default = "opera-ops"
+  default = "opera-ops-fwd"
 }
 
 variable "artifactory_repo" {

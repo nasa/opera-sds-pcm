@@ -130,6 +130,10 @@ variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
 }
 
+variable "trace" {
+  default = "opera-dev_int-fwd"
+}
+
 variable "artifactory_repo" {
   #default = "general-stage"
   default = "general-develop"

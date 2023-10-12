@@ -1,5 +1,5 @@
 {
-  "command": "/home/ops/verdi/ops/nisar-pcm/tools/send_notify_msg.sh",
+  "command": "/home/ops/verdi/ops/opera-pcm/tools/send_notify_msg.sh",
   "disk_usage":"10GB",
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
