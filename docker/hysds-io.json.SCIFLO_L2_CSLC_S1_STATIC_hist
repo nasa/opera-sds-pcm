@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L2_CSLC_S1_hist",
+  "label": "SCIFLO_L2_CSLC_S1_STATIC_hist",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": true,
   "params": [
@@ -19,7 +19,7 @@
       "name": "wf_name",
       "from": "value",
       "type": "text",
-      "value": "L2_CSLC_S1"
+      "value": "L2_CSLC_S1_STATIC"
     },
     {
       "name": "product_path",

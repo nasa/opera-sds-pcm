@@ -34,11 +34,7 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: CSLC_S1
-        {%- if data.processing.product_type == 'CSLC_S1' %}
         ProductVersion: "{{ data.product_path_group.product_version }}"
-        {%- else %}
-        ProductVersion: "{{ data.product_path_group.static_product_version }}"
-        {%- endif %}
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -48,7 +44,6 @@ RunConfig:
         ErrorCodeBase: 200000
         SchemaPath: /home/compass_user/opera/pge/cslc_s1/schema/cslc_s1_sas_schema.yaml
         IsoTemplatePath: /home/compass_user/opera/pge/cslc_s1/templates/OPERA_ISO_metadata_L2_CSLC_S1_template.xml.jinja2
-        DataValidityStartDate: {{ data.product_path_group.data_validity_start_date }}
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -99,14 +94,10 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_file: {{ data.product_path_group.product_path }}
-            {%- if data.processing.product_type == 'CSLC_S1' %}
             product_version: "{{ data.product_path_group.product_version }}"
-            {%- else %}
-            product_version: "{{ data.product_path_group.static_product_version }}"
-            {%- endif %}
             product_specification_version: "{{ data.product_path_group.product_specification_version }}"
           primary_executable:
-            product_type: {{ data.processing.product_type }}
+            product_type: CSLC_S1
           processing:
             polarization: {{ data.processing.polarization }}
             geocoding:

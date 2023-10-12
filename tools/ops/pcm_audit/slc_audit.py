@@ -233,8 +233,8 @@ pge_input_granules = set(pge_input_granules.keys())
 body = get_body()
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 body["_source"]["includes"] = "false"
-search_results = list(helpers.scan(es, body, index=".".join(["grq_*_l2_rtc_s1_static_layers", "grq_*_l2_rtc_s1_static_layers-*"]), scroll="5m", size=10_000))
-rtc_having_static_layers = {result["_id"].replace("_static_layers", "") for result in search_results}
+search_results = list(helpers.scan(es, body, index=".".join(["grq_*_l2_rtc_s1_static", "grq_*_l2_rtc_s1_static-*"]), scroll="5m", size=10_000))
+rtc_having_static_layers = {result["_id"].replace("_static", "") for result in search_results}
 rtc = {x["_id"] for x in search_resultss["L2_RTC_S1"]}
 rtc_missing_static_layers = rtc - rtc_having_static_layers
 logger.info(f"RTC Missing static layers: {len(rtc_missing_static_layers)}")
