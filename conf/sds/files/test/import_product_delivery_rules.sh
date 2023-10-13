@@ -1,5 +1,5 @@
 #!/bin/bash
-PKG=container-iems-sds_nisar-pcm
+PKG=container-iems-sds_opera-pcm
 SDS_PKGS=( $(sds pkg ls | grep $PKG) )
 if [ ${#SDS_PKGS[@]} -gt 1 ]; then
   echo "Too many versions installed for $PKG:"

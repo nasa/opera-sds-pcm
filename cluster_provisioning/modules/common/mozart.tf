@@ -708,7 +708,8 @@ resource "null_resource" "install_pcm_and_pges" {
 #}
 
 resource "null_resource" "setup_trigger_rules" {
-  depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+  #depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+  depends_on = [null_resource.install_pcm_and_pges]
 
   connection {
     type        = "ssh"
