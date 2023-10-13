@@ -19,6 +19,12 @@
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.model.StringParameterDefinition>
+          <name>PRODUCT_DELIVERY_BRANCH</name>
+          <description>The CNM_product_delivery branch to use</description>
+          <defaultValue>{{ PRODUCT_DELIVERY_BRANCH }}</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
           <name>PCM_COMMONS_BRANCH</name>
           <description>The pcm_commons branch to use</description>
           <defaultValue>{{ PCM_COMMONS_BRANCH }}</defaultValue>
@@ -94,6 +100,7 @@ then
         --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
         --build-arg BRANCH=${TAG} \
         --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} \
+        --build-arg PRODUCT_DELIVERY_BRANCH=${PRODUCT_DELIVERY_BRANCH} \
         --build-arg PGE_BASE_VERSION=${PGE_BASE_VERSION}
 else
   {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
@@ -101,6 +108,7 @@ else
         --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
         --build-arg BRANCH=${TAG} \
         --build-arg PCM_COMMONS_BRANCH=${PCM_COMMONS_BRANCH} \
+        --build-arg PRODUCT_DELIVERY_BRANCH=${PRODUCT_DELIVERY_BRANCH} \
         --build-arg PGE_BASE_VERSION=${PGE_BASE_VERSION}
 fi
 

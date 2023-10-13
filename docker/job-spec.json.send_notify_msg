@@ -5,7 +5,7 @@
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws"
   },
-  "post": [ "hysds.triage.triage", "util.common_util.stream_verdi_logs_to_cloudwatch" ],
+  "post": [ "hysds.triage.triage" ],
   "soft_time_limit": 900,
   "time_limit": 960,
   "params": [
