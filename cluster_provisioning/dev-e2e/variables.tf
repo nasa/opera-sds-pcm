@@ -291,6 +291,10 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
+variable "trace" {
+  type    = string
+}
+
 #The value of po_daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "po_daac_delivery_proxy" {

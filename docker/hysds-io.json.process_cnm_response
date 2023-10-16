@@ -1,0 +1,27 @@
+{
+  "submission_type": "individual",
+  "label": "Update Dataset with DAAC Delivery Metadata",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params" : [
+    {
+      "name": "cnm_message",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "CNM Response Message from DAAC"
+    },
+    {
+      "name": "product_tagging",
+      "from": "submitter",
+      "type": "boolean",
+      "placeholder": "specifies if product should be tagged as delivered"
+    },
+    {
+      "name": "update_s3_tag",
+      "from": "submitter",
+      "type": "boolean",
+      "optional": true,
+      "placeholder": "specifies if product should be tagged in s3"
+    }
+  ]
+}

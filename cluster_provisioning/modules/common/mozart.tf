@@ -276,7 +276,7 @@ resource "aws_instance" "mozart" {
       echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config
       echo '  LAMBDA_ROLE: "${var.lambda_role_arn}"' >> ~/.sds/config
       echo '  JOB_TYPE: "${var.cnm_r_handler_job_type}"' >> ~/.sds/config
-      echo '  JOB_RELEASE: ${var.product_delivery_branch}' >> ~/.sds/config
+      echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config
       echo '  JOB_QUEUE: ${var.cnm_r_job_queue}' >> ~/.sds/config
       echo '  PO_DAAC_CNM_R_EVENT_TRIGGER: ${var.po_daac_cnm_r_event_trigger}' >> ~/.sds/config
       echo '  ASF_DAAC_CNM_R_EVENT_TRIGGER: ${var.asf_daac_cnm_r_event_trigger}' >> ~/.sds/config
@@ -322,6 +322,9 @@ resource "aws_instance" "mozart" {
         echo ASF_DAAC_SQS_URL: "" >> ~/.sds/config
       fi
 
+      echo TRACE: "${var.trace}" >> ~/.sds/config
+      echo PRODUCT_DELIVERY_REPO: "${var.product_delivery_repo}" >> ~/.sds/config
+      echo PRODUCT_DELIVERY_BRANCH: "${var.product_delivery_branch}" >> ~/.sds/config
       echo PCM_COMMONS_REPO: "${var.pcm_commons_repo}" >> ~/.sds/config
       echo PCM_COMMONS_BRANCH: "${var.pcm_commons_branch}" >> ~/.sds/config
       echo CRID: "${var.crid}" >> ~/.sds/config
@@ -528,7 +531,7 @@ resource "aws_instance" "mozart" {
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
-
+      cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
@@ -665,46 +668,48 @@ resource "null_resource" "install_pcm_and_pges" {
 }
 
 # Resource to install PCM and its dependencies,container-iems-sds_cnm_product_delivery
-resource "null_resource" "install_pcm_and_pges_iems" {
-  depends_on = [
-    aws_instance.mozart
-  ]
-
-  connection {
-    type        = "ssh"
-    host        = aws_instance.mozart.private_ip
-    user        = "hysdsops"
-    private_key = file(var.private_key_file)
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
-      set -ex
-      source ~/.bash_profile
-
-      echo build/import opera-pcm
-      echo Build container
-
-      echo build/import CNM product delivery
-      if [ "${var.use_artifactory}" = true ]; then
-          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
-          sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
-          rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
-      else
-          sleep 300
-          sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
-          sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
-          sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
-      fi
-
-    EOT
-    ]
-  }
-}
+# Comment out this to override CNM delivery with OPERA PCM repo
+#resource "null_resource" "install_pcm_and_pges_iems" {
+#  depends_on = [
+#    aws_instance.mozart
+#  ]
+#
+#  connection {
+#    type        = "ssh"
+#    host        = aws_instance.mozart.private_ip
+#    user        = "hysdsops"
+#    private_key = file(var.private_key_file)
+#  }
+#
+#  provisioner "remote-exec" {
+#    inline = [<<-EOT
+#      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+#      set -ex
+#      source ~/.bash_profile
+#
+#      echo build/import opera-pcm
+#      echo Build container
+#
+#      echo build/import CNM product delivery
+#      if [ "${var.use_artifactory}" = true ]; then
+#          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+#          sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+#          rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+#      else
+#          sleep 300
+#          sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
+#          sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+#          sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+#      fi
+#
+#    EOT
+#    ]
+#  }
+#}
 
 resource "null_resource" "setup_trigger_rules" {
-  depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+  #depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+  depends_on = [null_resource.install_pcm_and_pges]
 
   connection {
     type        = "ssh"

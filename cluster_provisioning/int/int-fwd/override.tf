@@ -69,6 +69,10 @@ variable "osl_bucket" {
   default = "opera-int-osl-fwd"
 }
 
+variable "trace" {
+  default = "opera-int-fwd"
+}
+
 # mozart vars
 variable "mozart" {
   type = map(string)

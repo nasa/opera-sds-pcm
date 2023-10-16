@@ -3,6 +3,7 @@ FROM hysds/pge-base:${PGE_BASE_VERSION}
 
 ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
+ARG PRODUCT_DELIVERY_BRANCH
 
 # provision
 USER ops
@@ -21,7 +22,12 @@ RUN set -ex \
  && cd pcm_commons \
  && git checkout ${PCM_COMMONS_BRANCH} \
  && pip install -e . \
- && cd /home/ops/verdi/ops/opera-pcm
+ && cd /home/ops/verdi/ops \
+ && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git \
+ && cd CNM_product_delivery \
+ && git checkout ${PRODUCT_DELIVERY_BRANCH} \
+ && pip install -e . \
+ && cd /home/ops/verdi/ops/opera-pcm 
  #\
  #&& ./docker/run_tests.sh
 

@@ -1,0 +1,99 @@
+{
+  "label" : "Send CNM Notification Message to SNS or Kinesis",
+  "component":"tosca",
+  "submission_type":"iteration",
+  "enable_dedup": true,
+  "params" : [
+    { "name": "dataset_path",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]"
+    },
+    {
+      "name": "dataset_metadata",
+      "from": "dataset_jpath:_source.metadata"
+    },
+    {
+      "name": "localize_dataset",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: list(filter(lambda x: x.startswith('s3://'), ds['urls']))[0]"
+    },
+    {
+      "name": "staged_data_types",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "JSON of data types to a list of glob patterns"
+    },
+    {
+      "name": "provider_name",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Provider name for the CNM message",
+      "default": "JPL-OPERA"
+    },
+    {
+      "name": "trace",
+      "from": "submitter",
+      "placeholder": "Information on the message or who is sending it",
+      "type": "text"
+    },
+    {
+      "name": "checksum_type",
+      "from": "submitter",
+      "type": "enum",
+      "enumerables": ["md5", "sha1", "sha224", "sha256", "sha384", "sha3_224", "sha3_256", "sha3_384", "sha3_512", "sha512", "blake2b", "blake2s", "shake_128", "shake_256"],
+      "placeholder": "Specify checksum type to compute file hashes",
+      "default": "md5"
+    },
+    {
+      "name": "publisher_arn",
+      "from": "submitter",
+      "placeholder": "SNS or Kinesis ARN of dataset publisher (DAAC), e.g. ASF's SNS ARN",
+      "type": "text"
+    },
+    {
+      "name": "kinesis_role_arn",
+      "from": "submitter",
+      "placeholder": "If publishing to Kinesis, specify the ARN of the external IAM role",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "sqs_queue_url",
+      "from": "submitter",
+      "placeholder": "If publishing to an SQS, specify the SQS Queue URL of the DAAC",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "use_s3_uri_structure",
+      "from": "submitter",
+      "placeholder": "Indicate whether to use S3 URI structure, like s3://<bucket_name>/..",
+      "type": "boolean",
+      "default": "false"
+    },
+    {
+      "name": "product_type_key",
+      "from": "submitter",
+      "placeholder": "Specify metadata key for extracting product type. NISAR uses snake_case: product_type",
+      "type": "text",
+      "default": "ProductType",
+      "optional": true
+    },
+    {
+      "name": "data_version",
+      "from": "submitter",
+      "placeholder": "Data Version for the CNM message",
+      "type": "text",
+      "default": "1.0",
+      "optional": true
+    },
+    {
+      "name": "schema_version",
+      "from": "submitter",
+      "placeholder": "Version for the CNM message",
+      "type": "text",
+      "default": "1.6.1",
+      "optional": true
+    }
+  ]
+}

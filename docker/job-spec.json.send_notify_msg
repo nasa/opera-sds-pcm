@@ -1,0 +1,69 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/tools/send_notify_msg.sh",
+  "disk_usage":"10GB",
+  "imported_worker_files": {
+    "$HOME/.netrc": "/home/ops/.netrc",
+    "$HOME/.aws": "/home/ops/.aws"
+  },
+  "post": [ "hysds.triage.triage" ],
+  "soft_time_limit": 900,
+  "time_limit": 960,
+  "params": [
+    {
+      "name": "dataset_path",
+      "destination": "context"
+    },
+    {
+      "name": "dataset_metadata",
+      "destination": "context"
+    },
+    {
+      "name": "localize_dataset",
+      "destination": "localize"
+    },
+    {
+      "name": "staged_data_types",
+      "destination": "context"
+    },
+    {
+      "name": "provider_name",
+      "destination": "context"
+    },
+    {
+      "name": "trace",
+      "destination": "context"
+    },
+    {
+      "name": "checksum_type",
+      "destination": "context"
+    },
+    {
+      "name": "publisher_arn",
+      "destination": "context"
+    },
+    {
+      "name": "kinesis_role_arn",
+      "destination": "context"
+    },
+    {
+      "name": "sqs_queue_url",
+      "destination": "context"
+    },
+    {
+      "name": "use_s3_uri_structure",
+      "destination": "context"
+    },
+    {
+      "name": "product_type_key",
+      "destination": "context"
+    },
+    {
+      "name": "data_version",
+      "destination": "context"
+    },
+    {
+      "name": "schema_version",
+      "destination": "context"
+    }
+  ]
+}
