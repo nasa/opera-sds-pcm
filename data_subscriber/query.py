@@ -44,8 +44,12 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         additional_fields["revision_id"] = revision_id
         additional_fields["processing_mode"] = args.proc_mode
 
-        # If processing mode is historical, throw out any granules that do not intersect with North America
-        if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
+        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+            if does_bbox_intersect_north_america(granule["bounding_box"]):
+                additional_fields["intersects_north_america"] = True
+
+        # If processing mode is historical, skip granules that do not intersect with North America
+        if args.proc_mode == "historical" and additional_fields["intersects_north_america"] is False:
             logging.info(f"Processing mode is historical and the following granule does not intersect with \
 North America. Skipping processing. %s" % granule.get("granule_id"))
             continue
@@ -53,22 +57,18 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
         # Skip this granule if it's in the exclude list
         if args.exclude_regions is not None:
             (result, region) = does_granule_intersect_regions(granule, args.exclude_regions)
-            if result == True:
-                logging.info(f"The following granule intersects with the exclude region %. Skipping processing. %s"
+            if result is True:
+                logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
                              % (region, granule.get("granule_id")))
                 continue
 
         # Skip this granule if it's not in the include list
         if args.include_regions is not None:
             (result, region) = does_granule_intersect_regions(granule, args.include_regions)
-            if result == False:
-                logging.info(f"The following granule does not intersect with the include region %. Skipping processing. %s"
-                             % (region, granule.get("granule_id")))
+            if result is False:
+                logging.info(f"The following granule does not intersect with any include regions. Skipping processing %s"
+                             % granule.get("granule_id"))
                 continue
-
-        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
-            if does_bbox_intersect_north_america(granule["bounding_box"]):
-                additional_fields["intersects_north_america"] = True
 
         update_url_index(
             es_conn,
@@ -276,6 +276,6 @@ def does_granule_intersect_regions(granule, intersect_regions):
     for region in regions:
         region = region.strip()
         if does_bbox_intersect_region(granule["bounding_box"], region):
-            return (True, region)
+            return True, region
 
-    return (False, None)
+    return False, None
