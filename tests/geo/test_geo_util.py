@@ -1,4 +1,4 @@
-from geo.geo_util import does_bbox_intersect_north_america, Coordinate
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_california, Coordinate
 from util.geo_util import polygon_from_bounding_box, polygon_from_mgrs_tile
 
 from shapely.geometry import Polygon
@@ -26,6 +26,26 @@ def test_bbox_in_north_america():
         {"lon": -109.060253, "lat": 36.992426}
     ]
     assert does_bbox_intersect_north_america(bbox)
+
+def test_bbox_not_in_california():
+    # Las Vegas-ish bbox
+    bbox: list[Coordinate] = [
+        {"lon": -115.06839, "lat": 36.28141},
+        {"lon": -115.06839, "lat": 36.07957},
+        {"lon": -115.28098, "lat": 36.07957},
+        {"lon": -115.28098, "lat": 36.28141}
+    ]
+    assert not does_bbox_intersect_california(bbox)
+
+def test_bbox_in_california():
+    # JPL-ish bbox
+    bbox: list[Coordinate] = [
+        {"lon": -118.17243, "lat": 34.20025},
+        {"lon": -118.17243, "lat": 34.19831},
+        {"lon": -118.17558, "lat": 34.19831},
+        {"lon": -118.17558, "lat": 34.20025}
+    ]
+    assert does_bbox_intersect_california(bbox)
 
 def test_polygon_from_bounding_box_nominal():
     """Test application of margin to bounding box which does not cross anti-meridian"""

@@ -14,7 +14,7 @@ from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_s
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from data_subscriber.cmr import query_cmr, PRODUCT_PROVIDER_MAP
-from geo.geo_util import does_bbox_intersect_north_america
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -44,12 +44,27 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         additional_fields["revision_id"] = revision_id
         additional_fields["processing_mode"] = args.proc_mode
 
-        # If processing mode is historical,
-        # throw out any granules that do not intersect with North America
+        # If processing mode is historical, throw out any granules that do not intersect with North America
         if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
             logging.info(f"Processing mode is historical and the following granule does not intersect with \
 North America. Skipping processing. %s" % granule.get("granule_id"))
             continue
+
+        # Skip this granule if it's in the exclude list
+        if args.exclude_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, args.exclude_regions)
+            if result == True:
+                logging.info(f"The following granule intersects with the exclude region %. Skipping processing. %s"
+                             % (region, granule.get("granule_id")))
+                continue
+
+        # Skip this granule if it's not in the include list
+        if args.include_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, args.include_regions)
+            if result == False:
+                logging.info(f"The following granule does not intersect with the include region %. Skipping processing. %s"
+                             % (region, granule.get("granule_id")))
+                continue
 
         if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
@@ -255,3 +270,12 @@ def update_url_index(
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
+
+def does_granule_intersect_regions(granule, intersect_regions):
+    regions = intersect_regions.split(',')
+    for region in regions:
+        region = region.strip()
+        if does_bbox_intersect_region(granule["bounding_box"], region):
+            return (True, region)
+
+    return (False, None)
