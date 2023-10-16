@@ -104,7 +104,6 @@ def update_opera_packages():
 
     if role == "metrics":
         run_sds_watch_using_local_logstash_installation()
-        # update_bach_api()  # TODO chrisjrd: uncomment after testing
 
     if role != "grq":
         update_opera_pcm_settings()
