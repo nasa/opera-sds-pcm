@@ -438,6 +438,31 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  # sync bach-api and bach-ui code. start bach-ui
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
+      cd ~/mozart/ops
+      if [ "${var.use_artifactory}" = true ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
+        tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
+        rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
+      fi
+
+      export PATH=~/conda/bin:$PATH
+
+      cd bach-ui
+      ~/conda/bin/npm install --silent --no-progress
+      sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
+      ~/conda/bin/npm run build --silent
+    EOT
+    ]
+  }
+
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
