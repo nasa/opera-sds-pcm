@@ -104,7 +104,7 @@ stdout_logfile_backups=10
 startsecs=10
 
 [program:bach-api]
-directory={{ OPS_HOME }}/sciflo/ops/bach-api
+directory={{ OPS_HOME }}/metrics/ops/bach-api
 command=gunicorn -w4 -b 0.0.0.0:8875 --timeout=3600
         --logger-class accountability_api.setup_loggers.GunicornLogger
         --access-logfile -
