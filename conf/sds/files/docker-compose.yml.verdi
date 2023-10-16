@@ -1,0 +1,26 @@
+version: '2.2'
+services:
+  verdi:
+    hostname: verdi
+    container_name: verdi
+    environment:
+      - PYTHONPATH=/home/ops/verdi/ops/opera-pcm:$${PYTHONPATH}
+    image: hysds/verdi
+    init: true
+    user: "${HOST_UID}:${HOST_GID}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8085:8085"
+      - "9001:9001"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "${DATA_DIR}/work:/data/work"
+      - "${HYSDS_HOME}/verdi/etc:/home/ops/verdi/etc"
+      - "${HYSDS_HOME}/verdi/log:/home/ops/verdi/log"
+      - "${HOME}/.aws:/home/ops/.aws"
+      - "${HOME}/.boto:/home/ops/.boto"
+      - "${HOME}/.s3cfg:/home/ops/.s3cfg"
+      - "${HOME}/.netrc:/home/ops/.netrc"
+      - "${HYSDS_HOME}/verdi/etc/settings.yaml:/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+      - "${HYSDS_HOME}/verdi/ops/opera-pcm:/home/ops/verdi/ops/opera-pcm"
