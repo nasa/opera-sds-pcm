@@ -19,7 +19,7 @@
     },
     {
       "name": "localize_dataset",
-      "destination": "context"
+      "destination": "localize"
     },
     {
       "name": "staged_data_types",

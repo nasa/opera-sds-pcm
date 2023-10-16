@@ -28,7 +28,7 @@
       "from": "submitter",
       "type": "text",
       "placeholder": "Provider name for the CNM message",
-      "default": "JPL-NISAR"
+      "default": "JPL-OPERA"
     },
     {
       "name": "trace",
@@ -76,7 +76,7 @@
       "from": "submitter",
       "placeholder": "Specify metadata key for extracting product type. NISAR uses snake_case: product_type",
       "type": "text",
-      "default": "product_type",
+      "default": "ProductType",
       "optional": true
     },
     {
