@@ -293,6 +293,7 @@ variable "cnm_r_venue" {
 
 variable "trace" {
   type    = string
+  default = "opera-dev"
 }
 
 #The value of po_daac_delivery_proxy can be

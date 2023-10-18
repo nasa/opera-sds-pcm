@@ -294,7 +294,7 @@ variable "cnm_r_venue" {
 
 variable "trace" {
   type    = string
-  default = "dev"
+  default = "opera-dev"
 }
 
 # need to get SNS arn from PO DAAC and define
