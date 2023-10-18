@@ -198,7 +198,6 @@ def get_cslc_s1_static_simulated_output_filenames(dataset_match, pge_config, ext
             static_base_name = base_name_template.format(
                 burst_id=burst_id,
                 validity_ts='20140403',
-                creation_ts=creation_time,
                 sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
             )
@@ -289,7 +288,6 @@ def get_rtc_s1_static_simulated_output_filenames(dataset_match, pge_config, exte
             static_base_name = base_name_template.format(
                 burst_id=burst_id,
                 validity_ts='20140403',
-                creation_ts=creation_time,
                 sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
             )
@@ -306,7 +304,6 @@ def get_rtc_s1_static_simulated_output_filenames(dataset_match, pge_config, exte
             static_base_name = base_name_template.format(
                 burst_id=burst_id,
                 validity_ts='20140403',
-                creation_ts=creation_time,
                 sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
             )
@@ -317,7 +314,6 @@ def get_rtc_s1_static_simulated_output_filenames(dataset_match, pge_config, exte
             static_base_name = base_name_template.format(
                 burst_id=burst_id,
                 validity_ts='20140403',
-                creation_ts=creation_time,
                 sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
             )
