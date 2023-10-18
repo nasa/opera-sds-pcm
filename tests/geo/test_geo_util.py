@@ -33,7 +33,8 @@ def test_bbox_not_in_california():
         {"lon": -115.06839, "lat": 36.28141},
         {"lon": -115.06839, "lat": 36.07957},
         {"lon": -115.28098, "lat": 36.07957},
-        {"lon": -115.28098, "lat": 36.28141}
+        {"lon": -115.28098, "lat": 36.28141},
+        {"lon": -115.06839, "lat": 36.28141}
     ]
     assert not does_bbox_intersect_california(bbox)
 
@@ -43,7 +44,8 @@ def test_bbox_in_california():
         {"lon": -118.17243, "lat": 34.20025},
         {"lon": -118.17243, "lat": 34.19831},
         {"lon": -118.17558, "lat": 34.19831},
-        {"lon": -118.17558, "lat": 34.20025}
+        {"lon": -118.17558, "lat": 34.20025},
+        {"lon": -118.17243, "lat": 34.20025}
     ]
     assert does_bbox_intersect_california(bbox)
 
