@@ -301,6 +301,6 @@ PRODUCT_TYPES:
 
 # Settings to enable forceful ingest of PGE outputs (a.k.a disable no-clobber errors)
 # These settings only take effect on those PGE jobs that produce datasets that get
-# pushed to object storage.
+# pushed to object storage (this should not include input product download jobs).
 FORCE_INGEST:
-    INGEST_STAGED: !!bool false
+    INGEST_STAGED: !!bool true
