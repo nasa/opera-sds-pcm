@@ -57,11 +57,11 @@ setup(
             "cachetools==5.2.0"
         ],
         "test": [
-            "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz",
-            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.1.0.tar.gz",
-            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.0.9.tar.gz",
-            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.1.5.tar.gz",
-            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.1.tar.gz",
+            "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.3.tar.gz",
+            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.2.3.tar.gz",
+            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.0.16.tar.gz",
+            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.2.12.tar.gz",
+            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.3.tar.gz",
             "pyyaml",
             "backoff",
             "yamale",
