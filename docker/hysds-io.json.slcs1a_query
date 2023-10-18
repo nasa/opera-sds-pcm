@@ -91,6 +91,18 @@
       "optional": true
     },
     {
+      "name": "include_regions",
+      "from": "submitter",
+      "placeholder": "e.g. --include_regions",
+      "optional": true
+    },
+    {
+      "name": "exclude_regions",
+      "from": "submitter",
+      "placeholder": "e.g. --exclude_regions",
+      "optional": true
+    },
+    {
       "name": "transfer_protocol",
       "from": "submitter",
       "placeholder": "e.g. --transfer-protocol=auto",
