@@ -1,16 +1,18 @@
 import logging
+import netrc
 from datetime import datetime
 
 import requests
 from requests.auth import HTTPBasicAuth
 
 
-def supply_token(edl: str, username: str, password: str) -> str:
+def supply_token(edl: str) -> str:
     """
     :param edl: Earthdata login (EDL) endpoint
     :param username: EDL username
     :param password:EDL password
     """
+    username, _, password = netrc.netrc().authenticators(edl)
     token_list = _get_tokens(edl, username, password)
 
     _revoke_expired_tokens(token_list, edl, username, password)

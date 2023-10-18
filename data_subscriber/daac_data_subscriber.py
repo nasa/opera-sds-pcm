@@ -13,18 +13,25 @@ from urllib.parse import urlparse
 
 from smart_open import open
 
+from data_subscriber.aws_token import supply_token
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.query import update_url_index, run_query
-from data_subscriber.survey import run_survey
+from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
-from data_subscriber.aws_token import supply_token
+from data_subscriber.survey import run_survey
 from util.conf_util import SettingsConf
 
-PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
-                        "HLSS30": "LPCLOUD",
-                        "SENTINEL-1A_SLC": "ASF",
-                        "SENTINEL-1B_SLC": "ASF"}
+PRODUCT_PROVIDER_MAP = {
+    "HLSL30": "LPCLOUD",
+    "HLSS30": "LPCLOUD",
+    "SENTINEL-1A_SLC": "ASF",
+    "SENTINEL-1B_SLC": "ASF",
+    "OPERA_L2_RTC-S1_PROVISIONAL_V0": "ASF-RTC",
+    "OPERA_L2_RTC-S1_V1": "ASF-RTC",
+    "OPERA_CSLC-S1_PROVISIONAL_V0": "ASF-CSLC",
+    "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
+}
 
 
 async def run(argv: list[str]):
@@ -39,14 +46,8 @@ async def run(argv: list[str]):
     edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
     netloc = urlparse(f"https://{edl}").netloc
-    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
 
-    if provider == "LPCLOUD":
-        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
-    elif provider == "ASF":
-        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
-    else:
-        raise Exception("Unreachable")
+    es_conn = supply_es_conn(args)
 
     if args.file:
         with open(args.file, "r") as f:
@@ -59,24 +60,11 @@ async def run(argv: list[str]):
 
     logging.info(f"{argv=}")
 
-    is_running_outside_verdi_worker_context = not Path("_job.json").exists()
-    if is_running_outside_verdi_worker_context:
-        logging.info("Running outside of job context. Generating random job ID")
-        job_id = uuid.uuid4()
-    else:
-        with open("_job.json", "r+") as job:
-            logging.info("job_path: {}".format(job))
-            local_job_json = json.load(job)
-            logging.info(f"{local_job_json=!s}")
-        job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
+    job_id = supply_job_id()
     logging.info(f"{job_id=}")
 
-    logging.info(f"{args.subparser_name=}")
-    if not (args.subparser_name in ["survey", "query", "download", "full"]):
-        raise Exception(f"Unsupported operation. {args.subparser_name=}")
-
     username, _, password = netrc.netrc().authenticators(edl)
-    token = supply_token(edl, username, password)
+    token = supply_token(edl)
 
     results = {}
     if args.subparser_name == "survey":
@@ -90,6 +78,37 @@ async def run(argv: list[str]):
     logging.info("END")
 
     return results
+
+
+def supply_job_id():
+    is_running_outside_verdi_worker_context = not Path("_job.json").exists()
+    if is_running_outside_verdi_worker_context:
+        logging.info("Running outside of job context. Generating random job ID")
+        job_id = uuid.uuid4()
+    else:
+        with open("_job.json", "r+") as job:
+            logging.info("job_path: {}".format(job))
+            local_job_json = json.load(job)
+            logging.info(f"{local_job_json=!s}")
+        job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
+
+    return job_id
+
+
+def supply_es_conn(args):
+    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
+    if provider == "LPCLOUD":
+        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+    elif provider in ("ASF", "ASF-SLC"):
+        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+    elif provider == "ASF-RTC":
+        es_conn = RTCProductCatalog(logging.getLogger(__name__))
+    elif provider == "ASF-CSLC":
+        raise NotImplementedError()
+    else:
+        raise AssertionError(f"Unsupported {provider=}")
+
+    return es_conn
 
 
 def create_parser():
@@ -113,15 +132,30 @@ def create_parser():
 
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
-                           "choices": ["LPCLOUD", "ASF"],
+                           "choices": ["LPCLOUD", "ASF", "ASF-SLC", "ASF-RTC", "ASF-CSLC"],
                            "default": "LPCLOUD",
                            "help": "Specify a provider for collection search. Default is LPCLOUD."}}
 
-    collection = {"positionals": ["-c", "--collection-shortname"],
-                  "kwargs": {"dest": "collection",
-                             "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC", "SENTINEL-1B_SLC"],
-                             "required": True,
-                             "help": "The collection shortname for which you want to retrieve data."}}
+    collection = {
+        "positionals": ["-c", "--collection-shortname"],
+        "kwargs": {
+            "dest": "collection",
+            "choices": [
+                "HLSL30",
+                "HLSS30",
+                "SENTINEL-1A_SLC",
+                "SENTINEL-1B_SLC",
+                "OPERA_L2_RTC_S1",
+                "OPERA_L2_RTC-S1_PROVISIONAL_V0",
+                "OPERA_L2_RTC-S1_V1",
+                "OPERA_CSLC_S1",
+                "OPERA_CSLC-S1_PROVISIONAL_V0",
+                "OPERA_L2_CSLC-S1_V1"
+            ],
+            "required": True,
+            "help": "The collection shortname for which you want to retrieve data."
+        }
+    }
 
     start_date = {"positionals": ["-s", "--start-date"],
                   "kwargs": {"dest": "start_date",
