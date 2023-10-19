@@ -29,11 +29,14 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
         granules = granules[:1]
 
-    download_urls: list[str] = []
-
     # group URLs by this mapping func. E.g. group URLs by granule_id
     keyfunc = form_batch_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
     batch_id_to_urls_map = defaultdict(set)
+
+    # If processing mode is historical, apply include/exclude-region filtering
+    if args.proc_mode == "historical":
+        logging.info(f"Processing mode is historical so applying include and exclude regions...")
+        granules = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
     for granule in granules:
 
@@ -47,26 +50,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
-
-        # If processing mode is historical, apply include/exclude-region filtering
-        if args.proc_mode == "historical":
-            logging.info(f"Processing mode is historical so applying include and exclude regions...")
-
-            # Skip this granule if it's not in the include list
-            if args.include_regions is not None:
-                (result, region) = does_granule_intersect_regions(granule, args.include_regions)
-                if result is False:
-                    logging.info(f"The following granule does not intersect with any include regions. Skipping processing %s"
-                                 % granule.get("granule_id"))
-                    continue
-
-            # Skip this granule if it's in the exclude list
-            if args.exclude_regions is not None:
-                (result, region) = does_granule_intersect_regions(granule, args.exclude_regions)
-                if result is True:
-                    logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
-                        % (region, granule.get("granule_id")))
-                    continue
 
         update_url_index(
             es_conn,
@@ -277,3 +260,31 @@ def does_granule_intersect_regions(granule, intersect_regions):
             return True, region
 
     return False, None
+
+def filter_granules_by_regions(granules, include_regions, exclude_regions):
+    '''Filters granules based on include and exclude regions lists'''
+    filtered = []
+
+    for granule in granules:
+
+        # Skip this granule if it's not in the include list
+        if include_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, include_regions)
+            if result is False:
+                logging.info(
+                    f"The following granule does not intersect with any include regions. Skipping processing %s"
+                    % granule.get("granule_id"))
+                continue
+
+        # Skip this granule if it's in the exclude list
+        if exclude_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, exclude_regions)
+            if result is True:
+                logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
+                             % (region, granule.get("granule_id")))
+                continue
+
+        # If both filters don't apply, add this granule to the list
+        filtered.append(granule)
+
+    return filtered
