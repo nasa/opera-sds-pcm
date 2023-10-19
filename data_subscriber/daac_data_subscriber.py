@@ -27,9 +27,7 @@ PRODUCT_PROVIDER_MAP = {
     "HLSS30": "LPCLOUD",
     "SENTINEL-1A_SLC": "ASF",
     "SENTINEL-1B_SLC": "ASF",
-    "OPERA_L2_RTC-S1_PROVISIONAL_V0": "ASF-RTC",
     "OPERA_L2_RTC-S1_V1": "ASF-RTC",
-    "OPERA_CSLC-S1_PROVISIONAL_V0": "ASF-CSLC",
     "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
 }
 
@@ -139,11 +137,7 @@ def create_parser():
                 "HLSS30",
                 "SENTINEL-1A_SLC",
                 "SENTINEL-1B_SLC",
-                "OPERA_L2_RTC_S1",
-                "OPERA_L2_RTC-S1_PROVISIONAL_V0",
                 "OPERA_L2_RTC-S1_V1",
-                "OPERA_CSLC_S1",
-                "OPERA_CSLC-S1_PROVISIONAL_V0",
                 "OPERA_L2_CSLC-S1_V1"
             ],
             "required": True,
