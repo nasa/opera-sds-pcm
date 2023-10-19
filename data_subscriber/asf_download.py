@@ -1,13 +1,15 @@
-import logging
 import json
+import logging
 import os
+from datetime import datetime, timedelta
 from pathlib import PurePath, Path
+
 import requests
 import requests.utils
-from datetime import datetime, timedelta
-from data_subscriber import ionosphere_download
-from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_chunk_id, form_batch_id
 
+from data_subscriber import ionosphere_download
+from data_subscriber.download import DaacDownload
+from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_chunk_id, form_batch_id
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
@@ -16,12 +18,10 @@ from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
                                     T_ORBIT,
                                     ORBIT_PAD)
 
-from data_subscriber.download import DaacDownload
-
 logger = logging.getLogger(__name__)
 
-class DaacDownloadAsf(DaacDownload):
 
+class DaacDownloadAsf(DaacDownload):
     def perform_download(self,
             session: requests.Session,
             es_conn,
@@ -30,7 +30,6 @@ class DaacDownloadAsf(DaacDownload):
             token,
             job_id
     ):
-
         for download in downloads:
             if not _has_url(download):
                 continue
