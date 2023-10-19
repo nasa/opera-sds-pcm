@@ -8,8 +8,7 @@ from more_itertools import first_true
 
 logger = logging.getLogger(__name__)
 
-# TODO chrisjrd: refactor. this is a duplicate. kind of. (value here maps to CMR provider query param)
-PRODUCT_PROVIDER_MAP = {
+COLLECTION_TO_PROVIDER_MAP = {
     "HLSL30": "LPCLOUD",
     "HLSS30": "LPCLOUD",
     "SENTINEL-1A_SLC": "ASF",
@@ -17,6 +16,25 @@ PRODUCT_PROVIDER_MAP = {
     "OPERA_L2_RTC-S1_V1": "ASF",
     "OPERA_L2_CSLC-S1_V1": "ASF"
 }
+
+CMR_COLLECTION_TO_PROVIDER_TYPE_MAP = {
+    "HLSL30": "LPCLOUD",
+    "HLSS30": "LPCLOUD",
+    "SENTINEL-1A_SLC": "ASF",
+    "SENTINEL-1B_SLC": "ASF",
+    "OPERA_L2_RTC-S1_V1": "ASF-RTC",
+    "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
+}
+
+COLLECTION_TO_PRODUCT_TYPE_MAP = {
+    "HLSL30": "HLS",
+    "HLSS30": "HLS",
+    "SENTINEL-1A_SLC": "SLC",
+    "SENTINEL-1B_SLC": "SLC",
+    "OPERA_L2_RTC-S1_V1": "RTC",
+    "OPERA_L2_CSLC-S1_V1": "CSLC"
+}
+
 
 
 def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
@@ -34,7 +52,7 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
     params = {
         "page_size": 1,  # TODO chrisjrd: set back to 2000 before commit
         "sort_key": "-start_date",
-        "provider": PRODUCT_PROVIDER_MAP[args.collection],
+        "provider": COLLECTION_TO_PROVIDER_MAP[args.collection],
         "ShortName[]": [args.collection],
         "token": token,
         "bounding_box": bounding_box

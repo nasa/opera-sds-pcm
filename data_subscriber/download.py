@@ -11,7 +11,7 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from data_subscriber.cmr import PRODUCT_PROVIDER_MAP
+from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
@@ -58,7 +58,7 @@ class DaacDownload:
 
     @staticmethod
     def get_download_object(args):
-        provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
+        provider = COLLECTION_TO_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
         if provider == "LPCLOUD":
             from data_subscriber.lpdaac_download import DaacDownloadLpdaac
             return DaacDownloadLpdaac(provider)

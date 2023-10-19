@@ -5,12 +5,13 @@ from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
+from typing import Literal
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked
 
-from data_subscriber.cmr import query_cmr
+from data_subscriber.cmr import query_cmr, COLLECTION_TO_PRODUCT_TYPE_MAP
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
@@ -19,15 +20,6 @@ from geo.geo_util import does_bbox_intersect_north_america
 logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-
-PRODUCT_PROVIDER_MAP = {
-    "HLSL30": "LPCLOUD",
-    "HLSS30": "LPCLOUD",
-    "SENTINEL-1A_SLC": "ASF",
-    "SENTINEL-1B_SLC": "ASF",
-    "OPERA_L2_RTC-S1_V1": "ASF-RTC",
-    "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
-}
 
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
@@ -42,9 +34,9 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         granules = granules[:1]
 
     # group URLs by this mapping func. E.g. group URLs by granule_id
-    if PRODUCT_PROVIDER_MAP[args.collection] in ("LPCLOUD", "ASF-RTC", "ASF-CSLC"):
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] in ("HLS", "RTC", "CSLC"):
         keyfunc = form_batch_id
-    elif PRODUCT_PROVIDER_MAP[args.collection] in ("ASF", "ASF-SLC"):
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
         keyfunc = _slc_url_to_chunk_id
     else:
         raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
@@ -66,12 +58,12 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 North America. Skipping processing. %s" % granule.get("granule_id"))
             continue
 
-        if PRODUCT_PROVIDER_MAP[args.collection] in ("ASF", "ASF-SLC"):
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
-        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-RTC":
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             pass
-        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-CSLC":
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
             raise NotImplementedError()
         else:
             pass
@@ -87,15 +79,15 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
             **additional_fields
         )
 
-        if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD":
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
             spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
             update_granule_index(spatial_catalog_conn, granule)
-        elif PRODUCT_PROVIDER_MAP[args.collection] in ("ASF", "ASF-SLC"):
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
             update_granule_index(spatial_catalog_conn, granule)
-        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-RTC":
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             pass
-        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-CSLC":
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
             raise NotImplementedError()
         else:
             pass
@@ -138,7 +130,7 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
                 func=partial(
                     submit_download_job,
                     release_version=args.release_version,
-                    provider=PRODUCT_PROVIDER_MAP[args.collection],
+                    product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection],
                     params=[
                         {
                             "name": "batch_ids",
@@ -218,15 +210,8 @@ def get_query_timerange(args, now: datetime, silent=False):
     return query_timerange
 
 
-def submit_download_job(*, release_version=None, provider, params: list[dict[str, str]], job_queue: str) -> str:
-    provider_to_product_type_map = {
-        "LPCLOUD": "hls",
-        "ASF": "slc",
-        "ASF-SLC": "slc",
-        "ASF-RTC": "rtc",
-        "ASF-CSLC": "cslc"
-    }
-    job_spec_str = f"job-{provider_to_product_type_map[provider]}_download:{release_version}"
+def submit_download_job(*, release_version=None, product_type: Literal["HLS", "SLC", "RTC", "CSLC"], params: list[dict[str, str]], job_queue: str) -> str:
+    job_spec_str = f"job-{product_type.lower()}_download:{release_version}"
 
     return _submit_mozart_job_minimal(
         hysdsio={
@@ -235,7 +220,7 @@ def submit_download_job(*, release_version=None, provider, params: list[dict[str
             "job-specification": job_spec_str
         },
         job_queue=job_queue,
-        provider_str=provider_to_product_type_map[provider]
+        provider_str=product_type.lower()
     )
 
 

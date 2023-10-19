@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from smart_open import open
 
 from data_subscriber.aws_token import supply_token
+from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.query import update_url_index, run_query
@@ -21,15 +22,6 @@ from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.survey import run_survey
 from util.conf_util import SettingsConf
-
-PRODUCT_PROVIDER_MAP = {
-    "HLSL30": "LPCLOUD",
-    "HLSS30": "LPCLOUD",
-    "SENTINEL-1A_SLC": "ASF",
-    "SENTINEL-1B_SLC": "ASF",
-    "OPERA_L2_RTC-S1_V1": "ASF-RTC",
-    "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
-}
 
 
 async def run(argv: list[str]):
@@ -88,7 +80,7 @@ def supply_job_id():
 
 
 def supply_es_conn(args):
-    provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
+    provider = CMR_COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection] if hasattr(args, "collection") else args.provider
     if provider == "LPCLOUD":
         es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
     elif provider in ("ASF", "ASF-SLC"):
