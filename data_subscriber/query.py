@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+import os
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
@@ -15,6 +16,8 @@ from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_s
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from data_subscriber.cmr import query_cmr, PRODUCT_PROVIDER_MAP
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region
+from util.conf_util import SettingsConf
+from util.pge_util import download_object_from_s3
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -36,6 +39,10 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     # If processing mode is historical, apply include/exclude-region filtering
     if args.proc_mode == "historical":
         logging.info(f"Processing mode is historical so applying include and exclude regions...")
+
+        # Fetch all necessary geojson files from S3
+        localize_geojson(args)
+
         granules = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
     for granule in granules:
@@ -251,6 +258,26 @@ def update_url_index(
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
+
+def localize_geojson(args):
+
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+    geojsons = []
+
+    if args.include_regions is not None:
+        geojsons.extend(args.include_regions.split(","))
+
+    if args.exclude_regions is not None:
+        geojsons.extend(args.exclude_regions.split(","))
+
+    try:
+        for geojson in geojsons:
+            key = geojson.strip() + ".geojson"
+            #output_filepath = os.path.join(working_dir, key)
+            download_object_from_s3(bucket, key, key, filetype="geojson")
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
 
 def does_granule_intersect_regions(granule, intersect_regions):
     regions = intersect_regions.split(',')

@@ -32,6 +32,8 @@ SHORTNAME_FILTERS:
     - S2B # Sentinel-2B
 #   - S2C # Sentinel-2C
 
+GEOJSON_BUCKET: "opera-ancillaries"
+
 # Base API urls and login endpoints for the different DAAC environments.
 DAAC_ENVIRONMENTS:
   OPS:

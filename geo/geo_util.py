@@ -81,8 +81,9 @@ def _load_region_opera_geometry_collection(region) -> ogr.Geometry:
 @cache
 def _cached_load_region_opera_geojson(region) -> dict:
     """Loads a RFC7946 GeoJSON file."""
-    with Path(__file__).parent.joinpath(region + '.geojson').open() as fp:
-        geojson_obj: dict = json.load(fp)
+    geojson = region + '.geojson'
+    fp = open(geojson)
+    geojson_obj: dict = json.load(fp)
 
-    logger.info("Loaded geojson")
+    logger.info("Loaded " + geojson)
     return geojson_obj
