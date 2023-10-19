@@ -1,5 +1,4 @@
 import logging
-import logging
 import shutil
 from datetime import datetime
 from pathlib import PurePath, Path
@@ -100,10 +99,10 @@ class DaacDownload:
                     "granule_id": "DUMMY_ID",
                     "revision_id": 2,
                     "s3_url": "s3://"
-                              "asf-cumulus-test-opera-products/"
+                              "asf-cumulus-prod-opera-products/"
                               "OPERA_L2_RTC-S1/"
-                              "OPERA_L2_RTC-S1_T019-039544-IW1_20190701T001817Z_20230525T074957Z_S1A_30_v0.0/"
-                              "OPERA_L2_RTC-S1_T019-039544-IW1_20190701T001817Z_20230525T074957Z_S1A_30_v0.0.h5"
+                              "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0/"
+                              "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0.h5"
                 }
             ]
             logger.info(f"{len(list(all_pending_downloads))=}")
