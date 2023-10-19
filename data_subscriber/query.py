@@ -8,15 +8,29 @@ from pathlib import Path
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
-from more_itertools import map_reduce, chunked
+from more_itertools import chunked
 
+from data_subscriber.cmr import query_cmr
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
-from data_subscriber.cmr import query_cmr, PRODUCT_PROVIDER_MAP
 from geo.geo_util import does_bbox_intersect_north_america
 
+logger = logging.getLogger(__name__)
+
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+
+PRODUCT_PROVIDER_MAP = {
+    "HLSL30": "LPCLOUD",
+    "HLSS30": "LPCLOUD",
+    "SENTINEL-1A_SLC": "ASF",
+    "SENTINEL-1B_SLC": "ASF",
+    "OPERA_L2_RTC-S1_PROVISIONAL_V0": "ASF-RTC",
+    "OPERA_L2_RTC-S1_V1": "ASF-RTC",
+    "OPERA_CSLC-S1_PROVISIONAL_V0": "ASF-CSLC",
+    "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
+}
+
 
 async def run_query(args, token, es_conn, cmr, job_id, settings):
     query_dt = datetime.now()
@@ -26,17 +40,20 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     granules = query_cmr(args, token, cmr, settings, query_timerange, now)
 
     if args.smoke_run:
-        logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
+        logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
         granules = granules[:1]
 
-    download_urls: list[str] = []
-
     # group URLs by this mapping func. E.g. group URLs by granule_id
-    keyfunc = form_batch_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
+    if PRODUCT_PROVIDER_MAP[args.collection] in ("LPCLOUD", "ASF-RTC", "ASF-CSLC"):
+        keyfunc = form_batch_id
+    elif PRODUCT_PROVIDER_MAP[args.collection] in ("ASF", "ASF-SLC"):
+        keyfunc = _slc_url_to_chunk_id
+    else:
+        raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
+
     batch_id_to_urls_map = defaultdict(set)
 
     for granule in granules:
-
         granule_id = granule.get("granule_id")
         revision_id = granule.get("revision_id")
 
@@ -47,13 +64,19 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         # If processing mode is historical,
         # throw out any granules that do not intersect with North America
         if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
-            logging.info(f"Processing mode is historical and the following granule does not intersect with \
+            logger.info(f"Processing mode is historical and the following granule does not intersect with \
 North America. Skipping processing. %s" % granule.get("granule_id"))
             continue
 
-        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+        if PRODUCT_PROVIDER_MAP[args.collection] in ("ASF", "ASF-SLC"):
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
+        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-RTC":
+            pass
+        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-CSLC":
+            raise NotImplementedError()
+        else:
+            pass
 
         update_url_index(
             es_conn,
@@ -69,40 +92,38 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
         if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD":
             spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
             update_granule_index(spatial_catalog_conn, granule)
-        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+        elif PRODUCT_PROVIDER_MAP[args.collection] in ("ASF", "ASF-SLC"):
             spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
             update_granule_index(spatial_catalog_conn, granule)
+        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-RTC":
+            pass
+        elif PRODUCT_PROVIDER_MAP[args.collection] == "ASF-CSLC":
+            raise NotImplementedError()
+        else:
+            pass
 
         if granule.get("filtered_urls"):
             for filter_url in granule.get("filtered_urls"):
                 batch_id_to_urls_map[keyfunc(granule_id, revision_id)].add(filter_url)
 
     if args.subparser_name == "full":
-        logging.info(f"{args.subparser_name=}. Skipping download job submission.")
+        logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
         return
 
     if args.no_schedule_download:
-        logging.info(f"{args.no_schedule_download=}. Skipping download job submission.")
+        logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
         return
 
     if not args.chunk_size:
-        logging.info(f"{args.chunk_size=}. Skipping download job submission.")
+        logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
         return
 
-    '''batch_id_to_urls_map: dict[str, set[str]] = map_reduce(
-        iterable=granules,
-        keyfunc=keyfunc,
-        valuefunc=lambda url: url,
-        reducefunc=set
-    )'''
-
-    logging.info(f"{batch_id_to_urls_map=}")
+    logger.info(f"{batch_id_to_urls_map=}")
     job_submission_tasks = []
-    loop = asyncio.get_event_loop()
-    logging.info(f"{args.chunk_size=}")
+    logger.info(f"{args.chunk_size=}")
     for batch_chunk in chunked(batch_id_to_urls_map.items(), n=args.chunk_size):
         chunk_id = str(uuid.uuid4())
-        logging.info(f"{chunk_id=}")
+        logger.info(f"{chunk_id=}")
 
         chunk_batch_ids = []
         chunk_urls = []
@@ -110,11 +131,11 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
             chunk_batch_ids.append(batch_id)
             chunk_urls.extend(urls)
 
-        logging.info(f"{chunk_batch_ids=}")
-        logging.info(f"{chunk_urls=}")
+        logger.info(f"{chunk_batch_ids=}")
+        logger.info(f"{chunk_urls=}")
 
         job_submission_tasks.append(
-            loop.run_in_executor(
+            asyncio.get_event_loop().run_in_executor(
                 executor=None,
                 func=partial(
                     submit_download_job,
@@ -173,13 +194,13 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
         )
 
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
-    logging.info(f"{len(results)=}")
-    logging.info(f"{results=}")
+    logger.info(f"{len(results)=}")
+    logger.info(f"{results=}")
 
     succeeded = [job_id for job_id in results if isinstance(job_id, str)]
-    logging.info(f"{succeeded=}")
+    logger.info(f"{succeeded=}")
     failed = [e for e in results if isinstance(e, Exception)]
-    logging.info(f"{failed=}")
+    logger.info(f"{failed=}")
 
     return {
         "success": succeeded,
@@ -189,26 +210,35 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
 
 def get_query_timerange(args, now: datetime, silent=False):
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
+    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
     start_date = args.start_date if args.start_date else now_minus_minutes_date
     end_date = args.end_date if args.end_date else now_date
 
     query_timerange = DateTimeRange(start_date, end_date)
     if not silent:
-        logging.info(f"{query_timerange=}")
+        logger.info(f"{query_timerange=}")
     return query_timerange
 
-def submit_download_job(*, release_version=None, provider="LPCLOUD", params: list[dict[str, str]],
-                        job_queue: str) -> str:
-    provider_map = {"LPCLOUD": "hls", "ASF": "slc"}
-    job_spec_str = f"job-{provider_map[provider]}_download:{release_version}"
 
-    return _submit_mozart_job_minimal(hysdsio={"id": str(uuid.uuid4()),
-                                               "params": params,
-                                               "job-specification": job_spec_str},
-                                      job_queue=job_queue,
-                                      provider_str=provider_map[provider])
+def submit_download_job(*, release_version=None, provider, params: list[dict[str, str]], job_queue: str) -> str:
+    provider_to_product_type_map = {
+        "LPCLOUD": "hls",
+        "ASF": "slc",
+        "ASF-SLC": "slc",
+        "ASF-RTC": "rtc",
+        "ASF-CSLC": "cslc"
+    }
+    job_spec_str = f"job-{provider_to_product_type_map[provider]}_download:{release_version}"
+
+    return _submit_mozart_job_minimal(
+        hysdsio={
+            "id": str(uuid.uuid4()),
+            "params": params,
+            "job-specification": job_spec_str
+        },
+        job_queue=job_queue,
+        provider_str=provider_to_product_type_map[provider]
+    )
 
 
 def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str) -> str:
