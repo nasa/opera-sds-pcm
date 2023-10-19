@@ -36,6 +36,10 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     keyfunc = form_batch_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
     batch_id_to_urls_map = defaultdict(set)
 
+    # If we are processing ASF collection, we're gonna need the north america geojson
+    if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+        localize_geojsons([_NORTH_AMERICA])
+
     # If processing mode is historical, apply include/exclude-region filtering
     if args.proc_mode == "historical":
         logging.info(f"Processing mode is historical so applying include and exclude regions...")
@@ -55,7 +59,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         additional_fields["processing_mode"] = args.proc_mode
 
         if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
-            localize_geojsons([_NORTH_AMERICA])
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
 
