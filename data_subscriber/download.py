@@ -1,25 +1,20 @@
-import itertools
-import json
+import logging
 import logging
 import shutil
-from collections import defaultdict, namedtuple
 from datetime import datetime
 from pathlib import PurePath, Path
-from typing import Any, Iterable
+from typing import Iterable
 
 import boto3
-import dateutil.parser
 import requests
 import requests.utils
 import validators
 from cachetools.func import ttl_cache
-from smart_open import open
 
 import extractor.extract
-from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url
 from data_subscriber.cmr import PRODUCT_PROVIDER_MAP
 from data_subscriber.query import DateTimeRange
-
+from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
@@ -48,9 +43,11 @@ class SessionWithHeaderRedirection(requests.Session):
                     original_parsed.hostname != self.auth_host:
                 del headers["Authorization"]
 
+
 def run_download(args, token, es_conn, netloc, username, password, job_id):
     download = DaacDownload.get_download_object(args)
     download.run_download(args, token, es_conn, netloc, username, password, job_id)
+
 
 class DaacDownload:
 
@@ -66,9 +63,16 @@ class DaacDownload:
         if provider == "LPCLOUD":
             from data_subscriber.lpdaac_download import DaacDownloadLpdaac
             return DaacDownloadLpdaac(provider)
-        elif provider == "ASF":
+        elif provider in ("ASF", "ASF-SLC"):
             from data_subscriber.asf_download import DaacDownloadAsf
             return DaacDownloadAsf(provider)
+        elif provider == "ASF-RTC":
+            # TODO chrisjrd: replace with dedicated downloaded for RTC types from ASF
+            # raise NotImplementedError()
+            from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
+            return AsfDaacRtcDownload(provider)
+        elif provider == "ASF-CSLC":
+            raise NotImplementedError()
 
         raise Exception("Unknown product provider: " + provider)
 
@@ -84,17 +88,30 @@ class DaacDownload:
 
         else:
             download_timerange = self.get_download_timerange(args)
-            all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-                dateutil.parser.isoparse(download_timerange.start_date),
-                dateutil.parser.isoparse(download_timerange.end_date),
-                args.use_temporal
-            )
+            # TODO chrisjrd: uncomment
+            # all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
+            #     dateutil.parser.isoparse(download_timerange.start_date),
+            #     dateutil.parser.isoparse(download_timerange.end_date),
+            #     args.use_temporal
+            # )
+            # TODO chrisjrd: remove dummy data after testing
+            all_pending_downloads: Iterable[dict] = [
+                {
+                    "granule_id": "DUMMY_ID",
+                    "revision_id": 2,
+                    "s3_url": "s3://"
+                              "asf-cumulus-test-opera-products/"
+                              "OPERA_L2_RTC-S1/"
+                              "OPERA_L2_RTC-S1_T019-039544-IW1_20190701T001817Z_20230525T074957Z_S1A_30_v0.0/"
+                              "OPERA_L2_RTC-S1_T019-039544-IW1_20190701T001817Z_20230525T074957Z_S1A_30_v0.0.h5"
+                }
+            ]
             logger.info(f"{len(list(all_pending_downloads))=}")
 
             downloads = all_pending_downloads
             if args.batch_ids:
                 logger.info(f"Filtering pending downloads by {args.batch_ids=}")
-                id_func = _to_batch_id if self.provider == "LPCLOUD" else _to_orbit_number
+                id_func = _to_batch_id if self.provider in ("LPCLOUD", "ASF-RTC", "ASF-CSLC") else _to_orbit_number
                 downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
                 logger.info(f"{len(downloads)=}")
                 logger.debug(f"{downloads=}")
