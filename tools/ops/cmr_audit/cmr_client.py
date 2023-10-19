@@ -17,7 +17,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         page_size = 2000  # default is 10, max is 2000
         data += f"&page_size={page_size}"
 
-        logger.debug(f"async_post_cmr({url=}..., {len(data)=:,}, {data[-250:]=}")
+        logger.debug(f"async_cmr_post({url=}..., {len(data)=:,}, {data[-250:]=}")
 
         cmr_granules = set()
         cmr_granules_detailed = {}
@@ -76,5 +76,5 @@ def giveup_cmr_requests(e):
     jitter=None,
     giveup=giveup_cmr_requests
 )
-async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers):
-    return await session.post(url, data=data, headers=headers, raise_for_status=True)
+async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers, raise_for_status=True):
+    return await session.post(url, data=data, headers=headers, raise_for_status=raise_for_status)
