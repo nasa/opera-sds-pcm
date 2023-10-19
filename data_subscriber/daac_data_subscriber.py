@@ -35,8 +35,6 @@ PRODUCT_PROVIDER_MAP = {
 
 
 async def run(argv: list[str]):
-    parser = create_parser()
-    args = parser.parse_args(argv[1:])
     try:
         validate(args)
     except ValueError as v:
@@ -54,14 +52,10 @@ async def run(argv: list[str]):
             update_url_index(es_conn, f.readlines(), None, None, None)
         exit(0)
 
-    loglevel = "DEBUG" if args.verbose else "INFO"
-    logging.basicConfig(level=loglevel)
-    logging.info("Log level set to " + loglevel)
-
-    logging.info(f"{argv=}")
+    logger.info(f"{argv=}")
 
     job_id = supply_job_id()
-    logging.info(f"{job_id=}")
+    logger.info(f"{job_id=}")
 
     username, _, password = netrc.netrc().authenticators(edl)
     token = supply_token(edl)
@@ -74,8 +68,8 @@ async def run(argv: list[str]):
     if args.subparser_name == "download" or args.subparser_name == "full":
         results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
 
-    logging.info(f"{results=}")
-    logging.info("END")
+    logger.info(f"{results=}")
+    logger.info("END")
 
     return results
 
@@ -83,13 +77,13 @@ async def run(argv: list[str]):
 def supply_job_id():
     is_running_outside_verdi_worker_context = not Path("_job.json").exists()
     if is_running_outside_verdi_worker_context:
-        logging.info("Running outside of job context. Generating random job ID")
+        logger.info("Running outside of job context. Generating random job ID")
         job_id = uuid.uuid4()
     else:
         with open("_job.json", "r+") as job:
-            logging.info("job_path: {}".format(job))
+            logger.info("job_path: {}".format(job))
             local_job_json = json.load(job)
-            logging.info(f"{local_job_json=!s}")
+            logger.info(f"{local_job_json=!s}")
         job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
 
     return job_id
@@ -339,6 +333,14 @@ def _validate_minutes(minutes):
     except ValueError:
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
+
+parser = create_parser()
+args = parser.parse_args(sys.argv[1:])
+
+loglevel = "DEBUG" if args.verbose else "INFO"
+logging.basicConfig(level=loglevel)
+logger = logging.getLogger(__name__)
+logger.info("Log level set to " + loglevel)
 
 if __name__ == "__main__":
     asyncio.run(run(sys.argv))
