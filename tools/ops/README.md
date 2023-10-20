@@ -37,6 +37,7 @@ See `cmr_audit/cmr_audit.py --help`, documentation comments, and source code for
 1. Git.
 1. Python (see `.python-version`).
 1. A clone of the `opera-sds-pcm` repo.
+2. slc_audit.py requires north_america_opera.geojson file to be present in the current working directory
 
 ### Installation
 
@@ -44,6 +45,7 @@ See `cmr_audit/cmr_audit.py --help`, documentation comments, and source code for
     1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
 2. Activate the virtual environment and install the script dependencies referenced in the imports section as needed.
     1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install -e '.[cmr_audit]'`
+2. If running slc_audit.py, place north_america_opera.geojson file in the current working directory. This file is found in the ancillary S3 and may also be in the opera-pcm repo.
 
 ### Running locally
 
