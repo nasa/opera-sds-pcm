@@ -5,6 +5,7 @@ from pathlib import PurePath, Path
 from typing import Iterable
 
 import boto3
+import dateutil.parser
 import requests
 import requests.utils
 import validators
@@ -84,27 +85,26 @@ class DaacDownload:
             one_granule = args.batch_ids[0]
             logger.info(f"Downloading files for the granule {one_granule}")
             downloads = es_conn.get_download_granule_revision(one_granule)
-
         else:
             download_timerange = self.get_download_timerange(args)
-            # TODO chrisjrd: uncomment
-            # all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-            #     dateutil.parser.isoparse(download_timerange.start_date),
-            #     dateutil.parser.isoparse(download_timerange.end_date),
-            #     args.use_temporal
-            # )
+            # TODO chrisjrd: finalize after testing
+            all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
+                dateutil.parser.isoparse(download_timerange.start_date),
+                dateutil.parser.isoparse(download_timerange.end_date),
+                args.use_temporal
+            )
             # TODO chrisjrd: remove dummy data after testing
-            all_pending_downloads: Iterable[dict] = [
-                {
-                    "granule_id": "DUMMY_ID",
-                    "revision_id": 2,
-                    "s3_url": "s3://"
-                              "asf-cumulus-prod-opera-products/"
-                              "OPERA_L2_RTC-S1/"
-                              "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0/"
-                              "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0.h5"
-                }
-            ]
+            # all_pending_downloads: Iterable[dict] = [
+            #     {
+            #         "granule_id": "DUMMY_ID",
+            #         "revision_id": 2,
+            #         "s3_url": "s3://"
+            #                   "asf-cumulus-prod-opera-products/"
+            #                   "OPERA_L2_RTC-S1/"
+            #                   "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0/"
+            #                   "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0.h5"
+            #     }
+            # ]
             logger.info(f"{len(list(all_pending_downloads))=}")
 
             downloads = all_pending_downloads
@@ -149,7 +149,6 @@ class DaacDownload:
         logger.info(f"{download_timerange=}")
         return download_timerange
 
-
     def extract_one_to_one(self, product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None, name_postscript='') -> PurePath:
         """Creates a dataset for the given product.
         :param product: the product to create datasets for.
@@ -169,7 +168,6 @@ class DaacDownload:
         )
         logger.info(f"{dataset_dir=}")
         return PurePath(dataset_dir)
-
 
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
 
@@ -191,11 +189,11 @@ class DaacDownload:
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         return requests.get(r.headers["Location"], headers=headers, allow_redirects=True)
 
-
     @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
     def get_aws_creds(self, token):
         return self._get_aws_creds(token)
 
+    def _get_aws_creds(self, token): raise
 
     def _s3_download(self, url, s3, tmp_dir, staging_area=""):
         file_name = PurePath(url).name

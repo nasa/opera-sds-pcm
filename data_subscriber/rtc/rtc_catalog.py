@@ -30,3 +30,8 @@ class RTCProductCatalog(HLSProductCatalog):
 
     def filter_query_result(self, query_result):
         return [result['_source'] for result in (query_result or [])]
+
+    def granule_and_revision(self, es_id: str):
+        """For 'OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0-r1' returns:
+        OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0 and 1"""
+        return es_id[:es_id.rfind("-")], es_id[es_id.rfind("-r")+2:]

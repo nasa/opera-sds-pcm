@@ -65,9 +65,6 @@ class AsfDaacRtcDownload(DaacDownload):
 
     def _get_aws_creds(self, token):
         logger.info("entry")
-
-        with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
-                          headers={'Authorization': f'Bearer {token}'}) as r:
+        with requests.get("https://cumulus.asf.alaska.edu/s3credentials", headers={'Authorization': f'Bearer {token}'}) as r:
             r.raise_for_status()
-
             return r.json()

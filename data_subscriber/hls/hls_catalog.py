@@ -42,6 +42,7 @@ class HLSProductCatalog:
         '''For HLS.S30.T56MPU.2022152T000741.v2.0-r1 returns:
         HLS.S30.T56MPU.2022152T000741.v2.0 and 1 '''
         return es_id.split('-')[0], es_id.split('-r')[1]
+
     def get_download_granule_revision(self, id):
         granule, revision = self.granule_and_revision(id)
         downloads = self.es.query(index=self.ES_INDEX_PATTERNS,
