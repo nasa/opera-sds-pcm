@@ -218,14 +218,14 @@ PRODUCT_TYPES:
 
     L2_CSLC_S1_STATIC:
       # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:
-      # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_20230807T234233Z_S1A_v1.0.h5
+      # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_S1A_v1.0.h5
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
-        Date_Time_Patterns: [ '%Y%m%d', '%Y%m%dT%H%M%SZ' ]
-        Date_Time_Keys: [ 'validity_ts', 'creation_ts' ]
+        Date_Time_Patterns: [ '%Y%m%d' ]
+        Date_Time_Keys: [ 'validity_ts' ]
         # Specify the metadata key to use as the dataset version.
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'
@@ -251,16 +251,16 @@ PRODUCT_TYPES:
 
     L2_RTC_S1_STATIC:
       # Pattern for parsing output L2_RTC-S1 static layer product filenames, such as:
-      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0.h5
-      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0_incidence_angle.tif
-      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_20230807T162755Z_S1B_30_v1.0_number_of_looks.tif
+      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0.h5
+      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_incidence_angle.tif
+      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_number_of_looks.tif
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
-        Date_Time_Patterns: [ '%Y%m%d', '%Y%m%dT%H%M%SZ' ]
-        Date_Time_Keys: [ 'validity_ts', 'creation_ts' ]
+        Date_Time_Patterns: [ '%Y%m%d' ]
+        Date_Time_Keys: [ 'validity_ts' ]
         # Specify the metadata key to use as the dataset version.
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'
@@ -301,6 +301,6 @@ PRODUCT_TYPES:
 
 # Settings to enable forceful ingest of PGE outputs (a.k.a disable no-clobber errors)
 # These settings only take effect on those PGE jobs that produce datasets that get
-# pushed to object storage.
+# pushed to object storage (this should not include input product download jobs).
 FORCE_INGEST:
-    INGEST_STAGED: !!bool false
+    INGEST_STAGED: !!bool true

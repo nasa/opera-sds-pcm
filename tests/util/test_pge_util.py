@@ -83,13 +83,13 @@ def test_simulate_cslc_s1_static_pge():
         output_dir='/tmp'
     )
 
-    expected_static_output_basename = 'OPERA_L2_CSLC-S1-STATIC_{burst_id}_20140403_{creation_ts}Z_S1A_v0.1'
+    expected_static_output_basename = 'OPERA_L2_CSLC-S1-STATIC_{burst_id}_20140403_S1A_v0.1'
     expected_ancillary_basename = 'OPERA_L2_CSLC-S1_{creation_ts}Z_S1A_VV_v0.1'
     creation_ts = pge_util.get_time_for_filename()
 
     try:
         for burst_id in pge_util.CSLC_BURST_IDS:
-            static_output_basename = expected_static_output_basename.format(burst_id=burst_id, creation_ts=creation_ts)
+            static_output_basename = expected_static_output_basename.format(burst_id=burst_id)
 
             assert Path(f'/tmp/{static_output_basename}.h5').exists()
             assert Path(f'/tmp/{static_output_basename}.iso.xml').exists()
@@ -177,13 +177,13 @@ def test_simulate_rtc_s1_static_pge():
         output_dir='/tmp'
     )
 
-    expected_static_output_basename = 'OPERA_L2_RTC-S1-STATIC_{burst_id}_20140403_{creation_ts}Z_S1B_30_v0.1'
+    expected_static_output_basename = 'OPERA_L2_RTC-S1-STATIC_{burst_id}_20140403_S1B_30_v0.1'
     expected_ancillary_basename = 'OPERA_L2_RTC-S1_{creation_ts}Z_S1B_30_v0.1'
     creation_ts = pge_util.get_time_for_filename()
 
     try:
         for burst_id in pge_util.RTC_BURST_IDS:
-            static_output_basename = expected_static_output_basename.format(burst_id=burst_id, creation_ts=creation_ts)
+            static_output_basename = expected_static_output_basename.format(burst_id=burst_id)
 
             assert Path(f'/tmp/{static_output_basename}.h5').exists()
             assert Path(f'/tmp/{static_output_basename}_BROWSE.png').exists()

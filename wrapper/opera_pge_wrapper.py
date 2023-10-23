@@ -49,6 +49,11 @@ def main(job_json_file: str, workdir: str):
 
     # set additional files to triage
     jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
+
+    # Disable no-clobber errors for published files. Either the file naming conventions
+    # will guarantee uniqueness, or we want certain files to be overwritten to avoid
+    # redundant copies (such as static layer products)
+    jc.set('_force_ingest', True)
     jc.save()
 
     run_pipeline(job_json_dict=job_context, work_dir=workdir)
