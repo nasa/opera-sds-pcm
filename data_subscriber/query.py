@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+import os
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
@@ -14,7 +15,9 @@ from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_s
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from data_subscriber.cmr import query_cmr, PRODUCT_PROVIDER_MAP
-from geo.geo_util import does_bbox_intersect_north_america
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
+from util.conf_util import SettingsConf
+from util.pge_util import download_object_from_s3
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -29,11 +32,22 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         logging.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
         granules = granules[:1]
 
-    download_urls: list[str] = []
-
     # group URLs by this mapping func. E.g. group URLs by granule_id
     keyfunc = form_batch_id if PRODUCT_PROVIDER_MAP[args.collection] == "LPCLOUD" else _slc_url_to_chunk_id
     batch_id_to_urls_map = defaultdict(set)
+
+    # If we are processing ASF collection, we're gonna need the north america geojson
+    if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+        localize_geojsons([_NORTH_AMERICA])
+
+    # If processing mode is historical, apply include/exclude-region filtering
+    if args.proc_mode == "historical":
+        logging.info(f"Processing mode is historical so applying include and exclude regions...")
+
+        # Fetch all necessary geojson files from S3
+        localize_include_exclude(args)
+
+        granules = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
     for granule in granules:
 
@@ -43,13 +57,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         additional_fields = {}
         additional_fields["revision_id"] = revision_id
         additional_fields["processing_mode"] = args.proc_mode
-
-        # If processing mode is historical,
-        # throw out any granules that do not intersect with North America
-        if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
-            logging.info(f"Processing mode is historical and the following granule does not intersect with \
-North America. Skipping processing. %s" % granule.get("granule_id"))
-            continue
 
         if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
@@ -255,3 +262,64 @@ def update_url_index(
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
+
+def localize_include_exclude(args):
+
+    geojsons = []
+
+    if args.include_regions is not None:
+        geojsons.extend(args.include_regions.split(","))
+
+    if args.exclude_regions is not None:
+        geojsons.extend(args.exclude_regions.split(","))
+
+    localize_geojsons(geojsons)
+
+def localize_geojsons(geojsons):
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+
+    try:
+        for geojson in geojsons:
+            key = geojson.strip() + ".geojson"
+            # output_filepath = os.path.join(working_dir, key)
+            download_object_from_s3(bucket, key, key, filetype="geojson")
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
+
+def does_granule_intersect_regions(granule, intersect_regions):
+    regions = intersect_regions.split(',')
+    for region in regions:
+        region = region.strip()
+        if does_bbox_intersect_region(granule["bounding_box"], region):
+            return True, region
+
+    return False, None
+
+def filter_granules_by_regions(granules, include_regions, exclude_regions):
+    '''Filters granules based on include and exclude regions lists'''
+    filtered = []
+
+    for granule in granules:
+
+        # Skip this granule if it's not in the include list
+        if include_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, include_regions)
+            if result is False:
+                logging.info(
+                    f"The following granule does not intersect with any include regions. Skipping processing %s"
+                    % granule.get("granule_id"))
+                continue
+
+        # Skip this granule if it's in the exclude list
+        if exclude_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, exclude_regions)
+            if result is True:
+                logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
+                             % (region, granule.get("granule_id")))
+                continue
+
+        # If both filters don't apply, add this granule to the list
+        filtered.append(granule)
+
+    return filtered

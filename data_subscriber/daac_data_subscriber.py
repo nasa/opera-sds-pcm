@@ -212,6 +212,14 @@ def create_parser():
                           "choices": ["forward", "reprocessing", "historical"],
                           "help": "Processing mode changes SLC data processing behavior"}}
 
+    include_regions = {"positionals": ["--include-regions"],
+                    "kwargs": {"dest": "include_regions",
+                               "help": "Only process granules whose bounding bbox intersects with the region specified. Comma-separated list. Only applies in Historical processing mode."}}
+
+    exclude_regions = {"positionals": ["--exclude-regions"],
+                    "kwargs": {"dest": "exclude_regions",
+                               "help": "Only process granules whose bounding bbox do not intersect with these regions. Comma-separated list. Only applies in Historical processing mode."}}
+
     step_hours = {"positionals": ["--step-hours"],
                            "kwargs": {"dest": "step_hours",
                             "default": 1,
@@ -240,13 +248,15 @@ def create_parser():
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
-                            batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol, proc_mode]
+                            batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol,
+                            include_regions, exclude_regions, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
-                             native_id, use_temporal, temporal_start_date, transfer_protocol, proc_mode]
+                             native_id, use_temporal, temporal_start_date, transfer_protocol,
+                             include_regions, exclude_regions, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")

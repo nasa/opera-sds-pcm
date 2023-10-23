@@ -68,6 +68,14 @@
       "destination": "positional"
     },
     {
+      "name": "include_regions",
+      "destination": "positional"
+    },
+    {
+      "name": "exclude_regions",
+      "destination": "positional"
+    },
+    {
       "name": "transfer_protocol",
       "destination": "positional"
     }
