@@ -19,7 +19,17 @@
     }
   ],
   "recommended-queues": [ "opera-job_worker-sciflo-l2_cslc_s1_hist"],
-  "post": [ "hysds.triage.triage"],
+  "disable_pre_builtins": true,
+  "disable_post_builtins": true,
+  "pre": [
+    "hysds.localize.localize_urls_parallel",
+    "hysds.utils.mark_localized_datasets",
+    "hysds.utils.validate_checksum_files"
+  ],
+  "post": [
+    "hysds.dataset_ingest_bulk.publish_datasets_parallel",
+    "hysds.triage.triage"
+  ],
   "params": [
     {
       "name": "module_path",
