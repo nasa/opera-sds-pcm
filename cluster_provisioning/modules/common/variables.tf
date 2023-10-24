@@ -132,19 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4 with ES 7.9 - R1
-    #mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
-    #metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
-    #grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
-    #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
-    #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
-
-    # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
-    mozart    = "ami-0110888ace2a34f62" # mozart v4.23 - 230908
-    metrics   = "ami-0a5444fafcbf1f75b" # metrics v4.15 - 230915
-    grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915
-    factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
-    autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
+    # HySDS v5.0.0-rc.1.0 - Oct 23, 2023 - R2
+    mozart    = "ami-04b63ee1c10eb8a11" # mozart v5.0 - 231023
+    metrics   = "ami-01fc2ea15b5295a3e" # metrics v5.0 - 231023
+    grq       = "ami-0814228de1f60d015" # gra v4.17 - 231015
+    factotum  = "ami-07ad14ac24d7d85c2" # factotum v5.0 - 231020
+    autoscale = "ami-0048bc967a95df085" # verdi v5.0 patchdate - 231020 
   }
 }
 
@@ -462,7 +455,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20230921-2.0.0"
+  default = "20231023-2.1.0"
 }
 
 variable "crid" {
