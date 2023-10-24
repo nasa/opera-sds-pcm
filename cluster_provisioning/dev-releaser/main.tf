@@ -142,7 +142,7 @@ resource "null_resource" "mozart" {
     inline = [
       "set -ex",
       "source ~/.bash_profile",
-      # publish opera-pcm source tarballs and HySDS packages to artifactory
+      # publish opera-pcm and CNM_product_delivery source tarballs and HySDS packages to artifactory
       "cd /data",
       "pwd",
       "aws s3 ls",
@@ -156,6 +156,9 @@ resource "null_resource" "mozart" {
       "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz\"",
       "rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz",
       "ls -l",
+      "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o CNM_product_delivery-${var.product_delivery_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery/archive/${var.product_delivery_branch}.tar.gz\"",
+      "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T CNM_product_delivery-${var.product_delivery_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/CNM_product_delivery-${var.product_delivery_branch}.tar.gz\"",
+      "rm -rf CNM_product_delivery-${var.product_delivery_branch}.tar.gz",
       "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o pcm_commons-${var.pcm_commons_branch}.tar.gz \"https://github.jpl.nasa.gov/IEMS-SDS/pcm_commons/archive/${var.pcm_commons_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T pcm_commons-${var.pcm_commons_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/pcm_commons-${var.pcm_commons_branch}.tar.gz\"",
       "rm -rf pcm_commons-${var.pcm_commons_branch}.tar.gz",
@@ -166,7 +169,7 @@ resource "null_resource" "mozart" {
       "curl -L -H \"Authorization: token ${var.git_auth_key}\" -o ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz \"https://github.com/nasa/${var.project}-sds-bach-ui/archive/${var.bach_ui_branch}.tar.gz\"",
       "curl -v -u ${var.artifactory_fn_user}:${var.artifactory_fn_api_key} -T ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz -X PUT \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz\"",
       "rm -rf ${var.project}-bach-ui-${var.bach_ui_branch}.tar.gz",
-      # publish opera-pcm docker images to artifactory's docker registry
+      # publish opera-pcm and CNM_product_delivery docker images to artifactory's docker registry
       "ssh -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${var.common_ci["private_ip"]} \\",
       "   'docker login -u ${var.artifactory_fn_user} --password ${var.artifactory_fn_api_key} artifactory-fn.jpl.nasa.gov:16001; \\",
       "    docker tag container-nasa_${var.project}-sds-pcm:${var.pcm_branch} artifactory-fn.jpl.nasa.gov:16001/gov/nasa/jpl/${var.project}/sds/pcm/container-nasa_${var.project}-sds-pcm:${var.pcm_branch}; \\",
