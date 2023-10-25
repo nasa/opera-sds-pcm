@@ -119,7 +119,7 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
-            "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "more-itertools",
             "python-dateutil",
             "python-dotenv"
