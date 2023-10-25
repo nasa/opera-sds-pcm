@@ -96,6 +96,49 @@ def dswx_s1_lineage_metadata(context, work_dir):
     return lineage_metadata
 
 
+def disp_s1_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DISP-S1 PGE"""
+    lineage_metadata = []
+
+    sample_data_dir = os.path.join(work_dir, 'delivery_data_dolphin_small')
+
+    lineage_metadata.append(os.path.join(sample_data_dir, 'algorithm_parameters.yaml'))
+
+    cslc_data_dir = os.path.join(sample_data_dir, 'input_slcs')
+
+    # TODO: update paths as necessary as simple inputs are phased out
+    lineage_metadata.extend(
+        [os.path.join(cslc_data_dir, cslc_file)
+         for cslc_file in os.listdir(cslc_data_dir)]
+    )
+
+    ancillary_data_dir = os.path.join(sample_data_dir, 'dynamic_ancillary')
+
+    lineage_metadata.extend(
+        [os.path.join(ancillary_data_dir, ancillary)
+         for ancillary in os.listdir(ancillary_data_dir)
+         if os.path.isfile(os.path.join(ancillary_data_dir, ancillary))]
+    )
+
+    geometry_files_dir = os.path.join(ancillary_data_dir, 'geometry_files')
+
+    lineage_metadata.extend(
+        [os.path.join(geometry_files_dir, ancillary)
+         for ancillary in os.listdir(geometry_files_dir)
+         if os.path.isfile(os.path.join(geometry_files_dir, ancillary))]
+    )
+
+    ps_files_dir = os.path.join(ancillary_data_dir, 'ps_files')
+
+    lineage_metadata.extend(
+        [os.path.join(ps_files_dir, ancillary)
+         for ancillary in os.listdir(ps_files_dir)
+         if os.path.isfile(os.path.join(ps_files_dir, ancillary))]
+    )
+
+    return lineage_metadata
+
+
 def update_slc_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
     run_config: Dict = context.get("run_config")
@@ -190,5 +233,52 @@ def update_dswx_s1_runconfig(context, work_dir):
     run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.tif'
 
     run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameter_s1.yaml'
+
+    return run_config
+
+
+def update_disp_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DISP-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+    cslc_data_prefix = os.path.join(work_dir, 'delivery_data_dolphin_small', 'input_slcs')
+
+    input_file_paths = run_config["input_file_group"]["input_file_paths"]
+    input_file_paths = list(map(lambda x: x.replace(cslc_data_prefix, container_home_prefix), input_file_paths))
+
+    run_config["input_file_group"]["input_file_paths"] = input_file_paths
+
+    # TODO: update these once we move away from sample inputs
+    run_config["dynamic_ancillary_file_group"]["amplitude_dispersion_files"] = [
+        f'{container_home_prefix}/t087_185683_iw2_amp_dispersion.tif',
+        f'{container_home_prefix}/t087_185684_iw2_amp_dispersion.tif'
+    ]
+    run_config["dynamic_ancillary_file_group"]["amplitude_mean_files"] = [
+        f'{container_home_prefix}/t087_185683_iw2_amp_mean.tif',
+        f'{container_home_prefix}/t087_185684_iw2_amp_mean.tif'
+    ]
+    run_config["dynamic_ancillary_file_group"]["geometry_files"] = [
+        f'{container_home_prefix}/t087_185684_iw2_topo.h5',
+        f'{container_home_prefix}/t087_185683_iw2_topo.h5'
+    ]
+    run_config["dynamic_ancillary_file_group"]["mask_file"] = f'{container_home_prefix}/water_mask.tif'
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.tif'
+    run_config["dynamic_ancillary_file_group"]["tec_files"] = [
+        f'{container_home_prefix}/jplg0410.18i.Z',
+        f'{container_home_prefix}/jplg1970.18i.Z'
+    ]
+    run_config["dynamic_ancillary_file_group"]["weather_model_files"] = [
+        f'{container_home_prefix}/GMAO_tropo_20180210T000000_ztd.nc',
+        f'{container_home_prefix}/GMAO_tropo_20180716T000000_ztd.nc'
+    ]
+
+    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameters.yaml'
 
     return run_config

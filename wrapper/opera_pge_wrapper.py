@@ -12,9 +12,11 @@ from typing import Dict, Tuple, List, Union
 from .pge_functions import (slc_s1_lineage_metadata,
                             dswx_hls_lineage_metadata,
                             dswx_s1_lineage_metadata,
+                            disp_s1_lineage_metadata,
                             update_slc_s1_runconfig,
                             update_dswx_hls_runconfig,
-                            update_dswx_s1_runconfig)
+                            update_dswx_s1_runconfig,
+                            update_disp_s1_runconfig)
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
@@ -31,7 +33,8 @@ lineage_metadata_functions = {
     'L2_RTC_S1': slc_s1_lineage_metadata,
     'L2_RTC_S1_STATIC': slc_s1_lineage_metadata,
     'L3_DSWx_HLS': dswx_hls_lineage_metadata,
-    'L3_DSWx_S1': dswx_s1_lineage_metadata
+    'L3_DSWx_S1': dswx_s1_lineage_metadata,
+    'L3_DISP_S1': disp_s1_lineage_metadata
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -41,7 +44,8 @@ runconfig_update_functions = {
     'L2_RTC_S1': update_slc_s1_runconfig,
     'L2_RTC_S1_STATIC': update_slc_s1_runconfig,
     'L3_DSWx_HLS': update_dswx_hls_runconfig,
-    'L3_DSWx_S1': update_dswx_s1_runconfig
+    'L3_DSWx_S1': update_dswx_s1_runconfig,
+    'L3_DISP_S1': update_disp_s1_runconfig
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
