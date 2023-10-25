@@ -1,45 +1,5 @@
-# globals
-#
-# venue : userId, in int this is 1
-# counter : 1-n or version
-# private_key_file : the equivalent to .ssh/id_rsa or .pem file
-#
-
-##### Environments #######
-variable "aws_account_id" {
-  default = "907504701509"
-}
-
-variable "venue" {
-  default = "ops"
-}
-
-variable "cnm_r_venue" {
-  default = "ops"
-}
-
-variable "environment" {
-  default = "ops"
-}
-
 variable "counter" {
   default = "fwd"
-}
-
-variable "crid" {
-  default = "T00100"
-}
-
-variable "project" {
-  default = "opera"
-}
-
-variable "region" {
-  default = "us-west-2"
-}
-
-variable "az" {
-  default = "us-west-2a"
 }
 
 # Specify either forward or reprocessing. When this is set to "reprocessing"
@@ -73,40 +33,6 @@ variable "private_key_file" {
 variable "keypair_name" {
   default = "operasds-ops-fwd"
 }
-
-variable "ops_password" {
-  default = ""
-}
-
-variable "shared_credentials_file" {
-  default = "~/.aws/credentials"
-}
-
-#
-# "default" links to [default] profile in "shared_credentials_file" above
-#
-variable "profile" {
-  default = "saml-pub"
-}
-
-####### Subnet ###########
-variable "subnet_id" {
-  default = "subnet-0009fde6de693b714"
-}
-
-####### VPC #########
-variable "lambda_vpc" {
-  default = "vpc-04ce247929cd21150"
-}
-
-variable "public_asg_vpc" {
-  default = "vpc-04ce247929cd21150"
-}
-
-variable "private_asg_vpc" {
-  default = "vpc-05d9f741bae3208ab"
-}
-
 
 ##### Bucket Names #########
 variable "docker_registry_bucket" {
@@ -145,47 +71,6 @@ variable "trace" {
   default = "opera-ops-fwd"
 }
 
-variable "artifactory_repo" {
-  default = "general-stage"
-}
-
-variable "use_artifactory" {
-  type    = bool
-  default = true
-}
-
-###### Roles ########
-variable "asg_use_role" {
-  default = true
-}
-
-variable "asg_role" {
-  default = "am-pcm-verdi-role"
-}
-
-variable "pcm_cluster_role" {
-  default = {
-    name = "am-pcm-cluster-role"
-    path = "/"
-  }
-}
-
-variable "pcm_verdi_role" {
-  default = {
-    name = "am-pcm-verdi-role"
-    path = "/"
-  }
-}
-
-variable "lambda_role_arn" {
-  default = "arn:aws:iam::907504701509:role/am-pcm-lambda-role"
-}
-
-##### ES ######
-variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::907504701509:role/am-es-role"
-}
-
 ####### CNM Response job vars #######
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
@@ -196,8 +81,6 @@ variable "asf_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
-
-
 
 variable "grq_aws_es_host" {
   default = ""
@@ -262,45 +145,8 @@ variable "factotum" {
   }
 }
 
-# ci vars
-variable "ci" {
-  type = map(string)
-  default = {
-    name          = "ci"
-    ami           = ""
-    instance_type = ""
-    data          = ""
-    data_dev      = ""
-    data_dev_size = ""
-    private_ip    = ""
-    public_ip     = ""
-  }
-}
-
-variable "common_ci" {
-  type = map(string)
-  default = {
-    name       = "ci"
-    private_ip = ""
-    public_ip  = ""
-  }
-}
-
-# autoscale vars
-variable "autoscale" {
-  type = map(string)
-  default = {
-    name          = "autoscale"
-    instance_type = "t2.micro"
-    data          = "/data"
-    data_dev      = "/dev/xvdb"
-    data_dev_size = 300
-  }
-}
-
-
 # Smoke test
 variable "run_smoke_test" {
   type = bool
-  default = true
+  default = false
 }
