@@ -3,11 +3,11 @@ PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
 
 # for PST (CalVal products)
-#DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
+#DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 #DSWX_HLS_PRODUCT_VERSION: "0.0"
 
 # uncomment out for OPS in R1
-DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
+DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
 DSWX_HLS_PRODUCT_VERSION: "1.0"
 
 # CSLC & RTC in R2
@@ -19,6 +19,10 @@ CSLC_S1_PRODUCT_VERSION: "1.0"
 RTC_S1_PRODUCT_VERSION: "1.0"
 CSLC_S1_STATIC_PRODUCT_VERSION: "1.0"
 RTC_S1_STATIC_PRODUCT_VERSION: "1.0"
+
+# DSWx-S1 & DISP-S1 in R3
+DSWX_S1_COLLECTION_NAME: "OPERA_L3_DSWX-S1_PROVISIONAL_V0"
+DSWX_S1_PRODUCT_VERSION: "0.1"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
@@ -80,7 +84,7 @@ DSWX_HLS:
   CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
   # Toggle application of ocean/shoreline masking during processing
   APPLY_OCEAN_MASKING: !!bool false
-  # Amount of margin in km to apply to staged ancillaries (DEM/worldcover)
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 200
 
 RTC_S1:
@@ -104,6 +108,12 @@ RTC_S1_STATIC:
     BIAS_Y: -0.67
     STDDEV_X: 0.70
     STDDEV_Y: 0.62
+
+DSWX_S1:
+  # Toggle application of ocean/shoreline masking during processing
+  APPLY_OCEAN_MASKING: !!bool false
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
+  ANCILLARY_MARGIN: 50
 
 # End PGE Configuration section
 
@@ -295,6 +305,33 @@ PRODUCT_TYPES:
             #  Note: this affects the data product index name
             Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
+
+    L3_DSWx_S1:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DSWx-S1_T18MVA_20200702T231843Z_20230317T190549Z_S1A_30_v0.1_B01_WTR.tif"
+      # This pattern groups the metadata information in the filename using named groups.
+      #
+      # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF))?[.](?P<ext>tif|tiff|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        # For example, "20210211T163901":
+        #   year: 2021
+        #   month: 02 (February)
+        #   day of month: 11 (the 11th)
+        #   hour (24hr): 16
+        #   minute: 39
+        #   second: 01
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
 
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
