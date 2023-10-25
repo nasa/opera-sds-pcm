@@ -37,7 +37,8 @@ See `cmr_audit/cmr_audit.py --help`, documentation comments, and source code for
 1. Git.
 1. Python (see `.python-version`).
 1. A clone of the `opera-sds-pcm` repo.
-2. slc_audit.py requires north_america_opera.geojson file to be present in the current working directory
+1. slc_audit.py requires GDAL to be natively installed on the host machine. Installation instructions vary by operating system, but macOS users with Homebrew installed may install it using `brew install gdal` or as otherwise noted in `setup.py` in the `cmr_audit` dependency section. NOTE: native `gdal` is distinct from the `GDAL` python package dependency.
+1. slc_audit.py requires north_america_opera.geojson file to be present in the current working directory
 
 ### Installation
 
