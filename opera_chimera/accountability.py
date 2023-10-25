@@ -71,7 +71,7 @@ class OperaAccountability(Accountability):
         product_metadata = self.context["product_metadata"]
 
         # TODO: kludge to support providing dummy metadata as a hardcoded string
-        #       within the hysds-io.json file for DSWx-S1, remove when appropriate
+        #       within the hysds-io.json file for DSWx-S1 and DISP-S1, remove when appropriate
         try:
             metadata = product_metadata["metadata"]
         except Exception as err:
@@ -87,7 +87,7 @@ class OperaAccountability(Accountability):
             input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
-        elif self.input_files_type in ('L2_RTC_S1',):
+        elif self.input_files_type in ('L2_RTC_S1','L2_CSLC_S1'):
             # TODO: unsure about this, revisit once input staging/trigger logic are implemented
             self.product_paths = [os.path.join(metadata['FileName'])]
         else:
