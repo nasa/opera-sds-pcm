@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import math
 import os
 from math import ceil
 from typing import Optional
@@ -11,6 +12,12 @@ import backoff
 logger = logging.getLogger(__name__)
 
 
+async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
+    response_jsons = await async_cmr_post(url, data, session, sem)
+    cmr_granules, cmr_granules_detailed = to_cmr_audit_granules(response_jsons)
+    return cmr_granules, cmr_granules_detailed
+
+
 async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
     sem = sem if sem is not None else contextlib.nullcontext()
     async with sem:
@@ -18,29 +25,25 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         data += f"&page_size={page_size}"
 
         logger.debug(f"async_post_cmr({url=}..., {len(data)=:,}, {data[-250:]=}")
-
-        cmr_granules = set()
-        cmr_granules_detailed = {}
-        # page_num, offset (0-based), page_size, sort_key
-        # You can not page past the 1 millionth item.
-        # Additionally granule queries which do not target a set of collections are limited to paging up to the 10000th item.
-        max_pages = int(100_000/page_size)  # cap the number of pages (requests) to scroll through results. CMR's hard limit is page_size * max_pages <= 100,000
+        max_pages = 1  # cap the number of pages (requests) to scroll through results.
+        # after first response, update with the smaller of the forced max and the number of hits
 
         current_page = 1
-        cmr_search_after = ""
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Client-Id': f'nasa.jpl.opera.sds.pcm.cmr_audit.{os.environ["USER"]}'
         }
+        response_jsons = []
         while current_page <= max_pages:
             async with await fetch_post_url(session, url, data, headers) as response:
                 response_json = await response.json()
+                response_jsons.append(response_json)
 
             if current_page == 1:
                 logger.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
+                max_pages = math.ceil(response_json["hits"]/page_size)
+                logger.info(f"Updating max pages to {max_pages=}")
             logger.debug(f'CMR number of granules (cmr-query-page {current_page} of {ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
-            cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
-            cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
 
             cmr_search_after = response.headers.get("CMR-Search-After")
             logger.debug(f"{cmr_search_after=}")
@@ -53,9 +56,22 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
             current_page += 1
             if not current_page <= max_pages:
-                logger.warning("Reached max pages limit. Not all search results exhausted. Adjust limit or time ranges to process all hits, then re-run this script.")
+                logger.warning(
+                    "Reached max pages limit. "
+                    "Not all search results exhausted. "
+                    "Adjust limit or time ranges to process all hits, then re-run this script."
+                )
 
-        return cmr_granules, cmr_granules_detailed
+        return response_jsons
+
+
+def to_cmr_audit_granules(cmr_response_jsons):
+    cmr_granules = set()
+    cmr_granules_detailed = {}
+    for response_json in cmr_response_jsons:
+        cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
+        cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
+    return cmr_granules, cmr_granules_detailed
 
 
 def giveup_cmr_requests(e):

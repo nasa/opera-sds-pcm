@@ -12,7 +12,7 @@ import more_itertools
 from dateutil.rrule import rrule, HOURLY, DAILY
 from more_itertools import always_iterable
 
-from tools.ops.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_client import get_cmr_audit_granules
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
 
                 request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name)
                 logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
-                post_cmr_tasks.append(async_cmr_post(request_url, request_body, session, sem))
+                post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
                     logger.debug("EDGECASE: processed last partial hour. Preempting")

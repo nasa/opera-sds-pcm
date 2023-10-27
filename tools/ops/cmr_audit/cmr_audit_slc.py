@@ -17,8 +17,8 @@ from dotenv import dotenv_values
 from more_itertools import always_iterable
 
 from geo.geo_util import does_bbox_intersect_north_america
-from tools.ops.cmr_audit.cmr_granules
-from tools.ops.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
+from tools.ops.cmr_audit.cmr_client import get_cmr_audit_granules
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
@@ -97,8 +97,7 @@ async def async_get_cmr(
     native_id_patterns = more_itertools.always_iterable(native_id_patterns)
     native_id_pattern_batches = list(more_itertools.chunked(native_id_patterns, 1000))  # 1000 == 55,100 length
 
-    request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
-    logger.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
+    request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
     sem = asyncio.Semaphore(15)
     async with aiohttp.ClientSession() as session:
@@ -117,7 +116,7 @@ async def async_get_cmr(
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
             logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
-            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session, sem))
+            post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches

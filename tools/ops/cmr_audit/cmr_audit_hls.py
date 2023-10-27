@@ -13,7 +13,7 @@ import more_itertools
 from dotenv import dotenv_values
 
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
-from tools.ops.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_client import get_cmr_audit_granules
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.basicConfig(
@@ -93,7 +93,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
                 f"{dswx_native_id_patterns_query_params}"
             )
             logger.debug(f"Creating request task {i} of {len(dswx_native_id_pattern_batches)}")
-            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session, sem))
+            post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
