@@ -1,10 +1,13 @@
 import logging
+import os
 import re
 from datetime import datetime
 
+import backoff
 import dateutil.parser
 import requests
 from more_itertools import first_true
+from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
 
@@ -119,27 +122,56 @@ def _get_temporal_range(start: str, end: str, now: str):
     return "{},{}".format(start, end)
 
 
-def _request_search(args, request_url, params, search_after=None):
-    response = requests.get(request_url, params=params, headers={"CMR-Search-After": search_after}) \
-        if search_after else requests.get(request_url, params=params)
+def giveup_cmr_requests(e):
+    if isinstance(e, HTTPError):
+        if e.response.status_code == 413 and e.response.reason == "Payload Too Large":  # give up. Fix bug
+            return True
+        if e.response.status_code == 400:  # Bad Requesst. give up. Fix bug
+            return True
+        if e.response.status_code == 504 and e.response.reason == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
+            return False
+    return False
 
-    results = response.json()
-    items = results.get("items")
+
+@backoff.on_exception(
+    backoff.expo,
+    exception=(HTTPError,),
+    max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
+    jitter=None,
+    giveup=giveup_cmr_requests
+)
+def _request_search(args, request_url, params, search_after=None):
+    headers = {
+        'Client-Id': f'nasa.jpl.opera.sds.pcm.data_subscriber.{os.environ["USER"]}'
+    }
+
+    if search_after:
+        headers["CMR-Search-After"]: search_after
+        response = requests.get(request_url, params=params, headers=headers)
+    else:
+        response = requests.get(request_url, params=params)
+    response.raise_for_status()
+
+    logger.info(f'{response.headers.get("CMR-Hits")=}')
+
+    response_json = response.json()
     next_search_after = response.headers.get("CMR-Search-After")
+
+    items = response_json.get("items")
 
     collection_identifier_map = {
         "HLSL30": "LANDSAT_PRODUCT_ID",
         "HLSS30": "PRODUCT_URI"
     }
 
-    results = []
+    granules = []
     for item in items:
         if item["umm"]["TemporalExtent"].get("RangeDateTime"):
             temporal_extent_beginning_datetime = item["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"]
         else:
             temporal_extent_beginning_datetime = item["umm"]["TemporalExtent"]["SingleDateTime"]
 
-        results.append({
+        granules.append({
             "granule_id": item["umm"].get("GranuleUR"),
             "revision_id": item.get("meta").get("revision-id"),
             "provider": item.get("meta").get("provider-id"),
@@ -165,7 +197,21 @@ def _request_search(args, request_url, params, search_after=None):
                 if attr.get("Name") == collection_identifier_map[args.collection]
             ) if args.collection in collection_identifier_map else None
         })
-    return results, next_search_after
+    return granules, next_search_after
+
+
+@backoff.on_exception(
+    backoff.expo,
+    exception=(HTTPError,),
+    max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
+    jitter=None,
+    giveup=giveup_cmr_requests
+)
+def try_request_get(request_url, params, headers=None, raise_for_status=True):
+    response = requests.get(request_url, params=params, headers=headers)
+    if raise_for_status:
+        response.raise_for_status()
+    return response
 
 
 def _filter_granules(granule, args):
