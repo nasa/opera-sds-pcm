@@ -61,8 +61,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
             acquisition_dts = match_product_id.group("acquisition_dts")
             burst_id = match_product_id.group("burst_id")
-            burst_identification_number = int(burst_id.split(sep="-")[1])
-            granule_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
 
             mgrs = cached_load_mgrs_burst_db(filter_land=True)
             mgrs_sets = burst_id_to_mgrs_set_ids(mgrs, product_burst_id_to_mapping_burst_id(burst_id))
@@ -74,6 +72,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             # Calculating the Collection Cycle Index (Part 2):
             #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
             #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
+            burst_identification_number = int(burst_id.split(sep="-")[1])
+            granule_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
             seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - granule_epoch).total_seconds()
             acquisition_cycle = round(
                 (
