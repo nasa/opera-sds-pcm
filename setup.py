@@ -121,7 +121,8 @@ setup(
             "compact-json",
             "more-itertools",
             "python-dateutil",
-            "python-dotenv"
+            "python-dotenv",
+            "requests"
         ],
         "cnm_check": [
             "compact-json",
