@@ -58,6 +58,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         additional_fields["processing_mode"] = args.proc_mode
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
+
             match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
             acquisition_dts = match_product_id.group("acquisition_dts")
             burst_id = match_product_id.group("burst_id")
