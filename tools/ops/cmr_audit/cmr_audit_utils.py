@@ -4,7 +4,7 @@ import logging
 import urllib
 from io import StringIO
 from pprint import pprint
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 
 import aiohttp
 import dateutil.parser
@@ -12,7 +12,7 @@ import more_itertools
 from dateutil.rrule import rrule, HOURLY, DAILY
 from more_itertools import always_iterable
 
-from tools.ops.cmr_audit.cmr_client import get_cmr_audit_granules
+from tools.ops.cmr_audit.cmr_client import async_cmr_post
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,21 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
             "&attribute[]=string,BEAM_MODE,IW"
         )
     raise Exception(f"Unsupported collection short name. {collection_short_name=}")
+
+
+async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
+    response_jsons = await async_cmr_post(url, data, session, sem)
+    cmr_granules, cmr_granules_detailed = to_cmr_audit_granules(response_jsons)
+    return cmr_granules, cmr_granules_detailed
+
+
+def to_cmr_audit_granules(cmr_response_jsons):
+    cmr_granules = set()
+    cmr_granules_detailed = {}
+    for response_json in cmr_response_jsons:
+        cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
+        cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
+    return cmr_granules, cmr_granules_detailed
 
 
 def pstr(o):
