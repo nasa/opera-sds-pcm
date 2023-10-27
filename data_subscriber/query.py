@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
@@ -13,6 +14,8 @@ from more_itertools import chunked
 
 from data_subscriber.cmr import query_cmr, COLLECTION_TO_PRODUCT_TYPE_MAP
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
+from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id, \
+    burst_id_to_mgrs_set_ids, cached_load_mgrs_burst_db
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america
@@ -27,19 +30,22 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
 
+    logger.info("CMR query STARTED")
     granules = query_cmr(args, token, cmr, settings, query_timerange, now)
+    logger.info("CMR query FINISHED")
 
     if args.smoke_run:
         logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
         granules = granules[:1]
 
-    # group URLs by this mapping func. E.g. group URLs by granule_id
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] in ("HLS", "RTC", "CSLC"):
-        keyfunc = form_batch_id
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
-        keyfunc = _slc_url_to_chunk_id
-    else:
-        raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
+    logger.info("catalogue-ing STARTED")
+
+    # Calculating the Collection Cycle Index (Part 1):
+    #  required constants
+    MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
+    MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
+    MAX_BURST_IDENTIFICATION_NUMBER = 375887
+    ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
     batch_id_to_urls_map = defaultdict(set)
 
@@ -51,12 +57,43 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         additional_fields["revision_id"] = revision_id
         additional_fields["processing_mode"] = args.proc_mode
 
-        # If processing mode is historical,
-        # throw out any granules that do not intersect with North America
-        if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
-            logger.info(f"Processing mode is historical and the following granule does not intersect with \
-North America. Skipping processing. %s" % granule.get("granule_id"))
-            continue
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
+            acquisition_dts = match_product_id.group("acquisition_dts")
+            burst_id = match_product_id.group("burst_id")
+            burst_identification_number = int(burst_id.split(sep="-")[1])
+            granule_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
+
+            mgrs = cached_load_mgrs_burst_db(filter_land=True)
+            mgrs_sets = burst_id_to_mgrs_set_ids(mgrs, product_burst_id_to_mapping_burst_id(burst_id))
+            if not mgrs_sets:
+                logging.info(f"{burst_id=} not associated with land or land/water data. skipping.")
+                continue
+            additional_fields["mgrs_set_id"] = mgrs_sets
+
+            # Calculating the Collection Cycle Index (Part 2):
+            #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
+            #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
+            seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - granule_epoch).total_seconds()
+            acquisition_cycle = round(
+                (
+                     seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
+                ) / ACQUISITION_CYCLE_DURATION_SECS
+            )
+            additional_fields["acquisition_cycle"] = acquisition_cycle
+
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            pass
+        else:
+            # If processing mode is historical,
+            # throw out any granules that do not intersect with North America
+            if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
+                logger.info(
+                    "Processing mode is historical "
+                    "and the following granule does not intersect with North America. "
+                    f'Skipping processing {granule_id}.'
+                )
+                continue
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
@@ -80,10 +117,10 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
         )
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
-            spatial_catalog_conn = get_hls_spatial_catalog_connection(logging.getLogger(__name__))
+            spatial_catalog_conn = get_hls_spatial_catalog_connection(logger)
             update_granule_index(spatial_catalog_conn, granule)
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
-            spatial_catalog_conn = get_slc_spatial_catalog_connection(logging.getLogger(__name__))
+            spatial_catalog_conn = get_slc_spatial_catalog_connection(logger)
             update_granule_index(spatial_catalog_conn, granule)
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             pass
@@ -93,8 +130,18 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
             pass
 
         if granule.get("filtered_urls"):
+            # group URLs by this mapping func. E.g. group URLs by granule_id
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] in ("HLS", "RTC", "CSLC"):
+                keyfunc = form_batch_id
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+                keyfunc = _slc_url_to_chunk_id
+            else:
+                raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
+
             for filter_url in granule.get("filtered_urls"):
                 batch_id_to_urls_map[keyfunc(granule_id, revision_id)].add(filter_url)
+
+    logger.info("catalogue-ing FINISHED")
 
     if args.subparser_name == "full":
         logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
