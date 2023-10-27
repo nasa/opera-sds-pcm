@@ -85,7 +85,7 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
 
     if not silent:
         logger.info(f"{request_url=} {params=}")
-    product_granules = _request_search(args, request_url, params)
+    product_granules = _request_search_cmr_granules(args, request_url, params)
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -125,6 +125,11 @@ def giveup_cmr_requests(e):
         if e.response.status_code == 504 and e.response.reason == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
             return False
     return False
+
+
+def _request_search_cmr_granules(args, request_url, params):
+    response_jsons = _request_search(args, request_url, params)
+    return response_jsons_to_cmr_granules(args, response_jsons)
 
 
 def _request_search(args, request_url, params):
@@ -169,7 +174,7 @@ def _request_search(args, request_url, params):
                 "Adjust limit or time ranges to process all hits, then re-run this script."
             )
 
-    return response_jsons_to_cmr_granules(args, response_jsons)
+    return response_jsons
 
 
 def response_jsons_to_cmr_granules(args, response_jsons):
