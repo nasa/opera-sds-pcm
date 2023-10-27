@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import re
 from datetime import datetime
@@ -39,7 +40,6 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
 }
 
 
-
 def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
@@ -53,7 +53,6 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
             bounding_box = ",".join(bound_list)
 
     params = {
-        "page_size": 1,  # TODO chrisjrd: set back to 2000 before commit
         "sort_key": "-start_date",
         "provider": COLLECTION_TO_PROVIDER_MAP[args.collection],
         "ShortName[]": [args.collection],
@@ -86,12 +85,7 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
 
     if not silent:
         logger.info(f"{request_url=} {params=}")
-    product_granules, search_after = _request_search(args, request_url, params)
-
-    # TODO chrisjrd: uncomment before commit
-    # while search_after:
-    #     granules, search_after = _request_search(args, request_url, params, search_after=search_after)
-    #     product_granules.extend(granules)
+    product_granules = _request_search(args, request_url, params)
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -133,31 +127,51 @@ def giveup_cmr_requests(e):
     return False
 
 
-@backoff.on_exception(
-    backoff.expo,
-    exception=(HTTPError,),
-    max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
-    jitter=None,
-    giveup=giveup_cmr_requests
-)
-def _request_search(args, request_url, params, search_after=None):
+def _request_search(args, request_url, params):
+    page_size = 2000  # default is 10, max is 2000
+    params["page_size"] = page_size
+
+    logger.debug(f"_request_search_concurrent({request_url=}, {params=}")
+
+    response_jsons = []
+    max_pages = 1  # cap the number of pages (requests) to scroll through results.
+    # update after first response
+
+    current_page = 1
     headers = {
         'Client-Id': f'nasa.jpl.opera.sds.pcm.data_subscriber.{os.environ["USER"]}'
     }
+    while current_page <= max_pages:
+        response = try_request_get(request_url, params, headers, raise_for_status=True)
+        response_json = response.json()
+        response_jsons.append(response_json)
 
-    if search_after:
-        headers["CMR-Search-After"]: search_after
-        response = requests.get(request_url, params=params, headers=headers)
-    else:
-        response = requests.get(request_url, params=params)
-    response.raise_for_status()
+        if current_page == 1:
+            logger.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
+            max_pages = math.ceil(response_json["hits"] / page_size)
+            logger.info(f"Updating max pages to {max_pages=}")
+        logger.info(f'CMR number of granules (cmr-query-page {current_page} of {max_pages}): {len(response_json["items"])=:,}')
 
-    logger.info(f'{response.headers.get("CMR-Hits")=}')
+        cmr_search_after = response.headers.get("CMR-Search-After")
+        logger.debug(f"{cmr_search_after=}")
+        if cmr_search_after:
+            headers.update({"CMR-Search-After": response.headers["CMR-Search-After"]})
 
-    response_json = response.json()
-    next_search_after = response.headers.get("CMR-Search-After")
+        if len(response_json["items"]) < page_size:
+            logger.info("Reached end of CMR search results. Ending query.")
+            break
 
-    items = response_json.get("items")
+        current_page += 1
+        if not current_page <= max_pages:
+            logger.warning(
+                "Reached max pages limit. "
+                "Not all search results exhausted. "
+                "Adjust limit or time ranges to process all hits, then re-run this script."
+            )
+
+    items = [item
+             for response_json in response_jsons
+             for item in response_json.get("items")]
 
     collection_identifier_map = {
         "HLSL30": "LANDSAT_PRODUCT_ID",
@@ -197,7 +211,7 @@ def _request_search(args, request_url, params, search_after=None):
                 if attr.get("Name") == collection_identifier_map[args.collection]
             ) if args.collection in collection_identifier_map else None
         })
-    return granules, next_search_after
+    return granules
 
 
 @backoff.on_exception(
