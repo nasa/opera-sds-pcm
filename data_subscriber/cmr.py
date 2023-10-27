@@ -169,6 +169,10 @@ def _request_search(args, request_url, params):
                 "Adjust limit or time ranges to process all hits, then re-run this script."
             )
 
+    return response_jsons_to_cmr_granules(args, response_jsons)
+
+
+def response_jsons_to_cmr_granules(args, response_jsons):
     items = [item
              for response_json in response_jsons
              for item in response_json.get("items")]
