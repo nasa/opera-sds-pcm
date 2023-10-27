@@ -93,8 +93,11 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
         if granule['revision_id'] <= args.max_revision:
             least_revised_granules.append(granule)
         else:
-            logger.warning(f"Granule {granule['granule_id']} currently has revision-id of {granule['revision_id']}\
- which is greater than the max {args.max_revision}. Ignoring and not storing or processing this granule.")
+            logger.warning(
+                f"Granule {granule['granule_id']} currently has revision-id of {granule['revision_id']} "
+                f"which is greater than the max {args.max_revision}. "
+                "Ignoring and not storing or processing this granule."
+            )
     product_granules = least_revised_granules
 
     if args.collection in settings["SHORTNAME_FILTERS"]:
