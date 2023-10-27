@@ -199,10 +199,10 @@ North America. Skipping processing. %s" % granule.get("granule_id"))
 
 
 def get_query_timerange(args, now: datetime, silent=False):
-    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    now_minus_minutes_date = (now - timedelta(minutes=args.minutes)).strftime("%Y-%m-%dT%H:%M:%SZ") if not args.native_id else "1900-01-01T00:00:00Z"
-    start_date = args.start_date if args.start_date else now_minus_minutes_date
-    end_date = args.end_date if args.end_date else now_date
+    now_minus_minutes_dt = (now - timedelta(minutes=args.minutes)) if not args.native_id else dateutil.parser.isoparse("1900-01-01T00:00:00Z")
+
+    start_date = args.start_date if args.start_date else now_minus_minutes_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_date = args.end_date if args.end_date else now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     query_timerange = DateTimeRange(start_date, end_date)
     if not silent:
