@@ -577,6 +577,14 @@ variable "artifactory_fn_api_key" {
   description = "Artifactory API key for authenticated Artifactory API calls. Must map to artifactory_username."
 }
 
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }

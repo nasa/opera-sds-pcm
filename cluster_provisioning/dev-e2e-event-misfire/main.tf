@@ -92,6 +92,8 @@ module "common" {
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
   artifactory_fn_user                     = var.artifactory_fn_user
+  dataspace_user                          = var.dataspace_user
+  dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
   hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency

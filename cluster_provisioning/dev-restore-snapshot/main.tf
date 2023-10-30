@@ -94,6 +94,8 @@ module "common" {
   es_snapshot_bucket                      = var.es_snapshot_bucket
   artifactory_fn_user                     = var.artifactory_fn_user
   artifactory_fn_api_key                  = var.artifactory_fn_api_key
+  dataspace_user                          = var.dataspace_user
+  dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
   hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency

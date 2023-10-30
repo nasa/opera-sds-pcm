@@ -466,6 +466,14 @@ variable "artifactory_fn_user" {
   default = ""
 }
 
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
+  default = ""
+}
+
 variable "earthdata_user" {
   default = ""
 }
