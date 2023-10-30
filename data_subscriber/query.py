@@ -47,7 +47,33 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
     MAX_BURST_IDENTIFICATION_NUMBER = 375887
     ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
-    batch_id_to_urls_map = defaultdict(set)
+    filtered_granules = []
+    for granule in granules:
+        granule_id = granule.get("granule_id")
+
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
+            burst_id = match_product_id.group("burst_id")
+
+            mgrs = cached_load_mgrs_burst_db(filter_land=True)
+            mgrs_sets = burst_id_to_mgrs_set_ids(mgrs, product_burst_id_to_mapping_burst_id(burst_id))
+            if not mgrs_sets:
+                logging.info(f"{burst_id=} not associated with land or land/water data. skipping.")
+                continue
+        else:
+            # If processing mode is historical,
+            # throw out any granules that do not intersect with North America
+            if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
+                logger.info(
+                    "Processing mode is historical "
+                    "and the following granule does not intersect with North America. "
+                    f'Skipping processing {granule_id}.'
+                )
+                continue
+
+        filtered_granules.append(granule)
+
+    granules = filtered_granules
 
     for granule in granules:
         granule_id = granule.get("granule_id")
@@ -66,9 +92,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
             mgrs = cached_load_mgrs_burst_db(filter_land=True)
             mgrs_sets = burst_id_to_mgrs_set_ids(mgrs, product_burst_id_to_mapping_burst_id(burst_id))
-            if not mgrs_sets:
-                logging.info(f"{burst_id=} not associated with land or land/water data. skipping.")
-                continue
             additional_fields["mgrs_set_id"] = mgrs_sets
 
             # Calculating the Collection Cycle Index (Part 2):
@@ -86,16 +109,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             pass
-        else:
-            # If processing mode is historical,
-            # throw out any granules that do not intersect with North America
-            if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
-                logger.info(
-                    "Processing mode is historical "
-                    "and the following granule does not intersect with North America. "
-                    f'Skipping processing {granule_id}.'
-                )
-                continue
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
@@ -131,19 +144,26 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         else:
             pass
 
+    logger.info("catalogue-ing FINISHED")
+
+    batch_id_to_urls_map = defaultdict(set)
+    for granule in granules:
+        granule_id = granule.get("granule_id")
+        revision_id = granule.get("revision_id")
+
         if granule.get("filtered_urls"):
             # group URLs by this mapping func. E.g. group URLs by granule_id
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] in ("HLS", "RTC", "CSLC"):
-                keyfunc = form_batch_id
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] in ("HLS", "CSLC"):
+                url_grouping_func = form_batch_id
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
-                keyfunc = _slc_url_to_chunk_id
+                url_grouping_func = _slc_url_to_chunk_id
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+                url_grouping_func = form_batch_id  # TODO chrisjrd: batch by MGRS tile collection DB set
             else:
                 raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
 
             for filter_url in granule.get("filtered_urls"):
-                batch_id_to_urls_map[keyfunc(granule_id, revision_id)].add(filter_url)
-
-    logger.info("catalogue-ing FINISHED")
+                batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
 
     if args.subparser_name == "full":
         logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
