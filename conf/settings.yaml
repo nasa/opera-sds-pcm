@@ -61,10 +61,6 @@ URGENT_RESPONSE_LATENCY:
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
-# Time range values to use when querying for Orbit files for use with SLC-based jobs
-POE_ORBIT_TIME_RANGE: 2  # Days
-RES_ORBIT_TIME_RANGE: 4  # Hours
-
 CSLC_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
