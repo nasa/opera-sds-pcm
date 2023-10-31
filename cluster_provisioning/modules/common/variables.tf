@@ -135,7 +135,6 @@ variable "amis" {
     # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
     mozart    = "ami-0110888ace2a34f62" # mozart v4.23 - 230908
     metrics   = "ami-0a5444fafcbf1f75b" # metrics v4.15 - 230915
-    #grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915
     grq       = "ami-0071d66a6c1927ace" # grq v4.16 - 231002
     factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
     autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
