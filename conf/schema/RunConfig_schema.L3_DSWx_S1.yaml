@@ -1,0 +1,104 @@
+RunConfig:
+  Name: str()
+
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: str(required=True)
+
+      InputFilesGroup:
+        InputFilePaths: list(str(), min=1, required=True)
+
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: map(str(), key=str(), min=0)
+
+      ProductPathGroup:
+        OutputProductPath: str(required=True)
+        ScratchPath: str(required=True)
+
+      PrimaryExecutable:
+        ProductIdentifier: str(required=False)
+        ProductVersion: any(str(), num(), required=False)
+        CompositeReleaseID: str(required=False)
+        ProgramPath: str(required=True)
+        ProgramOptions: list(str(), min=0, required=False)
+        ErrorCodeBase: int(required=True)
+        SchemaPath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
+        IsoTemplatePath: str(required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
+
+      QAExecutable:
+        Enabled: bool(required=True)
+        ProgramPath: str(required=False)
+        ProgramOptions: list(str(), min=0, required=False)
+
+      DebugLevelGroup:
+        DebugSwitch: bool(required=False)
+        ExecuteViaShell: bool(required=False)
+
+    SAS:
+      runconfig:
+        name: str()
+
+        groups:
+          pge_name_group:
+            pge_name: enum('DSWX_S1_PGE')
+
+          input_file_group:
+            # REQUIRED - list of RTC products (directory or files)
+            input_file_path: list(str(), min=1)
+
+          dynamic_ancillary_file_group:
+            # Digital elevation model
+            dem_file: str(required=True)
+
+            # Digital elevation model description
+            dem_file_description: str(required=False)
+
+            # Reference water body map (Required)
+            # https://global-surface-water.appspot.com/download
+            reference_water_file: str(required=True)
+
+            # Pekel's water description
+            reference_water_file_description: str(required=False)
+
+            # Height Above Nearest Drainage (optional)
+            hand_file: str(required=True)
+
+            # HAND description
+            hand_file_description: str(required=False)
+
+            # ESA WorldCover map file
+            worldcover_file: str(required=False)
+
+            # ESA WorldCover map description
+            worldcover_file_description: str(required=False)
+
+            # NOAA GSHHS shapefile
+            shoreline_shapefile: str(required=False)
+
+            # NOAA GSHHS shapefile description
+            shoreline_shapefile_description: str(required=False)
+
+            # algorithm parameter
+            algorithm_parameters: str(required=True)
+
+          primary_executable:
+            product_type: enum('dswx_s1', 'twele')
+
+          product_path_group:
+            # Directory where PGE will place results
+            product_path: str()
+
+            # Directory where SAS can write temporary data
+            scratch_path: str()
+
+            # Intermediate file name.  SAS writes the output product to the following file.
+            # After the SAS completes, the PGE wrapper renames the product file
+            # according to proper file naming conventions.
+            sas_output_path: str()
+
+            product_version: num(required=False)
+
+          log_file: str(required=False)

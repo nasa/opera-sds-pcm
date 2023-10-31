@@ -388,6 +388,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.2"
     "cslc_s1" = "2.1.0"
     "rtc_s1" = "2.1.0"
+    "dswx_s1" = "3.0.0-er.4.0"
   }
 }
 
@@ -487,6 +488,14 @@ variable "es_bucket_role_arn" {
 }
 
 variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
   default = ""
 }
 
