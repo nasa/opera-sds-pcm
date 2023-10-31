@@ -1,5 +1,6 @@
 import logging
 import json
+import netrc
 import os
 from pathlib import PurePath, Path
 import requests
@@ -108,6 +109,9 @@ class DaacDownloadAsf(DaacDownload):
     def download_orbit_file(self, dataset_dir, product_filepath, additional_metadata):
         logger.info("Downloading associated orbit file")
 
+        # Get the PCM username/password for authentication to Copernicus Dataspace
+        username, _, password = netrc.netrc().authenticators('dataspace.copernicus.eu')
+
         (_, safe_start_time, safe_stop_time) = parse_orbit_time_range_from_safe(product_filepath)
         safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
         safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
@@ -122,9 +126,10 @@ class DaacDownloadAsf(DaacDownload):
                 [
                     f"--output-directory={str(dataset_dir)}",
                     "--orbit-type=POEORB",
+                    f"--username={username}",
+                    f"--password={password}",
                     f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
                     f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
-                    f"--query-time-range={self.cfg.get('POE_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_POE_TIME_RANGE)}",
                     str(product_filepath)
                 ]
             )
@@ -136,9 +141,10 @@ class DaacDownloadAsf(DaacDownload):
                     [
                         f"--output-directory={str(dataset_dir)}",
                         "--orbit-type=RESORB",
+                        f"--username={username}",
+                        f"--password={password}",
                         f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
                         f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
-                        f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
                         str(product_filepath)
                     ]
                 )
@@ -154,9 +160,10 @@ class DaacDownloadAsf(DaacDownload):
                     [
                         f"--output-directory={str(dataset_dir)}",
                         "--orbit-type=RESORB",
+                        f"--username={username}",
+                        f"--password={password}",
                         f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
                         f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
-                        f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
                         str(product_filepath)
                     ]
                 )
@@ -170,13 +177,18 @@ class DaacDownloadAsf(DaacDownload):
                     [
                         f"--output-directory={str(dataset_dir)}",
                         "--orbit-type=RESORB",
+                        f"--username={username}",
+                        f"--password={password}",
                         f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
                         f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
-                        f"--query-time-range={self.cfg.get('RES_ORBIT_TIME_RANGE', stage_orbit_file.DEFAULT_RES_TIME_RANGE)}",
                         str(product_filepath)
                     ]
                 )
                 stage_orbit_file.main(stage_orbit_file_args)
+        finally:
+            # Clear the username and password from memory
+            del username
+            del password
 
         logger.info("Added orbit file(s) to dataset")
 

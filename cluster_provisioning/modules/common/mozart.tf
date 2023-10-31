@@ -334,6 +334,10 @@ resource "aws_instance" "mozart" {
       echo INACTIVITY_THRESHOLD: ${var.inactivity_threshold} >> ~/.sds/config
       echo >> ~/.sds/config
 
+      echo 'DATASPACE_USER: "${var.dataspace_user}"' >> ~/.sds/config
+      echo 'DATASPACE_PASS: "${var.dataspace_pass}"' >> ~/.sds/config
+      echo >> ~/.sds/config
+
       echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config
       echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config
       echo >> ~/.sds/config
