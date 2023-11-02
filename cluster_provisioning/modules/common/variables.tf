@@ -134,6 +134,7 @@ variable "amis" {
   default = {
     # HySDS v5.0.0-rc.1.0 - Oct 15, 2023 - R2
     mozart    = "ami-09312d2c48c62e259" # mozart v4.25 - 231024
+#   metrics   = "ami-0670628448e7e3f64" # metrics v4.17 - 231015
     metrics   = "ami-02b8932de844c3a6a" # metrics v4.17 - 231012
     grq       = "ami-0814228de1f60d015" # grq v4.17 - 231015
     factotum  = "ami-0594d7f1fd4393c32" # factotum v4.16 - 231002
