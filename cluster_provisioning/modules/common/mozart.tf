@@ -541,6 +541,8 @@ resource "aws_instance" "mozart" {
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
       fi
+
+	  sleep 180
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
       else
