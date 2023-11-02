@@ -89,20 +89,6 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
 
-[program:watch_systemd_services]
-directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py --host metrics -s elasticsearch redis
-process_name=%(program_name)s
-priority=999
-numprocs=1
-numprocs_start=0
-redirect_stderr=true
-startretries=0
-stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10
-
 [program:bach-api]
 directory={{ OPS_HOME }}/metrics/ops/bach-api
 command=gunicorn -w4 -b 0.0.0.0:8875 --timeout=3600
@@ -117,6 +103,20 @@ numprocs=1
 numprocs_start=0
 redirect_stderr=true  # setting this to false means only python print statements will be logged to stdout_logfile. default is false.
 stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:watch_systemd_services]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py --host metrics -s elasticsearch redis
+process_name=%(program_name)s
+priority=999
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
 stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
