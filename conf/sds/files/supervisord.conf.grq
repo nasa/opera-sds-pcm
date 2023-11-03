@@ -107,20 +107,3 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
 
-[program:bach-api]
-directory={{ OPS_HOME }}/sciflo/ops/bach-api
-command=gunicorn -w4 -b 0.0.0.0:8875 --timeout=3600
-        --logger-class accountability_api.setup_loggers.GunicornLogger
-        --access-logfile -
-        --graceful-timeout=3600 --log-level=debug
-        --limit-request-line=0
-        'accountability_api:create_app("accountability_api.settings.Config")'
-process_name=%(program_name)s
-priority=1
-numprocs=1
-numprocs_start=0
-redirect_stderr=true  # setting this to false means only python print statements will be logged to stdout_logfile. default is false.
-stdout_logfile=%(here)s/../log/%(program_name)s.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10

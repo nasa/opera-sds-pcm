@@ -523,12 +523,16 @@ resource "aws_instance" "mozart" {
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
+		sleep 180
         sds -d update grq -f
+		sleep 180
         sds -d update metrics -f
         sds -d update factotum -f
       else
         sds -d update mozart -f -c
+		sleep 180
         sds -d update grq -f -c
+		sleep 180
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
@@ -537,6 +541,8 @@ resource "aws_instance" "mozart" {
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
       fi
+
+	  sleep 180
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
       else
@@ -547,8 +553,10 @@ resource "aws_instance" "mozart" {
       fi
 
       fab -f ~/.sds/cluster.py -R grq update_grq_es
+	  sleep 180
       fab -f ~/.sds/cluster.py -R metrics update_metrics_es
 
+      sleep 180
       sds -d ship
 
       cd ~/mozart/pkgs

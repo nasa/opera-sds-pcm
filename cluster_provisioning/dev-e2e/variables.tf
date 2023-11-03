@@ -176,7 +176,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -188,7 +188,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.2xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -511,12 +511,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
-    mozart    = "ami-0110888ace2a34f62" # mozart v4.23 - 230908
-    metrics   = "ami-0a5444fafcbf1f75b" # metrics v4.15 - 230915
-    grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915
-    factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
-    autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
+    # HySDS v5.0.0-rc.1.0 - Oct 15, 2023 - R2
+    mozart    = "ami-0cf8b5ab44f3cd05d" # mozart v4.25 - 231102
+    metrics   = "ami-02b8932de844c3a6a" # metrics v4.17 - 231012
+    grq       = "ami-0f2315ffaaee49e5d" # grq v4.17 - 231002
+    factotum  = "ami-0594d7f1fd4393c32" # factotum v4.16 - 231002
+    autoscale = "ami-0b2cee88915e1cb86" # verdi v4.16 patchdate - 231015
   }
 }
 

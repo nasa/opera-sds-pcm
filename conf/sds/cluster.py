@@ -17,7 +17,12 @@ from sdscli.adapters.hysds.fabfile import (
     settings,
     get_user_files_path,
     copy,
-    install_es_template
+#    install_es_template
+	install_es_template,
+    pip_install_with_req,
+    ops_dir,
+    ssh_opts,
+    extra_opts
 )
 
 

@@ -176,7 +176,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -188,7 +188,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -200,7 +200,6 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-#    instance_type = "r6i.4xlarge"
     instance_type = "r5.8xlarge"
     root_dev_size = 50
     data          = "/data"
