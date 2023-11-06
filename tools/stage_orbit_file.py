@@ -18,6 +18,8 @@ import requests
 from datetime import datetime, timedelta
 from os.path import abspath
 
+import backoff
+
 from commons.logger import logger
 from commons.logger import LogLevels
 
@@ -255,7 +257,24 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
 
     return query
 
+def fatal_code(err_code):
+    """Only retry for common transient errors"""
+    return err_code not in [429, 500, 503, 504]
 
+def backoff_logger(details):
+    """Log details about the current backoff/retry"""
+    logger.warning(
+        f"Backing off {details['target']} function for {details['wait']:0.1f} "
+        f"seconds after {details['tries']} tries."
+    )
+    logger.warning(f"Total time elapsed: {details['elapsed']:0.1f} seconds.")
+
+@backoff.on_exception(backoff.constant,
+                      requests.exceptions.RequestException,
+                      max_time=300,
+                      giveup=fatal_code,
+                      on_backoff=backoff_logger,
+                      interval=15)
 def query_orbit_file_service(endpoint_url, query):
     """
     Submits a request to the Orbit file query REST service, and returns the
@@ -295,13 +314,7 @@ def query_orbit_file_service(endpoint_url, query):
     logger.debug(f'response.url: {response.url}')
     logger.debug(f'response.status_code: {response.status_code}')
 
-    try:
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as err:
-        raise RuntimeError(
-            f'Failed to query Orbit File Service at {endpoint_url}, '
-            f'reason: {str(err)}'
-        )
+    response.raise_for_status()
 
     # Response should be within the text body as JSON
     json_response = response.json()
@@ -413,7 +426,12 @@ def select_orbit_file(query_results, safe_start_time, safe_stop_time):
             "No suitable orbit file could be found within the results of the query"
         )
 
-
+@backoff.on_exception(backoff.constant,
+                      requests.exceptions.RequestException,
+                      max_time=300,
+                      giveup=fatal_code,
+                      on_backoff=backoff_logger,
+                      interval=15)
 def get_access_token(endpoint_url, username, password):
     """
     Acquires an access token from the CDSE authentication endpoint using the
@@ -449,17 +467,12 @@ def get_access_token(endpoint_url, username, password):
         "grant_type": "password",
     }
 
-    try:
-        r = requests.post(endpoint_url, data=data,)
-        r.raise_for_status()
-    except Exception as err:
-        raise RuntimeError(
-            f"Access token creation failed. Reason: {str(err)}"
-        )
+    response = requests.post(endpoint_url, data=data,)
+    response.raise_for_status()
 
     # Parse the access token from the response
     try:
-        access_token = r.json()["access_token"]
+        access_token = response.json()["access_token"]
     except KeyError:
         raise RuntimeError(
             'Failed to parsed expected field "access_token" from authentication response.'
@@ -468,6 +481,12 @@ def get_access_token(endpoint_url, username, password):
     return access_token
 
 
+@backoff.on_exception(backoff.constant,
+                      requests.exceptions.RequestException,
+                      max_time=300,
+                      giveup=fatal_code,
+                      on_backoff=backoff_logger,
+                      interval=15)
 def download_orbit_file(request_url, output_directory, orbit_file_name, access_token):
     """
     Downloads an Orbit file using the provided request URL, which should contain
@@ -512,12 +531,7 @@ def download_orbit_file(request_url, output_directory, orbit_file_name, access_t
     logger.debug(f'r.url: {response.url}')
     logger.debug(f'r.status_code: {response.status_code}')
 
-    try:
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as err:
-        raise RuntimeError(
-            f'Failed to download Orbit file from {response.url}, reason: {str(err)}'
-        )
+    response.raise_for_status()
 
     # Write the contents to disk
     output_orbit_file_path = os.path.join(output_directory, orbit_file_name)
