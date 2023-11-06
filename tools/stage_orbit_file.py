@@ -330,7 +330,7 @@ def query_orbit_file_service(endpoint_url, query):
     return query_results
 
 
-def select_orbit_file(query_results, safe_start_time, safe_stop_time):
+def select_orbit_file(query_results, req_start_time, req_stop_time):
     """
     Iterates over the results of an orbit file query, searching for the first
     valid orbit file to download. A valid orbit file is one whose validity
@@ -344,10 +344,12 @@ def select_orbit_file(query_results, safe_start_time, safe_stop_time):
         The list of results from a successful query. Each result should
         be a Python dictionary containing the details of the orbit file which
         matched the query.
-    safe_start_time : str
-        The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
-    safe_stop_time : str
-        The stop time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
+    req_start_time : str
+        The required start time that a candidate orbit file must start before,
+        in YYYYmmddTHHMMSS format .
+    req_stop_time : str
+        The required stop time that a candidate orbit file must end after,
+        in YYYYmmddTHHMMSS format.
 
     Raises
     ------
@@ -401,25 +403,25 @@ def select_orbit_file(query_results, safe_start_time, safe_stop_time):
         orbit_stop_time = match.groupdict()['valid_stop_ts']
 
         # Check that the validity time range of the orbit file fully envelops
-        # the SAFE validity time range parsed earlier
-        safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
-        safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
+        # the required validity time range
+        req_start_datetime = datetime.strptime(req_start_time, "%Y%m%dT%H%M%S")
+        req_stop_datetime = datetime.strptime(req_stop_time, "%Y%m%dT%H%M%S")
         orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S")
         orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S")
 
         logger.info(f'Evaluating orbit file {orbit_file_name}')
-        logger.debug(f'{safe_start_time=}')
-        logger.debug(f'{safe_stop_time=}')
+        logger.debug(f'{req_start_time=}')
+        logger.debug(f'{req_stop_time=}')
         logger.debug(f'{orbit_start_time=}')
         logger.debug(f'{orbit_stop_time=}')
 
-        if orbit_start_datetime < safe_start_datetime and orbit_stop_datetime > safe_stop_datetime:
+        if orbit_start_datetime < req_start_datetime and orbit_stop_datetime > req_stop_datetime:
             logger.info(f'Orbit file is suitable for use')
 
             # Return the two pieces of info we need to download the file
             return orbit_file_name, orbit_file_request_id
         else:
-            logger.info('Orbit file time range does not fully overlap sensing time range, skipping')
+            logger.info('Orbit file time range does not fully overlap required time range, skipping')
     # If here, there were no valid orbit file candidates returned from the query
     else:
         raise NoSuitableOrbitFileException(
@@ -584,7 +586,7 @@ def main(args):
 
     # Select an appropriate orbit file from the list returned from the query
     orbit_file_name, orbit_file_request_id = select_orbit_file(
-        query_results, safe_start_time, safe_stop_time
+        query_results, search_start_time, search_stop_time
     )
 
     # Obtain an access token for use with the download request from the provided
