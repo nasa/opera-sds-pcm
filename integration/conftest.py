@@ -11,8 +11,8 @@ config = {
     **os.environ
 }
 
-logging.getLogger("elasticsearch").setLevel("WARN")
-logging.getLogger("botocore").setLevel("WARN")
+logging.getLogger("elasticsearch").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
 
 
 def pytest_configure(config: pytest.Config):
