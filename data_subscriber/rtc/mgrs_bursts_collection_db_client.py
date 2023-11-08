@@ -1,5 +1,6 @@
 import ast
 import logging
+from collections import defaultdict
 from functools import cache
 from pathlib import Path
 
@@ -7,6 +8,14 @@ import geopandas as gpd
 from geopandas import GeoDataFrame
 
 logger = logging.getLogger(__name__)
+
+
+def tree():
+    return defaultdict(tree)
+
+
+def dicts(t):
+    return {k: dicts(t[k]) for k in t}
 
 
 @cache
@@ -39,9 +48,56 @@ def load_mgrs_burst_db_raw(filter_land=True):
     return vector_gdf
 
 
+def get_reduced_rtc_native_id_patterns(mgrs_burst_collections_gdf: GeoDataFrame):
+    rtc_native_id_patterns_burst_sets = get_rtc_native_id_patterns_burst_sets(mgrs_burst_collections_gdf)
+    rtc_native_id_patterns = reduce_bursts_to_cmr_patterns(rtc_native_id_patterns_burst_sets)
+    return rtc_native_id_patterns
+
+
+def get_rtc_native_id_patterns_burst_sets(mgrs_burst_collections_gdf: GeoDataFrame):
+    rtc_native_id_patterns_burst_sets = {
+        "OPERA_L2_RTC-S1_{burst_id}".format(burst_id=mapping_burst_id_to_product_burst_id(burst_id))
+        for _, row in mgrs_burst_collections_gdf.iterrows()
+        for burst_id in row["bursts_parsed"]
+    }
+    return rtc_native_id_patterns_burst_sets
+
+
+def reduce_bursts_to_cmr_patterns(rtc_native_id_patterns_burst_sets):
+    native_id_pattern_tree = tree()
+    for pattern in rtc_native_id_patterns_burst_sets:
+        native_id_pattern_tree[pattern[:-7]][pattern[:-6]][pattern[:-5]][pattern[:-4]][pattern]
+    native_id_pattern_tree = dicts(native_id_pattern_tree)
+    rtc_native_id_patterns = set()
+    for k1, v1 in native_id_pattern_tree.items():
+        if len(v1.keys()) == 10:
+            rtc_native_id_patterns.add(k1)
+        else:
+            for k2, v2 in v1.items():
+                if len(v2.keys()) == 10:
+                    rtc_native_id_patterns.add(k2)
+                else:
+                    for k3, v3 in v2.items():
+                        if len(v3.keys()) == 10:
+                            rtc_native_id_patterns.add(k3)
+                        else:
+                            for k4, v4 in v3.items():
+                                if len(v4.keys()) == 3:  # got to the list of full native-ids
+                                    rtc_native_id_patterns.add(k4)
+                                else:
+                                    rtc_native_id_patterns.update(set(v4.keys()))  # all the individual beams (1/3 or 2/3)
+    rtc_native_id_patterns = {p + "*" for p in rtc_native_id_patterns}
+
+    return rtc_native_id_patterns
+
+
 def burst_id_to_mgrs_set_ids(gdf: GeoDataFrame, burst_id):
     return gdf[{burst_id} < gdf["bursts_parsed"]]["mgrs_set_id"].unique().tolist()
 
 
 def product_burst_id_to_mapping_burst_id(product_burst_id):
     return product_burst_id.lower().replace("-", "_")
+
+
+def mapping_burst_id_to_product_burst_id(mapping_burst_id):
+    return mapping_burst_id.upper().replace("_", "-")
