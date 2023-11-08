@@ -1,11 +1,13 @@
 import logging
 import re
 from datetime import datetime
+from typing import Iterable
 
 import dateutil.parser
 from more_itertools import first_true
 
-from tools.ops.cmr_audit.cmr_client import cmr_requests_get
+from tools.ops.cmr_audit import cmr_client
+from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
 }
 
 
-def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
+async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
 
@@ -81,8 +83,8 @@ def query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     if not silent:
-        logger.info(f"{request_url=} {params=}")
-    product_granules = _request_search_cmr_granules(args, request_url, params)
+        logger.info(f"Querying CMR. {request_url=} {params=}")
+    product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -114,6 +116,11 @@ def _get_temporal_range(start: str, end: str, now: str):
     end = end if end is not False else now
 
     return "{},{}".format(start, end)
+
+
+async def _async_request_search_cmr_granules(args, request_url, paramss: Iterable[dict]):
+    response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss))
+    return response_jsons_to_cmr_granules(args, response_jsons)
 
 
 def _request_search_cmr_granules(args, request_url, params):
