@@ -30,11 +30,6 @@ async def run(argv: list[str]):
     except ValueError as v:
         raise v
 
-    settings = SettingsConf().cfg
-    edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-    cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
-    netloc = urlparse(f"https://{edl}").netloc
-
     es_conn = supply_es_conn(args)
 
     if args.file:
@@ -47,15 +42,26 @@ async def run(argv: list[str]):
     job_id = supply_job_id()
     logger.info(f"{job_id=}")
 
-    username, _, password = netrc.netrc().authenticators(edl)
-    token = supply_token(edl)
+    settings = SettingsConf().cfg
+    cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
 
     results = {}
     if args.subparser_name == "survey":
-        run_survey(args, token, cmr, settings)
+        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
+        token = supply_token(edl)
+
+        await run_survey(args, token, cmr, settings)
     if args.subparser_name == "query" or args.subparser_name == "full":
+        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
+        token = supply_token(edl)
+
         results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
     if args.subparser_name == "download" or args.subparser_name == "full":
+        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
+        token = supply_token(edl)
+        netloc = urlparse(f"https://{edl}").netloc
+        username, _, password = netrc.netrc().authenticators(edl)
+
         results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
 
     logger.info(f"{results=}")
