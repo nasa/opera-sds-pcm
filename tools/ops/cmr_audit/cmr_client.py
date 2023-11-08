@@ -34,7 +34,6 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
     sem = sem if sem is not None else contextlib.nullcontext()
     async with sem:
         page_size = 2000  # default is 10, max is 2000
-        # page_size = 1  # TODO chrisjrd: remove
         data += f"&page_size={page_size}"
 
         logger.debug(f"async_cmr_post({url=}..., {len(data)=:,}, {data[-250:]=}")
@@ -58,7 +57,6 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
             if current_page == 1:
                 logger.info(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
                 max_pages = math.ceil(response_json["hits"]/page_size)
-                # max_pages = 1  # TODO chrisjrd: remove before final commit
                 logger.info(f"Updating max pages to {max_pages=}")
             logger.info(f'CMR query (cmr-query-page {current_page} of {ceil(response_json["hits"]/page_size)}): {len(response_json["items"])=:,}')
 
