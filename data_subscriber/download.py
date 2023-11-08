@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import PurePath, Path
 from typing import Iterable
 
+import backoff
 import boto3
 import dateutil.parser
 import requests
@@ -18,6 +19,7 @@ from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -67,8 +69,6 @@ class DaacDownload:
             from data_subscriber.asf_download import DaacDownloadAsf
             return DaacDownloadAsf(provider)
         elif provider == "ASF-RTC":
-            # TODO chrisjrd: replace with dedicated downloaded for RTC types from ASF
-            # raise NotImplementedError()
             from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
             return AsfDaacRtcDownload(provider)
         elif provider == "ASF-CSLC":
@@ -76,7 +76,7 @@ class DaacDownload:
 
         raise Exception("Unknown product provider: " + provider)
 
-    def run_download(self, args, token, es_conn, netloc, username, password, job_id):
+    def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
         # This is a special case where we are being asked to download exactly one granule
         # identified its unique id. In such case we shouldn't gather all pending downloads at all;
@@ -87,24 +87,11 @@ class DaacDownload:
             downloads = es_conn.get_download_granule_revision(one_granule)
         else:
             download_timerange = self.get_download_timerange(args)
-            # TODO chrisjrd: finalize after testing
             all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
                 dateutil.parser.isoparse(download_timerange.start_date),
                 dateutil.parser.isoparse(download_timerange.end_date),
                 args.use_temporal
             )
-            # TODO chrisjrd: remove dummy data after testing
-            # all_pending_downloads: Iterable[dict] = [
-            #     {
-            #         "granule_id": "DUMMY_ID",
-            #         "revision_id": 2,
-            #         "s3_url": "s3://"
-            #                   "asf-cumulus-prod-opera-products/"
-            #                   "OPERA_L2_RTC-S1/"
-            #                   "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0/"
-            #                   "OPERA_L2_RTC-S1_T008-015936-IW3_20231019T061330Z_20231019T113624Z_S1A_30_v1.0.h5"
-            #     }
-            # ]
             logger.info(f"{len(list(all_pending_downloads))=}")
 
             downloads = all_pending_downloads
@@ -134,10 +121,13 @@ class DaacDownload:
         if args.dry_run:
             logger.info(f"{args.dry_run=}. Skipping downloads.")
 
-        self.perform_download(session, es_conn, downloads, args, token, job_id)
+        product_to_product_filepaths_map = self.perform_download(session, es_conn, downloads, args, token, job_id)
 
-        logger.info(f"Removing directory tree. {self.downloads_dir}")
-        shutil.rmtree(self.downloads_dir)
+        if rm_downloads_dir:
+            logger.info(f"Removing directory tree. {self.downloads_dir}")
+            shutil.rmtree(self.downloads_dir)
+
+        return product_to_product_filepaths_map
 
     def perform_download(self, session, es_conn, downloads, args, token, job_id):
         pass
@@ -180,6 +170,7 @@ class DaacDownload:
         product_download_path = self._s3_download(url, s3, str(target_dirpath))
         return product_download_path.resolve()
 
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
     def _handle_url_redirect(self, url, token):
         if not validators.url(url):
             raise Exception(f"Malformed URL: {url}")
