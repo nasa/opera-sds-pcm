@@ -35,3 +35,18 @@ class RTCProductCatalog(HLSProductCatalog):
         """For 'OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0-r1' returns:
         OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0 and 1"""
         return es_id[:es_id.rfind("-")], es_id[es_id.rfind("-r")+2:]
+
+    def get_download_granule_revision(self, batch_id: str):
+        downloads = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "should": [
+                            {"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": batch_id}}
+                        ]
+                    }
+                }
+            }
+        )
+        return self.filter_query_result(downloads)
