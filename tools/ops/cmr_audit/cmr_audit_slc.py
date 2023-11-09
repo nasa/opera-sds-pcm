@@ -77,18 +77,19 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_cslc(cslc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_L2_CSLC-S1_V1", 
+    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1", collection_concept_id="C1257337155-ASF",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
 
 
 async def async_get_cmr_rtc(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L2_RTC-S1_V1",
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1", collection_concept_id="C1257337044-ASF",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
 
 
 async def async_get_cmr(
         native_id_patterns: set,
         collection_short_name: Union[str, Iterable[str]],
+        collection_concept_id: str,
         temporal_date_start: str, temporal_date_end: str):
     logger.debug(f"entry({len(native_id_patterns)=:,})")
 
@@ -108,6 +109,7 @@ async def async_get_cmr(
             request_body = (
                 "provider=ASF"
                 f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
+                f"&collection_concept_id={collection_concept_id}"
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
                 "&options[native-id][pattern]=true"

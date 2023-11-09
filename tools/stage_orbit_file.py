@@ -18,8 +18,6 @@ import requests
 from datetime import datetime, timedelta
 from os.path import abspath
 
-import backoff
-
 from commons.logger import logger
 from commons.logger import LogLevels
 
@@ -257,24 +255,7 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
 
     return query
 
-def fatal_code(err_code):
-    """Only retry for common transient errors"""
-    return err_code not in [429, 500, 503, 504]
 
-def backoff_logger(details):
-    """Log details about the current backoff/retry"""
-    logger.warning(
-        f"Backing off {details['target']} function for {details['wait']:0.1f} "
-        f"seconds after {details['tries']} tries."
-    )
-    logger.warning(f"Total time elapsed: {details['elapsed']:0.1f} seconds.")
-
-@backoff.on_exception(backoff.constant,
-                      requests.exceptions.RequestException,
-                      max_time=300,
-                      giveup=fatal_code,
-                      on_backoff=backoff_logger,
-                      interval=15)
 def query_orbit_file_service(endpoint_url, query):
     """
     Submits a request to the Orbit file query REST service, and returns the
@@ -314,7 +295,13 @@ def query_orbit_file_service(endpoint_url, query):
     logger.debug(f'response.url: {response.url}')
     logger.debug(f'response.status_code: {response.status_code}')
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise RuntimeError(
+            f'Failed to query Orbit File Service at {endpoint_url}, '
+            f'reason: {str(err)}'
+        )
 
     # Response should be within the text body as JSON
     json_response = response.json()
@@ -330,7 +317,7 @@ def query_orbit_file_service(endpoint_url, query):
     return query_results
 
 
-def select_orbit_file(query_results, req_start_time, req_stop_time):
+def select_orbit_file(query_results, safe_start_time, safe_stop_time):
     """
     Iterates over the results of an orbit file query, searching for the first
     valid orbit file to download. A valid orbit file is one whose validity
@@ -344,12 +331,10 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
         The list of results from a successful query. Each result should
         be a Python dictionary containing the details of the orbit file which
         matched the query.
-    req_start_time : str
-        The required start time that a candidate orbit file must start before,
-        in YYYYmmddTHHMMSS format .
-    req_stop_time : str
-        The required stop time that a candidate orbit file must end after,
-        in YYYYmmddTHHMMSS format.
+    safe_start_time : str
+        The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
+    safe_stop_time : str
+        The stop time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
 
     Raises
     ------
@@ -403,37 +388,32 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
         orbit_stop_time = match.groupdict()['valid_stop_ts']
 
         # Check that the validity time range of the orbit file fully envelops
-        # the required validity time range
-        req_start_datetime = datetime.strptime(req_start_time, "%Y%m%dT%H%M%S")
-        req_stop_datetime = datetime.strptime(req_stop_time, "%Y%m%dT%H%M%S")
+        # the SAFE validity time range parsed earlier
+        safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
+        safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
         orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S")
         orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S")
 
         logger.info(f'Evaluating orbit file {orbit_file_name}')
-        logger.debug(f'{req_start_time=}')
-        logger.debug(f'{req_stop_time=}')
+        logger.debug(f'{safe_start_time=}')
+        logger.debug(f'{safe_stop_time=}')
         logger.debug(f'{orbit_start_time=}')
         logger.debug(f'{orbit_stop_time=}')
 
-        if orbit_start_datetime < req_start_datetime and orbit_stop_datetime > req_stop_datetime:
+        if orbit_start_datetime < safe_start_datetime and orbit_stop_datetime > safe_stop_datetime:
             logger.info(f'Orbit file is suitable for use')
 
             # Return the two pieces of info we need to download the file
             return orbit_file_name, orbit_file_request_id
         else:
-            logger.info('Orbit file time range does not fully overlap required time range, skipping')
+            logger.info('Orbit file time range does not fully overlap sensing time range, skipping')
     # If here, there were no valid orbit file candidates returned from the query
     else:
         raise NoSuitableOrbitFileException(
             "No suitable orbit file could be found within the results of the query"
         )
 
-@backoff.on_exception(backoff.constant,
-                      requests.exceptions.RequestException,
-                      max_time=300,
-                      giveup=fatal_code,
-                      on_backoff=backoff_logger,
-                      interval=15)
+
 def get_access_token(endpoint_url, username, password):
     """
     Acquires an access token from the CDSE authentication endpoint using the
@@ -469,12 +449,17 @@ def get_access_token(endpoint_url, username, password):
         "grant_type": "password",
     }
 
-    response = requests.post(endpoint_url, data=data,)
-    response.raise_for_status()
+    try:
+        r = requests.post(endpoint_url, data=data,)
+        r.raise_for_status()
+    except Exception as err:
+        raise RuntimeError(
+            f"Access token creation failed. Reason: {str(err)}"
+        )
 
     # Parse the access token from the response
     try:
-        access_token = response.json()["access_token"]
+        access_token = r.json()["access_token"]
     except KeyError:
         raise RuntimeError(
             'Failed to parsed expected field "access_token" from authentication response.'
@@ -483,12 +468,6 @@ def get_access_token(endpoint_url, username, password):
     return access_token
 
 
-@backoff.on_exception(backoff.constant,
-                      requests.exceptions.RequestException,
-                      max_time=300,
-                      giveup=fatal_code,
-                      on_backoff=backoff_logger,
-                      interval=15)
 def download_orbit_file(request_url, output_directory, orbit_file_name, access_token):
     """
     Downloads an Orbit file using the provided request URL, which should contain
@@ -533,7 +512,12 @@ def download_orbit_file(request_url, output_directory, orbit_file_name, access_t
     logger.debug(f'r.url: {response.url}')
     logger.debug(f'r.status_code: {response.status_code}')
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise RuntimeError(
+            f'Failed to download Orbit file from {response.url}, reason: {str(err)}'
+        )
 
     # Write the contents to disk
     output_orbit_file_path = os.path.join(output_directory, orbit_file_name)
@@ -586,7 +570,7 @@ def main(args):
 
     # Select an appropriate orbit file from the list returned from the query
     orbit_file_name, orbit_file_request_id = select_orbit_file(
-        query_results, search_start_time, search_stop_time
+        query_results, safe_start_time, safe_stop_time
     )
 
     # Obtain an access token for use with the download request from the provided
