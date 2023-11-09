@@ -149,7 +149,7 @@ class DaacDownloadAsf(DaacDownload):
                     ]
                 )
                 stage_orbit_file.main(stage_orbit_file_args)
-            except NoSuitableOrbitFileException:
+            except (NoQueryResultsException, NoSuitableOrbitFileException):
                 logger.warning("Single RESORB file could not be found, querying for consecutive RESORB files")
 
                 logger.info("Querying for RESORB with range [sensing_start - 1 min, sensing_end + 1 min]")

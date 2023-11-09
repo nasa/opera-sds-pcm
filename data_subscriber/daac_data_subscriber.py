@@ -20,13 +20,14 @@ from data_subscriber.survey import run_survey
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.aws_token import supply_token
 from util.conf_util import SettingsConf
+from util.exec_util import exec_wrapper
 
 PRODUCT_PROVIDER_MAP = {"HLSL30": "LPCLOUD",
                         "HLSS30": "LPCLOUD",
                         "SENTINEL-1A_SLC": "ASF",
                         "SENTINEL-1B_SLC": "ASF"}
 
-
+@exec_wrapper
 async def run(argv: list[str]):
     parser = create_parser()
     args = parser.parse_args(argv[1:])
