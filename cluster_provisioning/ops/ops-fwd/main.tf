@@ -19,6 +19,7 @@ module "int-main" {
   triage_bucket                           = var.triage_bucket
   isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
+  es_snapshot_bucket                      = var.es_snapshot_bucket
   docker_registry_bucket                  = var.docker_registry_bucket
   use_daac_cnm_r                          = var.use_daac_cnm_r
   run_smoke_test                          = var.run_smoke_test
