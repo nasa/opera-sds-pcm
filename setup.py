@@ -54,7 +54,8 @@ setup(
             "more-itertools==8.13.0",
             "requests==2.27.1",
             "validators",
-            "cachetools==5.2.0"
+            "cachetools==5.2.0",
+            "geopandas"
         ],
         "test": [
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.3.tar.gz",
