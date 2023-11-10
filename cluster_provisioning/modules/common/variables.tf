@@ -404,6 +404,15 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_private_vpc"   = false
     }
+    "opera-job_worker-rtc_data_query" = {
+      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
     "opera-job_worker-timer" = {
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size"     = 50
@@ -439,7 +448,7 @@ variable "cnm_r_sqs_arn" {
     dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
     int  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-fwd-daac-cnm-response"
     test = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
-    prod  = "arn:aws:sqs:us-west-2:907504701509:opera-ops-daac-cnm-response"
+    prod = "arn:aws:sqs:us-west-2:907504701509:opera-ops-daac-cnm-response"
   }
 }
 
@@ -498,6 +507,14 @@ variable "slcs1a_query_timer_trigger_frequency" {
 }
 
 variable "slc_ionosphere_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "rtc_provider" {
+  default = "ASF"
+}
+
+variable "rtc_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

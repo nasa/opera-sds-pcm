@@ -40,6 +40,7 @@ locals {
   batch_query_job_type             = "batch_query"
   slcs1a_query_job_type            = "slcs1a_query"
   slc_ionosphere_download_job_type = "slc_download_ionosphere"
+  rtc_query_job_type               = "rtc_query"
 
   use_s3_uri_structure = var.use_s3_uri_structure
   grq_es_url           = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
@@ -48,13 +49,13 @@ locals {
     "dev"  = "${var.project}-dev-daac-cnm-response"
     "int"  = "${var.project}-int-daac-cnm-response"
     "test" = "${var.project}-test-daac-cnm-response"
-    "ops" = "${var.project}-ops-daac-cnm-response"
+    "ops"  = "${var.project}-ops-daac-cnm-response"
   }
   cnm_response_dl_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
     "int"  = "${var.project}-int-daac-cnm-response-dead-letter-queue"
     "test" = "${var.project}-test-daac-cnm-response-dead-letter-queue"
-    "ops" = "${var.project}-ops-daac-cnm-response-dead-letter-queue"
+    "ops"  = "${var.project}-ops-daac-cnm-response-dead-letter-queue"
   }
 
   e_misfire_metric_alarm_name = "${var.project}-${var.venue}-${local.counter}-event-misfire"
