@@ -1,11 +1,14 @@
 import ast
 import logging
+import re
 from collections import defaultdict
 from functools import cache
 from pathlib import Path
 
+import boto3
 import geopandas as gpd
 from geopandas import GeoDataFrame
+from mypy_boto3_s3 import S3Client
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +23,7 @@ def dicts(t):
 
 @cache
 def cached_load_mgrs_burst_db(filter_land=True):
+    logger.info(f"Cache loading MGRS burst database. {filter_land=}")
     return load_mgrs_burst_db(filter_land)
 
 
@@ -36,8 +40,14 @@ def load_mgrs_burst_db(filter_land=True):
 
 
 def load_mgrs_burst_db_raw(filter_land=True):
-    # TODO chrisjrd: finalize location before final commit (docker image? s3?)
-    vector_gdf = gpd.read_file(Path("~/Downloads/MGRS_tile_collection_v0.2.sqlite").expanduser(), crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
+    mtc_local_filepath = Path("~/Downloads/MGRS_tile_collection_v0.2.sqlite").expanduser()
+    if mtc_local_filepath.exists():
+        vector_gdf = gpd.read_file(mtc_local_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
+    else:
+        s3_client: S3Client = boto3.session.Session().client("s3")
+        mtc_download_filepath = Path("MGRS_tile_collection_v0.2.sqlite")
+        s3_client.download_file(Bucket="opera-ancillaries", Key="MGRS_tile_collection_v0.2.sqlite", Filename=str(mtc_download_filepath))
+        vector_gdf = gpd.read_file(mtc_download_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
     # na_gdf = gpd.read_file(Path("geo/north_america_opera.geojson"), crs="EPSG:4326")
     # vector_gdf = vector_gdf.overlay(na_gdf, how="intersection")
     logger.info(f"{len(vector_gdf)=}")
@@ -92,7 +102,9 @@ def reduce_bursts_to_cmr_patterns(rtc_native_id_patterns_burst_sets):
 
 
 def burst_id_to_mgrs_set_ids(gdf: GeoDataFrame, burst_id):
-    return gdf[{burst_id} < gdf["bursts_parsed"]]["mgrs_set_id"].unique().tolist()
+    mgrs_set_ids = gdf[{burst_id} < gdf["bursts_parsed"]]["mgrs_set_id"].unique().tolist()
+    mgrs_set_ids.sort(key=natural_keys)
+    return mgrs_set_ids
 
 
 def product_burst_id_to_mapping_burst_id(product_burst_id):
@@ -101,3 +113,18 @@ def product_burst_id_to_mapping_burst_id(product_burst_id):
 
 def mapping_burst_id_to_product_burst_id(mapping_burst_id):
     return mapping_burst_id.upper().replace("_", "-")
+
+# solution for natural sorting taken from here:
+#  https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+
+
+def natural_keys(text):
+    return [tryfloat(c) for c in re.split(r'[+-]?(\d+(?:[.]\d*)?|[.]\d+)', text)]
+
+
+def tryfloat(text):
+    try:
+        retval = float(text)
+    except ValueError:
+        retval = text
+    return retval

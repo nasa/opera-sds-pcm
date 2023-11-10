@@ -1,5 +1,9 @@
 import asyncio
+import concurrent.futures
 import logging
+import math
+import netrc
+import os
 import re
 import uuid
 from collections import namedtuple, defaultdict
@@ -7,15 +11,23 @@ from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
+import backoff
+import boto3
 import dateutil.parser
+from boto3.exceptions import Boto3Error
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked
+from mypy_boto3_s3 import S3Client
 
-from data_subscriber.cmr import query_cmr, COLLECTION_TO_PRODUCT_TYPE_MAP
+import data_subscriber.download
+from data_subscriber.aws_token import supply_token
+from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr
+from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
-from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id, \
-    burst_id_to_mgrs_set_ids, cached_load_mgrs_burst_db
+from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as mbc_client
+from data_subscriber.rtc.rtc_job_submitter import submit_job_submissions_tasks as dswx_s1_submit_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america
@@ -25,13 +37,13 @@ logger = logging.getLogger(__name__)
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 
-async def run_query(args, token, es_conn, cmr, job_id, settings):
+async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
 
     logger.info("CMR query STARTED")
-    granules = query_cmr(args, token, cmr, settings, query_timerange, now)
+    granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
     logger.info("CMR query FINISHED")
 
     if args.smoke_run:
@@ -39,13 +51,6 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         granules = granules[:1]
 
     logger.info("catalogue-ing STARTED")
-
-    # Calculating the Collection Cycle Index (Part 1):
-    #  required constants
-    MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
-    MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
-    MAX_BURST_IDENTIFICATION_NUMBER = 375887
-    ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
     filtered_granules = []
     for granule in granules:
@@ -55,10 +60,10 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
             burst_id = match_product_id.group("burst_id")
 
-            mgrs = cached_load_mgrs_burst_db(filter_land=True)
-            mgrs_sets = burst_id_to_mgrs_set_ids(mgrs, product_burst_id_to_mapping_burst_id(burst_id))
+            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+            mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
             if not mgrs_sets:
-                logging.info(f"{burst_id=} not associated with land or land/water data. skipping.")
+                logging.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
                 continue
         else:
             # If processing mode is historical,
@@ -75,6 +80,9 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
     granules = filtered_granules
 
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
+
     for granule in granules:
         granule_id = granule.get("granule_id")
         revision_id = granule.get("revision_id")
@@ -90,25 +98,74 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             acquisition_dts = match_product_id.group("acquisition_dts")
             burst_id = match_product_id.group("burst_id")
 
-            mgrs = cached_load_mgrs_burst_db(filter_land=True)
-            mgrs_sets = burst_id_to_mgrs_set_ids(mgrs, product_burst_id_to_mapping_burst_id(burst_id))
-            additional_fields["mgrs_set_id"] = mgrs_sets
+            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+            mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
+            additional_fields["mgrs_set_ids"] = mgrs_sets
 
-            # Calculating the Collection Cycle Index (Part 2):
+            # RTC: Calculating the Collection Cycle Index (Part 1):
+            #  required constants
+            MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
+            MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
+            MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
+            ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
+
+            # RTC: Calculating the Collection Cycle Index (Part 2):
             #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
             #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
             burst_identification_number = int(burst_id.split(sep="-")[1])
             instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
             seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
-            acquisition_cycle = round(
-                (
-                     seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
-                ) / ACQUISITION_CYCLE_DURATION_SECS
-            )
+            acquisition_index = (
+                 seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
+            ) / ACQUISITION_CYCLE_DURATION_SECS
+            acquisition_cycle = round(acquisition_index)
+            acquisition_index_floor = math.floor(acquisition_index)
+            acquisition_index_ceil = math.ceil(acquisition_index)
+
             additional_fields["acquisition_cycle"] = acquisition_cycle
 
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-            pass
+            # construct filters for evaluation
+            if len(mgrs_sets) == 1:
+                if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
+                    current_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
+                    future_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle + 1)
+
+                    additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
+
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati)
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(future_ati)
+
+                if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
+                    past_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle - 1)
+                    current_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
+
+                    additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
+
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(past_ati)
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati)
+            elif len(mgrs_sets) == 2:
+                if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
+                    current_ati_a = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
+                    current_ati_b = "{}${}".format(sorted(mgrs_sets)[1], acquisition_cycle)
+                    future_ati = "{}${}".format(sorted(mgrs_sets)[1], acquisition_cycle + 1)
+
+                    additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
+
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_a)
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_b)
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(future_ati)
+                if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
+                    past_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle - 1)
+                    current_ati_a = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
+                    current_ati_b = "{}${}".format(sorted(mgrs_sets)[1], acquisition_cycle)
+
+                    additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
+
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(past_ati)
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_a)
+                    affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_b)
+            else:
+                raise AssertionError("Unexpected burst overlap")
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
@@ -146,6 +203,95 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
 
     logger.info("catalogue-ing FINISHED")
 
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        logger.info("performing index refresh")
+        es_conn.refresh()
+        logger.info("performed index refresh")
+
+        logger.info("evaluating available burst sets")
+        logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
+        mgrs_sets, incomplete_mgrs_sets = await evaluator.main(mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes)
+
+        # convert to "batch_id" mapping
+        batch_id_to_products_map = defaultdict(set)
+        for mgrs_set_id, sets in mgrs_sets.items():
+            for set_ in sets:
+                product_id_to_docs_map = list(set_)[0]
+                first_product = list(product_id_to_docs_map.items())[0][1][0]
+                acquisition_cycle = first_product["_source"]["acquisition_cycle"]
+                batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
+                batch_id_to_products_map[batch_id] = set_
+
+        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
+        token = supply_token(edl)
+        netloc = urlparse(f"https://{edl}").netloc
+        username, _, password = netrc.netrc().authenticators(edl)
+
+        Namespace = namedtuple(
+            "Namespace",
+            ["provider", "transfer_protocol", "batch_ids", "dry_run", "smoke_run"],
+            defaults=["ASF-RTC", "https", None, False, False]
+        )
+
+        successfully_uploaded_batch_id_to_products_map = {}
+        for batch_id, set_ in batch_id_to_products_map.items():
+            args_for_downloader = Namespace(provider="ASF-RTC", batch_ids=[batch_id])  # TODO chrisjrd: consolidate args
+            downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
+
+            run_download_kwargs = {
+                "token": token,
+                "es_conn": es_conn,
+                "netloc": netloc,
+                "username": username,
+                "password": password,
+                "job_id": job_id
+            }
+
+            product_to_product_filepaths_map: dict = downloader.run_download(args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
+
+            logger.info(f"Uploading MGRS burst set files to S3")
+            files_to_upload = [fp for k, v in product_to_product_filepaths_map.items() for fp in v]
+            # concurrent_s3_client_try_upload_file(batch_id, files_to_upload, settings)
+            successfully_uploaded_batch_id_to_products_map[batch_id] = set_
+
+            logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(set_)}")
+            # TODO chrisjrd: submit PGE job by the batch
+            args_for_job_submitter = namedtuple(
+                "Namespace",
+                ["chunk_size", "job_queue", "release_version"],
+                defaults=[1, "dummy_job_queue", args.release_version]  # TODO chrisjrd: consolidate args
+            )()
+        job_submission_tasks = dswx_s1_submit_job_submissions_tasks(successfully_uploaded_batch_id_to_products_map, args_for_job_submitter)  # TODO chrisjrd: implement me
+    else:
+        if args.subparser_name == "full":
+            logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
+            return
+
+        if args.no_schedule_download:
+            logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
+            return
+
+        if not args.chunk_size:
+            logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
+            return
+
+        job_submission_tasks = await download_job_submission_handler(args, granules, query_timerange)
+    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+    logger.info(f"{len(results)=}")
+    logger.info(f"{results=}")
+
+    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+    logger.info(f"{succeeded=}")
+    failed = [e for e in results if isinstance(e, Exception)]
+    logger.info(f"{failed=}")
+
+    return {
+        "success": succeeded,
+        "fail": failed
+    }
+
+
+async def download_job_submission_handler(args, granules, query_timerange):
     batch_id_to_urls_map = defaultdict(set)
     for granule in granules:
         granule_id = granule.get("granule_id")
@@ -158,26 +304,33 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
                 url_grouping_func = _slc_url_to_chunk_id
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-                url_grouping_func = form_batch_id  # TODO chrisjrd: batch by MGRS tile collection DB set
+                pass
             else:
                 raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
 
             for filter_url in granule.get("filtered_urls"):
                 batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
-
-    if args.subparser_name == "full":
-        logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
-        return
-
-    if args.no_schedule_download:
-        logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
-        return
-
-    if not args.chunk_size:
-        logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
-        return
-
     logger.info(f"{batch_id_to_urls_map=}")
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        raise NotImplementedError()
+    else:
+        job_submission_tasks = submit_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args)
+    return job_submission_tasks
+
+
+def get_query_timerange(args, now: datetime, silent=False):
+    now_minus_minutes_dt = (now - timedelta(minutes=args.minutes)) if not args.native_id else dateutil.parser.isoparse("1900-01-01T00:00:00Z")
+
+    start_date = args.start_date if args.start_date else now_minus_minutes_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_date = args.end_date if args.end_date else now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    query_timerange = DateTimeRange(start_date, end_date)
+    if not silent:
+        logger.info(f"{query_timerange=}")
+    return query_timerange
+
+
+def submit_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args):
     job_submission_tasks = []
     logger.info(f"{args.chunk_size=}")
     for batch_chunk in chunked(batch_id_to_urls_map.items(), n=args.chunk_size):
@@ -200,83 +353,62 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                     submit_download_job,
                     release_version=args.release_version,
                     product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection],
-                    params=[
-                        {
-                            "name": "batch_ids",
-                            "value": "--batch-ids " + " ".join(chunk_batch_ids) if chunk_batch_ids else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "smoke_run",
-                            "value": "--smoke-run" if args.smoke_run else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "dry_run",
-                            "value": "--dry-run" if args.dry_run else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "endpoint",
-                            "value": f"--endpoint={args.endpoint}",
-                            "from": "value"
-                        },
-                        {
-                            "name": "start_datetime",
-                            "value": f"--start-date={query_timerange.start_date}",
-                            "from": "value"
-                        },
-                        {
-                            "name": "end_datetime",
-                            "value": f"--end-date={query_timerange.end_date}",
-                            "from": "value"
-                        },
-                        {
-                            "name": "use_temporal",
-                            "value": "--use-temporal" if args.use_temporal else "",
-                            "from": "value"
-                        },
-                        {
-                            "name": "transfer_protocol",
-                            "value": f"--transfer-protocol={args.transfer_protocol}",
-                            "from": "value"
-                        },
-                        {
-                            "name": "proc_mode",
-                            "value": f"--processing-mode={args.proc_mode}",
-                            "from": "value"
-                        }
-                    ],
+                    params=create_download_job_params(args, query_timerange, chunk_batch_ids),
                     job_queue=args.job_queue
                 )
             )
         )
-
-    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
-    logger.info(f"{len(results)=}")
-    logger.info(f"{results=}")
-
-    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
-    logger.info(f"{succeeded=}")
-    failed = [e for e in results if isinstance(e, Exception)]
-    logger.info(f"{failed=}")
-
-    return {
-        "success": succeeded,
-        "fail": failed
-    }
+    return job_submission_tasks
 
 
-def get_query_timerange(args, now: datetime, silent=False):
-    now_minus_minutes_dt = (now - timedelta(minutes=args.minutes)) if not args.native_id else dateutil.parser.isoparse("1900-01-01T00:00:00Z")
-
-    start_date = args.start_date if args.start_date else now_minus_minutes_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    end_date = args.end_date if args.end_date else now.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    query_timerange = DateTimeRange(start_date, end_date)
-    if not silent:
-        logger.info(f"{query_timerange=}")
-    return query_timerange
+def create_download_job_params(args, query_timerange, chunk_batch_ids):
+    return [
+        {
+            "name": "batch_ids",
+            "value": "--batch-ids " + " ".join(chunk_batch_ids) if chunk_batch_ids else "",
+            "from": "value"
+        },
+        {
+            "name": "smoke_run",
+            "value": "--smoke-run" if args.smoke_run else "",
+            "from": "value"
+        },
+        {
+            "name": "dry_run",
+            "value": "--dry-run" if args.dry_run else "",
+            "from": "value"
+        },
+        {
+            "name": "endpoint",
+            "value": f"--endpoint={args.endpoint}",
+            "from": "value"
+        },
+        {
+            "name": "start_datetime",
+            "value": f"--start-date={query_timerange.start_date}",
+            "from": "value"
+        },
+        {
+            "name": "end_datetime",
+            "value": f"--end-date={query_timerange.end_date}",
+            "from": "value"
+        },
+        {
+            "name": "use_temporal",
+            "value": "--use-temporal" if args.use_temporal else "",
+            "from": "value"
+        },
+        {
+            "name": "transfer_protocol",
+            "value": f"--transfer-protocol={args.transfer_protocol}",
+            "from": "value"
+        },
+        {
+            "name": "proc_mode",
+            "value": f"--processing-mode={args.proc_mode}",
+            "from": "value"
+        }
+    ]
 
 
 def submit_download_job(*, release_version=None, product_type: Literal["HLS", "SLC", "RTC", "CSLC"], params: list[dict[str, str]], job_queue: str) -> str:
@@ -337,3 +469,37 @@ def update_url_index(
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
+
+
+def concurrent_s3_client_try_upload_file(batch_id, files_to_upload, settings):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
+        futures = [
+            executor.submit(
+                s3_client_try_upload_file,
+                s3_client=boto3.session.Session().client("s3"),
+                Filename=str(fp),
+                Bucket=f'{"opera-dev-rs-fwd-crivas"}',  # TODO chrisjrd: get bucket name somehow
+                Key=f"tmp/dswx_s1/{batch_id}/{fp.name}"
+            )
+            for fp in files_to_upload
+        ]
+
+        results = [
+            future.result()
+            for future in concurrent.futures.as_completed(futures)
+        ]
+        return results
+
+
+def giveup_s3_client_upload_file(e: boto3.exceptions.S3UploadFailedError):
+    if isinstance(e, boto3.exceptions.Boto3Error):
+        if isinstance(e, boto3.exceptions.S3UploadFailedError):
+            if "ExpiredToken" in e.args[0]:
+                logger.error("Local testing error. Give up immediately.")
+                return True
+    return False
+
+
+@backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)
+def s3_client_try_upload_file(s3_client: S3Client, **kwargs):
+    s3_client.upload_file(**kwargs)

@@ -1,8 +1,12 @@
+import concurrent.futures
 import logging
+import os
+from collections import defaultdict
 from pathlib import PurePath, Path
 
 import requests
 import requests.utils
+from more_itertools import partition
 
 from data_subscriber.download import DaacDownload
 from data_subscriber.url import _has_url, _to_url, _to_https_url, _rtc_url_to_chunk_id
@@ -11,45 +15,71 @@ logger = logging.getLogger(__name__)
 
 
 class AsfDaacRtcDownload(DaacDownload):
-    def perform_download(self,
-            session: requests.Session,
-            es_conn,
-            downloads: list[dict],
-            args,
-            token,
-            job_id
+    def perform_download(
+        self,
+        session: requests.Session,
+        es_conn,
+        downloads: list[dict],
+        args,
+        token,
+        job_id
     ):
+        logger.info(f"downloading {len(downloads)} documents")
+
+        if args.dry_run:
+            logger.debug(f"{args.dry_run=}. Skipping download.")
+            downloads = []
+
+        downloads[:], downloads_without_urls = partition(lambda it: not _has_url(it), downloads)
+
+        if list(downloads_without_urls):
+            logger.error(f"Some documents do not have a download URL")
+
+        product_to_product_filepaths_map = defaultdict(set)
+        downloads = downloads[:1]  # TODO chrisjrd: useful for testing locally. remove before final commit
+        num_downloads = len(downloads)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
+            futures = [
+                executor.submit(self.perform_download_single, download, token, args, download_counter, num_downloads)
+                for download_counter, download in enumerate(downloads, start=1)
+            ]
+            results = [future.result() for future in concurrent.futures.as_completed(futures)]
+            for result in results:
+                product_id, product_filepath = result
+                product_to_product_filepaths_map[product_id].add(product_filepath)
+
         for download in downloads:
-            if not _has_url(download):
-                continue
+            logger.info(f"Marking as downloaded. {download['id']=}")
+            es_conn.mark_product_as_downloaded(download['id'], job_id)
+        # END loop
 
-            if args.transfer_protocol == "https":
-                product_url = _to_https_url(download)
-            else:
-                product_url = _to_url(download)
+        logger.info(f"downloaded {len(product_to_product_filepaths_map)} products")
+        return product_to_product_filepaths_map
 
-            logger.info(f"Processing {product_url=}")
-            product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))
+    def perform_download_single(self, download, token, args, download_counter, num_downloads):
+        logger.info(f"Downloading {download_counter} of {num_downloads} downloads")
 
-            product_download_dir = self.downloads_dir / product_id
-            product_download_dir.mkdir(exist_ok=True)
-
-            # download product
-            if args.dry_run:
-                logger.debug(f"{args.dry_run=}. Skipping download.")
-                continue
-
-            if product_url.startswith("s3"):
-                product = product_filepath = self.download_product_using_s3(
-                    product_url,
-                    token,
-                    target_dirpath=product_download_dir.resolve(),
-                    args=args
-                )
-            else:
-                product = product_filepath = self.download_asf_product(
-                    product_url, token, product_download_dir
-                )
+        if args.transfer_protocol == "https":
+            product_url = _to_https_url(download)
+        else:
+            product_url = _to_url(download)
+        logger.info(f"Processing {product_url=}")
+        product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))
+        product_download_dir = self.downloads_dir / product_id
+        product_download_dir.mkdir(exist_ok=True)
+        if product_url.startswith("s3"):
+            product = product_filepath = self.download_product_using_s3(
+                product_url,
+                token,
+                target_dirpath=product_download_dir.resolve(),
+                args=args
+            )
+        else:
+            product = product_filepath = self.download_asf_product(
+                product_url, token, product_download_dir
+            )
+        logger.info(f"{product_filepath=}")
+        return product_id, product_filepath
 
     def download_asf_product(self, product_url, token: str, target_dirpath: Path):
         logger.info(f"Requesting from {product_url}")

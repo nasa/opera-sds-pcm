@@ -7,6 +7,8 @@ null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
+ES_INDEX_PATTERNS = "rtc_catalog*"
+
 class RTCProductCatalog(HLSProductCatalog):
     """
     Class to track products downloaded by daac_data_subscriber.py
@@ -23,7 +25,7 @@ class RTCProductCatalog(HLSProductCatalog):
     """
     def __init__(self, /, logger=None):
         super().__init__(logger=logger)
-        self.ES_INDEX_PATTERNS = "rtc_catalog*"
+        self.ES_INDEX_PATTERNS = ES_INDEX_PATTERNS
 
     def generate_es_index_name(self):
         return "rtc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
