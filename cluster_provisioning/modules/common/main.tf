@@ -478,7 +478,7 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
 }
 
 resource "aws_lambda_function" "sns_cnm_response_handler" {
-  depends_on    = [null_resource.download_lambdas, aws_instance.mozart]
+  depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda function to process CNM Response messages"
   function_name = "${var.project}-${var.venue}-${local.counter}-daac-sns-cnm_response-handler"
@@ -503,7 +503,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
 }
 
 resource "aws_lambda_function" "sqs_cnm_response_handler" {
-  depends_on    = [null_resource.download_lambdas, aws_instance.mozart]
+  depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda function to process CNM Response messages"
   function_name = "${var.project}-${var.venue}-${local.counter}-daac-sqs-cnm_response-handler"
@@ -627,7 +627,7 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
 }
 
 resource "aws_lambda_function" "event-misfire_lambda" {
-  depends_on    = [null_resource.download_lambdas, aws_instance.mozart]
+  depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_e-misfire_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda function to process data from EVENT-MISFIRE bucket"
   function_name = "${var.project}-${var.venue}-${local.counter}-event-misfire-lambda"
