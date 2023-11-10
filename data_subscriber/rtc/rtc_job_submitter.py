@@ -92,7 +92,7 @@ def create_job_params(product):
     ]
 
 
-def submit_dswx_s1_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: str, job_name) -> str:
+def submit_dswx_s1_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
     return _try_submit_mozart_job_minimal(
         product=product or {},
         job_queue=job_queue,
