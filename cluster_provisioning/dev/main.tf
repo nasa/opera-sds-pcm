@@ -95,6 +95,8 @@ module "common" {
   inactivity_threshold                    = var.inactivity_threshold
   artifactory_fn_user                     = var.artifactory_fn_user
   artifactory_fn_api_key                  = var.artifactory_fn_api_key
+  dataspace_user                          = var.dataspace_user
+  dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
 }

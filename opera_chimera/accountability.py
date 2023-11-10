@@ -68,7 +68,17 @@ class OperaAccountability(Accountability):
         self.trigger_dataset_id = self.context[oc_const.INPUT_DATASET_ID]
         self.input_files_type = self.trigger_dataset_type
 
-        metadata: Dict[str, str] = self.context["product_metadata"]["metadata"]
+        product_metadata = self.context["product_metadata"]
+
+        # TODO: kludge to support providing dummy metadata as a hardcoded string
+        #       within the hysds-io.json file for DSWx-S1, remove when appropriate
+        try:
+            metadata = product_metadata["metadata"]
+        except Exception as err:
+            if isinstance(product_metadata, str):
+                metadata = json.loads(product_metadata)["metadata"]
+            else:
+                raise err
 
         input_metadata = {}
         if self.input_files_type in ('L2_HLS_L30', 'L2_HLS_S30'):
@@ -77,6 +87,9 @@ class OperaAccountability(Accountability):
             input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+        elif self.input_files_type in ('L2_RTC_S1',):
+            # TODO: unsure about this, revisit once input staging/trigger logic are implemented
+            self.product_paths = [os.path.join(metadata['FileName'])]
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 

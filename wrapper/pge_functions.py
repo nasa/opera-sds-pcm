@@ -74,6 +74,28 @@ def dswx_hls_lineage_metadata(context, work_dir):
     return lineage_metadata
 
 
+def dswx_s1_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DSWx-S1 PGE"""
+    lineage_metadata = []
+
+    rtc_data_dir = os.path.join(work_dir, 'dswx_s1_sample_input_data', 'rtc_data')
+
+    # TODO: update paths as necessary as sample inputs are phased out
+    lineage_metadata.extend(
+        [os.path.join(rtc_data_dir, rtc_dir)
+         for rtc_dir in os.listdir(rtc_data_dir)]
+    )
+
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_s1_sample_input_data', 'ancillary_data')
+
+    lineage_metadata.extend(
+        [os.path.join(ancillary_data_dir, ancillary)
+         for ancillary in os.listdir(ancillary_data_dir)]
+    )
+
+    return lineage_metadata
+
+
 def update_slc_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
     run_config: Dict = context.get("run_config")
@@ -139,5 +161,34 @@ def update_dswx_hls_runconfig(context, work_dir):
 
     shoreline_shape_filename = basename(run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"])
     run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"] = f'{container_home}/input_dir/{shoreline_shape_filename}'
+
+    return run_config
+
+
+def update_dswx_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DSWx-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+    rtc_data_prefix = os.path.join(work_dir, 'dswx_s1_sample_input_data', 'rtc_data')
+
+    input_file_paths = run_config["input_file_group"]["input_file_paths"]
+    input_file_paths = list(map(lambda x: x.replace(rtc_data_prefix, container_home_prefix), input_file_paths))
+
+    run_config["input_file_group"]["input_file_paths"] = input_file_paths
+
+    # TODO update these once we move away from sample inputs
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.tif'
+    run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.tif'
+    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.tif'
+    run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.tif'
+
+    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameter_s1.yaml'
 
     return run_config

@@ -4,14 +4,14 @@
 locals {
   q_config = <<EOT
 QUEUES:
-    %{~ for queue, queue_config in var.queues ~}
+    %{~for queue, queue_config in var.queues~}
   - QUEUE_NAME: ${queue}
     INSTANCE_TYPES:
-    %{~ for instance_type in queue_config["instance_type"] ~}
+    %{~for instance_type in queue_config["instance_type"]~}
       - ${instance_type}
-    %{~ endfor ~}
+    %{~endfor~}
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
-    %{~ endfor ~}
+    %{~endfor~}
   EOT
 }
 
@@ -334,6 +334,10 @@ resource "aws_instance" "mozart" {
       echo INACTIVITY_THRESHOLD: ${var.inactivity_threshold} >> ~/.sds/config
       echo >> ~/.sds/config
 
+      echo 'DATASPACE_USER: "${var.dataspace_user}"' >> ~/.sds/config
+      echo 'DATASPACE_PASS: "${var.dataspace_pass}"' >> ~/.sds/config
+      echo >> ~/.sds/config
+
       echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config
       echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config
       echo >> ~/.sds/config
@@ -448,19 +452,16 @@ resource "aws_instance" "mozart" {
       set -ex
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz"
-        tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
-        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api
-        rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
         tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
         ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
         rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
       else
-        git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api
         git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
       fi
+
       export PATH=~/conda/bin:$PATH
+
       cd bach-ui
       ~/conda/bin/npm install --silent --no-progress
       sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
@@ -522,12 +523,16 @@ resource "aws_instance" "mozart" {
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
+		sleep 180
         sds -d update grq -f
+		sleep 180
         sds -d update metrics -f
         sds -d update factotum -f
       else
         sds -d update mozart -f -c
+		sleep 180
         sds -d update grq -f -c
+		sleep 180
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
@@ -536,6 +541,8 @@ resource "aws_instance" "mozart" {
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
       fi
+
+	  sleep 180
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
       else
@@ -546,8 +553,10 @@ resource "aws_instance" "mozart" {
       fi
 
       fab -f ~/.sds/cluster.py -R grq update_grq_es
+	  sleep 180
       fab -f ~/.sds/cluster.py -R metrics update_metrics_es
 
+      sleep 180
       sds -d ship
 
       cd ~/mozart/pkgs

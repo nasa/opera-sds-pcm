@@ -11,8 +11,10 @@ from typing import Dict, Tuple, List, Union
 
 from .pge_functions import (slc_s1_lineage_metadata,
                             dswx_hls_lineage_metadata,
+                            dswx_s1_lineage_metadata,
                             update_slc_s1_runconfig,
-                            update_dswx_hls_runconfig)
+                            update_dswx_hls_runconfig,
+                            update_dswx_s1_runconfig)
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
@@ -28,7 +30,8 @@ lineage_metadata_functions = {
     'L2_CSLC_S1_STATIC': slc_s1_lineage_metadata,
     'L2_RTC_S1': slc_s1_lineage_metadata,
     'L2_RTC_S1_STATIC': slc_s1_lineage_metadata,
-    'L3_DSWx_HLS': dswx_hls_lineage_metadata
+    'L3_DSWx_HLS': dswx_hls_lineage_metadata,
+    'L3_DSWx_S1': dswx_s1_lineage_metadata
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -37,7 +40,8 @@ runconfig_update_functions = {
     'L2_CSLC_S1_STATIC': update_slc_s1_runconfig,
     'L2_RTC_S1': update_slc_s1_runconfig,
     'L2_RTC_S1_STATIC': update_slc_s1_runconfig,
-    'L3_DSWx_HLS': update_dswx_hls_runconfig
+    'L3_DSWx_HLS': update_dswx_hls_runconfig,
+    'L3_DSWx_S1': update_dswx_s1_runconfig
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
@@ -49,6 +53,11 @@ def main(job_json_file: str, workdir: str):
 
     # set additional files to triage
     jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
+
+    # Disable no-clobber errors for published files. Either the file naming conventions
+    # will guarantee uniqueness, or we want certain files to be overwritten to avoid
+    # redundant copies (such as static layer products)
+    jc.set('_force_ingest', True)
     jc.save()
 
     run_pipeline(job_json_dict=job_context, work_dir=workdir)
@@ -77,6 +86,8 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
         lineage_metadata = lineage_metadata_functions[pge_name](job_json_dict, work_dir)
     except KeyError as err:
         raise RuntimeError(f'No lineage metadata function available for PGE {str(err)}')
+
+    logger.info(f'Derived lineage metadata: {lineage_metadata}')
 
     logger.info("Moving input files to input directories.")
     for local_input_filepath in lineage_metadata:

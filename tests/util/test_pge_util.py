@@ -83,13 +83,13 @@ def test_simulate_cslc_s1_static_pge():
         output_dir='/tmp'
     )
 
-    expected_static_output_basename = 'OPERA_L2_CSLC-S1-STATIC_{burst_id}_20140403_{creation_ts}Z_S1A_v0.1'
+    expected_static_output_basename = 'OPERA_L2_CSLC-S1-STATIC_{burst_id}_20140403_S1A_v0.1'
     expected_ancillary_basename = 'OPERA_L2_CSLC-S1_{creation_ts}Z_S1A_VV_v0.1'
     creation_ts = pge_util.get_time_for_filename()
 
     try:
         for burst_id in pge_util.CSLC_BURST_IDS:
-            static_output_basename = expected_static_output_basename.format(burst_id=burst_id, creation_ts=creation_ts)
+            static_output_basename = expected_static_output_basename.format(burst_id=burst_id)
 
             assert Path(f'/tmp/{static_output_basename}.h5').exists()
             assert Path(f'/tmp/{static_output_basename}.iso.xml').exists()
@@ -177,13 +177,13 @@ def test_simulate_rtc_s1_static_pge():
         output_dir='/tmp'
     )
 
-    expected_static_output_basename = 'OPERA_L2_RTC-S1-STATIC_{burst_id}_20140403_{creation_ts}Z_S1B_30_v0.1'
+    expected_static_output_basename = 'OPERA_L2_RTC-S1-STATIC_{burst_id}_20140403_S1B_30_v0.1'
     expected_ancillary_basename = 'OPERA_L2_RTC-S1_{creation_ts}Z_S1B_30_v0.1'
     creation_ts = pge_util.get_time_for_filename()
 
     try:
         for burst_id in pge_util.RTC_BURST_IDS:
-            static_output_basename = expected_static_output_basename.format(burst_id=burst_id, creation_ts=creation_ts)
+            static_output_basename = expected_static_output_basename.format(burst_id=burst_id)
 
             assert Path(f'/tmp/{static_output_basename}.h5').exists()
             assert Path(f'/tmp/{static_output_basename}_BROWSE.png').exists()
@@ -236,7 +236,7 @@ def test_simulate_dswx_hls_pge_with_l30():
     expected_output_base_name = f"OPERA_L3_DSWx-HLS_T22VEQ_20210905T143156Z_{creation_ts}Z_L8_30_v2.0"
 
     # ASSERT
-    for band_idx, band_name in enumerate(pge_util.DSWX_BAND_NAMES, start=1):
+    for band_idx, band_name in enumerate(pge_util.DSWX_HLS_BAND_NAMES, start=1):
         assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tif').exists()
 
     assert Path(f'/tmp/{expected_output_base_name}.log').exists()
@@ -283,7 +283,7 @@ def test_simulate_dswx_hls_pge_with_s30():
     expected_output_base_name = f"OPERA_L3_DSWx-HLS_T15SXR_20210907T163901Z_{creation_ts}Z_S2A_30_v2.0"
 
     # ASSERT
-    for band_idx, band_name in enumerate(pge_util.DSWX_BAND_NAMES, start=1):
+    for band_idx, band_name in enumerate(pge_util.DSWX_HLS_BAND_NAMES, start=1):
         assert Path(f'/tmp/{expected_output_base_name}_B{band_idx:02}_{band_name}.tif').exists()
 
     assert Path(f'/tmp/{expected_output_base_name}.log').exists()
@@ -323,3 +323,41 @@ def test_simulate_dswx_hls_pge_with_unsupported():
                 },
                 output_dir='/tmp'
             )
+
+def test_simulate_dswx_s1_pge():
+    for path in glob.iglob('/tmp/OPERA_L3_DSWx-S1*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DSWx_S1.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": []
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    creation_ts = pge_util.get_time_for_filename()
+    expected_output_basename = 'OPERA_L3_DSWx-S1_{tile_id}_20200702T231843Z_{creation_ts}Z_S1A_30_v0.1'
+    expected_ancillary_basename = f'OPERA_L3_DSWx-S1_{creation_ts}Z_S1A_30_v0.1'
+
+    try:
+        for tile_id in pge_util.DSWX_S1_TILES:
+            for band_idx, band_name in enumerate(pge_util.DSWX_S1_BAND_NAMES, start=1):
+                assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_B{band_idx:02}_{band_name}.tif').exists()
+
+            assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.iso.xml').exists()
+
+        assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename}.qa.log').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L3_DSWx-S1*.*'):
+            Path(path).unlink(missing_ok=True)

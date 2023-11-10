@@ -6,6 +6,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     FORCE_INGEST = "FORCE_INGEST"
 
+    INGEST_STAGED = "INGEST_STAGED"
+
     CNM_VERSION = "CNM_VERSION"
 
     PROCESSING_MODE_KEY = "processing_mode"

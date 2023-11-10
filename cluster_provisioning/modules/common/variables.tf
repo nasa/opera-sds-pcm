@@ -132,19 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v4.1.0-beta.4 with ES 7.9 - R1
-    #mozart    = "ami-0a4c8f9c7f5a2daec" # mozart v4.18 - 221107
-    #metrics   = "ami-0c61e7c8b1bfd14a3" # metrics v4.13 - 221107
-    #grq       = "ami-0f52442c2bd506303" # grq v4.14 - 221107
-    #factotum  = "ami-03fdbdb8c7caa736e" # factotum v4.14 - 221107
-    #autoscale = "ami-003e368c872ea1099" # verdi v4.15 - 221031
-
-    # HySDS v5.0.0-rc.1.0 - Sep 15, 2023 - R2
-    mozart    = "ami-0110888ace2a34f62" # mozart v4.23 - 230908
-    metrics   = "ami-0a5444fafcbf1f75b" # metrics v4.15 - 230915
-    grq       = "ami-03e4b084d1322af71" # grq v4.16 - 230915
-    factotum  = "ami-0715c8982d7193685" # factotum v4.16 - 230915
-    autoscale = "ami-052315f26fbc8c69f" # verdi v4.16 patchdate - 230915
+    # HySDS v5.0.0-rc.1.0 - Oct 15, 2023 - R2
+    mozart    = "ami-0cf8b5ab44f3cd05d" # mozart v4.25 - 231102
+    metrics   = "ami-02b8932de844c3a6a" # metrics v4.17 - 231012
+    grq       = "ami-0f2315ffaaee49e5d" # grq v4.17 - 231002
+    factotum  = "ami-0594d7f1fd4393c32" # factotum v4.16 - 231002
+    autoscale = "ami-0b2cee88915e1cb86" # verdi v4.16 patchdate - 231015
   }
 }
 
@@ -327,6 +320,14 @@ variable "queues" {
       "max_size"          = 40
       "total_jobs_metric" = true
     }
+    "opera-job_worker-sciflo-l3_dswx_s1" = {
+      "instance_type" = ["c5a.large", "c6a.large", "c6i.large"]
+      "root_dev_size" = 50
+      "data_dev_size" = 50
+      "min_size"      = 0
+      "max_size"      = 10
+      "total_jobs_metric" = true
+    }
     "opera-job_worker-send_cnm_notify" = {
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
       "root_dev_size"     = 50
@@ -461,8 +462,9 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.2"
-    "cslc_s1"  = "2.0.0"
-    "rtc_s1"   = "2.0.1"
+    "cslc_s1"  = "2.1.0"
+    "rtc_s1"   = "2.1.0"
+    "dswx_s1" = "3.0.0-er.4.0"
   }
 }
 
@@ -471,7 +473,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20230921-2.0.0"
+  default = "20231023-2.1.0"
 }
 
 variable "crid" {
@@ -590,6 +592,14 @@ variable "artifactory_fn_user" {
 
 variable "artifactory_fn_api_key" {
   description = "Artifactory API key for authenticated Artifactory API calls. Must map to artifactory_username."
+}
+
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
+  default = ""
 }
 
 variable "earthdata_user" {

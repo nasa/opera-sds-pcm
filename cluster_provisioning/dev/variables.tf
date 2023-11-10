@@ -176,7 +176,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -188,7 +188,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -200,7 +200,6 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-#    instance_type = "r6i.4xlarge"
     instance_type = "r5.8xlarge"
     root_dev_size = 50
     data          = "/data"
@@ -380,15 +379,16 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20230921-2.0.0"
+  default = "20231023-2.1.0"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.2"
-    "cslc_s1" = "2.0.0"
-    "rtc_s1" = "2.0.1"
+    "cslc_s1" = "2.1.0"
+    "rtc_s1" = "2.1.0"
+    "dswx_s1" = "3.0.0-er.4.0"
   }
 }
 
@@ -461,6 +461,14 @@ variable "es_snapshot_bucket" {
 }
 
 variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
   default = ""
 }
 
