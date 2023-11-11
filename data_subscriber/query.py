@@ -259,7 +259,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             args_for_job_submitter = namedtuple(
                 "Namespace",
                 ["chunk_size", "job_queue", "release_version"],
-                defaults=[1, "dummy_job_queue", args.release_version]  # TODO chrisjrd: consolidate args
+                defaults=[1, args.job_queue, args.release_version]  # TODO chrisjrd: consolidate args
             )()
         job_submission_tasks = dswx_s1_submit_job_submissions_tasks(successfully_uploaded_batch_id_to_products_map, args_for_job_submitter)  # TODO chrisjrd: implement me
     else:
