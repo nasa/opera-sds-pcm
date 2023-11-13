@@ -47,3 +47,32 @@ class LogFilter(logging.Filter):
 logger = logging.getLogger("opera_pcm")
 logger.setLevel(logging.INFO)
 logger.addFilter(LogFilter())
+
+
+class NoJobUtilsFilter(logging.Filter):
+
+    """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its
+    handlers."""
+    def filter(self, record):
+        if not record.filename == "job_utils.py":
+            return True
+
+        return record.funcName not in (
+            "resolve_mozart_job", "get_params_for_submission", "submit_mozart_job",
+            "resolve_hysds_job", "submit_hysds_job"
+        )
+
+
+class NoBaseFilter(logging.Filter):
+    """Filters out lower-level elasticsearch HTTP chatter. Apply to the logger named "elasticsearch" or to one of its
+    handlers."""
+
+    def filter(self, record):
+        if not record.filename == "base.py":
+            return True
+        if not record.funcName == "log_request_success":
+            return True
+
+        return "/job_specs/_doc/" not in record.getMessage() \
+            and "/hysds_ios-grq/_doc/" not in record.getMessage() \
+            and "/containers/_doc/" not in record.getMessage()

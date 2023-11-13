@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 from smart_open import open
 
+from commons.logger import NoJobUtilsFilter, NoBaseFilter
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.download import run_download
@@ -335,4 +336,10 @@ logger = logging.getLogger(__name__)
 logger.info("Log level set to " + loglevel)
 
 if __name__ == "__main__":
+    logger_hysds_commons = logging.getLogger("hysds_commons")
+    logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+    logger_elasticsearch = logging.getLogger("elasticsearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+
     asyncio.run(run(sys.argv))
