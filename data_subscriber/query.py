@@ -31,7 +31,9 @@ from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as m
 from data_subscriber.rtc.rtc_job_submitter import submit_job_submissions_tasks as dswx_s1_submit_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
-from geo.geo_util import does_bbox_intersect_north_america
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
+from util.conf_util import SettingsConf
+from util.pge_util import download_object_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -51,38 +53,23 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
         granules = granules[:1]
 
+    # If we are processing ASF collection, we're gonna need the north america geojson
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+        localize_geojsons([_NORTH_AMERICA])
+
+    # If processing mode is historical, apply include/exclude-region filtering
+    if args.proc_mode == "historical":
+        logging.info(f"Processing mode is historical so applying include and exclude regions...")
+
+        # Fetch all necessary geojson files from S3
+        localize_include_exclude(args)
+        granules[:] = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
+
     logger.info("catalogue-ing STARTED")
-
-    filtered_granules = []
-    for granule in granules:
-        granule_id = granule.get("granule_id")
-
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-            match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
-            burst_id = match_product_id.group("burst_id")
-
-            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
-            mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
-            if not mgrs_sets:
-                logging.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
-                continue
-        else:
-            # If processing mode is historical,
-            # throw out any granules that do not intersect with North America
-            if args.proc_mode == "historical" and not does_bbox_intersect_north_america(granule["bounding_box"]):
-                logger.info(
-                    "Processing mode is historical "
-                    "and the following granule does not intersect with North America. "
-                    f'Skipping processing {granule_id}.'
-                )
-                continue
-
-        filtered_granules.append(granule)
-
-    granules = filtered_granules
 
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
+        granules[:] = filter_granules_rtc(granules, args)
 
     for granule in granules:
         granule_id = granule.get("granule_id")
@@ -482,6 +469,87 @@ def update_url_index(
 
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
+
+def localize_include_exclude(args):
+
+    geojsons = []
+
+    if args.include_regions is not None:
+        geojsons.extend(args.include_regions.split(","))
+
+    if args.exclude_regions is not None:
+        geojsons.extend(args.exclude_regions.split(","))
+
+    localize_geojsons(geojsons)
+
+def localize_geojsons(geojsons):
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+
+    try:
+        for geojson in geojsons:
+            key = geojson.strip() + ".geojson"
+            # output_filepath = os.path.join(working_dir, key)
+            download_object_from_s3(bucket, key, key, filetype="geojson")
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
+
+def does_granule_intersect_regions(granule, intersect_regions):
+    regions = intersect_regions.split(',')
+    for region in regions:
+        region = region.strip()
+        if does_bbox_intersect_region(granule["bounding_box"], region):
+            return True, region
+
+    return False, None
+
+def filter_granules_by_regions(granules, include_regions, exclude_regions):
+    '''Filters granules based on include and exclude regions lists'''
+    filtered = []
+
+    for granule in granules:
+
+        # Skip this granule if it's not in the include list
+        if include_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, include_regions)
+            if result is False:
+                logging.info(
+                    f"The following granule does not intersect with any include regions. Skipping processing %s"
+                    % granule.get("granule_id"))
+                continue
+
+        # Skip this granule if it's in the exclude list
+        if exclude_regions is not None:
+            (result, region) = does_granule_intersect_regions(granule, exclude_regions)
+            if result is True:
+                logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
+                             % (region, granule.get("granule_id")))
+                continue
+
+        # If both filters don't apply, add this granule to the list
+        filtered.append(granule)
+
+    return filtered
+
+
+def filter_granules_rtc(granules, args):
+    filtered_granules = []
+    for granule in granules:
+        granule_id = granule.get("granule_id")
+
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
+            burst_id = match_product_id.group("burst_id")
+
+            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+            mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs,
+                                                            mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
+            if not mgrs_sets:
+                logging.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
+                continue
+
+        filtered_granules.append(granule)
+    return filtered_granules
 
 
 def concurrent_s3_client_try_upload_file(batch_id, files_to_upload):
