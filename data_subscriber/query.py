@@ -212,9 +212,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                 batch_id_to_products_map[batch_id] = product_burstset
 
         edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-        token = supply_token(edl)
-        netloc = urlparse(f"https://{edl}").netloc
         username, _, password = netrc.netrc().authenticators(edl)
+        token = supply_token(edl, username, password)
+        netloc = urlparse(f"https://{edl}").netloc
 
         Namespace = namedtuple(
             "Namespace",
