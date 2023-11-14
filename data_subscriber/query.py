@@ -251,16 +251,16 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             logger.info(f"Uploading MGRS burst set files to S3")
             files_to_upload = [fp for k, v in product_to_product_filepaths_map.items() for fp in v]
-            # concurrent_s3_client_try_upload_file(batch_id, files_to_upload, settings)
+            s3path_tuples: list[tuple[str, str]] = concurrent_s3_client_try_upload_file(batch_id, files_to_upload)
             successfully_uploaded_batch_id_to_products_map[batch_id] = set_
 
             logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(set_)}")
             # TODO chrisjrd: submit PGE job by the batch
-            args_for_job_submitter = namedtuple(
-                "Namespace",
-                ["chunk_size", "job_queue", "release_version"],
-                defaults=[1, args.job_queue, args.release_version]  # TODO chrisjrd: consolidate args
-            )()
+        args_for_job_submitter = namedtuple(
+            "Namespace",
+            ["chunk_size", "job_queue", "release_version"],
+            defaults=[1, args.job_queue, args.release_version]  # TODO chrisjrd: consolidate args
+        )()
         job_submission_tasks = dswx_s1_submit_job_submissions_tasks(successfully_uploaded_batch_id_to_products_map, args_for_job_submitter)  # TODO chrisjrd: implement me
     else:
         if args.subparser_name == "full":
@@ -471,7 +471,8 @@ def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
 
 
-def concurrent_s3_client_try_upload_file(batch_id, files_to_upload, settings):
+def concurrent_s3_client_try_upload_file(batch_id, files_to_upload):
+    logger.info(f"Uploading {len(files_to_upload)} files to S3")
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
         futures = [
             executor.submit(
@@ -491,7 +492,7 @@ def concurrent_s3_client_try_upload_file(batch_id, files_to_upload, settings):
         return results
 
 
-def giveup_s3_client_upload_file(e: boto3.exceptions.S3UploadFailedError):
+def giveup_s3_client_upload_file(e):
     if isinstance(e, boto3.exceptions.Boto3Error):
         if isinstance(e, boto3.exceptions.S3UploadFailedError):
             if "ExpiredToken" in e.args[0]:
@@ -502,4 +503,6 @@ def giveup_s3_client_upload_file(e: boto3.exceptions.S3UploadFailedError):
 
 @backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)
 def s3_client_try_upload_file(s3_client: S3Client, **kwargs):
+    logger.info(f'Uploading to s3://{kwargs["Bucket"]}/{kwargs["Key"]}')
     s3_client.upload_file(**kwargs)
+    return kwargs["Bucket"], kwargs["Key"]
