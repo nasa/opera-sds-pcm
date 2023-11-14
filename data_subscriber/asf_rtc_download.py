@@ -51,7 +51,6 @@ class AsfDaacRtcDownload(DaacDownload):
         for download in downloads:
             logger.info(f"Marking as downloaded. {download['id']=}")
             es_conn.mark_product_as_downloaded(download['id'], job_id)
-        # END loop
 
         logger.info(f"downloaded {len(product_to_product_filepaths_map)} products")
         return product_to_product_filepaths_map
