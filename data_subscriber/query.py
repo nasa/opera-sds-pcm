@@ -22,6 +22,7 @@ from more_itertools import chunked
 from mypy_boto3_s3 import S3Client
 
 import data_subscriber.download
+import extractor.extract
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
@@ -214,13 +215,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
         # convert to "batch_id" mapping
         batch_id_to_products_map = defaultdict(set)
-        for mgrs_set_id, sets in mgrs_sets.items():
-            for set_ in sets:
-                product_id_to_docs_map = list(set_)[0]
+        for mgrs_set_id, product_burst_sets in mgrs_sets.items():
+            for product_burstset in product_burst_sets:
+                product_id_to_docs_map = list(product_burstset)[0]
                 first_product = list(product_id_to_docs_map.items())[0][1][0]
                 acquisition_cycle = first_product["_source"]["acquisition_cycle"]
                 batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
-                batch_id_to_products_map[batch_id] = set_
+                batch_id_to_products_map[batch_id] = product_burstset
 
         edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
         token = supply_token(edl)
@@ -234,7 +235,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         )
 
         successfully_uploaded_batch_id_to_products_map = {}
-        for batch_id, set_ in batch_id_to_products_map.items():
+        for batch_id, product_burstset in batch_id_to_products_map.items():
             args_for_downloader = Namespace(provider="ASF-RTC", batch_ids=[batch_id])  # TODO chrisjrd: consolidate args
             downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
 
@@ -247,14 +248,26 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                 "job_id": job_id
             }
 
-            product_to_product_filepaths_map: dict = downloader.run_download(args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
+            product_to_product_filepaths_map: dict[str, set[Path]] = downloader.run_download(args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
+
+            # TODO chrisjrd: use or remove metadata extraction
+            logger.info("Extracting metadata from RTC products")
+            product_to_products_metadata_map = defaultdict(list[dict])
+            for product, filepaths in product_to_product_filepaths_map.items():
+                for filepath in filepaths:
+                    dataset_id, product_met, dataset_met = extractor.extract.extract_in_mem(
+                        product_filepath=filepath,
+                        product_types=settings["PRODUCT_TYPES"],
+                        workspace_dirpath=Path.cwd()
+                    )
+                    product_to_products_metadata_map[product].append(product_met)
 
             logger.info(f"Uploading MGRS burst set files to S3")
-            files_to_upload = [fp for k, v in product_to_product_filepaths_map.items() for fp in v]
+            files_to_upload = [fp for fp in product_to_product_filepaths_map.values()]
             s3path_tuples: list[tuple[str, str]] = concurrent_s3_client_try_upload_file(batch_id, files_to_upload)
-            successfully_uploaded_batch_id_to_products_map[batch_id] = set_
+            successfully_uploaded_batch_id_to_products_map[batch_id] = product_burstset
 
-            logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(set_)}")
+            logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
             # TODO chrisjrd: submit PGE job by the batch
         args_for_job_submitter = namedtuple(
             "Namespace",
