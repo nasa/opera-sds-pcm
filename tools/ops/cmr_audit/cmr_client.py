@@ -84,7 +84,7 @@ def giveup_cmr_requests(e):
     if isinstance(e, aiohttp.ClientResponseError):
         if e.status == 413 and e.message == "Payload Too Large":  # give up. Fix bug
             return True
-        if e.status == 400:  # Bad Requesst. give up. Fix bug
+        if e.status == 400:  # Bad Request. give up. Fix bug
             return True
         if e.status == 504 and e.message == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
             return False
@@ -151,7 +151,7 @@ def giveup_cmr_requests(e):
     if isinstance(e, HTTPError):
         if e.response.status_code == 413 and e.response.reason == "Payload Too Large":  # give up. Fix bug
             return True
-        if e.response.status_code == 400:  # Bad Requesst. give up. Fix bug
+        if e.response.status_code == 400:  # Bad Request. give up. Fix bug
             return True
         if e.response.status_code == 504 and e.response.reason == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
             return False
