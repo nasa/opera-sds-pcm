@@ -80,7 +80,7 @@ do
     #Setup container build items
     PRODUCT="container-${NAME}:${TAG}"
     #Docker tags must be lower case
-    PRODUCT=${PRODUCT,,}
+    PRODUCT=$(tr '[:upper:]' '[:lower:]' <<< "$PRODUCT")
     TAR="${PRODUCT}.tar"
     GZ="${TAR}.gz" 
     #Remove previous container if exists
