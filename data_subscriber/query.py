@@ -87,8 +87,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             burst_id = match_product_id.group("burst_id")
 
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
-            mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
-            additional_fields["mgrs_set_ids"] = mgrs_sets
+            mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
+            additional_fields["mgrs_set_ids"] = mgrs_burst_set_ids
 
             # RTC: Calculating the Collection Cycle Index (Part 1):
             #  required constants
@@ -113,10 +113,11 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             additional_fields["acquisition_cycle"] = acquisition_cycle
 
             # construct filters for evaluation
-            if len(mgrs_sets) == 1:
+            if len(mgrs_burst_set_ids) == 1:
+                # ati = Acquisition Time Index
                 if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
-                    current_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
-                    future_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle + 1)
+                    current_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
+                    future_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle + 1)
 
                     additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
 
@@ -124,18 +125,18 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                     affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(future_ati)
 
                 if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
-                    past_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle - 1)
-                    current_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
+                    past_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle - 1)
+                    current_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
 
                     additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
 
                     affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(past_ati)
                     affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati)
-            elif len(mgrs_sets) == 2:
+            elif len(mgrs_burst_set_ids) == 2:
                 if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
-                    current_ati_a = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
-                    current_ati_b = "{}${}".format(sorted(mgrs_sets)[1], acquisition_cycle)
-                    future_ati = "{}${}".format(sorted(mgrs_sets)[1], acquisition_cycle + 1)
+                    current_ati_a = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
+                    current_ati_b = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle)
+                    future_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle + 1)
 
                     additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
 
@@ -143,9 +144,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                     affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_b)
                     affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(future_ati)
                 if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
-                    past_ati = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle - 1)
-                    current_ati_a = "{}${}".format(sorted(mgrs_sets)[0], acquisition_cycle)
-                    current_ati_b = "{}${}".format(sorted(mgrs_sets)[1], acquisition_cycle)
+                    past_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle - 1)
+                    current_ati_a = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
+                    current_ati_b = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle)
 
                     additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
 
