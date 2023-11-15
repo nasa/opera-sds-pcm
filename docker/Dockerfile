@@ -27,7 +27,7 @@ RUN set -ex \
  && git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git \
  && cd CNM_product_delivery \
  && git checkout ${PRODUCT_DELIVERY_BRANCH} \
- && pip install -e . \
+ && pip install -e .
 
 FROM hysds/pge-base:${PGE_BASE_VERSION}
 COPY --from=base_opera /home/ops /home/ops
