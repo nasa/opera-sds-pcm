@@ -12,6 +12,8 @@ import more_itertools
 from dotenv import dotenv_values
 from elasticsearch import RequestsHttpConnection, helpers
 
+from util.grq_client import get_body
+
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
     # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
@@ -47,23 +49,6 @@ def pstr(o):
     pprint(o, stream=sio)
     sio.seek(0)
     return sio.read()
-
-
-def get_body() -> dict:
-    return {
-        "query": {
-            "bool": {
-                "must": [{"match_all": {}}],
-                "must_not": [],
-                "should": []
-            }
-        },
-        "from": 0,
-        "size": 10_000,
-        "sort": [],
-        "aggs": {},
-        "_source": {"includes": [], "excludes": []}
-    }
 
 argparser = argparse.ArgumentParser(add_help=True)
 argparser.add_argument(
@@ -103,6 +88,7 @@ def to_dataset_id(catalog_id):
 #######################################################################
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 search_results = list(helpers.scan(es, body, index=",".join(["slc_catalog", "slc_catalog-*"]), scroll="5m", size=10_000))
@@ -121,6 +107,7 @@ logger.debug(f'{pstr(queried_or_downloaded_granules)=!s}')
 # logger.debug(f'{pstr(missing_queried_or_downloaded_granules)=!s}')
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
@@ -151,6 +138,7 @@ logger.debug(f'{pstr(missing_download_granules)=!s}')
 #######################################################################
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = ["metadata.FileName"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l1_s1_slc", "grq_*_l1_s1_slc-*"]), scroll="5m", size=10_000))
@@ -192,6 +180,7 @@ pge_input_files = set()
 search_resultss = {}
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = ["metadata.runconfig.input_file_group.safe_file_path", "metadata.accountability", "daac_CNM_S_status", "daac_delivery_status"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
@@ -231,6 +220,7 @@ pge_input_granules = set(pge_input_granules.keys())
 
 # VALIDATE STATIC LAYER GENERATION
 body = get_body()
+body["sort"] = []
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 body["_source"]["includes"] = "false"
 search_results = list(helpers.scan(es, body, index=".".join(["grq_*_l2_rtc_s1_static", "grq_*_l2_rtc_s1_static-*"]), scroll="5m", size=10_000))

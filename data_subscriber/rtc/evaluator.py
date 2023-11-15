@@ -13,6 +13,7 @@ import pandas as pd
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
 from data_subscriber.rtc.mgrs_bursts_collection_db_client import cached_load_mgrs_burst_db
+from util.grq_client import get_body
 
 logger = logging.getLogger(__name__)
 
@@ -92,40 +93,6 @@ def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_prod
                 product_details.append({product_id: product_id_to_product_files_map[product_id]})
             set_to_product_file_docs_map[mgrs_set_id].append(product_details)
     return set_to_product_file_docs_map
-
-
-def get_body() -> dict:
-    return {
-        "query": {
-            "bool": {
-                "must": [{"match_all": {}}],
-                "must_not": [],
-                "should": []
-            }
-        },
-        "from": 0,
-        "size": 10_000,
-        "sort": [{
-            "creation_timestamp": {"order": "asc"}
-        }],
-        "aggs": {},
-        "_source": {"includes": [], "excludes": []}
-    }
-
-
-def get_range(
-        datetime_fieldname="creation_timestamp",
-        start_dt_iso="1970-01-01",
-        end_dt_iso="9999-01-01"
-) -> dict:
-    return {
-        "range": {
-            datetime_fieldname: {
-                "gte": start_dt_iso,
-                "lt": end_dt_iso
-            }
-        }
-    }
 
 
 def load_cmr_df(rtc_product_ids):

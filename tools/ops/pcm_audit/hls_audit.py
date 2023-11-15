@@ -12,6 +12,8 @@ import more_itertools
 from dotenv import dotenv_values
 from elasticsearch import RequestsHttpConnection, helpers
 
+from util.grq_client import get_body
+
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
     # format="%(levelname)s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
@@ -47,23 +49,6 @@ def pstr(o):
     pprint(o, stream=sio)
     sio.seek(0)
     return sio.read()
-
-
-def get_body() -> dict:
-    return {
-        "query": {
-            "bool": {
-                "must": [{"match_all": {}}],
-                "must_not": [],
-                "should": []
-            }
-        },
-        "from": 0,
-        "size": 10_000,
-        "sort": [],
-        "aggs": {},
-        "_source": {"includes": [], "excludes": []}
-    }
 
 argparser = argparse.ArgumentParser(add_help=True)
 argparser.add_argument(
@@ -108,6 +93,7 @@ def get_ingested_files(index):
     '''from _source.metadata.Files.Filename, get rid of .tif and then append the revision string'''
     ingested_files = set()
     body = get_body()
+    body["sort"] = []
     body["_source"]["includes"] = ["metadata.Files"]
     body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
     search_results = list(helpers.scan(es, body, index=index, scroll="5m", size=10_000))
@@ -124,6 +110,7 @@ def get_ingested_files(index):
 #######################################################################
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="5m", size=10_000))
@@ -144,6 +131,7 @@ logger.debug(f'{pstr(queried_or_downloaded_granules)=!s}')
 # logger.debug(f'{pstr(missing_queried_or_downloaded_granules)=!s}')
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
@@ -197,6 +185,7 @@ logger.debug(f'{pstr(missing_data_ingest_granules)=!s}')
 #######################################################################
 
 body = get_body()
+body["sort"] = []
 body["_source"]["includes"] = ["metadata.runconfig.localize", "metadata.accountability", "daac_CNM_S_status", "daac_delivery_status"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})

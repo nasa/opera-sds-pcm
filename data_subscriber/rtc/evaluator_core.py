@@ -10,6 +10,8 @@ from typing import Iterable
 from geopandas import GeoDataFrame
 from pandas import Series
 
+from util.sds_itertools import windowed_by_predicate
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ def create_orbit_to_interval_to_products_map(orbit_to_products_map, orbits: Iter
     futures = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for orbit in orbits:
-            future = executor.submit(create_orbit_to_interval_to_products_map_helper, orbit_to_products_map, orbit)
+            future = executor.submit(_create_orbit_to_interval_to_products_map_helper, orbit_to_products_map, orbit)
             futures.append(future)
         for future in concurrent.futures.as_completed(futures):
             orbit_to_interval_to_products_map.update(future.result())
@@ -30,7 +32,7 @@ def create_orbit_to_interval_to_products_map(orbit_to_products_map, orbits: Iter
     return orbit_to_interval_to_products_map
 
 
-def create_orbit_to_interval_to_products_map_helper(orbit_to_products_map, orbit: int):
+def _create_orbit_to_interval_to_products_map_helper(orbit_to_products_map, orbit: int):
     orbit_to_interval_to_products_map = defaultdict(partial(defaultdict, partial(defaultdict, set)))
 
     acquisition_dts = sorted(orbit_to_products_map[orbit].keys())
@@ -40,7 +42,7 @@ def create_orbit_to_interval_to_products_map_helper(orbit_to_products_map, orbit
 
     # remove redundant subsets
     dt_intervals = [Interval(w[0], w[-1]) for w in dt_windows]
-    dt_intervals = [a for a in dt_intervals if not any(issubinterval_strict(a, b) for b in dt_intervals)]
+    dt_intervals = [a for a in dt_intervals if not any(issubinterval(a, b) for b in dt_intervals)]
 
     for dt_interval in dt_intervals:
         acquisition_dts = orbit_to_products_map[orbit].keys()
@@ -51,28 +53,15 @@ def create_orbit_to_interval_to_products_map_helper(orbit_to_products_map, orbit
     return orbit_to_interval_to_products_map
 
 
-def windowed_by_predicate(iterable, pred, sorted_: bool = False, set_: bool = False):
-    groups = []
-    for i, item in enumerate(iterable if sorted_ else sorted(iterable)):
-        head, *tail = iterable[i:]
-        a = head
-        group = {a} if set_ else [a]
-        for b in tail:
-            if pred(a, b):
-                group.add(b) if set_ else group.append(b)
-        groups.append(group)
-    return groups
-
-
-def issubinterval(x: tuple[datetime], y: tuple[datetime]):
-    return x[0] >= y[0] and x[1] <= y[1]
-
-
-def issubinterval_strict(x: tuple[datetime], y: tuple[datetime]):
-    return (x[0] > y[0] and x[1] <= y[1]) or (x[0] >= y[0] and x[1] < y[1])
+def issubinterval(x: tuple[datetime], y: tuple[datetime], strict=True):
+    if strict:  # half-open interval
+        return (x[0] > y[0] and x[1] <= y[1]) or (x[0] >= y[0] and x[1] < y[1])
+    else:  # closed interval
+        return x[0] >= y[0] and x[1] <= y[1]
 
 
 def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict):
+    """The main entry point into evaluator core"""
     logger.info("BEGIN")
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = [

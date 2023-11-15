@@ -14,6 +14,7 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     es: Elasticsearch = es_conn_util.get_es_connection(logger).es
 
     body = get_body()
+    body["sort"] = []
     body["query"]["bool"]["must"].append(get_range("creation_timestamp", creation_timestamp_start_dt.isoformat(), creation_timestamp_end_dt.isoformat()))
     body["query"]["bool"]["must"].append({"term": {"metadata.intersects_north_america": "true"}})
     body["query"]["bool"]["must"].append({"term": {"metadata.processing_mode": "forward"}})
@@ -47,7 +48,9 @@ def get_body() -> dict:
         },
         "from": 0,
         "size": 10_000,
-        "sort": [],
+        "sort": [{
+            "creation_timestamp": {"order": "asc"}
+        }],
         "aggs": {},
         "_source": {"includes": [], "excludes": []}
     }
