@@ -14,20 +14,30 @@ logger = logging.getLogger(__name__)
 
 
 def tree():
+    """
+    Simple implementation of a tree data structure in python. Essentially a defaultdict of default dicts.
+
+    Usage: foo = tree() ; foo["a"]["b"]["c"]... = bar
+    """
     return defaultdict(tree)
 
 
 def dicts(t):
+    """Utility function for casting a tree to a complex dict"""
     return {k: dicts(t[k]) for k in t}
 
 
 @cache
 def cached_load_mgrs_burst_db(filter_land=True):
+    """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db`"""
     logger.info(f"Cache loading MGRS burst database. {filter_land=}")
     return load_mgrs_burst_db(filter_land)
 
 
 def load_mgrs_burst_db(filter_land=True):
+    """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db_raw`"""
+    logger.info(f"Loading MGRS burst database. {filter_land=}")
+
     vector_gdf = load_mgrs_burst_db_raw(filter_land)
 
     # parse collection columns encoded as string to collections
@@ -39,7 +49,8 @@ def load_mgrs_burst_db(filter_land=True):
     return vector_gdf
 
 
-def load_mgrs_burst_db_raw(filter_land=True):
+def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
+    """Loads the MGRS Tile Collection Database. On AWS environments, this will localize from a known S3 location."""
     mtc_local_filepath = Path("~/Downloads/MGRS_tile_collection_v0.2.sqlite").expanduser()
     if mtc_local_filepath.exists():
         vector_gdf = gpd.read_file(mtc_local_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
@@ -59,6 +70,7 @@ def load_mgrs_burst_db_raw(filter_land=True):
 
 
 def get_reduced_rtc_native_id_patterns(mgrs_burst_collections_gdf: GeoDataFrame):
+    """Extracts all unique CMR native-id patterns that cover all the MGRS sets in the given GeoDataFrame"""
     rtc_native_id_patterns_burst_sets = get_rtc_native_id_patterns_burst_sets(mgrs_burst_collections_gdf)
     rtc_native_id_patterns = reduce_bursts_to_cmr_patterns(rtc_native_id_patterns_burst_sets)
     return rtc_native_id_patterns
