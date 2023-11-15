@@ -252,7 +252,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             logger.info(f"Uploading MGRS burst set files to S3")
             files_to_upload = [fp for fp_set in product_to_product_filepaths_map.values() for fp in fp_set]
-            s3path_tuples: list[tuple[str, str]] = concurrent_s3_client_try_upload_file(batch_id, files_to_upload)
+            s3paths: list[str] = concurrent_s3_client_try_upload_file(batch_id, files_to_upload)
             successfully_uploaded_batch_id_to_products_map[batch_id] = product_burstset
 
             logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
@@ -559,7 +559,6 @@ def concurrent_s3_client_try_upload_file(batch_id, files_to_upload):
         futures = [
             executor.submit(
                 s3_client_try_upload_file,
-                s3_client=boto3.session.Session().client("s3"),
                 Filename=str(fp),
                 Bucket=f'{"opera-dev-rs-fwd-crivas"}',  # TODO chrisjrd: get bucket name somehow
                 Key=f"tmp/dswx_s1/{batch_id}/{fp.name}"
@@ -584,7 +583,12 @@ def giveup_s3_client_upload_file(e):
 
 
 @backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)
-def s3_client_try_upload_file(s3_client: S3Client, **kwargs):
-    logger.info(f'Uploading to s3://{kwargs["Bucket"]}/{kwargs["Key"]}')
+def s3_client_try_upload_file(s3_client: S3Client = None, **kwargs):
+    if s3_client is None:
+        s3_client = boto3.session.Session().client("s3")
+    s3path = f's3://{kwargs["Bucket"]}/{kwargs["Key"]}'
+
+    logger.info(f'Uploading to {s3path}')
     s3_client.upload_file(**kwargs)
-    return kwargs["Bucket"], kwargs["Key"]
+    logger.info(f'Uploaded to {s3path}')
+    return s3path

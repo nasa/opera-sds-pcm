@@ -186,6 +186,7 @@ class DaacDownload:
 
     def _get_aws_creds(self, token): raise
 
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
     def _s3_download(self, url, s3, tmp_dir, staging_area=""):
         file_name = PurePath(url).name
         target_key = str(Path(staging_area, file_name))

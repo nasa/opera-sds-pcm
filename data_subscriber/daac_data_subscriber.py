@@ -23,8 +23,10 @@ from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.survey import run_survey
 from util.conf_util import SettingsConf
+from util.exec_util import exec_wrapper
 
 
+@exec_wrapper
 async def run(argv: list[str]):
     try:
         validate(args)
