@@ -1,3 +1,4 @@
+"""Helper functions for interacting with GRQ."""
 import logging
 from datetime import datetime
 
@@ -38,6 +39,14 @@ def try_update_slc_dataset_with_ionosphere_metadata(index, product_id, ionospher
 
 
 def get_body() -> dict:
+    """
+    Returns a generic Elasticsearch query body for use with a raw elasticsearch-py client.
+    By default, it includes a match_all query and will sort results by "creation_timestamp".
+    $.size is set to 10_000.
+
+    Clients should override $.query.bool.must[] and $.sort[] as needed.
+    Clients may set $._source_includes = "false" to omit the document in the Elasticsearch response.
+    """
     return {
         "query": {
             "bool": {
@@ -59,8 +68,13 @@ def get_body() -> dict:
 def get_range(
         datetime_fieldname="creation_timestamp",
         start_dt_iso="1970-01-01",
-        end_dt_iso="9999-01-01"
+        end_dt_iso="9999-12-31T23:59:59.999"
 ) -> dict:
+    """
+    Returns a query range filter typically set in an Elasticsearch body's $.query.bool.must[] section.
+    The default range is from 1970 to the year 10,000.
+    The "from" datetime uses "gte" and the "to" datetime uses "lt".
+    """
     return {
         "range": {
             datetime_fieldname: {
