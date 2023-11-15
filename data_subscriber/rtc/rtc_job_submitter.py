@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def example(batch_id_to_urls_map, args):
+    """Sample usage function."""
     job_submission_tasks = submit_job_submissions_tasks(batch_id_to_urls_map, args)
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
     logger.info(f"{len(results)=}")
