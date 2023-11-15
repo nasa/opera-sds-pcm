@@ -70,6 +70,11 @@ fi
 # Loop across all Dockerfiles, build and ingest them
 for dockerfile in docker/Dockerfile*
 do
+    # skip .dockerignore files specific to a Dockerfile
+    if [[ "${dockerfile}" == *.dockerignore ]]; then
+      continue
+    fi
+
     dockerfile=${dockerfile#docker/}
     #Get the name for this container, from repo or annotation to Dockerfile
     NAME=${REPO}
