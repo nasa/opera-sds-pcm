@@ -71,7 +71,10 @@ fi
 for dockerfile in docker/Dockerfile*
 do
     # skip .dockerignore files specific to a Dockerfile
-    if [[ "${dockerfile}" == *.dockerignore ]]; then
+    # e.g. "Dockerfile", "Dockerfile.A" have associated ".dockerignore" files "Dockerfile.dockerignore" and "Dockerfile.A.dockerignore"
+    dockerignore_regex=".*\.dockerignore"
+    if [[ "${dockerfile}" =~ $dockerignore_regex ]]; then
+      echo "[CI] skipping ${dockerfile}"
       continue
     fi
 
