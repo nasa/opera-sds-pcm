@@ -3,6 +3,7 @@ import json
 import logging
 import uuid
 from functools import partial
+from pathlib import PurePath
 from typing import Optional
 
 from util.job_submitter import try_submit_mozart_job
@@ -23,29 +24,32 @@ async def example(batch_id_to_urls_map, args):
     logger.info(f"{failed=}")
 
 
-def submit_job_submissions_tasks(batch_id_to_urls_map, args):
+def submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args):
     job_submission_tasks = []
-    for batch_id, urls in batch_id_to_urls_map.items():
+    for batch_id, s3paths in uploaded_batch_id_to_s3paths_map.items():
         chunk_id = str(uuid.uuid4())
         logger.info(f"{chunk_id=}")
         # TODO chrisjrd: implement realistic product
         product = {
-            "_id": "dummy_id",
+            "_id": batch_id,
             "_source": {
-                "dataset": "",
+                "dataset": "dummy_dataset",
                 "metadata": {
                     "batch_id": batch_id,
-                    "urls": urls,
-                    "FileName": "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1_VV.tif",
-                    "id": "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1",
+                    "product_paths": {"L2_RTC_S1": s3paths},
+                    "mgrs_set_id": batch_id.split("$")[0],
+                    "FileName": batch_id,
+                    "id": batch_id,
                     "$comment": "$._source.metadata.Files[] is currently a placeholder",  # TODO chrisjrd: remove placeholder and comment
                     "Files": [
                         {
-                            "FileName": "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1_VV.tif",
+                            "FileName": PurePath(s3path).name,
                             "FileSize": 1,
-                            "FileLocation": "/DNM",
-                            "id": "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1",
+                            "FileLocation": "...",
+                            "id": PurePath(s3path).name,
+                            "product_paths": "$.product_paths"
                         }
+                        for s3path in s3paths
                     ]
                 }
             }
