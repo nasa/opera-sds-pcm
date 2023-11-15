@@ -70,11 +70,13 @@ fi
 # Loop across all Dockerfiles, build and ingest them
 for dockerfile in docker/Dockerfile*
 do
+    echo "[CI] Processing ${dockerfile}"
+
     # skip .dockerignore files specific to a Dockerfile
     # e.g. "Dockerfile", "Dockerfile.A" have associated ".dockerignore" files "Dockerfile.dockerignore" and "Dockerfile.A.dockerignore"
     dockerignore_regex=".*\.dockerignore"
     if [[ "${dockerfile}" =~ $dockerignore_regex ]]; then
-      echo "[CI] skipping ${dockerfile}"
+      echo "[CI] Skipping ${dockerfile}"
       continue
     fi
 
