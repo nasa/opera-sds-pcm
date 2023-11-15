@@ -5,7 +5,7 @@ import uuid
 from functools import partial
 from typing import Optional
 
-from data_subscriber.rtc.job_submitter import submit_mozart_job
+from util.job_submitter import try_submit_mozart_job
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ def create_job_params(product):
 
 
 def submit_dswx_s1_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
-    return submit_mozart_job(
+    return try_submit_mozart_job(
         product=product,
         job_queue=job_queue,
         rule_name=rule_name,

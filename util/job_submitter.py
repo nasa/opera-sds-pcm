@@ -1,3 +1,4 @@
+"""Functions for submitting HySDS jobs"""
 import uuid
 from typing import Optional
 
@@ -5,7 +6,7 @@ import backoff
 from hysds_commons.job_utils import submit_mozart_job as submit_job
 
 
-def submit_mozart_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
+def try_submit_mozart_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
     return _try_submit_mozart_job_minimal(
         product=product or {},
         job_queue=job_queue,
