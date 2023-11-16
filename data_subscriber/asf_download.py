@@ -3,6 +3,7 @@ import json
 import netrc
 import os
 from pathlib import PurePath, Path
+import backoff
 import requests
 import requests.utils
 from datetime import datetime, timedelta
@@ -12,6 +13,7 @@ from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_ch
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
+                                    fatal_code,
                                     NoQueryResultsException,
                                     NoSuitableOrbitFileException,
                                     T_ORBIT,
@@ -256,6 +258,10 @@ class DaacDownloadAsf(DaacDownload):
         with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
             json.dump(dataset_json, fp)
 
+    @backoff.on_exception(backoff.expo,
+                          requests.exceptions.RequestException,
+                          max_time=300,
+                          giveup=fatal_code)
     def _get_aws_creds(self, token):
         logger.info("entry")
 
