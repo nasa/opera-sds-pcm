@@ -62,11 +62,10 @@ def submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args):
                     submit_dswx_s1_job,
                     product=product,
                     job_queue=args.job_queue or f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
-                    rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',  # TODO chrisjrd: use actual value
-                    # job_type=f'hysds-io-{"SCIFLO_L3_DSWx_S1"}:{args.release_version}',
+                    rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
                     params=create_job_params(product),
-                    job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version}',  # TODO chrisjrd: use actual values
-                    job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}',  # TODO chrisjrd: use actual value
+                    job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version}',
+                    job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}'
                 )
             )
         )
