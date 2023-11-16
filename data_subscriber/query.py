@@ -1,9 +1,7 @@
 import asyncio
-import concurrent.futures
 import logging
 import math
 import netrc
-import os
 import re
 import uuid
 from collections import namedtuple, defaultdict
@@ -13,13 +11,9 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
-import backoff
-import boto3
 import dateutil.parser
-from boto3.exceptions import Boto3Error
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked
-from mypy_boto3_s3 import S3Client
 
 import data_subscriber.download
 import extractor.extract
@@ -32,6 +26,7 @@ from data_subscriber.rtc.rtc_job_submitter import submit_job_submissions_tasks a
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
+from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.pge_util import download_object_from_s3
 
@@ -253,7 +248,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             logger.info(f"Uploading MGRS burst set files to S3")
             files_to_upload = [fp for fp_set in product_to_product_filepaths_map.values() for fp in fp_set]
-            s3paths: list[str] = concurrent_s3_client_try_upload_file(settings["DATASET_BUCKET"], batch_id, files_to_upload)
+            s3paths: list[str] = concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"], key_prefix=f"tmp/dswx_s1/{batch_id}/", files=files_to_upload)
             uploaded_batch_id_to_products_map[batch_id] = product_burstset
             uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
@@ -555,42 +550,3 @@ def filter_granules_rtc(granules, args):
     return filtered_granules
 
 
-def concurrent_s3_client_try_upload_file(bucket_name, batch_id, files_to_upload):
-    logger.info(f"Uploading {len(files_to_upload)} files to S3")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
-        futures = [
-            executor.submit(
-                s3_client_try_upload_file,
-                Filename=str(fp),
-                Bucket=bucket_name,  # TODO chrisjrd: get bucket name somehow
-                Key=f"tmp/dswx_s1/{batch_id}/{fp.name}"
-            )
-            for fp in files_to_upload
-        ]
-
-        results = [
-            future.result()
-            for future in concurrent.futures.as_completed(futures)
-        ]
-        return results
-
-
-def giveup_s3_client_upload_file(e):
-    if isinstance(e, boto3.exceptions.Boto3Error):
-        if isinstance(e, boto3.exceptions.S3UploadFailedError):
-            if "ExpiredToken" in e.args[0]:
-                logger.error("Local testing error. Give up immediately.")
-                return True
-    return False
-
-
-@backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)
-def s3_client_try_upload_file(s3_client: S3Client = None, **kwargs):
-    if s3_client is None:
-        s3_client = boto3.session.Session().client("s3")
-    s3path = f's3://{kwargs["Bucket"]}/{kwargs["Key"]}'
-
-    logger.info(f'Uploading to {s3path}')
-    s3_client.upload_file(**kwargs)
-    logger.info(f'Uploaded to {s3path}')
-    return s3path
