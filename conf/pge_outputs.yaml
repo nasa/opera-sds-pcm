@@ -68,7 +68,7 @@ L2_RTC_S1:
       # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_VV.tif
       # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_mask.tif
       # OPERA_L2_RTC-S1_T069-147175-IW1_20180504T104522Z_20230804T203850Z_S1B_30_v1.0_BROWSE.png
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         verify: true
         hash: md5
     Secondary:
