@@ -211,10 +211,11 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         token = supply_token(edl, username, password)
         netloc = urlparse(f"https://{edl}").netloc
 
+        # create args for downloading products which is handled by download mode for other product types
         Namespace = namedtuple(
             "Namespace",
             ["provider", "transfer_protocol", "batch_ids", "dry_run", "smoke_run"],
-            defaults=["ASF-RTC", "https", None, False, False]
+            defaults=["ASF-RTC", args.transfer_protocol, None, args.dry_run, args.smoke_run]
         )
 
         uploaded_batch_id_to_products_map = {}
