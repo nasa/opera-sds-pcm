@@ -1,4 +1,5 @@
 import concurrent.futures
+import logging
 import os
 from pathlib import Path
 from typing import Sized
@@ -8,7 +9,7 @@ import boto3
 from boto3.exceptions import Boto3Error
 from mypy_boto3_s3 import S3Client
 
-from data_subscriber.query import logger
+logger = logging.getLogger(__name__)
 
 
 def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Sized[Path]):
