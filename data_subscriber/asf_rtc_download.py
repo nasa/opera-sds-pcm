@@ -43,9 +43,8 @@ class AsfDaacRtcDownload(DaacDownload):
                 executor.submit(self.perform_download_single, download, token, args, download_counter, num_downloads)
                 for download_counter, download in enumerate(downloads, start=1)
             ]
-            results = [future.result() for future in concurrent.futures.as_completed(futures)]
-            for result in results:
-                product_id, product_filepath = result
+            product_id_product_filepath = [future.result() for future in concurrent.futures.as_completed(futures)]
+            for product_id, product_filepath in product_id_product_filepath:
                 product_to_product_filepaths_map[product_id].add(product_filepath)
 
         for download in downloads:
