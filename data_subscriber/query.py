@@ -273,7 +273,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
             return
 
-        job_submission_tasks = await download_job_submission_handler(args, granules, query_timerange)
+        job_submission_tasks = download_job_submission_handler(args, granules, query_timerange)
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
     logger.info(f"{len(results)=}")
     logger.info(f"{results=}")
@@ -289,7 +289,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     }
 
 
-async def download_job_submission_handler(args, granules, query_timerange):
+def download_job_submission_handler(args, granules, query_timerange):
     batch_id_to_urls_map = defaultdict(set)
     for granule in granules:
         granule_id = granule.get("granule_id")
