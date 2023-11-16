@@ -2,7 +2,6 @@ import concurrent.futures
 import logging
 import os
 from pathlib import Path
-from typing import Sized
 
 import backoff
 import boto3
@@ -12,7 +11,7 @@ from mypy_boto3_s3 import S3Client
 logger = logging.getLogger(__name__)
 
 
-def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Sized[Path]):
+def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: list[Path]):
     logger.info(f"Uploading {len(files)} files to S3")
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
         futures = [
