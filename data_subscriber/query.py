@@ -178,7 +178,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         uploaded_batch_id_to_products_map = {}
         uploaded_batch_id_to_s3paths_map = {}
         for batch_id, product_burstset in batch_id_to_products_map.items():
-            args_for_downloader = Namespace(provider="ASF-RTC", batch_ids=[batch_id])  # TODO chrisjrd: consolidate args
+            args_for_downloader = Namespace(provider="ASF-RTC", batch_ids=[batch_id])
             downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
 
             run_download_kwargs = {
@@ -217,9 +217,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         args_for_job_submitter = namedtuple(
             "Namespace",
             ["chunk_size", "job_queue", "release_version"],
-            defaults=[1, args.job_queue, args.release_version]  # TODO chrisjrd: consolidate args
+            defaults=[1, args.job_queue, args.release_version]
         )()
-        job_submission_tasks = dswx_s1_submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)  # TODO chrisjrd: implement me
+        job_submission_tasks = dswx_s1_submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
     else:
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
