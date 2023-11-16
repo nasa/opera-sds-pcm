@@ -222,7 +222,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             defaults=["ASF-RTC", "https", None, False, False]
         )
 
-        successfully_uploaded_batch_id_to_products_map = {}
+        uploaded_batch_id_to_products_map = {}
+        uploaded_batch_id_to_s3paths_map = {}
         for batch_id, product_burstset in batch_id_to_products_map.items():
             args_for_downloader = Namespace(provider="ASF-RTC", batch_ids=[batch_id])  # TODO chrisjrd: consolidate args
             downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
@@ -252,8 +253,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             logger.info(f"Uploading MGRS burst set files to S3")
             files_to_upload = [fp for fp_set in product_to_product_filepaths_map.values() for fp in fp_set]
-            s3paths: list[str] = concurrent_s3_client_try_upload_file(batch_id, files_to_upload)
-            successfully_uploaded_batch_id_to_products_map[batch_id] = product_burstset
+            s3paths: list[str] = concurrent_s3_client_try_upload_file(settings["DATASET_BUCKET"], batch_id, files_to_upload)
+            uploaded_batch_id_to_products_map[batch_id] = product_burstset
+            uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
             logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
             # TODO chrisjrd: submit PGE job by the batch
@@ -262,7 +264,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             ["chunk_size", "job_queue", "release_version"],
             defaults=[1, args.job_queue, args.release_version]  # TODO chrisjrd: consolidate args
         )()
-        job_submission_tasks = dswx_s1_submit_job_submissions_tasks(successfully_uploaded_batch_id_to_products_map, args_for_job_submitter)  # TODO chrisjrd: implement me
+        job_submission_tasks = dswx_s1_submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)  # TODO chrisjrd: implement me
     else:
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
@@ -553,14 +555,14 @@ def filter_granules_rtc(granules, args):
     return filtered_granules
 
 
-def concurrent_s3_client_try_upload_file(batch_id, files_to_upload):
+def concurrent_s3_client_try_upload_file(bucket_name, batch_id, files_to_upload):
     logger.info(f"Uploading {len(files_to_upload)} files to S3")
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
         futures = [
             executor.submit(
                 s3_client_try_upload_file,
                 Filename=str(fp),
-                Bucket=f'{"opera-dev-rs-fwd-crivas"}',  # TODO chrisjrd: get bucket name somehow
+                Bucket=bucket_name,  # TODO chrisjrd: get bucket name somehow
                 Key=f"tmp/dswx_s1/{batch_id}/{fp.name}"
             )
             for fp in files_to_upload
