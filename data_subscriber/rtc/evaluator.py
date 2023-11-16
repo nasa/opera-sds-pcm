@@ -45,7 +45,7 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)
     for doc in es_docs:
-        product_id_to_product_files_map[doc["_source"]["granule_id"]].append(doc)
+        product_id_to_product_files_map[doc["_source"]["granule_id"]].append(doc["_source"])
     rtc_product_ids = product_id_to_product_files_map.keys()
 
     # load MGRS tile collection DB

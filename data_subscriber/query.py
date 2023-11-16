@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
-from more_itertools import chunked
+from more_itertools import chunked, first
 
 import data_subscriber.download
 import extractor.extract
@@ -22,11 +22,9 @@ from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as mbc_client
-from data_subscriber.rtc.rtc_job_submitter import submit_job_submissions_tasks as dswx_s1_submit_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
-from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.pge_util import download_object_from_s3
 
@@ -157,9 +155,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         batch_id_to_products_map = defaultdict(set)
         for mgrs_set_id, product_burst_sets in mgrs_sets.items():
             for product_burstset in product_burst_sets:
-                product_id_to_docs_map = list(product_burstset)[0]
-                first_product = list(product_id_to_docs_map.items())[0][1][0]
-                acquisition_cycle = first_product["_source"]["acquisition_cycle"]
+                rtc_granule_id_to_product_docs_map = first(product_burstset)
+                first_product_doc = first(rtc_granule_id_to_product_docs_map.values())
+                acquisition_cycle = first_product_doc["acquisition_cycle"]
                 batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
                 batch_id_to_products_map[batch_id] = product_burstset
 
@@ -242,6 +240,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     logger.info(f"{succeeded=}")
     failed = [e for e in results if isinstance(e, Exception)]
     logger.info(f"{failed=}")
+
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        if failed:
+            raise first(failed)
+        from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+        es_conn: RTCProductCatalog
+        es_conn.mark_products_as_job_submitted(uploaded_batch_id_to_products_map)
 
     return {
         "success": succeeded,
@@ -502,6 +507,7 @@ def update_url_index(
 def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
     es_spatial_conn.process_granule(granule, *args, **kwargs)
 
+
 def localize_include_exclude(args):
 
     geojsons = []
@@ -513,6 +519,7 @@ def localize_include_exclude(args):
         geojsons.extend(args.exclude_regions.split(","))
 
     localize_geojsons(geojsons)
+
 
 def localize_geojsons(geojsons):
     settings = SettingsConf().cfg
@@ -526,6 +533,7 @@ def localize_geojsons(geojsons):
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
 
+
 def does_granule_intersect_regions(granule, intersect_regions):
     regions = intersect_regions.split(',')
     for region in regions:
@@ -534,6 +542,7 @@ def does_granule_intersect_regions(granule, intersect_regions):
             return True, region
 
     return False, None
+
 
 def filter_granules_by_regions(granules, include_regions, exclude_regions):
     '''Filters granules based on include and exclude regions lists'''

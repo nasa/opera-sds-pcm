@@ -170,20 +170,6 @@ def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_m
     return mgrs_set_id_to_product_sets_map, incomplete_mgrs_set_id_to_product_sets_map
 
 
-def remove_redundant_subsets(mgrs_set_id_to_product_sets_map: dict):
-    mgrs_set_id_to_product_sets_clean_map = {}
-    for mgrs_set_id, sets in mgrs_set_id_to_product_sets_map.items():
-        sets_fs = frozenset(filter(lambda it: it, sets))  # filter out empty results. dedupe
-        s = sets_fs
-        r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
-        sets_fs = frozenset(r)
-        if sets_fs:
-            # keep the first longest burst subset, in case distinct sets are found (extremely unlikely)
-            mgrs_set_id_to_product_sets_clean_map[mgrs_set_id] = max(sets_fs, key=len)
-
-    return mgrs_set_id_to_product_sets_clean_map
-
-
 def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_products_map: dict, time_window):
     orbits = burst_set_row["orbits"]
     cmr_bursts = set(itertools.chain.from_iterable(
@@ -216,3 +202,17 @@ def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_produc
         results_partitioned[False] = {mgrs_set_id: frozenset(product_set)}
 
         return mgrs_set_id, results_partitioned[False], results_partitioned[True]
+
+
+def remove_redundant_subsets(mgrs_set_id_to_product_sets_map: dict):
+    mgrs_set_id_to_product_sets_clean_map = {}
+    for mgrs_set_id, sets in mgrs_set_id_to_product_sets_map.items():
+        sets_fs = frozenset(filter(lambda it: it, sets))  # filter out empty results. dedupe
+        s = sets_fs
+        r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
+        sets_fs = frozenset(r)
+        if sets_fs:
+            # keep the first longest burst subset, in case distinct sets are found (extremely unlikely)
+            mgrs_set_id_to_product_sets_clean_map[mgrs_set_id] = max(sets_fs, key=len)
+
+    return mgrs_set_id_to_product_sets_clean_map
