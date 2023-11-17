@@ -38,7 +38,7 @@ def try_update_slc_dataset_with_ionosphere_metadata(index, product_id, ionospher
     es.update(index, product_id, body={"doc": {"metadata": ionosphere_metadata}})
 
 
-def get_body() -> dict:
+def get_body(match_all=True) -> dict:
     """
     Returns a generic Elasticsearch query body for use with a raw elasticsearch-py client.
     By default, it includes a match_all query and will sort results by "creation_timestamp".
@@ -50,7 +50,7 @@ def get_body() -> dict:
     return {
         "query": {
             "bool": {
-                "must": [{"match_all": {}}],
+                "must": [{"match_all": {}}] if match_all else [],
                 "must_not": [],
                 "should": []
             }

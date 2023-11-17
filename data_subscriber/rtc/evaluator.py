@@ -29,16 +29,15 @@ async def run(argv):
 async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
-    body = get_body()
+    body = get_body(match_all=False)
 
     if mgrs_set_ids:
-        del body["query"]["bool"]["must"]  # removing match_all behavior
         for mgrs_set_id in mgrs_set_ids:
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
     if mgrs_set_id_acquisition_ts_cycle_indexes:
-        del body["query"]["bool"]["must"]  # removing match_all behavior
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
+    body["query"]["bool"]["must"].append({"match": {"job_submitted": False}})
 
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
 
