@@ -241,6 +241,10 @@ def create_parser():
                     "kwargs": {"dest": "exclude_regions",
                                "help": "Only process granules whose bounding bbox do not intersect with these regions. Comma-separated list. Only applies in Historical processing mode."}}
 
+    frame_range = {"positionals": ["--frame-range"],
+                       "kwargs": {"dest": "frame_range",
+                                  "help": "Only applies to DISP-S1 processing. Start and stop frame number range, inclusive on both ends."}}
+
     step_hours = {"positionals": ["--step-hours"],
                            "kwargs": {"dest": "step_hours",
                             "default": 1,
@@ -263,21 +267,21 @@ def create_parser():
 
     survey_parser = subparsers.add_parser("survey")
     survey_parser_arg_list = [verbose, endpoint, provider, collection, start_date, end_date, bbox, minutes, max_revision,
-                              smoke_run, native_id, use_temporal, temporal_start_date, step_hours, out_csv]
+                              smoke_run, native_id, frame_range, use_temporal, temporal_start_date, step_hours, out_csv]
     _add_arguments(survey_parser, survey_parser_arg_list)
 
     full_parser = subparsers.add_parser("full")
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol,
-                            include_regions, exclude_regions, proc_mode]
+                            frame_range, include_regions, exclude_regions, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol,
-                             include_regions, exclude_regions, proc_mode]
+                             frame_range, include_regions, exclude_regions, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")

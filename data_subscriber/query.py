@@ -33,12 +33,18 @@ from util.pge_util import download_object_from_s3
 logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 
 
 async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
+
+    # If we are querying CSLC data we need to modify parameters going into cmr query
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
+        disp_burst_map = process_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
+
 
     logger.info("CMR query STARTED")
     granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
@@ -569,6 +575,45 @@ def localize_geojsons(geojsons):
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
 
+def process_disp_frame_burst_json(file):
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+    try:
+        download_object_from_s3(bucket, file, file, filetype="geojson")
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % file + str(e))
+
+    j = json.load(open(file))
+
+    metadata = j["metadata"]
+    version = metadata["version"]
+    data = j["data"]
+    frame_data = {}
+
+    frame_ids = []
+    for f in data:
+        frame_ids.append(f)
+
+    # Note that we are using integer as the dict key instead of the original string so that it can be sorted
+    # more predictably
+    for frame_id in frame_ids:
+        frame_data[int(frame_id)]=SimpleNamespace(**(data[frame_id]))
+
+    sorted_frame_data = dict(sorted(frame_data.items()))
+
+    return sorted_frame_data, metadata, version
+def process_frame_burst_db():
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+
+    try:
+        for geojson in geojsons:
+            key = geojson.strip() + ".geojson"
+            # output_filepath = os.path.join(working_dir, key)
+            download_object_from_s3(bucket, key, key, filetype="geojson")
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
+>>>>>>> 63152599 (Issue #662: CSLC Frame-to-burst json db parsing for DISP-S1 processing)
 
 def does_granule_intersect_regions(granule, intersect_regions):
     regions = intersect_regions.split(',')
