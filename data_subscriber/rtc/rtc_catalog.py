@@ -56,10 +56,10 @@ class RTCProductCatalog(HLSProductCatalog):
         return self.filter_query_result(downloads)
 
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
+        operations = []
         for batch_id, products in batch_id_to_products_map.items():
             for product in products:
                 for product_id, docs in product.items():
-                    operations = []
                     for doc in docs:
                         index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
                         # self.es.update_document(
@@ -73,17 +73,17 @@ class RTCProductCatalog(HLSProductCatalog):
                         #     index=index
                         # )
                         operation = {
-                            '_op_type': 'update',
-                            '_index': index,
-                            '_type': 'document',
-                            '_id': doc["id"],
-                            'doc': {"job_submitted": True},
+                            "_op_type": "update",
+                            "_index": index,
+                            "_type": "_doc",
+                            "_id": doc["id"],
+                            "doc": {"job_submitted": True},
                             "doc_as_upsert": True,
                         }
                         operations.append(operation)
-                    elasticsearch.helpers.bulk(self.es.es, operations)
+        elasticsearch.helpers.bulk(self.es.es, operations)
 
-        # self.logger.info("performing index refresh")
-        # self.refresh()
-        # self.logger.info("performed index refresh")
+        self.logger.info("performing index refresh")
+        self.refresh()
+        self.logger.info("performed index refresh")
 
