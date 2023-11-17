@@ -156,7 +156,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         for mgrs_set_id, product_burst_sets in mgrs_sets.items():
             for product_burstset in product_burst_sets:
                 rtc_granule_id_to_product_docs_map = first(product_burstset)
-                first_product_doc = first(rtc_granule_id_to_product_docs_map.values())
+                first_product_doc_list = first(rtc_granule_id_to_product_docs_map.values())
+                first_product_doc = first(first_product_doc_list)
                 acquisition_cycle = first_product_doc["acquisition_cycle"]
                 batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
                 batch_id_to_products_map[batch_id] = product_burstset
