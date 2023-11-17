@@ -52,3 +52,25 @@ class RTCProductCatalog(HLSProductCatalog):
             }
         )
         return self.filter_query_result(downloads)
+
+    def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
+        for batch_id, products in batch_id_to_products_map.items():
+            for product in products:
+                for product_id, docs in product.items():
+                    for doc in docs:
+                        index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
+                        self.es.update_document(
+                            id=doc["id"],
+                            body={
+                                "doc_as_upsert": True,
+                                "doc": {
+                                    "job_submitted": True
+                                }
+                            },
+                            index=index
+                        )
+
+        self.logger.info("performing index refresh")
+        self.refresh()
+        self.logger.info("performed index refresh")
+
