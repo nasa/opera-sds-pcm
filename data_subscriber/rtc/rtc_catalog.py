@@ -5,7 +5,7 @@ import elasticsearch.helpers
 
 from ..hls.hls_catalog import HLSProductCatalog
 
-null_logger = logging.getLogger('dummy')
+null_logger = logging.getLogger("dummy")
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
@@ -33,7 +33,7 @@ class RTCProductCatalog(HLSProductCatalog):
         return "rtc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
     def filter_query_result(self, query_result):
-        return [result['_source'] for result in (query_result or [])]
+        return [result["_source"] for result in (query_result or [])]
 
     def granule_and_revision(self, es_id: str):
         """For 'OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0-r1' returns:
@@ -61,7 +61,7 @@ class RTCProductCatalog(HLSProductCatalog):
             for product in products:
                 for product_id, docs in product.items():
                     for doc in docs:
-                        index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
+                        index = self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
                         # self.es.update_document(
                         #     id=doc["id"],
                         #     body={
