@@ -95,7 +95,7 @@ def supply_es_conn(args):
     elif provider == "ASF-RTC":
         es_conn = RTCProductCatalog(logging.getLogger(__name__))
     elif provider == "ASF-CSLC":
-        raise NotImplementedError()
+        es_conn = RTCProductCatalog(logging.getLogger(__name__))
     else:
         raise AssertionError(f"Unsupported {provider=}")
 

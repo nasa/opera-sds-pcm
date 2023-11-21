@@ -45,8 +45,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
     # If we are querying CSLC data we need to modify parameters going into cmr query
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-        disp_burst_map = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
-
+        disp_burst_map, metadata, version = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
+        args = expand_clsc_frames(args, disp_burst_map)
 
     logger.info("CMR query STARTED")
     granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
@@ -691,7 +691,7 @@ def expand_clsc_frames(args, disp_burst_map):
     frame_start = int(args.frame_range.split(",")[0])
     frame_end = int(args.frame_range.split(",")[1])
     native_ids = build_cslc_native_ids(frame_start, frame_end, disp_burst_map)
-    args.native_ids = "*" + "*,*".join(native_ids) + "*"
+    args.native_id = "*" + "*,*".join(native_ids) + "*"
     return args
 
 def download_from_s3(bucket, file, path):
