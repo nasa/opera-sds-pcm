@@ -171,7 +171,7 @@ class HLSProductCatalog:
         return results
 
     def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
-        range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
+        fieldname_for_range_filter = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
                 index=self.ES_INDEX_PATTERNS,
@@ -183,7 +183,7 @@ class HLSProductCatalog:
                             "must": [
                                 {
                                     "range": {
-                                        range_str: {
+                                        fieldname_for_range_filter: {
                                             "gte": start_dt.isoformat(),
                                             "lt": end_dt.isoformat()
                                         }
@@ -203,6 +203,10 @@ class HLSProductCatalog:
         return result
 
     def refresh(self):
+        """
+        Refresh the underlying indices, making recent opertions visible to queries.
+        See official Elasticsearch documentation on index refreshing.
+        """
         es: ElasticsearchUtility = self.es
         es: elasticsearch.Elasticsearch = es.es
         indices_client = es.indices
