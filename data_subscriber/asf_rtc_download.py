@@ -36,7 +36,6 @@ class AsfDaacRtcDownload(DaacDownload):
             logger.error(f"Some documents do not have a download URL")
 
         product_to_product_filepaths_map = defaultdict(set)
-        downloads = downloads[:1]  # TODO chrisjrd: useful for testing locally. remove before final commit
         num_downloads = len(downloads)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
             futures = [

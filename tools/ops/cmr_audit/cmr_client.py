@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def async_cmr_posts(url, request_bodies: list):
+    """Given a list of request bodies, performs CMR queries asynchronously, returning  the response JSONs."""
     logging.info("Querying CMR")
 
     async with aiohttp.ClientSession() as session:
@@ -31,6 +32,7 @@ async def async_cmr_posts(url, request_bodies: list):
 
 
 async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
+    """Issues a request asynchronously. If a semaphore is provided, it will use it as a context manager."""
     sem = sem if sem is not None else contextlib.nullcontext()
     async with sem:
         page_size = 2000  # default is 10, max is 2000
@@ -81,6 +83,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
 
 def giveup_cmr_requests(e):
+    """giveup function for use with @backoff decorator when issuing CMR queries to retry on intermittent 504 errors."""
     if isinstance(e, aiohttp.ClientResponseError):
         if e.status == 413 and e.message == "Payload Too Large":  # give up. Fix bug
             return True
@@ -103,6 +106,10 @@ async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers
 
 
 def cmr_requests_get(args, request_url, params):
+    """
+    DEPRECATED. Issues a CMR request using GET.
+    Newer code should use cmr_client.async_cmr_post.
+    """
     page_size = 2000  # default is 10, max is 2000
     params["page_size"] = page_size
 
@@ -148,6 +155,7 @@ def cmr_requests_get(args, request_url, params):
 
 
 def giveup_cmr_requests(e):
+    """giveup function for use with @backoff decorator when issuing CMR requests using blocking `requests` functions."""
     if isinstance(e, HTTPError):
         if e.response.status_code == 413 and e.response.reason == "Payload Too Large":  # give up. Fix bug
             return True
@@ -173,10 +181,17 @@ def try_request_get(request_url, params, headers=None, raise_for_status=True):
 
 
 def paramss_to_request_body(paramss: Iterable[dict]):
+    """See params_to_request_body"""
     return [params_to_request_body(params) for params in paramss]
 
 
 def params_to_request_body(params: dict):
+    """
+    Utility function for converting a dict of request params (i.e. GET query params) into a form encoded request body
+    (POST form params) acceptable by CMR.
+
+    Iterables will have their param names suffixed with `[]` if needed, like "native-id[]" or "ShortName[]"
+    """
     s = ""
     for k, v in params.items():
         if isinstance(v, Iterable) and not isinstance(v, str):

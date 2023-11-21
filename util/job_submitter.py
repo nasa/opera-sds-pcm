@@ -28,6 +28,10 @@ def try_submit_mozart_job(*, product: dict, job_queue: str, rule_name, params: l
 
 @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
 def _try_submit_mozart_job_minimal(*, product: Optional[dict], job_queue: str, rule_name, hysdsio: dict, job_name) -> str:
+    """
+    Submits a mozart job with the minimal number of required parameters.
+    Clients should note that jobs are submitted with enable_dedup=true.
+    """
     return _submit_mozart_job_minimal(
         product=product,
         job_queue=job_queue,
@@ -38,6 +42,7 @@ def _try_submit_mozart_job_minimal(*, product: Optional[dict], job_queue: str, r
 
 
 def _submit_mozart_job_minimal(*, product: Optional[dict], job_queue: str, rule_name, hysdsio: dict, job_name) -> str:
+    """Do not call directly. See wrapper with @backoff decorator for usage"""
     return submit_job(
         product=product or {},
         rule={
@@ -59,6 +64,7 @@ def _submit_mozart_job_minimal(*, product: Optional[dict], job_queue: str, rule_
 
 @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
 def _try_submit_mozart_job_by_rule_minimal(*, product: Optional[dict], rule_name, job_type: str, job_queue: str, job_name) -> str:
+    """Submits a mozart job with hysdsio specified by an existing rule, rather than a given hysdsio specification."""
     return _submit_mozart_job_by_rule_minimal(
         product=product,
         rule_name=rule_name,
@@ -69,6 +75,7 @@ def _try_submit_mozart_job_by_rule_minimal(*, product: Optional[dict], rule_name
 
 
 def _submit_mozart_job_by_rule_minimal(*, product: Optional[dict], rule_name, job_type: str, job_queue: str, job_name) -> str:
+    """Do not call directly. See wrapper with @backoff decorator for usage"""
     return submit_job(
         product=product or {},
         rule={

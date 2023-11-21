@@ -1,3 +1,4 @@
+"""Collection of AWS-related utilities"""
 import concurrent.futures
 import logging
 import os
@@ -12,11 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: list[Path]):
+    """Upload s3 files concurrently, returning their s3 paths if all succeed."""
     logger.info(f"Uploading {len(files)} files to S3")
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
         futures = [
             executor.submit(
-                s3_client_try_upload_file,
+                try_s3_client_try_upload_file,
                 Filename=str(f),
                 Bucket=bucket,
                 Key=f"{key_prefix}/{f.name}"
@@ -28,6 +30,10 @@ def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: li
 
 
 def giveup_s3_client_upload_file(e):
+    """
+    giveup function for use with @backoff decorator. This only checks for a local-testing condition of running into
+    an expired AWS CLI/SDK session token.
+    """
     if isinstance(e, boto3.exceptions.Boto3Error):
         if isinstance(e, boto3.exceptions.S3UploadFailedError):
             if "ExpiredToken" in e.args[0]:
@@ -37,7 +43,11 @@ def giveup_s3_client_upload_file(e):
 
 
 @backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)
-def s3_client_try_upload_file(s3_client: S3Client = None, **kwargs):
+def try_s3_client_try_upload_file(s3_client: S3Client = None, **kwargs):
+    """
+    Attempt to perform an s3 upload, retrying upon failure, returning back the S3 path.
+    A default session-based S3 client is created on clients' behalf to facilitate parallelization of requests.
+    """
     if s3_client is None:
         s3_client = boto3.session.Session().client("s3")
     s3path = f's3://{kwargs["Bucket"]}/{kwargs["Key"]}'
