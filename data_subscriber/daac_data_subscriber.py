@@ -340,16 +340,15 @@ def _validate_minutes(minutes):
     except ValueError:
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
-
-parser = create_parser()
-args = parser.parse_args(sys.argv[1:])
-
-loglevel = "DEBUG" if args.verbose else "INFO"
-logging.basicConfig(level=loglevel)
-logger = logging.getLogger(__name__)
-logger.info("Log level set to " + loglevel)
-
 if __name__ == "__main__":
+    parser = create_parser()
+    args = parser.parse_args(sys.argv[1:])
+
+    loglevel = "DEBUG" if args.verbose else "INFO"
+    logging.basicConfig(level=loglevel)
+    logger = logging.getLogger(__name__)
+    logger.info("Log level set to " + loglevel)
+
     logger_hysds_commons = logging.getLogger("hysds_commons")
     logger_hysds_commons.addFilter(NoJobUtilsFilter())
 
