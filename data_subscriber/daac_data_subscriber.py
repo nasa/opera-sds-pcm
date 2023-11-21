@@ -340,7 +340,6 @@ def _validate_minutes(minutes):
     except ValueError:
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
-
 if __name__ == "__main__":
     parser = create_parser()
     args = parser.parse_args(sys.argv[1:])

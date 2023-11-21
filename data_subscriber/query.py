@@ -10,12 +10,15 @@ from functools import partial
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
+import boto3
+import json
+from types import SimpleNamespace
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked, first
 
-import data_subscriber.download
+#import data_subscriber.download
 import extractor.extract
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr
@@ -28,7 +31,6 @@ from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
-from util.pge_util import download_object_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
     # If we are querying CSLC data we need to modify parameters going into cmr query
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-        disp_burst_map = process_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
+        disp_burst_map = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
 
 
     logger.info("CMR query STARTED")
@@ -571,17 +573,20 @@ def localize_geojsons(geojsons):
         for geojson in geojsons:
             key = geojson.strip() + ".geojson"
             # output_filepath = os.path.join(working_dir, key)
-            download_object_from_s3(bucket, key, key, filetype="geojson")
+            download_from_s3(bucket, key, key)
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
 
-def process_disp_frame_burst_json(file):
+def localize_disp_frame_burst_json(file):
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
     try:
-        download_object_from_s3(bucket, file, file, filetype="geojson")
+        download_from_s3(bucket, file, file)
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % file + str(e))
+
+    return process_disp_frame_burst_json(file)
+def process_disp_frame_burst_json(file):
 
     j = json.load(open(file))
 
@@ -597,7 +602,7 @@ def process_disp_frame_burst_json(file):
     # Note that we are using integer as the dict key instead of the original string so that it can be sorted
     # more predictably
     for frame_id in frame_ids:
-        frame_data[int(frame_id)]=SimpleNamespace(**(data[frame_id]))
+        frame_data[int(frame_id)] = SimpleNamespace(**(data[frame_id]))
 
     sorted_frame_data = dict(sorted(frame_data.items()))
 
@@ -610,7 +615,7 @@ def process_frame_burst_db():
         for geojson in geojsons:
             key = geojson.strip() + ".geojson"
             # output_filepath = os.path.join(working_dir, key)
-            download_object_from_s3(bucket, key, key, filetype="geojson")
+            download_from_s3(bucket, key, key)
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
 >>>>>>> 63152599 (Issue #662: CSLC Frame-to-burst json db parsing for DISP-S1 processing)
@@ -673,4 +678,25 @@ def filter_granules_rtc(granules, args):
         filtered_granules.append(granule)
     return filtered_granules
 
+def build_cslc_native_ids(frame_start, frame_end, disp_burst_map):
+    native_ids = []
 
+    for f in range(frame_start, frame_end):
+        frame = disp_burst_map[f]
+        if frame.is_north_america == True:
+            native_ids.extend(frame.burst_ids)
+
+    return native_ids
+def expand_clsc_frames(args, disp_burst_map):
+    frame_start = int(args.frame_range.split(",")[0])
+    frame_end = int(args.frame_range.split(",")[1])
+    native_ids = build_cslc_native_ids(frame_start, frame_end, disp_burst_map)
+    args.native_ids = "*" + "*,*".join(native_ids) + "*"
+    return args
+
+def download_from_s3(bucket, file, path):
+    s3 = boto3.resource('s3')
+    try:
+        s3.Object(bucket, file).download_file(path)
+    except Exception as e:
+        raise Exception("Exception while fetching disp frame map json file: %s. " % file + str(e))
