@@ -44,9 +44,12 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     query_timerange: DateTimeRange = get_query_timerange(args, now)
 
     # If we are querying CSLC data we need to modify parameters going into cmr query
+    #TODO: put this in a loop and query one frame at a time
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
         disp_burst_map, metadata, version = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
-        args = expand_clsc_frames(args, disp_burst_map)
+        if expand_clsc_frames(args, disp_burst_map) == False:
+            logging.info("No valid frames were found.")
+            return
 
     logger.info("CMR query STARTED")
     granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
@@ -120,7 +123,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-            raise NotImplementedError()
+            pass
         else:
             pass
 
@@ -144,7 +147,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             pass
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-            raise NotImplementedError()
+            pass
         else:
             pass
 
@@ -684,15 +687,20 @@ def build_cslc_native_ids(frame_start, frame_end, disp_burst_map):
     for f in range(frame_start, frame_end):
         frame = disp_burst_map[f]
         if frame.is_north_america == True:
-            native_ids.extend(frame.burst_ids)
+            for id in frame.burst_ids:
+                native_ids.append(id.upper().replace("_", "-"))
+        else:
+            logging.debug("Frame number %s is not within North America. Skipping." % f)
 
     return native_ids
 def expand_clsc_frames(args, disp_burst_map):
     frame_start = int(args.frame_range.split(",")[0])
     frame_end = int(args.frame_range.split(",")[1])
     native_ids = build_cslc_native_ids(frame_start, frame_end, disp_burst_map)
-    args.native_id = "*" + "*,*".join(native_ids) + "*"
-    return args
+    if len(native_ids) == 0:
+        return False
+
+    args.native_id = "*"+"*&native_id[]=*".join(native_ids) + "*"
 
 def download_from_s3(bucket, file, path):
     s3 = boto3.resource('s3')

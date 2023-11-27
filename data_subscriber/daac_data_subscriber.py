@@ -21,6 +21,7 @@ from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connectio
 from data_subscriber.query import update_url_index, run_query
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber.survey import run_survey
 from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
@@ -95,7 +96,7 @@ def supply_es_conn(args):
     elif provider == "ASF-RTC":
         es_conn = RTCProductCatalog(logging.getLogger(__name__))
     elif provider == "ASF-CSLC":
-        es_conn = RTCProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCProductCatalog(logging.getLogger(__name__))
     else:
         raise AssertionError(f"Unsupported {provider=}")
 
