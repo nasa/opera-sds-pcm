@@ -88,6 +88,12 @@ echo '{
             "timestamp_format": "%Y-%m-%d %H:%M:%S"
           },
           {
+            "file_path": "/data/work/jobs/**/run_sciflo_L3_DISP_S1.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_sciflo_L3_DISP_S1.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          },
+          {
             "file_path": "/data/work/jobs/**/run_sciflo_L2_CSLC_S1.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_sciflo_L2_CSLC_S1.log",
             "timezone": "Local",
@@ -144,6 +150,12 @@ echo '{
           {
             "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l3_dswx_s1.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/opera-job_worker-sciflo-l3_dswx_s1.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l3_disp_s1.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/opera-job_worker-sciflo-l3_disp_s1.log",
             "timezone": "Local",
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
           },
