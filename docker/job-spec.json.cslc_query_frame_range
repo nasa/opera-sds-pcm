@@ -16,7 +16,11 @@
       "destination": "positional"
     },
     {
-      "name": "native_id",
+      "name": "start_datetime",
+      "destination": "positional"
+    },
+    {
+      "name": "end_datetime",
       "destination": "positional"
     },
     {
@@ -40,19 +44,39 @@
       "destination": "positional"
     },
     {
-      "name": "max_revision",
-      "destination": "positional"
-    },
-    {
-      "name": "frame_range",
-      "destination": "positional"
-    },
-    {
       "name": "smoke_run",
       "destination": "positional"
     },
     {
       "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "use_temporal",
+      "destination": "positional"
+    },
+    {
+      "name": "max_revision",
+      "destination": "positional"
+    },
+    {
+      "name": "temporal_start_datetime",
+      "destination": "positional"
+    },
+    {
+      "name": "processing_mode",
+      "destination": "positional"
+    },
+    {
+      "name": "include_regions",
+      "destination": "positional"
+    },
+    {
+      "name": "exclude_regions",
+      "destination": "positional"
+    },
+    {
+      "name": "frame_range",
       "destination": "positional"
     },
     {
