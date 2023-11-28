@@ -103,7 +103,7 @@ def determine_polygon(tile_code, bbox=None, margin_in_km=50):
     return poly
 
 
-@backoff.on_exception(backoff.expo, Exception, max_tries=8, max_value=32)
+@backoff.on_exception(backoff.expo, Exception, max_time=600, max_value=32)
 def translate_worldcover(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     """
     Translate a Worldcover map from the esa-worldcover bucket.
