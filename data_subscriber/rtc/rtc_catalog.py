@@ -62,28 +62,25 @@ class RTCProductCatalog(HLSProductCatalog):
                 for product_id, docs in product.items():
                     for doc in docs:
                         index = self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
-                        # self.es.update_document(
-                        #     id=doc["id"],
-                        #     body={
-                        #         "doc_as_upsert": True,
-                        #         "doc": {
-                        #             "job_submitted": True
-                        #         }
-                        #     },
-                        #     index=index
-                        # )
                         operation = {
                             "_op_type": "update",
                             "_index": index,
                             "_type": "_doc",
                             "_id": doc["id"],
-                            "doc": {"job_submitted": True},
                             "doc_as_upsert": True,
+                            "doc": {
+                                "mgrs_set_id_jobs_dict": doc["mgrs_set_id_jobs_dict"],
+                                "mgrs_set_id_jobs_submitted_for": doc["mgrs_set_id_jobs_submitted_for"],
+                                "ati_jobs_dict": doc["ati_jobs_dict"],
+                                "ati_jobs_submitted_for": doc["ati_jobs_submitted_for"],
+                                "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"]
+                            }
                         }
                         operations.append(operation)
+        logging.info(f"Marking {set(batch_id_to_products_map.keys())} products as job-submitted, in bulk")
         elasticsearch.helpers.bulk(self.es.es, operations)
+        logging.info(f"Marked {set(batch_id_to_products_map.keys())} products as job-submitted, in bulk")
 
         self.logger.info("performing index refresh")
         self.refresh()
         self.logger.info("performed index refresh")
-

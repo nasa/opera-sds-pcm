@@ -37,9 +37,24 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     if mgrs_set_id_acquisition_ts_cycle_indexes:
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
-    body["query"]["bool"]["must"].append({"match": {"job_submitted": False}})
 
+    # client-side filtering
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+    logging.info(f"Found {len(es_docs)=}")
+    filtered_es_docs = []
+    for doc in es_docs:
+        if not doc["_source"].get("mgrs_set_id_jobs_submitted_for"):
+            # missing all job submissions
+            filtered_es_docs.append(doc)
+        else:
+            if not set(doc["_source"]["mgrs_set_ids"]) == set(doc["_source"]["mgrs_set_id_jobs_submitted_for"]):
+                # missing at least 1 job submission
+                filtered_es_docs.append(doc)
+            else:
+                # all expected job submissions occurred. skip to next iteration
+                continue
+    es_docs = filtered_es_docs
+    logging.info(f"Filtered {len(es_docs)=}")
 
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)

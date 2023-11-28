@@ -83,6 +83,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
             additional_fields["mgrs_set_ids"] = mgrs_burst_set_ids
 
+
             # RTC: Calculating the Collection Cycle Index (Part 1):
             #  required constants
             MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
@@ -142,6 +143,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
     logger.info("catalogue-ing FINISHED")
 
+    succeeded = []
+    failed = []
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         logger.info("performing index refresh")
         es_conn.refresh()
@@ -210,7 +213,44 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
             logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
-            # TODO chrisjrd: submit PGE job by the batch
+            job_submission_tasks = []
+            # job_submission_tasks = dswx_s1_submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
+            results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+            results = [str(uuid.uuid4())]
+            suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
+            failed_batch = [e for e in results if isinstance(e, Exception)]
+            if suceeded_batch:
+                for products_map in uploaded_batch_id_to_products_map[batch_id]:
+                    for products in products_map.values():
+                        for product in products:
+                            if not product.get("mgrs_set_id_jobs_dict"):
+                                product["mgrs_set_id_jobs_dict"] = {}
+                            if not product.get("mgrs_set_id_jobs_submitted_for"):
+                                product["mgrs_set_id_jobs_submitted_for"] = []
+
+                            if not product.get("ati_jobs_dict"):
+                                product["ati_jobs_dict"] = {}
+                            if not product.get("ati_jobs_submitted_for"):
+                                product["ati_jobs_submitted_for"] = []
+
+                            if not product.get("dswx_s1_jobs_ids"):
+                                product["dswx_s1_jobs_ids"] = []
+
+                            # use doc obj to pass params to elasticsearch client
+                            product["mgrs_set_id_jobs_dict"][batch_id.split("$")[0]] = first(suceeded_batch)
+                            product["mgrs_set_id_jobs_submitted_for"].append(batch_id.split("$")[0])
+
+                            product["ati_jobs_dict"][batch_id] = first(suceeded_batch)
+                            product["ati_jobs_submitted_for"].append(batch_id)
+
+                            product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
+
+                from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+                es_conn: RTCProductCatalog
+                es_conn.mark_products_as_job_submitted({batch_id: uploaded_batch_id_to_products_map[batch_id]})
+
+                succeeded.extend(suceeded_batch)
+                failed.extend(failed_batch)
 
         # create args for job-submission which is handled by download mode for other product types
         args_for_job_submitter = namedtuple(
@@ -223,31 +263,28 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
             return
-
         if args.no_schedule_download:
             logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
             return
-
         if not args.chunk_size:
             logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
             return
 
         job_submission_tasks = download_job_submission_handler(args, granules, query_timerange)
-    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
-    logger.info(f"{len(results)=}")
-    logger.info(f"{results=}")
-
-    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
-    logger.info(f"{succeeded=}")
-    failed = [e for e in results if isinstance(e, Exception)]
-    logger.info(f"{failed=}")
 
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-        if failed:
-            raise first(failed)
-        from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
-        es_conn: RTCProductCatalog
-        es_conn.mark_products_as_job_submitted(uploaded_batch_id_to_products_map)
+        succeeded = succeeded
+        failed = failed
+    else:
+        results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+        logger.info(f"{len(results)=}")
+        logger.info(f"{results=}")
+
+        succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+        failed = [e for e in results if isinstance(e, Exception)]
+
+    logger.info(f"{succeeded=}")
+    logger.info(f"{failed=}")
 
     return {
         "success": succeeded,
