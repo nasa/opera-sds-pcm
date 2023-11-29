@@ -450,6 +450,73 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
         self.assertTrue(exists(expected_pge_metrics))
 
+    def test_get_algorithm_parameters(self):
+        """Unit tests for get_algorithm_parameters() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        pge_config = {
+            oc_const.GET_ALGORITHM_PARAMETERS: {
+                oc_const.S3_BUCKET: "opera-ancillaries",
+                oc_const.S3_KEY: "algorithm_parameters/pge_name/pge_name_algorithm_parameters_beta_0.1.0.yaml"
+            }
+        }
+
+        # These are not used with get_algorithm_parameters()
+        context = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_algorithm_parameters()
+
+        # Ensure the S3 URI was formed as expected
+        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
+                         "s3://opera-ancillaries/algorithm_parameters/pge_name/pge_name_algorithm_parameters_beta_0.1.0.yaml")
+
+    def test_get_dswx_s1_static_ancillary_files(self):
+        """Unit tests for get_dswx_s1_static_ancillary_files() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        pge_config = {
+            oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES: {
+                "mgrs_database_file": {
+                    oc_const.S3_BUCKET: "opera-ancillaries",
+                    oc_const.S3_KEY: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
+                },
+                "mgrs_collection_database_file": {
+                    oc_const.S3_BUCKET: "opera-ancillaries",
+                    oc_const.S3_KEY: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.2.1.sqlite"
+                }
+            }
+        }
+
+        # These are not used with get_dswx_s1_static_ancillary_files()
+        context = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_static_ancillary_files()
+
+        expected_static_ancillary_products = ["mgrs_database_file", "mgrs_collection_database_file"]
+
+        for expected_static_ancillary_product in expected_static_ancillary_products:
+            self.assertIn(expected_static_ancillary_product, rc_params)
+            self.assertIsInstance(rc_params[expected_static_ancillary_product], str)
+            self.assertEqual(
+                rc_params[expected_static_ancillary_product],
+                "s3://{}/{}".format(
+                    pge_config[oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES][expected_static_ancillary_product][oc_const.S3_BUCKET],
+                    pge_config[oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES][expected_static_ancillary_product][oc_const.S3_KEY]
+                )
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

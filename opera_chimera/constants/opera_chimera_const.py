@@ -40,6 +40,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     ORBIT_FILE_PATH = "orbit_file_path"
 
+    ALGORITHM_PARAMETERS = "algorithm_parameters"
+
     BURST_ID = "burst_id"
 
     BURST_DATABASE_FILE = "burst_database_file"
@@ -81,6 +83,10 @@ class OperaChimeraConstants(ChimeraConstants):
     VERSION_KEY = "version_key"
 
     BBOX = "bbox"
+
+    GET_ALGORITHM_PARAMETERS = "get_algorithm_parameters"
+
+    GET_DSWX_S1_STATIC_ANCILLARY_FILES = "get_dswx_s1_static_ancillary_files"
 
     GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
 

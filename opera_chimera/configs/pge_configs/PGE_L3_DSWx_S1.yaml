@@ -20,6 +20,9 @@ runconfig:
     hand_file: __CHIMERA_VAL__
     worldcover_file: __CHIMERA_VAL__
     reference_water_file: __CHIMERA_VAL__
+  static_ancillary_file_group:
+    mgrs_database_file: __CHIMERA_VAL__
+    mgrs_collection_database_file: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: output_dir
@@ -34,7 +37,8 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
-  - get_dswx_s1_sample_inputs
+  - get_algorithm_parameters
+  - get_dswx_s1_static_ancillary_files
   # TODO: to be implemented with further releases
   #- get_dswx_s1_input_filepaths
   #- get_dswx_s1_dem
@@ -52,6 +56,20 @@ get_product_version:
 
 set_daac_product_type:
   template: OPERA_L3_DSWX_S1_{cnm_version}
+
+get_algorithm_parameters:
+  # The s3 location containing the algorithm parameters RunConfig to use
+  s3_bucket: "opera-ancillaries"
+  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_beta_0.2.1.yaml"
+
+get_dswx_s1_static_ancillary_files:
+  # The s3 locations of each of the static ancillary file types used by DSWx-S1
+  mgrs_database_file:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
+  mgrs_collection_database_file:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.2.1.sqlite"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
@@ -79,8 +97,9 @@ primary_output: "L3_DSWx_S1"
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
 localize_groups:
-  - product_paths
-  - dynamic_ancillary_file_group
+  - input_file_group
+  - static_ancillary_file_group
+  - processing
 
 
 #######################################################################
