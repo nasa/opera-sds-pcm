@@ -163,6 +163,9 @@ def convert(
         elif pge_name == "L3_DSWx_S1":
             # TODO: this is probably insufficient, as there will be multiple input granule ID's for each DSWx-S1 job
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+        elif pge_name == "L3_DISP_S1":
+            # TODO: this is probably insufficient, as there will be multiple input granule ID's for each DISP-S1 job
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
@@ -220,6 +223,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "dswx-s1" in dataset_id.lower():
         collection_name = settings.get("DSWX_S1_COLLECTION_NAME")
         product_version = settings.get("DSWX_S1_PRODUCT_VERSION")
+    elif "disp-s1" in dataset_id.lower():
+        collection_name = settings.get("DISP_S1_COLLECTION_NAME")
+        product_version = settings.get("DISP_S1_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"

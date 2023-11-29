@@ -12,12 +12,12 @@ from datetime import datetime
 import os
 import json
 import re
+import subprocess
 from typing import Dict, List
 
 import boto3
 
 from commons.logger import logger
-from hysds.utils import get_disk_usage
 
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
@@ -47,6 +47,24 @@ RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
 DSWX_S1_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
                  'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
 """List of sample MGRS tile ID's to simulate DSWx-S1 multi-product output"""
+
+
+def get_disk_usage(path, follow_symlinks=True):
+    """
+    Return disk usage size in bytes.
+
+    This function was copied from hysds.util to remove an import dependency that
+    was preventing tests from running.
+    """
+
+    opts = "-sbL" if follow_symlinks else "-sb"
+    size = 0
+    try:
+        size = int(subprocess.check_output(["du", opts, path]).split()[0])
+    except:
+        pass
+    return size
+
 
 def get_input_hls_dataset_tile_code(context: Dict) -> str:
     product_metadata = context["product_metadata"]["metadata"]
@@ -453,6 +471,31 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     return output_filenames
 
+
+def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DISP-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+
+    creation_time = get_time_for_filename()
+
+    base_name = base_name_template.format(
+        frame_id="F01234",
+        pol="VV",
+        ref_datetime="20190101T232711",
+        sec_datetime="20190906T232711",
+        product_version=dataset_match.groupdict()['product_version'],
+        creation_ts=creation_time
+    )
+
+    output_filenames.append(f'{base_name}.{extension}')
+
+    # TODO: support compressed CSLC files once file name convention is established
+
+    return output_filenames
+
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
@@ -462,7 +505,8 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L2_RTC_S1': get_rtc_s1_simulated_output_filenames,
             'L2_RTC_S1_STATIC': get_rtc_s1_static_simulated_output_filenames,
             'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames,
-            'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames
+            'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames,
+            'L3_DISP_S1': get_disp_s1_simulated_output_filenames
         }
 
         try:
