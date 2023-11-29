@@ -215,8 +215,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
             logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
-            job_submission_tasks = []
-            # job_submission_tasks = dswx_s1_submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
+            # create args for job-submission which is handled by download mode for other product types
+            args_for_job_submitter = namedtuple(
+                "Namespace",
+                ["chunk_size", "job_queue", "release_version"],
+                defaults=[1, args.job_queue, args.release_version]
+            )()
+            job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
             results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
             results = [str(uuid.uuid4())]
             suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
@@ -253,14 +258,6 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
                 succeeded.extend(suceeded_batch)
                 failed.extend(failed_batch)
-
-        # create args for job-submission which is handled by download mode for other product types
-        args_for_job_submitter = namedtuple(
-            "Namespace",
-            ["chunk_size", "job_queue", "release_version"],
-            defaults=[1, args.job_queue, args.release_version]
-        )()
-        job_submission_tasks = dswx_s1_submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
     else:
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
@@ -391,7 +388,7 @@ def download_job_submission_handler(args, granules, query_timerange):
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         raise NotImplementedError()
     else:
-        job_submission_tasks = submit_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args)
+        job_submission_tasks = submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args)
     return job_submission_tasks
 
 
@@ -407,7 +404,7 @@ def get_query_timerange(args, now: datetime, silent=False):
     return query_timerange
 
 
-def submit_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args):
+def submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args):
     job_submission_tasks = []
     logger.info(f"{args.chunk_size=}")
     for batch_chunk in chunked(batch_id_to_urls_map.items(), n=args.chunk_size):

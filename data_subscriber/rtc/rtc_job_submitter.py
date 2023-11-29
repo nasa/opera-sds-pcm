@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def example(batch_id_to_urls_map, args):
     """Sample usage function."""
-    job_submission_tasks = submit_job_submissions_tasks(batch_id_to_urls_map, args)
+    job_submission_tasks = submit_dswx_s1_job_submissions_tasks(batch_id_to_urls_map, args)
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
     logger.info(f"{len(results)=}")
     logger.info(f"{results=}")
@@ -24,7 +24,7 @@ async def example(batch_id_to_urls_map, args):
     logger.info(f"{failed=}")
 
 
-def submit_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args):
+def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args):
     job_submission_tasks = []
     for batch_id, s3paths in uploaded_batch_id_to_s3paths_map.items():
         chunk_id = str(uuid.uuid4())
