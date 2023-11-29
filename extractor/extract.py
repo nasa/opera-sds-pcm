@@ -63,6 +63,7 @@ def extract(
         extra_met: Optional[Dict] = None,
         name_postscript=''
 ):
+    """Create a dataset (directory), with metadata extracted from the input product."""
     dataset_dir, product_met, dataset_met = extract_helper(product_filepath=product, product_types=product_types, workspace_dirpath=workspace, extra_met=extra_met, name_postscript=name_postscript)
     return dataset_dir
 
@@ -74,6 +75,7 @@ def extract_in_mem(
         extra_met: Optional[Dict] = None,
         name_postscript=''
 ):
+    """Create a dataset (dict), with metadata extracted from the input product."""
     dataset_id, product_met, dataset_met = extract_helper(product_filepath=str(product_filepath), product_types=product_types, workspace_dirpath=str(workspace_dirpath.resolve()), extra_met=extra_met, name_postscript=name_postscript, use_io=False)
     return dataset_id, product_met, dataset_met
 
@@ -86,12 +88,14 @@ def extract_helper(
         name_postscript='',
         use_io=True
 ):
-    """Create a dataset (directory), with metadata extracted from the input product.
+    """Create a dataset, with metadata extracted from the input product.
 
     :param product_filepath: product filepath
     :param product_types: Product config as defined in `settings.yaml`
     :param workspace_dirpath: workspace directory. This directory will house created dataset directories.
     :param extra_met: extra metadata to include in the created dataset.
+    :param name_postscript: file stem suffix to add to created files
+    :param use_io: toggle writing to disk or not. Default is True
     """
     # Get the dataset id (product name)
     logger.debug(f"extract : product: {product_filepath}, product_types: {product_types}, "

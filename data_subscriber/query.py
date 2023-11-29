@@ -104,7 +104,6 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             additional_fields["acquisition_cycle"] = acquisition_cycle
 
             update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index, additional_fields, mgrs_burst_set_ids)
-            # TODO chrisjrd: replace with final download filter and update downloader
             update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids)
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
@@ -152,7 +151,10 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
         logger.info("evaluating available burst sets")
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
-        mgrs_sets, incomplete_mgrs_sets = await evaluator.main(mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes)
+        mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
+            mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
+            coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
+        )
 
         # convert to "batch_id" mapping
         batch_id_to_products_map = defaultdict(set)

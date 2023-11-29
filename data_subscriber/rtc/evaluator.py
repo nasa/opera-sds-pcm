@@ -26,7 +26,7 @@ async def run(argv):
     await main(**vars(args))
 
 
-async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None):
+async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: float = 1.00):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
     body = get_body(match_all=False)
@@ -90,7 +90,7 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     logger.info("grouping by sliding time windows")
     orbit_to_interval_to_products_map = evaluator_core.create_orbit_to_interval_to_products_map(orbit_to_products_map, cmr_orbits)
 
-    result_set_id_to_product_sets_map, incomplete_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map)
+    result_set_id_to_product_sets_map, incomplete_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
 
     set_to_product_file_docs_map = join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_product_files_map)
     incomplete_set_to_product_file_docs_map = join_product_file_docs(incomplete_result_set_id_to_product_sets_map, product_id_to_product_files_map)

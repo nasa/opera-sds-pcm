@@ -14,7 +14,6 @@ from util.sds_itertools import windowed_by_predicate
 
 logger = logging.getLogger(__name__)
 
-
 Interval = namedtuple("Interval", ["start", "end"])
 
 
@@ -60,12 +59,13 @@ def issubinterval(x: tuple[datetime], y: tuple[datetime], strict=True):
         return x[0] >= y[0] and x[1] <= y[1]
 
 
-def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict):
+def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict, coverage_target=1.00):
     """The main entry point into evaluator core"""
     logger.info("BEGIN")
+
     with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = [
-            executor.submit(_find_set_coverage_in_orbit, orbit_to_interval_to_products_map, orbit, mbc_orbit_df)
+            executor.submit(_find_set_coverage_in_orbit, orbit_to_interval_to_products_map, orbit, mbc_orbit_df, coverage_target)
             for orbit, mbc_orbit_df in orbit_to_mbc_orbit_dfs_map.items()
         ]
         set_id_to_product_sets_maps = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -115,7 +115,7 @@ def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map:
     return result_set_id_to_product_sets_map, incomplete_result_set_id_to_product_sets_map
 
 
-def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc_orbit_df: GeoDataFrame):
+def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc_orbit_df: GeoDataFrame, coverage_target: float):
     if not orbit_to_window_to_records_map:
         return {}
     if mbc_orbit_df is None or mbc_orbit_df.empty:
@@ -125,7 +125,7 @@ def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_find_set_coverage_in_time_window, window, orbit_to_window_to_records_map, mbc_orbit_df)
+            executor.submit(_find_set_coverage_in_time_window, window, orbit_to_window_to_records_map, mbc_orbit_df, coverage_target)
             for window in orbit_to_window_to_records_map[orbit]
         ]
         set_id_to_product_sets_maps = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -143,12 +143,12 @@ def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc
     return dict(set_id_to_product_sets_map_final), dict(incomplete_set_id_to_product_sets_map_final)
 
 
-def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame):
+def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame, coverage_target: float):
     logger.debug(f"Processing {time_window=}")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_find_set_coverage_in_burst, burst_set_row, orbit_to_window_to_products_map, time_window)
+            executor.submit(_find_set_coverage_in_burst, burst_set_row, orbit_to_window_to_products_map, time_window, coverage_target)
             for index, burst_set_row in mbc_orbit_df.iterrows()
         ]
         found_product_sets = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -170,7 +170,7 @@ def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_m
     return mgrs_set_id_to_product_sets_map, incomplete_mgrs_set_id_to_product_sets_map
 
 
-def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_products_map: dict, time_window):
+def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_products_map: dict, time_window, coverage_target: float):
     orbits = burst_set_row["orbits"]
     cmr_bursts = set(itertools.chain.from_iterable(
         orbit_to_window_to_products_map[orbit][time_window].keys()
@@ -194,7 +194,7 @@ def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_produc
     }
 
     results_partitioned = {True: {}, False: {}}
-    if coverage >= 0.99:  # TODO chrisjrd: finalize coverage value. store and read from config somehow
+    if coverage >= coverage_target:
         results_partitioned[True] = {mgrs_set_id: frozenset(product_set)}
 
         return mgrs_set_id, results_partitioned[False], results_partitioned[True]
