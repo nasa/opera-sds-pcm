@@ -324,6 +324,7 @@ def test_simulate_dswx_hls_pge_with_unsupported():
                 output_dir='/tmp'
             )
 
+
 def test_simulate_dswx_s1_pge():
     for path in glob.iglob('/tmp/OPERA_L3_DSWx-S1*.*'):
         Path(path).unlink(missing_ok=True)
@@ -360,4 +361,39 @@ def test_simulate_dswx_s1_pge():
         assert Path(f'/tmp/{expected_ancillary_basename}.qa.log').exists()
     finally:
         for path in glob.iglob('/tmp/OPERA_L3_DSWx-S1*.*'):
+            Path(path).unlink(missing_ok=True)
+
+
+def test_simulate_disp_s1_pge():
+    for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DISP_S1.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": []
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    creation_ts = pge_util.get_time_for_filename()
+    expected_output_basename = 'OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
+
+    try:
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.png').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.iso.xml').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.log').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.qa.log').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
             Path(path).unlink(missing_ok=True)

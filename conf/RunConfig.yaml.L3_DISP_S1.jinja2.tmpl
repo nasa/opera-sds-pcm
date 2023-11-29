@@ -1,0 +1,72 @@
+RunConfig:
+  Name: OPERA-DISP-S1-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DISP_S1_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          # TODO: kludge until fix is made to base PGE schema to support mapping of lists
+          #{%- for type in data.dynamic_ancillary_file_group.keys() %}
+          #{%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          #{{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          #{%- endif %}
+          #{%- endfor %}
+          mask_file: /home/mamba/input_dir/dynamic_ancillary/water_mask.tif
+          dem_file: /home/mamba/input_dir/dynamic_ancillary/dem.tif
+      ProductPathGroup:
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: DISP_S1
+        ProductVersion: {{ data.product_path_group.product_version }}
+        ProgramPath: dolphin
+        ProgramOptions:
+          - run
+          - --pge
+        ErrorCodeBase: 500000
+        SchemaPath: /home/mamba/opera/pge/disp_s1/schema/disp_s1_sas_schema.yaml
+        AlgorithmParametersSchemaPath: /home/mamba/opera/pge/disp_s1/schema/algor_param_disp_s1_schema.yaml
+        IsoTemplatePath: /home/mamba/opera/pge/disp_s1/templates/OPERA_ISO_metadata_L3_DISP_S1_template.xml.jinja2
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+    SAS:
+      input_file_group:
+        cslc_file_list:
+          {%- for input in data.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+        frame_id: {{ data.processing.frame_id }}
+      dynamic_ancillary_file_group:
+        algorithm_parameters_file: {{ data.processing.algorithm_parameters }}
+        {%- for type in data.dynamic_ancillary_file_group.keys() %}
+        {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+        {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+        {%- else %}
+        {{ type }}:
+        {%- endif %}
+        {%- endfor %}
+      primary_executable:
+        product_type: DISP_S1_SINGLE
+      product_path_group:
+        product_path: {{ data.product_path_group.product_path }}
+        scratch_path: {{ data.product_path_group.scratch_path }}
+        sas_output_path: {{ data.product_path_group.product_path }}
+        product_version: "{{ data.product_path_group.product_version }}"
+        save_compressed_slc: true
+      worker_settings:
+        gpu_enabled: false
+        n_workers: 32
+        threads_per_worker: 2
+        block_size_gb: 1.0
+      log_file: /home/mamba/output_dir/scratch_dir/disp-s1.log

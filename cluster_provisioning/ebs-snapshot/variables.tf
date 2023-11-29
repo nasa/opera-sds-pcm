@@ -34,6 +34,7 @@ variable "pge_releases" {
     "cslc_s1" = "2.1.0"
     "rtc_s1" = "2.1.0"
     "dswx_s1" = "3.0.0-er.4.0"
+    "disp_s1" = "3.0.0-er.4.0"
   }
 }
 

@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import PurePath, Path
 
+import backoff
 import requests
 import requests.utils
 
@@ -14,6 +15,7 @@ from data_subscriber.url import _has_url, _to_url, _to_https_url, _slc_url_to_ch
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
+                                    fatal_code,
                                     NoQueryResultsException,
                                     NoSuitableOrbitFileException,
                                     T_ORBIT,
@@ -94,13 +96,11 @@ class DaacDownloadAsf(DaacDownload):
 
             self.download_orbit_file(new_dataset_dir, product_filepath, additional_metadata)
 
-            if (additional_metadata.get("intersects_north_america", False) and
-                    additional_metadata['processing_mode'] in ("historical", "reprocessing")):
+            if (additional_metadata['processing_mode'] in ("historical", "reprocessing")):
                 logger.info(
                     f"Processing mode is {additional_metadata['processing_mode']}. "
                     f"Attempting to download ionosphere correction file."
                 )
-
                 self.download_ionosphere_file(new_dataset_dir, product_filepath)
 
             logger.info(f"Removing {product_filepath}")
@@ -193,23 +193,19 @@ class DaacDownloadAsf(DaacDownload):
         logger.info("Added orbit file(s) to dataset")
 
     def download_ionosphere_file(self, dataset_dir, product_filepath):
-        try:
-            output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(
-                dataset_dir=dataset_dir, product_filepath=product_filepath
-            )
-            ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(
-                dataset_dir=dataset_dir, product_filepath=product_filepath
-            )
+        output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(
+            dataset_dir=dataset_dir, product_filepath=product_filepath
+        )
+        ionosphere_url = ionosphere_download.get_ionosphere_correction_file_url(
+            dataset_dir=dataset_dir, product_filepath=product_filepath
+        )
 
-            # add ionosphere metadata to the dataset about to be ingested
-            ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(
-                output_ionosphere_filepath, ionosphere_url=ionosphere_url,
-                s3_bucket="...", s3_key="..."
-            )
-            self.update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
-        except IonosphereFileNotFoundException:
-            logger.warning("Ionosphere file not found remotely. Allowing job to continue.")
-            pass
+        # add ionosphere metadata to the dataset about to be ingested
+        ionosphere_metadata = ionosphere_download.generate_ionosphere_metadata(
+            output_ionosphere_filepath, ionosphere_url=ionosphere_url,
+            s3_bucket="...", s3_key="..."
+        )
+        self.update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
 
     def download_asf_product(self, product_url, token: str, target_dirpath: Path):
         logger.info(f"Requesting from {product_url}")
@@ -256,6 +252,10 @@ class DaacDownloadAsf(DaacDownload):
         with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
             json.dump(dataset_json, fp)
 
+    @backoff.on_exception(backoff.expo,
+                          requests.exceptions.RequestException,
+                          max_time=300,
+                          giveup=fatal_code)
     def _get_aws_creds(self, token):
         logger.info("entry")
 
