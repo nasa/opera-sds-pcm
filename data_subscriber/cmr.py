@@ -173,31 +173,26 @@ def response_jsons_to_cmr_granules(args, response_jsons):
         })
     return granules
 
+
 def _filter_granules(granule, args):
     collection_to_extensions_filter_map = {
-        "HLSL30": ["B02", "B03", "B04", "B05", "B06", "B07", "Fmask"],
-        "HLSS30": ["B02", "B03", "B04", "B8A", "B11", "B12", "Fmask"],
-        "SENTINEL-1A_SLC": ["IW"],
-        "SENTINEL-1B_SLC": ["IW"],
+        "HLSL30": ["B02.tif", "B03.tif", "B04.tif", "B05.tif", "B06.tif", "B07.tif", "Fmask.tif"],
+        "HLSS30": ["B02.tif", "B03.tif", "B04.tif", "B8A.tif", "B11.tif", "B12.tif", "Fmask.tif"],
+        "SENTINEL-1A_SLC": ["zip"],
+        "SENTINEL-1B_SLC": ["zip"],
         "OPERA_L2_RTC-S1_V1": ["tif", "h5"],
         "OPERA_L2_CSLC-S1_V1": ["h5"],
         "DEFAULT": ["tif"]
     }
-    filter_extension = "DEFAULT"
 
-    # TODO chrisjrd: previous code using substring comparison for args.collection. may point to subtle bug in existing system
-    # for collection in collection_map:
-    #     if collection in args.collection:
-    #         filter_extension = collection
-    #         break
-    filter_extension = first_true(collection_to_extensions_filter_map.keys(), pred=lambda x: x == args.collection, default="DEFAULT")
+    filter_extension_key = first_true(collection_to_extensions_filter_map.keys(), pred=lambda x: x == args.collection, default="DEFAULT")
 
     return [
         url
         for url in granule.get("related_urls")
-        for extension in collection_to_extensions_filter_map.get(filter_extension)
+        for extension in collection_to_extensions_filter_map.get(filter_extension_key)
         if url.endswith(extension)
-    ]  # TODO chrisjrd: not using endswith may point to subtle bug in existing system
+    ]
 
 
 def _match_identifier(settings, args, granule) -> bool:

@@ -48,25 +48,17 @@ async def run(argv: list[str]):
     settings = SettingsConf().cfg
     cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
 
+    edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
+
     results = {}
     if args.subparser_name == "survey":
-        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-        username, _, password = netrc.netrc().authenticators(edl)
-        token = supply_token(edl, username, password)
-
         await run_survey(args, token, cmr, settings)
     if args.subparser_name == "query" or args.subparser_name == "full":
-        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-        username, _, password = netrc.netrc().authenticators(edl)
-        token = supply_token(edl, username, password)
-
         results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
     if args.subparser_name == "download" or args.subparser_name == "full":
-        edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-        username, _, password = netrc.netrc().authenticators(edl)
-        token = supply_token(edl, username, password)
         netloc = urlparse(f"https://{edl}").netloc
-
         results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
 
     logger.info(f"{results=}")

@@ -65,14 +65,14 @@ class AsfDaacRtcDownload(DaacDownload):
         product_download_dir = self.downloads_dir / product_id
         product_download_dir.mkdir(exist_ok=True)
         if product_url.startswith("s3"):
-            product = product_filepath = self.download_product_using_s3(
+            product_filepath = self.download_product_using_s3(
                 product_url,
                 token,
                 target_dirpath=product_download_dir.resolve(),
                 args=args
             )
         else:
-            product = product_filepath = self.download_asf_product(
+            product_filepath = self.download_asf_product(
                 product_url, token, product_download_dir
             )
         logger.info(f"{product_filepath=}")

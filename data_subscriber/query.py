@@ -22,6 +22,7 @@ from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as mbc_client
+from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
@@ -109,8 +110,6 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
                 additional_fields["intersects_north_america"] = True
-        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-            pass
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
             raise NotImplementedError()
         else:

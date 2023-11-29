@@ -204,7 +204,7 @@ class HLSProductCatalog:
 
     def refresh(self):
         """
-        Refresh the underlying indices, making recent opertions visible to queries.
+        Refresh the underlying indices, making recent operations visible to queries.
         See official Elasticsearch documentation on index refreshing.
         """
         es: ElasticsearchUtility = self.es
