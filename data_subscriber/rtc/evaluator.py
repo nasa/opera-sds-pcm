@@ -12,7 +12,7 @@ import pandas as pd
 
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
-from data_subscriber.rtc.mgrs_bursts_collection_db_client import cached_load_mgrs_burst_db
+from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from util.grq_client import get_body
 
 logger = logging.getLogger(__name__)
@@ -63,12 +63,14 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     rtc_product_ids = product_id_to_product_files_map.keys()
 
     # load MGRS tile collection DB
-    mgrs_burst_collections_gdf = cached_load_mgrs_burst_db()
+    mgrs_burst_collections_gdf = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
 
     # transform product list to DataFrame for evaluation
     cmr_df = load_cmr_df(rtc_product_ids)
     if not len(cmr_df):
-        return set_to_product_file_docs_map := {}, incomplete_set_to_product_file_docs_map := {}
+        set_to_product_file_docs_map = {}
+        incomplete_set_to_product_file_docs_map = {}
+        return set_to_product_file_docs_map, incomplete_set_to_product_file_docs_map
 
     cmr_df = cmr_df.sort_values(by=["relative_orbit_number", "acquisition_dt", "burst_id_normalized"])
     cmr_orbits = cmr_df["relative_orbit_number"].unique()

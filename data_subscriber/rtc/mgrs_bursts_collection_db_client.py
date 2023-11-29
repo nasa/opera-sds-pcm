@@ -10,6 +10,8 @@ import geopandas as gpd
 from geopandas import GeoDataFrame
 from mypy_boto3_s3 import S3Client
 
+from util.conf_util import SettingsConf
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,9 +57,13 @@ def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     if mtc_local_filepath.exists():
         vector_gdf = gpd.read_file(mtc_local_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
     else:
+        settings = SettingsConf().cfg
+        mgrs_tile_collection_db_s3path = settings["MGRS_TILE_COLLECTION_DB_S3PATH"]
+        match_s3path = re.match("s3://(?P<bucket_name>[^/]+)/(?P<object_key>.+)", mgrs_tile_collection_db_s3path)
+
         s3_client: S3Client = boto3.session.Session().client("s3")
-        mtc_download_filepath = Path("MGRS_tile_collection_v0.2.sqlite")
-        s3_client.download_file(Bucket="opera-ancillaries", Key="MGRS_tile_collection_v0.2.sqlite", Filename=str(mtc_download_filepath))
+        mtc_download_filepath = Path(Path(mgrs_tile_collection_db_s3path).name)
+        s3_client.download_file(Bucket=match_s3path.group("bucket_name"), Key=match_s3path.group("object_key"), Filename=str(mtc_download_filepath))
         vector_gdf = gpd.read_file(mtc_download_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
     # na_gdf = gpd.read_file(Path("geo/north_america_opera.geojson"), crs="EPSG:4326")
     # vector_gdf = vector_gdf.overlay(na_gdf, how="intersection")

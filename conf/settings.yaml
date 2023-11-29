@@ -26,6 +26,7 @@ DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_PROVISIONAL_V0"
 DSWX_S1_PRODUCT_VERSION: "0.1"
 
 DSWX_S1_COVERAGE_TARGET: 0.99
+MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/MGRS_tile_collection_v0.2.sqlite"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
