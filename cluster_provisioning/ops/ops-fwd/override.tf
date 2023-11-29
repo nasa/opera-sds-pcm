@@ -73,7 +73,8 @@ variable "trace" {
 
 ####### CNM Response job vars #######
 variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
+  default = "arn:aws:sns:us-west-2:234498297282:podaac-ops-cumulus-throttled-provider-input-sns"
+  #"arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
