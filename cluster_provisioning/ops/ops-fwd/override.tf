@@ -78,7 +78,8 @@ variable "po_daac_delivery_proxy" {
 }
 
 variable "asf_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
+  default =  "arn:aws:sqs:us-west-2:510296831643:asf-cumulus-prod-opera-cnm-ingest-queue"
+  #"arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
