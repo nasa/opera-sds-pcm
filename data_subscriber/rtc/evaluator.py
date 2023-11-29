@@ -56,6 +56,12 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     es_docs = filtered_es_docs
     logging.info(f"Filtered {len(es_docs)=}")
 
+    if not es_docs:
+        logger.warning("No pending RTC products found. No further evaluation.")
+        set_to_product_file_docs_map = {}
+        incomplete_set_to_product_file_docs_map = {}
+        return set_to_product_file_docs_map, incomplete_set_to_product_file_docs_map
+
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)
     for doc in es_docs:
@@ -67,11 +73,6 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
 
     # transform product list to DataFrame for evaluation
     cmr_df = load_cmr_df(rtc_product_ids)
-    if not len(cmr_df):
-        set_to_product_file_docs_map = {}
-        incomplete_set_to_product_file_docs_map = {}
-        return set_to_product_file_docs_map, incomplete_set_to_product_file_docs_map
-
     cmr_df = cmr_df.sort_values(by=["relative_orbit_number", "acquisition_dt", "burst_id_normalized"])
     cmr_orbits = cmr_df["relative_orbit_number"].unique()
     # a_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1A_30_v0.4"))]
