@@ -222,7 +222,6 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             )()
             job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
             results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
-            results = [str(uuid.uuid4())]
             suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
             failed_batch = [e for e in results if isinstance(e, Exception)]
             if suceeded_batch:
