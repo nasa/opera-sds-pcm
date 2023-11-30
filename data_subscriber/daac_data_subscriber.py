@@ -27,6 +27,10 @@ from util.exec_util import exec_wrapper
 
 
 @exec_wrapper
+def main():
+    asyncio.run(run(sys.argv))
+
+
 async def run(argv: list[str]):
     try:
         validate(args)
@@ -348,4 +352,4 @@ if __name__ == "__main__":
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
 
-    asyncio.run(run(sys.argv))
+    main()

@@ -58,7 +58,8 @@ setup(
             "requests==2.27.1",
             "validators",
             "cachetools==5.2.0",
-            "geopandas"
+            "geopandas",
+            "pyproj"
         ],
         "test": [
             # The list of dependencies required to run tests locally.
