@@ -6,6 +6,7 @@ from functools import partial
 from pathlib import PurePath
 from typing import Optional
 
+from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from util.job_submitter import try_submit_mozart_job
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,11 @@ async def example(batch_id_to_urls_map, args):
 
 def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args):
     job_submission_tasks = []
+    mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
     for batch_id, s3paths in uploaded_batch_id_to_s3paths_map.items():
+        mgrs_set_id = batch_id.split("$")[0]
+        bounding_box = mbc_client.get_bounding_box_for_mgrs_set_id(mgrs, mgrs_set_id)
+
         chunk_id = str(uuid.uuid4())
         logger.info(f"{chunk_id=}")
         # TODO chrisjrd: implement realistic product
@@ -37,9 +42,10 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
                 "metadata": {
                     "batch_id": batch_id,
                     "product_paths": {"L2_RTC_S1": s3paths},
-                    "mgrs_set_id": batch_id.split("$")[0],
+                    "mgrs_set_id": mgrs_set_id,
                     "FileName": batch_id,
                     "id": batch_id,
+                    "bounding_box": bounding_box,
                     "$comment": "$._source.metadata.Files[] is currently a placeholder",  # TODO chrisjrd: remove placeholder and comment
                     "Files": [
                         {

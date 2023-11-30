@@ -7,6 +7,7 @@ from pathlib import Path
 
 import boto3
 import geopandas as gpd
+import pyproj
 from geopandas import GeoDataFrame
 from mypy_boto3_s3 import S3Client
 
@@ -73,6 +74,26 @@ def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
         logger.info(f"{len(vector_gdf)=}")
 
     return vector_gdf
+
+
+def get_bounding_box_for_mgrs_set_id(mgrs_burst_collections_gdf: GeoDataFrame, mgrs_set_id):
+    gdf = mgrs_burst_collections_gdf
+    if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
+        raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
+
+    xmin, ymin = pyproj.transform(
+        p1=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG,  # e.g. int(32645)
+        p2=gdf.crs,  # EPSG:4326
+        x=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmin,
+        y=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymin
+    )
+    xmax, ymax = pyproj.transform(
+        p1=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG,  # e.g. int(32645)
+        p2=gdf.crs,  # e.g. "EPSG:4326"
+        x=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmax,
+        y=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
+    )
+    return [xmin, ymin, xmax, ymax]
 
 
 def get_reduced_rtc_native_id_patterns(mgrs_burst_collections_gdf: GeoDataFrame):
