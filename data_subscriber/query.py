@@ -686,11 +686,14 @@ def build_cslc_native_ids(frame_start, frame_end, disp_burst_map):
 
     for f in range(frame_start, frame_end):
         frame = disp_burst_map[f]
-        if frame.is_north_america == True:
-            for id in frame.burst_ids:
-                native_ids.append(id.upper().replace("_", "-"))
-        else:
-            logging.debug("Frame number %s is not within North America. Skipping." % f)
+
+        #TODO: Figure out if we want to perform geo filtering
+        #TODO: CSLC should have only been created for North America so not sure if this filtering makes sense
+        #if frame.is_north_america == True:
+        for id in frame.burst_ids:
+            native_ids.append(id.upper().replace("_", "-"))
+        #else:
+        #    logging.debug("Frame number %s is not within North America. Skipping." % f)
 
     return native_ids
 def expand_clsc_frames(args, disp_burst_map):
