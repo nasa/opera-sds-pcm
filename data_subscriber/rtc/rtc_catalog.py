@@ -1,8 +1,11 @@
 import logging
+from collections import defaultdict
 from datetime import datetime
 
 import elasticsearch.helpers
+from more_itertools import last, chunked
 
+from util.grq_client import get_body
 from ..hls.hls_catalog import HLSProductCatalog
 
 null_logger = logging.getLogger("dummy")
@@ -60,8 +63,12 @@ class RTCProductCatalog(HLSProductCatalog):
         for batch_id, products in batch_id_to_products_map.items():
             for product in products:
                 for product_id, docs in product.items():
+                    doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
                     for doc in docs:
-                        index = self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
+                        index = last(
+                            doc_id_to_index_cache[doc["id"]],
+                            self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
+                        )
                         operation = {
                             "_op_type": "update",
                             "_index": index,
@@ -84,3 +91,19 @@ class RTCProductCatalog(HLSProductCatalog):
         self.logger.info("performing index refresh")
         self.refresh()
         self.logger.info("performed index refresh")
+
+    def create_doc_id_to_index_cache(self, docs):
+        body = get_body(match_all=False)
+        body["_source"] = {"includes": [], "excludes": []}
+        es_docs = []
+        # Batch requests for larger number of docs
+        # see Elasticsearch documentation  regarding "indices.query.bool.max_clause_count". Minimum is 1024
+        for doc_chunk in chunked(docs, 1024):
+            for doc in doc_chunk:
+                body["query"]["bool"]["should"].append({"match": {"id.keyword": doc["id"]}})
+            es_docs.extend(self.es.query(body=body, index=self.ES_INDEX_PATTERNS))
+            body["query"]["bool"]["should"] = []
+        id_to_index_cache = defaultdict(set)
+        for es_doc in es_docs:
+            id_to_index_cache[es_doc["_id"]].add(es_doc["_index"])
+        return id_to_index_cache
