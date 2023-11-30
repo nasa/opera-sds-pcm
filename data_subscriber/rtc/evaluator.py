@@ -26,7 +26,7 @@ async def run(argv):
     await main(**vars(args))
 
 
-async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: float = 1.00):
+async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
     body = get_body(match_all=False)
