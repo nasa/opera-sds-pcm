@@ -104,7 +104,6 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     fully_covered_set_to_product_file_docs_map = join_product_file_docs(fully_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
     target_covered_set_to_product_file_docs_map = join_product_file_docs(target_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
     not_covered_set_to_product_file_docs_map = join_product_file_docs(not_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
-    # TODO: do something with this
     return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
 
 
