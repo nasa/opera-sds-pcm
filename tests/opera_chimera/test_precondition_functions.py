@@ -517,6 +517,53 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
                 )
             )
 
+    def test_get_dswx_s1_input_filepaths(self):
+        """Unit tests for get_dswx_s1_input_filepaths() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "dataset_type": "L2_RTC_S1",
+            "product_metadata": {
+                "metadata": {
+                    "product_paths": {
+                        "L2_RTC_S1": [
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                        ]
+                    }
+                }
+            }
+        }
+
+        # These are not used with get_dswx_s1_input_filepaths()
+        pge_config = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_input_filepaths()
+
+        # Ensure the list of input file paths was populated with only the set of
+        # unique S3 directories that make up the set of input RTC files
+        self.assertIn(oc_const.INPUT_FILE_PATHS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.INPUT_FILE_PATHS], list)
+        self.assertEqual(len(rc_params[oc_const.INPUT_FILE_PATHS]), 3)
+        self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146", rc_params[oc_const.INPUT_FILE_PATHS])
+        self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147", rc_params[oc_const.INPUT_FILE_PATHS])
+        self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148", rc_params[oc_const.INPUT_FILE_PATHS])
+
 
 if __name__ == "__main__":
     unittest.main()

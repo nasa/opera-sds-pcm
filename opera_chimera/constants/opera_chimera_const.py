@@ -28,6 +28,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     INPUT_DATASET_ID = "input_dataset_id"
 
+    INPUT_FILE_PATHS = "input_file_paths"
+
     DATASET_TYPE = "dataset_type"
 
     PRODUCT_VERSION = "product_version"

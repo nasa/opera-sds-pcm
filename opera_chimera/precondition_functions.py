@@ -22,7 +22,6 @@ from chimera.precondition_functions import PreConditionFunctions
 from commons.constants import product_metadata
 from commons.logger import logger
 from commons.logger import LogLevels
-from hysds.utils import get_disk_usage
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
@@ -30,6 +29,7 @@ from util import datasets_json_util
 from util.common_util import get_working_dir
 from util.geo_util import bounding_box_from_slc_granule
 from util.pge_util import (download_object_from_s3,
+                           get_disk_usage,
                            get_input_hls_dataset_tile_code,
                            write_pge_metrics)
 from tools.stage_dem import main as stage_dem
@@ -1021,6 +1021,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.ALGORITHM_PARAMETERS: f"s3://{s3_bucket}/{s3_key}"
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_s1_input_filepaths(self):
+        """
+        Gets the set of input S3 file paths that comprise the set of RTC products
+        to be processed by a DSWx-S1 job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths = metadata["product_paths"][dataset_type]
+
+        # Condense the full set of file paths to just a set of the directories
+        # to be localized
+        product_set = set(map(lambda path: os.path.dirname(path), product_paths))
+
+        rc_params = {
+            oc_const.INPUT_FILE_PATHS: list(product_set)
         }
 
         logger.info(f"rc_params : {rc_params}")

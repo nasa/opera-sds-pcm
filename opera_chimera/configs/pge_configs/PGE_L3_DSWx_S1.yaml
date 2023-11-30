@@ -38,9 +38,9 @@ preconditions:
   - get_cnm_version
   - set_daac_product_type
   - get_algorithm_parameters
+  - get_dswx_s1_input_filepaths
   - get_dswx_s1_static_ancillary_files
   # TODO: to be implemented with further releases
-  #- get_dswx_s1_input_filepaths
   #- get_dswx_s1_dem
   #- get_hand_file
   #- get_worldcover
