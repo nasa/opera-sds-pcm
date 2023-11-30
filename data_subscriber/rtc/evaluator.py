@@ -58,9 +58,9 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
 
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
-        set_to_product_file_docs_map = {}
-        incomplete_set_to_product_file_docs_map = {}
-        return set_to_product_file_docs_map, incomplete_set_to_product_file_docs_map
+        fully_covered_set_to_product_file_docs_map = {}
+        not_covered_set_to_product_file_docs_map = {}
+        return fully_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
 
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)
@@ -96,12 +96,16 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     logger.info("grouping by sliding time windows")
     orbit_to_interval_to_products_map = evaluator_core.create_orbit_to_interval_to_products_map(orbit_to_products_map, cmr_orbits)
 
-    result_set_id_to_product_sets_map, incomplete_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
+    coverage_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
+    fully_covered_result_set_id_to_product_sets_map = coverage_result_set_id_to_product_sets_map[100]
+    target_covered_result_set_id_to_product_sets_map = coverage_result_set_id_to_product_sets_map[coverage_target]
+    not_covered_result_set_id_to_product_sets_map = coverage_result_set_id_to_product_sets_map[-1]
 
-    set_to_product_file_docs_map = join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_product_files_map)
-    incomplete_set_to_product_file_docs_map = join_product_file_docs(incomplete_result_set_id_to_product_sets_map, product_id_to_product_files_map)
-
-    return set_to_product_file_docs_map, incomplete_set_to_product_file_docs_map
+    fully_covered_set_to_product_file_docs_map = join_product_file_docs(fully_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
+    target_covered_set_to_product_file_docs_map = join_product_file_docs(target_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
+    not_covered_set_to_product_file_docs_map = join_product_file_docs(not_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
+    # TODO: do something with this
+    return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
 
 
 def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_product_files_map):

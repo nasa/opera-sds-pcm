@@ -59,7 +59,7 @@ def issubinterval(x: tuple[datetime], y: tuple[datetime], strict=True):
         return x[0] >= y[0] and x[1] <= y[1]
 
 
-def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict, coverage_target=1.00):
+def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict, coverage_target: int = 99):
     """The main entry point into evaluator core"""
     logger.info("BEGIN")
 
@@ -68,54 +68,40 @@ def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map:
             executor.submit(_find_set_coverage_in_orbit, orbit_to_interval_to_products_map, orbit, mbc_orbit_df, coverage_target)
             for orbit, mbc_orbit_df in orbit_to_mbc_orbit_dfs_map.items()
         ]
-        set_id_to_product_sets_maps = [future.result() for future in concurrent.futures.as_completed(futures)]
+        coverage_to_set_id_to_product_sets_maps = [future.result() for future in concurrent.futures.as_completed(futures)]
     logger.info("DONE")
 
     logger.info("Cleaning up the sets")
 
     logger.info("Collecting as set of sets")
-    result_set_id_to_product_sets_map = {}
-    incomplete_result_set_id_to_product_sets_map = {}
-    product_sets_final = set()
-    incomplete_product_sets_final = set()
-    for set_id_to_product_sets_map, incomplete_set_id_to_product_sets_map in set_id_to_product_sets_maps:
-        for set_id, product_sets in set_id_to_product_sets_map.items():
+    coverage_result_set_id_to_product_sets_map = {
+        100: {},
+        coverage_target: {},
+        -1: {}
+    }
+    for coverage_to_set_id_to_product_sets_map in coverage_to_set_id_to_product_sets_maps:
+        fully_covered_set_id_to_product_sets_map = coverage_to_set_id_to_product_sets_map[100]
+        for set_id, product_sets in fully_covered_set_id_to_product_sets_map.items():
             s = product_sets
             r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
-            result_set_id_to_product_sets_map[set_id] = r
+            coverage_result_set_id_to_product_sets_map[100][set_id] = r
 
-            for product_set in product_sets:
-                product_sets_final.add(product_set)
-        for set_id, product_sets in incomplete_set_id_to_product_sets_map.items():
+        target_covered_set_id_to_product_sets_map = coverage_to_set_id_to_product_sets_map[coverage_target]
+        for set_id, product_sets in target_covered_set_id_to_product_sets_map.items():
             s = product_sets
             r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
-            incomplete_result_set_id_to_product_sets_map[set_id] = r
+            coverage_result_set_id_to_product_sets_map[coverage_target][set_id] = r
 
-            for product_set in product_sets:
-                incomplete_product_sets_final.add(product_set)
-    product_sets_final = frozenset(product_sets_final)
-    incomplete_product_sets_final = frozenset(incomplete_product_sets_final)
-    logger.info(f"{len(product_sets_final)=}")
-    logger.info(f"{len(incomplete_product_sets_final)=}")
+        not_covered_set_id_to_product_sets_map = coverage_to_set_id_to_product_sets_map[-1]
+        for set_id, product_sets in not_covered_set_id_to_product_sets_map.items():
+            s = product_sets
+            r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
+            coverage_result_set_id_to_product_sets_map[-1][set_id] = r
 
-    logger.info("Removing redundant subsets")
-
-    s = product_sets_final
-    r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
-    product_sets_final = r
-    logger.info(f"{len(product_sets_final)=}")
-
-    s = incomplete_product_sets_final
-    r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
-    incomplete_product_sets_final = r
-    logger.info(f"{len(incomplete_product_sets_final)=}")
-
-    logger.info("Optionally converting to list of sets")
-    product_sets_final = [list(fs) for fs in product_sets_final]  # convert to lists
-    return result_set_id_to_product_sets_map, incomplete_result_set_id_to_product_sets_map
+    return coverage_result_set_id_to_product_sets_map
 
 
-def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc_orbit_df: GeoDataFrame, coverage_target: float):
+def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc_orbit_df: GeoDataFrame, coverage_target: int):
     if not orbit_to_window_to_records_map:
         return {}
     if mbc_orbit_df is None or mbc_orbit_df.empty:
@@ -130,20 +116,31 @@ def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc
         ]
         set_id_to_product_sets_maps = [future.result() for future in concurrent.futures.as_completed(futures)]
 
-    set_id_to_product_sets_map_final = defaultdict(set)
-    incomplete_set_id_to_product_sets_map_final = defaultdict(set)
-    for set_id_to_product_sets_map, incomplete_set_id_to_product_sets_map in set_id_to_product_sets_maps:
-        for set_id, product_set in set_id_to_product_sets_map.items():
-            if product_set:  # filter out empty results
-                set_id_to_product_sets_map_final[set_id].add(product_set)
-        for set_id, product_set in incomplete_set_id_to_product_sets_map.items():
-            if product_set:  # filter out empty results
-                incomplete_set_id_to_product_sets_map_final[set_id].add(product_set)
+    coverage_set_id_to_product_sets_map_final = {
+        100: defaultdict(set),
+        coverage_target: defaultdict(set),
+        -1: defaultdict(set)
+    }
+    for coverage_set_id_to_product_sets_map in set_id_to_product_sets_maps:
+        fully_covered_set_id_to_product_sets_map = coverage_set_id_to_product_sets_map[100]
+        for set_id, product_set in fully_covered_set_id_to_product_sets_map.items():
+            if product_set:
+                coverage_set_id_to_product_sets_map_final[100][set_id].add(product_set)
 
-    return dict(set_id_to_product_sets_map_final), dict(incomplete_set_id_to_product_sets_map_final)
+        target_covered_set_id_to_product_sets_map = coverage_set_id_to_product_sets_map[coverage_target]
+        for set_id, product_set in target_covered_set_id_to_product_sets_map.items():
+            if product_set:
+                coverage_set_id_to_product_sets_map_final[coverage_target][set_id].add(product_set)
+
+        not_covered_set_id_to_product_sets_map = coverage_set_id_to_product_sets_map[-1]
+        for set_id, product_set in not_covered_set_id_to_product_sets_map.items():
+            if product_set:
+                coverage_set_id_to_product_sets_map_final[-1][set_id].add(product_set)
+
+    return dict(coverage_set_id_to_product_sets_map_final)
 
 
-def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame, coverage_target: float):
+def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame, coverage_target: int):
     logger.debug(f"Processing {time_window=}")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -153,24 +150,37 @@ def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_m
         ]
         found_product_sets = [future.result() for future in concurrent.futures.as_completed(futures)]
 
-    mgrs_set_id_to_product_sets_map = defaultdict(set)  # list of product sets
-    incomplete_mgrs_set_id_to_product_sets_map = defaultdict(set)  # list of product sets
-    for mgrs_set_id, results_sets_not_covered, results_sets_covered in found_product_sets:
-        if results_sets_covered:  # filter out empty/partial results
-            for mgrs_set_id, product_sets in results_sets_covered.items():  # TODO chrisjrd: may be singleton dict
+    coverage_to_mgrs_set_id_to_product_sets_map = {
+        100: defaultdict(set),
+        coverage_target: defaultdict(set),
+        -1: defaultdict(set)
+    }
+    for mgrs_set_id, coverage_results_map in found_product_sets:
+        result_sets_fully_covered = coverage_results_map[100]
+        if result_sets_fully_covered:  # filter out empty/partial results
+            for mgrs_set_id, product_sets in result_sets_fully_covered.items():  # TODO chrisjrd: may be singleton dict
                 if product_sets:
-                    mgrs_set_id_to_product_sets_map[mgrs_set_id].add(product_sets)
-        if results_sets_not_covered:  # filter out empty/partial results
-            for mgrs_set_id, product_sets in results_sets_not_covered.items():  # TODO chrisjrd: may be singleton dict
+                    coverage_to_mgrs_set_id_to_product_sets_map[100][mgrs_set_id].add(product_sets)
+
+        result_sets_target_covered = coverage_results_map[coverage_target]
+        if result_sets_target_covered:  # filter out empty/partial results
+            for mgrs_set_id, product_sets in result_sets_target_covered.items():  # TODO chrisjrd: may be singleton dict
                 if product_sets:
-                    incomplete_mgrs_set_id_to_product_sets_map[mgrs_set_id].add(product_sets)
+                    coverage_to_mgrs_set_id_to_product_sets_map[coverage_target][mgrs_set_id].add(product_sets)
 
-    mgrs_set_id_to_product_sets_map = remove_redundant_subsets(mgrs_set_id_to_product_sets_map)
-    incomplete_mgrs_set_id_to_product_sets_map = remove_redundant_subsets(incomplete_mgrs_set_id_to_product_sets_map)
-    return mgrs_set_id_to_product_sets_map, incomplete_mgrs_set_id_to_product_sets_map
+        result_sets_not_covered = coverage_results_map[-1]
+        if result_sets_not_covered:  # filter out empty/partial results
+            for mgrs_set_id, product_sets in result_sets_not_covered.items():  # TODO chrisjrd: may be singleton dict
+                if product_sets:
+                    coverage_to_mgrs_set_id_to_product_sets_map[-1][mgrs_set_id].add(product_sets)
+
+    coverage_to_mgrs_set_id_to_product_sets_map[100] = remove_redundant_subsets(coverage_to_mgrs_set_id_to_product_sets_map[100])
+    coverage_to_mgrs_set_id_to_product_sets_map[coverage_target] = remove_redundant_subsets(coverage_to_mgrs_set_id_to_product_sets_map[coverage_target])
+    coverage_to_mgrs_set_id_to_product_sets_map[-1] = remove_redundant_subsets(coverage_to_mgrs_set_id_to_product_sets_map[-1])
+    return coverage_to_mgrs_set_id_to_product_sets_map
 
 
-def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_products_map: dict, time_window, coverage_target: float):
+def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_products_map: dict, time_window, coverage_target: int):
     orbits = burst_set_row["orbits"]
     cmr_bursts = set(itertools.chain.from_iterable(
         orbit_to_window_to_products_map[orbit][time_window].keys()
@@ -193,15 +203,19 @@ def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_produc
         for product in orbit_to_window_to_products_map[orbit][time_window].get(burst, [])[:1]  # TODO chrisjrd: which one to add?
     }
 
-    results_partitioned = {True: {}, False: {}}
-    if coverage >= coverage_target:
-        results_partitioned[True] = {mgrs_set_id: frozenset(product_set)}
+    coverage_results_map = {
+        100: {},
+        coverage_target: {},
+        -1: {}
+    }
 
-        return mgrs_set_id, results_partitioned[False], results_partitioned[True]
+    if int(coverage * 100) >= 100:
+        coverage_results_map[100] = {mgrs_set_id: frozenset(product_set)}
+    elif int(coverage * 100) >= coverage_target:
+        coverage_results_map[coverage_target] = {mgrs_set_id: frozenset(product_set)}
     else:
-        results_partitioned[False] = {mgrs_set_id: frozenset(product_set)}
-
-        return mgrs_set_id, results_partitioned[False], results_partitioned[True]
+        coverage_results_map[-1] = {mgrs_set_id: frozenset(product_set)}
+    return mgrs_set_id, coverage_results_map
 
 
 def remove_redundant_subsets(mgrs_set_id_to_product_sets_map: dict):

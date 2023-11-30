@@ -150,14 +150,14 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
         logger.info("evaluating available burst sets")
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
-        mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
+        fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
             mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
             coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
         )
 
         # convert to "batch_id" mapping
         batch_id_to_products_map = defaultdict(set)
-        for mgrs_set_id, product_burst_sets in mgrs_sets.items():
+        for mgrs_set_id, product_burst_sets in fully_covered_mgrs_sets.items():
             for product_burstset in product_burst_sets:
                 rtc_granule_id_to_product_docs_map = first(product_burstset)
                 first_product_doc_list = first(rtc_granule_id_to_product_docs_map.values())
