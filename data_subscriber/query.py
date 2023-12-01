@@ -46,10 +46,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     # If we are querying CSLC data we need to modify parameters going into cmr query
     #TODO: put this in a loop and query one frame at a time
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-        disp_burst_map, metadata, version = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
-        if expand_clsc_frames(args, disp_burst_map) == False:
-            logging.info("No valid frames were found.")
-            return
+        if args.frame_range is None:
+            pass
+        else:
+            disp_burst_map, metadata, version = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
+            if expand_clsc_frames(args, disp_burst_map) == False:
+                logging.info("No valid frames were found.")
+                return
 
     logger.info("CMR query STARTED")
     granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
@@ -700,6 +703,7 @@ def expand_clsc_frames(args, disp_burst_map):
     frame_start = int(args.frame_range.split(",")[0])
     frame_end = int(args.frame_range.split(",")[1])
     native_ids = build_cslc_native_ids(frame_start, frame_end, disp_burst_map)
+
     if len(native_ids) == 0:
         return False
 
