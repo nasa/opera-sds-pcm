@@ -210,7 +210,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             logger.info(f"Uploading MGRS burst set files to S3")
             files_to_upload = [fp for fp_set in product_to_product_filepaths_map.values() for fp in fp_set]
-            s3paths: list[str] = concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"], key_prefix=f"tmp/dswx_s1/{batch_id}/", files=files_to_upload)
+            s3paths: list[str] = concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"], key_prefix=f"tmp/dswx_s1/{batch_id}", files=files_to_upload)
             uploaded_batch_id_to_products_map[batch_id] = product_burstset
             uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
