@@ -12,7 +12,6 @@ from typing import Literal
 from urllib.parse import urlparse
 import boto3
 import json
-from types import SimpleNamespace
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
@@ -28,15 +27,14 @@ from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as m
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
-from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
+from cslc_utils import localize_disp_frame_burst_json, expand_clsc_frames, build_cslc_native_ids
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, NORTH_AMERICA
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
-
 
 async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
     query_dt = datetime.now()
@@ -49,7 +47,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         if args.frame_range is None:
             pass
         else:
-            disp_burst_map, metadata, version = localize_disp_frame_burst_json(DISP_FRAME_BURST_MAP_JSON)
+            disp_burst_map, metadata, version = localize_disp_frame_burst_json()
             if expand_clsc_frames(args, disp_burst_map) == False:
                 logging.info("No valid frames were found.")
                 return
@@ -582,37 +580,6 @@ def localize_geojsons(geojsons):
             download_from_s3(bucket, key, key)
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
-
-def localize_disp_frame_burst_json(file):
-    settings = SettingsConf().cfg
-    bucket = settings["GEOJSON_BUCKET"]
-    try:
-        download_from_s3(bucket, file, file)
-    except Exception as e:
-        raise Exception("Exception while fetching geojson file: %s. " % file + str(e))
-
-    return process_disp_frame_burst_json(file)
-def process_disp_frame_burst_json(file):
-
-    j = json.load(open(file))
-
-    metadata = j["metadata"]
-    version = metadata["version"]
-    data = j["data"]
-    frame_data = {}
-
-    frame_ids = []
-    for f in data:
-        frame_ids.append(f)
-
-    # Note that we are using integer as the dict key instead of the original string so that it can be sorted
-    # more predictably
-    for frame_id in frame_ids:
-        frame_data[int(frame_id)] = SimpleNamespace(**(data[frame_id]))
-
-    sorted_frame_data = dict(sorted(frame_data.items()))
-
-    return sorted_frame_data, metadata, version
 def process_frame_burst_db():
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
@@ -683,31 +650,6 @@ def filter_granules_rtc(granules, args):
 
         filtered_granules.append(granule)
     return filtered_granules
-
-def build_cslc_native_ids(frame_start, frame_end, disp_burst_map):
-    native_ids = []
-
-    for f in range(frame_start, frame_end):
-        frame = disp_burst_map[f]
-
-        #TODO: Figure out if we want to perform geo filtering
-        #TODO: CSLC should have only been created for North America so not sure if this filtering makes sense
-        #if frame.is_north_america == True:
-        for id in frame.burst_ids:
-            native_ids.append(id.upper().replace("_", "-"))
-        #else:
-        #    logging.debug("Frame number %s is not within North America. Skipping." % f)
-
-    return native_ids
-def expand_clsc_frames(args, disp_burst_map):
-    frame_start = int(args.frame_range.split(",")[0])
-    frame_end = int(args.frame_range.split(",")[1])
-    native_ids = build_cslc_native_ids(frame_start, frame_end, disp_burst_map)
-
-    if len(native_ids) == 0:
-        return False
-
-    args.native_id = "*"+"*&native_id[]=*".join(native_ids) + "*"
 
 def download_from_s3(bucket, file, path):
     s3 = boto3.resource('s3')
