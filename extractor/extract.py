@@ -156,19 +156,16 @@ def extract_helper(
         # Create the dataset.json file, if it hasn't been created already
         dataset_met_file = os.path.join(dataset_dir, dataset_id + name_postscript + ".dataset.json")
 
-        if (use_io and not os.path.exists(dataset_met_file)
-                or not use_io):
-            dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
-
-            dataset_met.update({
-                "index": {
-                    "suffix": ("{version}_{dataset}-{date}".format(
-                        version=dataset_met["version"],
-                        dataset=product_met["ProductType"],
-                        date=datetime.utcnow().strftime("%Y.%m")
-                    )).lower()  # suffix index name with `-YYYY.MM
-                }
-            })
+        dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
+        dataset_met.update({
+            "index": {
+                "suffix": ("{version}_{dataset}-{date}".format(
+                    version=dataset_met["version"],
+                    dataset=product_met["ProductType"],
+                    date=datetime.utcnow().strftime("%Y.%m")
+                )).lower()  # suffix index name with `-YYYY.MM
+            }
+        })
 
         if use_io:
             if not os.path.exists(dataset_met_file):
