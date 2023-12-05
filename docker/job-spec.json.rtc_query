@@ -1,8 +1,8 @@
 {
   "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/rtc/rtc_query.sh",
-  "disk_usage":"1GB",
-  "soft_time_limit": 600,
-  "time_limit": 660,
+  "disk_usage":"25GB",
+  "soft_time_limit": 3600,
+  "time_limit": 3660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
