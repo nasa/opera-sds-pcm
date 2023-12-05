@@ -1,5 +1,6 @@
 import json
 from types import SimpleNamespace
+import boto3
 from util.conf_util import SettingsConf
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
@@ -8,7 +9,8 @@ def localize_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
     try:
-        download_from_s3(bucket, file, file)
+        s3 = boto3.resource('s3')
+        s3.Object(bucket, file).download_file(file)
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % file + str(e))
 

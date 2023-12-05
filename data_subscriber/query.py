@@ -28,7 +28,7 @@ from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from cslc_utils import localize_disp_frame_burst_json, expand_clsc_frames, build_cslc_native_ids
-from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, NORTH_AMERICA
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 
