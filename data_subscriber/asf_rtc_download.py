@@ -4,14 +4,24 @@ import os
 from collections import defaultdict
 from pathlib import PurePath, Path
 
+import backoff
 import requests
 import requests.utils
 from more_itertools import partition
+from requests.exceptions import HTTPError
 
 from data_subscriber.download import DaacDownload
 from data_subscriber.url import _has_url, _to_url, _to_https_url, _rtc_url_to_chunk_id
 
 logger = logging.getLogger(__name__)
+
+
+def giveup_asf_daac_credentials_requests(e):
+    """giveup function for use with @backoff decorator when issuing DAAC requests using blocking `requests` functions."""
+    if isinstance(e, HTTPError):
+        if e.response.status_code == 502:  # Bad Gateway. transient error when getting s3credentials
+            return False
+    return False
 
 
 class AsfDaacRtcDownload(DaacDownload):
@@ -90,6 +100,13 @@ class AsfDaacRtcDownload(DaacDownload):
             file.write(asf_response.content)
         return product_download_path.resolve()
 
+    @backoff.on_exception(
+        backoff.expo,
+        exception=Exception,
+        max_tries=3,
+        jitter=None,
+        giveup=giveup_asf_daac_credentials_requests
+    )
     def _get_aws_creds(self, token):
         logger.info("entry")
         with requests.get("https://cumulus.asf.alaska.edu/s3credentials", headers={'Authorization': f'Bearer {token}'}) as r:
