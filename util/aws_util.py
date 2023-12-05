@@ -1,6 +1,8 @@
 """Collection of AWS-related utilities"""
 import concurrent.futures
+import contextlib
 import logging
+import threading
 import os
 from pathlib import Path
 
@@ -15,13 +17,15 @@ logger = logging.getLogger(__name__)
 def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: list[Path]):
     """Upload s3 files concurrently, returning their s3 paths if all succeed."""
     logger.info(f"Uploading {len(files)} files to S3")
+    sem = threading.Semaphore(min(8, os.cpu_count() + 4))
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
         futures = [
             executor.submit(
                 try_s3_client_try_upload_file,
+                sem=sem,
                 Filename=str(f),
                 Bucket=bucket,
-                Key=f"{key_prefix}/{f.name}"
+                Key=f"{key_prefix}/{f.name}",
             )
             for f in files
         ]
