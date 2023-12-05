@@ -43,16 +43,18 @@ def giveup_s3_client_upload_file(e):
 
 
 @backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)
-def try_s3_client_try_upload_file(s3_client: S3Client = None, **kwargs):
+def try_s3_client_try_upload_file(s3_client: S3Client = None, sem: threading.Semaphore = None, **kwargs):
     """
     Attempt to perform an s3 upload, retrying upon failure, returning back the S3 path.
     A default session-based S3 client is created on clients' behalf to facilitate parallelization of requests.
     """
-    if s3_client is None:
-        s3_client = boto3.session.Session().client("s3")
-    s3path = f's3://{kwargs["Bucket"]}/{kwargs["Key"]}'
+    sem = sem if sem is not None else contextlib.nullcontext()
+    with sem:
+        if s3_client is None:
+            s3_client = boto3.session.Session().client("s3")
+        s3path = f's3://{kwargs["Bucket"]}/{kwargs["Key"]}'
 
-    logger.info(f'Uploading to {s3path}')
-    s3_client.upload_file(**kwargs)
-    logger.info(f'Uploaded to {s3path}')
-    return s3path
+        logger.info(f'Uploading to {s3path}')
+        s3_client.upload_file(**kwargs)
+        logger.info(f'Uploaded to {s3path}')
+        return s3path
