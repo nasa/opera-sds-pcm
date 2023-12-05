@@ -26,7 +26,7 @@ from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_s
 from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as mbc_client
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
-from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
+from data_subscriber.url import form_batch_id, form_batch_id_cslc, _slc_url_to_chunk_id
 from cslc_utils import localize_disp_frame_burst_json, expand_clsc_frames, build_cslc_native_ids
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region
 from util.aws_util import concurrent_s3_client_try_upload_file
@@ -384,12 +384,14 @@ def download_job_submission_handler(args, granules, query_timerange):
 
         if granule.get("filtered_urls"):
             # group URLs by this mapping func. E.g. group URLs by granule_id
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] in ("HLS", "CSLC"):
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
                 url_grouping_func = form_batch_id
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
                 url_grouping_func = _slc_url_to_chunk_id
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
                 pass
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
+                url_grouping_func = form_batch_id_cslc
             else:
                 raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
 

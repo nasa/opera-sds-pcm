@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import PurePath, Path
 
 from data_subscriber import ionosphere_download
-from data_subscriber.download import DaacDownloadAsf
+from data_subscriber.asf_download import DaacDownloadAsf
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
