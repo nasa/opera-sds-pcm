@@ -9,6 +9,7 @@ from pathlib import Path
 import backoff
 import boto3
 from boto3.exceptions import Boto3Error
+from more_itertools import chunked
 from mypy_boto3_s3 import S3Client
 
 logger = logging.getLogger(__name__)
@@ -22,18 +23,22 @@ def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: li
     logger.info(f"{max_workers=}")
     sem = threading.Semaphore(semaphore_size)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(
-                try_s3_client_try_upload_file,
-                sem=sem,
-                Filename=str(f),
-                Bucket=bucket,
-                Key=f"{key_prefix}/{f.name}",
-            )
-            for f in files
-        ]
+        s3pathss = []
+        for files_chunk in chunked(files, chunk_size):
+            chunk_futures = []
+            for f in files_chunk:
+                future = executor.submit(
+                    try_s3_client_try_upload_file,
+                    sem=sem,
+                    Filename=str(f),
+                    Bucket=bucket,
+                    Key=f"{key_prefix}/{f.name}",
+                )
+                chunk_futures.append(future)
+            s3paths = [s3path := future.result() for future in concurrent.futures.as_completed(chunk_futures)]
+            s3pathss.extend(s3paths)
 
-        return [s3path := future.result() for future in concurrent.futures.as_completed(futures)]
+        return s3pathss
 
 
 def giveup_s3_client_upload_file(e):
