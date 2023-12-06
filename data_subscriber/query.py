@@ -27,7 +27,7 @@ from data_subscriber.rtc import evaluator, mgrs_bursts_collection_db_client as m
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, form_batch_id_cslc, _slc_url_to_chunk_id
-from cslc_utils import localize_disp_frame_burst_json, expand_clsc_frames, build_cslc_native_ids
+from data_subscriber.cslc_utils import localize_disp_frame_burst_json, expand_clsc_frames, build_cslc_native_ids
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
@@ -593,7 +593,6 @@ def process_frame_burst_db():
             download_from_s3(bucket, key, key)
     except Exception as e:
         raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
->>>>>>> 63152599 (Issue #662: CSLC Frame-to-burst json db parsing for DISP-S1 processing)
 
 def does_granule_intersect_regions(granule, intersect_regions):
     regions = intersect_regions.split(',')
