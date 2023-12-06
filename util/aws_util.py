@@ -58,7 +58,6 @@ def try_s3_client_try_upload_file(s3_client: S3Client = None, sem: threading.Sem
     Attempt to perform an s3 upload, retrying upon failure, returning back the S3 path.
     A default session-based S3 client is created on clients' behalf to facilitate parallelization of requests.
     """
-    logger.info(f"{sem=}")
     sem = sem if sem is not None else contextlib.nullcontext()
     with sem:
         if s3_client is None:
