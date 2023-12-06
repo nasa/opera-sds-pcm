@@ -547,6 +547,56 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
                          "s3://opera-ancillaries/algorithm_parameters/pge_name/pge_name_algorithm_parameters_beta_0.1.0.yaml")
 
+    @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
+    @patch.object(tools.stage_dem, "gdal", MockGdal)
+    def test_get_dswx_s1_dem(self):
+        """Unit tests for get_dswx_s1_dem() precondition function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "bounding_box": [-119.156471, 33.681068, -116.0578, 35.760201]
+                }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_DSWX_S1_DEM: {
+                oc_const.S3_BUCKET: "opera-dem",
+                oc_const.S3_KEY: "v1.1"
+            }
+        }
+
+        settings = {"DSWX_S1": {"ANCILLARY_MARGIN": 50}}
+
+        # These are not used with get_dems()
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_dem()
+
+        # Make sure we got a path back for replacement within the PGE runconfig
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn(oc_const.DEM_FILE, rc_params)
+
+        # Make sure the vrt file was created
+        expected_dem_vrt = join(self.working_dir.name, 'dem.vrt')
+        self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
+        self.assertTrue(exists(expected_dem_vrt))
+
+        # Make sure the tif was created
+        expected_dem_tif = join(self.working_dir.name, 'dem_0.tif')
+        self.assertTrue(exists(expected_dem_tif))
+
+        # Make sure the metrics for the "download" were written to disk
+        expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
+        self.assertTrue(exists(expected_pge_metrics))
+
     def test_get_dswx_s1_static_ancillary_files(self):
         """Unit tests for get_dswx_s1_static_ancillary_files() precondition function"""
         # Set up the arguments to OperaPreConditionFunctions

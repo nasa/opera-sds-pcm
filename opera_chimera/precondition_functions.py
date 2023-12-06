@@ -712,7 +712,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.bbox = bbox
         args.tile_code = tile_code
 
-        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx DEM',
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx-HLS DEM',
                                                output_filepath=output_filepath,
                                                staging_func=stage_dem,
                                                staging_func_args=args)
@@ -1129,7 +1129,58 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dswx_s1_dem(self):
+        """
+        This function downloads a DEM sub-region over the bounding box provided
+        in the input product metadata for a DSWx-S1 processing job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        # Get the bounding box for the sub-region to select
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        # Get the s3 location parameters
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
+
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.outfile = output_filepath
+        args.filepath = None
+        args.bbox = bbox
+        args.tile_code = None
+        args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx-S1 DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.DEM_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
 
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """
