@@ -17,8 +17,11 @@ logger = logging.getLogger(__name__)
 def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: list[Path]):
     """Upload s3 files concurrently, returning their s3 paths if all succeed."""
     logger.info(f"Uploading {len(files)} files to S3")
-    sem = threading.Semaphore(min(8, os.cpu_count() + 4))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
+    max_workers = semaphore_size = min(8, os.cpu_count() + 4)
+    logger.info(f"{semaphore_size=}")
+    logger.info(f"{max_workers=}")
+    sem = threading.Semaphore(semaphore_size)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(
                 try_s3_client_try_upload_file,
@@ -52,6 +55,7 @@ def try_s3_client_try_upload_file(s3_client: S3Client = None, sem: threading.Sem
     Attempt to perform an s3 upload, retrying upon failure, returning back the S3 path.
     A default session-based S3 client is created on clients' behalf to facilitate parallelization of requests.
     """
+    logger.info(f"{sem=}")
     sem = sem if sem is not None else contextlib.nullcontext()
     with sem:
         if s3_client is None:
