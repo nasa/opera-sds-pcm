@@ -6,7 +6,6 @@ import argparse
 import os
 
 import backoff
-import boto3
 
 from osgeo import gdal
 
@@ -14,6 +13,7 @@ from commons.logger import logger
 from commons.logger import LogLevels
 from util.geo_util import (check_dateline,
                            polygon_from_bounding_box)
+from util.pge_util import check_aws_connection
 
 # Enable exceptions
 gdal.UseExceptions()
@@ -98,37 +98,6 @@ def download_map(polys, map_bucket, map_vrt_key, outfile):
 
     # Build VRT with downloaded sub-regions
     gdal.BuildVRT(outfile, region_list)
-
-
-def check_aws_connection(bucket, key):
-    """
-    Check connection to the provided S3 bucket by performing a test read
-    on the provided bucket/key location.
-
-    Parameters
-    ----------
-    bucket : str
-        Name of the S3 bucket to use with the connection test.
-    key : str, optional
-        S3 key path to append to the bucket name.
-
-    Raises
-    ------
-    RuntimeError
-        If not connection can be established.
-
-    """
-    s3 = boto3.resource('s3')
-    obj = s3.Object(bucket, key)
-
-    try:
-        logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
-        obj.get()['Body'].read()
-        logger.info('Connection test successful.')
-    except Exception:
-        errmsg = (f'No access to the {bucket} S3 bucket. '
-                  f'Check your AWS credentials and re-run the code.')
-        raise RuntimeError(errmsg)
 
 
 def main(args):

@@ -61,7 +61,7 @@ class MockGdal:
         return MockGdal.MockGdalDataset()
 
 
-def _check_aws_connection_patch(bucket_name, dem_key=""):
+def _check_aws_connection_patch(bucket, key):
     """
     No-op patch function for use with testing precondition functions that attempt
     AWS access
@@ -277,7 +277,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         pge_config = {
             'pge_name': 'L2_CSLC_S1',
             oc_const.GET_SLC_S1_DEM: {
-                oc_const.S3_BUCKET: 'opera-bucket'
+                oc_const.S3_BUCKET: 'opera-bucket',
+                oc_const.S3_KEY: 'key/to/dem/'
             }
         }
 
