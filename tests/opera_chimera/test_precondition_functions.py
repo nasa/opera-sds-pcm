@@ -11,6 +11,7 @@ from zipfile import ZipFile
 import boto3.s3.inject
 import boto3.resources.collection
 
+import tools.stage_ancillary_map
 import tools.stage_dem
 import tools.stage_worldcover
 
@@ -446,6 +447,74 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         # Make sure the tif was created
         expected_worldcover_tif = join(self.working_dir.name, 'worldcover_0.tif')
         self.assertTrue(exists(expected_worldcover_tif))
+
+        # Make sure the metrics for the "download" were written to disk
+        expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
+        self.assertTrue(exists(expected_pge_metrics))
+
+    @patch.object(tools.stage_ancillary_map, "check_aws_connection", _check_aws_connection_patch)
+    @patch.object(tools.stage_ancillary_map, "gdal", MockGdal)
+    def test_get_dswx_s1_dynamic_ancillary_maps(self):
+        """Unit tests for get_dswx_s1_dynamic_ancillary_maps() precondition function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "bounding_box": [-119.156471, 33.681068, -116.0578, 35.760201]
+                }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS: {
+                "hand_file": {
+                    "s3_bucket": "opera-hand",
+                    "s3_key": "v1/2021/glo-30-hand-2021.vrt"
+                },
+                "worldcover_file": {
+                    "s3_bucket": "opera-world-cover",
+                    "s3_key": "v100/2020/ESA_WorldCover_10m_2020_v100_Map_AWS.vrt"
+                },
+                "reference_water_file": {
+                    "s3_bucket": "opera-reference-water",
+                    "s3_key": "2021/occurrence/occurrence_v1_4_2021.vrt"
+                }
+            }
+        }
+
+        settings = {"DSWX_S1": {"ANCILLARY_MARGIN": 50}}
+
+        # These are not used with get_worldcover()
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_dynamic_ancillary_maps()
+
+        expected_dynamic_ancillary_maps = ["hand_file", "worldcover_file", "reference_water_file"]
+
+        # Make sure we got paths back for each staged ancillary map
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+
+        for expected_dynamic_ancillary_map_name in expected_dynamic_ancillary_maps:
+            # Ensure the rc_params dictionary was populated correctly
+            self.assertIn(expected_dynamic_ancillary_map_name, rc_params)
+            self.assertIsInstance(rc_params[expected_dynamic_ancillary_map_name], str)
+
+            # Ensure the VRT file was created as expected
+            expected_vrt_file = join(self.working_dir.name, f'{expected_dynamic_ancillary_map_name}.vrt')
+
+            self.assertEqual(expected_vrt_file, rc_params[expected_dynamic_ancillary_map_name])
+            self.assertTrue(os.path.exists(expected_vrt_file))
+
+            # Ensure the tif file was created as expected
+            expected_tif_file = join(self.working_dir.name, f'{expected_dynamic_ancillary_map_name}_0.tif')
+
+            self.assertTrue(os.path.exists(expected_tif_file))
 
         # Make sure the metrics for the "download" were written to disk
         expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')

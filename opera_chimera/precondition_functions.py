@@ -32,6 +32,7 @@ from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
                            get_input_hls_dataset_tile_code,
                            write_pge_metrics)
+from tools.stage_ancillary_map import main as stage_ancillary_map
 from tools.stage_dem import main as stage_dem
 from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
 from tools.stage_worldcover import main as stage_worldcover
@@ -1072,6 +1073,63 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
+
+    def get_dswx_s1_dynamic_ancillary_maps(self):
+        """
+        Utilizes the stage_ancillary_map.py script to stage the sub-regions for
+        each of the ancillary maps used by DSWx-S1 (excluding the DEM).
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        dynamic_ancillary_maps = self._pge_config.get(oc_const.GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS, {})
+
+        for dynamic_ancillary_map_name in dynamic_ancillary_maps.keys():
+            s3_bucket = dynamic_ancillary_maps.get(dynamic_ancillary_map_name, {}).get(oc_const.S3_BUCKET)
+            s3_key = dynamic_ancillary_maps.get(dynamic_ancillary_map_name, {}).get(oc_const.S3_KEY)
+
+            ancillary_type = dynamic_ancillary_map_name.replace("_", " ").capitalize()
+            output_filepath = os.path.join(working_dir, f'{dynamic_ancillary_map_name}.vrt')
+
+            # Set up arguments to stage_ancillary_map.py
+            # Note that since we provide an argparse.Namespace directly,
+            # all arguments must be specified, even if it's only with a null value
+            args = argparse.Namespace()
+            args.outfile = output_filepath
+            args.s3_bucket = s3_bucket
+            args.s3_key = s3_key
+            args.bbox = bbox
+            args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+            args.log_level = LogLevels.INFO.value
+
+            logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
+
+            pge_metrics = self.get_opera_ancillary(
+                ancillary_type=ancillary_type,
+                output_filepath=output_filepath,
+                staging_func=stage_ancillary_map,
+                staging_func_args=args
+            )
+
+            write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+            rc_params[dynamic_ancillary_map_name] = output_filepath
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+
 
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """

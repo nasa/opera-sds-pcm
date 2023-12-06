@@ -90,6 +90,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DSWX_S1_STATIC_ANCILLARY_FILES = "get_dswx_s1_static_ancillary_files"
 
+    GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS = "get_dswx_s1_dynamic_ancillary_maps"
+
     GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
 
     GET_SLC_S1_BURST_DATABASE = "get_slc_s1_burst_database"
