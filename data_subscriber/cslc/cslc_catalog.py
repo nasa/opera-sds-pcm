@@ -37,7 +37,7 @@ class CSLCProductCatalog(SLCProductCatalog):
                 "query": {
                     "bool": {
                         "must": [
-                            {"match": {"download_batch_id": id}}
+                            {"term": {"download_batch_id": id}}
                         ]
                     }
                 }

@@ -26,6 +26,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         # First, download the files from ASF
         product_to_product_filepaths_map: dict[str, set[Path]] = super().run_download(args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=False)
 
+        # TODO: This code is copied from data_subscriber/query.py. It should be refactored into a common function
         logger.info("Extracting metadata from CSLC products")
         product_to_products_metadata_map = defaultdict(list[dict])
         for product, filepaths in product_to_product_filepaths_map.items():

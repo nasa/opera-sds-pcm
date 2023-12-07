@@ -48,7 +48,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         disp_burst_map, metadata, version = localize_disp_frame_burst_json()
 
         #TODO: If we process more than one frame in a single query, we need to restructure this.
-        download_batch_id = args.start_date+"-"+args.end_date+"-"+args.frame_range.split(",")[0]
+        # Use underscore instead of other special characters so that it can be used in ES term search
+        download_batch_id = args.start_date+"_"+args.end_date+"_"+args.frame_range.split(",")[0]
+        download_batch_id = download_batch_id.replace("-", "_").replace(":", "_")
 
         if expand_clsc_frames(args, disp_burst_map) == False:
             logging.info("No valid frames were found.")
