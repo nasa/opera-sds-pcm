@@ -88,8 +88,8 @@ class OperaAccountability(Accountability):
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
         elif self.input_files_type in ('L2_RTC_S1','L2_CSLC_S1'):
-            # TODO: unsure about this, revisit once input staging/trigger logic are implemented
-            self.product_paths = [os.path.join(metadata['FileName'])]
+            self.product_paths = [os.path.join(file_metadata['FileLocation'], file_metadata['FileName'])
+                                  for file_metadata in metadata.get('Files', {})]
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 
