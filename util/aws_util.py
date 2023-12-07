@@ -5,6 +5,7 @@ import logging
 import threading
 import os
 from pathlib import Path
+from typing import Collection
 
 import backoff
 import boto3
