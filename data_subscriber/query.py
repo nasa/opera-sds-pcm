@@ -257,6 +257,12 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
                 succeeded.extend(suceeded_batch)
                 failed.extend(failed_batch)
+
+                # manual cleanup since we needed to preserve downloads for manual s3 uploads
+                for fp in files_to_upload:
+                    fp.unlink(missing_ok=True)
+                logger.info("Removed downloads from disk")
+
     else:
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
