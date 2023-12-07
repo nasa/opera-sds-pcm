@@ -15,7 +15,7 @@ from mypy_boto3_s3 import S3Client
 logger = logging.getLogger(__name__)
 
 
-def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: list[Path]):
+def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Collection[Path]):
     """Upload s3 files concurrently, returning their s3 paths if all succeed."""
     logger.info(f"Uploading {len(files)} files to S3")
     chunk_size = max_workers = semaphore_size = min(8, os.cpu_count() + 4)
