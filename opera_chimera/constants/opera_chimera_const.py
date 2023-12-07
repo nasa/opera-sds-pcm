@@ -24,6 +24,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     SET_EXTRA_PGE_OUTPUT_METADATA = "set_extra_pge_output_metadata"
 
+    SET_SAMPLE_PRODUCT_METADATA = "set_sample_product_metadata"
+
     SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
 
     INPUT_DATASET_ID = "input_dataset_id"

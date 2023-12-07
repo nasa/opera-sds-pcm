@@ -167,6 +167,45 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
         return {oc_const.GPU_ENABLED: gpu_enabled}
 
+    def set_sample_product_metadata(self):
+        """
+        Overwrites the "product_metadata" field of the context dictionary with
+        the contents of a JSON file read from S3. This function is only intended
+        for use with testing of PGE SCIFLO workflows, and should not be included
+        as a precondition function for any PGE's in production.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        rc_params = {}
+
+        # get s3_bucket param
+        s3_bucket = self._pge_config.get(oc_const.SET_SAMPLE_PRODUCT_METADATA, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.SET_SAMPLE_PRODUCT_METADATA, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Sample product metadata")
+
+        # read the sample product metadata and assign it to the local context
+        with open(output_filepath, "r") as infile:
+            product_metadata = json.load(infile)
+
+        if not all(key in product_metadata for key in ["dataset", "metadata"]):
+            raise RuntimeError(
+                "Product metadata file does not contain expected keys (dataset/metadata)."
+            )
+
+        logger.info(f"Read product metadata for dataset {product_metadata['dataset']}")
+
+        # assign the read product metadata into the local context, so it can be
+        # used by downstream precondition functions
+        self._context["product_metadata"] = product_metadata
+
+        return rc_params
+
     def get_cslc_product_specification_version(self):
         """
         Returns the appropriate product spec version for a CSLC-S1 job based
