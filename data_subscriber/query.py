@@ -7,6 +7,7 @@ import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
+from itertools import chain
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -209,8 +210,23 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                     product_to_products_metadata_map[product].append(product_met)
 
             logger.info(f"Uploading MGRS burst set files to S3")
-            files_to_upload = [fp for fp_set in product_to_product_filepaths_map.values() for fp in fp_set]
-            s3paths: list[str] = concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"], key_prefix=f"tmp/dswx_s1/{batch_id}", files=files_to_upload)
+            burst_id_to_files_to_upload = defaultdict(set)
+            for product_id, fp_set in product_to_product_filepaths_map.items():
+                for fp in fp_set:
+                    match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", product_id)
+                    burst_id = match_product_id.group("burst_id")
+                    burst_id_to_files_to_upload[burst_id].add(fp)
+
+            s3paths: list[str] = []
+            for burst_id, filepaths in burst_id_to_files_to_upload.items():
+                s3paths.extend(
+                    concurrent_s3_client_try_upload_file(
+                        bucket=settings["DATASET_BUCKET"],
+                        key_prefix=f"tmp/dswx_s1/{batch_id}/{burst_id}",
+                        files=filepaths
+                    )
+                )
+
             uploaded_batch_id_to_products_map[batch_id] = product_burstset
             uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
@@ -259,7 +275,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                 failed.extend(failed_batch)
 
                 # manual cleanup since we needed to preserve downloads for manual s3 uploads
-                for fp in files_to_upload:
+                for fp in chain.from_iterable(burst_id_to_files_to_upload.values()):
                     fp.unlink(missing_ok=True)
                 logger.info("Removed downloads from disk")
 
