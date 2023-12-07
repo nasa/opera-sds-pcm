@@ -29,3 +29,18 @@ class CSLCProductCatalog(SLCProductCatalog):
 
     def generate_es_index_name(self):
         return "cslc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
+
+    def get_download_granule_revision(self, id):
+        downloads = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"download_batch_id": id}}
+                        ]
+                    }
+                }
+            }
+        )
+        return self.filter_query_result(downloads)

@@ -40,17 +40,19 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     query_dt = datetime.now()
     now = datetime.utcnow()
     query_timerange: DateTimeRange = get_query_timerange(args, now)
+    download_batch_id = None
 
     # If we are querying CSLC data we need to modify parameters going into cmr query
     #TODO: put this in a loop and query one frame at a time
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-        if args.frame_range is None:
-            pass
-        else:
-            disp_burst_map, metadata, version = localize_disp_frame_burst_json()
-            if expand_clsc_frames(args, disp_burst_map) == False:
-                logging.info("No valid frames were found.")
-                return
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC" and args.frame_range is not None:
+        disp_burst_map, metadata, version = localize_disp_frame_burst_json()
+
+        #TODO: If we process more than one frame in a single query, we need to restructure this.
+        download_batch_id = args.start_date+"-"+args.end_date+"-"+args.frame_range.split(",")[0]
+
+        if expand_clsc_frames(args, disp_burst_map) == False:
+            logging.info("No valid frames were found.")
+            return
 
     logger.info("CMR query STARTED")
     granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
@@ -83,6 +85,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         revision_id = granule.get("revision_id")
 
         additional_fields = {}
+        if download_batch_id is not None:
+            additional_fields["download_batch_id"] = download_batch_id
         additional_fields["revision_id"] = revision_id
         additional_fields["processing_mode"] = args.proc_mode
 
@@ -280,7 +284,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
             return
 
-        job_submission_tasks = download_job_submission_handler(args, granules, query_timerange)
+        job_submission_tasks = download_job_submission_handler(args, granules, query_timerange, download_batch_id)
 
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         succeeded = succeeded
@@ -376,7 +380,7 @@ def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisitio
         raise AssertionError("Unexpected burst overlap")
 
 
-def download_job_submission_handler(args, granules, query_timerange):
+def download_job_submission_handler(args, granules, query_timerange, download_batch_id):
     batch_id_to_urls_map = defaultdict(set)
     for granule in granules:
         granule_id = granule.get("granule_id")
@@ -391,12 +395,16 @@ def download_job_submission_handler(args, granules, query_timerange):
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
                 pass
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-                url_grouping_func = form_batch_id_cslc
+                # CSLC will use the download_batch_id directly
+                pass
             else:
                 raise AssertionError(f"Can't use {args.collection=} to select grouping function.")
 
             for filter_url in granule.get("filtered_urls"):
-                batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
+                if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
+                    batch_id_to_urls_map[download_batch_id].add(filter_url)
+                else:
+                    batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
     logger.info(f"{batch_id_to_urls_map=}")
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         raise NotImplementedError()
