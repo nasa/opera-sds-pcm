@@ -961,55 +961,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_sample_inputs(self):
-        """
-        Temporary function to stage the "golden" inputs for use with the DSWx-S1
-        PGE.
-
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        # get the working directory
-        working_dir = get_working_dir()
-
-        s3_bucket = "opera-dev-lts-fwd-collinss"
-        s3_key = "dswx_s1_sample_input_data.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DSWx-S1 Inputs"
-        )
-
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        rtc_data_dir = os.path.join(working_dir, 'dswx_s1_sample_input_data', 'rtc_data')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_s1_sample_input_data', 'ancillary_data')
-
-        rtc_dirs = os.listdir(rtc_data_dir)
-
-        rtc_file_list = [os.path.join(rtc_data_dir, rtc_dir) for rtc_dir in rtc_dirs]
-
-        rc_params = {
-            'input_file_paths': rtc_file_list,
-            'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
-            'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
-            'worldcover_file': os.path.join(ancillary_data_dir, 'worldcover.tif'),
-            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
-            'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_s1.yaml')
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
     def get_algorithm_parameters(self):
         """
         Gets the S3 path to the designated algorithm parameters runconfig for use
