@@ -199,7 +199,9 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
 
     input_dataset_id = get_input_dataset_id(context)
 
-    # TODO: this check can be removed once we move away from sample inputs
+    # For PGE's that are triggered off of multiple input datasets (such as
+    # DSWx-S1 and DISP-S1) we substitute a single sample dataset ID to pattern
+    # match against for the sake of generating dummy output files
     if not input_dataset_id:
         input_dataset_id = pge_config.get('sample_input_dataset_id')
 
@@ -210,7 +212,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             break
     else:
         raise RuntimeError(
-            f"Could not match dataset ID '{get_input_dataset_id(context)}' to any "
+            f"Could not match dataset ID '{input_dataset_id}' to any "
             f"input file base name regex in the PGE configuration yaml file."
         )
 
