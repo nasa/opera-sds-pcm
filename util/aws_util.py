@@ -22,7 +22,6 @@ def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Co
     max_workers = semaphore_size = min(8, os.cpu_count() + 4)
     sem = threading.Semaphore(semaphore_size)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        s3pathss = []
         futures = []
         for f in files:
             sem.acquire()
@@ -35,9 +34,8 @@ def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Co
             future.add_done_callback(lambda _: sem.release())
             futures.append(future)
         s3paths = [s3path := future.result() for future in concurrent.futures.as_completed(futures)]
-        s3pathss.extend(s3paths)
 
-        return s3pathss
+        return s3paths
 
 
 def giveup_s3_client_upload_file(e):
