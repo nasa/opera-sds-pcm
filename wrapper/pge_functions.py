@@ -6,6 +6,7 @@ import os
 from os.path import basename, splitext
 from typing import Dict
 
+from commons.logger import logger
 
 def slc_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the CSLC-S1 and RTC-S1 PGEs"""
@@ -83,6 +84,15 @@ def dswx_s1_lineage_metadata(context, work_dir):
     for s3_input_filepath in run_config["input_file_group"]["input_file_paths"]:
         local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
+
+        # TODO: kludge to support current version of DSWx-S1 SAS, which wants
+        #  a "_layover_shadow_mask.tif" file, remove for next patch release
+        mask_files = glob.glob(os.path.join(local_input_filepath, "*_mask.tif"))
+        mask_file = mask_files[0]
+        old_name = mask_file
+        new_name = mask_file.replace("_mask.tif", "_layover_shadow_mask.tif")
+        logger.info(f"Renaming {old_name} to {new_name}")
+        os.rename(old_name, new_name)
 
     # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
