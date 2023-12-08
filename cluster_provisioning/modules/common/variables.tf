@@ -436,7 +436,7 @@ variable "queues" {
     }
     "opera-job_worker-rtc_data_query" = {
       "name"              = "opera-job_worker-rtc_data_query"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
