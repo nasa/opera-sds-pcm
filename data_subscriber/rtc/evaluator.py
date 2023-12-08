@@ -123,7 +123,7 @@ def load_cmr_df(rtc_product_ids):
     cmr_df_records = []
     for product_id in rtc_product_ids:
         match_product_id = re.match(rtc_granule_regex, product_id)
-        acquisition_dts = match_product_id.group("acquisition_dts")
+        acquisition_dts = match_product_id.group("acquisition_ts")
         burst_id = match_product_id.group("burst_id")
 
         burst_id_normalized = product_burst_id_to_mapping_burst_id(burst_id)
