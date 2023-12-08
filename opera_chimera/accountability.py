@@ -70,12 +70,21 @@ class OperaAccountability(Accountability):
 
         product_metadata = self.context["product_metadata"]
 
-        # TODO: kludge to support providing dummy metadata as a hardcoded string
-        #       within the hysds-io.json file for DSWx-S1 and DISP-S1, remove when appropriate
+        # TODO: kludge to support providing dummy metadata as a hardcoded string,
+        #       either containing the json formatted metadata itself, or an S3 URI
+        #       to a json file containing the product metadata, within the
+        #       hysds-io.json file for DSWx-S1 and DISP-S1, remove when appropriate
         try:
             metadata = product_metadata["metadata"]
         except Exception as err:
             if isinstance(product_metadata, str):
+                if product_metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = product_metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    product_metadata = obj.get()['Body'].read()
+
                 metadata = json.loads(product_metadata)["metadata"]
             else:
                 raise err
