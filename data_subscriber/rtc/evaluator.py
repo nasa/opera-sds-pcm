@@ -13,6 +13,7 @@ import pandas as pd
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
+from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
 
 logger = logging.getLogger(__name__)
@@ -121,12 +122,12 @@ def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_prod
 def load_cmr_df(rtc_product_ids):
     cmr_df_records = []
     for product_id in rtc_product_ids:
-        match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", product_id)
+        match_product_id = re.match(rtc_granule_regex, product_id)
         acquisition_dts = match_product_id.group("acquisition_dts")
         burst_id = match_product_id.group("burst_id")
 
         burst_id_normalized = product_burst_id_to_mapping_burst_id(burst_id)
-        match_burst_id = re.match(r"t(?P<relative_orbit_number>\d+)", burst_id_normalized)
+        match_burst_id = re.match(rtc_relative_orbit_number_regex, burst_id_normalized)
         relative_orbit_number = int(match_burst_id.group("relative_orbit_number"))
 
         cmr_df_record = {
