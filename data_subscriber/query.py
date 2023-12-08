@@ -198,18 +198,6 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             product_to_product_filepaths_map: dict[str, set[Path]] = downloader.run_download(args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
 
-            # TODO chrisjrd: use or remove metadata extraction
-            logger.info("Extracting metadata from RTC products")
-            product_to_products_metadata_map = defaultdict(list[dict])
-            for product, filepaths in product_to_product_filepaths_map.items():
-                for filepath in filepaths:
-                    dataset_id, product_met, dataset_met = extractor.extract.extract_in_mem(
-                        product_filepath=filepath,
-                        product_types=settings["PRODUCT_TYPES"],
-                        workspace_dirpath=Path.cwd()
-                    )
-                    product_to_products_metadata_map[product].append(product_met)
-
             logger.info(f"Uploading MGRS burst set files to S3")
             burst_id_to_files_to_upload = defaultdict(set)
             for product_id, fp_set in product_to_product_filepaths_map.items():
