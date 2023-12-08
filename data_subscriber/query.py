@@ -80,7 +80,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
 
             match_product_id = re.match(rtc_granule_regex, granule_id)
-            acquisition_dts = match_product_id.group("acquisition_dt")
+            acquisition_dts = match_product_id.group("acquisition_ts")
             burst_id = match_product_id.group("burst_id")
 
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
