@@ -82,7 +82,16 @@ def get_product_metadata(job_json_dict: Dict) -> Dict:
             if isinstance(metadata, dict):
                 metadata = metadata['metadata']
             elif isinstance(metadata, str):
-                metadata = json.loads(param['value'])['metadata']
+                # TODO: kludge to support reading canned metadata from a file stored on S3,
+                #       remove when appropriate
+                if metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    metadata = json.loads(obj.get()['Body'].read())['metadata']
+                else:
+                    metadata = json.loads(param['value'])['metadata']
             else:
                 raise ValueError(f'Unknown product_metadata format: {metadata}')
 
