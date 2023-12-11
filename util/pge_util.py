@@ -211,8 +211,8 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     # For PGE's that are triggered off of multiple input datasets (such as
     # DSWx-S1 and DISP-S1) we substitute a single sample dataset ID to pattern
     # match against for the sake of generating dummy output files
-    if not input_dataset_id:
-        input_dataset_id = pge_config.get('sample_input_dataset_id')
+    if 'sample_input_dataset_id' in pge_config:
+        input_dataset_id = pge_config['sample_input_dataset_id']
 
     for input_file_base_name_regex in input_file_base_name_regexes:
         pattern = re.compile(input_file_base_name_regex)
