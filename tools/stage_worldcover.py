@@ -6,8 +6,6 @@ import argparse
 import os
 import backoff
 
-import boto3
-
 from osgeo import gdal
 from shapely.geometry import box
 
@@ -15,6 +13,7 @@ from commons.logger import logger
 from commons.logger import LogLevels
 from util.geo_util import (check_dateline,
                            polygon_from_mgrs_tile)
+from util.pge_util import check_aws_connection
 
 # Enable exceptions
 gdal.UseExceptions()
@@ -210,34 +209,6 @@ def download_worldcover(polys, worldcover_bucket, worldcover_ver,
     gdal.BuildVRT(outfile, wc_list)
 
 
-def check_aws_connection(worldcover_bucket):
-    """
-    Check connection to the provided S3 bucket.
-
-    Parameters
-    ----------
-    worldcover_bucket : str
-        Name of the bucket to use with the connection test.
-
-    Raises
-    ------
-    RuntimeError
-       If no connection can be established.
-
-    """
-    s3 = boto3.resource('s3')
-    obj = s3.Object(worldcover_bucket, 'readme.html')
-
-    try:
-        logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
-        obj.get()['Body'].read()
-        logger.info('Connection test successful.')
-    except Exception:
-        errmsg = (f'No access to the {worldcover_bucket} s3 bucket. '
-                  f'Check your AWS credentials and re-run the code.')
-        raise RuntimeError(errmsg)
-
-
 def main(opts):
     """
     Main script to execute Worldcover map staging.
@@ -283,7 +254,7 @@ def main(opts):
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')
 
-    check_aws_connection(opts.s3_bucket)
+    check_aws_connection(bucket=opts.s3_bucket, key='readme.html')
 
     # Download Worldcover map(s)
     download_worldcover(polys, opts.s3_bucket, opts.worldcover_ver,

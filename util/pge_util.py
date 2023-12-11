@@ -82,7 +82,16 @@ def get_product_metadata(job_json_dict: Dict) -> Dict:
             if isinstance(metadata, dict):
                 metadata = metadata['metadata']
             elif isinstance(metadata, str):
-                metadata = json.loads(param['value'])['metadata']
+                # TODO: kludge to support reading canned metadata from a file stored on S3,
+                #       remove when appropriate
+                if metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    metadata = json.loads(obj.get()['Body'].read())['metadata']
+                else:
+                    metadata = json.loads(param['value'])['metadata']
             else:
                 raise ValueError(f'Unknown product_metadata format: {metadata}')
 
@@ -103,6 +112,37 @@ def get_time_for_filename():
         PRODUCTION_TIME = datetime.now().strftime('%Y%m%dT%H%M%S')
 
     return PRODUCTION_TIME
+
+
+def check_aws_connection(bucket, key):
+    """
+    Check connection to the provided S3 bucket by performing a test read
+    on the provided bucket/key location.
+
+    Parameters
+    ----------
+    bucket : str
+        Name of the S3 bucket to use with the connection test.
+    key : str, optional
+        S3 key path to append to the bucket name.
+
+    Raises
+    ------
+    RuntimeError
+        If not connection can be established.
+
+    """
+    s3 = boto3.resource('s3')
+    obj = s3.Object(bucket, key)
+
+    try:
+        logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
+        obj.get()['Body'].read()
+        logger.info('Connection test successful.')
+    except Exception:
+        errmsg = (f'No access to the {bucket} S3 bucket. '
+                  f'Check your AWS credentials and re-run the code.')
+        raise RuntimeError(errmsg)
 
 
 def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
@@ -168,9 +208,11 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
 
     input_dataset_id = get_input_dataset_id(context)
 
-    # TODO: this check can be removed once we move away from sample inputs
-    if not input_dataset_id:
-        input_dataset_id = pge_config.get('sample_input_dataset_id')
+    # For PGE's that are triggered off of multiple input datasets (such as
+    # DSWx-S1 and DISP-S1) we substitute a single sample dataset ID to pattern
+    # match against for the sake of generating dummy output files
+    if 'sample_input_dataset_id' in pge_config:
+        input_dataset_id = pge_config['sample_input_dataset_id']
 
     for input_file_base_name_regex in input_file_base_name_regexes:
         pattern = re.compile(input_file_base_name_regex)
@@ -179,7 +221,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             break
     else:
         raise RuntimeError(
-            f"Could not match dataset ID '{get_input_dataset_id(context)}' to any "
+            f"Could not match dataset ID '{input_dataset_id}' to any "
             f"input file base name regex in the PGE configuration yaml file."
         )
 

@@ -6,7 +6,6 @@ import argparse
 import os
 import backoff
 
-import boto3
 import numpy as np
 import shapely.wkt
 
@@ -20,6 +19,7 @@ from util.geo_util import (check_dateline,
                            polygon_from_bounding_box,
                            polygon_from_mgrs_tile,
                            transform_polygon_coords_to_epsg)
+from util.pge_util import check_aws_connection
 
 # Enable exceptions
 gdal.UseExceptions()
@@ -247,37 +247,6 @@ def check_dem_overlap(dem_filepath, polys):
     return perc_area
 
 
-def check_aws_connection(dem_bucket, dem_key=""):
-    """
-    Check connection to the provided S3 bucket.
-
-    Parameters
-    ----------
-    dem_bucket : str
-        Name of the bucket to use with the connection test.
-    dem_key : str, optional
-        S3 key path to append to the bucket.
-
-    Raises
-    ------
-    RuntimeError
-       If no connection can be established.
-
-    """
-    s3 = boto3.resource('s3')
-    key = '/'.join([dem_key, 'EPSG4326/EPSG4326.vrt']) if dem_key else 'EPSG4326/EPSG4326.vrt'
-    obj = s3.Object(dem_bucket, key)
-
-    try:
-        logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
-        obj.get()['Body'].read()
-        logger.info('Connection test successful.')
-    except Exception:
-        errmsg = (f'No access to the {dem_bucket} s3 bucket. '
-                  f'Check your AWS credentials and re-run the code.')
-        raise RuntimeError(errmsg)
-
-
 def main(opts):
     """
     Main script to execute DEM staging.
@@ -331,7 +300,8 @@ def main(opts):
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')
 
-    check_aws_connection(opts.s3_bucket, dem_key=opts.s3_key)
+    check_aws_connection(bucket=opts.s3_bucket,
+                         key='/'.join([opts.s3_key, 'EPSG4326/EPSG4326.vrt']))
 
     # Determine EPSG code
     logger.info("Determining EPSG code(s) for region polygon(s)")

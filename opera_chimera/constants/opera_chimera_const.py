@@ -24,9 +24,13 @@ class OperaChimeraConstants(ChimeraConstants):
 
     SET_EXTRA_PGE_OUTPUT_METADATA = "set_extra_pge_output_metadata"
 
+    SET_SAMPLE_PRODUCT_METADATA = "set_sample_product_metadata"
+
     SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
 
     INPUT_DATASET_ID = "input_dataset_id"
+
+    INPUT_FILE_PATHS = "input_file_paths"
 
     DATASET_TYPE = "dataset_type"
 
@@ -39,6 +43,8 @@ class OperaChimeraConstants(ChimeraConstants):
     SAFE_FILE_PATH = "safe_file_path"
 
     ORBIT_FILE_PATH = "orbit_file_path"
+
+    ALGORITHM_PARAMETERS = "algorithm_parameters"
 
     BURST_ID = "burst_id"
 
@@ -81,6 +87,14 @@ class OperaChimeraConstants(ChimeraConstants):
     VERSION_KEY = "version_key"
 
     BBOX = "bbox"
+
+    GET_ALGORITHM_PARAMETERS = "get_algorithm_parameters"
+
+    GET_DSWX_S1_DEM = "get_dswx_s1_dem"
+
+    GET_DSWX_S1_STATIC_ANCILLARY_FILES = "get_dswx_s1_static_ancillary_files"
+
+    GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS = "get_dswx_s1_dynamic_ancillary_maps"
 
     GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
 
