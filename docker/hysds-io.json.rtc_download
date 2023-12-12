@@ -1,0 +1,45 @@
+{
+  "label": "Download RTC data",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
+      "default": "--endpoint=OPS"
+    },
+    {
+      "name": "batch_ids",
+      "from": "submitter",
+      "placeholder": "e.g. --batch-ids T00001 T00002",
+      "optional": true
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "transfer_protocol",
+      "from": "submitter",
+      "placeholder": "e.g. --transfer-protocol=auto",
+      "type": "text",
+      "default": "--transfer-protocol=auto",
+      "optional": true
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
+    },
+  ]
+}
