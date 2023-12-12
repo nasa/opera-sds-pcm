@@ -13,6 +13,8 @@ setup(
     ],
     extras_require={
         "docker": [
+            # The list of dependencies that are additionally installed as part of the opera-pcm docker image.
+            #  See ./docker/Dockerfile
             "more-itertools",
 
             "pytest==7.2.1",
@@ -45,6 +47,7 @@ setup(
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
         ],
         "subscriber": [
+            # The list of dependencies required to run the data_subscriber module standalone.
             "boto3",
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
@@ -54,14 +57,18 @@ setup(
             "more-itertools==8.13.0",
             "requests==2.27.1",
             "validators",
-            "cachetools==5.2.0"
+            "cachetools==5.2.0",
+            "geopandas",
+            "pyproj"
         ],
         "test": [
-            "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.2.tar.gz",
-            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.1.0.tar.gz",
-            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.0.9.tar.gz",
-            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.1.5.tar.gz",
-            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.1.tar.gz",
+            # The list of dependencies required to run tests locally.
+            #  Also doubles as list of dependencies to run all modules of the codebase outside of a cloud environment.
+            "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.3.tar.gz",
+            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.2.3.tar.gz",
+            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.0.16.tar.gz",
+            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.2.12.tar.gz",
+            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.3.tar.gz",
             "pyyaml",
             "backoff",
             "yamale",
@@ -88,6 +95,7 @@ setup(
             "ruamel.yaml"  # NOTE: deployed instances use ruamel-yaml-conda
         ],
         "integration": [
+            # The list of dependencies required for the integration test module
             "pytest==7.2.1",
             "boto3",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
@@ -102,6 +110,7 @@ setup(
             "filelock==3.6.0"
         ],
         "benchmark": [
+            # The list of dependencies required for the benchmarking module
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "botocore",
@@ -110,21 +119,25 @@ setup(
             'pytest-asyncio==0.20.3'
         ],
         "audit": [
+            # The list of dependencies required for the (internal) audit tools.
             "elasticsearch[async]",
             "more-itertools",
             "python-dateutil",
             "python-dotenv"
         ],
         "cmr_audit": [
+            # The list of dependencies required for the (CMR) audit tools.
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
             # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "more-itertools",
             "python-dateutil",
-            "python-dotenv"
+            "python-dotenv",
+            "requests"
         ],
         "cnm_check": [
+            # The list of dependencies required for the cnm_check tool.
             "compact-json",
             "elasticsearch[async]",
             "more-itertools",

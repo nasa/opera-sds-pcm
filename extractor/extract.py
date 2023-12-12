@@ -16,6 +16,7 @@ import sys
 import traceback
 from datetime import datetime
 from importlib import import_module
+from pathlib import Path
 from typing import Dict, Optional
 
 from shapely.geometry import shape, mapping
@@ -61,38 +62,71 @@ def extract(
         product_types: Dict,
         workspace: str,
         extra_met: Optional[Dict] = None,
-        name_postscript = ''
+        name_postscript=''
 ):
-    """Create a dataset (directory), with metadata extracted from the input product.
+    """Create a dataset (directory), with metadata extracted from the input product."""
+    dataset_dir, product_met, dataset_met = extract_helper(product_filepath=product, product_types=product_types, workspace_dirpath=workspace, extra_met=extra_met, name_postscript=name_postscript)
+    return dataset_dir
 
-    :param product: product filepath
+
+def extract_in_mem(
+        product_filepath: Path,
+        product_types: Dict,
+        workspace_dirpath: Path,
+        extra_met: Optional[Dict] = None,
+        name_postscript=''
+):
+    """Create a dataset (dict), with metadata extracted from the input product."""
+    dataset_id, product_met, dataset_met = extract_helper(product_filepath=str(product_filepath), product_types=product_types, workspace_dirpath=str(workspace_dirpath.resolve()), extra_met=extra_met, name_postscript=name_postscript, use_io=False)
+    return dataset_id, product_met, dataset_met
+
+
+def extract_helper(
+        product_filepath: str,
+        product_types: Dict,
+        workspace_dirpath: str,
+        extra_met: Optional[Dict] = None,
+        name_postscript='',
+        use_io=True
+):
+    """Create a dataset, with metadata extracted from the input product.
+
+    :param product_filepath: product filepath
     :param product_types: Product config as defined in `settings.yaml`
-    :param workspace: workspace directory. This directory will house created dataset directories.
+    :param workspace_dirpath: workspace directory. This directory will house created dataset directories.
     :param extra_met: extra metadata to include in the created dataset.
+    :param name_postscript: file stem suffix to add to created files
+    :param use_io: toggle writing to disk or not. Default is True
     """
     # Get the dataset id (product name)
-    logger.debug(f"extract : product: {product}, product_types: {product_types}, "
-                 f"workspace: {workspace}, extra_met: {extra_met}")
+    logger.debug(f"extract : product: {product_filepath}, product_types: {product_types}, "
+                 f"workspace: {workspace_dirpath}, extra_met: {extra_met}")
 
-    dataset_id = create_dataset_id(product, product_types)
+    dataset_id = create_dataset_id(product_filepath, product_types)
 
     logger.debug(f"extract : dataset_id: {dataset_id}")
 
-    dataset_dir = os.path.join(workspace, dataset_id)
+    dataset_dir = os.path.join(workspace_dirpath, dataset_id)
 
-    if os.path.exists(dataset_dir):
-        logger.warning(f"Dataset directory {dataset_dir} already exists")
-    else:
-        logger.info(f"Creating dataset directory {dataset_dir}")
-        os.makedirs(dataset_dir)
+    if use_io:
+        if os.path.exists(dataset_dir):
+            logger.warning(f"Dataset directory {dataset_dir} already exists")
+        else:
+            logger.info(f"Creating dataset directory {dataset_dir}")
+            os.makedirs(dataset_dir)
 
-    # Copy product to dataset directory
-    logger.info(f"Moving {product} to dataset directory")
-    shutil.copyfile(product, os.path.join(dataset_dir, os.path.basename(product)))
+    if use_io:
+        # Copy product to dataset directory
+        logger.info(f"Moving {product_filepath} to dataset directory")
+        shutil.copyfile(product_filepath, os.path.join(dataset_dir, os.path.basename(product_filepath)))
 
     try:
+        if use_io:
+            product_filepath = os.path.join(dataset_dir, os.path.basename(product_filepath))
+        else:
+            product_filepath = product_filepath
         found, product_met, ds_met, alt_ds_met = extract_metadata(
-            os.path.join(dataset_dir, os.path.basename(product)),
+            product_filepath,
             product_types,
             extra_met
         )
@@ -105,56 +139,57 @@ def extract(
                 product_met.update(extra_met)
 
             product_met_file = os.path.join(
-                dataset_dir, f"{os.path.splitext(os.path.basename(product))[0]}{name_postscript}.met.json"
+                dataset_dir, f"{os.path.splitext(os.path.basename(product_filepath))[0]}{name_postscript}.met.json"
             )
-
-            with open(product_met_file, "w") as outfile:
-                json.dump(product_met, outfile, indent=2)
-
-            logger.info(f"Created the extracted metadata file: {product_met_file}")
+            if use_io:
+                with open(product_met_file, "w") as outfile:
+                    json.dump(product_met, outfile, indent=2)
+                logger.info(f"Created the extracted metadata file: {product_met_file}")
         else:
-            shutil.rmtree(dataset_dir)
+            if use_io:
+                shutil.rmtree(dataset_dir)
             msg = (f"Product did not match any match pattern in the Settings.yaml: "
-                   f"{os.path.basename(product)}")
+                   f"{os.path.basename(product_filepath)}")
             logger.error(msg)
             raise ValueError(msg)
 
         # Create the dataset.json file, if it hasn't been created already
         dataset_met_file = os.path.join(dataset_dir, dataset_id + name_postscript + ".dataset.json")
 
-        if not os.path.exists(dataset_met_file):
+        dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
+        dataset_met.update({
+            "index": {
+                "suffix": ("{version}_{dataset}-{date}".format(
+                    version=dataset_met["version"],
+                    dataset=product_met["ProductType"],
+                    date=datetime.utcnow().strftime("%Y.%m")
+                )).lower()  # suffix index name with `-YYYY.MM
+            }
+        })
 
-            dataset_met = create_dataset_json(product_met, ds_met, alt_ds_met)
+        if use_io:
+            if not os.path.exists(dataset_met_file):
+                with open(dataset_met_file, "w") as outfile:
+                    json.dump(dataset_met, outfile, indent=2)
 
-            dataset_met.update({
-                "index": {
-                    "suffix": ("{version}_{dataset}-{date}".format(
-                        version=dataset_met["version"],
-                        dataset=product_met["ProductType"],
-                        date=datetime.utcnow().strftime("%Y.%m")
-                    )).lower()  # suffix index name with `-YYYY.MM
-                }
-            })
-
-            with open(dataset_met_file, "w") as outfile:
-                json.dump(dataset_met, outfile, indent=2)
-
-            logger.info("Created the dataset.json file: {}".format(dataset_met_file))
-        else:
-            logger.info(f"dataset.json file already exists for {dataset_id}")
+                logger.info("Created the dataset.json file: {}".format(dataset_met_file))
+            else:
+                logger.info(f"dataset.json file already exists for {dataset_id}")
 
         logger.info("Successfully created/updated a dataset: {}".format(dataset_dir))
     except subprocess.CalledProcessError as se:
         logger.error("{}".format(se))
-        shutil.rmtree(dataset_dir)
+        if use_io:
+            shutil.rmtree(dataset_dir)
         raise
     except Exception as e:
         logger.error("{}".format(e))
-        if os.path.exists(dataset_dir):
-            shutil.rmtree(dataset_dir)
+        if use_io:
+            if os.path.exists(dataset_dir):
+                shutil.rmtree(dataset_dir)
         raise
 
-    return dataset_dir
+    return dataset_dir, product_met, dataset_met
 
 
 def create_dataset_id(product, product_types):

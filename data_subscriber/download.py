@@ -1,28 +1,25 @@
-import itertools
-import json
 import logging
 import shutil
-from collections import defaultdict, namedtuple
 from datetime import datetime
 from pathlib import PurePath, Path
-from typing import Any, Iterable
+from typing import Iterable
 
+import backoff
 import boto3
 import dateutil.parser
 import requests
 import requests.utils
 import validators
 from cachetools.func import ttl_cache
-from smart_open import open
 
 import extractor.extract
-from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url
-from data_subscriber.cmr import PRODUCT_PROVIDER_MAP
+from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP
 from data_subscriber.query import DateTimeRange
-
+from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
+
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -48,9 +45,11 @@ class SessionWithHeaderRedirection(requests.Session):
                     original_parsed.hostname != self.auth_host:
                 del headers["Authorization"]
 
+
 def run_download(args, token, es_conn, netloc, username, password, job_id):
     download = DaacDownload.get_download_object(args)
     download.run_download(args, token, es_conn, netloc, username, password, job_id)
+
 
 class DaacDownload:
 
@@ -62,17 +61,22 @@ class DaacDownload:
 
     @staticmethod
     def get_download_object(args):
-        provider = PRODUCT_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
+        provider = COLLECTION_TO_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
         if provider == "LPCLOUD":
             from data_subscriber.lpdaac_download import DaacDownloadLpdaac
             return DaacDownloadLpdaac(provider)
-        elif provider == "ASF":
+        elif provider in ("ASF", "ASF-SLC"):
             from data_subscriber.asf_download import DaacDownloadAsf
             return DaacDownloadAsf(provider)
+        elif provider == "ASF-RTC":
+            from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
+            return AsfDaacRtcDownload(provider)
+        elif provider == "ASF-CSLC":
+            raise NotImplementedError()
 
         raise Exception("Unknown product provider: " + provider)
 
-    def run_download(self, args, token, es_conn, netloc, username, password, job_id):
+    def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
         # This is a special case where we are being asked to download exactly one granule
         # identified its unique id. In such case we shouldn't gather all pending downloads at all;
@@ -81,7 +85,6 @@ class DaacDownload:
             one_granule = args.batch_ids[0]
             logger.info(f"Downloading files for the granule {one_granule}")
             downloads = es_conn.get_download_granule_revision(one_granule)
-
         else:
             download_timerange = self.get_download_timerange(args)
             all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
@@ -94,7 +97,7 @@ class DaacDownload:
             downloads = all_pending_downloads
             if args.batch_ids:
                 logger.info(f"Filtering pending downloads by {args.batch_ids=}")
-                id_func = _to_batch_id if self.provider == "LPCLOUD" else _to_orbit_number
+                id_func = _to_batch_id if self.provider in ("LPCLOUD", "ASF-RTC", "ASF-CSLC") else _to_orbit_number
                 downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
                 logger.info(f"{len(downloads)=}")
                 logger.debug(f"{downloads=}")
@@ -118,10 +121,13 @@ class DaacDownload:
         if args.dry_run:
             logger.info(f"{args.dry_run=}. Skipping downloads.")
 
-        self.perform_download(session, es_conn, downloads, args, token, job_id)
+        product_to_product_filepaths_map = self.perform_download(session, es_conn, downloads, args, token, job_id)
 
-        logger.info(f"Removing directory tree. {self.downloads_dir}")
-        shutil.rmtree(self.downloads_dir)
+        if rm_downloads_dir:
+            logger.info(f"Removing directory tree. {self.downloads_dir}")
+            shutil.rmtree(self.downloads_dir)
+
+        return product_to_product_filepaths_map
 
     def perform_download(self, session, es_conn, downloads, args, token, job_id):
         pass
@@ -132,7 +138,6 @@ class DaacDownload:
         download_timerange = DateTimeRange(start_date, end_date)
         logger.info(f"{download_timerange=}")
         return download_timerange
-
 
     def extract_one_to_one(self, product: Path, settings_cfg: dict, working_dir: Path, extra_metadata=None, name_postscript='') -> PurePath:
         """Creates a dataset for the given product.
@@ -154,7 +159,6 @@ class DaacDownload:
         logger.info(f"{dataset_dir=}")
         return PurePath(dataset_dir)
 
-
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
 
         aws_creds = self.get_aws_creds(token)
@@ -166,6 +170,7 @@ class DaacDownload:
         product_download_path = self._s3_download(url, s3, str(target_dirpath))
         return product_download_path.resolve()
 
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
     def _handle_url_redirect(self, url, token):
         if not validators.url(url):
             raise Exception(f"Malformed URL: {url}")
@@ -175,12 +180,13 @@ class DaacDownload:
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         return requests.get(r.headers["Location"], headers=headers, allow_redirects=True)
 
-
     @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
     def get_aws_creds(self, token):
         return self._get_aws_creds(token)
 
+    def _get_aws_creds(self, token): raise
 
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
     def _s3_download(self, url, s3, tmp_dir, staging_area=""):
         file_name = PurePath(url).name
         target_key = str(Path(staging_area, file_name))

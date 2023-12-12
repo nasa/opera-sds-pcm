@@ -1,15 +1,21 @@
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+
 import backoff
-from data_subscriber.query import get_query_timerange, query_cmr
-from data_subscriber.cmr import query_cmr
+
+from data_subscriber.cmr import async_query_cmr
+from data_subscriber.query import get_query_timerange, DateTimeRange
 
 _date_format_str = "%Y-%m-%dT%H:%M:%SZ"
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
+
+
 @backoff.on_exception(backoff.expo, Exception, max_value=13, max_time=34)
-def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True):
-    return query_cmr(args, token, cmr, settings, query_timerange, now, silent)
-def run_survey(args, token, cmr, settings):
+async def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True):
+    return await async_query_cmr(args, token, cmr, settings, query_timerange, now, silent)
+
+
+async def run_survey(args, token, cmr, settings):
 
     start_dt = datetime.strptime(args.start_date, _date_format_str)
     end_dt = datetime.strptime(args.end_date, _date_format_str)
@@ -39,7 +45,7 @@ def run_survey(args, token, cmr, settings):
 
         query_timerange: DateTimeRange = get_query_timerange(args, now, silent=True)
 
-        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True)
+        granules = await _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True)
 
         count = 0
         for granule in granules:
@@ -87,7 +93,6 @@ def run_survey(args, token, cmr, settings):
 
     hist_title = f"Histogram of Revision vs Temporal Time for all granules"
     logging.info(hist_title)
-    import numpy as np
     import matplotlib.pyplot as plt
     _ = plt.hist(all_deltas, bins=50)
     #print(hist_e)

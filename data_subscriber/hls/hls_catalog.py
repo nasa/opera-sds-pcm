@@ -2,12 +2,16 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+import elasticsearch
+from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+
 from data_subscriber import es_conn_util
 from data_subscriber.url import form_batch_id
 
 null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
+
 
 class HLSProductCatalog:
     """
@@ -32,21 +36,37 @@ class HLSProductCatalog:
         return "hls_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
     def filter_query_result(self, query_result):
-        return [{"_id": catalog_entry["_id"], "granule_id": catalog_entry["_source"].get("granule_id"),
-                 "revision_id": catalog_entry["_source"].get("revision_id"),
-                 "s3_url": catalog_entry["_source"].get("s3_url"),
-                 "https_url": catalog_entry["_source"].get("https_url")}
-                for catalog_entry in (query_result or [])]
+        return [
+            {
+                "_id": catalog_entry["_id"],
+                "granule_id": catalog_entry["_source"].get("granule_id"),
+                "revision_id": catalog_entry["_source"].get("revision_id"),
+                "s3_url": catalog_entry["_source"].get("s3_url"),
+                "https_url": catalog_entry["_source"].get("https_url")
+            }
+            for catalog_entry in (query_result or [])
+        ]
 
     def granule_and_revision(self, es_id):
         '''For HLS.S30.T56MPU.2022152T000741.v2.0-r1 returns:
         HLS.S30.T56MPU.2022152T000741.v2.0 and 1 '''
         return es_id.split('-')[0], es_id.split('-r')[1]
+
     def get_download_granule_revision(self, id):
         granule, revision = self.granule_and_revision(id)
-        downloads = self.es.query(index=self.ES_INDEX_PATTERNS,
-                                  body={"query": {"bool": {"must": [{"match": {"granule_id": granule}},
-                                                                    {"term": {"revision_id": revision}}]}}})
+        downloads = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"granule_id": granule}},
+                            {"term": {"revision_id": revision}}
+                        ]
+                    }
+                }
+            }
+        )
         return self.filter_query_result(downloads)
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
@@ -151,7 +171,7 @@ class HLSProductCatalog:
         return results
 
     def _query_catalog(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
-        range_str = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
+        fieldname_for_range_filter = "temporal_extent_beginning_datetime" if use_temporal else "revision_date"
         try:
             result = self.es.query(
                 index=self.ES_INDEX_PATTERNS,
@@ -163,7 +183,7 @@ class HLSProductCatalog:
                             "must": [
                                 {
                                     "range": {
-                                        range_str: {
+                                        fieldname_for_range_filter: {
                                             "gte": start_dt.isoformat(),
                                             "lt": end_dt.isoformat()
                                         }
@@ -181,3 +201,13 @@ class HLSProductCatalog:
             result = None
 
         return result
+
+    def refresh(self):
+        """
+        Refresh the underlying indices, making recent operations visible to queries.
+        See official Elasticsearch documentation on index refreshing.
+        """
+        es: ElasticsearchUtility = self.es
+        es: elasticsearch.Elasticsearch = es.es
+        indices_client = es.indices
+        indices_client.refresh(index=self.ES_INDEX_PATTERNS)
