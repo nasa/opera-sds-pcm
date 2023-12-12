@@ -50,7 +50,7 @@ class RTCProductCatalog(HLSProductCatalog):
                 "query": {
                     "bool": {
                         "should": [
-                            {"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": batch_id}}
+                            {"match": {"mgrs_set_id_acquisition_ts_cycle_indexes.keyword": batch_id}}
                         ]
                     }
                 }

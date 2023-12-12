@@ -6,6 +6,8 @@ from typing import Iterable
 import dateutil.parser
 from more_itertools import first_true
 
+from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
+from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
 from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
@@ -60,7 +62,17 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     }
 
     if args.native_id:
-        params["native-id[]"] = [args.native_id]
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+            match_native_id = re.match(rtc_granule_regex, args.native_id)
+            burst_id = mbc_client.product_burst_id_to_mapping_burst_id(match_native_id.group("burst_id"))
+            native_ids = mbc_client.get_reduced_rtc_native_id_patterns(mgrs[mgrs["bursts"].str.contains(burst_id)])
+            if not native_ids:
+                raise Exception(f"The supplied {args.native_id=} is not associated with any MGRS tile collection")
+            params["options[native-id][pattern]"] = 'true'
+            params["native-id[]"] = native_ids
+        else:
+            params["native-id[]"] = [args.native_id]
 
         if any(wildcard in args.native_id for wildcard in ['*', '?']):
             params["options[native-id][pattern]"] = 'true'
@@ -85,6 +97,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     if not silent:
         logger.info(f"Querying CMR. {request_url=} {params=}")
     product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
+    logger.info(f"Found {len(product_granules)} granules")
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -98,12 +111,13 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
                 "Ignoring and not storing or processing this granule."
             )
     product_granules = least_revised_granules
+    logger.info(f"Filtered to {len(product_granules)} granules")
 
     if args.collection in settings["SHORTNAME_FILTERS"]:
         product_granules = [granule for granule in product_granules if _match_identifier(settings, args, granule)]
 
-        if not silent:
-            logger.info(f"Found {len(product_granules)} total granules")
+    if not silent:
+        logger.info(f"Filtered to {len(product_granules)} total granules")
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
