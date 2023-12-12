@@ -154,7 +154,8 @@ def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_
         )
         cslc_acquisition_dt_str = m.group("start_ts")
 
-        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1?_IW_*_{cslc_acquisition_dt_str}Z_v*_*'
+        #                         OPERA_L2_CSLC-S1_*_20231124T124529Z_*_S1*
+        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1_*_{cslc_acquisition_dt_str}Z_*_S1*'
         rtc_native_id_patterns.add(rtc_native_id_pattern)
 
         # bi-directional mapping of HLS-DSWx inputs and outputs
@@ -200,7 +201,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
     for cmr_product in cmr_products:
         product_type = "RTC" if "RTC" in cmr_product else "CSLC"
         if product_type == "CSLC":
-            acquisition_time = cmr_product[40:55]
+            acquisition_time = cmr_product[33:48]
         else:  # product_type == "RTC"
             acquisition_time = cmr_product[32:47]
         product_type_and_acquisition_time_to_products_map[(product_type, acquisition_time)].add(cmr_product)
@@ -209,7 +210,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
     for native_id_pattern in cmr_native_id_patterns:
         product_type = "RTC" if "RTC" in native_id_pattern else "CSLC"
         if product_type == "CSLC":
-            acquisition_time = native_id_pattern[23:38]
+            acquisition_time = native_id_pattern[19:34]
         else:  # product_type == "RTC"
             acquisition_time = native_id_pattern[18:33]
         product_type_acquisition_time_to_native_id_pattern_map[(product_type, acquisition_time)].add(native_id_pattern)

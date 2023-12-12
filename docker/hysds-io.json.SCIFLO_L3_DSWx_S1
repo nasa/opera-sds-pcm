@@ -33,15 +33,15 @@
     },
     {
       "name":"input_dataset_id",
+      "from": "value",
       "type":"text",
-      "from":"value",
-      "value": "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1"
+      "value":"placeholder_id"
     },
     {
      "name": "product_metadata",
      "from": "value",
      "type": "object",
-     "value" : "{ \"metadata\": { \"FileName\": \"OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1_VV.tif\", \"id\": \"OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1\" } }"
+     "value" : "s3://opera-dev-lts-fwd-collinss/sample_dswx_s1_product_metadata.json"
     },
     {
       "name": "accountability_module_path",
@@ -82,15 +82,13 @@
       "name": "container_home",
       "from": "value",
       "type": "text",
-      "value": "/home/conda",
-      "default": "/home/conda"
+      "value": "/home/dswx_user"
     },
     {
       "name": "container_working_dir",
       "from": "value",
       "type": "text",
-      "value": "/home/conda",
-      "default": "/home/conda"
+      "value": "/home/dswx_user"
     }
   ]
 }
