@@ -16,10 +16,10 @@ export LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH
 source $HOME/verdi/bin/activate
 
 echo "##########################################"
-echo "Running job to query ASFDAAC RTC data"
+echo "Running job to download ASFDAAC RTC data"
 date
 
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=OPERA_L2_RTC-S1_V1 $* > run_rtc_query.log 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download --provider=ASF-RTC $* > run_rtc_download.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
