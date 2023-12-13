@@ -37,7 +37,7 @@ class AsfDaacRtcDownload(DaacDownload):
         logger.info(f"downloading {len(downloads)} documents")
 
         if args.dry_run:
-            logger.debug(f"{args.dry_run=}. Skipping download.")
+            logger.info(f"{args.dry_run=}. Skipping download.")
             downloads = []
 
         downloads[:], downloads_without_urls = partition(lambda it: not _has_url(it), downloads)
@@ -46,6 +46,9 @@ class AsfDaacRtcDownload(DaacDownload):
             logger.error(f"Some documents do not have a download URL")
 
         product_to_product_filepaths_map = defaultdict(set)
+        if args.smoke_run:
+            logger.info(f"{args.smoke_run=}. Capping downloads.")
+            downloads = downloads[:1]
         num_downloads = len(downloads)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
             futures = [

@@ -51,7 +51,7 @@ class DaacDownloadAsf(DaacDownload):
 
             # download product
             if args.dry_run:
-                logger.debug(f"{args.dry_run=}. Skipping download.")
+                logger.info(f"{args.dry_run=}. Skipping download.")
                 continue
 
             if product_url.startswith("s3"):

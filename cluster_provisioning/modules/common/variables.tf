@@ -444,6 +444,16 @@ variable "queues" {
       "total_jobs_metric" = false
       "use_private_vpc"   = false
     }
+    "opera-job_worker-rtc_data_download" = {
+      "name"              = "opera-job_worker-rtc_data_download"
+      "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
     "opera-job_worker-timer" = {
       "name"              = "opera-job_worker-timer"
       "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]

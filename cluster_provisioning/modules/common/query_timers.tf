@@ -262,7 +262,7 @@ resource "aws_lambda_function" "rtc_query_timer" {
       "MINUTES" : var.rtc_query_timer_trigger_frequency,
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
-      "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-sciflo-l3_dswx_s1.name,
+      "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_data_download.name,
       "CHUNK_SIZE" : "1",
       "MAX_REVISION" : "1000",
       "SMOKE_RUN" : "false",
