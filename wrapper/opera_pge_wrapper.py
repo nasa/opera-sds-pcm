@@ -56,7 +56,10 @@ def main(job_json_file: str, workdir: str):
     job_context = jc.ctx
 
     # set additional files to triage
-    jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
+    jc.set(
+        '_triage_additional_globs',
+        ["output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir", "pge_output_dir"]
+    )
 
     # Disable no-clobber errors for published files. Either the file naming conventions
     # will guarantee uniqueness, or we want certain files to be overwritten to avoid
