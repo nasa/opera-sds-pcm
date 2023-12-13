@@ -300,8 +300,13 @@ def main(opts):
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')
 
-    check_aws_connection(bucket=opts.s3_bucket,
-                         key='/'.join([opts.s3_key, 'EPSG4326/EPSG4326.vrt']))
+    # Determine where to look for the sample vrt file to read as a connection test
+    if opts.s3_key:
+        test_key = '/'.join([opts.s3_key, 'EPSG4326/EPSG4326.vrt'])
+    else:
+        test_key = 'EPSG4326/EPSG4326.vrt'
+
+    check_aws_connection(bucket=opts.s3_bucket, key=test_key)
 
     # Determine EPSG code
     logger.info("Determining EPSG code(s) for region polygon(s)")
