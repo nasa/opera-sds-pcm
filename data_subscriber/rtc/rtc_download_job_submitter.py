@@ -43,7 +43,7 @@ def submit_rtc_download_job_submissions_tasks(batch_ids, args):
                 func=partial(
                     submit_dswx_s1_job,
                     product=product,
-                    job_queue=args.job_queue or f'opera-job_worker-{"rtc_data_download"}',
+                    job_queue=args.job_queue,
                     rule_name=f"trigger-rtc_download",
                     params=create_rtc_download_job_params(args, product=product, batch_ids=[batch_id]),
                     job_spec=f'job-{"rtc_download"}:{args.release_version}',
@@ -87,10 +87,16 @@ def create_rtc_download_job_params(args=None, product=None, batch_ids=None):
             "from": "value"
         },
         {
-           "name": "product_metadata",
-           "from": "value",
-           "type": "object",
-           "value": json.dumps(product["_source"])
+            "name": "product_metadata",
+            "from": "value",
+            "type": "object",
+            "value": json.dumps(product["_source"])
+        },
+        {
+            "name": "dswx_s1_job_release",
+            "from": "value",
+            "type": "text",
+            "value": f"--release-version={args.release_version}"
         }
     ]
 

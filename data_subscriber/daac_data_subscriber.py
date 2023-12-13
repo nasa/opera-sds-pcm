@@ -165,8 +165,8 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         # create args for job-submissions
         args_for_job_submitter = namedtuple(
             "Namespace",
-            ["chunk_size", "job_queue", "release_version"],
-            defaults=[1, args.job_queue, args.release_version]
+            ["chunk_size", "release_version"],
+            defaults=[1, args.release_version]
         )()
         if args.dry_run:
             logger.info(f"{args.dry_run=}. Skipping job submission. Producing mock job ID")
@@ -436,7 +436,7 @@ def create_parser():
 
     download_parser = subparsers.add_parser("download")
     download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider, batch_ids,
-                                start_date, end_date, use_temporal, temporal_start_date, transfer_protocol]
+                                start_date, end_date, use_temporal, temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser

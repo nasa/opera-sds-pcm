@@ -37,6 +37,11 @@
       "optional": true
     },
     {
+      "name": "dswx_s1_job_release",
+      "from": "submitter",
+      "placeholder": "e.g. --release-version=<release_version>"
+    },
+    {
      "name": "product_metadata",
      "from": "dataset_jpath:_source",
      "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
