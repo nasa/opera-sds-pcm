@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterable
 
 import dateutil.parser
@@ -80,10 +80,18 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     # derive and apply param "temporal"
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        if hasattr(args, "native_id"):
+            match_native_id = re.match(rtc_granule_regex, args.native_id)
+            acquisition_dt = dateutil.parser.parse(match_native_id.group("acquisition_ts"))
+            timerange_start_date = (acquisition_dt - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            timerange_end_date = (acquisition_dt + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
+
     if not silent:
         logger.info("Temporal Range: " + temporal_range)
 
-    if args.use_temporal:
+    if args.use_temporal or hasattr(args, "native_id"):
         params["temporal"] = temporal_range
     else:
         params["revision_date"] = temporal_range
