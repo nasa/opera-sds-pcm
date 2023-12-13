@@ -40,6 +40,6 @@
      "name": "product_metadata",
      "from": "dataset_jpath:_source",
      "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
-    },
+    }
   ]
 }
