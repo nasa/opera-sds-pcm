@@ -36,7 +36,6 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
-  - set_sample_product_metadata  # TODO: remove after testing
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
