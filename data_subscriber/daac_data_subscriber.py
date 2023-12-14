@@ -101,9 +101,11 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
     )
 
+    processable_mgrs_sets = {**incomplete_mgrs_sets, **fully_covered_mgrs_sets}
+
     # convert to "batch_id" mapping
     batch_id_to_products_map = defaultdict(set)
-    for mgrs_set_id, product_burst_sets in fully_covered_mgrs_sets.items():
+    for mgrs_set_id, product_burst_sets in processable_mgrs_sets.items():
         for product_burstset in product_burst_sets:
             rtc_granule_id_to_product_docs_map = first(product_burstset)
             first_product_doc_list = first(rtc_granule_id_to_product_docs_map.values())
