@@ -37,7 +37,7 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
     if mgrs_set_id_acquisition_ts_cycle_indexes:
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
-            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes.keyword": mgrs_set_id_acquisition_ts_cycle_idx}})
 
     # client-side filtering
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)

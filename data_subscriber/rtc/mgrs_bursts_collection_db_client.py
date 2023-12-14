@@ -7,9 +7,9 @@ from pathlib import Path
 
 import boto3
 import geopandas as gpd
-import pyproj
 from geopandas import GeoDataFrame
 from mypy_boto3_s3 import S3Client
+from pyproj import Transformer
 
 from util.conf_util import SettingsConf
 
@@ -81,18 +81,19 @@ def get_bounding_box_for_mgrs_set_id(mgrs_burst_collections_gdf: GeoDataFrame, m
     if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
         raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
 
-    xmin, ymin = pyproj.transform(
-        p1=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG,  # e.g. int(32645)
-        p2=gdf.crs,  # EPSG:4326
-        x=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmin,
-        y=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymin
+    proj_32645 = 'EPSG:{}'.format(gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG)  # int(32645)
+    proj_4326 = gdf.crs  # "EPSG:4326"
+    transformer = Transformer.from_crs(proj_32645, proj_4326)
+
+    xmin, ymin = transformer.transform(
+        xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmin,
+        yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymin
     )
-    xmax, ymax = pyproj.transform(
-        p1=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG,  # e.g. int(32645)
-        p2=gdf.crs,  # e.g. "EPSG:4326"
-        x=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmax,
-        y=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
+    xmax, ymax = transformer.transform(
+        xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmax,
+        yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
     )
+
     return [xmin, ymin, xmax, ymax]
 
 
