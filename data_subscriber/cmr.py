@@ -81,7 +81,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-        if hasattr(args, "native_id"):
+        if args.native_id:
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             acquisition_dt = dateutil.parser.parse(match_native_id.group("acquisition_ts"))
             timerange_start_date = (acquisition_dt - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -91,7 +91,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     if not silent:
         logger.info("Temporal Range: " + temporal_range)
 
-    if args.use_temporal or hasattr(args, "native_id"):
+    if args.use_temporal or args.native_id:
         params["temporal"] = temporal_range
     else:
         params["revision_date"] = temporal_range

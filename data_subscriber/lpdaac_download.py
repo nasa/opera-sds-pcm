@@ -60,7 +60,7 @@ class DaacDownloadLpdaac(DaacDownload):
             for download in downloads.es_ids_urls:
                 product_url = download[1]
                 if args.dry_run:
-                    logger.debug(f"{args.dry_run=}. Skipping download.")
+                    logger.info(f"{args.dry_run=}. Skipping download.")
                     break
                 product_filepath = self.download_product(product_url, session, token, args, granule_download_dir)
                 products.append(product_filepath)

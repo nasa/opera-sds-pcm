@@ -60,8 +60,9 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
         fully_covered_set_to_product_file_docs_map = {}
+        target_covered_set_to_product_file_docs_map = {}
         not_covered_set_to_product_file_docs_map = {}
-        return fully_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
+        return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
 
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)
