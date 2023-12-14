@@ -13,7 +13,7 @@ import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked, first
 
-from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr
+from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr, CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
@@ -172,6 +172,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
     if args.subparser_name == "full":
         logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            args.provider = CMR_COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+            args.batch_ids = affected_mgrs_set_id_acquisition_ts_cycle_indexes
         return
     if args.no_schedule_download:
         logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")

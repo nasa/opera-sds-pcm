@@ -34,6 +34,7 @@ from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
+from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
 
 
 @exec_wrapper
@@ -89,9 +90,10 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
     provider = args.provider  # "ASF-RTC"
     settings = SettingsConf().cfg
 
-    job_context = JobContext("_context.json").ctx
-    product_metadata = job_context["product_metadata"]
-    logger.info(f"{product_metadata=}")
+    if not is_running_outside_verdi_worker_context():
+        job_context = JobContext("_context.json").ctx
+        product_metadata = job_context["product_metadata"]
+        logger.info(f"{product_metadata=}")
 
     logger.info("evaluating available burst sets")
     affected_mgrs_set_id_acquisition_ts_cycle_indexes = args.batch_ids
@@ -225,21 +227,6 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         "success": succeeded,
         "fail": failed
     }
-
-
-def supply_job_id():
-    is_running_outside_verdi_worker_context = not Path("_job.json").exists()
-    if is_running_outside_verdi_worker_context:
-        logger.info("Running outside of job context. Generating random job ID")
-        job_id = uuid.uuid4()
-    else:
-        with open("_job.json", "r+") as job:
-            logger.info("job_path: {}".format(job))
-            local_job_json = json.load(job)
-            logger.info(f"{local_job_json=!s}")
-        job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
-
-    return job_id
 
 
 def supply_es_conn(args):
