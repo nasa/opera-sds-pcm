@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import uuid
 from functools import partial
 from pathlib import PurePath
 from typing import Optional
@@ -32,9 +31,6 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
         mgrs_set_id = batch_id.split("$")[0]
         bounding_box = mbc_client.get_bounding_box_for_mgrs_set_id(mgrs, mgrs_set_id)
 
-        chunk_id = str(uuid.uuid4())
-        logger.info(f"{chunk_id=}")
-        # TODO chrisjrd: implement realistic product
         product = {
             "_id": batch_id,
             "_source": {
@@ -46,7 +42,6 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
                     "FileName": batch_id,
                     "id": batch_id,
                     "bounding_box": bounding_box,
-                    "$comment": "$._source.metadata.Files[] is currently a placeholder",  # TODO chrisjrd: remove placeholder and comment
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,

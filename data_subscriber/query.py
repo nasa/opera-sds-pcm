@@ -7,6 +7,7 @@ import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
+from itertools import chain
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -28,7 +29,8 @@ from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, form_batch_id_cslc, _slc_url_to_chunk_id
 from data_subscriber.cslc_utils import localize_disp_frame_burst_json, expand_clsc_frames, build_cslc_native_ids
-from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region
+from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
+from rtc_utils import rtc_product_file_revision_regex, rtc_granule_regex
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 
@@ -95,8 +97,8 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
 
-            match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
-            acquisition_dts = match_product_id.group("acquisition_dts")
+            match_product_id = re.match(rtc_granule_regex, granule_id)
+            acquisition_dts = match_product_id.group("acquisition_ts")
             burst_id = match_product_id.group("burst_id")
 
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
@@ -214,21 +216,24 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
             product_to_product_filepaths_map: dict[str, set[Path]] = downloader.run_download(args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
 
-            # TODO chrisjrd: use or remove metadata extraction
-            logger.info("Extracting metadata from RTC products")
-            product_to_products_metadata_map = defaultdict(list[dict])
-            for product, filepaths in product_to_product_filepaths_map.items():
-                for filepath in filepaths:
-                    dataset_id, product_met, dataset_met = extractor.extract.extract_in_mem(
-                        product_filepath=filepath,
-                        product_types=settings["PRODUCT_TYPES"],
-                        workspace_dirpath=Path.cwd()
-                    )
-                    product_to_products_metadata_map[product].append(product_met)
-
             logger.info(f"Uploading MGRS burst set files to S3")
-            files_to_upload = [fp for fp_set in product_to_product_filepaths_map.values() for fp in fp_set]
-            s3paths: list[str] = concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"], key_prefix=f"tmp/dswx_s1/{batch_id}", files=files_to_upload)
+            burst_id_to_files_to_upload = defaultdict(set)
+            for product_id, fp_set in product_to_product_filepaths_map.items():
+                for fp in fp_set:
+                    match_product_id = re.match(rtc_product_file_revision_regex, product_id)
+                    burst_id = match_product_id.group("burst_id")
+                    burst_id_to_files_to_upload[burst_id].add(fp)
+
+            s3paths: list[str] = []
+            for burst_id, filepaths in burst_id_to_files_to_upload.items():
+                s3paths.extend(
+                    concurrent_s3_client_try_upload_file(
+                        bucket=settings["DATASET_BUCKET"],
+                        key_prefix=f"tmp/dswx_s1/{batch_id}/{burst_id}",
+                        files=filepaths
+                    )
+                )
+
             uploaded_batch_id_to_products_map[batch_id] = product_burstset
             uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
@@ -275,6 +280,12 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
                 succeeded.extend(suceeded_batch)
                 failed.extend(failed_batch)
+
+                # manual cleanup since we needed to preserve downloads for manual s3 uploads
+                for fp in chain.from_iterable(burst_id_to_files_to_upload.values()):
+                    fp.unlink(missing_ok=True)
+                logger.info("Removed downloads from disk")
+
     else:
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
@@ -649,7 +660,7 @@ def filter_granules_rtc(granules, args):
         granule_id = granule.get("granule_id")
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-            match_product_id = re.match(r"OPERA_L2_RTC-S1_(?P<burst_id>[^_]+)_(?P<acquisition_dts>[^_]+)_*", granule_id)
+            match_product_id = re.match(rtc_granule_regex, granule_id)
             burst_id = match_product_id.group("burst_id")
 
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)

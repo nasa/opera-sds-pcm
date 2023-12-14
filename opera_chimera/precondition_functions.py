@@ -22,7 +22,6 @@ from chimera.precondition_functions import PreConditionFunctions
 from commons.constants import product_metadata
 from commons.logger import logger
 from commons.logger import LogLevels
-from hysds.utils import get_disk_usage
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
@@ -30,8 +29,10 @@ from util import datasets_json_util
 from util.common_util import get_working_dir
 from util.geo_util import bounding_box_from_slc_granule
 from util.pge_util import (download_object_from_s3,
+                           get_disk_usage,
                            get_input_hls_dataset_tile_code,
                            write_pge_metrics)
+from tools.stage_ancillary_map import main as stage_ancillary_map
 from tools.stage_dem import main as stage_dem
 from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
 from tools.stage_worldcover import main as stage_worldcover
@@ -165,6 +166,45 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             True if "gpus" in pge_docker_params.get("runtime_options", {}) else False
         )
         return {oc_const.GPU_ENABLED: gpu_enabled}
+
+    def set_sample_product_metadata(self):
+        """
+        Overwrites the "product_metadata" field of the context dictionary with
+        the contents of a JSON file read from S3. This function is only intended
+        for use with testing of PGE SCIFLO workflows, and should not be included
+        as a precondition function for any PGE's in production.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        rc_params = {}
+
+        # get s3_bucket param
+        s3_bucket = self._pge_config.get(oc_const.SET_SAMPLE_PRODUCT_METADATA, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.SET_SAMPLE_PRODUCT_METADATA, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Sample product metadata")
+
+        # read the sample product metadata and assign it to the local context
+        with open(output_filepath, "r") as infile:
+            product_metadata = json.load(infile)
+
+        if not all(key in product_metadata for key in ["dataset", "metadata"]):
+            raise RuntimeError(
+                "Product metadata file does not contain expected keys (dataset/metadata)."
+            )
+
+        logger.info(f"Read product metadata for dataset {product_metadata['dataset']}")
+
+        # assign the read product metadata into the local context, so it can be
+        # used by downstream precondition functions
+        self._context["product_metadata"] = product_metadata
+
+        return rc_params
 
     def get_cslc_product_specification_version(self):
         """
@@ -711,7 +751,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.bbox = bbox
         args.tile_code = tile_code
 
-        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx DEM',
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx-HLS DEM',
                                                output_filepath=output_filepath,
                                                staging_func=stage_dem,
                                                staging_func_args=args)
@@ -960,55 +1000,177 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_sample_inputs(self):
+    def get_algorithm_parameters(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DSWx-S1
-        PGE.
-
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Gets the S3 path to the designated algorithm parameters runconfig for use
+        with a DSWx-S1/DISP-S1 job
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # get the working directory
-        working_dir = get_working_dir()
-
-        s3_bucket = "opera-dev-lts-fwd-collinss"
-        s3_key = "dswx_s1_sample_input_data.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DSWx-S1 Inputs"
-        )
-
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        rtc_data_dir = os.path.join(working_dir, 'dswx_s1_sample_input_data', 'rtc_data')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_s1_sample_input_data', 'ancillary_data')
-
-        rtc_dirs = os.listdir(rtc_data_dir)
-
-        rtc_file_list = [os.path.join(rtc_data_dir, rtc_dir) for rtc_dir in rtc_dirs]
+        s3_bucket = self._pge_config.get(oc_const.GET_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
         rc_params = {
-            'input_file_paths': rtc_file_list,
-            'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
-            'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
-            'worldcover_file': os.path.join(ancillary_data_dir, 'worldcover.tif'),
-            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
-            'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_s1.yaml')
+            oc_const.ALGORITHM_PARAMETERS: f"s3://{s3_bucket}/{s3_key}"
         }
 
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
+    def get_dswx_s1_input_filepaths(self):
+        """
+        Gets the set of input S3 file paths that comprise the set of RTC products
+        to be processed by a DSWx-S1 job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths = metadata["product_paths"][dataset_type]
+
+        # Condense the full set of file paths to just a set of the directories
+        # to be localized
+        product_set = set(map(lambda path: os.path.dirname(path), product_paths))
+
+        rc_params = {
+            oc_const.INPUT_FILE_PATHS: list(product_set)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_s1_static_ancillary_files(self):
+        """
+        Gets the S3 paths to the configured static ancillary input files for
+        DSWx-S1 processing
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        static_ancillary_products = self._pge_config.get(oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES, {})
+
+        for static_ancillary_product in static_ancillary_products.keys():
+            s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
+            s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+
+            rc_params[static_ancillary_product] = f"s3://{s3_bucket}/{s3_key}"
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_s1_dynamic_ancillary_maps(self):
+        """
+        Utilizes the stage_ancillary_map.py script to stage the sub-regions for
+        each of the ancillary maps used by DSWx-S1 (excluding the DEM).
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        dynamic_ancillary_maps = self._pge_config.get(oc_const.GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS, {})
+
+        for dynamic_ancillary_map_name in dynamic_ancillary_maps.keys():
+            s3_bucket = dynamic_ancillary_maps.get(dynamic_ancillary_map_name, {}).get(oc_const.S3_BUCKET)
+            s3_key = dynamic_ancillary_maps.get(dynamic_ancillary_map_name, {}).get(oc_const.S3_KEY)
+
+            ancillary_type = dynamic_ancillary_map_name.replace("_", " ").capitalize()
+            output_filepath = os.path.join(working_dir, f'{dynamic_ancillary_map_name}.vrt')
+
+            # Set up arguments to stage_ancillary_map.py
+            # Note that since we provide an argparse.Namespace directly,
+            # all arguments must be specified, even if it's only with a null value
+            args = argparse.Namespace()
+            args.outfile = output_filepath
+            args.s3_bucket = s3_bucket
+            args.s3_key = s3_key
+            args.bbox = bbox
+            args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+            args.log_level = LogLevels.INFO.value
+
+            logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
+
+            pge_metrics = self.get_opera_ancillary(
+                ancillary_type=ancillary_type,
+                output_filepath=output_filepath,
+                staging_func=stage_ancillary_map,
+                staging_func_args=args
+            )
+
+            write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+            rc_params[dynamic_ancillary_map_name] = output_filepath
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_s1_dem(self):
+        """
+        This function downloads a DEM sub-region over the bounding box provided
+        in the input product metadata for a DSWx-S1 processing job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        # Get the bounding box for the sub-region to select
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        # Get the s3 location parameters
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
+
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.outfile = output_filepath
+        args.filepath = None
+        args.bbox = bbox
+        args.tile_code = None
+        args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx-S1 DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.DEM_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
 
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """

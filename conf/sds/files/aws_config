@@ -1,2 +1,5 @@
 [default]
 region = {{ AWS_REGION }}
+max_attempts = 3
+retry_mode = adaptive
+multipart_chunksize = 100MB
