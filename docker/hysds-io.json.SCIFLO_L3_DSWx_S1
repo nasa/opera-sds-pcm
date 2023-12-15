@@ -35,7 +35,8 @@
       "name":"input_dataset_id",
       "from": "value",
       "type":"text",
-      "value":"placeholder_id"
+      "value":"placeholder_id",
+      "default":"placeholder_id"
     },
     {
      "name": "product_metadata",
@@ -82,13 +83,15 @@
       "name": "container_home",
       "from": "value",
       "type": "text",
-      "value": "/home/dswx_user"
+      "value": "/home/dswx_user",
+      "default": "/home/dswx_user"
     },
     {
       "name": "container_working_dir",
       "from": "value",
       "type": "text",
-      "value": "/home/dswx_user"
+      "value": "/home/dswx_user",
+      "default": "/home/dswx_user"
     }
   ]
 }

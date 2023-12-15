@@ -37,7 +37,7 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
     if mgrs_set_id_acquisition_ts_cycle_indexes:
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
-            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes.keyword": mgrs_set_id_acquisition_ts_cycle_idx}})
 
     # client-side filtering
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
@@ -60,8 +60,9 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
         fully_covered_set_to_product_file_docs_map = {}
+        target_covered_set_to_product_file_docs_map = {}
         not_covered_set_to_product_file_docs_map = {}
-        return fully_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
+        return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
 
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)

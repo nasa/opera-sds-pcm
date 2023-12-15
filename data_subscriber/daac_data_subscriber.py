@@ -5,26 +5,37 @@ import asyncio
 import json
 import logging
 import netrc
+import re
 import sys
 import uuid
+from collections import defaultdict, namedtuple
 from datetime import datetime
+from itertools import chain
 from pathlib import Path
 from urllib.parse import urlparse
 
+from more_itertools import first
 from smart_open import open
 
+import data_subscriber
 from commons.logger import NoJobUtilsFilter, NoBaseFilter
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.query import update_url_index, run_query
+from data_subscriber.rtc import evaluator
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber.survey import run_survey
+from rtc_utils import rtc_product_file_revision_regex
+from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
+from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
+from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
 
 
 @exec_wrapper
@@ -64,7 +75,11 @@ async def run(argv: list[str]):
         results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
     if args.subparser_name == "download" or args.subparser_name == "full":
         netloc = urlparse(f"https://{edl}").netloc
-        results["download"] = run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
+
+        if args.provider == "ASF-RTC":
+            results["download"] = await run_rtc_download(args, token, es_conn, netloc, username, password, job_id)
+        else:
+            results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
 
     logger.info(f"{results=}")
     logger.info("END")
@@ -72,19 +87,147 @@ async def run(argv: list[str]):
     return results
 
 
-def supply_job_id():
-    is_running_outside_verdi_worker_context = not Path("_job.json").exists()
-    if is_running_outside_verdi_worker_context:
-        logger.info("Running outside of job context. Generating random job ID")
-        job_id = uuid.uuid4()
-    else:
-        with open("_job.json", "r+") as job:
-            logger.info("job_path: {}".format(job))
-            local_job_json = json.load(job)
-            logger.info(f"{local_job_json=!s}")
-        job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
+async def run_rtc_download(args, token, es_conn, netloc, username, password, job_id):
+    provider = args.provider  # "ASF-RTC"
+    settings = SettingsConf().cfg
 
-    return job_id
+    if not is_running_outside_verdi_worker_context():
+        job_context = JobContext("_context.json").ctx
+        product_metadata = job_context["product_metadata"]
+        logger.info(f"{product_metadata=}")
+
+    logger.info("evaluating available burst sets")
+    affected_mgrs_set_id_acquisition_ts_cycle_indexes = args.batch_ids
+    logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
+    fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
+        mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
+        coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
+    )
+
+    processable_mgrs_sets = {**incomplete_mgrs_sets, **fully_covered_mgrs_sets}
+
+    # convert to "batch_id" mapping
+    batch_id_to_products_map = defaultdict(set)
+    for mgrs_set_id, product_burst_sets in processable_mgrs_sets.items():
+        for product_burstset in product_burst_sets:
+            rtc_granule_id_to_product_docs_map = first(product_burstset)
+            first_product_doc_list = first(rtc_granule_id_to_product_docs_map.values())
+            first_product_doc = first(first_product_doc_list)
+            acquisition_cycle = first_product_doc["acquisition_cycle"]
+            batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
+            batch_id_to_products_map[batch_id] = product_burstset
+
+    succeeded = []
+    failed = []
+
+    # create args for downloading products
+    Namespace = namedtuple(
+        "Namespace",
+        ["provider", "transfer_protocol", "batch_ids", "dry_run", "smoke_run"],
+        defaults=[provider, args.transfer_protocol, None, args.dry_run, args.smoke_run]
+    )
+
+    uploaded_batch_id_to_products_map = {}
+    uploaded_batch_id_to_s3paths_map = {}
+    for batch_id, product_burstset in batch_id_to_products_map.items():
+        args_for_downloader = Namespace(provider=provider, batch_ids=[batch_id])
+        downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
+
+        run_download_kwargs = {
+            "token": token,
+            "es_conn": es_conn,
+            "netloc": netloc,
+            "username": username,
+            "password": password,
+            "job_id": job_id
+        }
+
+        product_to_product_filepaths_map: dict[str, set[Path]] = await downloader.run_download(
+            args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
+
+        logger.info(f"Uploading MGRS burst set files to S3")
+        burst_id_to_files_to_upload = defaultdict(set)
+        for product_id, fp_set in product_to_product_filepaths_map.items():
+            for fp in fp_set:
+                match_product_id = re.match(rtc_product_file_revision_regex, product_id)
+                burst_id = match_product_id.group("burst_id")
+                burst_id_to_files_to_upload[burst_id].add(fp)
+
+        s3paths: list[str] = []
+        for burst_id, filepaths in burst_id_to_files_to_upload.items():
+            s3paths.extend(
+                concurrent_s3_client_try_upload_file(
+                    bucket=settings["DATASET_BUCKET"],
+                    key_prefix=f"tmp/dswx_s1/{batch_id}/{burst_id}",
+                    files=filepaths
+                )
+            )
+
+        uploaded_batch_id_to_products_map[batch_id] = product_burstset
+        uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
+
+        logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
+        # create args for job-submissions
+        args_for_job_submitter = namedtuple(
+            "Namespace",
+            ["chunk_size", "release_version"],
+            defaults=[1, args.release_version]
+        )()
+        if args.dry_run:
+            logger.info(f"{args.dry_run=}. Skipping job submission. Producing mock job ID")
+            results = [uuid.uuid4()]
+        else:
+            job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
+            results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+
+        suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
+        failed_batch = [e for e in results if isinstance(e, Exception)]
+        if suceeded_batch:
+            for products_map in uploaded_batch_id_to_products_map[batch_id]:
+                for products in products_map.values():
+                    for product in products:
+                        if not product.get("mgrs_set_id_jobs_dict"):
+                            product["mgrs_set_id_jobs_dict"] = {}
+                        if not product.get("mgrs_set_id_jobs_submitted_for"):
+                            product["mgrs_set_id_jobs_submitted_for"] = []
+
+                        if not product.get("ati_jobs_dict"):
+                            product["ati_jobs_dict"] = {}
+                        if not product.get("ati_jobs_submitted_for"):
+                            product["ati_jobs_submitted_for"] = []
+
+                        if not product.get("dswx_s1_jobs_ids"):
+                            product["dswx_s1_jobs_ids"] = []
+
+                        # use doc obj to pass params to elasticsearch client
+                        product["mgrs_set_id_jobs_dict"][batch_id.split("$")[0]] = first(suceeded_batch)
+                        product["mgrs_set_id_jobs_submitted_for"].append(batch_id.split("$")[0])
+
+                        product["ati_jobs_dict"][batch_id] = first(suceeded_batch)
+                        product["ati_jobs_submitted_for"].append(batch_id)
+
+                        product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
+
+            if args.dry_run:
+                logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
+                pass
+            else:
+                from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+                es_conn: RTCProductCatalog
+                es_conn.mark_products_as_job_submitted({batch_id: uploaded_batch_id_to_products_map[batch_id]})
+
+            succeeded.extend(suceeded_batch)
+            failed.extend(failed_batch)
+
+            # manual cleanup since we needed to preserve downloads for manual s3 uploads
+            for fp in chain.from_iterable(burst_id_to_files_to_upload.values()):
+                fp.unlink(missing_ok=True)
+            logger.info("Removed downloads from disk")
+
+    return {
+        "success": succeeded,
+        "fail": failed
+    }
 
 
 def supply_es_conn(args):
@@ -287,7 +430,7 @@ def create_parser():
 
     download_parser = subparsers.add_parser("download")
     download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider, batch_ids,
-                                start_date, end_date, use_temporal, temporal_start_date, transfer_protocol]
+                                start_date, end_date, use_temporal, temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
 
     return parser

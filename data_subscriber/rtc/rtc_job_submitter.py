@@ -1,6 +1,6 @@
 import asyncio
-import json
 import logging
+import os
 from functools import partial
 from pathlib import PurePath
 from typing import Optional
@@ -46,7 +46,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
                         {
                             "FileName": PurePath(s3path).name,
                             "FileSize": 1,
-                            "FileLocation": "...",
+                            "FileLocation": os.path.dirname(s3path),
                             "id": PurePath(s3path).name,
                             "product_paths": "$.product_paths"
                         }
@@ -62,7 +62,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
                 func=partial(
                     submit_dswx_s1_job,
                     product=product,
-                    job_queue=args.job_queue or f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
+                    job_queue=f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
                     rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
                     params=create_job_params(product),
                     job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version}',
@@ -85,13 +85,13 @@ def create_job_params(product):
           "name":"input_dataset_id",
           "type":"text",
           "from":"value",
-          "value": "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1"
+          "value": product["_source"]["metadata"]["mgrs_set_id"]
         },
         {
            "name": "product_metadata",
            "from": "value",
            "type": "object",
-           "value": json.dumps(product["_source"])
+           "value": product["_source"]
         }
     ]
 

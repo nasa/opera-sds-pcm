@@ -46,9 +46,9 @@ class SessionWithHeaderRedirection(requests.Session):
                 del headers["Authorization"]
 
 
-def run_download(args, token, es_conn, netloc, username, password, job_id):
+async def run_download(args, token, es_conn, netloc, username, password, job_id):
     download = DaacDownload.get_download_object(args)
-    download.run_download(args, token, es_conn, netloc, username, password, job_id)
+    await download.run_download(args, token, es_conn, netloc, username, password, job_id)
 
 
 class DaacDownload:
@@ -77,7 +77,7 @@ class DaacDownload:
 
         raise Exception("Unknown product provider: " + provider)
 
-    def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
+    async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
         # This is a special case where we are being asked to download exactly one granule
         # identified its unique id. In such case we shouldn't gather all pending downloads at all;
