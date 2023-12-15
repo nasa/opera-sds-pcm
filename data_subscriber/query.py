@@ -204,7 +204,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args)
     else:
-        job_submission_tasks = download_job_submission_handler(args, granules, query_timerange)
+        job_submission_tasks = download_job_submission_handler(args, granules, query_timerange, download_batch_id)
 
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
     logger.info(f"{len(results)=}")

@@ -8,6 +8,7 @@ null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
 ES_INDEX_PATTERNS = "cslc_catalog*"
+ES_INDEX_PATTERN_HIST = "cslc_catalog_hist*"
 
 class CSLCProductCatalog(SLCProductCatalog):
     """
@@ -44,3 +45,8 @@ class CSLCProductCatalog(SLCProductCatalog):
             }
         )
         return self.filter_query_result(downloads)
+
+class CSLCHistProductCatalog(CSLCProductCatalog):
+    def __init__(self, /, logger=None):
+        super().__init__(logger=logger)
+        self.ES_INDEX_PATTERNS = ES_INDEX_PATTERN_HIST

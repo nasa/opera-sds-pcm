@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 class AsfDaacCslcDownload(AsfDaacRtcDownload):
-    def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
+    async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
         # TODO: this is a hack to get the batch_id. It should be passed in as an argument or dynamically generated
         batch_id = "abc"
         settings = SettingsConf().cfg
 
         # First, download the files from ASF
-        product_to_product_filepaths_map: dict[str, set[Path]] = super().run_download(args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=False)
+        product_to_product_filepaths_map: dict[str, set[Path]] = await super().run_download(args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=False)
 
         # TODO: This code is copied from data_subscriber/query.py. It should be refactored into a common function
         logger.info("Extracting metadata from CSLC products")
