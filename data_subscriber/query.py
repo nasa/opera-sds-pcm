@@ -31,6 +31,85 @@ logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
+def catalog_granules(granule, args, job_id, es_conn, download_batch_id, query_dt):
+    granule_id = granule.get("granule_id")
+    revision_id = granule.get("revision_id")
+
+    additional_fields = {}
+    if download_batch_id is not None:
+        additional_fields["download_batch_id"] = download_batch_id
+    additional_fields["revision_id"] = revision_id
+    additional_fields["processing_mode"] = args.proc_mode
+
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
+
+        match_product_id = re.match(rtc_granule_regex, granule_id)
+        acquisition_dts = match_product_id.group("acquisition_ts")
+        burst_id = match_product_id.group("burst_id")
+
+        mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+        mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(
+            burst_id))
+        additional_fields["mgrs_set_ids"] = mgrs_burst_set_ids
+
+        # RTC: Calculating the Collection Cycle Index (Part 1):
+        #  required constants
+        MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
+        MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
+        MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
+        ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
+
+        # RTC: Calculating the Collection Cycle Index (Part 2):
+        #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
+        #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
+        burst_identification_number = int(burst_id.split(sep="-")[1])
+        instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
+        seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
+        acquisition_index = (
+                                    seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
+                                        burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
+                            ) / ACQUISITION_CYCLE_DURATION_SECS
+        acquisition_cycle = round(acquisition_index)
+        additional_fields["acquisition_cycle"] = acquisition_cycle
+
+        update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index,
+                                                                          additional_fields, mgrs_burst_set_ids)
+        update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index,
+                                     affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids)
+
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+        if does_bbox_intersect_north_america(granule["bounding_box"]):
+            additional_fields["intersects_north_america"] = True
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
+        pass
+    else:
+        pass
+
+    update_url_index(
+        es_conn,
+        granule.get("filtered_urls"),
+        granule_id,
+        job_id,
+        query_dt,
+        temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+        revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+        **additional_fields
+    )
+
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
+        spatial_catalog_conn = get_hls_spatial_catalog_connection(logger)
+        update_granule_index(spatial_catalog_conn, granule)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+        spatial_catalog_conn = get_slc_spatial_catalog_connection(logger)
+        update_granule_index(spatial_catalog_conn, granule)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        pass
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
+        pass
+    else:
+        pass
+
 async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
     query_dt = datetime.now()
     now = datetime.utcnow()
@@ -78,80 +157,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         granules[:] = filter_granules_rtc(granules, args)
 
     for granule in granules:
-        granule_id = granule.get("granule_id")
-        revision_id = granule.get("revision_id")
-
-        additional_fields = {}
-        if download_batch_id is not None:
-            additional_fields["download_batch_id"] = download_batch_id
-        additional_fields["revision_id"] = revision_id
-        additional_fields["processing_mode"] = args.proc_mode
-
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-            additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
-
-            match_product_id = re.match(rtc_granule_regex, granule_id)
-            acquisition_dts = match_product_id.group("acquisition_ts")
-            burst_id = match_product_id.group("burst_id")
-
-            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
-            mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
-            additional_fields["mgrs_set_ids"] = mgrs_burst_set_ids
-
-
-            # RTC: Calculating the Collection Cycle Index (Part 1):
-            #  required constants
-            MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
-            MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
-            MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
-            ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
-
-            # RTC: Calculating the Collection Cycle Index (Part 2):
-            #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
-            #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
-            burst_identification_number = int(burst_id.split(sep="-")[1])
-            instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
-            seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
-            acquisition_index = (
-                 seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
-            ) / ACQUISITION_CYCLE_DURATION_SECS
-            acquisition_cycle = round(acquisition_index)
-            additional_fields["acquisition_cycle"] = acquisition_cycle
-
-            update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index, additional_fields, mgrs_burst_set_ids)
-            update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids)
-
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
-            if does_bbox_intersect_north_america(granule["bounding_box"]):
-                additional_fields["intersects_north_america"] = True
-        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-            pass
-        else:
-            pass
-
-        update_url_index(
-            es_conn,
-            granule.get("filtered_urls"),
-            granule_id,
-            job_id,
-            query_dt,
-            temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
-            revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
-            **additional_fields
-        )
-
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
-            spatial_catalog_conn = get_hls_spatial_catalog_connection(logger)
-            update_granule_index(spatial_catalog_conn, granule)
-        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
-            spatial_catalog_conn = get_slc_spatial_catalog_connection(logger)
-            update_granule_index(spatial_catalog_conn, granule)
-        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-            pass
-        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-            pass
-        else:
-            pass
+        catalog_granules(granule, args, job_id, es_conn, download_batch_id, query_dt)
 
     logger.info("catalogue-ing FINISHED")
 
