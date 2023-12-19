@@ -98,7 +98,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
     logger.info("evaluating available burst sets")
     affected_mgrs_set_id_acquisition_ts_cycle_indexes = args.batch_ids
     logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
-    fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
+    fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
         mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
         coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
     )
