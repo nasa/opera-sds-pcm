@@ -76,9 +76,7 @@ class RTCProductCatalog(HLSProductCatalog):
                             "_id": doc["id"],
                             "doc_as_upsert": True,
                             "doc": {
-                                "mgrs_set_id_jobs_dict": doc["mgrs_set_id_jobs_dict"],
                                 "mgrs_set_id_jobs_submitted_for": doc["mgrs_set_id_jobs_submitted_for"],
-                                "ati_jobs_dict": doc["ati_jobs_dict"],
                                 "ati_jobs_submitted_for": doc["ati_jobs_submitted_for"],
                                 "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"]
                             }

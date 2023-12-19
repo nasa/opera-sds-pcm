@@ -185,13 +185,8 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
             for products_map in uploaded_batch_id_to_products_map[batch_id]:
                 for products in products_map.values():
                     for product in products:
-                        if not product.get("mgrs_set_id_jobs_dict"):
-                            product["mgrs_set_id_jobs_dict"] = {}
                         if not product.get("mgrs_set_id_jobs_submitted_for"):
                             product["mgrs_set_id_jobs_submitted_for"] = []
-
-                        if not product.get("ati_jobs_dict"):
-                            product["ati_jobs_dict"] = {}
                         if not product.get("ati_jobs_submitted_for"):
                             product["ati_jobs_submitted_for"] = []
 
@@ -199,10 +194,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
                             product["dswx_s1_jobs_ids"] = []
 
                         # use doc obj to pass params to elasticsearch client
-                        product["mgrs_set_id_jobs_dict"][batch_id.split("$")[0]] = first(suceeded_batch)
                         product["mgrs_set_id_jobs_submitted_for"].append(batch_id.split("$")[0])
-
-                        product["ati_jobs_dict"][batch_id] = first(suceeded_batch)
                         product["ati_jobs_submitted_for"].append(batch_id)
 
                         product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
