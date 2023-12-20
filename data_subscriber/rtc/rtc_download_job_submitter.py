@@ -41,7 +41,7 @@ def submit_rtc_download_job_submissions_tasks(batch_ids, args):
             asyncio.get_event_loop().run_in_executor(
                 executor=None,
                 func=partial(
-                    submit_dswx_s1_job,
+                    submit_download_job,
                     product=product,
                     job_queue=args.job_queue,
                     rule_name=f"trigger-rtc_download",
@@ -101,7 +101,7 @@ def create_rtc_download_job_params(args=None, product=None, batch_ids=None):
     ]
 
 
-def submit_dswx_s1_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
+def submit_download_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
     return try_submit_mozart_job(
         product=product,
         job_queue=job_queue,
