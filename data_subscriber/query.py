@@ -49,7 +49,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
     # If processing mode is historical, apply include/exclude-region filtering
     if args.proc_mode == "historical":
-        logging.info(f"Processing mode is historical so applying include and exclude regions...")
+        logger.info(f"Processing mode is historical so applying include and exclude regions...")
 
         # Fetch all necessary geojson files from S3
         localize_include_exclude(args)
@@ -470,7 +470,7 @@ def filter_granules_by_regions(granules, include_regions, exclude_regions):
         if include_regions is not None:
             (result, region) = does_granule_intersect_regions(granule, include_regions)
             if result is False:
-                logging.info(
+                logger.info(
                     f"The following granule does not intersect with any include regions. Skipping processing %s"
                     % granule.get("granule_id"))
                 continue
@@ -479,7 +479,7 @@ def filter_granules_by_regions(granules, include_regions, exclude_regions):
         if exclude_regions is not None:
             (result, region) = does_granule_intersect_regions(granule, exclude_regions)
             if result is True:
-                logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
+                logger.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
                              % (region, granule.get("granule_id")))
                 continue
 
@@ -502,7 +502,7 @@ def filter_granules_rtc(granules, args):
             mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs,
                                                             mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
             if not mgrs_sets:
-                logging.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
+                logger.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
                 continue
 
         filtered_granules.append(granule)

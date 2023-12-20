@@ -26,15 +26,20 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
     body = get_body(match_all=False)
 
     if mgrs_set_ids:
+        logger.info(f"Supplied {mgrs_set_ids=}. Adding criteria to query")
         for mgrs_set_id in mgrs_set_ids:
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
-    if mgrs_set_id_acquisition_ts_cycle_indexes:
+    elif mgrs_set_id_acquisition_ts_cycle_indexes:
+        logger.info(f"Supplied {mgrs_set_id_acquisition_ts_cycle_indexes=}. Adding criteria to query")
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
+    else:
+        logger.info(f"match_all query will be used against the catalog")
+        pass
 
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
-    logging.info(f"Found {len(es_docs)=}")
+    logger.info(f"Found {len(es_docs)=}")
 
     # client-side filtering
     if mgrs_set_ids or mgrs_set_id_acquisition_ts_cycle_indexes:
@@ -51,7 +56,7 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
                     # all expected job submissions occurred. skip to next iteration
                     continue
         es_docs = filtered_es_docs
-        logging.info(f"Filtered {len(es_docs)=}")
+        logger.info(f"Filtered {len(es_docs)=}")
 
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
@@ -77,7 +82,7 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
     # b_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1B_30_v0.4"))]
 
     mbc_filtered_gdf = mgrs_burst_collections_gdf[mgrs_burst_collections_gdf["relative_orbit_number"].isin(cmr_orbits)]
-    logging.info(f"{len(mbc_filtered_gdf)=}")
+    logger.info(f"{len(mbc_filtered_gdf)=}")
 
     # group by orbit and acquisition time (and burst ID)
     orbit_to_products_map = defaultdict(partial(defaultdict, partial(defaultdict, list)))  # optimized data structure to avoid dataframe queries

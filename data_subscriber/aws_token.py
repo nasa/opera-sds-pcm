@@ -4,6 +4,8 @@ from datetime import datetime
 import requests
 from requests.auth import HTTPBasicAuth
 
+logger = logging.getLogger(__name__)
+
 
 def supply_token(edl: str, username: str, password: str) -> str:
     """
@@ -65,6 +67,6 @@ def _delete_token(edl: str, username: str, password: str, token: str) -> None:
                              params={"token": token})
         resp.raise_for_status()
     except Exception as e:
-        logging.warning(f"Error deleting the token: {e}")
+        logger.warning(f"Error deleting the token: {e}")
 
-    logging.info("CMR token successfully deleted")
+    logger.info("CMR token successfully deleted")
