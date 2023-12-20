@@ -171,22 +171,20 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
         failed_batch = [e for e in results if isinstance(e, Exception)]
         if suceeded_batch:
-            for products_map in uploaded_batch_id_to_products_map[batch_id]:
-                for products in products_map.values():
-                    for product in products:
-                        if not product.get("mgrs_set_id_jobs_submitted_for"):
-                            product["mgrs_set_id_jobs_submitted_for"] = []
-                        if not product.get("ati_jobs_submitted_for"):
-                            product["ati_jobs_submitted_for"] = []
+            for product in uploaded_batch_id_to_products_map[batch_id]:
+                if not product.get("mgrs_set_id_jobs_submitted_for"):
+                    product["mgrs_set_id_jobs_submitted_for"] = []
+                if not product.get("ati_jobs_submitted_for"):
+                    product["ati_jobs_submitted_for"] = []
 
-                        if not product.get("dswx_s1_jobs_ids"):
-                            product["dswx_s1_jobs_ids"] = []
+                if not product.get("dswx_s1_jobs_ids"):
+                    product["dswx_s1_jobs_ids"] = []
 
-                        # use doc obj to pass params to elasticsearch client
-                        product["mgrs_set_id_jobs_submitted_for"].append(batch_id.split("$")[0])
-                        product["ati_jobs_submitted_for"].append(batch_id)
+                # use doc obj to pass params to elasticsearch client
+                product["mgrs_set_id_jobs_submitted_for"].append(batch_id.split("$")[0])
+                product["ati_jobs_submitted_for"].append(batch_id)
 
-                        product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
+                product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
 
             if args.dry_run:
                 logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")

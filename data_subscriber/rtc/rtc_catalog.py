@@ -75,27 +75,26 @@ class RTCProductCatalog(HLSProductCatalog):
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
         for batch_id, products in batch_id_to_products_map.items():
-            for product in products:
-                for product_id, docs in product.items():
-                    doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
-                    for doc in docs:
-                        index = last(
-                            doc_id_to_index_cache[doc["id"]],
-                            self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
-                        )
-                        operation = {
-                            "_op_type": "update",
-                            "_index": index,
-                            "_type": "_doc",
-                            "_id": doc["id"],
-                            "doc_as_upsert": True,
-                            "doc": {
-                                "mgrs_set_id_jobs_submitted_for": doc["mgrs_set_id_jobs_submitted_for"],
-                                "ati_jobs_submitted_for": doc["ati_jobs_submitted_for"],
-                                "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"]
-                            }
-                        }
-                        operations.append(operation)
+            docs = product_docs = products
+            doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
+            for doc in docs:
+                index = last(
+                    doc_id_to_index_cache[doc["_id"]],
+                    self._get_index_name_for(_id=doc["_id"], default=self.generate_es_index_name())
+                )
+                operation = {
+                    "_op_type": "update",
+                    "_index": index,
+                    "_type": "_doc",
+                    "_id": doc["_id"],
+                    "doc_as_upsert": True,
+                    "doc": {
+                        "mgrs_set_id_jobs_submitted_for": doc["mgrs_set_id_jobs_submitted_for"],
+                        "ati_jobs_submitted_for": doc["ati_jobs_submitted_for"],
+                        "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"]
+                    }
+                }
+                operations.append(operation)
         logging.info(f"Marking {set(batch_id_to_products_map.keys())} products as job-submitted, in bulk")
         elasticsearch.helpers.bulk(self.es.es, operations)
         logging.info(f"Marked {set(batch_id_to_products_map.keys())} products as job-submitted, in bulk")
@@ -112,7 +111,7 @@ class RTCProductCatalog(HLSProductCatalog):
         # see Elasticsearch documentation  regarding "indices.query.bool.max_clause_count". Minimum is 1024
         for doc_chunk in chunked(docs, 1024):
             for doc in doc_chunk:
-                body["query"]["bool"]["should"].append({"match": {"id.keyword": doc["id"]}})
+                body["query"]["bool"]["should"].append({"match": {"id.keyword": doc["_source"]["id"]}})
             es_docs.extend(self.es.query(body=body, index=self.ES_INDEX_PATTERNS))
             body["query"]["bool"]["should"] = []
         id_to_index_cache = defaultdict(set)
