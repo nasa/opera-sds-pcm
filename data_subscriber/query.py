@@ -11,7 +11,7 @@ from typing import Literal
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
-from more_itertools import chunked, first
+from more_itertools import chunked, first, last
 
 from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr, CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
@@ -61,6 +61,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
         granules[:] = filter_granules_rtc(granules, args)
 
+        mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+        if args.native_id:
+            match_native_id = re.match(rtc_granule_regex, args.native_id)
+            burst_id = mbc_client.product_burst_id_to_mapping_burst_id(match_native_id.group("burst_id"))
+
+            native_id_mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
+
     for granule in granules:
         granule_id = granule.get("granule_id")
         revision_id = granule.get("revision_id")
@@ -76,7 +83,6 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             acquisition_dts = match_product_id.group("acquisition_ts")
             burst_id = match_product_id.group("burst_id")
 
-            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
             mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
             additional_fields["mgrs_set_ids"] = mgrs_burst_set_ids
 
@@ -100,8 +106,12 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             acquisition_cycle = round(acquisition_index)
             additional_fields["acquisition_cycle"] = acquisition_cycle
 
-            update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index, additional_fields, mgrs_burst_set_ids)
-            update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids)
+            update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, additional_fields, mgrs_burst_set_ids)
+            if args.native_id:  # native-id supplied. don't affect adjacent burst sets, tossing out irrelevant burst sets
+                matching_native_id_mgrs_burst_set_ids = list(set(native_id_mgrs_burst_set_ids) & set(mgrs_burst_set_ids))
+                update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, matching_native_id_mgrs_burst_set_ids)
+            else:
+                update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids)
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
             if does_bbox_intersect_north_america(granule["bounding_box"]):
@@ -146,10 +156,15 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
         logger.info("evaluating available burst sets")
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
-        fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
-            mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
-            coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
-        )
+        if args.native_id:  # limit query to the 1 or 2 affected sets in backlog
+            fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
+                mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
+                coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
+            )
+        else:  # evaluate ALL sets in backlog
+            fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
+                coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
+            )
 
         processable_mgrs_sets = {**incomplete_mgrs_sets, **fully_covered_mgrs_sets}
 
@@ -204,78 +219,29 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     }
 
 
-def update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids):
-    acquisition_index_floor = math.floor(acquisition_index)
-    acquisition_index_ceil = math.ceil(acquisition_index)
+def update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids):
     # construct filters for evaluation
+    # ati = Acquisition Time Index
     if len(mgrs_burst_set_ids) == 1:
-        # ati = Acquisition Time Index
-        if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
-            current_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-            future_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle + 1)
-
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati)
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(future_ati)
-
-        if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
-            past_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle - 1)
-            current_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(past_ati)
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati)
+        current_ati = "{}${}".format(first(sorted(mgrs_burst_set_ids)), acquisition_cycle)
+        affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati)
     elif len(mgrs_burst_set_ids) == 2:
-        if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
-            current_ati_a = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-            current_ati_b = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle)
-            future_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle + 1)
-
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_a)
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_b)
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(future_ati)
-        if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
-            past_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle - 1)
-            current_ati_a = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-            current_ati_b = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle)
-
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(past_ati)
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_a)
-            affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_b)
-    else:
-        raise AssertionError("Unexpected burst overlap")
+        current_ati_a = "{}${}".format(first(sorted(mgrs_burst_set_ids)), acquisition_cycle)
+        current_ati_b = "{}${}".format(last(sorted(mgrs_burst_set_ids)), acquisition_cycle)
+        affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_a)
+        affected_mgrs_set_id_acquisition_ts_cycle_indexes.add(current_ati_b)
 
 
-def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index, additional_fields, mgrs_burst_set_ids):
-    acquisition_index_floor = math.floor(acquisition_index)
-    acquisition_index_ceil = math.ceil(acquisition_index)
+def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, additional_fields, mgrs_burst_set_ids):
     # construct filters for evaluation
+    # ati = Acquisition Time Index
     if len(mgrs_burst_set_ids) == 1:
-        # ati = Acquisition Time Index
-        if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
-            current_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-            future_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle + 1)
-
-            additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
-
-        if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
-            past_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle - 1)
-            current_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-
-            additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
+        current_ati = "{}${}".format(first(sorted(mgrs_burst_set_ids)), acquisition_cycle)
+        additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
     elif len(mgrs_burst_set_ids) == 2:
-        if acquisition_cycle == acquisition_index_floor:  # rounded down, closer to start of cycle
-            current_ati_a = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-            current_ati_b = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle)
-            future_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle + 1)
-
-            additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
-        if acquisition_cycle == acquisition_index_ceil:  # rounded up, closer to end of cycle
-            past_ati = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle - 1)
-            current_ati_a = "{}${}".format(sorted(mgrs_burst_set_ids)[0], acquisition_cycle)
-            current_ati_b = "{}${}".format(sorted(mgrs_burst_set_ids)[1], acquisition_cycle)
-
-            additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
-    else:
-        raise AssertionError("Unexpected burst overlap")
+        current_ati_a = "{}${}".format(first(sorted(mgrs_burst_set_ids)), acquisition_cycle)
+        current_ati_b = "{}${}".format(last(sorted(mgrs_burst_set_ids)), acquisition_cycle)
+        additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
 
 
 def download_job_submission_handler(args, granules, query_timerange):

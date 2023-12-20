@@ -44,6 +44,16 @@ resource "aws_cloudwatch_log_group" "run_ionosphere_download" {
   retention_in_days = var.lambda_log_retention_in_days
 }
 
+resource "aws_cloudwatch_log_group" "run_rtc_query" {
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_rtc_query.log"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_log_group" "run_rtc_download" {
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_rtc_download.log"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
 resource "aws_cloudwatch_log_group" "run_batch_query" {
   name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_batch_query.log"
   retention_in_days = var.lambda_log_retention_in_days

@@ -20,15 +20,7 @@ from util.grq_client import get_body
 logger = logging.getLogger(__name__)
 
 
-async def run(argv):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mgrs-set-ids", nargs="*")
-    parser.add_argument("--mgrs-set_id-acquisition-ts-cycle-indexes", nargs="*")
-    args = parser.parse_args(argv[1:])
-    await main(**vars(args))
-
-
-async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
+def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
     body = get_body(match_all=False)
@@ -41,23 +33,25 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
 
-    # client-side filtering
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
     logging.info(f"Found {len(es_docs)=}")
-    filtered_es_docs = []
-    for doc in es_docs:
-        if not doc["_source"].get("mgrs_set_id_jobs_submitted_for"):
-            # missing all job submissions
-            filtered_es_docs.append(doc)
-        else:
-            if not set(doc["_source"]["mgrs_set_ids"]) == set(doc["_source"]["mgrs_set_id_jobs_submitted_for"]):
-                # missing at least 1 job submission
+
+    # client-side filtering
+    if mgrs_set_ids or mgrs_set_id_acquisition_ts_cycle_indexes:
+        filtered_es_docs = []
+        for doc in es_docs:
+            if not doc["_source"].get("mgrs_set_id_jobs_submitted_for"):
+                # missing all job submissions
                 filtered_es_docs.append(doc)
             else:
-                # all expected job submissions occurred. skip to next iteration
-                continue
-    es_docs = filtered_es_docs
-    logging.info(f"Filtered {len(es_docs)=}")
+                if not set(doc["_source"]["mgrs_set_ids"]) == set(doc["_source"]["mgrs_set_id_jobs_submitted_for"]):
+                    # missing at least 1 job submission
+                    filtered_es_docs.append(doc)
+                else:
+                    # all expected job submissions occurred. skip to next iteration
+                    continue
+        es_docs = filtered_es_docs
+        logging.info(f"Filtered {len(es_docs)=}")
 
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
@@ -152,4 +146,8 @@ def product_burst_id_to_mapping_burst_id(product_burst_id):
 
 
 if __name__ == '__main__':
-    asyncio.run(run(sys.argv))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mgrs-set-ids", nargs="*")
+    parser.add_argument("--mgrs-set_id-acquisition-ts-cycle-indexes", nargs="*")
+    args = parser.parse_args(sys.argv[1:])
+    main(**vars(args))
