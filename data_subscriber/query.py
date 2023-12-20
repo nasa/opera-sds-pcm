@@ -157,11 +157,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         logger.info("evaluating available burst sets")
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
         if args.native_id:  # limit query to the 1 or 2 affected sets in backlog
+            logger.info("Supplied native-id. Limiting evaluation")
             fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
                 mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
                 coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
             )
         else:  # evaluate ALL sets in backlog
+            logger.info("Performing full evaluation")
             fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
                 coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
             )
