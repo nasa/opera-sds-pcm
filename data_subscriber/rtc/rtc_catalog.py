@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 
 import elasticsearch.helpers
-from more_itertools import last, chunked
+from more_itertools import last, chunked, first
 
 from util.grq_client import get_body
 from ..hls.hls_catalog import HLSProductCatalog
@@ -43,20 +43,34 @@ class RTCProductCatalog(HLSProductCatalog):
         OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0 and 1"""
         return es_id[:es_id.rfind("-")], es_id[es_id.rfind("-r")+2:]
 
-    def get_download_granule_revision(self, batch_id: str):
+    def get_download_granule_revision(self, mgrs_set_id_acquisition_ts_cycle_index: str):
         downloads = self.es.query(
             index=self.ES_INDEX_PATTERNS,
             body={
                 "query": {
                     "bool": {
-                        "should": [
-                            {"match": {"mgrs_set_id_acquisition_ts_cycle_indexes.keyword": batch_id}}
+                        "must": [
+                            {"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_index}},
+                            {"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_index.split("$"))}}
                         ]
                     }
                 }
             }
         )
+        # apply client-side filtering
+        downloads[:] = [download for download in downloads if mgrs_set_id_acquisition_ts_cycle_index in download["_source"]["mgrs_set_id_acquisition_ts_cycle_indexes"]]
+
         return self.filter_query_result(downloads)
+
+    def filter_catalog_by_sets(self, mgrs_set_id_acquisition_ts_cycle_indexes):
+        body = get_body(match_all=False)
+        for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
+
+        es_docs = self.es.query(body=body, index=self.ES_INDEX_PATTERNS)
+        logging.info(f"Found {len(es_docs)=}")
+        return es_docs
 
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
         operations = []

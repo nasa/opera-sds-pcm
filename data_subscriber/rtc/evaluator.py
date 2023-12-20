@@ -9,6 +9,7 @@ from typing import Optional
 
 import dateutil.parser
 import pandas as pd
+from more_itertools import first
 
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
@@ -37,7 +38,8 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
     if mgrs_set_id_acquisition_ts_cycle_indexes:
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
-            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes.keyword": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
 
     # client-side filtering
     es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
