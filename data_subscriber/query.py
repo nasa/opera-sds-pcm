@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
-def catalog_granules(granule, args, job_id, es_conn, download_batch_id, query_dt):
+def catalog_granules(granule, args, job_id, es_conn, download_batch_id, query_dt, affected_mgrs_set_id_acquisition_ts_cycle_indexes):
     granule_id = granule.get("granule_id")
     revision_id = granule.get("revision_id")
 
@@ -152,12 +152,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
 
     logger.info("catalogue-ing STARTED")
 
+    affected_mgrs_set_id_acquisition_ts_cycle_indexes = None
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
         granules[:] = filter_granules_rtc(granules, args)
 
     for granule in granules:
-        catalog_granules(granule, args, job_id, es_conn, download_batch_id, query_dt)
+        catalog_granules(granule, args, job_id, es_conn, download_batch_id, query_dt, affected_mgrs_set_id_acquisition_ts_cycle_indexes)
 
     logger.info("catalogue-ing FINISHED")
 
