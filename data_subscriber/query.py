@@ -169,7 +169,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                 coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
             )
 
-        processable_mgrs_sets = {**incomplete_mgrs_sets, **fully_covered_mgrs_sets}
+        processable_mgrs_sets = {**target_covered_mgrs_sets, **fully_covered_mgrs_sets}
 
         # convert to "batch_id" mapping
         batch_id_to_products_map = defaultdict(set)
