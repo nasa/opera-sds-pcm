@@ -70,7 +70,55 @@ class RTCProductCatalog(HLSProductCatalog):
 
         es_docs = self.es.query(body=body, index=self.ES_INDEX_PATTERNS)
         logging.info(f"Found {len(es_docs)=}")
-        return es_docs
+        return self.filter_query_result(es_docs)
+
+    def mark_products_as_download_job_submitted(self, batch_id_to_products_map: dict):
+        operations = []
+        for batch_id, products in batch_id_to_products_map.items():
+            for product in products:
+                for product_id, docs in product.items():
+                    doc_id_to_index_cache = self.raw_create_doc_id_to_index_cache(docs)
+                    for doc in docs:
+                        index = last(
+                            doc_id_to_index_cache[doc["id"]],
+                            self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
+                        )
+                        operation = {
+                            "_op_type": "update",
+                            "_index": index,
+                            "_type": "_doc",
+                            "_id": doc["id"],
+                            "doc_as_upsert": True,
+                            "doc": {
+                                "mgrs_set_id_download_jobs_submitted_for": doc["mgrs_set_id_download_jobs_submitted_for"],
+                                "ati_download_jobs_submitted_for": doc["ati_download_jobs_submitted_for"],
+                                "download_jobs_ids": doc["download_jobs_ids"]
+                            }
+                        }
+                        operations.append(operation)
+        logging.info(f"Marking {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
+        elasticsearch.helpers.bulk(self.es.es, operations)
+        logging.info(f"Marked {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
+
+        self.logger.info("performing index refresh")
+        self.refresh()
+        self.logger.info("performed index refresh")
+
+    def raw_create_doc_id_to_index_cache(self, docs):
+        body = get_body(match_all=False)
+        body["_source"] = {"includes": [], "excludes": []}
+        es_docs = []
+        # Batch requests for larger number of docs
+        # see Elasticsearch documentation  regarding "indices.query.bool.max_clause_count". Minimum is 1024
+        for doc_chunk in chunked(docs, 1024):
+            for doc in doc_chunk:
+                body["query"]["bool"]["should"].append({"match": {"id.keyword": doc["id"]}})
+            es_docs.extend(self.es.query(body=body, index=self.ES_INDEX_PATTERNS))
+            body["query"]["bool"]["should"] = []
+        id_to_index_cache = defaultdict(set)
+        for es_doc in es_docs:
+            id_to_index_cache[es_doc["_id"]].add(es_doc["_index"])
+        return id_to_index_cache
 
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
@@ -79,14 +127,14 @@ class RTCProductCatalog(HLSProductCatalog):
             doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
             for doc in docs:
                 index = last(
-                    doc_id_to_index_cache[doc["_id"]],
-                    self._get_index_name_for(_id=doc["_id"], default=self.generate_es_index_name())
+                    doc_id_to_index_cache[doc["id"]],
+                    self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
                 )
                 operation = {
                     "_op_type": "update",
                     "_index": index,
                     "_type": "_doc",
-                    "_id": doc["_id"],
+                    "_id": doc["id"],
                     "doc_as_upsert": True,
                     "doc": {
                         "mgrs_set_id_jobs_submitted_for": doc["mgrs_set_id_jobs_submitted_for"],
@@ -111,7 +159,7 @@ class RTCProductCatalog(HLSProductCatalog):
         # see Elasticsearch documentation  regarding "indices.query.bool.max_clause_count". Minimum is 1024
         for doc_chunk in chunked(docs, 1024):
             for doc in doc_chunk:
-                body["query"]["bool"]["should"].append({"match": {"id.keyword": doc["_source"]["id"]}})
+                body["query"]["bool"]["should"].append({"match": {"id.keyword": doc["id"]}})
             es_docs.extend(self.es.query(body=body, index=self.ES_INDEX_PATTERNS))
             body["query"]["bool"]["should"] = []
         id_to_index_cache = defaultdict(set)

@@ -17,6 +17,7 @@ from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr,
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls_spatial.hls_spatial_catalog_connection import get_hls_spatial_catalog_connection
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
+from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.slc_spatial.slc_spatial_catalog_connection import get_slc_spatial_catalog_connection
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
@@ -201,16 +202,50 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         return
 
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-        job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args)
+        results = []
+        for batch_id, products_map in batch_id_to_products_map.items():
+            job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, args)
+            results_batch = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+            results.extend(results_batch)
+
+            suceeded_batch = [job_id for _, job_id in results_batch if isinstance(job_id, str)]
+            failed_batch = [e for _, e in results_batch if isinstance(e, Exception)]
+            if suceeded_batch:
+                for products_map in batch_id_to_products_map[batch_id]:
+                    for products in products_map.values():
+                        for product in products:
+                            if not product.get("mgrs_set_id_download_jobs_submitted_for"):
+                                product["mgrs_set_id_download_jobs_submitted_for"] = []
+                            if not product.get("ati_download_jobs_submitted_for"):
+                                product["ati_download_jobs_submitted_for"] = []
+
+                            if not product.get("download_jobs_ids"):
+                                product["download_jobs_ids"] = []
+
+                            # use doc obj to pass params to elasticsearch client
+                            product["mgrs_set_id_download_jobs_submitted_for"].append(batch_id.split("$")[0])
+                            product["ati_download_jobs_submitted_for"].append(batch_id)
+
+                            product["download_jobs_ids"].append(first(suceeded_batch))
+
+                if args.dry_run:
+                    logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
+                    pass
+                else:
+                    es_conn: RTCProductCatalog
+                    es_conn.mark_products_as_download_job_submitted({batch_id: batch_id_to_products_map[batch_id]})
+
+            succeeded.extend(suceeded_batch)
+            failed.extend(failed_batch)
     else:
         job_submission_tasks = download_job_submission_handler(args, granules, query_timerange)
+        results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
 
-    results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+        succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+        failed = [e for e in results if isinstance(e, Exception)]
+
     logger.info(f"{len(results)=}")
     logger.info(f"{results=}")
-
-    succeeded = [job_id for job_id in results if isinstance(job_id, str)]
-    failed = [e for e in results if isinstance(e, Exception)]
 
     logger.info(f"{succeeded=}")
     logger.info(f"{failed=}")
