@@ -63,10 +63,10 @@ This guide provides a quick way to get started with the script.
 
 ### Requirements
 
-* Python 3.6 or higher
-* Pandas and Tabulate libraries
-* Access to CMR API
-* Availability of an MGRS Tile Collection Database file and sqlite3 library
+* Python 3.6 or higher with special library dependencies (see `pip` command below)
+* Access to CMR API (i.e. network access to the internet)
+* Availability of an MGRS Tile Collection Database file
+  - NOTE: the script will not work without this database file. It is passed in via the argument `--db`. Consult [@riverma](https://github.com/riverma) for access to this file.
 
 ### Setup Instructions
 
