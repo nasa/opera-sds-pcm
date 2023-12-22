@@ -7,11 +7,10 @@ from pathlib import PurePath, Path
 import backoff
 import requests
 import requests.utils
-from more_itertools import partition
 from requests.exceptions import HTTPError
 
 from data_subscriber.download import DaacDownload
-from data_subscriber.url import _has_url, _to_url, _to_https_url, _rtc_url_to_chunk_id
+from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +39,6 @@ class AsfDaacRtcDownload(DaacDownload):
             logger.info(f"{args.dry_run=}. Skipping download.")
             downloads = []
 
-        downloads[:], downloads_without_urls = partition(lambda it: not _has_url(it), downloads)
-
-        if list(downloads_without_urls):
-            logger.error(f"Some documents do not have a download URL")
-
         product_to_product_filepaths_map = defaultdict(set)
         if args.smoke_run:
             logger.info(f"{args.smoke_run=}. Capping downloads.")
@@ -55,9 +49,10 @@ class AsfDaacRtcDownload(DaacDownload):
                 executor.submit(self.perform_download_single, download, token, args, download_counter, num_downloads)
                 for download_counter, download in enumerate(downloads, start=1)
             ]
-            product_id_product_filepath = [future.result() for future in concurrent.futures.as_completed(futures)]
-            for product_id, product_filepath in product_id_product_filepath:
-                product_to_product_filepaths_map[product_id].add(product_filepath)
+            list_product_id_product_filepath = [future.result() for future in concurrent.futures.as_completed(futures)]
+            for product_id_product_filepath in list_product_id_product_filepath:
+                for product_id, product_filepath in product_id_product_filepath:
+                    product_to_product_filepaths_map[product_id].add(product_filepath)
 
         for download in downloads:
             logger.info(f"Marking as downloaded. {download['id']=}")
@@ -70,26 +65,31 @@ class AsfDaacRtcDownload(DaacDownload):
         logger.info(f"Downloading {download_counter} of {num_downloads} downloads")
 
         if args.transfer_protocol == "https":
-            product_url = _to_https_url(download)
+            product_urls = _to_https_urls(download)
         else:
-            product_url = _to_url(download)
-        logger.info(f"Processing {product_url=}")
-        product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))
-        product_download_dir = self.downloads_dir / product_id
-        product_download_dir.mkdir(exist_ok=True)
-        if product_url.startswith("s3"):
-            product_filepath = self.download_product_using_s3(
-                product_url,
-                token,
-                target_dirpath=product_download_dir.resolve(),
-                args=args
-            )
-        else:
-            product_filepath = self.download_asf_product(
-                product_url, token, product_download_dir
-            )
-        logger.info(f"{product_filepath=}")
-        return product_id, product_filepath
+            product_urls = _to_urls(download)
+
+        list_product_id_product_filepath = []
+        for product_url in product_urls:
+            logger.info(f"Processing {product_url=}")
+            product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))
+            product_download_dir = self.downloads_dir / product_id
+            product_download_dir.mkdir(exist_ok=True)
+            if product_url.startswith("s3"):
+                product_filepath = self.download_product_using_s3(
+                    product_url,
+                    token,
+                    target_dirpath=product_download_dir.resolve(),
+                    args=args
+                )
+            else:
+                product_filepath = self.download_asf_product(
+                    product_url, token, product_download_dir
+                )
+            logger.info(f"{product_filepath=}")
+
+            list_product_id_product_filepath.append((product_id, product_filepath))
+        return list_product_id_product_filepath
 
     def download_asf_product(self, product_url, token: str, target_dirpath: Path):
         logger.info(f"Requesting from {product_url}")

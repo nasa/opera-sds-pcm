@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime
 
+import dateutil
 import elasticsearch.helpers
 from more_itertools import last, chunked, first
 
@@ -166,3 +167,29 @@ class RTCProductCatalog(HLSProductCatalog):
         for es_doc in es_docs:
             id_to_index_cache[es_doc["_id"]].add(es_doc["_index"])
         return id_to_index_cache
+
+    def update_granule_index(
+            self,
+            granule,
+            job_id: str,
+            query_dt: datetime,
+            **kwargs
+    ):
+        urls = granule.get("filtered_urls")
+        granule_id = granule.get("granule_id")
+        temporal_extent_beginning_dt: datetime = dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"])
+        revision_date_dt: datetime = dateutil.parser.isoparse(granule["revision_date"])
+        doc = {
+            "id": granule_id,
+            "granule_id": granule_id,
+            "creation_timestamp": datetime.now(),
+            "query_job_id": job_id,
+            "query_datetime": query_dt,
+            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
+            "revision_date": revision_date_dt,
+            "https_urls": [url for url in urls if "https://" in url],
+            "s3_urls": [url for url in urls if "s3://" in url]
+        }
+        doc.update(kwargs)
+        index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
+        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])

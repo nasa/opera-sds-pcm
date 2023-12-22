@@ -122,16 +122,25 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         else:
             pass
 
-        update_url_index(
-            es_conn,
-            granule.get("filtered_urls"),
-            granule_id,
-            job_id,
-            query_dt,
-            temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
-            revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
-            **additional_fields
-        )
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+            es_conn: RTCProductCatalog
+            es_conn.update_granule_index(
+                granule=granule,
+                job_id=job_id,
+                query_dt=query_dt,
+                **additional_fields
+            )
+        else:
+            update_url_index(
+                es_conn,
+                granule.get("filtered_urls"),
+                granule_id,
+                job_id,
+                query_dt,
+                temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+                revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+                **additional_fields
+            )
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
             spatial_catalog_conn = get_hls_spatial_catalog_connection(logger)
@@ -434,6 +443,9 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
         time_limit=None,
         component=None
     )
+
+
+
 
 
 def update_url_index(
