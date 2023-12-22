@@ -51,23 +51,23 @@ class RTCProductCatalog(HLSProductCatalog):
                 "query": {
                     "bool": {
                         "must": [
-                            {"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_index}},
-                            {"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_index.split("$"))}}
+                            {"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index}},
+                            {"match": {"mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_index.split("$"))}}
                         ]
                     }
                 }
             }
         )
         # apply client-side filtering
-        downloads[:] = [download for download in downloads if mgrs_set_id_acquisition_ts_cycle_index in download["_source"]["mgrs_set_id_acquisition_ts_cycle_indexes"]]
+        downloads[:] = [download for download in downloads if mgrs_set_id_acquisition_ts_cycle_index == download["_source"]["mgrs_set_id_acquisition_ts_cycle_index"]]
 
         return self.filter_query_result(downloads)
 
     def filter_catalog_by_sets(self, mgrs_set_id_acquisition_ts_cycle_indexes):
         body = get_body(match_all=False)
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
-            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes": mgrs_set_id_acquisition_ts_cycle_idx}})
-            body["query"]["bool"]["must"].append({"match": {"mgrs_set_ids": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
 
         es_docs = self.es.query(body=body, index=self.ES_INDEX_PATTERNS)
         logging.info(f"Found {len(es_docs)=}")
@@ -75,28 +75,27 @@ class RTCProductCatalog(HLSProductCatalog):
 
     def mark_products_as_download_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
-        for batch_id, products in batch_id_to_products_map.items():
-            for product in products:
-                for product_id, docs in product.items():
-                    doc_id_to_index_cache = self.raw_create_doc_id_to_index_cache(docs)
-                    for doc in docs:
-                        index = last(
-                            doc_id_to_index_cache[doc["id"]],
-                            self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
-                        )
-                        operation = {
-                            "_op_type": "update",
-                            "_index": index,
-                            "_type": "_doc",
-                            "_id": doc["id"],
-                            "doc_as_upsert": True,
-                            "doc": {
-                                "mgrs_set_id_download_jobs_submitted_for": doc["mgrs_set_id_download_jobs_submitted_for"],
-                                "ati_download_jobs_submitted_for": doc["ati_download_jobs_submitted_for"],
-                                "download_jobs_ids": doc["download_jobs_ids"]
-                            }
+        for batch_id, product_id_to_products_map in batch_id_to_products_map.items():
+            download_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+            for product_id, products in product_id_to_products_map.items():
+                docs = products
+                doc_id_to_index_cache = self.raw_create_doc_id_to_index_cache(docs)
+                for doc in docs:
+                    index = last(doc_id_to_index_cache[doc["id"]],
+                        self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
+                    )
+                    operation = {
+                        "_op_type": "update",
+                        "_index": index,
+                        "_type": "_doc",
+                        "_id": doc["id"],
+                        "doc_as_upsert": True,
+                        "doc": {
+                            "download_job_ids": doc["download_job_ids"],
+                            "latest_download_job_ts": download_job_dts
                         }
-                        operations.append(operation)
+                    }
+                    operations.append(operation)
         logging.info(f"Marking {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
         elasticsearch.helpers.bulk(self.es.es, operations)
         logging.info(f"Marked {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
@@ -123,6 +122,7 @@ class RTCProductCatalog(HLSProductCatalog):
 
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
+        dswx_s1_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
         for batch_id, products in batch_id_to_products_map.items():
             docs = product_docs = products
             doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
@@ -138,9 +138,8 @@ class RTCProductCatalog(HLSProductCatalog):
                     "_id": doc["id"],
                     "doc_as_upsert": True,
                     "doc": {
-                        "mgrs_set_id_dswx_s1_jobs_submitted_for": doc["mgrs_set_id_dswx_s1_jobs_submitted_for"],
-                        "ati_dswx_s1_jobs_submitted_for": doc["ati_dswx_s1_jobs_submitted_for"],
-                        "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"]
+                        "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"],
+                        "latest_dswx_s1_job_ts": dswx_s1_job_dts
                     }
                 }
                 operations.append(operation)
@@ -173,23 +172,28 @@ class RTCProductCatalog(HLSProductCatalog):
             granule,
             job_id: str,
             query_dt: datetime,
+            mgrs_set_id_acquisition_ts_cycle_indexes: list[str],
             **kwargs
     ):
         urls = granule.get("filtered_urls")
         granule_id = granule.get("granule_id")
         temporal_extent_beginning_dt: datetime = dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"])
         revision_date_dt: datetime = dateutil.parser.isoparse(granule["revision_date"])
-        doc = {
-            "id": granule_id,
-            "granule_id": granule_id,
-            "creation_timestamp": datetime.now(),
-            "query_job_id": job_id,
-            "query_datetime": query_dt,
-            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
-            "revision_date": revision_date_dt,
-            "https_urls": [url for url in urls if "https://" in url],
-            "s3_urls": [url for url in urls if "s3://" in url]
-        }
-        doc.update(kwargs)
-        index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
-        self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
+
+        for mgrs_set_id_acquisition_ts_cycle_index in mgrs_set_id_acquisition_ts_cycle_indexes:
+            doc = {
+                "id": f"{granule_id}${mgrs_set_id_acquisition_ts_cycle_index}",
+                "granule_id": granule_id,
+                "creation_timestamp": datetime.now(),
+                "query_job_id": job_id,
+                "query_datetime": query_dt,
+                "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
+                "revision_date": revision_date_dt,
+                "https_urls": [url for url in urls if "https://" in url],
+                "s3_urls": [url for url in urls if "s3://" in url],
+                "mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_index.split("$")),
+                "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index
+            }
+            doc.update(kwargs)
+            index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
+            self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])

@@ -107,7 +107,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             acquisition_cycle = round(acquisition_index)
             additional_fields["acquisition_cycle"] = acquisition_cycle
 
-            update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, additional_fields, mgrs_burst_set_ids)
+            mgrs_set_id_acquisition_ts_cycle_indexes = update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, additional_fields, mgrs_burst_set_ids)
             if args.native_id:  # native-id supplied. don't affect adjacent burst sets, tossing out irrelevant burst sets
                 matching_native_id_mgrs_burst_set_ids = list(set(native_id_mgrs_burst_set_ids) & set(mgrs_burst_set_ids))
                 update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, matching_native_id_mgrs_burst_set_ids)
@@ -128,6 +128,7 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                 granule=granule,
                 job_id=job_id,
                 query_dt=query_dt,
+                mgrs_set_id_acquisition_ts_cycle_indexes=mgrs_set_id_acquisition_ts_cycle_indexes,
                 **additional_fields
             )
         else:
@@ -181,18 +182,15 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         processable_mgrs_sets = {**target_covered_mgrs_sets, **fully_covered_mgrs_sets}
 
         # convert to "batch_id" mapping
-        batch_id_to_products_map = defaultdict(set)
+        batch_id_to_products_map = defaultdict(partial(defaultdict, list))
         for mgrs_set_id, product_burst_sets in processable_mgrs_sets.items():
             for product_burstset in product_burst_sets:
-                rtc_granule_id_to_product_docs_map = first(product_burstset)
-                first_product_doc_list = first(rtc_granule_id_to_product_docs_map.values())
-                first_product_doc = first(first_product_doc_list)
-                acquisition_cycle = first_product_doc["acquisition_cycle"]
-                batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
-                batch_id_to_products_map[batch_id] = product_burstset
-                if args.smoke_run:
-                    logger.info(f"{args.smoke_run=}. Not processing more burst_sets.")
-                    break
+                for rtc_granule_id_to_product_docs_map in product_burstset:
+                    for product_doc_list in rtc_granule_id_to_product_docs_map.values():
+                        for product_doc in product_doc_list:
+                            granule_id, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
+                            batch_id = mgrs_set_id_aquisition_ts_cycle_index
+                            batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
             if args.smoke_run:
                 logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
                 break
@@ -220,22 +218,10 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
             suceeded_batch = [job_id for _, job_id in results_batch if isinstance(job_id, str)]
             failed_batch = [e for _, e in results_batch if isinstance(e, Exception)]
             if suceeded_batch:
-                for products_map in batch_id_to_products_map[batch_id]:
-                    for products in products_map.values():
-                        for product in products:
-                            if not product.get("mgrs_set_id_download_jobs_submitted_for"):
-                                product["mgrs_set_id_download_jobs_submitted_for"] = []
-                            if not product.get("ati_download_jobs_submitted_for"):
-                                product["ati_download_jobs_submitted_for"] = []
-
-                            if not product.get("download_jobs_ids"):
-                                product["download_jobs_ids"] = []
-
-                            # use doc obj to pass params to elasticsearch client
-                            product["mgrs_set_id_download_jobs_submitted_for"].append(batch_id.split("$")[0])
-                            product["ati_download_jobs_submitted_for"].append(batch_id)
-
-                            product["download_jobs_ids"].append(first(suceeded_batch))
+                for product_id, products in batch_id_to_products_map[batch_id].items():
+                    for product in products:
+                        # use doc obj to pass params to elasticsearch client
+                        product["download_job_ids"] = first(suceeded_batch)
 
                 if args.dry_run:
                     logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
@@ -283,11 +269,13 @@ def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisitio
     # ati = Acquisition Time Index
     if len(mgrs_burst_set_ids) == 1:
         current_ati = "{}${}".format(first(sorted(mgrs_burst_set_ids)), acquisition_cycle)
-        additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati]
+        mgrs_set_id_acquisition_ts_cycle_indexes = [current_ati]
     elif len(mgrs_burst_set_ids) == 2:
         current_ati_a = "{}${}".format(first(sorted(mgrs_burst_set_ids)), acquisition_cycle)
         current_ati_b = "{}${}".format(last(sorted(mgrs_burst_set_ids)), acquisition_cycle)
-        additional_fields["mgrs_set_id_acquisition_ts_cycle_indexes"] = [current_ati_a, current_ati_b]
+        mgrs_set_id_acquisition_ts_cycle_indexes = [current_ati_a, current_ati_b]
+
+    return mgrs_set_id_acquisition_ts_cycle_indexes
 
 
 def download_job_submission_handler(args, granules, query_timerange):
