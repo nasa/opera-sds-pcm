@@ -43,6 +43,7 @@ This repository contains a Python script for querying the CMR (Common Metadata R
 ## Features
 
 * Parallelized CMR querying with customizable temporal range to obtain a list of RTC bursts.
+* Optional file input that lists RTC granule IDs to extract burst information from
 * Exponential backoff and jittering for CMR data fetching.
 * Lookup of RTC burst IDs from a provided MGRS Tile Collection Database (SQLITE)
 * Visual results display using Pandas and Tabulate.
