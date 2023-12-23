@@ -36,6 +36,10 @@ ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
 class RtcCmrQuery(CmrQuery):
 
+    def __init__(self, args, token, es_conn, cmr, job_id, settings):
+        super().__init__(args, token, es_conn, cmr, job_id, settings)
+        self.affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
+
     def prepare_additional_fields(self, granule, args, granule_id, download_batch_id):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id, download_batch_id)
         additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
@@ -70,13 +74,13 @@ class RtcCmrQuery(CmrQuery):
 
         return additional_fields
 
-    def catalog_granules(self, granules, args, job_id, es_conn, download_batch_id, query_dt):
-        granules[:] = filter_granules_rtc(granules, args)
-        super().catalog_granules(granules, args, job_id, es_conn, download_batch_id, query_dt)
+    def catalog_granules(self, granules, download_batch_id, query_dt):
+        granules[:] = filter_granules_rtc(granules)
+        super().catalog_granules(granules, download_batch_id, query_dt)
 
-    async def refresh_index(self, args, es_conn):
+    async def refresh_index(self):
         logger.info("performing index refresh")
-        es_conn.refresh()
+        self.es_conn.refresh()
         logger.info("performed index refresh")
 
         logger.info("evaluating available burst sets")
@@ -98,11 +102,11 @@ class RtcCmrQuery(CmrQuery):
                 acquisition_cycle = first_product_doc["acquisition_cycle"]
                 batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
                 batch_id_to_products_map[batch_id] = product_burstset
-                if args.smoke_run:
-                    logger.info(f"{args.smoke_run=}. Not processing more burst_sets.")
+                if self.args.smoke_run:
+                    logger.info(f"{self.args.smoke_run=}. Not processing more burst_sets.")
                     break
-            if args.smoke_run:
-                logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
+            if self.args.smoke_run:
+                logger.info(f"{self.args.smoke_run=}. Not processing more sets of burst_sets.")
                 break
 
         return batch_id_to_products_map
@@ -180,7 +184,7 @@ def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisitio
     else:
         raise AssertionError("Unexpected burst overlap: " + str(mgrs_burst_set_ids))
 
-def filter_granules_rtc(granules, args):
+def filter_granules_rtc(granules):
     filtered_granules = []
     for granule in granules:
         granule_id = granule.get("granule_id")

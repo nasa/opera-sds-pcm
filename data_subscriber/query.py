@@ -51,7 +51,7 @@ class CmrQuery:
         self.cmr = cmr
         self.job_id = job_id
         self.settings = settings
-        self.affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
+        self.proc_mode = args.proc_mode
 
     async def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
         query_dt = datetime.now()
@@ -67,7 +67,7 @@ class CmrQuery:
             granules = granules[:1]
 
         # If processing mode is historical, apply include/exclude-region filtering
-        if args.proc_mode == "historical":
+        if self.proc_mode == "historical":
             logging.info(f"Processing mode is historical so applying include and exclude regions...")
 
             # Fetch all necessary geojson files from S3
@@ -75,10 +75,10 @@ class CmrQuery:
             granules[:] = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
         logger.info("catalogue-ing STARTED")
-        self.catalog_granules(granules, args, job_id, es_conn, download_batch_id, query_dt)
+        self.catalog_granules(granules, download_batch_id, query_dt)
         logger.info("catalogue-ing FINISHED")
 
-        batch_id_to_products_map = await self.refresh_index(args, es_conn)
+        batch_id_to_products_map = await self.refresh_index()
 
         if args.subparser_name == "full":
             logger.info(
@@ -128,17 +128,17 @@ class CmrQuery:
 
         return additional_fields
 
-    def catalog_granules(self, granules, args, job_id, es_conn, download_batch_id, query_dt):
+    def catalog_granules(self, granules, download_batch_id, query_dt):
         for granule in granules:
             granule_id = granule.get("granule_id")
 
-            additional_fields = self.prepare_additional_fields(granule, args, granule_id, download_batch_id)
+            additional_fields = self.prepare_additional_fields(granule, self.args, granule_id, download_batch_id)
 
             update_url_index(
-                es_conn,
+                self.es_conn,
                 granule.get("filtered_urls"),
                 granule_id,
-                job_id,
+                self.job_id,
                 query_dt,
                 temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
                 revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
@@ -150,7 +150,7 @@ class CmrQuery:
     def update_granule_index(self, granule):
         pass
 
-    async def refresh_index(self, args, es_conn):
+    async def refresh_index(self):
         pass
 
 def download_job_submission_handler(args, granules, query_timerange, download_batch_id):
