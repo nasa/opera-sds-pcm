@@ -13,9 +13,10 @@ def localize_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
         s3 = boto3.resource('s3')
         s3.Object(bucket, file).download_file(file)
     except Exception as e:
-        raise Exception("Exception while fetching geojson file: %s. " % file + str(e))
+        raise Exception("Exception while fetching CSLC burst map file: %s. " % file + str(e))
 
     return process_disp_frame_burst_json(file)
+
 def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
 
     j = json.load(open(file))
@@ -32,7 +33,13 @@ def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
     # Note that we are using integer as the dict key instead of the original string so that it can be sorted
     # more predictably
     for frame_id in frame_ids:
-        frame_data[int(frame_id)] = SimpleNamespace(**(data[frame_id]))
+        items = SimpleNamespace(**(data[frame_id]))
+
+        # Convert burst ids to upper case and replace "_" with "-" because this is how it shows up in granule id
+        for i in range(len(items.burst_ids)):
+            items.burst_ids[i] = items.burst_ids[i].upper().replace("_", "-")
+
+        frame_data[int(frame_id)] = items
 
     sorted_frame_data = dict(sorted(frame_data.items()))
 
@@ -45,10 +52,8 @@ def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
     return sorted_frame_data, burst_to_frame, metadata, version
 
 def build_cslc_native_ids(frame, disp_burst_map):
+    """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 
-    native_ids = []
-    for id in disp_burst_map[frame].burst_ids:
-        native_ids.append(id.upper().replace("_", "-"))
-
+    native_ids = disp_burst_map[frame].burst_ids
     return "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
 

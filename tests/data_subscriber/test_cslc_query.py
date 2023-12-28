@@ -5,17 +5,16 @@ from pathlib import Path
 import pytest
 
 from data_subscriber import daac_data_subscriber, query, cslc_utils
+from data_subscriber.cslc import cslc_query
 
-arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--start-date=2021-01-24T23:00:00Z", "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
+forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z", "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-args = daac_data_subscriber.create_parser().parse_args(arguments)
+forward_args = daac_data_subscriber.create_parser().parse_args(forward_arguments)
 
 @pytest.mark.skip
 def test_frame_range():
-    args = daac_data_subscriber.create_parser().parse_args(arguments)
-
-    assert args.native_id == "*iw1*"
+    assert forward_args.native_id == "*iw1*"
 
 def test_arg_expansion():
     '''Test that the native_id field is expanded correctly for a given frame range'''
@@ -25,5 +24,18 @@ def test_arg_expansion():
 
 def test_burst_to_frame_map():
     '''Test that the burst to frame map is correctly constructed'''
-    assert burst_to_frame["T001-000792-IW1".lower().replace("-", "_")] == [99]
-    assert burst_to_frame["T001-000793-IW1".lower().replace("-", "_")] == [99, 100]
+    assert burst_to_frame["T001-000792-IW1"] == [99]
+    assert burst_to_frame["T001-000793-IW1"] == [99, 100]
+
+def test_extend_additional_records():
+    """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
+    c_query = cslc_query.CslcCmrQuery(forward_args, None, None, None, None, None, cslc_utils.DISP_FRAME_BURST_MAP_JSON)
+
+    granules = []
+    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0"}) # frame 7098
+    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056777-IW3_20231008T133101Z_20231009T204457Z_S1A_VV_v1.0"}) # frames 7097, 7098
+    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056777-IW2_20231008T133100Z_20231009T204457Z_S1A_VV_v1.0"}) # frames 7097, 7098
+
+    c_query.extend_additional_records(granules)
+
+    assert len(granules) == 5

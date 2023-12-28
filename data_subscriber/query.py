@@ -59,8 +59,12 @@ class CmrQuery:
         query_timerange: DateTimeRange = get_query_timerange(args, now)
 
         logger.info("CMR query STARTED")
-        granules, download_batch_id = await self.query_cmr(args, token, cmr, settings, query_timerange, now)
+        granules = await self.query_cmr(args, token, cmr, settings, query_timerange, now)
         logger.info("CMR query FINISHED")
+
+        # Evaluate granules for additional catalog record and extend list if found: granules is MODIFIED in place
+        # Can only happen for RTC and CSLC files
+        self.extend_additional_records(granules)
 
         if args.smoke_run:
             logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
@@ -74,10 +78,14 @@ class CmrQuery:
             localize_include_exclude(args)
             granules[:] = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
+        # TODO: This function only applies to CSLC
+        download_granules = self.determine_download_granules(granules)
+
         logger.info("catalogue-ing STARTED")
-        self.catalog_granules(granules, download_batch_id, query_dt)
+        self.catalog_granules(granules, query_dt)
         logger.info("catalogue-ing FINISHED")
 
+        #TODO: This function only applies to RTC
         batch_id_to_products_map = await self.refresh_index()
 
         if args.subparser_name == "full":
@@ -97,7 +105,7 @@ class CmrQuery:
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args)
         else:
-            job_submission_tasks = download_job_submission_handler(args, granules, query_timerange, download_batch_id)
+            job_submission_tasks = download_job_submission_handler(args, download_granules, query_timerange, download_batch_id)
 
         results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
         logger.info(f"{len(results)=}")
@@ -116,23 +124,27 @@ class CmrQuery:
 
     async def query_cmr(self, args, token, cmr, settings, timerange, now: datetime):
         granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
-        return granules, None
+        return granules
 
-    def prepare_additional_fields(self, granule, args, granule_id, download_batch_id):
+    def prepare_additional_fields(self, granule, args, granule_id):
 
         additional_fields = {}
-        if download_batch_id is not None:
-            additional_fields["download_batch_id"] = download_batch_id
         additional_fields["revision_id"] = granule.get("revision_id")
         additional_fields["processing_mode"] = args.proc_mode
 
         return additional_fields
 
-    def catalog_granules(self, granules, download_batch_id, query_dt):
+    def get_additional_record(self, granules):
+        return None
+
+    def determine_download_granules(self, granules):
+        return granules
+
+    def catalog_granules(self, granules, query_dt):
         for granule in granules:
             granule_id = granule.get("granule_id")
 
-            additional_fields = self.prepare_additional_fields(granule, self.args, granule_id, download_batch_id)
+            additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
 
             update_url_index(
                 self.es_conn,
