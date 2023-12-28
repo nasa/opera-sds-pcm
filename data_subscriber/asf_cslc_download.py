@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 class AsfDaacCslcDownload(AsfDaacRtcDownload):
     async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
-        # TODO: this is a hack to get the batch_id. It should be passed in as an argument or dynamically generated
-        batch_id = "abc"
+        # There should always be only one batch_id
+        batch_id = args.batch_ids[0]
         settings = SettingsConf().cfg
 
         # First, download the files from ASF

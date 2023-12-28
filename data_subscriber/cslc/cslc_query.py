@@ -2,7 +2,8 @@ import logging
 import re
 import copy
 from data_subscriber.cmr import async_query_cmr
-from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, process_disp_frame_burst_json
+from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, \
+    process_disp_frame_burst_json, download_batch_id_reproc_hist, download_batch_id_forward
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
 
@@ -66,23 +67,28 @@ class CslcCmrQuery(CmrQuery):
         granules.extend(extended_granules)
 
     def prepare_additional_fields(self, granule, args, granule_id):
+        """For CSLC this is used to determine download_batch_id and attaching it the granule.
+        Function extend_additional_records must have been called before this function."""
 
+        if self.proc_mode == "forward":
+            download_batch_id = download_batch_id_forward(granule)
+        else:
+            download_batch_id = download_batch_id_reproc_hist(args)
+
+        # Additional fields are lost after writing to ES so better to keep this in the granule
+        granule["download_batch_id"] = download_batch_id
+
+        # download_batch_id also needs to be added to the additional_fields so that it'll be written to ES
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
-
-        # Use underscore instead of other special characters and lower case so that it can be used in ES TERM search
-        download_batch_id = args.start_date + "_" + args.end_date
-        if args.frame_range is not None:
-            download_batch_id = download_batch_id + "_" + args.frame_range.split(",")[0]
-        download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()
-
-        if download_batch_id is not None:
-            additional_fields["download_batch_id"] = download_batch_id
-
+        additional_fields["download_batch_id"] = download_batch_id
         return additional_fields
 
     def determine_download_granules(self, granules):
         """Combine these new granules with existing unsubmitted granules to determine which granules to download.
         This only applies to forward processing mode."""
+
+        # TODO: This is quick HACK to test a basic functionality
+        return granules
 
         if self.proc_mode != "forward":
             return granules

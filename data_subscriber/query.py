@@ -105,7 +105,7 @@ class CmrQuery:
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args)
         else:
-            job_submission_tasks = download_job_submission_handler(args, download_granules, query_timerange, download_batch_id)
+            job_submission_tasks = download_job_submission_handler(args, download_granules, query_timerange)
 
         results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
         logger.info(f"{len(results)=}")
@@ -165,7 +165,7 @@ class CmrQuery:
     async def refresh_index(self):
         pass
 
-def download_job_submission_handler(args, granules, query_timerange, download_batch_id):
+def download_job_submission_handler(args, granules, query_timerange):
     batch_id_to_urls_map = defaultdict(set)
     for granule in granules:
         granule_id = granule.get("granule_id")
@@ -187,7 +187,7 @@ def download_job_submission_handler(args, granules, query_timerange, download_ba
 
             for filter_url in granule.get("filtered_urls"):
                 if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-                    batch_id_to_urls_map[download_batch_id].add(filter_url)
+                    batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
                 else:
                     batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
     logger.info(f"{batch_id_to_urls_map=}")
