@@ -188,9 +188,13 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                 for rtc_granule_id_to_product_docs_map in product_burstset:
                     for product_doc_list in rtc_granule_id_to_product_docs_map.values():
                         for product_doc in product_doc_list:
-                            granule_id, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
-                            batch_id = mgrs_set_id_aquisition_ts_cycle_index
-                            batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
+                            # doc needs to be part of a processable mgrs_set_id
+                            if product_doc["mgrs_set_id"] in processable_mgrs_sets:
+                                _, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
+                                batch_id = mgrs_set_id_aquisition_ts_cycle_index
+                                # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
+                                if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
+                                    batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
             if args.smoke_run:
                 logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
                 break
