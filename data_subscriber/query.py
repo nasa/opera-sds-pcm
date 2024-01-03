@@ -169,27 +169,31 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
         if args.native_id:  # limit query to the 1 or 2 affected sets in backlog
             logger.info("Supplied native-id. Limiting evaluation")
-            fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
+            evaluator_results = evaluator.main(
                 mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
                 coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
             )
         else:  # evaluate ALL sets in backlog
             logger.info("Performing full evaluation")
-            fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = evaluator.main(
+            evaluator_results = evaluator.main(
                 coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
             )
 
-        processable_mgrs_sets = {**target_covered_mgrs_sets, **fully_covered_mgrs_sets}
+        processable_mgrs_set_ids = {
+            mgrs_set_id
+            for mgrs_set_id, evaluation_result in evaluator_results["mgrs_sets"].items()
+            if evaluation_result["coverage"] != -1
+        }
 
         # convert to "batch_id" mapping
         batch_id_to_products_map = defaultdict(partial(defaultdict, list))
-        for mgrs_set_id, product_burst_sets in processable_mgrs_sets.items():
-            for product_burstset in product_burst_sets:
+        for mgrs_set_id, evaluation_result in evaluator_results["mgrs_sets"].items():
+            for product_burstset in evaluation_result["product_sets"]:
                 for rtc_granule_id_to_product_docs_map in product_burstset:
                     for product_doc_list in rtc_granule_id_to_product_docs_map.values():
                         for product_doc in product_doc_list:
                             # doc needs to be part of a processable mgrs_set_id
-                            if product_doc["mgrs_set_id"] in processable_mgrs_sets:
+                            if product_doc["mgrs_set_id"] in processable_mgrs_set_ids:
                                 _, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
                                 batch_id = mgrs_set_id_aquisition_ts_cycle_index
                                 # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
