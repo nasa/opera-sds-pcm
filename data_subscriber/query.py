@@ -134,8 +134,8 @@ class CmrQuery:
 
         return additional_fields
 
-    def get_additional_record(self, granules):
-        return None
+    def extend_additional_records(self, granules):
+        pass
 
     def determine_download_granules(self, granules):
         return granules
