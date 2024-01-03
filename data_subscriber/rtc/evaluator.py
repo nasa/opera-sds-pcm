@@ -29,7 +29,7 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
         logger.info(f"Supplied {mgrs_set_id_acquisition_ts_cycle_indexes=}. Adding criteria to query")
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
-            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
     elif mgrs_set_ids:
         logger.info(f"Supplied {mgrs_set_ids=}. Adding criteria to query")
         for mgrs_set_id in mgrs_set_ids:

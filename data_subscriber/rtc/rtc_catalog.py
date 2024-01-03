@@ -53,7 +53,7 @@ class RTCProductCatalog(HLSProductCatalog):
                     "bool": {
                         "must": [
                             {"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index}},
-                            {"match": {"mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_index.split("$"))}}
+                            {"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]}}
                         ]
                     }
                 }
@@ -68,7 +68,7 @@ class RTCProductCatalog(HLSProductCatalog):
         body = get_body(match_all=False)
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
-            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_idx.split("$"))}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
 
         es_docs = self.es.query(body=body, index=self.ES_INDEX_PATTERNS)
         logging.info(f"Found {len(es_docs)=}")
@@ -202,7 +202,7 @@ class RTCProductCatalog(HLSProductCatalog):
                 "revision_date": revision_date_dt,
                 "https_urls": [url for url in urls if "https://" in url],
                 "s3_urls": [url for url in urls if "s3://" in url],
-                "mgrs_set_id": first(mgrs_set_id_acquisition_ts_cycle_index.split("$")),
+                "mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0],
                 "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index
             }
             doc.update(kwargs)
