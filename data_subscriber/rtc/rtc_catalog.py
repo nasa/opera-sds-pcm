@@ -7,6 +7,7 @@ import elasticsearch.helpers
 from more_itertools import last, chunked, first
 
 from util.grq_client import get_body
+from . import mgrs_bursts_collection_db_client
 from ..hls.hls_catalog import HLSProductCatalog
 
 null_logger = logging.getLogger("dummy")
@@ -75,8 +76,15 @@ class RTCProductCatalog(HLSProductCatalog):
 
     def mark_products_as_download_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
+        mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
         for batch_id, product_id_to_products_map in batch_id_to_products_map.items():
             download_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+
+            mgrs_set_id = batch_id.split("$")[0]
+            number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
+            number_of_bursts_actual = len(product_id_to_products_map)
+            coverage = int(number_of_bursts_actual / number_of_bursts_expected * 100)
+
             for product_id, products in product_id_to_products_map.items():
                 docs = products
                 doc_id_to_index_cache = self.raw_create_doc_id_to_index_cache(docs)
@@ -92,7 +100,10 @@ class RTCProductCatalog(HLSProductCatalog):
                         "doc_as_upsert": True,
                         "doc": {
                             "download_job_ids": doc["download_job_ids"],
-                            "latest_download_job_ts": download_job_dts
+                            "latest_download_job_ts": download_job_dts,
+                            "number_of_bursts_expected": number_of_bursts_expected,
+                            "number_of_bursts_actual": number_of_bursts_actual,
+                            "coverage": coverage
                         }
                     }
                     operations.append(operation)
