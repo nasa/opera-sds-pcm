@@ -195,9 +195,9 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
                                 # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
                                 if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
                                     batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
-            if args.smoke_run:
-                logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
-                break
+                if args.smoke_run:
+                    logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
+                    break
 
     if args.subparser_name == "full":
         logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
