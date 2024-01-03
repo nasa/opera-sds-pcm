@@ -48,6 +48,7 @@ def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
     for frame_id in sorted_frame_data:
         for burst_id in sorted_frame_data[frame_id].burst_ids:
             burst_to_frame[burst_id].append(frame_id)
+            assert len(burst_to_frame[burst_id]) <= 2  # A burst can belong to at most two frames
 
     return sorted_frame_data, burst_to_frame, metadata, version
 

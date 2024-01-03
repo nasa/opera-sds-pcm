@@ -6,23 +6,9 @@ from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_csl
     process_disp_frame_burst_json, download_batch_id_reproc_hist, download_batch_id_forward
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
+from util import datasets_json_util
 
 logger = logging.getLogger(__name__)
-
-cslc_granule_regex = (
-    r'(?P<id>'
-    r'(?P<project>OPERA)_'
-    r'(?P<level>L2)_'
-    r'(?P<product_type>CSLC)-'
-    r'(?P<source>S1)_'
-    r'(?P<burst_id>\w{4}-\w{6}-\w{3})_'
-    r'(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_'
-    r'(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_'
-    r'(?P<sensor>S1A|S1B)_'
-    r'(?P<phase>VV|HH)_'
-    r'(?P<product_version>v\d+[.]\d+)'
-    r')'
-)
 
 class CslcCmrQuery(CmrQuery):
 
@@ -42,6 +28,9 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode != "forward":
             return
 
+        dataset_json = datasets_json_util.DatasetsJson()
+        cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
+
         extended_granules = []
         for granule in granules:
             granule_id = granule["granule_id"]
@@ -58,10 +47,12 @@ class CslcCmrQuery(CmrQuery):
             frame_ids = self.burst_to_frame[burst_id]
             granule["frame_id"] = self.burst_to_frame[burst_id][0]
 
+            assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
+
             # If this burst belongs to two frames, make a deep copy of the granule and append to the list
             if len(frame_ids) == 2:
                 new_granule = copy.deepcopy(granule)
-                new_granule["frame_id"] = self.burst_to_frame[burst_id][0]
+                new_granule["frame_id"] = self.burst_to_frame[burst_id][1]
                 extended_granules.append(new_granule)
 
         granules.extend(extended_granules)
