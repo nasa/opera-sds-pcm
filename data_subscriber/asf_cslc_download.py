@@ -6,6 +6,7 @@ from pathlib import PurePath, Path
 import requests
 import requests.utils
 from more_itertools import partition
+from pyproj import Transformer
 
 import extractor.extract
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
@@ -45,6 +46,20 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                                                                   key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                   files=files_to_upload)
 
+        '''proj_from = 'EPSG:{}'.format(gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG)  # int(32645)
+        transformer = Transformer.from_crs(proj_from, "EPSG:4326")
+
+        xmin, ymin = transformer.transform(
+            xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmin,
+            yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymin
+        )
+        xmax, ymax = transformer.transform(
+            xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmax,
+            yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
+        )
+
+        return [xmin, ymin, xmax, ymax]'''
+
 
         # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
         # Now submit DISP-S1 SCIFLO job
@@ -79,8 +94,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             job_queue=f'opera-job_worker-{"sciflo-l3_disp_s1"}',
             rule_name=f'trigger-{"SCIFLO_L3_DISP_S1"}',
             params=self.create_job_params(product),
-            job_spec=f'job-{"SCIFLO_L3_DISP_S1"}:{args.release_version}',
-            job_type=f'hysds-io-{"SCIFLO_L3_DISP_S1"}:{args.release_version}',
+            job_spec=f'job-{"SCIFLO_L3_DISP_S1"}:{settings["RELEASE_VERSION"]}',
+            job_type=f'hysds-io-{"SCIFLO_L3_DISP_S1"}:{settings["RELEASE_VERSION"]}',
             job_name=f'job-WF-{"SCIFLO_L3_DISP_S1"}'
         )
 

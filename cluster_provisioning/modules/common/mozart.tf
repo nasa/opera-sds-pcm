@@ -538,6 +538,9 @@ resource "aws_instance" "mozart" {
       fi
       cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
+
+      sed -i "s/RELEASE_VERSION: '{{ RELEASE_VERSION }}'/RELEASE_VERSION: '${var.pcm_branch}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
       fi
