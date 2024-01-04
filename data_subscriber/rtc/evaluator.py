@@ -30,29 +30,28 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
+
+        # NOTE: skipping job-submission filters to allow reprocessing
+        es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
     elif mgrs_set_ids:
         logger.info(f"Supplied {mgrs_set_ids=}. Adding criteria to query")
         for mgrs_set_id in mgrs_set_ids:
             body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
+        es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
     else:
-        logger.info(f"match_all query will be used against the catalog")
-        pass
+        # query 1: query for unsubmitted docs
+        body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        unsubmitted_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+        logger.info(f"Found {len(unsubmitted_docs)=}")
 
-    es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
-    logger.info(f"Found {len(es_docs)=}")
+        # query 2: query for submitted but not 100%
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
+        body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
+        submitted_but_incomplete_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+        logger.info(f"Found {len(submitted_but_incomplete_docs)=}")
 
-    # client-side filtering
-    if mgrs_set_ids or mgrs_set_id_acquisition_ts_cycle_indexes:
-        filtered_es_docs = []
-        for doc in es_docs:
-            if not doc["_source"].get("download_job_ids"):
-                # missing all job submissions
-                filtered_es_docs.append(doc)
-            else:
-                # all expected job submissions occurred. skip to next iteration
-                continue
-        es_docs = filtered_es_docs
-        logger.info(f"Filtered {len(es_docs)=}")
+        es_docs = unsubmitted_docs + submitted_but_incomplete_docs
 
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
