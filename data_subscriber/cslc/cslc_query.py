@@ -22,10 +22,10 @@ class CslcCmrQuery(CmrQuery):
 
     def extend_additional_records(self, granules):
         """Extend the granules with potentially additional records if a burst belongs to two frames.
-        This only applies to forward processing mode.
+        This only applies to forward  and re-processing modes.
         Also adds frame_id, burst_id, and acquisition_cycle to metadata."""
 
-        if self.proc_mode != "forward":
+        if self.proc_mode not in ["forward", "reprocessing"]:
             return
 
         dataset_json = datasets_json_util.DatasetsJson()
@@ -93,7 +93,7 @@ class CslcCmrQuery(CmrQuery):
     async def query_cmr(self, args, token, cmr, settings, timerange, now):
 
         # If we are in historical mode, we will query one frame worth at a time
-        if self.proc_mode in ["historical", "reprocessing"]:
+        if self.proc_mode == "historical":
 
             if args.frame_range is None:
                 raise AssertionError("Historical and reprocessing modes require frame range to be specified.")
@@ -102,8 +102,8 @@ class CslcCmrQuery(CmrQuery):
 
             frame_start, frame_end = self.args.frame_range.split(",")
             for frame in range(int(frame_start), int(frame_end) + 1):
-                native_ids = build_cslc_native_ids(frame, self.disp_burst_map)
-                args.native_ids = native_ids # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
+                native_id = build_cslc_native_ids(frame, self.disp_burst_map)
+                args.native_id = native_id # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
                 granules.extend(await async_query_cmr(args, token, cmr, settings, timerange, now))
 
         else:
