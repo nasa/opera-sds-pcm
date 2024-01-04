@@ -328,7 +328,8 @@ resource "aws_lambda_function" "batch_query_timer" {
       "GRQ_IP" : "${aws_instance.grq.private_ip}",
       "GRQ_ES_PORT" : "9200",
       "ENDPOINT" : "OPS",
-      "JOB_RELEASE" : var.pcm_branch
+      "JOB_RELEASE" : var.pcm_branch,
+      "ANC_BUCKET": "opera-ancillaries"
     }
   }
 }
