@@ -53,12 +53,14 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
 
         es_docs = unsubmitted_docs + submitted_but_incomplete_docs
 
+    evaluator_results = {
+        "coverage_target": coverage_target,
+        "mgrs_sets": {}
+    }
+
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
-        fully_covered_set_to_product_file_docs_map = {}
-        target_covered_set_to_product_file_docs_map = {}
-        not_covered_set_to_product_file_docs_map = {}
-        return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
+        return evaluator_results
 
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)
@@ -96,10 +98,6 @@ def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cyc
 
     coverage_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
 
-    evaluator_results = {
-        "coverage_target": coverage_target,
-        "mgrs_sets": {}
-    }
     for coverage, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
         mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
         for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
