@@ -58,8 +58,8 @@ def build_cslc_native_ids(frame, disp_burst_map):
     native_ids = disp_burst_map[frame].burst_ids
     return "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
 
-def download_batch_id_reproc_hist(args):
-    """For historical and reprocessing modes, download_batch_id is a function of start_date, end_date, and frame_range
+def download_batch_id_hist(args):
+    """For historical processing mode, download_batch_id is a function of start_date, end_date, and frame_range
     Use underscore instead of other special characters and lower case so that it can be used in ES TERM search"""
 
     download_batch_id = args.start_date + "_" + args.end_date
@@ -68,8 +68,8 @@ def download_batch_id_reproc_hist(args):
 
     return download_batch_id
 
-def download_batch_id_forward(granule):
-    """For forward processing mode, download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
+def download_batch_id_forward_reproc(granule):
+    """For forward and re-processing modes, download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
     download_batch_id = str(granule["frame_id"]) + "_" + str(granule["acquisition_cycle"])
     download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()

@@ -105,7 +105,7 @@ class CmrQuery:
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args)
         else:
-            job_submission_tasks = download_job_submission_handler(args, download_granules, query_timerange)
+            job_submission_tasks = download_job_submission_handler(args, download_granules, query_timerange, settings)
 
         results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
         logger.info(f"{len(results)=}")
@@ -165,7 +165,7 @@ class CmrQuery:
     async def refresh_index(self):
         pass
 
-def download_job_submission_handler(args, granules, query_timerange):
+def download_job_submission_handler(args, granules, query_timerange, settings):
     batch_id_to_urls_map = defaultdict(set)
     for granule in granules:
         granule_id = granule.get("granule_id")
@@ -194,7 +194,7 @@ def download_job_submission_handler(args, granules, query_timerange):
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         raise NotImplementedError()
     else:
-        job_submission_tasks = submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args)
+        job_submission_tasks = submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args, settings)
     return job_submission_tasks
 
 def get_query_timerange(args, now: datetime, silent=False):
@@ -210,7 +210,7 @@ def get_query_timerange(args, now: datetime, silent=False):
         logger.info(f"{query_timerange=}")
     return query_timerange
 
-def submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args):
+def submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange, args, settings):
     job_submission_tasks = []
     logger.info(f"{args.chunk_size=}")
     for batch_chunk in chunked(batch_id_to_urls_map.items(), n=args.chunk_size):
@@ -231,7 +231,7 @@ def submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange,
                 executor=None,
                 func=partial(
                     submit_download_job,
-                    release_version=args.release_version,
+                    release_version=settings["RELEASE_VERSION"],
                     product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection],
                     params=create_download_job_params(args, query_timerange, chunk_batch_ids),
                     job_queue=args.job_queue

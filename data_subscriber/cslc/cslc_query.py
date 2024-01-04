@@ -3,7 +3,7 @@ import re
 import copy
 from data_subscriber.cmr import async_query_cmr
 from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, \
-    process_disp_frame_burst_json, download_batch_id_reproc_hist, download_batch_id_forward
+    process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
 from util import datasets_json_util
@@ -61,10 +61,10 @@ class CslcCmrQuery(CmrQuery):
         """For CSLC this is used to determine download_batch_id and attaching it the granule.
         Function extend_additional_records must have been called before this function."""
 
-        if self.proc_mode == "forward":
-            download_batch_id = download_batch_id_forward(granule)
-        else:
-            download_batch_id = download_batch_id_reproc_hist(args)
+        if self.proc_mode == "historical":
+            download_batch_id = download_batch_id_hist(args)
+        else: # forward or reprocessing
+            download_batch_id = download_batch_id_forward_reproc(granule)
 
         # Additional fields are lost after writing to ES so better to keep this in the granule
         granule["download_batch_id"] = download_batch_id
