@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import logging
 import re
 import sys
@@ -9,7 +8,6 @@ from typing import Optional
 
 import dateutil.parser
 import pandas as pd
-from more_itertools import first
 
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
