@@ -31,6 +31,21 @@ class CSLCProductCatalog(SLCProductCatalog):
     def generate_es_index_name(self):
         return "cslc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
+    def get_unsubmitted_granules(self):
+        downloads = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must_not": [
+                            {"match": {"submitted": True}}
+                        ]
+                    }
+                }
+            }
+        )
+        return self.filter_query_result(downloads)
+
     def get_download_granule_revision(self, id):
         downloads = self.es.query(
             index=self.ES_INDEX_PATTERNS,

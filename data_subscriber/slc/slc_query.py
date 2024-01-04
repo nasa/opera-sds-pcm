@@ -18,8 +18,8 @@ class SlcCmrQuery(CmrQuery):
         spatial_catalog_conn = get_slc_spatial_catalog_connection(logger)
         spatial_catalog_conn.process_granule(granule)
 
-    def prepare_additional_fields(self, granule, args, granule_id, download_batch_id):
-        additional_fields = super().prepare_additional_fields(granule, args, granule_id, download_batch_id)
+    def prepare_additional_fields(self, granule, args, granule_id):
+        additional_fields = super().prepare_additional_fields(granule, args, granule_id)
         if does_bbox_intersect_north_america(granule["bounding_box"]):
             additional_fields["intersects_north_america"] = True
 

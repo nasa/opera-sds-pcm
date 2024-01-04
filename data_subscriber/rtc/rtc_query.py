@@ -36,31 +36,29 @@ ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
 class RtcCmrQuery(CmrQuery):
 
-    def prepare_additional_fields(self, granule, args, granule_id, download_batch_id):
-        additional_fields = super().prepare_additional_fields(granule, args, granule_id, download_batch_id)
+    def __init__(self, args, token, es_conn, cmr, job_id, settings):
+        super().__init__(args, token, es_conn, cmr, job_id, settings)
+        self.affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
+
+    def prepare_additional_fields(self, granule, args, granule_id):
+        # granule_id looks like this: OPERA_L2_RTC-S1_T074-157286-IW3_20210705T183117Z_20230818T214352Z_S1A_30_v0.4
+        additional_fields = super().prepare_additional_fields(granule, args, granule_id)
         additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
 
         match_product_id = re.match(rtc_granule_regex, granule_id)
-        acquisition_dts = match_product_id.group("acquisition_ts")
-        burst_id = match_product_id.group("burst_id")
+        acquisition_dts = match_product_id.group("acquisition_ts")  #e.g. 20210705T183117Z
+        burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
 
+        # Returns up to two mgrs_set_ids. e.g. MS_74_76
         mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
         mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs,
                                                                  mbc_client.product_burst_id_to_mapping_burst_id(
                                                                      burst_id))
         additional_fields["mgrs_set_ids"] = mgrs_burst_set_ids
 
-        # RTC: Calculating the Collection Cycle Index (Part 2):
-        #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
-        #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
-        burst_identification_number = int(burst_id.split(sep="-")[1])
+        # Determine acquisition cycle
         instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
-        seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
-        acquisition_index = (
-                                    seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
-                                    burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
-                            ) / ACQUISITION_CYCLE_DURATION_SECS
-        acquisition_cycle = round(acquisition_index)
+        acquisition_cycle, acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
         additional_fields["acquisition_cycle"] = acquisition_cycle
 
         update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index,
@@ -70,13 +68,13 @@ class RtcCmrQuery(CmrQuery):
 
         return additional_fields
 
-    def catalog_granules(self, granules, args, job_id, es_conn, download_batch_id, query_dt):
-        granules[:] = filter_granules_rtc(granules, args)
-        super().catalog_granules(granules, args, job_id, es_conn, download_batch_id, query_dt)
+    def catalog_granules(self, granules, query_dt):
+        granules[:] = filter_granules_rtc(granules)
+        super().catalog_granules(granules, query_dt)
 
-    async def refresh_index(self, args, es_conn):
+    async def refresh_index(self):
         logger.info("performing index refresh")
-        es_conn.refresh()
+        self.es_conn.refresh()
         logger.info("performed index refresh")
 
         logger.info("evaluating available burst sets")
@@ -98,18 +96,31 @@ class RtcCmrQuery(CmrQuery):
                 acquisition_cycle = first_product_doc["acquisition_cycle"]
                 batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
                 batch_id_to_products_map[batch_id] = product_burstset
-                if args.smoke_run:
-                    logger.info(f"{args.smoke_run=}. Not processing more burst_sets.")
+                if self.args.smoke_run:
+                    logger.info(f"{self.args.smoke_run=}. Not processing more burst_sets.")
                     break
-            if args.smoke_run:
-                logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
+            if self.args.smoke_run:
+                logger.info(f"{self.args.smoke_run=}. Not processing more sets of burst_sets.")
                 break
 
         return batch_id_to_products_map
 
+def determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch):
+    """RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
+    The cycle restarts periodically with some miniscule drift over time and the life of the mission."""
+    burst_identification_number = int(burst_id.split(sep="-")[1])  # e.g. 157286
+    seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
+    acquisition_index = (
+                                seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
+                                burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
+                        ) / ACQUISITION_CYCLE_DURATION_SECS
+    return round(acquisition_index), acquisition_index
+
 def update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids):
     acquisition_index_floor = math.floor(acquisition_index)
     acquisition_index_ceil = math.ceil(acquisition_index)
+
+    # ati looks like this: MS_1_9$151
     # construct filters for evaluation
     if len(mgrs_burst_set_ids) == 1:
         # ati = Acquisition Time Index
@@ -180,7 +191,7 @@ def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisitio
     else:
         raise AssertionError("Unexpected burst overlap: " + str(mgrs_burst_set_ids))
 
-def filter_granules_rtc(granules, args):
+def filter_granules_rtc(granules):
     filtered_granules = []
     for granule in granules:
         granule_id = granule.get("granule_id")
