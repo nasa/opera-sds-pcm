@@ -58,7 +58,7 @@ class RtcCmrQuery(CmrQuery):
 
         # Determine acquisition cycle
         instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
-        acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
+        acquisition_cycle, acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
         additional_fields["acquisition_cycle"] = acquisition_cycle
 
         update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisition_cycle, acquisition_index,
@@ -114,7 +114,7 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch):
                                 seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
                                 burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
                         ) / ACQUISITION_CYCLE_DURATION_SECS
-    return round(acquisition_index)
+    return round(acquisition_index), acquisition_index
 
 def update_affected_mgrs_set_ids(acquisition_cycle, acquisition_index, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids):
     acquisition_index_floor = math.floor(acquisition_index)

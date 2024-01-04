@@ -40,7 +40,7 @@ class CslcCmrQuery(CmrQuery):
 
             # Determine acquisition cycle
             instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
-            acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
+            acquisition_cycle, _ = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
             granule["acquisition_cycle"] = acquisition_cycle
             granule["burst_id"] = burst_id
 
