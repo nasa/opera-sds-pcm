@@ -149,9 +149,8 @@ class HLSProductCatalog:
 
         #TODO: Do we need to get the index name like in the function mark_product_as_downloaded?
 
-        index = self.generate_es_index_name()
         result = self.es.es.update_by_query(
-            index=index,
+            index=self.ES_INDEX_PATTERNS,
             body={
                 "script": {
                     "source": f"ctx._source.download_job_id = '{job_id}'",
