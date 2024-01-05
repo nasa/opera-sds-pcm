@@ -24,7 +24,6 @@ from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.query import update_url_index, run_query
-from data_subscriber.rtc import evaluator
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
@@ -96,26 +95,16 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         product_metadata = job_context["product_metadata"]
         logger.info(f"{product_metadata=}")
 
-    logger.info("evaluating available burst sets")
     affected_mgrs_set_id_acquisition_ts_cycle_indexes = args.batch_ids
     logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
-    fully_covered_mgrs_sets, target_covered_mgrs_sets, incomplete_mgrs_sets = await evaluator.main(
-        mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
-        coverage_target=settings["DSWX_S1_COVERAGE_TARGET"]
-    )
 
-    processable_mgrs_sets = {**incomplete_mgrs_sets, **fully_covered_mgrs_sets}
+    es_conn: RTCProductCatalog
 
     # convert to "batch_id" mapping
-    batch_id_to_products_map = defaultdict(set)
-    for mgrs_set_id, product_burst_sets in processable_mgrs_sets.items():
-        for product_burstset in product_burst_sets:
-            rtc_granule_id_to_product_docs_map = first(product_burstset)
-            first_product_doc_list = first(rtc_granule_id_to_product_docs_map.values())
-            first_product_doc = first(first_product_doc_list)
-            acquisition_cycle = first_product_doc["acquisition_cycle"]
-            batch_id = "{}${}".format(mgrs_set_id, acquisition_cycle)
-            batch_id_to_products_map[batch_id] = product_burstset
+    batch_id_to_products_map = {}
+    for affected_mgrs_set_id_acquisition_ts_cycle_index in affected_mgrs_set_id_acquisition_ts_cycle_indexes:
+        es_docs = es_conn.filter_catalog_by_sets([affected_mgrs_set_id_acquisition_ts_cycle_index])
+        batch_id_to_products_map[affected_mgrs_set_id_acquisition_ts_cycle_index] = es_docs
 
     succeeded = []
     failed = []
@@ -183,37 +172,16 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
         failed_batch = [e for e in results if isinstance(e, Exception)]
         if suceeded_batch:
-            for products_map in uploaded_batch_id_to_products_map[batch_id]:
-                for products in products_map.values():
-                    for product in products:
-                        if not product.get("mgrs_set_id_jobs_dict"):
-                            product["mgrs_set_id_jobs_dict"] = {}
-                        if not product.get("mgrs_set_id_jobs_submitted_for"):
-                            product["mgrs_set_id_jobs_submitted_for"] = []
+            for product in uploaded_batch_id_to_products_map[batch_id]:
+                if not product.get("dswx_s1_jobs_ids"):
+                    product["dswx_s1_jobs_ids"] = []
 
-                        if not product.get("ati_jobs_dict"):
-                            product["ati_jobs_dict"] = {}
-                        if not product.get("ati_jobs_submitted_for"):
-                            product["ati_jobs_submitted_for"] = []
-
-                        if not product.get("dswx_s1_jobs_ids"):
-                            product["dswx_s1_jobs_ids"] = []
-
-                        # use doc obj to pass params to elasticsearch client
-                        product["mgrs_set_id_jobs_dict"][batch_id.split("$")[0]] = first(suceeded_batch)
-                        product["mgrs_set_id_jobs_submitted_for"].append(batch_id.split("$")[0])
-
-                        product["ati_jobs_dict"][batch_id] = first(suceeded_batch)
-                        product["ati_jobs_submitted_for"].append(batch_id)
-
-                        product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
+                product["dswx_s1_jobs_ids"].append(first(suceeded_batch))
 
             if args.dry_run:
                 logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
                 pass
             else:
-                from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
-                es_conn: RTCProductCatalog
                 es_conn.mark_products_as_job_submitted({batch_id: uploaded_batch_id_to_products_map[batch_id]})
 
             succeeded.extend(suceeded_batch)

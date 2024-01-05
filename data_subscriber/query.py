@@ -1,25 +1,21 @@
 import asyncio
 import logging
-import math
-import re
 import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
 from typing import Literal
-import boto3
-import json
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
-from more_itertools import chunked, first
+from more_itertools import chunked
+
 from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr, CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions, download_from_s3
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
-from data_subscriber.url import form_batch_id, form_batch_id_cslc, _slc_url_to_chunk_id
-from data_subscriber.geojson_utils import localize_geojsons, localize_include_exclude, filter_granules_by_regions
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
-from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_region, _NORTH_AMERICA
+from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)

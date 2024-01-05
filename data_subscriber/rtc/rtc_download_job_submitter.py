@@ -22,9 +22,9 @@ async def example(batch_id_to_urls_map, args):
     logger.info(f"{failed=}")
 
 
-def submit_rtc_download_job_submissions_tasks(batch_ids, args):
+def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args):
     job_submission_tasks = []
-    for batch_id in batch_ids:
+    for batch_id, products_map in batch_id_to_products_map.items():
         mgrs_set_id_acquisition_ts_cycle_index = batch_id
         mgrs_set_id = mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]
 
@@ -41,7 +41,8 @@ def submit_rtc_download_job_submissions_tasks(batch_ids, args):
             asyncio.get_event_loop().run_in_executor(
                 executor=None,
                 func=partial(
-                    submit_dswx_s1_job,
+                    submit_download_job,
+                    batch_id=batch_id,
                     product=product,
                     job_queue=args.job_queue,
                     rule_name=f"trigger-rtc_download",
@@ -101,8 +102,8 @@ def create_rtc_download_job_params(args=None, product=None, batch_ids=None):
     ]
 
 
-def submit_dswx_s1_job(*, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> str:
-    return try_submit_mozart_job(
+def submit_download_job(*, batch_id: str, product: dict, job_queue: str, rule_name, params: list[dict[str, str]], job_spec: str, job_type: Optional[str] = None, job_name) -> tuple[str, str]:
+    return batch_id, try_submit_mozart_job(
         product=product,
         job_queue=job_queue,
         rule_name=rule_name,

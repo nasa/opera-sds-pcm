@@ -29,6 +29,15 @@ def _rtc_url_to_chunk_id(url, revision_id):
     return form_batch_id(input_filename, revision_id)
 
 
+def _to_urls(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("s3_urls"):
+        return dl_dict["s3_urls"]
+    elif dl_dict.get("https_urls"):
+        return dl_dict["https_urls"]
+    else:
+        raise Exception(f"Couldn't find any URLs in {dl_dict=}")
+
+
 def _to_url(dl_dict: dict[str, Any]) -> str:
     if dl_dict.get("s3_url"):
         return dl_dict["s3_url"]
@@ -75,6 +84,13 @@ def _has_s3_url(dl_dict: dict[str, Any]):
         logging.warning(f"Couldn't find any S3 URL in {dl_dict=}")
 
     return result
+
+
+def _to_https_urls(dl_dict: dict[str, Any]) -> str:
+    if dl_dict.get("https_urls"):
+        return dl_dict["https_urls"]
+    else:
+        raise Exception(f"Couldn't find any URLs in {dl_dict=}")
 
 
 def _to_https_url(dl_dict: dict[str, Any]) -> str:
