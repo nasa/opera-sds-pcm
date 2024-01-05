@@ -49,7 +49,7 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
 
     evaluator_results = {
         "coverage_target": coverage_target,
-        "mgrs_sets": {}
+        "mgrs_sets": defaultdict(list)
     }
 
     if not es_docs:
@@ -92,16 +92,19 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
 
     coverage_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
 
+    mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
     for coverage, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
         mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
         for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
-            evaluation_result = {
-                mgrs_set_id: {
-                    "coverage": coverage,
-                    "product_sets": product_sets_docs
-                }
-            }
-            evaluator_results["mgrs_sets"].update(evaluation_result)
+            for product_set_docs in product_sets_docs:
+                number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
+                number_of_bursts_actual = len(product_set_docs)
+                coverage_actual = int(number_of_bursts_actual / number_of_bursts_expected * 100)
+                evaluator_results["mgrs_sets"][mgrs_set_id].append({
+                        "coverage_actual": coverage_actual,
+                        "coverage_group": coverage,
+                        "product_set": product_set_docs
+                    })
 
     return evaluator_results
 
