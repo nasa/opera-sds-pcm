@@ -1,15 +1,16 @@
 import argparse
-import sqlite3
-from cmr import GranuleQuery
+import concurrent.futures
+import multiprocessing
+import random
 import re
-import tqdm
+import sqlite3
+import time
+
+from cmr import GranuleQuery
 from requests import get, exceptions
 import pandas as pd
 from tabulate import tabulate
-import concurrent.futures
-import random
-import time
-import multiprocessing
+import tqdm
 
 # NOTE: This should be contributed to https://github.com/nasa/python_cmr to be included as part of the library
 def get_custom(self, page_num=1, page_size=2000):
