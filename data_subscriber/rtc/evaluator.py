@@ -18,26 +18,22 @@ from util.grq_client import get_body
 logger = logging.getLogger(__name__)
 
 
-def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
+def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
-    body = get_body(match_all=False)
 
     if mgrs_set_id_acquisition_ts_cycle_indexes:
         logger.info(f"Supplied {mgrs_set_id_acquisition_ts_cycle_indexes=}. Adding criteria to query")
+        es_docs = []
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
+            body = get_body(match_all=False)
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
-
+            es_docs.extend(grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS))
         # NOTE: skipping job-submission filters to allow reprocessing
-        es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
-    elif mgrs_set_ids:
-        logger.info(f"Supplied {mgrs_set_ids=}. Adding criteria to query")
-        for mgrs_set_id in mgrs_set_ids:
-            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
-        es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
     else:
         # query 1: query for unsubmitted docs
+        body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
         unsubmitted_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
         logger.info(f"Found {len(unsubmitted_docs)=}")
