@@ -7,6 +7,7 @@ from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_csl
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
 from util import datasets_json_util
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class CslcCmrQuery(CmrQuery):
 
             frame_ids = self.burst_to_frame[burst_id]
             granule["frame_id"] = self.burst_to_frame[burst_id][0]
+            granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
 
             assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
@@ -53,6 +55,7 @@ class CslcCmrQuery(CmrQuery):
             if len(frame_ids) == 2:
                 new_granule = copy.deepcopy(granule)
                 new_granule["frame_id"] = self.burst_to_frame[burst_id][1]
+                new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
                 extended_granules.append(new_granule)
 
         granules.extend(extended_granules)
@@ -61,6 +64,7 @@ class CslcCmrQuery(CmrQuery):
         """For CSLC this is used to determine download_batch_id and attaching it the granule.
         Function extend_additional_records must have been called before this function."""
 
+        #TODO: There's no need to use different methods for historical. We can use the median date and then derive acquisition cycle from that.
         if self.proc_mode == "historical":
             download_batch_id = download_batch_id_hist(args)
         else: # forward or reprocessing
@@ -76,19 +80,55 @@ class CslcCmrQuery(CmrQuery):
 
     def determine_download_granules(self, granules):
         """Combine these new granules with existing unsubmitted granules to determine which granules to download.
-        This only applies to forward processing mode."""
-
-        # TODO: This is quick HACK to test a basic functionality
-        return granules
+        This only applies to forward processing mode. Valid only in forward processing mode."""
 
         if self.proc_mode != "forward":
             return granules
 
-        # Get unsubmitted granules and group by download_batch_id
+        # Get unsubmitted granules, which are ES records without download_job_id fields
         unsubmitted = self.es_conn.get_unsubmitted_granules()
 
-        # TODO: For each unsubmitted see if any were ever submmitted. If so, we will submit again with the new addtional granules.
+        print(f"{len(granules)=}")
+        print(f"{len(unsubmitted)=}")
 
+        # Group all granules by download_batch_id
+        # If the same download_batch_id is in both granules and unsubmitted, we will use the one in granules because it's newer
+        #TODO: granule_id isn't a valid unique identifier. Use the method in the function eliminate_duplicate_granules
+        by_download_batch_id = defaultdict(lambda: defaultdict(dict))
+        for granule in granules:
+            by_download_batch_id[granule["download_batch_id"]][granule["granule_id"]] = granule
+        for granule in unsubmitted:
+            download_batch = by_download_batch_id[granule["download_batch_id"]]
+            if granule["granule_id"] not in download_batch:
+                download_batch[granule["granule_id"]] = granule
+
+        # Combine unsubmitted and new granules and determine which granules meet the criteria for download
+        # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
+        # Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) and xx% are available, download all granules for that batch
+        # Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
+        download_granules = []
+        for batch_id, download_batch in by_download_batch_id.items():
+            print(f"{batch_id=} {len(download_batch)=}")
+            if len(download_batch) == len(self.disp_burst_map[int(batch_id.split("_")[0])].burst_ids):
+                print(f"Download all granules for {batch_id}")
+                for download in download_batch.values():
+                    download_granules.append(download)
+
+            if (len(download_batch) > 27):
+            #if (batch_id == '32504_148'):
+                l = [(g["granule_id"], g["revision_id"]) for g in download_batch.values()]
+                l = sorted(l)
+                print(l)
+                for ll in l:
+                    print(ll)
+
+                #for g in v:
+                #    print(g["granule_id"])
+
+        # TODO: Retrieve K- granules and M- compressed CSLCs for this batch
+        exit()
+
+        return download_granules
 
     async def query_cmr(self, args, token, cmr, settings, timerange, now):
 
@@ -110,6 +150,21 @@ class CslcCmrQuery(CmrQuery):
             granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
 
         return granules
+
+    def eliminate_duplicate_granules(self, granules):
+        """For CSLC granules revision_id is always one. Instead, we correlate the granules by download_batch_id and burst_id"""
+        granule_dict = {}
+        for granule in granules:
+            unique_id = granule["download_batch_id"] + "_" + granule["burst_id"]
+            if unique_id in granule_dict:
+                if granule["granule_id"] > granule_dict[unique_id]["granule_id"]:
+                    granule_dict[unique_id] = granule
+            else:
+                granule_dict[unique_id] = granule
+        granules = list(granule_dict.values())
+
+        return granules
+
 
     async def refresh_index(self):
         logger.info("performing index refresh")

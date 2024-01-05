@@ -64,7 +64,11 @@ class CmrQuery:
 
         # Evaluate granules for additional catalog record and extend list if found: granules is MODIFIED in place
         # Can only happen for RTC and CSLC files
+        # This also adds useful metdata to granule dicts
         self.extend_additional_records(granules)
+
+        # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
+        granules = self.eliminate_duplicate_granules(granules)
 
         if args.smoke_run:
             logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
@@ -124,6 +128,21 @@ class CmrQuery:
 
     async def query_cmr(self, args, token, cmr, settings, timerange, now: datetime):
         granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
+        return granules
+
+    def eliminate_duplicate_granules(self, granules):
+        """If we have two granules with the same granule_id, we only keep the one w the latest revision_id
+        This should be very rare"""
+        granule_dict = {}
+        for granule in granules:
+            granule_id = granule.get("granule_id")
+            if granule_id in granule_dict:
+                if granule.get("revision_id") > granule_dict[granule_id].get("revision_id"):
+                    granule_dict[granule_id] = granule
+            else:
+                granule_dict[granule_id] = granule
+        granules = list(granule_dict.values())
+
         return granules
 
     def prepare_additional_fields(self, granule, args, granule_id):

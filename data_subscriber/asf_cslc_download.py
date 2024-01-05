@@ -46,7 +46,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                                                                   key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                   files=files_to_upload)
 
-        '''proj_from = 'EPSG:{}'.format(gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].EPSG)  # int(32645)
+        proj_from = 'EPSG:{}'.format()  # int(32645)
         transformer = Transformer.from_crs(proj_from, "EPSG:4326")
 
         xmin, ymin = transformer.transform(
@@ -58,7 +58,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
         )
 
-        return [xmin, ymin, xmax, ymax]'''
+        bounding_box =  [xmin, ymin, xmax, ymax]
 
 
         # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
@@ -74,7 +74,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     "product_paths": {"L2_DISP_S1": s3paths},
                     "FileName": batch_id,
                     "id": batch_id,
-                    "bounding_box": None, #TODO: Do we need this?
+                    "bounding_box": bounding_box,
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,

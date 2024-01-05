@@ -38,7 +38,7 @@ class CSLCProductCatalog(SLCProductCatalog):
                 "query": {
                     "bool": {
                         "must_not": [
-                            {"match": {"submitted": True}}
+                            {"exists": {"field": "download_job_id"}}
                         ]
                     }
                 }
