@@ -139,7 +139,6 @@ def get_total_granules(api, retries=5, backoff_factor=1):
     raise RuntimeError("Failed to get total granules after several attempts.")
 
 
-
 # Create an argument parser
 parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
 parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
@@ -163,6 +162,7 @@ if args.file:
               burst_ids.append(burst_id)
           else:
               print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
+    print(burst_ids)
 else:
     # Ensure start and end times are provided
     if not args.start or not args.end:
@@ -262,4 +262,5 @@ if args.threshold:
 
 # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
 print()
+print('MGRS Set IDs covered:', len(df))
 print(tabulate(df[['MGRS Set ID','Coverage Percentage']], headers='keys', tablefmt='pretty', showindex=False))
