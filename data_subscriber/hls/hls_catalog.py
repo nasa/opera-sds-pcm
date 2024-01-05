@@ -76,7 +76,7 @@ class HLSProductCatalog:
     def process_url(
             self,
             urls: list[str],
-            granule_id: str,
+            granule,
             job_id: str,
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
@@ -85,15 +85,16 @@ class HLSProductCatalog:
             **kwargs
     ):
         filename = Path(urls[0]).name
-        doc = {
-            "id": form_batch_id(filename, kwargs['revision_id']),
-            "granule_id": granule_id,
-            "creation_timestamp": datetime.now(),
-            "query_job_id": job_id,
-            "query_datetime": query_dt,
-            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
-            "revision_date": revision_date_dt
-        }
+
+        doc = self.form_document(
+            filename=filename,
+            granule=granule,
+            job_id=job_id,
+            query_dt=query_dt,
+            temporal_extent_beginning_dt=temporal_extent_beginning_dt,
+            revision_date_dt=revision_date_dt,
+            revision_id=kwargs['revision_id']
+        )
 
         for url in urls:
             if "https://" in url:
@@ -112,6 +113,18 @@ class HLSProductCatalog:
         self.es.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
         return True
 
+    def form_document(self, filename: str, granule: dict, job_id: str, query_dt: datetime,
+                      temporal_extent_beginning_dt: datetime, revision_date_dt: datetime, revision_id):
+        return {
+            "id": form_batch_id(filename, revision_id),
+            "granule_id": granule["granule_id"],
+            "creation_timestamp": datetime.now(),
+            "query_job_id": job_id,
+            "query_datetime": query_dt,
+            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
+            "revision_date": revision_date_dt
+        }
+
     def mark_product_as_downloaded(self, url, job_id):
         filename = url.split("/")[-1]
 
@@ -127,6 +140,31 @@ class HLSProductCatalog:
                 }
             },
             index=index
+        )
+
+        self.logger.info(f"Document updated: {result}")
+
+    def mark_download_job_id(self, batch_id, job_id):
+        "Stores the download_job_id in the catalog for all granules in this batch"
+
+        #TODO: Do we need to get the index name like in the function mark_product_as_downloaded?
+
+        index = self.generate_es_index_name()
+        result = self.es.es.update_by_query(
+            index=index,
+            body={
+                "script": {
+                    "source": f"ctx._source.download_job_id = '{job_id}'",
+                    "lang": "painless"
+                },
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"download_batch_id": batch_id}}
+                        ]
+                    }
+                }
+            }
         )
 
         self.logger.info(f"Document updated: {result}")

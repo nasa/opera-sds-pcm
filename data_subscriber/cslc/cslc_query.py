@@ -48,6 +48,7 @@ class CslcCmrQuery(CmrQuery):
             frame_ids = self.burst_to_frame[burst_id]
             granule["frame_id"] = self.burst_to_frame[burst_id][0]
             granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
+            granule["unique_id"] = granule["download_batch_id"] + "_" + granule["burst_id"]
 
             assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
@@ -56,6 +57,7 @@ class CslcCmrQuery(CmrQuery):
                 new_granule = copy.deepcopy(granule)
                 new_granule["frame_id"] = self.burst_to_frame[burst_id][1]
                 new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
+                new_granule["unique_id"] = new_granule["download_batch_id"] + "_" + new_granule["burst_id"]
                 extended_granules.append(new_granule)
 
         granules.extend(extended_granules)
@@ -88,45 +90,45 @@ class CslcCmrQuery(CmrQuery):
         # Get unsubmitted granules, which are ES records without download_job_id fields
         unsubmitted = self.es_conn.get_unsubmitted_granules()
 
-        print(f"{len(granules)=}")
-        print(f"{len(unsubmitted)=}")
+        logger.info(f"{len(granules)=}")
+        logger.info(f"{len(unsubmitted)=}")
 
         # Group all granules by download_batch_id
         # If the same download_batch_id is in both granules and unsubmitted, we will use the one in granules because it's newer
-        #TODO: granule_id isn't a valid unique identifier. Use the method in the function eliminate_duplicate_granules
+        # unique_id is mapped into id in ES
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
         for granule in granules:
-            by_download_batch_id[granule["download_batch_id"]][granule["granule_id"]] = granule
+            by_download_batch_id[granule["download_batch_id"]][granule["unique_id"]] = granule
         for granule in unsubmitted:
             download_batch = by_download_batch_id[granule["download_batch_id"]]
-            if granule["granule_id"] not in download_batch:
-                download_batch[granule["granule_id"]] = granule
+            if granule["id"] not in download_batch:
+                download_batch[granule["id"]] = granule
 
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
         # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
-        # Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) and xx% are available, download all granules for that batch
-        # Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
+        # TODO Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) and xx% are available, download all granules for that batch
+        # TODO Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
         download_granules = []
         for batch_id, download_batch in by_download_batch_id.items():
-            print(f"{batch_id=} {len(download_batch)=}")
-            if len(download_batch) == len(self.disp_burst_map[int(batch_id.split("_")[0])].burst_ids):
-                print(f"Download all granules for {batch_id}")
+            logger.info(f"{batch_id=} {len(download_batch)=}")
+            max_bursts = len(self.disp_burst_map[int(batch_id.split("_")[0])].burst_ids)
+            if len(download_batch) == max_bursts:
+                logger.info(f"Download all granules for {batch_id}")
                 for download in download_batch.values():
                     download_granules.append(download)
 
-            if (len(download_batch) > 27):
-            #if (batch_id == '32504_148'):
-                l = [(g["granule_id"], g["revision_id"]) for g in download_batch.values()]
+            if (len(download_batch) > max_bursts):
+                raise AssertionError("Something seriously went wrong matching up CSLC input granules!")
+                #if (batch_id == '32504_148'):
+                '''l = [(g["granule_id"], g["revision_id"]) for g in download_batch.values()]
                 l = sorted(l)
                 print(l)
                 for ll in l:
-                    print(ll)
+                    print(ll)'''
 
-                #for g in v:
-                #    print(g["granule_id"])
+        logger.info(f"{len(download_granules)=}")
 
         # TODO: Retrieve K- granules and M- compressed CSLCs for this batch
-        exit()
 
         return download_granules
 
@@ -152,10 +154,11 @@ class CslcCmrQuery(CmrQuery):
         return granules
 
     def eliminate_duplicate_granules(self, granules):
-        """For CSLC granules revision_id is always one. Instead, we correlate the granules by download_batch_id and burst_id"""
+        """For CSLC granules revision_id is always one. Instead, we correlate the granules by the unique_id
+        which is a function of download_batch_id and burst_id"""
         granule_dict = {}
         for granule in granules:
-            unique_id = granule["download_batch_id"] + "_" + granule["burst_id"]
+            unique_id = granule["unique_id"]
             if unique_id in granule_dict:
                 if granule["granule_id"] > granule_dict[unique_id]["granule_id"]:
                     granule_dict[unique_id] = granule
