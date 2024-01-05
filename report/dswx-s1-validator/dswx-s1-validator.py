@@ -140,128 +140,130 @@ def get_total_granules(api, retries=5, backoff_factor=1):
     raise RuntimeError("Failed to get total granules after several attempts.")
 
 
-# Create an argument parser
-parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
-parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
-parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
-parser.add_argument("--db", required=True, help="Path to the SQLite database file")
-parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
-parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the %)")
 
-# Parse the command-line arguments
-args = parser.parse_args()
+if __name__ == '__main__':
+    # Create an argument parser
+    parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
+    parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
+    parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
+    parser.add_argument("--db", required=True, help="Path to the SQLite database file")
+    parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
+    parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the %)")
 
-burst_ids = []
+    # Parse the command-line arguments
+    args = parser.parse_args()
 
-# Check if file input is provided, otherwise use CMR API to get burst IDs
-if args.file:
-    with open(args.file, 'r') as file:
-        granule_ids = [line.strip() for line in file.readlines()]
-        for granule_id in granule_ids:
-          burst_id = get_burst_id(granule_id)
-          if (burst_id):
-              burst_ids.append(burst_id)
-          else:
-              print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
-    print(burst_ids)
-else:
-    # Ensure start and end times are provided
-    if not args.start or not args.end:
-        raise ValueError("Start and end times are required if no file input is provided.")
+    burst_ids = []
 
-    # Initialize the CMR API
-    api = GranuleQuery()
+    # Check if file input is provided, otherwise use CMR API to get burst IDs
+    if args.file:
+        with open(args.file, 'r') as file:
+            granule_ids = [line.strip() for line in file.readlines()]
+            for granule_id in granule_ids:
+              burst_id = get_burst_id(granule_id)
+              if (burst_id):
+                  burst_ids.append(burst_id)
+              else:
+                  print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
+        print(burst_ids)
+    else:
+        # Ensure start and end times are provided
+        if not args.start or not args.end:
+            raise ValueError("Start and end times are required if no file input is provided.")
 
-    # Query for granules with the specified temporal range and collection short name
-    api.temporal(args.start, args.end)
-    print(f"Querying CMR for time range {args.start} to {args.end}.")
-    total_granules = get_total_granules(api)
-    print(f"Querying CMR for {total_granules} granules.")
+        # Initialize the CMR API
+        api = GranuleQuery()
 
-    # Optimize page_size and number of workers based on total_granules
-    page_size = min(1000, total_granules)
-    num_workers = min(5, (total_granules + page_size - 1) // page_size)
+        # Query for granules with the specified temporal range and collection short name
+        api.temporal(args.start, args.end)
+        print(f"Querying CMR for time range {args.start} to {args.end}.")
+        total_granules = get_total_granules(api)
+        print(f"Querying CMR for {total_granules} granules.")
 
-    # Initialize progress bar
-    tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
+        # Optimize page_size and number of workers based on total_granules
+        page_size = min(1000, total_granules)
+        num_workers = min(5, (total_granules + page_size - 1) // page_size)
+
+        # Initialize progress bar
+        tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
+        print()
+
+        # Main loop to fetch granules, update progress bar, and extract burst_ids
+        with tqdm.tqdm(total=total_granules, desc="Fetching granules", position=0) as pbar_global:
+            downloaded_batches = multiprocessing.Value('i', 0)  # For counting downloaded batches
+            total_batches = (total_granules + page_size - 1) // page_size
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [executor.submit(parallel_fetch, api, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+
+                for future in concurrent.futures.as_completed(futures):
+                    granules = future.result()
+                    pbar_global.update(len(granules))
+
+                    # RegEx for extracting burst IDs from granule IDs
+                    pattern = r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1A_\d+_v\d+\.\d+'
+                    for granule in granules:
+                        granule_id = granule.get("producer_granule_id")
+                        burst_id = get_burst_id(granule_id)
+                        if (burst_id):
+                            burst_ids.append(burst_id)
+                        else:
+                            print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
+        print("\nGranule fetching complete.")
+
+        # Integrity check for total granules
+        total_downloaded = sum(len(future.result()) for future in futures)
+        if total_downloaded != total_granules:
+            print(f"\nWarning: Expected {total_granules} granules, but downloaded {total_downloaded}.")
+
+    # Connect to the MGRS Tile Set SQLITE database
+    conn = sqlite3.connect(args.db)
+    cursor = conn.cursor()
+
+    # Query to retrieve all mgrs_set_id and their bursts
+    query = "SELECT mgrs_set_id, bursts FROM mgrs_burst_db"
+    cursor.execute(query)
+    mgrs_data = cursor.fetchall()
+
+    # Initialize DataFrame to store results
+    df = pd.DataFrame(columns=['MGRS Set ID', 'Coverage Percentage', 'Matching Bursts', 'Total Bursts'])
+
+    # Initialize a list to store data for DataFrame
+    data_for_df = []
+
+    # Iterate through each mgrs_set_id and calculate coverage, also update a progress bar
     print()
+    for mgrs_set_id, bursts_string in tqdm.tqdm(mgrs_data, desc="Calculating coverage"):
 
-    # Main loop to fetch granules, update progress bar, and extract burst_ids
-    with tqdm.tqdm(total=total_granules, desc="Fetching granules", position=0) as pbar_global:
-        downloaded_batches = multiprocessing.Value('i', 0)  # For counting downloaded batches
-        total_batches = (total_granules + page_size - 1) // page_size
+        # Main logic for coverage calculation:
+        # 1. Identify RTC burst IDs we want to check (i.e. bursts_list)
+        # 2. For each MGRS Set ID (i.e. mgrs_set_id), find the matching intersection (i.e. match_count) of RTC burst IDs (i.e. bursts_list) that map to the tile's burst IDs (i.e. burst_ids)
+        # 3. Return the percentage of matches compared to the total number of bursts associated with the MGRS Tile Set ID (i.e. mgrs_set_id)
+        bursts_list = bursts_string.strip("[]").replace("'", "").replace(" ", "").split(',')
+        matching_bursts = [burst for burst in bursts_list if burst in burst_ids]
+        match_count = len(matching_bursts)
+        coverage_percentage = round((match_count / len(bursts_list)) * 100, 2) if bursts_list else 0.0
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(parallel_fetch, api, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+        # Collect the db data we will need later
+        data_for_df.append({
+            'MGRS Set ID': mgrs_set_id,
+            'Coverage Percentage': coverage_percentage,
+            'Matching Bursts': ', '.join(matching_bursts),
+            'Total Bursts': ', '.join(bursts_list)
+        })
 
-            for future in concurrent.futures.as_completed(futures):
-                granules = future.result()
-                pbar_global.update(len(granules))
+    # Close the database connection safely
+    conn.close()
 
-                # RegEx for extracting burst IDs from granule IDs
-                pattern = r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1A_\d+_v\d+\.\d+'
-                for granule in granules:
-                    granule_id = granule.get("producer_granule_id")
-                    burst_id = get_burst_id(granule_id)
-                    if (burst_id):
-                        burst_ids.append(burst_id)
-                    else:
-                        print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
-    print("\nGranule fetching complete.")
+    # Create DataFrame from the collected data to use for fancy stuff
+    df = pd.DataFrame(data_for_df)
 
-    # Integrity check for total granules
-    total_downloaded = sum(len(future.result()) for future in futures)
-    if total_downloaded != total_granules:
-        print(f"\nWarning: Expected {total_granules} granules, but downloaded {total_downloaded}.")
+    # Apply threshold filtering if provided. This is the place for more fancy logic if needed.
+    if args.threshold:
+        threshold = float(args.threshold)
+        df = df[df['Coverage Percentage'] >= threshold]
 
-# Connect to the MGRS Tile Set SQLITE database
-conn = sqlite3.connect(args.db)
-cursor = conn.cursor()
-
-# Query to retrieve all mgrs_set_id and their bursts
-query = "SELECT mgrs_set_id, bursts FROM mgrs_burst_db"
-cursor.execute(query)
-mgrs_data = cursor.fetchall()
-
-# Initialize DataFrame to store results
-df = pd.DataFrame(columns=['MGRS Set ID', 'Coverage Percentage', 'Matching Bursts', 'Total Bursts'])
-
-# Initialize a list to store data for DataFrame
-data_for_df = []
-
-# Iterate through each mgrs_set_id and calculate coverage, also update a progress bar
-print()
-for mgrs_set_id, bursts_string in tqdm.tqdm(mgrs_data, desc="Calculating coverage"):
-
-    # Main logic for coverage calculation: 
-    # 1. Identify RTC burst IDs we want to check (i.e. bursts_list) 
-    # 2. For each MGRS Set ID (i.e. mgrs_set_id), find the matching intersection (i.e. match_count) of RTC burst IDs (i.e. bursts_list) that map to the tile's burst IDs (i.e. burst_ids)
-    # 3. Return the percentage of matches compared to the total number of bursts associated with the MGRS Tile Set ID (i.e. mgrs_set_id)
-    bursts_list = bursts_string.strip("[]").replace("'", "").replace(" ", "").split(',')
-    matching_bursts = [burst for burst in bursts_list if burst in burst_ids]
-    match_count = len(matching_bursts)
-    coverage_percentage = round((match_count / len(bursts_list)) * 100, 2) if bursts_list else 0.0
-
-    # Collect the db data we will need later
-    data_for_df.append({
-        'MGRS Set ID': mgrs_set_id,
-        'Coverage Percentage': coverage_percentage,
-        'Matching Bursts': ', '.join(matching_bursts),
-        'Total Bursts': ', '.join(bursts_list)
-    })
-
-# Close the database connection safely
-conn.close()
-
-# Create DataFrame from the collected data to use for fancy stuff
-df = pd.DataFrame(data_for_df)
-
-# Apply threshold filtering if provided. This is the place for more fancy logic if needed.
-if args.threshold:
-    threshold = float(args.threshold)
-    df = df[df['Coverage Percentage'] >= threshold]
-
-# Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
-print()
-print('MGRS Set IDs covered:', len(df))
-print(tabulate(df[['MGRS Set ID','Coverage Percentage']], headers='keys', tablefmt='pretty', showindex=False))
+    # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
+    print()
+    print('MGRS Set IDs covered:', len(df))
+    print(tabulate(df[['MGRS Set ID','Coverage Percentage']], headers='keys', tablefmt='pretty', showindex=False))
