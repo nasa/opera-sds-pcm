@@ -172,8 +172,6 @@ Calculating coverage: 100%|█████████████████�
 
 ## Frequently Asked Questions (FAQ)
 
-No questions yet. Propose a question to be added here by reaching out to our contributors! See support section below.
-
 - **Q: One or more of the Python dependencies installed via `pip install` are not available on my machine / environment**
   
   A: Consider [building the dependency from source](https://devguide.python.org/getting-started/setup-building/) on your machine. For example, a reported missing dependency on an Apple M2 MacBook with Python 3.9.6 is `sqllite3` and requires a build from source following [this guide](https://til.simonwillison.net/sqlite/build-specific-sqlite-pysqlite-macos).
