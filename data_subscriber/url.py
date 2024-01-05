@@ -7,10 +7,11 @@ from typing import Any
 def form_batch_id(granule_id, revision_id):
     return granule_id+'-r'+str(revision_id)
 
+def form_batch_id_cslc(granule_id, revision_id):
+    return granule_id+'.h5-r'+str(revision_id)
 
 def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
-
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
     url = _to_url(dl_doc)
