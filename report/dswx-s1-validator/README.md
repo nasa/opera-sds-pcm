@@ -71,7 +71,7 @@ This guide provides a quick way to get started with the script.
 ### Setup Instructions
 
 1. Clone the repository to your local machine.
-2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests`.
+2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests python_cmr`.
 3. Ensure you have internet access to the CMR API
    
 ### Run Instructions
@@ -173,6 +173,10 @@ Calculating coverage: 100%|█████████████████�
 ## Frequently Asked Questions (FAQ)
 
 No questions yet. Propose a question to be added here by reaching out to our contributors! See support section below.
+
+- **Q: One or more of the Python dependencies installed via `pip install` are not available on my machine / environment**
+  
+  A: Consider [building the dependency from source](https://devguide.python.org/getting-started/setup-building/) on your machine. For example, a reported missing dependency on an Apple M2 MacBook with Python 3.9.6 is `sqllite3` and requires a build from source following [this guide](https://til.simonwillison.net/sqlite/build-specific-sqlite-pysqlite-macos).
 
 ## Support
 
