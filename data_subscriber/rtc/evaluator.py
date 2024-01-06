@@ -3,6 +3,7 @@ import logging
 import re
 import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Optional
 
@@ -93,7 +94,10 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
     coverage_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
 
     mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
-    for coverage, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
+    for coverage_group, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
+        if coverage_group == -1:
+            logger.info("Skipping results that don't meet the target coverage")
+            continue
         mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
         for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
             for product_set_docs in product_sets_docs:
@@ -102,9 +106,42 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
                 coverage_actual = int(number_of_bursts_actual / number_of_bursts_expected * 100)
                 evaluator_results["mgrs_sets"][mgrs_set_id].append({
                         "coverage_actual": coverage_actual,
-                        "coverage_group": coverage,
+                        "coverage_group": coverage_group,
                         "product_set": product_set_docs
                     })
+
+    # skip recent target covered sets to wait for more data
+    #  until H hours have passed since most recent retrieval
+    for mgrs_set_id in list(evaluator_results["mgrs_sets"]):
+        product_set_and_coverage_dicts = evaluator_results["mgrs_sets"][mgrs_set_id]
+        product_burstset_index_to_skip_processing = set()
+        for i, product_set_and_coverage_dict in enumerate(product_set_and_coverage_dicts):
+            coverage_group = product_set_and_coverage_dict["coverage_group"]
+            if coverage_group != evaluator_results["coverage_target"]:
+                continue
+            product_burstset = product_set_and_coverage_dict["product_set"]
+            retrieval_dts = [
+                dateutil.parser.parse(product_doc["creation_timestamp"])
+                for rtc_granule_id_to_product_docs_map in product_burstset
+                for product_doc_list in rtc_granule_id_to_product_docs_map.values()
+                for product_doc in product_doc_list
+            ]
+            max_retrieval_dt = max(*retrieval_dts)
+            if datetime.now() - max_retrieval_dt < timedelta(minutes=60 * 1):
+                # burst set meets target, but not old enough. continue to ignore
+                logger.info(f"Target covered burst still within grace period. Will not process at this time. {mgrs_set_id=}, {i=}")
+                product_burstset_index_to_skip_processing.add(i)
+            else:
+                # burst set meets target, and old enough. process
+                logger.info(f"Target covered burst set aged out of grace period. Will process at this time. {mgrs_set_id=}, {i=}")
+                pass
+        for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
+            logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
+            del evaluator_results["mgrs_sets"][mgrs_set_id][i]
+            if not evaluator_results["mgrs_sets"][mgrs_set_id]:
+                del evaluator_results["mgrs_sets"][mgrs_set_id]
+
+    evaluator_results["mgrs_sets"] = dict(evaluator_results["mgrs_sets"])
 
     return evaluator_results
 

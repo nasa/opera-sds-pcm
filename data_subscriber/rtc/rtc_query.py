@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import logging
 import re
 from collections import namedtuple, defaultdict
@@ -139,22 +140,19 @@ class RtcCmrQuery(CmrQuery):
 
         # convert to "batch_id" mapping
         batch_id_to_products_map = defaultdict(partial(defaultdict, list))
-        for mgrs_set_id, product_set_and_coverage_dicts in evaluator_results["mgrs_sets"].items():
-            for product_set_and_coverage_dict in product_set_and_coverage_dicts:
-                product_set = product_set_and_coverage_dict["product_set"]
-                for rtc_granule_id_to_product_docs_map in product_set:
-                    for product_docs in rtc_granule_id_to_product_docs_map.values():
-                        for product_doc in product_docs:
-                            # doc needs to be part of a processable mgrs_set_id
-                            if product_doc["mgrs_set_id"] in processable_mgrs_set_ids:
-                                _, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
-                                batch_id = mgrs_set_id_aquisition_ts_cycle_index
-                                # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
-                                if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
-                                    batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
-                if args.smoke_run:
-                    logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
-                    break
+        for product_set_and_coverage_dict in evaluator_results["mgrs_sets"].values():
+            for rtc_granule_id_to_product_docs_map in product_set_and_coverage_dict["product_set"].values():
+                for product_doc in itertools.chain.from_iterable(rtc_granule_id_to_product_docs_map.values()):
+                    # doc needs to be part of a processable mgrs_set_id
+                    if product_doc["mgrs_set_id"] in processable_mgrs_set_ids:
+                        _, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
+                        batch_id = mgrs_set_id_aquisition_ts_cycle_index
+                        # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
+                        if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
+                            batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
+            if args.smoke_run:
+                logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
+                break
 
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
