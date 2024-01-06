@@ -1,4 +1,5 @@
 import argparse
+from itertools import chain
 import logging
 import re
 import sys
@@ -120,12 +121,11 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
             if coverage_group != evaluator_results["coverage_target"]:
                 continue
             product_burstset = product_set_and_coverage_dict["product_set"]
-            retrieval_dts = [
+            retrieval_dts = {
                 dateutil.parser.parse(product_doc["creation_timestamp"])
                 for rtc_granule_id_to_product_docs_map in product_burstset
-                for product_doc_list in rtc_granule_id_to_product_docs_map.values()
-                for product_doc in product_doc_list
-            ]
+                for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
+            }
             max_retrieval_dt = max(*retrieval_dts)
             if datetime.now() - max_retrieval_dt < timedelta(minutes=60 * 1):
                 # burst set meets target, but not old enough. continue to ignore

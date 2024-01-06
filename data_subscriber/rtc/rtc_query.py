@@ -1,5 +1,5 @@
 import asyncio
-import itertools
+from itertools import chain
 import logging
 import re
 from collections import namedtuple, defaultdict
@@ -142,7 +142,7 @@ class RtcCmrQuery(CmrQuery):
         batch_id_to_products_map = defaultdict(partial(defaultdict, list))
         for product_set_and_coverage_dict in evaluator_results["mgrs_sets"].values():
             for rtc_granule_id_to_product_docs_map in product_set_and_coverage_dict["product_set"].values():
-                for product_doc in itertools.chain.from_iterable(rtc_granule_id_to_product_docs_map.values()):
+                for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values()):
                     # doc needs to be part of a processable mgrs_set_id
                     if product_doc["mgrs_set_id"] in processable_mgrs_set_ids:
                         _, mgrs_set_id_aquisition_ts_cycle_index = product_doc["id"].split("$", 1)
