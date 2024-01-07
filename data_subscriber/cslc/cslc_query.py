@@ -117,6 +117,21 @@ class CslcCmrQuery(CmrQuery):
                 for download in download_batch.values():
                     download_granules.append(download)
 
+                    # TODO: Retrieve K- granules and M- compressed CSLCs for this batch
+                    # Go back K- 12-day windows and find the same frame
+                    '''for i in range(self.args.k):
+                        args = self.args
+                        # Move start and end date of args back by 12 days
+                        # TODO: Not sure if the following code works yet, need to test
+                        args.start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
+                            days=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        args.end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
+                            days=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        query_timerange: DateTimeRange = get_query_timerange(args, now)
+                        granules = await self.query_cmr(args, token, cmr, settings, query_timerange, now)
+                        self.extend_additional_records(granules)
+                        granules = self.eliminate_duplicate_granules(granules)'''
+
             if (len(download_batch) > max_bursts):
                 raise AssertionError("Something seriously went wrong matching up CSLC input granules!")
                 #if (batch_id == '32504_148'):
@@ -127,8 +142,6 @@ class CslcCmrQuery(CmrQuery):
                     print(ll)'''
 
         logger.info(f"{len(download_granules)=}")
-
-        # TODO: Retrieve K- granules and M- compressed CSLCs for this batch
 
         return download_granules
 

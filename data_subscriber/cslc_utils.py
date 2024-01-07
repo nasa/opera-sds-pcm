@@ -1,8 +1,9 @@
-import json
-from types import SimpleNamespace
-import boto3
-from util.conf_util import SettingsConf
 from collections import defaultdict
+from types import SimpleNamespace
+import json
+import boto3
+from pyproj import Transformer
+from util.conf_util import SettingsConf
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 
@@ -75,4 +76,21 @@ def download_batch_id_forward_reproc(granule):
     download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()
 
     return download_batch_id
+
+def split_download_batch_id(download_batch_id):
+    """Split the download_batch_id into frame_id and acquisition_cycle"""
+
+    frame_id, acquisition_cycle = download_batch_id.split("_")
+    return frame_id, acquisition_cycle
+
+def get_bounding_box_for_frame(frame):
+    """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax]"""
+
+    proj_from = f'EPSG:{frame.epsg}'
+    transformer = Transformer.from_crs(proj_from, "EPSG:4326")
+
+    xmin, ymin = transformer.transform(xx=frame.xmin, yy=frame.ymin)
+    xmax, ymax = transformer.transform(xx=frame.xmax, yy=frame.ymax)
+
+    return [xmin, ymin, xmax, ymax]
 

@@ -82,14 +82,15 @@ class CmrQuery:
             localize_include_exclude(args)
             granules[:] = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
-        # TODO: This function only applies to CSLC
+        # TODO: This function only applies to CSLC, merge w RTC at some point
+        # Given the new granules coming in and existing unsubmitted granules, determine which granules to download
         download_granules = self.determine_download_granules(granules)
 
         logger.info("catalogue-ing STARTED")
         self.catalog_granules(granules, query_dt)
         logger.info("catalogue-ing FINISHED")
 
-        #TODO: This function only applies to RTC
+        #TODO: This function only applies to RTC, merge w CSLC at some point
         batch_id_to_products_map = await self.refresh_index()
 
         if args.subparser_name == "full":

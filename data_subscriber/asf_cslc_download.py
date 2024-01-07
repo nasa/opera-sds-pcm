@@ -6,7 +6,6 @@ from pathlib import PurePath, Path
 import requests
 import requests.utils
 from more_itertools import partition
-from pyproj import Transformer
 
 import extractor.extract
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
@@ -15,10 +14,17 @@ from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
+from data_subscriber.cslc_utils import localize_disp_frame_burst_json, split_download_batch_id, get_bounding_box_for_frame
+
 logger = logging.getLogger(__name__)
 
 
 class AsfDaacCslcDownload(AsfDaacRtcDownload):
+
+    def __init__(self, provider):
+        super().__init__(provider)
+        self.disp_burst_map, self.burst_to_frame, metadata, version = localize_disp_frame_burst_json()
+
     async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
         # There should always be only one batch_id
@@ -46,20 +52,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                                                                   key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                   files=files_to_upload)
 
-        proj_from = 'EPSG:{}'.format()  # int(32645)
-        transformer = Transformer.from_crs(proj_from, "EPSG:4326")
-
-        xmin, ymin = transformer.transform(
-            xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmin,
-            yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymin
-        )
-        xmax, ymax = transformer.transform(
-            xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmax,
-            yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
-        )
-
-        bounding_box =  [xmin, ymin, xmax, ymax]
-
+        frame_id, _ = split_download_batch_id(batch_id)
+        frame = self.disp_burst_map[int(frame_id)]
+        bounding_box = get_bounding_box_for_frame(frame)
+        print(f'{bounding_box=}')
 
         # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
         # Now submit DISP-S1 SCIFLO job

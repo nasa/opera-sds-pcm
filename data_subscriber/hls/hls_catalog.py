@@ -147,8 +147,6 @@ class HLSProductCatalog:
     def mark_download_job_id(self, batch_id, job_id):
         "Stores the download_job_id in the catalog for all granules in this batch"
 
-        #TODO: Do we need to get the index name like in the function mark_product_as_downloaded?
-
         result = self.es.es.update_by_query(
             index=self.ES_INDEX_PATTERNS,
             body={
