@@ -52,6 +52,10 @@ class OperaChimeraConstants(ChimeraConstants):
 
     DEM_FILE = "dem_file"
 
+    FRAME_ID = "frame_id"
+
+    PRODUCT_TYPE = "product_type"
+
     TEC_FILE = "tec_file"
 
     LANDCOVER_FILE = "landcover_file"
@@ -81,6 +85,10 @@ class OperaChimeraConstants(ChimeraConstants):
     L3_DSWx_S1 = "L3_DSWx_S1"
 
     L3_DISP_S1 = "L3_DISP_S1"
+
+    DISP_S1_FORWARD = "DISP_S1_FORWARD"
+
+    DISP_S1_HISTORICAL = "DISP_S1_HISTORICAL"
 
     EXTRA_PGE_OUTPUT_METADATA = "extra_pge_output_metadata"
 

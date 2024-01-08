@@ -30,6 +30,11 @@ runconfig:
   processing:
     frame_id: __CHIMERA_VAL__
     algorithm_parameters: __CHIMERA_VAL__
+    product_type: __CHIMERA_VAL__
+    n_workers: __CHIMERA_VAL__
+    # TODO: DebugSwitch is currently hardcoded to True to bypass ancillary input checks in DISP-S1 PGE
+    #       Reset to False once ancillaries are available
+    debug_switch: True
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -38,6 +43,8 @@ preconditions:
   - get_cnm_version
   - set_daac_product_type
   - get_disp_s1_frame_id
+  - get_disp_s1_product_type
+  - get_disp_s1_num_workers
   - get_disp_s1_sample_inputs
   # TODO: to be implemented with further releases
   #- get_disp_s1_input_filepaths

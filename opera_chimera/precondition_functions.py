@@ -919,13 +919,61 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_disp_s1_frame_id(self):
         """
-        Temporary function to assign the hardcoded frame ID to the RunConfig for
+        Assigns the frame ID to the RunConfig for DISP-S1 PGE jobs.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        # Currently, DISP frame number is stored as the first part of the "batch" ID
+        batch_id = metadata['batch_id']
+
+        frame_id = batch_id.split('_')[0]
+
+        rc_params = {
+            oc_const.FRAME_ID: frame_id
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_product_type(self):
+        """
+        Assigns the product type (forward/historical) to the RunConfig for
         DISP-S1 PGE jobs.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        processing_mode = self._context["processing_mode"]
+
         rc_params = {
-            'frame_id': "123"
+           oc_const.PRODUCT_TYPE: (oc_const.DISP_S1_HISTORICAL
+                                   if processing_mode == oc_const.PROCESSING_MODE_HISTORICAL
+                                   else oc_const.DISP_S1_FORWARD)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DISP-S1 job as a
+        fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        # Use 3/4th of the available cores for standard processing
+        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+
+        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+
+        rc_params = {
+            "n_workers": str(num_workers)
         }
 
         logger.info(f"rc_params : {rc_params}")

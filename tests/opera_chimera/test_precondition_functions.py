@@ -684,6 +684,65 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147", rc_params[oc_const.INPUT_FILE_PATHS])
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148", rc_params[oc_const.INPUT_FILE_PATHS])
 
+    def test_get_disp_s1_frame_id(self):
+        """Unit tests for the get_disp_s1_frame_id() precondition function"""
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "batch_id": "88_145"  # Format is <frame_id>_<acquisition_time_index>
+                }
+            }
+        }
+
+        # These are not used with get_disp_s1_frame_id()
+        pge_config = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_disp_s1_frame_id()
+
+        self.assertIn(oc_const.FRAME_ID, rc_params)
+        self.assertIsInstance(rc_params[oc_const.FRAME_ID], str)
+        self.assertEqual("88", rc_params[oc_const.FRAME_ID])
+
+    def test_get_disp_s1_product_type(self):
+        """Unit tests for the get_disp_s1_product_type() precondition function"""
+        context = {
+            "processing_mode": oc_const.PROCESSING_MODE_HISTORICAL
+        }
+
+        # These are not used with get_disp_s1_product_type()
+        pge_config = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_disp_s1_product_type()
+
+        self.assertIn(oc_const.PRODUCT_TYPE, rc_params)
+        self.assertIsInstance(rc_params[oc_const.PRODUCT_TYPE], str)
+        self.assertEqual(oc_const.DISP_S1_HISTORICAL, rc_params[oc_const.PRODUCT_TYPE])
+
+        for proc_mode in [oc_const.PROCESSING_MODE_FORWARD, oc_const.PROCESSING_MODE_REPROCESSING]:
+            context["processing_mode"] = proc_mode
+
+            precondition_functions = OperaPreConditionFunctions(
+                context, pge_config, settings, job_params
+            )
+
+            rc_params = precondition_functions.get_disp_s1_product_type()
+
+            self.assertEqual(oc_const.DISP_S1_FORWARD, rc_params[oc_const.PRODUCT_TYPE])
+
+
+        self.assertEqual(oc_const.DISP_S1_FORWARD, rc_params[oc_const.PRODUCT_TYPE])
 
 if __name__ == "__main__":
     unittest.main()
