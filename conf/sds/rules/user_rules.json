@@ -78,7 +78,7 @@
       "priority": 0,
       "query_all": false,
       "query_string": "{\"bool\": {\"must\": [{\"terms\": {\"dataset_type.keyword\": [\"L1_S1_SLC\"]}}], \"must_not\": [{\"term\": {\"metadata.processing_mode\": \"historical\"}}]}}",
-      "queue": "opera-job_worker-sciflo-l2_rtc_s1",
+      "queue": "opera-job_worker-sciflo-l2_rtc_s1_static",
       "rule_name": "trigger-SCIFLO_L2_RTC_S1_STATIC",
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L2_RTC_S1_STATIC:__TAG__",

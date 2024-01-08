@@ -316,6 +316,14 @@ variable "queues" {
       "max_size"          = 25
       "total_jobs_metric" = true
     }
+    "opera-job_worker-sciflo-l2_rtc_s1_static" = {
+      "name"              = "opera-job_worker-sciflo-l2_rtc_s1_static"
+      "instance_type"     = ["r6a.2xlarge", "r6i.2xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "max_size"          = 25
+      "total_jobs_metric" = true
+    }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_hls"
       "instance_type"     = ["c5a.large", "c6a.large", "c6i.large"]
@@ -327,7 +335,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
-      "instance_type"     = ["c5a.large", "c6a.large", "c6i.large"]
+      "instance_type"     = ["r6a.large", "r6i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
