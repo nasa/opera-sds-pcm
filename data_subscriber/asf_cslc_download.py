@@ -83,14 +83,16 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             }
         }
 
+        proc_mode_suffix = "_hist" if args.proc_mode == "historical" else ""
+
         return try_submit_mozart_job(
             product=product,
-            job_queue=f'opera-job_worker-{"sciflo-l3_disp_s1"}',
-            rule_name=f'trigger-{"SCIFLO_L3_DISP_S1"}',
+            job_queue=f'opera-job_worker-sciflo-l3_disp_s1{proc_mode_suffix}',
+            rule_name=f'trigger-SCIFLO_L3_DISP_S1{proc_mode_suffix}',
             params=self.create_job_params(product),
-            job_spec=f'job-{"SCIFLO_L3_DISP_S1"}:{settings["RELEASE_VERSION"]}',
-            job_type=f'hysds-io-{"SCIFLO_L3_DISP_S1"}:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-{"SCIFLO_L3_DISP_S1"}'
+            job_spec=f'job-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
+            job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1{proc_mode_suffix}'
         )
 
     def get_downloads(self, args, es_conn):
