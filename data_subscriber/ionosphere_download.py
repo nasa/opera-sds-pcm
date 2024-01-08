@@ -62,11 +62,11 @@ async def run(argv: list[str]):
             dataset_dir.mkdir(exist_ok=True)
 
             if not slc_dataset["_source"]["metadata"].get("intersects_north_america"):
-                logging.info("dataset doesn't cover North America. Skipping.")
+                logger.info("dataset doesn't cover North America. Skipping.")
                 continue
 
             if not slc_dataset["_source"]["metadata"].get("processing_mode") == "forward":
-                logging.info("dataset not captured in forward processing mode. Skipping.")
+                logger.info("dataset not captured in forward processing mode. Skipping.")
                 continue
 
             if slc_dataset["_source"]["metadata"].get("intersects_north_america") \
@@ -97,22 +97,22 @@ async def run(argv: list[str]):
                     pass
 
                 if job_submission_results["fail"]:
-                    logging.info(f"Job submission failure result for {product_id=}. Collecting exception result. Skipping to next SLC dataset.")
+                    logger.info(f"Job submission failure result for {product_id=}. Collecting exception result. Skipping to next SLC dataset.")
                     exceptions.extend(job_submission_results["fail"])
                     continue
 
                 ionosphere_metadata = generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_bucket, s3_key)
                 try_update_slc_dataset_with_ionosphere_metadata(index=slc_dataset["_index"], product_id=db_id, ionosphere_metadata=ionosphere_metadata)
         except Exception as e:
-            logging.info(f"An exception occurred while processing {product_id=}. Collecting exception. Skipping to next SLC dataset.")
+            logger.info(f"An exception occurred while processing {product_id=}. Collecting exception. Skipping to next SLC dataset.")
             exceptions.append(e)
             continue
         finally:
-            logging.info(f"Removing {dataset_dir=}")
+            logger.info(f"Removing {dataset_dir=}")
             shutil.rmtree(dataset_dir)
 
     if exceptions:
-        logging.error(f"During job execution, {len(exceptions)} exceptions occurred. Wrapping and raising.")
+        logger.error(f"During job execution, {len(exceptions)} exceptions occurred. Wrapping and raising.")
         raise Exception(exceptions)
 
     logger.info(f"Removing directory tree. {downloads_dir}")
@@ -164,8 +164,8 @@ async def submit_cslc_jobs(products, args):
     job_submission_tasks = _create_job_submission_tasks(args, products)
     job_submission_task_results = await _execute_job_submission_tasks(job_submission_tasks)
 
-    logging.info(f"{len(job_submission_task_results)=}")
-    logging.debug(f"{job_submission_task_results=}")
+    logger.info(f"{len(job_submission_task_results)=}")
+    logger.debug(f"{job_submission_task_results=}")
 
     task_successes, task_failures = partition(lambda it: isinstance(it, Exception), job_submission_task_results)
     cslc_job_ids = list(task_successes)

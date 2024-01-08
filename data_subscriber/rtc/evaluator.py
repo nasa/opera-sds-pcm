@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import logging
 import re
 import sys
@@ -19,50 +18,43 @@ from util.grq_client import get_body
 logger = logging.getLogger(__name__)
 
 
-async def run(argv):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mgrs-set-ids", nargs="*")
-    parser.add_argument("--mgrs-set_id-acquisition-ts-cycle-indexes", nargs="*")
-    args = parser.parse_args(argv[1:])
-    await main(**vars(args))
-
-
-async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
+def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
-    body = get_body(match_all=False)
 
-    if mgrs_set_ids:
-        for mgrs_set_id in mgrs_set_ids:
-            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id": mgrs_set_id}})
     if mgrs_set_id_acquisition_ts_cycle_indexes:
+        logger.info(f"Supplied {mgrs_set_id_acquisition_ts_cycle_indexes=}. Adding criteria to query")
+        es_docs = []
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
-            body["query"]["bool"]["should"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_indexes.keyword": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body = get_body(match_all=False)
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
+            es_docs.extend(grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS))
+        # NOTE: skipping job-submission filters to allow reprocessing
+    else:
+        # query 1: query for unsubmitted docs
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        unsubmitted_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+        logger.info(f"Found {len(unsubmitted_docs)=}")
 
-    # client-side filtering
-    es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
-    logging.info(f"Found {len(es_docs)=}")
-    filtered_es_docs = []
-    for doc in es_docs:
-        if not doc["_source"].get("mgrs_set_id_jobs_submitted_for"):
-            # missing all job submissions
-            filtered_es_docs.append(doc)
-        else:
-            if not set(doc["_source"]["mgrs_set_ids"]) == set(doc["_source"]["mgrs_set_id_jobs_submitted_for"]):
-                # missing at least 1 job submission
-                filtered_es_docs.append(doc)
-            else:
-                # all expected job submissions occurred. skip to next iteration
-                continue
-    es_docs = filtered_es_docs
-    logging.info(f"Filtered {len(es_docs)=}")
+        # query 2: query for submitted but not 100%
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
+        body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
+        submitted_but_incomplete_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+        logger.info(f"Found {len(submitted_but_incomplete_docs)=}")
+
+        es_docs = unsubmitted_docs + submitted_but_incomplete_docs
+
+    evaluator_results = {
+        "coverage_target": coverage_target,
+        "mgrs_sets": defaultdict(list)
+    }
 
     if not es_docs:
         logger.warning("No pending RTC products found. No further evaluation.")
-        fully_covered_set_to_product_file_docs_map = {}
-        target_covered_set_to_product_file_docs_map = {}
-        not_covered_set_to_product_file_docs_map = {}
-        return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
+        return evaluator_results
 
     # extract product IDs, map to rows, later extract URLs
     product_id_to_product_files_map = defaultdict(list)
@@ -81,7 +73,7 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     # b_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1B_30_v0.4"))]
 
     mbc_filtered_gdf = mgrs_burst_collections_gdf[mgrs_burst_collections_gdf["relative_orbit_number"].isin(cmr_orbits)]
-    logging.info(f"{len(mbc_filtered_gdf)=}")
+    logger.info(f"{len(mbc_filtered_gdf)=}")
 
     # group by orbit and acquisition time (and burst ID)
     orbit_to_products_map = defaultdict(partial(defaultdict, partial(defaultdict, list)))  # optimized data structure to avoid dataframe queries
@@ -99,14 +91,22 @@ async def main(mgrs_set_ids: Optional[set[str]] = None, mgrs_set_id_acquisition_
     orbit_to_interval_to_products_map = evaluator_core.create_orbit_to_interval_to_products_map(orbit_to_products_map, cmr_orbits)
 
     coverage_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
-    fully_covered_result_set_id_to_product_sets_map = coverage_result_set_id_to_product_sets_map[100]
-    target_covered_result_set_id_to_product_sets_map = coverage_result_set_id_to_product_sets_map[coverage_target]
-    not_covered_result_set_id_to_product_sets_map = coverage_result_set_id_to_product_sets_map[-1]
 
-    fully_covered_set_to_product_file_docs_map = join_product_file_docs(fully_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
-    target_covered_set_to_product_file_docs_map = join_product_file_docs(target_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
-    not_covered_set_to_product_file_docs_map = join_product_file_docs(not_covered_result_set_id_to_product_sets_map, product_id_to_product_files_map)
-    return fully_covered_set_to_product_file_docs_map, target_covered_set_to_product_file_docs_map, not_covered_set_to_product_file_docs_map
+    mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+    for coverage, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
+        mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
+        for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
+            for product_set_docs in product_sets_docs:
+                number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
+                number_of_bursts_actual = len(product_set_docs)
+                coverage_actual = int(number_of_bursts_actual / number_of_bursts_expected * 100)
+                evaluator_results["mgrs_sets"][mgrs_set_id].append({
+                        "coverage_actual": coverage_actual,
+                        "coverage_group": coverage,
+                        "product_set": product_set_docs
+                    })
+
+    return evaluator_results
 
 
 def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_product_files_map):
@@ -150,4 +150,8 @@ def product_burst_id_to_mapping_burst_id(product_burst_id):
 
 
 if __name__ == '__main__':
-    asyncio.run(run(sys.argv))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mgrs-set-ids", nargs="*")
+    parser.add_argument("--mgrs-set_id-acquisition-ts-cycle-indexes", nargs="*")
+    args = parser.parse_args(sys.argv[1:])
+    main(**vars(args))

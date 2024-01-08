@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 async def async_cmr_posts(url, request_bodies: list):
     """Given a list of request bodies, performs CMR queries asynchronously, returning  the response JSONs."""
-    logging.info("Querying CMR")
+    logger.info("Querying CMR")
 
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -27,7 +27,7 @@ async def async_cmr_posts(url, request_bodies: list):
             tasks.append(async_cmr_post(url, request_body, session, sem))
         responses = await asyncio.gather(*tasks)
 
-    logging.info("Queried CMR")
+    logger.info("Queried CMR")
     return list(itertools.chain.from_iterable(responses))
 
 

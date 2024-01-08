@@ -318,6 +318,16 @@ def create_index_templates_grq():
         f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
     )
 
+    copy(
+        "~/.sds/files/elasticsearch/es_template_rtc_catalog.json",
+        f"{hysds_dir}/ops/grq2/config/es_template_rtc_catalog.json"
+    )
+    run(
+        "curl --request PUT --url 'localhost:9200/_index_template/rtc_catalog_template?pretty&create=true' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/es_template_rtc_catalog.json"
+    )
+
 
 @roles("metrics")
 def update_metrics_es():
