@@ -146,9 +146,6 @@ def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_produc
     found_bursts = set(burst_set_row["bursts_parsed"]).intersection(cmr_bursts)
     mgrs_set_id = burst_set_row["mgrs_set_id"]
 
-    # if not found_bursts:
-    #     return mgrs_set_id, {True: {}, False: {}}
-
     coverage = len(found_bursts) / burst_set_row["number_of_bursts"]
 
     logger.debug(f"{mgrs_set_id=}")
