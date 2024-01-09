@@ -59,7 +59,7 @@ def issubinterval(x: tuple[datetime], y: tuple[datetime], strict=True):
         return x[0] >= y[0] and x[1] <= y[1]
 
 
-def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict, coverage_target: int = 99):
+def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map: dict, coverage_target: int):
     """The main entry point into evaluator core"""
     logger.info("BEGIN")
 
