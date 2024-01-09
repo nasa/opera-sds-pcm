@@ -18,11 +18,13 @@ runconfig:
   dynamic_ancillary_file_group:
     amplitude_dispersion_files: __CHIMERA_VAL__
     amplitude_mean_files: __CHIMERA_VAL__
-    geometry_files: __CHIMERA_VAL__
+    static_layers_files: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
-    tec_files: __CHIMERA_VAL__
-    weather_model_files: __CHIMERA_VAL__
+    ionosphere_files: __CHIMERA_VAL__
+    troposphere_files: __CHIMERA_VAL__
+  static_ancillary_file_group:
+    frame_to_burst_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
@@ -45,7 +47,8 @@ preconditions:
   - get_disp_s1_frame_id
   - get_disp_s1_product_type
   - get_disp_s1_num_workers
-  - get_disp_s1_sample_inputs
+  - get_static_ancillary_files
+  - get_disp_s1_algorithm_parameters
   # TODO: to be implemented with further releases
   #- get_disp_s1_input_filepaths
   #- get_disp_s1_dem
@@ -65,6 +68,18 @@ get_product_version:
 
 set_daac_product_type:
   template: OPERA_L3_DISP_S1_{cnm_version}
+
+get_static_ancillary_files:
+  # The s3 locations of each of the static ancillary file types used by DISP-S1
+  frame_to_burst_json:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "disp_frames/disp-s1/0.1.0/opera-s1-disp-frame-to-burst.json"
+
+get_disp_s1_algorithm_parameters:
+  # This S3 path only defines the location of the algorithm parameters files,
+  # an actual file will be selected based on the processing mode of the job (forward vs. historical)
+  s3_bucket: "opera-ancillaries"
+  s3_key: "algorithm_parameters/disp_s1/0.1.0"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:

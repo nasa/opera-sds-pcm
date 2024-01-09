@@ -980,6 +980,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_algorithm_parameters(self):
+        """
+        Gets the S3 path to the designated algorithm parameters runconfig for use
+        with a DISP-S1 job. Takes processing mode into account (forward vs historical)
+        to determine the correct parameters to load.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        processing_mode = self._context["processing_mode"]
+
+        # Convert reprocessing mode to forward for sake of selecting a parameter config
+        if processing_mode == oc_const.PROCESSING_MODE_REPROCESSING:
+            processing_mode = oc_const.PROCESSING_MODE_FORWARD
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
+
+        rc_params = {
+            oc_const.ALGORITHM_PARAMETERS: f"s3://{s3_bucket}/{s3_key}/algorithm_parameters_{processing_mode}.yaml"
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_sample_inputs(self):
         """
         Temporary function to stage the "golden" inputs for use with the DISP-S1

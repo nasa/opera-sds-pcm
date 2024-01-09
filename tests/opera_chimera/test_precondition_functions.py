@@ -720,8 +720,47 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
             self.assertEqual(oc_const.DISP_S1_FORWARD, rc_params[oc_const.PRODUCT_TYPE])
 
+    def test_get_disp_s1_algorithm_parameters(self):
+        """Unit tests for get_disp_s1_algorithm_parameters() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "processing_mode": oc_const.PROCESSING_MODE_HISTORICAL
+        }
 
-        self.assertEqual(oc_const.DISP_S1_FORWARD, rc_params[oc_const.PRODUCT_TYPE])
+        pge_config = {
+            oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS: {
+                oc_const.S3_BUCKET: "opera-ancillaries",
+                oc_const.S3_KEY: "algorithm_parameters/disp_s1/0.1.0"
+            }
+        }
+
+        # These are not used with get_algorithm_parameters()
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
+
+        # Ensure the S3 URI was formed as expected
+        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
+                         "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.1.0/algorithm_parameters_historical.yaml")
+
+        # Ensure both forward and reprocessing modes resolve to the forward parameters
+        for proc_mode in [oc_const.PROCESSING_MODE_FORWARD, oc_const.PROCESSING_MODE_REPROCESSING]:
+            context["processing_mode"] = proc_mode
+
+            precondition_functions = OperaPreConditionFunctions(
+                context, pge_config, settings, job_params
+            )
+
+            rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
+            self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
+                             "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.1.0/algorithm_parameters_forward.yaml")
 
 if __name__ == "__main__":
     unittest.main()

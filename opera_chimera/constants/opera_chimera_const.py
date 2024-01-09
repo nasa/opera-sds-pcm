@@ -96,7 +96,7 @@ class OperaChimeraConstants(ChimeraConstants):
 
     BBOX = "bbox"
 
-    GET_ALGORITHM_PARAMETERS = "get_algorithm_parameters"
+    GET_DISP_S1_ALGORITHM_PARAMETERS = "get_disp_s1_algorithm_parameters"
 
     GET_DSWX_S1_DEM = "get_dswx_s1_dem"
 
