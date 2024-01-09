@@ -34,7 +34,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
         product = {
             "_id": batch_id,
             "_source": {
-                "dataset": "dummy_dataset",
+                "dataset": f"L3_DSWx_S1-{batch_id}",
                 "metadata": {
                     "batch_id": batch_id,
                     "product_paths": {"L2_RTC_S1": s3paths},

@@ -61,11 +61,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         product = {
             "_id": product_id,
             "_source": {
-                "dataset": "dummy_dataset",
+                "dataset": f"L3_DISP_S1-{product_id}",
                 "metadata": {
                     "batch_id": product_id,
                     "frame_id": frame_id, # frame_id should be same for all download batches
-                    "product_paths": {"L2_DISP_S1": s3paths},
+                    "product_paths": {"L2_CSLC_S1": s3paths},
                     "FileName": product_id,
                     "id": product_id,
                     "bounding_box": bounding_box,
