@@ -1048,24 +1048,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_algorithm_parameters(self):
-        """
-        Gets the S3 path to the designated algorithm parameters runconfig for use
-        with a DSWx-S1/DISP-S1 job
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        s3_bucket = self._pge_config.get(oc_const.GET_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
-
-        rc_params = {
-            oc_const.ALGORITHM_PARAMETERS: f"s3://{s3_bucket}/{s3_key}"
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
     def get_dswx_s1_input_filepaths(self):
         """
         Gets the set of input S3 file paths that comprise the set of RTC products
@@ -1091,16 +1073,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_static_ancillary_files(self):
+    def get_static_ancillary_files(self):
         """
-        Gets the S3 paths to the configured static ancillary input files for
-        DSWx-S1 processing
+        Gets the S3 paths to the configured static ancillary input files.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         rc_params = {}
 
-        static_ancillary_products = self._pge_config.get(oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES, {})
+        static_ancillary_products = self._pge_config.get(oc_const.GET_STATIC_ANCILLARY_FILES, {})
 
         for static_ancillary_product in static_ancillary_products.keys():
             s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)

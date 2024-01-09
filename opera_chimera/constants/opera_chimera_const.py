@@ -100,8 +100,6 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DSWX_S1_DEM = "get_dswx_s1_dem"
 
-    GET_DSWX_S1_STATIC_ANCILLARY_FILES = "get_dswx_s1_static_ancillary_files"
-
     GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS = "get_dswx_s1_dynamic_ancillary_maps"
 
     GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
@@ -115,6 +113,8 @@ class OperaChimeraConstants(ChimeraConstants):
     GET_SLC_S1_DEM = "get_slc_s1_dem"
 
     GET_PRODUCT_VERSION = "get_product_version"
+
+    GET_STATIC_ANCILLARY_FILES = "get_static_ancillary_files"
 
     GET_STATIC_PRODUCT_VERSION = "get_static_product_version"
 

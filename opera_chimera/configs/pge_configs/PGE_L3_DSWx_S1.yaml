@@ -39,9 +39,8 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
-  - get_algorithm_parameters
   - get_dswx_s1_input_filepaths
-  - get_dswx_s1_static_ancillary_files
+  - get_static_ancillary_files
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem
   # TODO: enable if shoreline files are needed by DSWx-S1 SAS
@@ -61,13 +60,11 @@ get_product_version:
 set_daac_product_type:
   template: OPERA_L3_DSWX_S1_{cnm_version}
 
-get_algorithm_parameters:
-  # The s3 location containing the algorithm parameters RunConfig to use
-  s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_beta_0.2.1.yaml"
-
-get_dswx_s1_static_ancillary_files:
+get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DSWx-S1
+  algorithm_parameters:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_beta_0.2.1.yaml"
   mgrs_database_file:
     s3_bucket: "opera-ancillaries"
     s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
