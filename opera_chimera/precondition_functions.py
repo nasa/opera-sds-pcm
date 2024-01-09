@@ -1073,10 +1073,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_input_filepaths(self):
+    def get_s3_input_filepaths(self):
         """
-        Gets the set of input S3 file paths that comprise the set of RTC products
-        to be processed by a DSWx-S1 job.
+        Gets the set of input S3 file paths that comprise the set of products
+        to be processed by a DSWx-S1/DISP-S1 PGE job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 

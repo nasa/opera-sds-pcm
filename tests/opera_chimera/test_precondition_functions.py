@@ -617,7 +617,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             )
 
     def test_get_dswx_s1_input_filepaths(self):
-        """Unit tests for get_dswx_s1_input_filepaths() precondition function"""
+        """Unit tests for get_s3_input_filepaths() precondition function for dswx-s1"""
         # Set up the arguments to OperaPreConditionFunctions
         context = {
             "dataset_type": "L2_RTC_S1",
@@ -652,7 +652,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             context, pge_config, settings, job_params
         )
 
-        rc_params = precondition_functions.get_dswx_s1_input_filepaths()
+        rc_params = precondition_functions.get_s3_input_filepaths()
 
         # Ensure the list of input file paths was populated with only the set of
         # unique S3 directories that make up the set of input RTC files
@@ -662,6 +662,52 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146", rc_params[oc_const.INPUT_FILE_PATHS])
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147", rc_params[oc_const.INPUT_FILE_PATHS])
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148", rc_params[oc_const.INPUT_FILE_PATHS])
+
+    def test_get_disp_s1_input_filepaths(self):
+        """Unit tests for get_s3_input_filepaths() precondition function for disp-s1"""
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "dataset_type": "L2_CSLC_S1",
+            "product_metadata": {
+                "metadata": {
+                    "product_paths": {
+                        "L2_CSLC_S1": [
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000703-IW2/OPERA_L2_CSLC-S1_T001-000703-IW2_20231006T183312Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000699-IW3/OPERA_L2_CSLC-S1_T001-000699-IW3_20231006T183302Z_20231009T185644Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000700-IW1/OPERA_L2_CSLC-S1_T001-000700-IW1_20231006T183303Z_20231009T185644Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000702-IW1/OPERA_L2_CSLC-S1_T001-000702-IW1_20231006T183309Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000705-IW3/OPERA_L2_CSLC-S1_T001-000705-IW3_20231006T183319Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000701-IW3/OPERA_L2_CSLC-S1_T001-000701-IW3_20231006T183308Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000702-IW3/OPERA_L2_CSLC-S1_T001-000702-IW3_20231006T183311Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000699-IW2/OPERA_L2_CSLC-S1_T001-000699-IW2_20231006T183301Z_20231009T185644Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000698-IW1/OPERA_L2_CSLC-S1_T001-000698-IW1_20231006T183258Z_20231009T185644Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000700-IW2/OPERA_L2_CSLC-S1_T001-000700-IW2_20231006T183304Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000705-IW1/OPERA_L2_CSLC-S1_T001-000705-IW1_20231006T183317Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000703-IW1/OPERA_L2_CSLC-S1_T001-000703-IW1_20231006T183311Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                        ]
+                    }
+                }
+            }
+        }
+
+        # These are not used with get_dswx_s1_input_filepaths()
+        pge_config = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_s3_input_filepaths()
+
+        # Ensure the list of input file paths was populated with only the set of
+        # unique S3 directories that make up the set of input CSLC files
+        self.assertIn(oc_const.INPUT_FILE_PATHS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.INPUT_FILE_PATHS], list)
+        self.assertEqual(len(rc_params[oc_const.INPUT_FILE_PATHS]), 12)
+        for s3_path in context['product_metadata']['metadata']['product_paths']['L2_CSLC_S1']:
+            self.assertIn(os.path.dirname(s3_path), rc_params[oc_const.INPUT_FILE_PATHS])
 
     def test_get_disp_s1_frame_id(self):
         """Unit tests for the get_disp_s1_frame_id() precondition function"""

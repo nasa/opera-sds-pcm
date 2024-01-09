@@ -39,7 +39,7 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
-  - get_dswx_s1_input_filepaths
+  - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem

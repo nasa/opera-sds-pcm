@@ -47,10 +47,10 @@ preconditions:
   - get_disp_s1_frame_id
   - get_disp_s1_product_type
   - get_disp_s1_num_workers
+  - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_disp_s1_algorithm_parameters
   # TODO: to be implemented with further releases
-  #- get_disp_s1_input_filepaths
   #- get_disp_s1_dem
   #- get_disp_s1_amplitude_dispersion_files
   #- get_disp_s1_amplitude_mean_files
@@ -107,8 +107,9 @@ primary_output: "L3_DISP_S1"
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
 localize_groups:
-  - product_paths
-  - dynamic_ancillary_file_group
+  - input_file_group
+  - static_ancillary_file_group
+  - processing
 
 
 #######################################################################
