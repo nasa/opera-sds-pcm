@@ -63,11 +63,7 @@ def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map:
     """The main entry point into evaluator core"""
     logger.info("BEGIN")
 
-    coverage_to_mgrs_set_id_to_product_sets_maps = concurrent_find_set_coverage_in_orbit(
-        orbit_to_interval_to_products_map,
-        orbit_to_mbc_orbit_dfs_map,
-        coverage_target
-    )
+    coverage_to_mgrs_set_id_to_product_sets_maps = concurrent_find_set_coverage_in_orbit(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
     logger.info("DONE")
 
     logger.info("Cleaning up the sets")
@@ -102,12 +98,7 @@ def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc
 
     logger.info(f"Processing {orbit=}")
 
-    coverage_to_mgrs_set_id_to_product_sets_maps = concurrent_find_set_coverage_in_time_window(
-        orbit,
-        orbit_to_window_to_records_map,
-        mbc_orbit_df,
-        coverage_target
-    )
+    coverage_to_mgrs_set_id_to_product_sets_maps = concurrent_find_set_coverage_in_time_window(orbit, orbit_to_window_to_records_map, mbc_orbit_df, coverage_target)
 
     coverage_set_id_to_product_sets_map_final = defaultdict(partial(defaultdict, set))
     for coverage_to_mgrs_set_id_to_product_sets_map in coverage_to_mgrs_set_id_to_product_sets_maps:
@@ -121,8 +112,7 @@ def _find_set_coverage_in_orbit(orbit_to_window_to_records_map: dict, orbit, mbc
 def concurrent_find_set_coverage_in_time_window(orbit, orbit_to_window_to_records_map: dict, mbc_orbit_df: GeoDataFrame, coverage_target: int):
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_find_set_coverage_in_time_window, window, orbit_to_window_to_records_map, mbc_orbit_df,
-                            coverage_target)
+            executor.submit(_find_set_coverage_in_time_window, window, orbit_to_window_to_records_map, mbc_orbit_df, coverage_target)
             for window in orbit_to_window_to_records_map[orbit]
         ]
         coverage_to_mgrs_set_id_to_product_sets_maps = [future.result() for future in concurrent.futures.as_completed(futures)]
@@ -132,12 +122,7 @@ def concurrent_find_set_coverage_in_time_window(orbit, orbit_to_window_to_record
 def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame, coverage_target: int):
     logger.debug(f"Processing {time_window=}")
 
-    coverage_product_sets = concurrent_find_set_coverage_in_burst(
-        time_window,
-        orbit_to_window_to_products_map,
-        mbc_orbit_df,
-        coverage_target
-    )
+    coverage_product_sets = concurrent_find_set_coverage_in_burst(time_window, orbit_to_window_to_products_map, mbc_orbit_df)
 
     coverage_to_mgrs_set_id_to_product_sets_map = defaultdict(partial(defaultdict, set))
     for coverage_product_set in coverage_product_sets:
@@ -156,11 +141,10 @@ def _find_set_coverage_in_time_window(time_window, orbit_to_window_to_products_m
     return dict(coverage_to_mgrs_set_id_to_product_sets_map)
 
 
-def concurrent_find_set_coverage_in_burst(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame, coverage_target: int):
+def concurrent_find_set_coverage_in_burst(time_window, orbit_to_window_to_products_map: dict, mbc_orbit_df: GeoDataFrame):
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_find_set_coverage_in_burst, burst_set_row, orbit_to_window_to_products_map, time_window,
-                            coverage_target)
+            executor.submit(_find_set_coverage_in_burst, burst_set_row, orbit_to_window_to_products_map, time_window)
             for index, burst_set_row in mbc_orbit_df.iterrows()
         ]
         coverage_product_sets = [future.result() for future in concurrent.futures.as_completed(futures)]

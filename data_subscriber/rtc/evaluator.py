@@ -20,7 +20,11 @@ from util.grq_client import get_body
 logger = logging.getLogger(__name__)
 
 
-def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
+def main(
+        coverage_target: int = 100,
+        required_min_age_minutes_for_partial_burstsets: int = 0,
+        mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None
+):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
 
@@ -111,35 +115,36 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
                         "product_set": product_set_docs
                     })
 
-    # skip recent target covered sets to wait for more data
-    #  until H hours have passed since most recent retrieval
-    for mgrs_set_id in list(evaluator_results["mgrs_sets"]):
-        product_set_and_coverage_dicts = evaluator_results["mgrs_sets"][mgrs_set_id]
-        product_burstset_index_to_skip_processing = set()
-        for i, product_set_and_coverage_dict in enumerate(product_set_and_coverage_dicts):
-            coverage_group = product_set_and_coverage_dict["coverage_group"]
-            if coverage_group != evaluator_results["coverage_target"]:
-                continue
-            product_burstset = product_set_and_coverage_dict["product_set"]
-            retrieval_dts = {
-                dateutil.parser.parse(product_doc["creation_timestamp"])
-                for rtc_granule_id_to_product_docs_map in product_burstset
-                for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
-            }
-            max_retrieval_dt = max(*retrieval_dts)
-            if datetime.now() - max_retrieval_dt < timedelta(minutes=60 * 1):
-                # burst set meets target, but not old enough. continue to ignore
-                logger.info(f"Target covered burst still within grace period. Will not process at this time. {mgrs_set_id=}, {i=}")
-                product_burstset_index_to_skip_processing.add(i)
-            else:
-                # burst set meets target, and old enough. process
-                logger.info(f"Target covered burst set aged out of grace period. Will process at this time. {mgrs_set_id=}, {i=}")
-                pass
-        for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
-            logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
-            del evaluator_results["mgrs_sets"][mgrs_set_id][i]
-            if not evaluator_results["mgrs_sets"][mgrs_set_id]:
-                del evaluator_results["mgrs_sets"][mgrs_set_id]
+    if not mgrs_set_id_acquisition_ts_cycle_indexes:  # not native-id flow
+        # skip recent target covered sets to wait for more data
+        #  until H hours have passed since most recent retrieval
+        for mgrs_set_id in list(evaluator_results["mgrs_sets"]):
+            product_set_and_coverage_dicts = evaluator_results["mgrs_sets"][mgrs_set_id]
+            product_burstset_index_to_skip_processing = set()
+            for i, product_set_and_coverage_dict in enumerate(product_set_and_coverage_dicts):
+                coverage_group = product_set_and_coverage_dict["coverage_group"]
+                if coverage_group != coverage_target:
+                    continue
+                product_burstset = product_set_and_coverage_dict["product_set"]
+                retrieval_dts = {
+                    dateutil.parser.parse(product_doc["creation_timestamp"])
+                    for rtc_granule_id_to_product_docs_map in product_burstset
+                    for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
+                }
+                max_retrieval_dt = max(*retrieval_dts)
+                if datetime.now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
+                    # burst set meets target, but not old enough. continue to ignore
+                    logger.info(f"Target covered burst still within grace period. Will not process at this time. {mgrs_set_id=}, {i=}")
+                    product_burstset_index_to_skip_processing.add(i)
+                else:
+                    # burst set meets target, and old enough. process
+                    logger.info(f"Target covered burst set aged out of grace period. Will process at this time. {mgrs_set_id=}, {i=}")
+                    pass
+            for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
+                logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
+                del evaluator_results["mgrs_sets"][mgrs_set_id][i]
+                if not evaluator_results["mgrs_sets"][mgrs_set_id]:
+                    del evaluator_results["mgrs_sets"][mgrs_set_id]
 
     evaluator_results["mgrs_sets"] = dict(evaluator_results["mgrs_sets"])
 
