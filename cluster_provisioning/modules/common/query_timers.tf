@@ -307,7 +307,7 @@ resource "aws_lambda_permission" "rtc_query_timer" {
 resource "aws_lambda_function" "cslc_query_timer" {
   depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
-  description   = "Lambda function to submit a job that will query RTC data."
+  description   = "Lambda function to submit a job that will query CSLC data."
   function_name = "${var.project}-${var.venue}-${local.counter}-cslc-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
@@ -324,8 +324,8 @@ resource "aws_lambda_function" "cslc_query_timer" {
       "JOB_TYPE" : local.cslc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
       "MINUTES" : var.cslc_query_timer_trigger_frequency,
-      "K": 4,
-      "M": 4,
+      "CSLC_PROCESSING_K": "4",
+      "CSLC_PROCESSING_M": "4",
       "PROVIDER" : var.rtc_provider, # CSLC and RTC use the same provider
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-cslc_data_download.name,
@@ -386,7 +386,8 @@ resource "aws_lambda_function" "batch_query_timer" {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
   }
-  timeout = 30
+  timeout = 60 #Batch needs to load a large json file sometimes so needs more time
+  memory_size = 512 #Batch uses 290mb total when parsing the disp frame json file
   environment {
     variables = {
       "MOZART_IP" : "${aws_instance.mozart.private_ip}",
