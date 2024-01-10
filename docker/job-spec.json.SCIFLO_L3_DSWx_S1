@@ -1,6 +1,6 @@
 {
   "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
-  "disk_usage":"25GB",
+  "disk_usage":"100GB",
   "soft_time_limit": 7200,
   "time_limit": 7260,
   "imported_worker_files": {

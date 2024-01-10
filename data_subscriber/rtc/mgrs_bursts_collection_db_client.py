@@ -77,6 +77,23 @@ def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
 
 
 def get_bounding_box_for_mgrs_set_id(mgrs_burst_collections_gdf: GeoDataFrame, mgrs_set_id):
+    """
+    Extracts the bounding box for the provided MGRS tile set ID from within the
+    MGRS burst collection database.
+
+    Parameters
+    ----------
+    mgrs_burst_collections_gdf : GeoDataFrame
+        The MGRS burst collection database as read into memory.
+    mgrs_set_id : str
+        Identifier of the MGRS tile set to extract the bounding box for.
+
+    returns
+    -------
+    bounding_box : list
+        List containing the bounding box in West South East North (WSEN) order.
+
+    """
     gdf = mgrs_burst_collections_gdf
     if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
         raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
@@ -85,15 +102,19 @@ def get_bounding_box_for_mgrs_set_id(mgrs_burst_collections_gdf: GeoDataFrame, m
     proj_4326 = gdf.crs  # "EPSG:4326"
     transformer = Transformer.from_crs(proj_32645, proj_4326)
 
-    xmin, ymin = transformer.transform(
+    # Extract the bounding box coordinates in EPSG4326.
+    # Note that the coordinates seem to be stored in reverse lat/lon order, with
+    # xmin/max corresponding to longitude and ymin/max corresponding to latitude
+    ymin, xmin = transformer.transform(
         xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmin,
         yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymin
     )
-    xmax, ymax = transformer.transform(
+    ymax, xmax = transformer.transform(
         xx=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].xmax,
         yy=gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0].ymax
     )
 
+    # Return the bounding box in the expected WSEN order
     return [xmin, ymin, xmax, ymax]
 
 

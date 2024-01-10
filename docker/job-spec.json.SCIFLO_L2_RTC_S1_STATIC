@@ -18,7 +18,7 @@
       }
     }
   ],
-  "recommended-queues": [ "opera-job_worker-sciflo-l2_rtc_s1"],
+  "recommended-queues": [ "opera-job_worker-sciflo-l2_rtc_s1_static"],
   "disable_pre_builtins": true,
   "disable_post_builtins": true,
   "pre": [

@@ -132,12 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.0-rc.1.0 - Oct 15, 2023 - R2
-    mozart    = "ami-0cf8b5ab44f3cd05d" # mozart v4.25 - 231102
-    metrics   = "ami-02b8932de844c3a6a" # metrics v4.17 - 231012
-    grq       = "ami-0f2315ffaaee49e5d" # grq v4.17 - 231002
-    factotum  = "ami-0594d7f1fd4393c32" # factotum v4.16 - 231002
-    autoscale = "ami-0b2cee88915e1cb86" # verdi v4.16 patchdate - 231015
+    # HySDS v5.0.1 - Dec 2, 2023 - R3
+    mozart    = "ami-0ea2ef3aba96651b5" # mozart v4.25 - 231202
+    metrics   = "ami-09fee089c0b2716e6" # metrics v4.17 - 231202
+    grq       = "ami-0c702e214b6e7bec9" # grq v4.18 - 231202
+    factotum  = "ami-03f76131067be5e52" # factotum v4.16 - 231204
+    autoscale = "ami-08564e7f541e12f7b" # verdi v4.16 patchdate - 231202
   }
 }
 
@@ -316,6 +316,14 @@ variable "queues" {
       "max_size"          = 25
       "total_jobs_metric" = true
     }
+    "opera-job_worker-sciflo-l2_rtc_s1_static" = {
+      "name"              = "opera-job_worker-sciflo-l2_rtc_s1_static"
+      "instance_type"     = ["r6a.2xlarge", "r6i.2xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "max_size"          = 25
+      "total_jobs_metric" = true
+    }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_hls"
       "instance_type"     = ["c5a.large", "c6a.large", "c6i.large"]
@@ -327,7 +335,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
-      "instance_type"     = ["c5a.large", "c6a.large", "c6i.large"]
+      "instance_type"     = ["r6a.large", "r6i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
