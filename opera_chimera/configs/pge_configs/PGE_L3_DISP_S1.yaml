@@ -19,8 +19,8 @@ runconfig:
     amplitude_dispersion_files: __CHIMERA_VAL__
     amplitude_mean_files: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
-    mask_file: __CHIMERA_VAL__
-    dem_file: __CHIMERA_VAL__
+    #mask_file: __CHIMERA_VAL__  # TODO: need to determine source of (global?) mask
+    #dem_file: __CHIMERA_VAL__  # TODO: need bounding box info from query job
     ionosphere_files: __CHIMERA_VAL__
     troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
@@ -50,14 +50,14 @@ preconditions:
   - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_disp_s1_algorithm_parameters
+  - get_disp_s1_amplitude_dispersion_files
+  - get_disp_s1_amplitude_mean_files
+  - get_disp_s1_static_layers_files
+  - get_disp_s1_ionosphere_files
+  - get_disp_s1_troposphere_files
   # TODO: to be implemented with further releases
-  #- get_disp_s1_dem
-  #- get_disp_s1_amplitude_dispersion_files
-  #- get_disp_s1_amplitude_mean_files
-  #- get_disp_s1_geometry_files
-  #- get_disp_s1_mask_file
-  #- get_disp_s1_tec_files
-  #- get_disp_s1_weather_model_files
+  #- get_disp_s1_dem  # TODO: need bounding box info from query job
+  #- get_disp_s1_mask_file  # TODO: need to determine source of (global?) mask
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -108,6 +108,7 @@ primary_output: "L3_DISP_S1"
 # The referenced properties MUST be maps.
 localize_groups:
   - input_file_group
+  - dynamic_ancillary_file_group
   - static_ancillary_file_group
   - processing
 

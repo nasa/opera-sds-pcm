@@ -6,6 +6,10 @@ class OperaChimeraConstants(ChimeraConstants):
 
     ALGORITHM_PARAMETERS = "algorithm_parameters"
 
+    AMPLITUDE_DISPERSION_FILES = "amplitude_dispersion_files"
+
+    AMPLITUDE_MEAN_FILES = "amplitude_mean_files"
+
     BBOX = "bbox"
 
     BURST_DATABASE_FILE = "burst_database_file"
@@ -74,6 +78,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     INPUT_FILE_PATHS = "input_file_paths"
 
+    IONOSPHERE_FILES = "ionosphere_files"
+
     L2_CSLC_S1 = "L2_CSLC_S1"
 
     L2_RTC_S1 = "L2_RTC_S1"
@@ -122,7 +128,11 @@ class OperaChimeraConstants(ChimeraConstants):
 
     STATIC_PRODUCT_VERSION = "static_product_version"
 
+    STATIC_LAYERS_FILES = "static_layers_files"
+
     TEC_FILE = "tec_file"
+
+    TROPOSPHERE_FILES = "troposphere_files"
 
     VERSION_KEY = "version_key"
 

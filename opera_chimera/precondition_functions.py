@@ -160,6 +160,40 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_amplitude_dispersion_files(self):
+        """
+        Derives the list of S3 paths to the amplitude dispersion files to be
+        used with a DISP-S1 job.
+
+        TODO: currently a stub, implement once source of dispersion files is determined
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            oc_const.AMPLITUDE_DISPERSION_FILES: list()
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_amplitude_mean_files(self):
+        """
+        Derives the list of S3 paths to the amplitude mean files to be used with
+        a  DISP-S1 job.
+
+        TODO: currently a stub, implement once source of mean files is determined
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            oc_const.AMPLITUDE_MEAN_FILES: list()
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_frame_id(self):
         """
         Assigns the frame ID to the RunConfig for DISP-S1 PGE jobs.
@@ -175,6 +209,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.FRAME_ID: frame_id
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_ionosphere_files(self):
+        """
+        Derives the list of S3 paths to the ionosphere files to be used with a
+        DISP-S1 job.
+
+        TODO: current a stub, implement once CSLC static layer files are downloaded
+              to s3 by query job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            oc_const.IONOSPHERE_FILES: list()
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -285,6 +337,42 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
             'tec_files': list(tec_files_list),
             'weather_model_files': list(weather_model_files_list)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_layers_files(self):
+        """
+        Derives the S3 paths to the CSLC static layer files to be used with a
+        DISP-S1 job.
+
+        TODO: current a stub, implement once CSLC static layer files are downloaded
+              to s3 by query job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            oc_const.STATIC_LAYERS_FILES: list()
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_troposphere_files(self):
+        """
+        Derives the S3 paths to the troposphere files to be used with a DISP-S1
+        job.
+
+        TODO: current a stub, implement once CSLC static layer files are downloaded
+              to s3 by query job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            oc_const.TROPOSPHERE_FILES: list()
         }
 
         logger.info(f"rc_params : {rc_params}")
