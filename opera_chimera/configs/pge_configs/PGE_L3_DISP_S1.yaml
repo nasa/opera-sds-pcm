@@ -41,6 +41,7 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
+  - set_sample_product_metadata  # TODO: remove after integration with CSLC query/download job
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
@@ -62,6 +63,10 @@ preconditions:
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
+
+set_sample_product_metadata:
+  s3_bucket: "opera-dev-lts-fwd-collinss"
+  s3_key: "sample_disp_s1_product_metadata_full.json"
 
 get_product_version:
   version_key: "DISP_S1_PRODUCT_VERSION"
