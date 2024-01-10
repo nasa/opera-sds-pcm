@@ -4,71 +4,105 @@ class OperaChimeraConstants(ChimeraConstants):
     def __init__(self):
         ChimeraConstants.__init__(self)
 
-    FORCE_INGEST = "FORCE_INGEST"
+    ALGORITHM_PARAMETERS = "algorithm_parameters"
 
-    INGEST_STAGED = "INGEST_STAGED"
+    BBOX = "bbox"
+
+    BURST_DATABASE_FILE = "burst_database_file"
+
+    BURST_ID = "burst_id"
 
     CNM_VERSION = "CNM_VERSION"
 
-    PROCESSING_MODE_KEY = "processing_mode"
+    DATASET_TYPE = "dataset_type"
 
-    PROCESSING_MODE_FORWARD = "forward"
+    DEM_FILE = "dem_file"
 
-    PROCESSING_MODE_HISTORICAL = "historical"
+    DISP_S1_FORWARD = "DISP_S1_FORWARD"
 
-    PROCESSING_MODE_REPROCESSING = "reprocessing"
+    DISP_S1_HISTORICAL = "DISP_S1_HISTORICAL"
 
-    GET_PRODUCT_METADATA = "get_product_metadata"
+    ESTIMATED_GEOMETRIC_ACCURACY = "ESTIMATED_GEOMETRIC_ACCURACY"
+
+    EXTRA_PGE_OUTPUT_METADATA = "extra_pge_output_metadata"
+
+    FORCE_INGEST = "FORCE_INGEST"
+
+    FRAME_ID = "frame_id"
+
+    GET_CSLC_PRODUCT_SPECIFICATION_VERSION = "get_cslc_product_specification_version"
+
+    GET_DISP_S1_ALGORITHM_PARAMETERS = "get_disp_s1_algorithm_parameters"
+
+    GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
+
+    GET_DSWX_S1_DEM = "get_dswx_s1_dem"
+
+    GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS = "get_dswx_s1_dynamic_ancillary_maps"
+
+    GET_LANDCOVER = "get_landcover"
 
     GET_METADATA = "get_metadata"
 
-    SET_EXTRA_PGE_OUTPUT_METADATA = "set_extra_pge_output_metadata"
+    GET_PRODUCT_METADATA = "get_product_metadata"
 
-    SET_SAMPLE_PRODUCT_METADATA = "set_sample_product_metadata"
+    GET_PRODUCT_VERSION = "get_product_version"
 
-    SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
+    GET_SHORELINE_SHAPEFILES = "get_shoreline_shapefiles"
+
+    GET_SLC_S1_BURST_DATABASE = "get_slc_s1_burst_database"
+
+    GET_SLC_S1_DEM = "get_slc_s1_dem"
+
+    GET_SLC_S1_ORBIT_FILE = "get_slc_s1_orbit_file"
+
+    GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
+
+    GET_SLC_S1_SAFE_FILE = "get_slc_s1_safe_file"
+
+    GET_STATIC_ANCILLARY_FILES = "get_static_ancillary_files"
+
+    GET_STATIC_PRODUCT_VERSION = "get_static_product_version"
+
+    GET_WORLDCOVER = "get_worldcover"
+
+    GPU_ENABLED = "gpu_enabled"
+
+    INGEST_STAGED = "INGEST_STAGED"
 
     INPUT_DATASET_ID = "input_dataset_id"
 
     INPUT_FILE_PATHS = "input_file_paths"
 
-    DATASET_TYPE = "dataset_type"
+    L2_CSLC_S1 = "L2_CSLC_S1"
 
-    PRODUCT_VERSION = "product_version"
+    L2_RTC_S1 = "L2_RTC_S1"
 
-    STATIC_PRODUCT_VERSION = "static_product_version"
+    L3_DISP_S1 = "L3_DISP_S1"
 
-    POLARIZATION = "polarization"
+    L3_DSWX_HLS = "L3_DSWX_HLS"
 
-    SAFE_FILE_PATH = "safe_file_path"
-
-    ORBIT_FILE_PATH = "orbit_file_path"
-
-    ALGORITHM_PARAMETERS = "algorithm_parameters"
-
-    BURST_ID = "burst_id"
-
-    BURST_DATABASE_FILE = "burst_database_file"
-
-    DEM_FILE = "dem_file"
-
-    FRAME_ID = "frame_id"
-
-    PRODUCT_TYPE = "product_type"
-
-    TEC_FILE = "tec_file"
+    L3_DSWx_S1 = "L3_DSWx_S1"
 
     LANDCOVER_FILE = "landcover_file"
 
-    WORLDCOVER_FILE = "worldcover_file"
+    ORBIT_FILE_PATH = "orbit_file_path"
 
-    WORLDCOVER_VER = "worldcover_version"
+    POLARIZATION = "polarization"
 
-    WORLDCOVER_YEAR = "worldcover_year"
+    PROCESSING_MODE_FORWARD = "forward"
 
-    SHORELINE_SHAPEFILE = "shoreline_shapefile"
+    PROCESSING_MODE_HISTORICAL = "historical"
 
-    GPU_ENABLED = "gpu_enabled"
+    PROCESSING_MODE_KEY = "processing_mode"
+
+    PROCESSING_MODE_REPROCESSING = "reprocessing"
+
+    PRODUCT_SPEC_VER = "PRODUCT_SPEC_VER"
+
+    PRODUCT_TYPE = "product_type"
+
+    PRODUCT_VERSION = "product_version"
 
     S3_BUCKET = "s3_bucket"
 
@@ -76,58 +110,24 @@ class OperaChimeraConstants(ChimeraConstants):
 
     S3_KEYS = "s3_keys"
 
-    L3_DSWX_HLS = "L3_DSWX_HLS"
+    SAFE_FILE_PATH = "safe_file_path"
 
-    L2_RTC_S1 = "L2_RTC_S1"
+    SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
 
-    L2_CSLC_S1 = "L2_CSLC_S1"
+    SET_EXTRA_PGE_OUTPUT_METADATA = "set_extra_pge_output_metadata"
 
-    L3_DSWx_S1 = "L3_DSWx_S1"
+    SET_SAMPLE_PRODUCT_METADATA = "set_sample_product_metadata"
 
-    L3_DISP_S1 = "L3_DISP_S1"
+    SHORELINE_SHAPEFILE = "shoreline_shapefile"
 
-    DISP_S1_FORWARD = "DISP_S1_FORWARD"
+    STATIC_PRODUCT_VERSION = "static_product_version"
 
-    DISP_S1_HISTORICAL = "DISP_S1_HISTORICAL"
-
-    EXTRA_PGE_OUTPUT_METADATA = "extra_pge_output_metadata"
+    TEC_FILE = "tec_file"
 
     VERSION_KEY = "version_key"
 
-    BBOX = "bbox"
+    WORLDCOVER_FILE = "worldcover_file"
 
-    GET_DISP_S1_ALGORITHM_PARAMETERS = "get_disp_s1_algorithm_parameters"
+    WORLDCOVER_VER = "worldcover_version"
 
-    GET_DSWX_S1_DEM = "get_dswx_s1_dem"
-
-    GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS = "get_dswx_s1_dynamic_ancillary_maps"
-
-    GET_SLC_S1_POLARIZATION = "get_slc_s1_polarization"
-
-    GET_SLC_S1_BURST_DATABASE = "get_slc_s1_burst_database"
-
-    GET_SLC_S1_SAFE_FILE = "get_slc_s1_safe_file"
-
-    GET_SLC_S1_ORBIT_FILE = "get_slc_s1_orbit_file"
-
-    GET_SLC_S1_DEM = "get_slc_s1_dem"
-
-    GET_PRODUCT_VERSION = "get_product_version"
-
-    GET_STATIC_ANCILLARY_FILES = "get_static_ancillary_files"
-
-    GET_STATIC_PRODUCT_VERSION = "get_static_product_version"
-
-    GET_CSLC_PRODUCT_SPECIFICATION_VERSION = "get_cslc_product_specification_version"
-
-    PRODUCT_SPEC_VER = "PRODUCT_SPEC_VER"
-
-    ESTIMATED_GEOMETRIC_ACCURACY = "ESTIMATED_GEOMETRIC_ACCURACY"
-
-    GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
-
-    GET_LANDCOVER = "get_landcover"
-
-    GET_WORLDCOVER = "get_worldcover"
-
-    GET_SHORELINE_SHAPEFILES = "get_shoreline_shapefiles"
+    WORLDCOVER_YEAR = "worldcover_year"
