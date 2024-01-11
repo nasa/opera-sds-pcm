@@ -291,6 +291,10 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
+variable "trace" {
+  type    = string
+}
+
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
@@ -430,6 +434,14 @@ variable "run_smoke_test" {
 }
 
 variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
   default = ""
 }
 

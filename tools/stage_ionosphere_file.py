@@ -208,6 +208,19 @@ def safe_start_date_to_julian_day(safe_start_date):
 
     return str(year), str(doy)
 
+def get_legacy_archive_name(ionosphere_file_type, doy, year):
+    """Returns the ionosphere archive name using the legacy naming conventions"""
+    archive_name = f"{ionosphere_file_type}{doy}0.{year[2:]}i.Z"
+
+    return archive_name
+
+def get_new_archive_name(ionosphere_file_type, doy, year):
+    """Returns the ionosphere archive name using the new naming conventions"""
+    product_type = "RAP" if ionosphere_file_type == IONOSPHERE_TYPE_JPRG else "FIN"
+
+    archive_name = f"JPL0OPS{product_type}_{year}{doy}0000_01D_02H_GIM.INX.gz"
+
+    return archive_name
 
 def download_ionosphere_archive(request_url, username, password, output_directory):
     """
@@ -251,13 +264,6 @@ def download_ionosphere_archive(request_url, username, password, output_director
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError as err:
-        status_code = err.response.status_code
-
-        if status_code == 404:
-            raise IonosphereFileNotFoundException(
-                f'Could not find an Ionosphere file at {request_url}'
-            )
-
         raise RuntimeError(
             f'Failed to download Ionosphere file from {response.url}, reason: {str(err)}'
         )
@@ -346,9 +352,31 @@ def main(args):
     year, doy = safe_start_date_to_julian_day(safe_start_date)
 
     # Formulate the archive name and URL location based on the file type and
-    # the Julian date of the SLC archive
-    archive_name = f"{args.type}{doy}0.{year[2:]}i.Z"
-    request_url = join(args.download_endpoint, year, doy, archive_name)
+    # the Julian date of the SLC archive. There are two file-naming conventions
+    # we need to account for.
+    legacy_archive_name = get_legacy_archive_name(args.type, doy, year)
+    new_archive_name = get_new_archive_name(args.type, doy, year)
+
+    # Check for the first available of the two naming conventions
+    for archive_name in (legacy_archive_name, new_archive_name):
+        request_url = join(args.download_endpoint, year, doy, archive_name)
+
+        session = SessionWithHeaderRedirection(args.username, args.password)
+
+        get_response_code = session.get(request_url).status_code
+
+        if get_response_code == 404:
+            logger.debug(f"Request URL {request_url} is not reachable (returned 404)")
+            continue
+
+        logger.debug(f"Request URL {request_url} is reachable")
+        break
+    else:
+        raise IonosphereFileNotFoundException(
+            f'Could not find an Ionosphere file under '
+            f'{join(args.download_endpoint, year, doy)} matching either '
+            f'{legacy_archive_name} or {new_archive_name}'
+        )
 
     # If user request the URL only, print it to standard out and the log
     if args.url_only:
@@ -358,8 +386,8 @@ def main(args):
         return request_url
 
     # Download the compressed archive file from the endpoint
-    logger.info(f"Downloading for Ionosphere Correction archive file(s) from "
-                f"endpoint {args.download_endpoint}")
+    logger.info(f"Downloading for Ionosphere Correction archive file from "
+                f"endpoint {request_url}")
 
     output_ionosphere_archive_path = download_ionosphere_archive(
         request_url, args.username, args.password, args.output_directory

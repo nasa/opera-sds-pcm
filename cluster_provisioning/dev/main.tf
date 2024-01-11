@@ -54,10 +54,10 @@ module "common" {
   asf_daac_cnm_r_event_trigger            = var.asf_daac_cnm_r_event_trigger
   cnm_r_allowed_account                   = var.cnm_r_allowed_account
   cnm_r_venue                             = var.cnm_r_venue
+  trace                                   = var.trace
 
   po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
   po_daac_endpoint_url                    = var.po_daac_endpoint_url
-
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
   asf_daac_endpoint_url                   = var.asf_daac_endpoint_url
 
@@ -95,6 +95,8 @@ module "common" {
   inactivity_threshold                    = var.inactivity_threshold
   artifactory_fn_user                     = var.artifactory_fn_user
   artifactory_fn_api_key                  = var.artifactory_fn_api_key
+  dataspace_user                          = var.dataspace_user
+  dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
 }

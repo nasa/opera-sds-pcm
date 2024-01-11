@@ -12,19 +12,25 @@ from datetime import datetime
 import os
 import json
 import re
+import subprocess
 from typing import Dict, List
 
 import boto3
 
 from commons.logger import logger
-from hysds.utils import get_disk_usage
 
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
-DSWX_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
-                   'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
+DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
+                       'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
 """
 List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
+PGE.
+"""
+
+DSWX_S1_BAND_NAMES = ['WTR', 'BWTR', 'CONF']
+"""
+List of band identifiers for the multiple tif outputs produced by the DSWx-S1
 PGE.
 """
 
@@ -38,6 +44,27 @@ RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
                  'T069-147172-IW2', 'T069-147172-IW3', 'T069-147173-IW1']
 """List of sample burst ID's to simulate RTC-S1 multi-product output"""
 
+DSWX_S1_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
+                 'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
+"""List of sample MGRS tile ID's to simulate DSWx-S1 multi-product output"""
+
+
+def get_disk_usage(path, follow_symlinks=True):
+    """
+    Return disk usage size in bytes.
+
+    This function was copied from hysds.util to remove an import dependency that
+    was preventing tests from running.
+    """
+
+    opts = "-sbL" if follow_symlinks else "-sb"
+    size = 0
+    try:
+        size = int(subprocess.check_output(["du", opts, path]).split()[0])
+    except:
+        pass
+    return size
+
 
 def get_input_hls_dataset_tile_code(context: Dict) -> str:
     product_metadata = context["product_metadata"]["metadata"]
@@ -50,9 +77,72 @@ def get_product_metadata(job_json_dict: Dict) -> Dict:
     params = job_json_dict['job_specification']['params']
     for param in params:
         if param['name'] == 'product_metadata':
-            return param['value']['metadata']
+            metadata = param['value']
+
+            if isinstance(metadata, dict):
+                metadata = metadata['metadata']
+            elif isinstance(metadata, str):
+                # TODO: kludge to support reading canned metadata from a file stored on S3,
+                #       remove when appropriate
+                if metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    metadata = json.loads(obj.get()['Body'].read())['metadata']
+                else:
+                    metadata = json.loads(param['value'])['metadata']
+            else:
+                raise ValueError(f'Unknown product_metadata format: {metadata}')
+
+            return metadata
 
     raise
+
+
+PRODUCTION_TIME = None
+def get_time_for_filename():
+    """
+    Creates o a time-tag string suitable for use with PGE output filenames.
+    The time-tag string is cached after the first call to this function.
+    """
+    global PRODUCTION_TIME
+
+    if PRODUCTION_TIME is None:
+        PRODUCTION_TIME = datetime.now().strftime('%Y%m%dT%H%M%S')
+
+    return PRODUCTION_TIME
+
+
+def check_aws_connection(bucket, key):
+    """
+    Check connection to the provided S3 bucket by performing a test read
+    on the provided bucket/key location.
+
+    Parameters
+    ----------
+    bucket : str
+        Name of the S3 bucket to use with the connection test.
+    key : str, optional
+        S3 key path to append to the bucket name.
+
+    Raises
+    ------
+    RuntimeError
+        If not connection can be established.
+
+    """
+    s3 = boto3.resource('s3')
+    obj = s3.Object(bucket, key)
+
+    try:
+        logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
+        obj.get()['Body'].read()
+        logger.info('Connection test successful.')
+    except Exception:
+        errmsg = (f'No access to the {bucket} S3 bucket. '
+                  f'Check your AWS credentials and re-run the code.')
+        raise RuntimeError(errmsg)
 
 
 def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancillary"):
@@ -116,14 +206,22 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     pge_name: str = pge_config['pge_name']
     input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
 
+    input_dataset_id = get_input_dataset_id(context)
+
+    # For PGE's that are triggered off of multiple input datasets (such as
+    # DSWx-S1 and DISP-S1) we substitute a single sample dataset ID to pattern
+    # match against for the sake of generating dummy output files
+    if 'sample_input_dataset_id' in pge_config:
+        input_dataset_id = pge_config['sample_input_dataset_id']
+
     for input_file_base_name_regex in input_file_base_name_regexes:
         pattern = re.compile(input_file_base_name_regex)
-        match = pattern.match(get_input_dataset_id(context))
+        match = pattern.match(input_dataset_id)
         if match:
             break
     else:
         raise RuntimeError(
-            f"Could not match dataset ID '{get_input_dataset_id(context)}' to any "
+            f"Could not match dataset ID '{input_dataset_id}' to any "
             f"input file base name regex in the PGE configuration yaml file."
         )
 
@@ -140,7 +238,8 @@ def get_input_dataset_id(context: Dict) -> str:
     for param in params:
         if param['name'] == 'input_dataset_id':
             return param['value']
-    raise
+    else:
+        return ""
 
 
 def get_cslc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
@@ -149,46 +248,65 @@ def get_cslc_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     base_name_template: str = pge_config['output_base_name']
     ancillary_name_template: str = pge_config['ancillary_base_name']
+    creation_time = get_time_for_filename()
 
-    if extension.endswith('h5'):
+    if extension.endswith('h5') or extension.endswith('iso.xml'):
         for burst_id in CSLC_BURST_IDS:
             base_name = base_name_template.format(
                 burst_id=burst_id,
-                pol='VV',
                 acquisition_ts=dataset_match.groupdict()['start_ts'],
-                product_version='v0.1',
-                creation_ts=dataset_match.groupdict()['stop_ts']
+                creation_ts=creation_time,
+                sensor=dataset_match.groupdict()['mission_id'],
+                pol='VV',
+                product_version='v0.1'
             )
-
             output_filenames.append(f'{base_name}.{extension}')
-            output_filenames.append(f'{base_name}_Static.{extension}')
     elif extension.endswith('png'):
         for burst_id in CSLC_BURST_IDS:
             base_name = base_name_template.format(
                 burst_id=burst_id,
-                pol='VV',
                 acquisition_ts=dataset_match.groupdict()['start_ts'],
-                product_version='v0.1',
-                creation_ts=dataset_match.groupdict()['stop_ts']
+                creation_ts=creation_time,
+                sensor=dataset_match.groupdict()['mission_id'],
+                pol='VV',
+                product_version='v0.1'
             )
-
             output_filenames.append(f'{base_name}_BROWSE.{extension}')
-    elif extension.endswith('iso.xml'):
-        for burst_id in CSLC_BURST_IDS:
-            base_name = base_name_template.format(
-                burst_id=burst_id,
-                pol='VV',
-                acquisition_ts=dataset_match.groupdict()['start_ts'],
-                product_version='v0.1',
-                creation_ts=dataset_match.groupdict()['stop_ts']
-            )
-
-            output_filenames.append(f'{base_name}.{extension}')
     else:
         base_name = ancillary_name_template.format(
+            creation_ts=creation_time,
+            sensor=dataset_match.groupdict()['mission_id'],
             pol='VV',
             product_version='v0.1',
-            creation_ts=dataset_match.groupdict()['stop_ts']
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+
+    return output_filenames
+
+def get_cslc_s1_static_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates an output filename for simulated CSLC-S1-STATIC PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+    creation_time = get_time_for_filename()
+
+    if extension.endswith('h5') or extension.endswith('iso.xml'):
+        for burst_id in CSLC_BURST_IDS:
+            static_base_name = base_name_template.format(
+                burst_id=burst_id,
+                validity_ts='20140403',
+                sensor=dataset_match.groupdict()['mission_id'],
+                product_version='v0.1',
+            )
+            output_filenames.append(f'{static_base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            creation_ts=creation_time,
+            sensor=dataset_match.groupdict()['mission_id'],
+            pol='VV',
+            product_version='v0.1',
         )
 
         output_filenames.append(f'{base_name}.{extension}')
@@ -202,8 +320,7 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
 
     base_name_template: str = pge_config['output_base_name']
     ancillary_name_template: str = pge_config['ancillary_base_name']
-
-    sensor = dataset_match.groupdict()['mission_id']
+    creation_time = get_time_for_filename()
 
     # Primary output image product pattern, includes burst ID, acquisition time
     # and polarization values/static layer name
@@ -212,29 +329,24 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
             base_name = base_name_template.format(
                 burst_id=burst_id,
                 acquisition_ts=dataset_match.groupdict()['start_ts'],
+                creation_ts=creation_time,
+                sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
-                creation_ts=dataset_match.groupdict()['stop_ts'],
-                sensor=sensor
             )
 
             output_filenames.append(f'{base_name}_VV.{extension}')
             output_filenames.append(f'{base_name}_VH.{extension}')
-            output_filenames.append(f'{base_name}_static_incidence_angle.{extension}')
-            output_filenames.append(f'{base_name}_static_layover_shadow_mask.{extension}')
-            output_filenames.append(f'{base_name}_static_local_incidence_angle.{extension}')
-            output_filenames.append(f'{base_name}_static_nlooks.{extension}')
-            output_filenames.append(f'{base_name}_static_rtc_anf_gamma0_to_beta0.{extension}')
+            output_filenames.append(f'{base_name}_mask.{extension}')
     # Primary metadata product, like image product but no polarization field
     elif extension.endswith('h5') or extension.endswith('iso.xml'):
         for burst_id in RTC_BURST_IDS:
             base_name = base_name_template.format(
                 burst_id=burst_id,
                 acquisition_ts=dataset_match.groupdict()['start_ts'],
+                creation_ts=creation_time,
+                sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
-                creation_ts=dataset_match.groupdict()['stop_ts'],
-                sensor=sensor
             )
-
             output_filenames.append(f'{base_name}.{extension}')
     # PNG browse product, like image product but appended with "_BROWSE"
     elif extension.endswith('png'):
@@ -242,18 +354,75 @@ def get_rtc_s1_simulated_output_filenames(dataset_match, pge_config, extension):
             base_name = base_name_template.format(
                 burst_id=burst_id,
                 acquisition_ts=dataset_match.groupdict()['start_ts'],
+                creation_ts=creation_time,
+                sensor=dataset_match.groupdict()['mission_id'],
                 product_version='v0.1',
-                creation_ts=dataset_match.groupdict()['stop_ts'],
-                sensor=sensor
             )
-
             output_filenames.append(f'{base_name}_BROWSE.{extension}')
     # Ancillary output product pattern, no burst ID, acquisition time or polarization
     else:
         base_name = ancillary_name_template.format(
+            creation_ts=creation_time,
+            sensor=dataset_match.groupdict()['mission_id'],
             product_version='v0.1',
-            creation_ts=dataset_match.groupdict()['stop_ts'],
-            sensor=sensor
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+
+    return output_filenames
+
+
+def get_rtc_s1_static_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates an output filename for simulated RTC-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+    creation_time = get_time_for_filename()
+
+    # Primary output image product pattern, includes burst ID, acquisition time
+    # and polarization values/static layer name
+    if extension.endswith('tiff') or extension.endswith('tif'):
+        for burst_id in RTC_BURST_IDS:
+            static_base_name = base_name_template.format(
+                burst_id=burst_id,
+                validity_ts='20140403',
+                sensor=dataset_match.groupdict()['mission_id'],
+                product_version='v0.1',
+            )
+
+            output_filenames.append(f'{static_base_name}_incidence_angle.{extension}')
+            output_filenames.append(f'{static_base_name}_mask.{extension}')
+            output_filenames.append(f'{static_base_name}_local_incidence_angle.{extension}')
+            output_filenames.append(f'{static_base_name}_number_of_looks.{extension}')
+            output_filenames.append(f'{static_base_name}_rtc_anf_gamma0_to_beta0.{extension}')
+            output_filenames.append(f'{static_base_name}_rtc_anf_gamma0_to_sigma0.{extension}')
+    # Primary metadata product, like image product but no polarization field
+    elif extension.endswith('h5') or extension.endswith('iso.xml'):
+        for burst_id in RTC_BURST_IDS:
+            static_base_name = base_name_template.format(
+                burst_id=burst_id,
+                validity_ts='20140403',
+                sensor=dataset_match.groupdict()['mission_id'],
+                product_version='v0.1',
+            )
+            output_filenames.append(f'{static_base_name}.{extension}')
+    # PNG browse product, like image product but appended with "_BROWSE"
+    elif extension.endswith('png'):
+        for burst_id in RTC_BURST_IDS:
+            static_base_name = base_name_template.format(
+                burst_id=burst_id,
+                validity_ts='20140403',
+                sensor=dataset_match.groupdict()['mission_id'],
+                product_version='v0.1',
+            )
+            output_filenames.append(f'{static_base_name}_BROWSE.{extension}')
+    # Ancillary output product pattern, no burst ID, acquisition time or polarization
+    else:
+        base_name = ancillary_name_template.format(
+            creation_ts=creation_time,
+            sensor=dataset_match.groupdict()['mission_id'],
+            product_version='v0.1',
         )
 
         output_filenames.append(f'{base_name}.{extension}')
@@ -278,18 +447,19 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
     acq_time = datetime.strptime(
         dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S')
 
+    creation_time = get_time_for_filename()
+
     base_name = base_name_template.format(
         tile_id=dataset_match.groupdict()['tile_id'],
         acquisition_ts=acq_time,
-        # make creation time a duplicate of the acquisition time for ease of testing
-        creation_ts=acq_time,
+        creation_ts=creation_time,
         sensor=sensor,
         product_version=dataset_match.groupdict()['collection_version']
     )
 
     # Simulate the multiple output tif files created by this PGE
     if extension.endswith('tiff') or extension.endswith('tif'):
-        for band_idx, band_name in enumerate(DSWX_BAND_NAMES, start=1):
+        for band_idx, band_name in enumerate(DSWX_HLS_BAND_NAMES, start=1):
             output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
     elif extension.endswith('png'):
         output_filenames.append(f'{base_name}_BROWSE.png')
@@ -299,14 +469,86 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
 
     return output_filenames
 
+def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DSWx-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    acq_time = dataset_match.groupdict()['acquisition_ts']
+
+    creation_time = get_time_for_filename()
+
+    for tile_id in DSWX_S1_TILES:
+        base_name = base_name_template.format(
+            tile_id=tile_id,
+            acquisition_ts=acq_time,
+            creation_ts=creation_time,
+            sensor='S1A',
+            spacing='30',
+            product_version=dataset_match.groupdict()['product_version']
+        )
+
+        # Simulate the multiple output tif files created by this PGE
+        if extension.endswith('tiff') or extension.endswith('tif'):
+            for band_idx, band_name in enumerate(DSWX_S1_BAND_NAMES, start=1):
+                output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+        elif extension.endswith('iso.xml'):
+            output_filenames.append(f'{base_name}.iso.xml')
+        # Ancillary output product pattern, no tile ID or acquisition time
+        else:
+            base_name = ancillary_name_template.format(
+                creation_ts=creation_time,
+                sensor='S1A',
+                spacing='30',
+                product_version=dataset_match.groupdict()['product_version']
+            )
+
+            ancillary_file_name = f'{base_name}.{extension}'
+
+            # Should only be one of these files per simulated run
+            if ancillary_file_name not in output_filenames:
+                output_filenames.append(ancillary_file_name)
+
+    return output_filenames
+
+
+def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DISP-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+
+    creation_time = get_time_for_filename()
+
+    base_name = base_name_template.format(
+        frame_id="F01234",
+        pol="VV",
+        ref_datetime="20190101T232711",
+        sec_datetime="20190906T232711",
+        product_version=dataset_match.groupdict()['product_version'],
+        creation_ts=creation_time
+    )
+
+    output_filenames.append(f'{base_name}.{extension}')
+
+    # TODO: support compressed CSLC files once file name convention is established
+
+    return output_filenames
+
 
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
         base_name_map = {
             'L2_CSLC_S1': get_cslc_s1_simulated_output_filenames,
+            'L2_CSLC_S1_STATIC': get_cslc_s1_static_simulated_output_filenames,
             'L2_RTC_S1': get_rtc_s1_simulated_output_filenames,
-            'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames
+            'L2_RTC_S1_STATIC': get_rtc_s1_static_simulated_output_filenames,
+            'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames,
+            'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames,
+            'L3_DISP_S1': get_disp_s1_simulated_output_filenames
         }
 
         try:

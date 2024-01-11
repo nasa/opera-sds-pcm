@@ -1,0 +1,97 @@
+{
+  "label": "SCIFLO_L3_DSWx_S1",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    {
+      "name": "module_path",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm",
+      "default": "/home/ops/verdi/ops/opera-pcm"
+    },
+    {
+      "name": "wf_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml",
+      "default": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+    },
+    {
+      "name": "wf_name",
+      "from": "value",
+      "type": "text",
+      "value": "L3_DSWx_S1",
+      "default": "L3_DSWx_S1"
+    },
+    {
+      "name":"dataset_type",
+      "from": "value",
+      "type":"text",
+      "value":"L2_RTC_S1",
+      "default":"L2_RTC_S1"
+    },
+    {
+      "name":"input_dataset_id",
+      "from": "value",
+      "type":"text",
+      "value":"placeholder_id",
+      "default":"placeholder_id"
+    },
+    {
+     "name": "product_metadata",
+     "from": "value",
+     "type": "object",
+     "value" : "s3://opera-dev-lts-fwd-collinss/sample_dswx_s1_product_metadata.json"
+    },
+    {
+      "name": "accountability_module_path",
+      "from": "value",
+      "type": "text",
+      "value": "opera_chimera.accountability",
+      "default": "opera_chimera.accountability"
+    },
+    {
+      "name": "accountability_class",
+      "from": "value",
+      "type": "text",
+      "value": "OperaAccountability",
+      "default": "OperaAccountability"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_runconfig_dir",
+      "default": "pge_runconfig_dir"
+    },
+    {
+      "name": "pge_input_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_input_dir",
+      "default": "pge_input_dir"
+    },
+    {
+      "name": "pge_output_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_output_dir",
+      "default": "pge_output_dir"
+    },
+    {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/dswx_user",
+      "default": "/home/dswx_user"
+    },
+    {
+      "name": "container_working_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/dswx_user",
+      "default": "/home/dswx_user"
+    }
+  ]
+}

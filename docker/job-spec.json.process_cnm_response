@@ -1,0 +1,21 @@
+{
+  "command":"/home/ops/verdi/ops/CNM_product_delivery/product_delivery/scripts/update_es.sh",
+  "disk_usage":"1GB",
+  "soft_time_limit": 900,
+  "time_limit": 960,
+  "post": [ "hysds.triage.triage" ],
+  "params" : [
+    {
+      "name": "cnm_message",
+      "destination": "context"
+    },
+    {
+      "name": "product_tagging",
+      "destination": "context"
+    },
+    {
+      "name": "update_s3_tag",
+      "destination": "context"
+    }
+  ]
+}

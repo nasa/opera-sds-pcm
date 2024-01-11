@@ -17,6 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
+  default = "v5.0.1"
 }
 
 variable "pcm_repo" {
@@ -32,7 +33,7 @@ variable "pcm_commons_repo" {
 }
 
 variable "pcm_commons_branch" {
-  default = "develop"
+  default = "3.0.0-er.2.0"
 }
 
 variable "product_delivery_repo" {
@@ -176,7 +177,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -188,7 +189,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -200,7 +201,6 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-#    instance_type = "r6i.4xlarge"
     instance_type = "r5.8xlarge"
     root_dev_size = 50
     data          = "/data"
@@ -292,6 +292,11 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
+variable "trace" {
+  type    = string
+  default = "opera-dev"
+}
+
 # need to get SNS arn from PO DAAC and define
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
@@ -375,15 +380,17 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20231023-2.1.0"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-rc.2.0"
-    "rtc_s1" = "2.0.0-rc.2.0"
+    "dswx_hls" = "1.0.2"
+    "cslc_s1"  = "2.1.0"
+    "rtc_s1"   = "2.1.0"
+    "dswx_s1"  = "3.0.0-er.5.0"
+    "disp_s1"  = "3.0.0-er.4.0"
   }
 }
 
@@ -456,6 +463,14 @@ variable "es_snapshot_bucket" {
 }
 
 variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "dataspace_user" {
+  default = ""
+}
+
+variable "dataspace_pass" {
   default = ""
 }
 

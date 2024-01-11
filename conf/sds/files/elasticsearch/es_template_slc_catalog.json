@@ -1,0 +1,28 @@
+{
+  "index_patterns": ["slc_catalog", "slc_catalog-*"],
+  "template": {
+    "settings": {
+      "index": {
+        "sort.field": "creation_timestamp",
+        "sort.order": "asc"
+      },
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "granule_id"        : {"type": "keyword"},
+        "revision_id"       : {"type": "integer"},
+        "s3_url"            : {"type": "keyword"},
+        "https_url"         : {"type": "keyword"},
+        "creation_timestamp": {"type": "date"   },
+        "download_datetime" : {"type": "date"   },
+        "downloaded"        : {"type": "boolean"}
+      }
+    },
+    "aliases": {
+      "catalog_alias": {},
+      "slc_catalog_alias": {}
+    }
+  }
+}

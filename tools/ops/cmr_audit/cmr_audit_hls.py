@@ -12,8 +12,7 @@ import aiohttp
 import more_itertools
 from dotenv import dotenv_values
 
-from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
-from tools.ops.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.basicConfig(
@@ -34,12 +33,12 @@ def create_parser():
     argparser.add_argument(
         "--start-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--end-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--output", "-o",
@@ -80,6 +79,7 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
 
     request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
+    sem = asyncio.Semaphore(15)
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
         for i, dswx_native_id_pattern_batch in enumerate(dswx_native_id_pattern_batches, start=1):
@@ -92,14 +92,14 @@ async def async_get_cmr_dswx(dswx_native_id_patterns: set):
                 f"{dswx_native_id_patterns_query_params}"
             )
             logger.debug(f"Creating request task {i} of {len(dswx_native_id_pattern_batches)}")
-            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
+            post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
         logger.debug("Batching tasks")
         dswx_granules = set()
-        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
-        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
+        for i, task_chunk in enumerate(task_chunks, start=1):
             logger.info(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
@@ -221,13 +221,24 @@ async def run(argv: list[str]):
     logger.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
     logger.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
 
+    now = datetime.datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    start_dt_str = cmr_start_dt_str.replace("-","")
+    start_dt_str = start_dt_str.replace("T", "-")
+    start_dt_str = start_dt_str.replace(":", "")
+
+    end_dt_str = cmr_end_dt_str.replace("-", "")
+    end_dt_str = end_dt_str.replace("T", "-")
+    end_dt_str = end_dt_str.replace(":", "")
+    outfilename = f"missing_granules_HLS-DSWx_{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
+
     if args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_hls))
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - DSWx - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)

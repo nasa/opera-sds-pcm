@@ -1,24 +1,42 @@
 VENUE: '{{VENUE}}'
+DATASET_BUCKET: '{{ DATASET_BUCKET }}'
 PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
+RELEASE_VERSION: '{{ RELEASE_VERSION }}'
 
 # for PST (CalVal products)
-#DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
+#DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 #DSWX_HLS_PRODUCT_VERSION: "0.0"
 
 # uncomment out for OPS in R1
-DSWX_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
+DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V1"
 DSWX_HLS_PRODUCT_VERSION: "1.0"
 
 # CSLC & RTC in R2
-CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_PROVISIONAL_V0"
-RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_PROVISIONAL_V0"
-CSLC_STATIC_COLLECTION_NAME: "OPERA_L2_CSLC-S1-STATIC_PROVISIONAL_V0"
-RTC_STATIC_COLLECTION_NAME: "OPERA_L2_RTC-S1-STATIC_PROVISIONAL_V0"
-CSLC_S1_PRODUCT_VERSION: "0.1"
-RTC_S1_PRODUCT_VERSION: "0.4"
-CSLC_S1_STATIC_PRODUCT_VERSION: "0.1"
-RTC_S1_STATIC_PRODUCT_VERSION: "0.4"
+CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_V1"
+RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_V1"
+CSLC_STATIC_COLLECTION_NAME: "OPERA_L2_CSLC-S1-STATIC_V1"
+RTC_STATIC_COLLECTION_NAME: "OPERA_L2_RTC-S1-STATIC_V1"
+CSLC_S1_PRODUCT_VERSION: "1.0"
+RTC_S1_PRODUCT_VERSION: "1.0"
+CSLC_S1_STATIC_PRODUCT_VERSION: "1.0"
+RTC_S1_STATIC_PRODUCT_VERSION: "1.0"
+
+
+# DSWx-S1 & DISP-S1 in R3
+DSWX_S1_COLLECTION_NAME: "OPERA_L3_DSWX-S1_PROVISIONAL_V0"
+DSWX_S1_PRODUCT_VERSION: "0.1"
+DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_PROVISIONAL_V0"
+DISP_S1_PRODUCT_VERSION: "0.1"
+
+# The minimum coverage, defined as the percent of bursts in a bursts set, required to run DSWx_S1
+#  Must be a number in the closed interval [0, 99].
+DSWX_S1_COVERAGE_TARGET: 99
+MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/MGRS_tile_collection_v0.2.sqlite"
+
+# The minimum coverage, defined as the percent of bursts in a bursts set, required to run DISP_S1
+#  Must be a number in the closed interval [0, 99].
+DISP_S1_COVERAGE_TARGET: 99
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
@@ -31,6 +49,8 @@ SHORTNAME_FILTERS:
     - S2A # Sentinel-2A
     - S2B # Sentinel-2B
 #   - S2C # Sentinel-2C
+
+GEOJSON_BUCKET: "opera-ancillaries"
 
 # Base API urls and login endpoints for the different DAAC environments.
 DAAC_ENVIRONMENTS:
@@ -55,33 +75,59 @@ URGENT_RESPONSE_LATENCY:
 # This area is intended to be used to set any PGE configurable settings that an operator can change
 # during production.
 
-# Time range values to use when querying for Orbit files for use with SLC-based jobs
-POE_ORBIT_TIME_RANGE: 2  # Days
-RES_ORBIT_TIME_RANGE: 3  # Hours
-
 CSLC_S1:
-  # Toggle static layer generation during processing
-  ENABLE_STATIC_LAYERS: !!bool true
-  # Validity start time used to tag static layer products
-  DATA_VALIDITY_START_TIME: 20140403T000000
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
+  # Product specification version for baseline products
+  PRODUCT_SPEC_VER: 0.1.7
+
+CSLC_S1_STATIC:
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 100
+  # Validity start date used to tag static layer products
+  DATA_VALIDITY_START_DATE: 20140403
+  # Product specification version for static layer products
+  PRODUCT_SPEC_VER: 0.1.2
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
   CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
   # Toggle application of ocean/shoreline masking during processing
   APPLY_OCEAN_MASKING: !!bool false
-  # Amount of margin in km to apply to staged ancillaries (DEM/worldcover)
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 200
 
 RTC_S1:
-  # Toggle static layer generation during processing
-  ENABLE_STATIC_LAYERS: !!bool true
-  # Validity start time used to tag static layer products
-  DATA_VALIDITY_START_TIME: 20140403T000000
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 100
+  # Estimated geometric accuracy values needed for CEOS compliance
+  ESTIMATED_GEOMETRIC_ACCURACY:
+    BIAS_X: -0.72
+    BIAS_Y: -0.67
+    STDDEV_X: 0.70
+    STDDEV_Y: 0.62
+
+RTC_S1_STATIC:
+  # Validity start date used to tag static layer products
+  DATA_VALIDITY_START_DATE: 20140403
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 100
+  # Estimated geometric accuracy values needed for CEOS compliance
+  ESTIMATED_GEOMETRIC_ACCURACY:
+    BIAS_X: -0.72
+    BIAS_Y: -0.67
+    STDDEV_X: 0.70
+    STDDEV_Y: 0.62
+
+DSWX_S1:
+  # Toggle application of ocean/shoreline masking during processing
+  APPLY_OCEAN_MASKING: !!bool false
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
+  ANCILLARY_MARGIN: 50
+
+DISP_S1:
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 50
 
 # End PGE Configuration section
 
@@ -183,10 +229,9 @@ PRODUCT_TYPES:
 
     L2_CSLC_S1:
         # Pattern for parsing output L2_CSLC-S1 product filenames, such as:
-        # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z.h5
-        # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20220501T015035Z_v1.0_20230119T195150Z.h5
+        # OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230807T212944Z_S1A_VV_v1.0.h5
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -197,17 +242,16 @@ PRODUCT_TYPES:
             Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
-    L2_CSLC_S1_static_layers:
+    L2_CSLC_S1_STATIC:
       # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:
-      # OPERA_L2_CSLC-S1A_IW_T064-135518-IW1_VV_20140403T000000Z_v1.0_20230119T195150Z_Static.h5
+      # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_S1A_v1.0.h5
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<sensor>S1A|S1B)_(?P<mode>IW)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2})T(?P<validity_hour>\d{2})(?P<validity_minute>\d{2})(?P<validity_second>\d{2})Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))_Static[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
-      Suffix: '_static_layers'
       Configuration:
-        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
-        Date_Time_Keys: [ 'validity_ts', 'creation_ts' ]
+        Date_Time_Patterns: [ '%Y%m%d' ]
+        Date_Time_Keys: [ 'validity_ts' ]
         # Specify the metadata key to use as the dataset version.
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'
@@ -215,11 +259,12 @@ PRODUCT_TYPES:
 
     L2_RTC_S1:
         # Pattern for parsing output L2_RTC-S1 product filenames, such as:
-        # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0.h5
-        # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_VV.tif
-        # OPERA_L2_RTC-S1_T069-147169-IW3_20180504T104507Z_20230109T203121Z_S1B_30_v1.0_BROWSE.png
+        # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0.h5
+        # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_VV.tif
+        # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_mask.tif
+        # OPERA_L2_RTC-S1_T069-147175-IW1_20180504T104522Z_20230804T203850Z_S1B_30_v1.0_BROWSE.png
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -230,18 +275,18 @@ PRODUCT_TYPES:
           Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
-    L2_RTC_S1_static_layers:
+    L2_RTC_S1_STATIC:
       # Pattern for parsing output L2_RTC-S1 static layer product filenames, such as:
-      # OPERA_L2_RTC-S1_T069-147169-IW3_20140403T000000Z_20230109T203121Z_S1B_30_v1.0_static_nlooks.tif
-      # OPERA_L2_RTC-S1_T069-147169-IW3_20140403T000000Z_20230109T203121Z_S1B_30_v1.0_static_layover_shadow_mask.tif
+      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0.h5
+      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_incidence_angle.tif
+      # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_number_of_looks.tif
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2})T(?P<validity_hour>\d{2})(?P<validity_minute>\d{2})(?P<validity_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))_static_(?P<static_layer_name>incidence_angle|layover_shadow_mask|local_incidence_angle|nlooks|rtc_anf_gamma0_to_beta0)[.](?P<ext>tif|tiff)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
-      Suffix: '_static_layers'
       Configuration:
-        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
-        Date_Time_Keys: [ 'validity_ts', 'creation_ts' ]
+        Date_Time_Patterns: [ '%Y%m%d' ]
+        Date_Time_Keys: [ 'validity_ts' ]
         # Specify the metadata key to use as the dataset version.
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'
@@ -275,6 +320,70 @@ PRODUCT_TYPES:
             Dataset_Version_Key: 'product_version'
         Dataset_Keys: {}
 
+    L3_DSWx_S1:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DSWx-S1_T18MVA_20200702T231843Z_20230317T190549Z_S1A_30_v0.1_B01_WTR.tif"
+      # This pattern groups the metadata information in the filename using named groups.
+      #
+      # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF))?[.](?P<ext>tif|tiff|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        # For example, "20210211T163901":
+        #   year: 2021
+        #   month: 02 (February)
+        #   day of month: 11 (the 11th)
+        #   hour (24hr): 16
+        #   minute: 39
+        #   second: 01
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
+    L3_DISP_S1:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_20230101T100506Z.nc"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>nc|png||iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'ref_datetime', 'sec_datetime' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
+# TODO: implement once full file name conventions are implemented for compressed CSLC
+#    L2_CSLC_S1_COMPRESSED:
+#      # Pattern for parsing filenames such as:
+#      # * "compressed_slc_t087_185683_iw2_20180222_20180330.h5"
+#      # This pattern groups the metadata information in the filename using named groups.
+#      Pattern: !!python/regexp '(?P<id>(compressed_slc_(?P<burst_id>\w{4}_\w{6}_\w{3})_(?P<time_series_start_ts>\d{8})_(?P<time_series_stop_ts>\d{8})))[.](?P<ext>h5)$'
+#      Strip_File_Extension: !!bool true
+#      Extractor: extractor.FilenameRegexMetExtractor
+#      Configuration:
+#        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+#        Date_Time_Patterns: [ '%Y%m%d' ]
+#
+#        # Specify the metadata key to convert to a start and end time for the dataset times
+#        Date_Time_Keys: [ 'time_series_start_ts', 'time_series_stop_ts' ]
+#        # Specify the metadata key to use as the dataset version.
+#        #  Note: this affects the data product index name
+#        Dataset_Version_Key: 'product_version'
+#      Dataset_Keys: { }
+
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # WARNING: ONLY MODIFY THE SETTINGS BELOW IF YOU KNOW WHAT YOU'RE DOING !!!!!!!!!!!!!!
@@ -282,6 +391,6 @@ PRODUCT_TYPES:
 
 # Settings to enable forceful ingest of PGE outputs (a.k.a disable no-clobber errors)
 # These settings only take effect on those PGE jobs that produce datasets that get
-# pushed to object storage.
+# pushed to object storage (this should not include input product download jobs).
 FORCE_INGEST:
-    INGEST_STAGED: !!bool false
+    INGEST_STAGED: !!bool true

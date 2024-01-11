@@ -18,7 +18,7 @@ RunConfig:
 
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
-        ProductVersion: num(required=False)
+        ProductVersion: any(str(), num(), required=False)
         CompositeReleaseID: str(required=False)
         ProgramPath: str(required=True)
         ProgramOptions: list(str(), min=0, required=False)
@@ -26,7 +26,7 @@ RunConfig:
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
-        DataValidityStartTime: regex(r'\d{8}T\d{6}', name='YYYYMMDDTHHmmss datetime', required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:
         Enabled: bool(required=True)
@@ -57,6 +57,8 @@ RunConfig:
           dynamic_ancillary_file_group:
             # Digital Elevation Model.
             dem_file: str(required=False)
+            # Description for DEM used for the processing
+            dem_description: str(required=False)
             # TEC file in IONEX format for ionosphere correction
             tec_file: str(required=False)
             # Troposphere weather model
@@ -80,7 +82,7 @@ RunConfig:
             product_specification_version: str(required=False)
 
           primary_executable:
-            product_type: enum('CSLC_S1')
+            product_type: enum('CSLC_S1', 'CSLC_S1_STATIC')
 
           # This section includes parameters to tweak the workflow
           processing: include('processing_options', required=False)
@@ -90,6 +92,9 @@ RunConfig:
 
           # Quality assurance options
           quality_assurance: include('quality_assurance_options', required=False)
+
+          # Output options for geocoded rasters (CSLC datatype, compression, chunking, shuffle filter)
+          output: include('output_options', required=False)
 ---
 # Group of processing options
 processing_options:
@@ -107,8 +112,6 @@ processing_options:
 geocoding_options:
   # Boolean flag to enable/disable flattening
   flatten: bool(required=False)
-  # Number of lines to process in batch
-  lines_per_block: int(min=1, required=False)
   # Product posting along X (same units as burst center EPSG)
   x_posting: num(min=0, required=False)
   # Product posting along Y (same units as burst center EPSG)
@@ -143,8 +146,6 @@ troposphere_options:
   delay_type: enum('dry', 'wet', 'wet_dry', required=False)
 
 rdr2geo_options:
-  # Enable/disable computation of topo layers
-  enabled: bool(required=False)
   # Convergence threshold for rdr2geo algorithm
   threshold: num(min=0, required=False)
   # Maximum number of iterations
@@ -161,14 +162,12 @@ rdr2geo_options:
   compute_height: bool(required=False)
   # Enable/disable layover shadow mask output
   compute_layover_shadow_mask: bool(required=False)
-  # Enable/disable incidence angle output
-  compute_incidence_angle: bool(required=False)
   # Enable/disable local incidence output
   compute_local_incidence_angle: bool(required=False)
-  # Enable/disable azimuth angle output
-  compute_azimuth_angle: bool(required=False)
-  # Enable/disable geocoding of the topo layers
-  geocode_metadata_layers: bool(required=False)
+  # Enable/disable ground to satellite East LOS vector
+  compute_ground_to_sat_east: bool(required=False)
+  # Enable/disable ground to satellite North LOS vector
+  compute_ground_to_sat_north: bool(required=False)
 
 worker_options:
   # To prevent downloading DEM / other data automatically. Default True
@@ -200,4 +199,17 @@ browse_image_options:
   gamma: num(min=0, required=False)
   # Enable/disable histogram equalization
   equalize: bool(required=False)
+
+output_options:
+  # Data type of CSLC raster (default complex64_zero_mantissa)
+  cslc_data_type: enum('complex32', 'complex64', 'complex64_zero_mantissa', required=False)
+  # Enable/disable gzip compression of raster (default True)
+  compression_enabled: bool(required=False)
+  # Level of compression applied to raster (default 4)
+  # 1 - least compression, 9 - best compresssion
+  compression_level: int(min=1, max=9, required=False)
+  # Chunk size of raster (default [128, 128])
+  chunk_size: list(int(min=4), min=2, max=2, required=False)
+  # Enable/disable shuffle filtering of rasters (default True)
+  shuffle: bool(required=False)
 

@@ -4,7 +4,7 @@ import logging
 import urllib
 from io import StringIO
 from pprint import pprint
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 
 import aiohttp
 import dateutil.parser
@@ -21,6 +21,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                                  platform_short_name: Union[str, Iterable[str]]):
     logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
+    sem = asyncio.Semaphore(15)
     async with aiohttp.ClientSession() as session:
         request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
@@ -59,7 +60,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
 
                 request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name)
                 logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
-                post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
+                post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
                     logger.debug("EDGECASE: processed last partial hour. Preempting")
@@ -70,8 +71,8 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         logger.debug("Batching tasks")
         cmr_granules = set()
         cmr_granules_details = {}
-        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
-        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
+        for i, task_chunk in enumerate(task_chunks, start=1):
             logger.debug(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
@@ -110,6 +111,21 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
             "&attribute[]=string,BEAM_MODE,IW"
         )
     raise Exception(f"Unsupported collection short name. {collection_short_name=}")
+
+
+async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
+    response_jsons = await async_cmr_post(url, data, session, sem)
+    cmr_granules, cmr_granules_detailed = to_cmr_audit_granules(response_jsons)
+    return cmr_granules, cmr_granules_detailed
+
+
+def to_cmr_audit_granules(cmr_response_jsons):
+    cmr_granules = set()
+    cmr_granules_detailed = {}
+    for response_json in cmr_response_jsons:
+        cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
+        cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
+    return cmr_granules, cmr_granules_detailed
 
 
 def pstr(o):

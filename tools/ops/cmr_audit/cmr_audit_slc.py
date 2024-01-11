@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import concurrent.futures
+import datetime
 import functools
 import logging
 import os
@@ -8,8 +9,6 @@ import re
 import sys
 import urllib.parse
 from collections import defaultdict
-from io import StringIO
-from pprint import pprint
 from typing import Union, Iterable
 
 import aiohttp
@@ -18,8 +17,7 @@ from dotenv import dotenv_values
 from more_itertools import always_iterable
 
 from geo.geo_util import does_bbox_intersect_north_america
-from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules
-from tools.ops.cmr_audit.cmr_client import async_cmr_post
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
@@ -41,12 +39,12 @@ def create_parser():
     argparser.add_argument(
         "--start-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--end-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
     )
     argparser.add_argument(
         "--output", "-o",
@@ -98,9 +96,9 @@ async def async_get_cmr(
     native_id_patterns = more_itertools.always_iterable(native_id_patterns)
     native_id_pattern_batches = list(more_itertools.chunked(native_id_patterns, 1000))  # 1000 == 55,100 length
 
-    request_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
-    logger.warning(f"PRE-PRODUCTION: Using CMR UAT environment. {request_url=}")  # TODO chrisjrd: eventually update URL and remove for ops
+    request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
+    sem = asyncio.Semaphore(15)
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
         for i, rtc_native_id_pattern_batch in enumerate(native_id_pattern_batches, start=1):
@@ -117,14 +115,14 @@ async def async_get_cmr(
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
             logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
-            post_cmr_tasks.append(async_cmr_post(request_url, request_body, session))
+            post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
         logger.debug("Batching tasks")
         cmr_granules = set()
-        task_chunks = list(more_itertools.chunked(post_cmr_tasks, 30))
-        for i, task_chunk in enumerate(task_chunks, start=1):  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
+        for i, task_chunk in enumerate(task_chunks, start=1):
             logger.info(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
                 lambda it: isinstance(it, Exception),
@@ -156,7 +154,8 @@ def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_
         )
         cslc_acquisition_dt_str = m.group("start_ts")
 
-        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1?_IW_*_{cslc_acquisition_dt_str}Z_v*_*'
+        #                         OPERA_L2_CSLC-S1_*_20231124T124529Z_*_S1*
+        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1_*_{cslc_acquisition_dt_str}Z_*_S1*'
         rtc_native_id_patterns.add(rtc_native_id_pattern)
 
         # bi-directional mapping of HLS-DSWx inputs and outputs
@@ -202,7 +201,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
     for cmr_product in cmr_products:
         product_type = "RTC" if "RTC" in cmr_product else "CSLC"
         if product_type == "CSLC":
-            acquisition_time = cmr_product[40:55]
+            acquisition_time = cmr_product[33:48]
         else:  # product_type == "RTC"
             acquisition_time = cmr_product[32:47]
         product_type_and_acquisition_time_to_products_map[(product_type, acquisition_time)].add(cmr_product)
@@ -211,7 +210,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
     for native_id_pattern in cmr_native_id_patterns:
         product_type = "RTC" if "RTC" in native_id_pattern else "CSLC"
         if product_type == "CSLC":
-            acquisition_time = native_id_pattern[23:38]
+            acquisition_time = native_id_pattern[19:34]
         else:  # product_type == "RTC"
             acquisition_time = native_id_pattern[18:33]
         product_type_acquisition_time_to_native_id_pattern_map[(product_type, acquisition_time)].add(native_id_pattern)
@@ -312,21 +311,32 @@ async def run(argv: list[str]):
     logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
     logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
+    now = datetime.datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    start_dt_str = cmr_start_dt_str.replace("-","")
+    start_dt_str = start_dt_str.replace("T", "-")
+    start_dt_str = start_dt_str.replace(":", "")
+
+    end_dt_str = cmr_end_dt_str.replace("-", "")
+    end_dt_str = end_dt_str.replace("T", "-")
+    end_dt_str = end_dt_str.replace(":", "")
+    outfilename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
+
     if args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to CSLC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_slc_cslc))
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.txt"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_slc_cslc))
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to CSLC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
@@ -334,7 +344,7 @@ async def run(argv: list[str]):
             fp.write(json_str)
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing granules - SLC to RTC - {cmr_start_dt_str} to {cmr_end_dt_str}.json"
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)

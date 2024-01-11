@@ -66,12 +66,6 @@ else
   sds -d ci remove_job -b ${pcm_branch} https://${pcm_repo}
 fi
 
-#if [ "${delete_old_job_catalog}" = true ]; then
-#  python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-#else
-#  python ~/mozart/ops/${var.project}-pcm/job_accountability/create_job_accountability_catalog.py
-#fi
-
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
 
 # Set PGE_SIMULATION_MODE to false so we call the PGE Docker image in the PGE jobs
@@ -80,7 +74,7 @@ sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' 
 fab -f ~/.sds/cluster.py -R mozart,factotum update_opera_packages
 sds -d ship
 
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 2
+#~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-small --desired-capacity 2
 #~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
 #~/mozart/ops/nisar-pcm/conf/sds/files/test/update_asg.py ${project}-${venue}-${counter}-opera-job_worker-dswx-hls-acct --desired-capacity 2
 

@@ -10,7 +10,7 @@ from datetime import datetime
 from commons.logger import logger
 from chimera.pge_job_submitter import PgeJobSubmitter
 from opera_chimera.constants.opera_chimera_const import (
-    OperaChimeraConstants as nc_const,
+    OperaChimeraConstants as oc_const,
 )
 
 from wrapper.opera_pge_wrapper import run_pipeline
@@ -124,28 +124,22 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                 with open(os.path.join(self._base_work_dir, "pge_metrics.json"), "r") as f:
                     old_pge_metrics = json.load(f)
                 pge_metrics.update(old_pge_metrics)
+
             # pge_metrics.json is already created in get_dems() in precondition_function.py
             with open(os.path.join(self._base_work_dir, "pge_metrics.json"), "w") as f:
                 json.dump(pge_metrics, f, indent=2)
 
             # set additional files to triage
-            self._context["_triage_additional_globs"] = ["output", "RunConfig.yaml", "pge_output_dir"]
+            self._context["_triage_additional_globs"] = [
+                "output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir", "pge_output_dir"
+            ]
 
             # set force publish (disable no-clobber)
-            if not (
-                match := re.search(
-                    r"^job-(.+):.+$", self._context["job_specification"]["id"]
-                )
-            ):
-                raise RuntimeError(
-                    "Failed to extract job type from job specification ID: "
-                    "{}".format(self._context["job_specification"]["id"])
-                )
-            job_type = match.group(1)
-            force_publish = self._settings.get(nc_const.FORCE_INGEST, {}).get(
-                job_type, False
+            force_publish = self._settings.get(oc_const.FORCE_INGEST, {}).get(
+                oc_const.INGEST_STAGED, False
             )
             if force_publish:
+                logger.info("Disabling no-clobber errors")
                 self._context["_force_ingest"] = True
 
             # sync updates to context JSON file
@@ -180,7 +174,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
             pge_info = {}
             with open(self._base_work_dir + "/_pid", "r+") as pid:
                 pid = int(pid.read())
-            if self._settings.get(nc_const.PGE_SIM_MODE, True):
+            if self._settings.get(oc_const.PGE_SIM_MODE, True):
                 pge_info = {
                     "time_start": datetime.utcnow().strftime(ISO_DATETIME_PATTERN)
                     + "Z",

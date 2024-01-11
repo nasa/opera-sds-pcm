@@ -70,6 +70,16 @@ fi
 # Loop across all Dockerfiles, build and ingest them
 for dockerfile in docker/Dockerfile*
 do
+    echo "[CI] Processing ${dockerfile}"
+
+    # skip .dockerignore files specific to a Dockerfile
+    # e.g. "Dockerfile", "Dockerfile.A" have associated ".dockerignore" files "Dockerfile.dockerignore" and "Dockerfile.A.dockerignore"
+    dockerignore_regex=".*\.dockerignore"
+    if [[ "${dockerfile}" =~ $dockerignore_regex ]]; then
+      echo "[CI] Skipping ${dockerfile}"
+      continue
+    fi
+
     dockerfile=${dockerfile#docker/}
     #Get the name for this container, from repo or annotation to Dockerfile
     NAME=${REPO}
@@ -80,7 +90,7 @@ do
     #Setup container build items
     PRODUCT="container-${NAME}:${TAG}"
     #Docker tags must be lower case
-    PRODUCT=${PRODUCT,,}
+    PRODUCT=$(tr '[:upper:]' '[:lower:]' <<< "$PRODUCT")
     TAR="${PRODUCT}.tar"
     GZ="${TAR}.gz" 
     #Remove previous container if exists

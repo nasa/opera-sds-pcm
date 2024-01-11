@@ -4,14 +4,14 @@
 locals {
   q_config = <<EOT
 QUEUES:
-    %{~ for queue, queue_config in var.queues ~}
+    %{~for queue, queue_config in var.queues~}
   - QUEUE_NAME: ${queue}
     INSTANCE_TYPES:
-    %{~ for instance_type in queue_config["instance_type"] ~}
+    %{~for instance_type in queue_config["instance_type"]~}
       - ${instance_type}
-    %{~ endfor ~}
+    %{~endfor~}
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
-    %{~ endfor ~}
+    %{~endfor~}
   EOT
 }
 
@@ -276,7 +276,7 @@ resource "aws_instance" "mozart" {
       echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config
       echo '  LAMBDA_ROLE: "${var.lambda_role_arn}"' >> ~/.sds/config
       echo '  JOB_TYPE: "${var.cnm_r_handler_job_type}"' >> ~/.sds/config
-      echo '  JOB_RELEASE: ${var.product_delivery_branch}' >> ~/.sds/config
+      echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config
       echo '  JOB_QUEUE: ${var.cnm_r_job_queue}' >> ~/.sds/config
       echo '  PO_DAAC_CNM_R_EVENT_TRIGGER: ${var.po_daac_cnm_r_event_trigger}' >> ~/.sds/config
       echo '  ASF_DAAC_CNM_R_EVENT_TRIGGER: ${var.asf_daac_cnm_r_event_trigger}' >> ~/.sds/config
@@ -322,6 +322,9 @@ resource "aws_instance" "mozart" {
         echo ASF_DAAC_SQS_URL: "" >> ~/.sds/config
       fi
 
+      echo TRACE: "${var.trace}" >> ~/.sds/config
+      echo PRODUCT_DELIVERY_REPO: "${var.product_delivery_repo}" >> ~/.sds/config
+      echo PRODUCT_DELIVERY_BRANCH: "${var.product_delivery_branch}" >> ~/.sds/config
       echo PCM_COMMONS_REPO: "${var.pcm_commons_repo}" >> ~/.sds/config
       echo PCM_COMMONS_BRANCH: "${var.pcm_commons_branch}" >> ~/.sds/config
       echo CRID: "${var.crid}" >> ~/.sds/config
@@ -329,6 +332,10 @@ resource "aws_instance" "mozart" {
       echo >> ~/.sds/config
 
       echo INACTIVITY_THRESHOLD: ${var.inactivity_threshold} >> ~/.sds/config
+      echo >> ~/.sds/config
+
+      echo 'DATASPACE_USER: "${var.dataspace_user}"' >> ~/.sds/config
+      echo 'DATASPACE_PASS: "${var.dataspace_pass}"' >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config
@@ -382,7 +389,7 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py ;
-      conda install gdal=3.4.1 --yes --quiet ;
+      conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet ;
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -396,8 +403,8 @@ resource "aws_instance" "mozart" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
-        echo installing gdal for manual execution of daac_data_subscriber.py ;
-        conda install gdal=3.4.1 --yes --quiet ;
+        echo installing gdal for manual execution of daac_data_subscriber.py
+        conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
@@ -445,19 +452,16 @@ resource "aws_instance" "mozart" {
       set -ex
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz"
-        tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
-        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/bach-api
-        rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
         tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
         ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
         rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
       else
-        git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api
         git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
       fi
+
       export PATH=~/conda/bin:$PATH
+
       cd bach-ui
       ~/conda/bin/npm install --silent --no-progress
       sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
@@ -519,19 +523,30 @@ resource "aws_instance" "mozart" {
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
+		sleep 180
         sds -d update grq -f
+		sleep 180
         sds -d update metrics -f
         sds -d update factotum -f
       else
         sds -d update mozart -f -c
+		sleep 180
         sds -d update grq -f -c
+		sleep 180
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
+      cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
+
+      sed -i "s/RELEASE_VERSION: '{{ RELEASE_VERSION }}'/RELEASE_VERSION: '${var.pcm_branch}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+
       if [ "${var.pge_sim_mode}" = false ]; then
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
       fi
+      sed -i "s/DATASET_BUCKET: '{{ DATASET_BUCKET }}'/DATASET_BUCKET: '${local.dataset_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+
+	  sleep 180
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
       else
@@ -540,8 +555,14 @@ resource "aws_instance" "mozart" {
       if [ "${var.grq_aws_es}" = true ] && [ "${var.use_grq_aws_es_private_verdi}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart update_celery_config
       fi
-      fab -f ~/.sds/cluster.py -R grq update_es_template
+
+      fab -f ~/.sds/cluster.py -R grq update_grq_es
+	  sleep 180
+      fab -f ~/.sds/cluster.py -R metrics update_metrics_es
+
+      sleep 180
       sds -d ship
+
       cd ~/mozart/pkgs
       sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
@@ -554,34 +575,6 @@ resource "aws_instance" "mozart" {
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
       pip install --progress-bar off -e .
-      echo #if [[ "$${var.pcm_release}" == "develop"* ]]; then
-      echo # TODO hyunlee: remove comment after test, we should only create the data_subscriber_catalog when the catalog exists
-      echo # create the data subscriber catalog elasticsearch index, delete the existing catalog first
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_hls_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_hls_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/delete_slc_catalog.py
-      echo #    python ~/mozart/ops/opera-pcm/data_subscriber/create_slc_catalog.py
-      echo #fi
-
-      echo create data subscriber Elasticsearch indexes
-      if [ "${local.delete_old_job_catalog}" = true ]; then
-          python ~/mozart/ops/opera-pcm/data_subscriber/hls/delete_hls_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/delete_hls_spatial_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/slc/delete_slc_catalog.py
-          python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/delete_slc_spatial_catalog.py
-
-      fi
-      python ~/mozart/ops/opera-pcm/data_subscriber/hls/create_hls_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/hls_spatial/create_hls_spatial_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/slc/create_slc_catalog.py
-      python ~/mozart/ops/opera-pcm/data_subscriber/slc_spatial/create_slc_spatial_catalog.py
-
-      echo create accountability Elasticsearch index
-      if [ "${local.delete_old_job_catalog}" = true ]; then
-          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py --delete_old_catalog
-      else
-          python ~/mozart/ops/opera-pcm/job_accountability/create_job_accountability_catalog.py
-      fi
     EOT
     ]
   }
@@ -623,7 +616,7 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  // creating the snapshot repositories and lifecycles for GRQ mozart and metrics ES
+  // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
   provisioner "remote-exec" {
     inline = [<<-EOT
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
@@ -632,18 +625,21 @@ resource "aws_instance" "mozart" {
       echo // grq
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog
+      curl -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // mozart
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers
+      curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // metrics
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*
+      curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+
     EOT
     ]
   }
-
 }
 
 # Resource to install PCM and its dependencies, container-nasa-xxx-sds-pcm
@@ -661,7 +657,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 
@@ -685,46 +681,48 @@ resource "null_resource" "install_pcm_and_pges" {
 }
 
 # Resource to install PCM and its dependencies,container-iems-sds_cnm_product_delivery
-resource "null_resource" "install_pcm_and_pges_iems" {
-  depends_on = [
-    aws_instance.mozart
-  ]
-
-  connection {
-    type        = "ssh"
-    host        = aws_instance.mozart.private_ip
-    user        = "hysdsops"
-    private_key = file(var.private_key_file)
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
-      set -ex
-      source ~/.bash_profile
-
-      echo build/import opera-pcm
-      echo Build container
-
-      echo build/import CNM product delivery
-      if [ "${var.use_artifactory}" = true ]; then
-          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
-          sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
-          rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
-      else
-          sleep 300
-          sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
-          sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
-          sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
-      fi
-
-    EOT
-    ]
-  }
-}
+# Comment out this to override CNM delivery with OPERA PCM repo
+#resource "null_resource" "install_pcm_and_pges_iems" {
+#  depends_on = [
+#    aws_instance.mozart
+#  ]
+#
+#  connection {
+#    type        = "ssh"
+#    host        = aws_instance.mozart.private_ip
+#    user        = "hysdsops"
+#    private_key = file(var.private_key_file)
+#  }
+#
+#  provisioner "remote-exec" {
+#    inline = [<<-EOT
+#      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+#      set -ex
+#      source ~/.bash_profile
+#
+#      echo build/import opera-pcm
+#      echo Build container
+#
+#      echo build/import CNM product delivery
+#      if [ "${var.use_artifactory}" = true ]; then
+#          ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/hysds_pkgs/container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+#          sds pkg import container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+#          rm -rf container-iems-sds_cnm_product_delivery-${var.product_delivery_branch}.sdspkg.tar
+#      else
+#          sleep 300
+#          sds -d ci add_job -b ${var.product_delivery_branch} --token https://${var.product_delivery_repo} s3
+#          sds -d ci build_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+#          sds -d ci remove_job -b ${var.product_delivery_branch} https://${var.product_delivery_repo}
+#      fi
+#
+#    EOT
+#    ]
+#  }
+#}
 
 resource "null_resource" "setup_trigger_rules" {
-  depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+  #depends_on = [null_resource.install_pcm_and_pges, null_resource.install_pcm_and_pges_iems]
+  depends_on = [null_resource.install_pcm_and_pges]
 
   connection {
     type        = "ssh"
@@ -735,7 +733,7 @@ resource "null_resource" "setup_trigger_rules" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       source ~/.bash_profile
 

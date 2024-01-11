@@ -6,7 +6,7 @@ import argparse
 import os
 import backoff
 
-import boto3
+import numpy as np
 import shapely.wkt
 
 from osgeo import gdal
@@ -19,6 +19,7 @@ from util.geo_util import (check_dateline,
                            polygon_from_bounding_box,
                            polygon_from_mgrs_tile,
                            transform_polygon_coords_to_epsg)
+from util.pge_util import check_aws_connection
 
 # Enable exceptions
 gdal.UseExceptions()
@@ -45,6 +46,12 @@ def get_parser():
                         default=S3_DEM_BUCKET, dest='s3_bucket',
                         help='Name of the S3 bucket containing the global DEM '
                              'to extract from.')
+    parser.add_argument('-k', '--s3-key', type=str, action='store',
+                        default="", dest="s3_key",
+                        help='S3 key path utilized with the bucket name to derive '
+                             'the location of the DEM to extract from. If the '
+                             'desired DEM is at the top-level of the provided '
+                             'bucket, this argument is not needed.')
     parser.add_argument('-t', '--tile-code', type=str, default=None,
                         help='MGRS tile code identifier for the DEM region')
     parser.add_argument('-b', '--bbox', type=float, action='store',
@@ -98,7 +105,7 @@ def determine_polygon(tile_code, bbox=None, margin_in_km=50):
     return poly
 
 
-@backoff.on_exception(backoff.expo, Exception, max_tries=8, max_value=32)
+@backoff.on_exception(backoff.expo, Exception, max_time=600, max_value=32)
 def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     """
     Translate a DEM from S3 to a region matching the provided boundaries.
@@ -134,20 +141,38 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     input_x_min, xres, _, input_y_max, _, yres = ds.GetGeoTransform()
     length = ds.GetRasterBand(1).YSize
     width = ds.GetRasterBand(1).XSize
-    input_y_min = input_y_max + (length * yres)
-    input_x_max = input_x_min + (width * xres)
+
+    # declare lambda function to snap min/max X and Y coordinates over the
+    # DEM grid
+    snap_coord = \
+        lambda val, snap, offset, round_func: round_func(
+            float(val - offset) / snap) * snap + offset
+
+    # Snap edge coordinates using the DEM pixel spacing
+    # (xres and yres) and starting coordinates (input_x_min and
+    # input_x_max). Maximum values are rounded using np.ceil
+    # and minimum values are rounded using np.floor
+    x_min = snap_coord(x_min, xres, input_x_min, np.floor)
+    x_max = snap_coord(x_max, xres, input_x_min, np.ceil)
+    y_min = snap_coord(y_min, yres, input_y_max, np.floor)
+    y_max = snap_coord(y_max, yres, input_y_max, np.ceil)
+
+    input_y_min = input_y_max + length * yres
+    input_x_max = input_x_min + width * xres
 
     x_min = max(x_min, input_x_min)
     x_max = min(x_max, input_x_max)
     y_min = max(y_min, input_y_min)
     y_max = min(y_max, input_y_max)
 
+    logger.info(f"Adjusted projection window {str([x_min, y_max, x_max, y_min])}")
+
     gdal.Translate(
         output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
     )
 
 
-def download_dem(polys, epsgs, dem_bucket, outfile):
+def download_dem(polys, epsgs, dem_location, outfile):
     """
     Download a DEM from the specified S3 bucket.
 
@@ -157,8 +182,8 @@ def download_dem(polys, epsgs, dem_bucket, outfile):
         List of shapely polygons.
     epsgs: list of str
         List of EPSG codes corresponding to polys.
-    dem_bucket : str
-        Name of the S3 bucket containing the global DEM to download from.
+    dem_location : str
+       S3 bucket and key containing the global DEM to download from.
     outfile:
         Path to the where the output DEM file is to be staged.
 
@@ -171,7 +196,7 @@ def download_dem(polys, epsgs, dem_bucket, outfile):
     dem_list = []
 
     for idx, (epsg, poly) in enumerate(zip(epsgs, polys)):
-        vrt_filename = f'/vsis3/{dem_bucket}/EPSG{epsg}/EPSG{epsg}.vrt'
+        vrt_filename = f'/vsis3/{dem_location}/EPSG{epsg}/EPSG{epsg}.vrt'
         output_path = f'{file_prefix}_{idx}.tif'
         dem_list.append(output_path)
         x_min, y_min, x_max, y_max = poly.bounds
@@ -220,34 +245,6 @@ def check_dem_overlap(dem_filepath, polys):
         perc_area += (poly.intersection(poly_dem).area / poly.area) * 100
 
     return perc_area
-
-
-def check_aws_connection(dem_bucket):
-    """
-    Check connection to the provided S3 bucket.
-
-    Parameters
-    ----------
-    dem_bucket : str
-        Name of the bucket to use with the connection test.
-
-    Raises
-    ------
-    RuntimeError
-       If no connection can be established.
-
-    """
-    s3 = boto3.resource('s3')
-    obj = s3.Object(dem_bucket, 'EPSG4326/EPSG4326.vrt')
-
-    try:
-        logger.info(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
-        obj.get()['Body'].read()
-        logger.info('Connection test successful.')
-    except Exception:
-        errmsg = (f'No access to the {dem_bucket} s3 bucket. '
-                  f'Check your AWS credentials and re-run the code.')
-        raise RuntimeError(errmsg)
 
 
 def main(opts):
@@ -303,7 +300,13 @@ def main(opts):
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')
 
-    check_aws_connection(opts.s3_bucket)
+    # Determine where to look for the sample vrt file to read as a connection test
+    if opts.s3_key:
+        test_key = '/'.join([opts.s3_key, 'EPSG4326/EPSG4326.vrt'])
+    else:
+        test_key = 'EPSG4326/EPSG4326.vrt'
+
+    check_aws_connection(bucket=opts.s3_bucket, key=test_key)
 
     # Determine EPSG code
     logger.info("Determining EPSG code(s) for region polygon(s)")
@@ -313,7 +316,8 @@ def main(opts):
     logger.debug(f'Derived the following EPSG codes: {epsgs}')
 
     # Download DEM
-    download_dem(polys, epsgs, opts.s3_bucket, opts.outfile)
+    dem_location = '/'.join([opts.s3_bucket, opts.s3_key]) if opts.s3_key else opts.s3_bucket
+    download_dem(polys, epsgs, dem_location, opts.outfile)
 
     logger.info(f'Done, DEM stored locally to {opts.outfile}')
 

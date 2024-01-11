@@ -1,23 +1,21 @@
+import json
+import os
+import re
+from datetime import datetime
 from typing import Dict
 
 import backoff
-import re
-import json
-import os
-from datetime import datetime
-
 from chimera.commons.accountability import Accountability
+from chimera.logger import logger
 
+import job_accountability.catalog
+from data_subscriber.es_conn_util import get_es_connection
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
-
 from util.conf_util import SettingsConf
-from chimera.logger import logger
 
-from job_accountability.es_connection import get_job_accountability_connection
-
-grq_es = get_job_accountability_connection(logger)
+grq_es = get_es_connection(logger)
 
 
 def get_dataset(key, datasets_cfg):
@@ -70,7 +68,26 @@ class OperaAccountability(Accountability):
         self.trigger_dataset_id = self.context[oc_const.INPUT_DATASET_ID]
         self.input_files_type = self.trigger_dataset_type
 
-        metadata: Dict[str, str] = self.context["product_metadata"]["metadata"]
+        product_metadata = self.context["product_metadata"]
+
+        # TODO: kludge to support providing dummy metadata as a hardcoded string,
+        #       either containing the json formatted metadata itself, or an S3 URI
+        #       to a json file containing the product metadata, within the
+        #       hysds-io.json file for DSWx-S1 and DISP-S1, remove when appropriate
+        try:
+            metadata = product_metadata["metadata"]
+        except Exception as err:
+            if isinstance(product_metadata, str):
+                if product_metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = product_metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    product_metadata = obj.get()['Body'].read()
+
+                metadata = json.loads(product_metadata)["metadata"]
+            else:
+                raise err
 
         input_metadata = {}
         if self.input_files_type in ('L2_HLS_L30', 'L2_HLS_S30'):
@@ -79,6 +96,9 @@ class OperaAccountability(Accountability):
             input_metadata["filenames"] = [nested_product["FileName"] for nested_product in metadata["Files"]]
         elif self.input_files_type in ('L1_S1_SLC',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+        elif self.input_files_type in ('L2_RTC_S1','L2_CSLC_S1'):
+            self.product_paths = [os.path.join(file_metadata['FileLocation'], file_metadata['FileName'])
+                                  for file_metadata in metadata.get('Files', {})]
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 
@@ -98,7 +118,7 @@ class OperaAccountability(Accountability):
             }
             if self.input_metadata:
                 payload["metadata"] = self.input_metadata
-            grq_es.index_document(index=oc_const.JOB_ACCOUNTABILITY_INDEX, id=self.job_id, body=payload)
+            grq_es.index_document(index=job_accountability.catalog.generate_es_index_name(), id=self.job_id, body=payload)
         else:
             raise Exception("Unable to create job_accountability_catalog entry: {}".format(self.product_paths))
 

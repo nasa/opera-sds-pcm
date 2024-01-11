@@ -1,0 +1,82 @@
+RunConfig:
+  Name: OPERA-DSWX-S1-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DSWX_S1_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          {%- for type in data.dynamic_ancillary_file_group.keys() %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}
+          {%- endfor %}
+      ProductPathGroup:
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: DSWX_S1
+        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProgramPath: python3
+        ProgramOptions:
+          - /home/dswx_user/OPERA/DSWX-SAR/src/dswx_sar/dswx_s1.py
+        ErrorCodeBase: 400000
+        SchemaPath: /home/dswx_user/opera/pge/dswx_s1/schema/dswx_s1_sas_schema.yaml
+        AlgorithmParametersSchemaPath: /home/dswx_user/opera/pge/dswx_s1/schema/algorithm_parameters_s1_schema.yaml
+        IsoTemplatePath: /home/dswx_user/opera/pge/dswx_s1/templates/OPERA_ISO_metadata_L3_DSWx_S1_template.xml.jinja2
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions:
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+    SAS:
+      runconfig:
+        name: dswx_s1_workflow_default
+        groups:
+          pge_name_group:
+            pge_name: DSWX_S1_PGE
+          input_file_group:
+            input_file_path:
+              {%- for input in data.input_file_group.input_file_paths %}
+              - {{ input }}
+              {%- endfor %}
+          dynamic_ancillary_file_group:
+            {%- for type in data.dynamic_ancillary_file_group.keys() %}
+            {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
+            {%- endfor %}
+            algorithm_parameters: {{ data.processing.algorithm_parameters }}
+            # TODO: update descriptions as necessary when new ancillary releases are available
+            dem_file_description: 'Copernicus DEM GLO-30 2021 WGS84'
+            worldcover_file_description: 'ESA WorldCover 10m 2020 v1.0'
+            reference_water_file_description: 'JRC Global Surface Water - collection from 1984 to 2021'
+            hand_file_description: 'ASF HAND GLO30'
+            shoreline_shapefile_description: 'NOAA GSHHS Level 1 resolution f - GSHHS_f_L1'
+          static_ancillary_file_group:
+            static_ancillary_inputs_flag: True
+            {%- for type in data.static_ancillary_file_group.keys() %}
+            {%- if data.static_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
+            {%- endfor %}
+          primary_executable:
+            product_type: dswx_s1
+          product_path_group:
+            product_path: {{ data.product_path_group.product_path }}
+            scratch_path: {{ data.product_path_group.scratch_path }}
+            sas_output_path: {{ data.product_path_group.product_path }}
+            product_version: {{ data.product_path_group.product_version }}
+            output_imagery_format: 'COG'
+          log_file:

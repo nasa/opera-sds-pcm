@@ -1,3 +1,4 @@
+"""Helper functions for interacting with GRQ."""
 import logging
 from datetime import datetime
 
@@ -14,6 +15,7 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     es: Elasticsearch = es_conn_util.get_es_connection(logger).es
 
     body = get_body()
+    body["sort"] = []
     body["query"]["bool"]["must"].append(get_range("creation_timestamp", creation_timestamp_start_dt.isoformat(), creation_timestamp_end_dt.isoformat()))
     body["query"]["bool"]["must"].append({"term": {"metadata.intersects_north_america": "true"}})
     body["query"]["bool"]["must"].append({"term": {"metadata.processing_mode": "forward"}})
@@ -36,18 +38,28 @@ def try_update_slc_dataset_with_ionosphere_metadata(index, product_id, ionospher
     es.update(index, product_id, body={"doc": {"metadata": ionosphere_metadata}})
 
 
-def get_body() -> dict:
+def get_body(match_all=True) -> dict:
+    """
+    Returns a generic Elasticsearch query body for use with a raw elasticsearch-py client.
+    By default, it includes a match_all query and will sort results by "creation_timestamp".
+    $.size is set to 10_000.
+
+    Clients should override $.query.bool.must[] and $.sort[] as needed.
+    Clients may set $._source_includes = "false" to omit the document in the Elasticsearch response.
+    """
     return {
         "query": {
             "bool": {
-                "must": [{"match_all": {}}],
+                "must": [{"match_all": {}}] if match_all else [],
                 "must_not": [],
                 "should": []
             }
         },
         "from": 0,
         "size": 10_000,
-        "sort": [],
+        "sort": [{
+            "creation_timestamp": {"order": "asc"}
+        }],
         "aggs": {},
         "_source": {"includes": [], "excludes": []}
     }
@@ -56,8 +68,13 @@ def get_body() -> dict:
 def get_range(
         datetime_fieldname="creation_timestamp",
         start_dt_iso="1970-01-01",
-        end_dt_iso="9999-01-01"
+        end_dt_iso="9999-12-31T23:59:59.999"
 ) -> dict:
+    """
+    Returns a query range filter typically set in an Elasticsearch body's $.query.bool.must[] section.
+    The default range is from 1970 to the year 10,000.
+    The "from" datetime uses "gte" and the "to" datetime uses "lt".
+    """
     return {
         "range": {
             datetime_fieldname: {

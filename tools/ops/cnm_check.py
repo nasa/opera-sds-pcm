@@ -17,6 +17,8 @@ from dotenv import dotenv_values
 from elasticsearch import RequestsHttpConnection, helpers
 from more_itertools import chunked
 
+from util.grq_client import get_body
+
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logging.basicConfig(
@@ -69,23 +71,6 @@ argparser.add_argument(
     type=argparse.FileType('w'),
     help=f'Output filepath.'
 )
-
-
-def get_body() -> dict:
-    return {
-        "query": {
-            "bool": {
-                "must": [{"match_all": {}}],
-                "must_not": [],
-                "should": []
-            }
-        },
-        "from": 0,
-        "size": 10_000,
-        "sort": [],
-        "aggs": {},
-        "_source": {"includes": [], "excludes": []}
-    }
 
 logging.info(f'{sys.argv=}')
 args = argparser.parse_args(sys.argv[1:])
@@ -141,6 +126,7 @@ results = []
 dswx_granules_patterns_batches = chunked(dswx_granules_patterns, 1024)
 for dswx_granules_patterns_batch in dswx_granules_patterns_batches:
     body = get_body()
+    body["sort"] = []
     del body["query"]["bool"]["must"]  # removing match_all behavior
     body["_source"] = { "includes": [], "excludes": []}
     body["_source"]["includes"] = ["daac_CNM_S_status", "daac_delivery_status",
@@ -149,7 +135,7 @@ for dswx_granules_patterns_batch in dswx_granules_patterns_batches:
     # body["_source"]["includes"] = "false"  # NOTE: uncomment to return barebones response
     for dswx_granules_pattern in dswx_granules_patterns_batch:
         body["query"]["bool"]["should"].append({"match_phrase_prefix": {"metadata.id": dswx_granules_pattern}})
-    search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls", scroll="5m", size=10_000))
+    search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls-*", scroll="5m", size=10_000))
     results.extend(search_results)
 logging.info(f'results {len(results)=}')
 

@@ -27,8 +27,11 @@ module "int-main" {
   jenkins_api_key                         = var.jenkins_api_key
   artifactory_fn_user                     = var.artifactory_fn_user
   artifactory_fn_api_key                  = var.artifactory_fn_api_key
+  dataspace_user                          = var.dataspace_user
+  dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
   cnm_r_venue                             = var.cnm_r_venue
+  trace                                   = var.trace
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
 }

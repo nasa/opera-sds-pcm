@@ -176,7 +176,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -188,7 +188,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    instance_type = "r5.xlarge"
+    instance_type = "r6i.2xlarge"
     root_dev_size = 50
     private_ip    = ""
     public_ip     = ""
@@ -291,6 +291,11 @@ variable "cnm_r_venue" {
   default = "dev"
 }
 
+variable "trace" {
+  type    = string
+  default = "opera-dev"
+}
+
 #The value of po_daac_delivery_proxy can be
 #  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "po_daac_delivery_proxy" {
@@ -374,15 +379,17 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20220401-1.0.0-er.3.0"
+  default = "20231023-2.1.0"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.1"
-    "cslc_s1" = "2.0.0-rc.2.0"
-    "rtc_s1" = "2.0.0-rc.2.0"
+    "dswx_hls" = "1.0.2"
+    "cslc_s1"  = "2.1.0"
+    "rtc_s1"   = "2.1.0"
+    "dswx_s1"  = "3.0.0-er.5.0"
+    "disp_s1"  = "3.0.0-er.4.0"
   }
 }
 
@@ -485,24 +492,28 @@ variable "artifactory_fn_user" {
   default = ""
 }
 
+variable "dataspace_user" {
+}
+
+variable "dataspace_pass" {
+}
+
 variable "earthdata_user" {
-  default = ""
 }
 
 variable "earthdata_pass" {
-  default = ""
 }
 
 # ami vars
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.0-beta.6 - July 10, 2023
-    mozart    = "ami-0d1d5539d77a6cde2" # mozart v4.21 - 230710
-    metrics   = "ami-0aa63c81611c8cb2a" # metrics v4.15 - 230626
-    grq       = "ami-0ab96904359fa481b" # grq v4.16 - 230605
-    factotum  = "ami-04fb19cdf4289592f" # factotum v4.16 - 230702
-    autoscale = "ami-07abb668e56ddc95e" # verdi v4.16 patchdate - 20230702
+    # HySDS v5.0.1 - Dec 2, 2023 - R3
+    mozart    = "ami-0ea2ef3aba96651b5" # mozart v4.25 - 231202
+    metrics   = "ami-09fee089c0b2716e6" # metrics v4.17 - 231202
+    grq       = "ami-0c702e214b6e7bec9" # grq v4.18 - 231202
+    factotum  = "ami-03f76131067be5e52" # factotum v4.16 - 231204
+    autoscale = "ami-08564e7f541e12f7b" # verdi v4.16 patchdate - 231202
   }
 }
 

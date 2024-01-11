@@ -84,20 +84,90 @@ resource "aws_instance" "metrics" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
-      "chmod 755 ~/download_artifact.sh",
-      "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-      "  mkdir -p ~/conda",
-      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
-      "  export PATH=$HOME/conda/bin:$PATH",
-      "  conda-unpack",
-      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz\"",
-      "  tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz",
-      "  rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz",
-      "fi"
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      chmod 755 ~/download_artifact.sh
+      if [ "${var.hysds_release}" != "develop" ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        mkdir -p ~/conda
+        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        export PATH=$HOME/conda/bin:$PATH
+        conda-unpack
+        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz
+      fi
+    EOT
+    ]
+  }
+
+  # sync bach-api and bach-ui code. start bach-ui
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
+      cd ~/metrics/ops
+      if [ "${var.use_artifactory}" = true ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz"
+        tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
+        ln -s ~/metrics/ops/${var.project}-sds-bach-api-${var.bach_api_branch} ~/metrics/ops/bach-api
+        rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api
+      fi
+
+      export PATH=~/conda/bin:$PATH
+
+      cd ~/metrics/ops/bach-api
+      pip install --progress-bar off -e .
+    EOT
+    ]
+  }
+}
+
+resource "null_resource" "setup_cron" {
+  depends_on = [aws_instance.metrics]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.metrics.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      source ~/.bash_profile
+      set -ex
+
+      pwd
+      mkdir -p metrics/conf/sds/files/metrics/cron
+      mkdir -p .local/bin/cron
+    EOT
+    ]
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/../../../conf/sds/files/metrics/cron/" # NOTE trailing slash to upload dir contents
+    destination = "metrics/conf/sds/files/metrics/cron"
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      source ~/.bash_profile
+      set -ex
+
+      chmod +x ~/metrics/conf/sds/files/metrics/cron/install_cmr_audit.sh
+      ~/metrics/conf/sds/files/metrics/cron/install_cmr_audit.sh --branch=${var.pcm_branch}
+
+      chmod +x ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh
+      mv ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh ~/.local/bin/cron/
+
+      crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
+    EOT
     ]
   }
 }
@@ -188,28 +258,21 @@ resource "aws_instance" "grq" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
-      "chmod 755 ~/download_artifact.sh",
-      "if [ \"${var.hysds_release}\" != \"develop\" ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz\"",
-      "  mkdir -p ~/conda",
-      "  tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda",
-      "  export PATH=$HOME/conda/bin:$PATH",
-      "  conda-unpack",
-      "  rm -rf hysds-conda_env-${var.hysds_release}.tar.gz",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" -k \"${var.artifactory_fn_api_key}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz\"",
-      "  tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz",
-      "  rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz",
-      "fi",
-      "if [ \"${var.use_artifactory}\" = true ]; then",
-      "  ~/download_artifact.sh -m \"${var.artifactory_mirror_url}\" -b \"${var.artifactory_base_url}\" \"${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz\"",
-      "  tar xfz ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz",
-      "  ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api-${var.bach_api_branch} /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-api",
-      "  rm -rf ${var.project}-sds-bach-api-${var.bach_api_branch}.tar.gz ",
-      "else",
-      "  git clone --quiet --single-branch -b ${var.bach_api_branch} https://${var.git_auth_key}@${var.bach_api_repo} bach-api",
-      "fi"
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      chmod 755 ~/download_artifact.sh
+      if [ "${var.hysds_release}" != "develop" ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        mkdir -p ~/conda
+        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        export PATH=$HOME/conda/bin:$PATH
+        conda-unpack
+        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz"
+        tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz
+      fi
+    EOT
     ]
   }
 

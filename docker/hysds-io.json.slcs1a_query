@@ -71,6 +71,14 @@
       "optional": true
     },
     {
+      "name": "max_revision",
+      "from": "submitter",
+      "placeholder": "e.g. --max-revision=<max_revision>",
+      "type": "text",
+      "default": "--max-revision=1000",
+      "optional": true
+    },
+    {
       "name": "temporal_start_datetime",
       "from": "submitter",
       "placeholder": "e.g. --temporal-start-date=1970-01-01T00:00:00Z",
@@ -80,6 +88,18 @@
       "name": "processing_mode",
       "from": "submitter",
       "placeholder": "e.g. --processing-mode",
+      "optional": true
+    },
+    {
+      "name": "include_regions",
+      "from": "submitter",
+      "placeholder": "e.g. --include_regions",
+      "optional": true
+    },
+    {
+      "name": "exclude_regions",
+      "from": "submitter",
+      "placeholder": "e.g. --exclude_regions",
       "optional": true
     },
     {

@@ -40,6 +40,10 @@
       "destination": "positional"
     },
     {
+      "name": "max_revision",
+      "destination": "positional"
+    },
+    {
       "name": "smoke_run",
       "destination": "positional"
     },

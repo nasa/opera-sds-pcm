@@ -11,6 +11,7 @@ from zipfile import ZipFile
 import boto3.s3.inject
 import boto3.resources.collection
 
+import tools.stage_ancillary_map
 import tools.stage_dem
 import tools.stage_worldcover
 
@@ -61,7 +62,7 @@ class MockGdal:
         return MockGdal.MockGdalDataset()
 
 
-def _check_aws_connection_patch(bucket_name):
+def _check_aws_connection_patch(bucket, key):
     """
     No-op patch function for use with testing precondition functions that attempt
     AWS access
@@ -232,80 +233,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertIn(oc_const.ORBIT_FILE_PATH, rc_params)
 
         # Make sure the path to the orbit file was assigned to the runconfig params as expected
-        expected_s3_path = "s3://opera-bucket/fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"
-        self.assertEqual(rc_params[oc_const.ORBIT_FILE_PATH], expected_s3_path)
-
-    def test_get_slc_static_layers_enabled(self):
-        """Unit tests for the get_slc_static_layers_enabled function"""
-        # Set up the arguments to OperaPreConditionFunctions
-        context = {
-            "product_metadata": {
-                "metadata": {
-                    "processing_mode": oc_const.PROCESSING_MODE_FORWARD
-                }
-            }
-        }
-
-        pge_config = {
-            'pge_name': oc_const.L2_RTC_S1
-        }
-
-        settings = {
-            'RTC_S1':  {
-                'ENABLE_STATIC_LAYERS': True
-            }
-        }
-
-        # These are not used by get_slc_s1_orbit_file
-        job_params = None
-
-        precondition_functions = OperaPreConditionFunctions(
-            context, pge_config, settings, job_params
-        )
-
-        # For standard case (forward processing) we should get the value assigned
-        # in settings.yaml
-        rc_params = precondition_functions.get_slc_static_layers_enabled()
-
-        self.assertIsNotNone(rc_params)
-        self.assertIsInstance(rc_params, dict)
-        self.assertIn('enable_static_layers', rc_params)
-        self.assertTrue(rc_params['enable_static_layers'])
-
-        # Make sure static layer generation is disabled when in "historical" mode
-        context = {
-            "product_metadata": {
-                "metadata": {
-                    "processing_mode": oc_const.PROCESSING_MODE_HISTORICAL
-                }
-            }
-        }
-
-        pge_config = {
-            'pge_name': oc_const.L2_CSLC_S1
-        }
-
-        settings = {
-            'CSLC_S1': {
-                'ENABLE_STATIC_LAYERS': True
-            }
-        }
-
-        precondition_functions = OperaPreConditionFunctions(
-            context, pge_config, settings, job_params
-        )
-
-        with self.assertLogs() as cm:
-            rc_params = precondition_functions.get_slc_static_layers_enabled()
-
-        self.assertIsNotNone(rc_params)
-        self.assertIsInstance(rc_params, dict)
-        self.assertIn('enable_static_layers', rc_params)
-        self.assertFalse(rc_params['enable_static_layers'])
-
-        # Check that we logged the flag being set to False
-        self.assertIn('INFO:opera_pcm:Processing mode for L2_CSLC_S1 is set to historical, '
-                      'static layer generation will be DISABLED.', cm.output)
+        expected_s3_paths = ["s3://opera-bucket/fake/key/to/S1A_OPER_AUX_RESORB_OPOD.EOF"]
+        self.assertListEqual(rc_params[oc_const.ORBIT_FILE_PATH], expected_s3_paths)
 
     @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
     @patch.object(tools.stage_dem, "gdal", MockGdal)
@@ -349,7 +278,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         pge_config = {
             'pge_name': 'L2_CSLC_S1',
             oc_const.GET_SLC_S1_DEM: {
-                oc_const.S3_BUCKET: 'opera-bucket'
+                oc_const.S3_BUCKET: 'opera-bucket',
+                oc_const.S3_KEY: 'key/to/dem/'
             }
         }
 
@@ -521,6 +451,238 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         # Make sure the metrics for the "download" were written to disk
         expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
         self.assertTrue(exists(expected_pge_metrics))
+
+    @patch.object(tools.stage_ancillary_map, "check_aws_connection", _check_aws_connection_patch)
+    @patch.object(tools.stage_ancillary_map, "gdal", MockGdal)
+    def test_get_dswx_s1_dynamic_ancillary_maps(self):
+        """Unit tests for get_dswx_s1_dynamic_ancillary_maps() precondition function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "bounding_box": [-119.156471, 33.681068, -116.0578, 35.760201]
+                }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS: {
+                "hand_file": {
+                    "s3_bucket": "opera-hand",
+                    "s3_key": "v1/2021/glo-30-hand-2021.vrt"
+                },
+                "worldcover_file": {
+                    "s3_bucket": "opera-world-cover",
+                    "s3_key": "v100/2020/ESA_WorldCover_10m_2020_v100_Map_AWS.vrt"
+                },
+                "reference_water_file": {
+                    "s3_bucket": "opera-reference-water",
+                    "s3_key": "2021/occurrence/occurrence_v1_4_2021.vrt"
+                }
+            }
+        }
+
+        settings = {"DSWX_S1": {"ANCILLARY_MARGIN": 50}}
+
+        # These are not used with get_worldcover()
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_dynamic_ancillary_maps()
+
+        expected_dynamic_ancillary_maps = ["hand_file", "worldcover_file", "reference_water_file"]
+
+        # Make sure we got paths back for each staged ancillary map
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+
+        for expected_dynamic_ancillary_map_name in expected_dynamic_ancillary_maps:
+            # Ensure the rc_params dictionary was populated correctly
+            self.assertIn(expected_dynamic_ancillary_map_name, rc_params)
+            self.assertIsInstance(rc_params[expected_dynamic_ancillary_map_name], str)
+
+            # Ensure the VRT file was created as expected
+            expected_vrt_file = join(self.working_dir.name, f'{expected_dynamic_ancillary_map_name}.vrt')
+
+            self.assertEqual(expected_vrt_file, rc_params[expected_dynamic_ancillary_map_name])
+            self.assertTrue(os.path.exists(expected_vrt_file))
+
+            # Ensure the tif file was created as expected
+            expected_tif_file = join(self.working_dir.name, f'{expected_dynamic_ancillary_map_name}_0.tif')
+
+            self.assertTrue(os.path.exists(expected_tif_file))
+
+        # Make sure the metrics for the "download" were written to disk
+        expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
+        self.assertTrue(exists(expected_pge_metrics))
+
+    def test_get_algorithm_parameters(self):
+        """Unit tests for get_algorithm_parameters() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        pge_config = {
+            oc_const.GET_ALGORITHM_PARAMETERS: {
+                oc_const.S3_BUCKET: "opera-ancillaries",
+                oc_const.S3_KEY: "algorithm_parameters/pge_name/pge_name_algorithm_parameters_beta_0.1.0.yaml"
+            }
+        }
+
+        # These are not used with get_algorithm_parameters()
+        context = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_algorithm_parameters()
+
+        # Ensure the S3 URI was formed as expected
+        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
+                         "s3://opera-ancillaries/algorithm_parameters/pge_name/pge_name_algorithm_parameters_beta_0.1.0.yaml")
+
+    @patch.object(tools.stage_dem, "check_aws_connection", _check_aws_connection_patch)
+    @patch.object(tools.stage_dem, "gdal", MockGdal)
+    def test_get_dswx_s1_dem(self):
+        """Unit tests for get_dswx_s1_dem() precondition function"""
+
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "bounding_box": [-119.156471, 33.681068, -116.0578, 35.760201]
+                }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_DSWX_S1_DEM: {
+                oc_const.S3_BUCKET: "opera-dem",
+                oc_const.S3_KEY: "v1.1"
+            }
+        }
+
+        settings = {"DSWX_S1": {"ANCILLARY_MARGIN": 50}}
+
+        # These are not used with get_dems()
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_dem()
+
+        # Make sure we got a path back for replacement within the PGE runconfig
+        self.assertIsNotNone(rc_params)
+        self.assertIsInstance(rc_params, dict)
+        self.assertIn(oc_const.DEM_FILE, rc_params)
+
+        # Make sure the vrt file was created
+        expected_dem_vrt = join(self.working_dir.name, 'dem.vrt')
+        self.assertEqual(rc_params[oc_const.DEM_FILE], expected_dem_vrt)
+        self.assertTrue(exists(expected_dem_vrt))
+
+        # Make sure the tif was created
+        expected_dem_tif = join(self.working_dir.name, 'dem_0.tif')
+        self.assertTrue(exists(expected_dem_tif))
+
+        # Make sure the metrics for the "download" were written to disk
+        expected_pge_metrics = join(self.working_dir.name, 'pge_metrics.json')
+        self.assertTrue(exists(expected_pge_metrics))
+
+    def test_get_dswx_s1_static_ancillary_files(self):
+        """Unit tests for get_dswx_s1_static_ancillary_files() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        pge_config = {
+            oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES: {
+                "mgrs_database_file": {
+                    oc_const.S3_BUCKET: "opera-ancillaries",
+                    oc_const.S3_KEY: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
+                },
+                "mgrs_collection_database_file": {
+                    oc_const.S3_BUCKET: "opera-ancillaries",
+                    oc_const.S3_KEY: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.2.1.sqlite"
+                }
+            }
+        }
+
+        # These are not used with get_dswx_s1_static_ancillary_files()
+        context = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_static_ancillary_files()
+
+        expected_static_ancillary_products = ["mgrs_database_file", "mgrs_collection_database_file"]
+
+        for expected_static_ancillary_product in expected_static_ancillary_products:
+            self.assertIn(expected_static_ancillary_product, rc_params)
+            self.assertIsInstance(rc_params[expected_static_ancillary_product], str)
+            self.assertEqual(
+                rc_params[expected_static_ancillary_product],
+                "s3://{}/{}".format(
+                    pge_config[oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES][expected_static_ancillary_product][oc_const.S3_BUCKET],
+                    pge_config[oc_const.GET_DSWX_S1_STATIC_ANCILLARY_FILES][expected_static_ancillary_product][oc_const.S3_KEY]
+                )
+            )
+
+    def test_get_dswx_s1_input_filepaths(self):
+        """Unit tests for get_dswx_s1_input_filepaths() precondition function"""
+        # Set up the arguments to OperaPreConditionFunctions
+        context = {
+            "dataset_type": "L2_RTC_S1",
+            "product_metadata": {
+                "metadata": {
+                    "product_paths": {
+                        "L2_RTC_S1": [
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                        ]
+                    }
+                }
+            }
+        }
+
+        # These are not used with get_dswx_s1_input_filepaths()
+        pge_config = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_input_filepaths()
+
+        # Ensure the list of input file paths was populated with only the set of
+        # unique S3 directories that make up the set of input RTC files
+        self.assertIn(oc_const.INPUT_FILE_PATHS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.INPUT_FILE_PATHS], list)
+        self.assertEqual(len(rc_params[oc_const.INPUT_FILE_PATHS]), 3)
+        self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146", rc_params[oc_const.INPUT_FILE_PATHS])
+        self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147", rc_params[oc_const.INPUT_FILE_PATHS])
+        self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148", rc_params[oc_const.INPUT_FILE_PATHS])
 
 
 if __name__ == "__main__":
