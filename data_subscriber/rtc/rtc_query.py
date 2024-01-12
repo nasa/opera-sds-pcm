@@ -46,10 +46,6 @@ class RtcCmrQuery(CmrQuery):
         granules = await async_query_cmr(args, token, cmr, settings, query_timerange, now)
         logger.info("CMR query FINISHED")
 
-        if args.smoke_run:
-            logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
-            granules = granules[:1]
-
         # If processing mode is historical, apply include/exclude-region filtering
         if args.proc_mode == "historical":
             logger.info(f"Processing mode is historical so applying include and exclude regions...")
@@ -148,9 +144,9 @@ class RtcCmrQuery(CmrQuery):
                         # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
                         if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
                             batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
-            if args.smoke_run:
-                logger.info(f"{args.smoke_run=}. Not processing more sets of burst_sets.")
-                break
+        if args.smoke_run:
+            logger.info(f"{args.smoke_run=}. Filtering to single batch")
+            batch_id_to_products_map = dict(sorted(batch_id_to_products_map.items())[:1])
 
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
