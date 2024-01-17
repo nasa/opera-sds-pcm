@@ -22,12 +22,9 @@ class CslcCmrQuery(CmrQuery):
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
 
     def extend_additional_records(self, granules):
-        """Extend the granules with potentially additional records if a burst belongs to two frames.
-        This only applies to forward  and re-processing modes.
-        Also adds frame_id, burst_id, and acquisition_cycle to metadata."""
-
-        if self.proc_mode not in ["forward", "reprocessing"]:
-            return
+        """Add frame_id, burst_id, and acquisition_cycle to all granules.
+        In forward  and re-processing modes, extend the granules with potentially additional records
+        if a burst belongs to two frames."""
 
         dataset_json = datasets_json_util.DatasetsJson()
         cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
@@ -51,6 +48,9 @@ class CslcCmrQuery(CmrQuery):
             granule["unique_id"] = granule["download_batch_id"] + "_" + granule["burst_id"]
 
             assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
+
+            if self.proc_mode not in ["forward", "reprocessing"]:
+                continue
 
             # If this burst belongs to two frames, make a deep copy of the granule and append to the list
             if len(frame_ids) == 2:

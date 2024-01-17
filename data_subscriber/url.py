@@ -14,7 +14,7 @@ def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
 
 def _to_orbit_number(dl_doc: dict[str, Any]):
-    url = _to_url(dl_doc)
+    url = _to_urls(dl_doc)
     return _slc_url_to_chunk_id(url, dl_doc['revision_id'])
 
 
@@ -30,22 +30,16 @@ def _rtc_url_to_chunk_id(url, revision_id):
 
 
 def _to_urls(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("s3_urls"):
+    if dl_dict.get("s3_url"):
+        return dl_dict["s3_url"]
+    elif dl_dict.get("s3_urls"):
         return dl_dict["s3_urls"]
+    elif dl_dict.get("https_url"):
+        return dl_dict["https_url"]
     elif dl_dict.get("https_urls"):
         return dl_dict["https_urls"]
     else:
         raise Exception(f"Couldn't find any URLs in {dl_dict=}")
-
-
-def _to_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("s3_url"):
-        return dl_dict["s3_url"]
-    elif dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")
-
 
 def _url_to_tile_id(url: str):
     tile_re = r"T\w{5}"
@@ -56,7 +50,7 @@ def _url_to_tile_id(url: str):
 
 
 def _to_tile_id(dl_doc: dict[str, Any]):
-    return _url_to_tile_id(_to_url(dl_doc))
+    return _url_to_tile_id(_to_urls(dl_doc))
 
 
 def _has_url(dl_dict: dict[str, Any]):
@@ -87,14 +81,9 @@ def _has_s3_url(dl_dict: dict[str, Any]):
 
 
 def _to_https_urls(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("https_urls"):
+    if dl_dict.get("https_url"):
+        return dl_dict["https_url"]
+    elif dl_dict.get("https_urls"):
         return dl_dict["https_urls"]
     else:
         raise Exception(f"Couldn't find any URLs in {dl_dict=}")
-
-
-def _to_https_url(dl_dict: dict[str, Any]) -> str:
-    if dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    else:
-        raise Exception(f"Couldn't find any URL in {dl_dict=}")

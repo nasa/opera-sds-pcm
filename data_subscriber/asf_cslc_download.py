@@ -9,7 +9,7 @@ from more_itertools import partition
 
 import extractor.extract
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
-from data_subscriber.url import _has_url, _to_url, _to_https_url, _rtc_url_to_chunk_id
+from data_subscriber.url import _has_url, _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
