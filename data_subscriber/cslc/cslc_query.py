@@ -3,7 +3,7 @@ import re
 import copy
 from data_subscriber.cmr import async_query_cmr
 from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, \
-    process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist
+    process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist, split_download_batch_id
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
 from util import datasets_json_util
@@ -77,7 +77,12 @@ class CslcCmrQuery(CmrQuery):
 
         # download_batch_id also needs to be added to the additional_fields so that it'll be written to ES
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
+        additional_fields["burst_id"] = granule["burst_id"]
+        additional_fields["frame_id"] = granule["frame_id"]
+        additional_fields["acquisition_cycle"] = granule["acquisition_cycle"]
+        additional_fields["unique_id"] = granule["unique_id"]
         additional_fields["download_batch_id"] = download_batch_id
+
         return additional_fields
 
     def determine_download_granules(self, granules):
@@ -111,7 +116,8 @@ class CslcCmrQuery(CmrQuery):
         download_granules = []
         for batch_id, download_batch in by_download_batch_id.items():
             logger.info(f"{batch_id=} {len(download_batch)=}")
-            max_bursts = len(self.disp_burst_map[int(batch_id.split("_")[0])].burst_ids)
+            frame_id, acquisition_cycle = split_download_batch_id(batch_id)
+            max_bursts = len(self.disp_burst_map[frame_id].burst_ids)
             if len(download_batch) == max_bursts:
                 logger.info(f"Download all granules for {batch_id}")
                 for download in download_batch.values():

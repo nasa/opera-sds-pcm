@@ -72,16 +72,17 @@ def download_batch_id_hist(args):
 def download_batch_id_forward_reproc(granule):
     """For forward and re-processing modes, download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
-    download_batch_id = str(granule["frame_id"]) + "_" + str(granule["acquisition_cycle"])
+    download_batch_id = "f"+str(granule["frame_id"]) + "_a" + str(granule["acquisition_cycle"])
     download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()
 
     return download_batch_id
 
 def split_download_batch_id(download_batch_id):
-    """Split the download_batch_id into frame_id and acquisition_cycle"""
+    """Split the download_batch_id into frame_id and acquisition_cycle
+    example: f7098_a145 -> 7098, 145"""
 
     frame_id, acquisition_cycle = download_batch_id.split("_")
-    return frame_id, acquisition_cycle
+    return int(frame_id[1:]), int(acquisition_cycle[1:]) # Remove the leading "f" and "a"
 
 def get_bounding_box_for_frame(frame):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax]"""
