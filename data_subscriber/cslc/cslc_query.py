@@ -1,10 +1,11 @@
 import logging
 import re
 import copy
+from datetime import datetime, timedelta
 from data_subscriber.cmr import async_query_cmr
 from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, \
     process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist, split_download_batch_id
-from data_subscriber.query import CmrQuery
+from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
 from util import datasets_json_util
 from collections import defaultdict
@@ -21,7 +22,7 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
 
-    def extend_additional_records(self, granules):
+    def extend_additional_records(self, granules, no_duplicate=False):
         """Add frame_id, burst_id, and acquisition_cycle to all granules.
         In forward  and re-processing modes, extend the granules with potentially additional records
         if a burst belongs to two frames."""
@@ -39,6 +40,7 @@ class CslcCmrQuery(CmrQuery):
             # Determine acquisition cycle
             instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
             acquisition_cycle, _ = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
+            granule["acquisition_ts"] = acquisition_dts
             granule["acquisition_cycle"] = acquisition_cycle
             granule["burst_id"] = burst_id
 
@@ -49,7 +51,7 @@ class CslcCmrQuery(CmrQuery):
 
             assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
-            if self.proc_mode not in ["forward", "reprocessing"]:
+            if self.proc_mode not in ["forward", "reprocessing"] or no_duplicate:
                 continue
 
             # If this burst belongs to two frames, make a deep copy of the granule and append to the list
@@ -79,13 +81,14 @@ class CslcCmrQuery(CmrQuery):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
         additional_fields["burst_id"] = granule["burst_id"]
         additional_fields["frame_id"] = granule["frame_id"]
+        additional_fields["acquisition_ts"] = granule["acquisition_ts"]
         additional_fields["acquisition_cycle"] = granule["acquisition_cycle"]
         additional_fields["unique_id"] = granule["unique_id"]
         additional_fields["download_batch_id"] = download_batch_id
 
         return additional_fields
 
-    def determine_download_granules(self, granules):
+    async def determine_download_granules(self, granules):
         """Combine these new granules with existing unsubmitted granules to determine which granules to download.
         This only applies to forward processing mode. Valid only in forward processing mode."""
 
@@ -123,20 +126,32 @@ class CslcCmrQuery(CmrQuery):
                 for download in download_batch.values():
                     download_granules.append(download)
 
-                    # TODO: Retrieve K- granules and M- compressed CSLCs for this batch
-                    # Go back K- 12-day windows and find the same frame
-                    '''for i in range(self.args.k):
-                        args = self.args
-                        # Move start and end date of args back by 12 days
-                        # TODO: Not sure if the following code works yet, need to test
-                        args.start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
-                            days=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                        args.end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
-                            days=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                        query_timerange: DateTimeRange = get_query_timerange(args, now)
-                        granules = await self.query_cmr(args, token, cmr, settings, query_timerange, now)
-                        self.extend_additional_records(granules)
-                        granules = self.eliminate_duplicate_granules(granules)'''
+                # Retrieve K- granules and M- compressed CSLCs for this batch
+                # Go back K- 12-day windows and find the same frame
+                logger.info(f"Retrieving K-1 granules")
+                for i in range(self.args.k - 1):
+                    args = self.args
+
+                    # Add native-id condition in args
+                    native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+                    args.native_id = native_id
+                    logger.info(f"{args.native_id=}")
+
+                    # Move start and end date of args back by 12 days, and then expand 10 days
+                    args.start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
+                        days=12 + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    args.end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
+                        days=12 - 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    logger.info(f"{args.start_date=} {args.end_date=}")
+
+                    query_timerange = DateTimeRange(args.start_date, args.end_date)
+                    granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow())
+                    self.extend_additional_records(granules, no_duplicate=True) # We only want the exact 27 granules
+                    granules = self.eliminate_duplicate_granules(granules)
+                    self.catalog_granules(granules, datetime.now())
+                    print(f"{len(granules)=}")
+                    print(f"{granules=}") #TODO: Comment this out
+                    download_granules.extend(granules)
 
             if (len(download_batch) > max_bursts):
                 raise AssertionError("Something seriously went wrong matching up CSLC input granules!")

@@ -80,7 +80,7 @@ class CmrQuery:
 
         # TODO: This function only applies to CSLC, merge w RTC at some point
         # Given the new granules coming in and existing unsubmitted granules, determine which granules to download
-        download_granules = self.determine_download_granules(granules)
+        download_granules = await self.determine_download_granules(granules)
 
         logger.info("catalogue-ing STARTED")
         self.catalog_granules(granules, query_dt)
@@ -153,7 +153,7 @@ class CmrQuery:
     def extend_additional_records(self, granules):
         pass
 
-    def determine_download_granules(self, granules):
+    async def determine_download_granules(self, granules):
         return granules
 
     def catalog_granules(self, granules, query_dt):
@@ -196,8 +196,9 @@ class CmrQuery:
                 elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "RTC":
                     pass
                 elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "CSLC":
-                    # CSLC will use the download_batch_id directly
-                    pass
+                    # For CSLC force chunk_size to be the same as k in args
+                    if self.args.k:
+                        self.args.chunk_size = self.args.k
                 else:
                     raise AssertionError(f"Can't use {self.args.collection=} to select grouping function.")
 
@@ -250,7 +251,7 @@ class CmrQuery:
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         args = self.args
-        return [
+        download_job_params = [
             {
                 "name": "batch_ids",
                 "value": "--batch-ids " + " ".join(chunk_batch_ids) if chunk_batch_ids else "",
@@ -287,6 +288,11 @@ class CmrQuery:
                 "from": "value"
             },
             {
+                "name": "chunk_size",
+                "value": f"--chunk-size={args.chunk_size}" if args.chunk_size else "",
+                "from": "value"
+            },
+            {
                 "name": "transfer_protocol",
                 "value": f"--transfer-protocol={args.transfer_protocol}",
                 "from": "value"
@@ -297,6 +303,8 @@ class CmrQuery:
                 "from": "value"
             }
         ]
+        logger.info(f"{download_job_params=}")
+        return download_job_params
 
 
 def submit_download_job(*, release_version=None, product_type: Literal["HLS", "SLC", "RTC", "CSLC"], params: list[dict[str, str]], job_queue: str) -> str:

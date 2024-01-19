@@ -339,6 +339,16 @@ def create_parser():
                             "help": "The native ID of a single product granule to be queried, overriding other query arguments if present. "
                                     "The native ID value supports the '*' and '?' wildcards."}}
 
+    k = {"positionals": ["--k"],
+                  "kwargs": {"dest": "k",
+                             "type": int,
+                             "help": "k is used only in DISP-S1 processing."}}
+
+    m = {"positionals": ["--m"],
+         "kwargs": {"dest": "m",
+                    "type": int,
+                    "help": "m is used only in DISP-S1 processing."}}
+
     proc_mode = {"positionals": ["--processing-mode"],
                "kwargs": {"dest": "proc_mode",
                           "default": "forward",
@@ -390,7 +400,7 @@ def create_parser():
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
-    query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
+    query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes, k, m,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol,
                              frame_range, include_regions, exclude_regions, proc_mode]
