@@ -75,6 +75,7 @@ def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map:
             for mgrs_set_id, product_sets in mgrs_set_id_to_product_sets_map.items():
                 s = product_sets
                 r = {a for a in s if not any(a < b for b in s)}  # remove redundant subsets
+                r = {max(r, key=len)}  # reduce_to_largest_set
                 coverage_result_set_id_to_product_sets_map[coverage_group][mgrs_set_id] = r
 
     return dict(coverage_result_set_id_to_product_sets_map)
