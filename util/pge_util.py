@@ -519,19 +519,33 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     output_filenames = []
 
     base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
 
     creation_time = get_time_for_filename()
 
-    base_name = base_name_template.format(
-        frame_id="F01234",
-        pol="VV",
-        ref_datetime="20190101T232711",
-        sec_datetime="20190906T232711",
-        product_version=dataset_match.groupdict()['product_version'],
-        creation_ts=creation_time
-    )
+    if extension.endswith('nc') or extension.endswith('png') or extension.endswith('iso.xml'):
+        base_name = base_name_template.format(
+            frame_id="F01234",
+            pol="VV",
+            ref_datetime="20190101T232711",
+            sec_datetime="20190906T232711",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
 
-    output_filenames.append(f'{base_name}.{extension}')
+        output_filenames.append(f'{base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            frame_id="F01234",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        ancillary_file_name = f'{base_name}.{extension}'
+
+        # Should only be one of these files per simulated run
+        if ancillary_file_name not in output_filenames:
+            output_filenames.append(ancillary_file_name)
 
     # TODO: support compressed CSLC files once file name convention is established
 
