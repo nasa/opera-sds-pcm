@@ -137,7 +137,7 @@ class CslcCmrQuery(CmrQuery):
                     args.native_id = native_id
                     logger.info(f"{args.native_id=}")
 
-                    # Move start and end date of args back by 12 * (i + 1) days, and then expand 10 days
+                    # Move start and end date of args back by 12 * (i + 1) days, and then expand 10 days to cast a wide net
                     start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
                         days=12 * (i + 1) + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
                     end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
@@ -160,12 +160,6 @@ class CslcCmrQuery(CmrQuery):
 
             if (len(download_batch) > max_bursts):
                 raise AssertionError("Something seriously went wrong matching up CSLC input granules!")
-                #if (batch_id == '32504_148'):
-                '''l = [(g["granule_id"], g["revision_id"]) for g in download_batch.values()]
-                l = sorted(l)
-                print(l)
-                for ll in l:
-                    print(ll)'''
 
         logger.info(f"{len(download_granules)=}")
 

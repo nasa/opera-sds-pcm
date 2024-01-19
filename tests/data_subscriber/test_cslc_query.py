@@ -49,9 +49,9 @@ def test_download_batch_id():
 
     # Test forward mode
     granule = {'granule_id': 'OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0',  'acquisition_cycle': 145, 'burst_id': 'T027-056778-IW1', 'frame_id': 7098}
-    download_batch_id = cslc_utils.download_batch_id_forward(granule)
-    assert download_batch_id == "7098_145"
+    download_batch_id = cslc_utils.download_batch_id_forward_reproc(granule)
+    assert download_batch_id == "f7098_a145"
 
     # Test historical mode, forward works the same way
-    download_batch_id = cslc_utils.download_batch_id_reproc_hist(hist_args)
+    download_batch_id = cslc_utils.download_batch_id_hist(hist_args)
     assert download_batch_id == "2021_01_24t23_00_00z_2021_01_24t23_00_00z_100"
