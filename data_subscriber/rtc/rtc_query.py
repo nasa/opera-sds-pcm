@@ -13,7 +13,6 @@ from more_itertools import first, last
 
 from data_subscriber.cmr import async_query_cmr, CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
-from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
@@ -31,12 +30,13 @@ MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 
 MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
 ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
+
 class RtcCmrQuery(CmrQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
-    async def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+    async def run_query(self, args, token, es_conn: RTCProductCatalog, cmr, job_id, settings):
 
         query_dt = datetime.now()
         now = datetime.utcnow()
@@ -58,6 +58,7 @@ class RtcCmrQuery(CmrQuery):
 
         affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
         granules[:] = filter_granules_rtc(granules, args)
+        logger.info(f"Filtered to {len(granules)} granules")
 
         mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
         if args.native_id:
@@ -66,7 +67,10 @@ class RtcCmrQuery(CmrQuery):
 
             native_id_mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
 
-        for granule in granules:
+        num_granules = len(granules)
+        for i, granule in enumerate(granules):
+            logger.debug(f"Processing granule {i+1} of {num_granules}")
+
             granule_id = granule.get("granule_id")
             revision_id = granule.get("revision_id")
 
@@ -95,7 +99,6 @@ class RtcCmrQuery(CmrQuery):
             else:
                 update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids)
 
-            es_conn: RTCProductCatalog
             es_conn.update_granule_index(
                 granule=granule,
                 job_id=job_id,
@@ -147,6 +150,7 @@ class RtcCmrQuery(CmrQuery):
         if args.smoke_run:
             logger.info(f"{args.smoke_run=}. Filtering to single batch")
             batch_id_to_products_map = dict(sorted(batch_id_to_products_map.items())[:1])
+        logger.info(f"num_batches={len(batch_id_to_products_map)}")
 
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
@@ -178,7 +182,6 @@ class RtcCmrQuery(CmrQuery):
                     logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
                     pass
                 else:
-                    es_conn: RTCProductCatalog
                     es_conn.mark_products_as_download_job_submitted({batch_id: batch_id_to_products_map[batch_id]})
 
             succeeded.extend(suceeded_batch)
@@ -187,7 +190,9 @@ class RtcCmrQuery(CmrQuery):
         logger.info(f"{len(results)=}")
         logger.info(f"{results=}")
 
+        logger.info(f"{len(succeeded)=}")
         logger.info(f"{succeeded=}")
+        logger.info(f"{len(failed)=}")
         logger.info(f"{failed=}")
 
         return {
@@ -296,6 +301,8 @@ def does_granule_intersect_regions(granule, intersect_regions):
 
 
 def filter_granules_rtc(granules, args):
+    logger.info("Applying land/water filter on CMR granules")
+
     filtered_granules = []
     for granule in granules:
         granule_id = granule.get("granule_id")
