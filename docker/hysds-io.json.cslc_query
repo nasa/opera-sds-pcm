@@ -53,6 +53,22 @@
       "optional": true
     },
     {
+      "name": "k",
+      "from": "submitter",
+      "placeholder": "e.g. --k=<k>",
+      "type": "text",
+      "default": "--k=2",
+      "optional": true
+    },
+    {
+      "name": "m",
+      "from": "submitter",
+      "placeholder": "e.g. --m=<m>",
+      "type": "text",
+      "default": "--m=2",
+      "optional": true
+    },
+    {
       "name": "smoke_run",
       "from": "submitter",
       "placeholder": "e.g. --smoke-run",
