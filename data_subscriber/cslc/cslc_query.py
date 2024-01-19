@@ -22,7 +22,7 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
 
-    def extend_additional_records(self, granules, no_duplicate=False):
+    def extend_additional_records(self, granules, no_duplicate=False, force_frame_id = None):
         """Add frame_id, burst_id, and acquisition_cycle to all granules.
         In forward  and re-processing modes, extend the granules with potentially additional records
         if a burst belongs to two frames."""
@@ -45,7 +45,7 @@ class CslcCmrQuery(CmrQuery):
             granule["burst_id"] = burst_id
 
             frame_ids = self.burst_to_frame[burst_id]
-            granule["frame_id"] = self.burst_to_frame[burst_id][0]
+            granule["frame_id"] = self.burst_to_frame[burst_id][0] if force_frame_id is None else force_frame_id
             granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
             granule["unique_id"] = granule["download_batch_id"] + "_" + granule["burst_id"]
 
@@ -137,16 +137,21 @@ class CslcCmrQuery(CmrQuery):
                     args.native_id = native_id
                     logger.info(f"{args.native_id=}")
 
-                    # Move start and end date of args back by 12 days, and then expand 10 days
-                    args.start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
-                        days=12 + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                    args.end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
-                        days=12 - 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                    logger.info(f"{args.start_date=} {args.end_date=}")
-
-                    query_timerange = DateTimeRange(args.start_date, args.end_date)
+                    # Move start and end date of args back by 12 * (i + 1) days, and then expand 10 days
+                    start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
+                        days=12 * (i + 1) + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
+                        days=12 * (i + 1) - 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    query_timerange = DateTimeRange(start_date, end_date)
+                    logger.info(f"{query_timerange=}")
                     granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow())
-                    self.extend_additional_records(granules, no_duplicate=True) # We only want the exact 27 granules
+
+                    # This step is a bit tricky.
+                    # 1) We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames
+                    # 2) We already know what frame these new granules belong to because that's what we queried for. We need to
+                    #    force using that because 1/9 times one burst will belong to two frames
+                    self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
+
                     granules = self.eliminate_duplicate_granules(granules)
                     self.catalog_granules(granules, datetime.now())
                     print(f"{len(granules)=}")
