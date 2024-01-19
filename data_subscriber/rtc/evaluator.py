@@ -3,7 +3,9 @@ import logging
 import re
 import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
 from functools import partial
+from itertools import chain
 from typing import Optional
 
 import dateutil.parser
@@ -12,13 +14,20 @@ import pandas as pd
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
+from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id
 from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
 
 logger = logging.getLogger(__name__)
 
 
-def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, coverage_target: int = 100):
+def main(
+        coverage_target: int = 100,
+        required_min_age_minutes_for_partial_burstsets: int = 0,
+        mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None,
+        *args,
+        **kwargs
+):
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
 
@@ -62,6 +71,62 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
         product_id_to_product_files_map[doc["_source"]["granule_id"]].append(doc["_source"])
     rtc_product_ids = product_id_to_product_files_map.keys()
 
+    coverage_result_set_id_to_product_sets_map = evaluate_rtc_products(rtc_product_ids, coverage_target)
+
+    mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+    for coverage_group, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
+        if coverage_group == -1:
+            logger.info("Skipping results that don't meet the target coverage")
+            continue
+        mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
+        for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
+            for product_set_docs in product_sets_docs:
+                number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
+                number_of_bursts_actual = len(product_set_docs)
+                coverage_actual = int(number_of_bursts_actual / number_of_bursts_expected * 100)
+                evaluator_results["mgrs_sets"][mgrs_set_id].append({
+                        "coverage_actual": coverage_actual,
+                        "coverage_group": coverage_group,
+                        "product_set": product_set_docs
+                    })
+
+    if not mgrs_set_id_acquisition_ts_cycle_indexes:  # not native-id flow
+        # skip recent target covered sets to wait for more data
+        #  until H hours have passed since most recent retrieval
+        for mgrs_set_id in list(evaluator_results["mgrs_sets"]):
+            product_set_and_coverage_dicts = evaluator_results["mgrs_sets"][mgrs_set_id]
+            product_burstset_index_to_skip_processing = set()
+            for i, product_set_and_coverage_dict in enumerate(product_set_and_coverage_dicts):
+                coverage_group = product_set_and_coverage_dict["coverage_group"]
+                if coverage_group != coverage_target:
+                    continue
+                product_burstset = product_set_and_coverage_dict["product_set"]
+                retrieval_dts = {
+                    dateutil.parser.parse(product_doc["creation_timestamp"])
+                    for rtc_granule_id_to_product_docs_map in product_burstset
+                    for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
+                }
+                max_retrieval_dt = max(*retrieval_dts)
+                if datetime.now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
+                    # burst set meets target, but not old enough. continue to ignore
+                    logger.info(f"Target covered burst still within grace period. Will not process at this time. {mgrs_set_id=}, {i=}")
+                    product_burstset_index_to_skip_processing.add(i)
+                else:
+                    # burst set meets target, and old enough. process
+                    logger.info(f"Target covered burst set aged out of grace period. Will process at this time. {mgrs_set_id=}, {i=}")
+                    pass
+            for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
+                logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
+                del evaluator_results["mgrs_sets"][mgrs_set_id][i]
+                if not evaluator_results["mgrs_sets"][mgrs_set_id]:
+                    del evaluator_results["mgrs_sets"][mgrs_set_id]
+
+    evaluator_results["mgrs_sets"] = dict(evaluator_results["mgrs_sets"])
+
+    return evaluator_results
+
+
+def evaluate_rtc_products(rtc_product_ids, coverage_target):
     # load MGRS tile collection DB
     mgrs_burst_collections_gdf = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
 
@@ -76,9 +141,11 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
     logger.info(f"{len(mbc_filtered_gdf)=}")
 
     # group by orbit and acquisition time (and burst ID)
-    orbit_to_products_map = defaultdict(partial(defaultdict, partial(defaultdict, list)))  # optimized data structure to avoid dataframe queries
+    orbit_to_products_map = defaultdict(
+        partial(defaultdict, partial(defaultdict, list)))  # optimized data structure to avoid dataframe queries
     for record in cmr_df.to_dict('records'):
-        orbit_to_products_map[record["relative_orbit_number"]][record["acquisition_dt"]][record["burst_id_normalized"]].append(record)
+        orbit_to_products_map[record["relative_orbit_number"]][record["acquisition_dt"]][
+            record["burst_id_normalized"]].append(record)
     # TODO chrisjrd: group by time window to eliminate downstream for-loop
 
     # split into orbits frames
@@ -89,35 +156,8 @@ def main(mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None, co
 
     logger.info("grouping by sliding time windows")
     orbit_to_interval_to_products_map = evaluator_core.create_orbit_to_interval_to_products_map(orbit_to_products_map, cmr_orbits)
-
     coverage_result_set_id_to_product_sets_map = evaluator_core.process(orbit_to_interval_to_products_map, orbit_to_mbc_orbit_dfs_map, coverage_target)
-
-    mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
-    for coverage, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
-        mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
-        for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
-            for product_set_docs in product_sets_docs:
-                number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
-                number_of_bursts_actual = len(product_set_docs)
-                coverage_actual = int(number_of_bursts_actual / number_of_bursts_expected * 100)
-                evaluator_results["mgrs_sets"][mgrs_set_id].append({
-                        "coverage_actual": coverage_actual,
-                        "coverage_group": coverage,
-                        "product_set": product_set_docs
-                    })
-
-    return evaluator_results
-
-
-def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_product_files_map):
-    set_to_product_file_docs_map = defaultdict(list)
-    for mgrs_set_id, sets in result_set_id_to_product_sets_map.items():
-        for set_ in sets:
-            product_details = list()
-            for product_id in set_:
-                product_details.append({product_id: product_id_to_product_files_map[product_id]})
-            set_to_product_file_docs_map[mgrs_set_id].append(product_details)
-    return set_to_product_file_docs_map
+    return coverage_result_set_id_to_product_sets_map
 
 
 def load_cmr_df(rtc_product_ids):
@@ -145,13 +185,20 @@ def load_cmr_df(rtc_product_ids):
     return cmr_df
 
 
-def product_burst_id_to_mapping_burst_id(product_burst_id):
-    return product_burst_id.lower().replace("-", "_")
+def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_product_files_map):
+    set_to_product_file_docs_map = defaultdict(list)
+    for mgrs_set_id, sets in result_set_id_to_product_sets_map.items():
+        for set_ in sets:
+            product_details = list()
+            for product_id in set_:
+                product_details.append({product_id: product_id_to_product_files_map[product_id]})
+            set_to_product_file_docs_map[mgrs_set_id].append(product_details)
+    return set_to_product_file_docs_map
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mgrs-set-ids", nargs="*")
-    parser.add_argument("--mgrs-set_id-acquisition-ts-cycle-indexes", nargs="*")
+    parser.add_argument("--coverage-target", type=int, default=100)
+    parser.add_argument("--rtc-product-ids", nargs="*")
     args = parser.parse_args(sys.argv[1:])
-    main(**vars(args))
+    evaluate_rtc_products(**vars(args))

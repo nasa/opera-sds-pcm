@@ -117,3 +117,7 @@ output "slcs1a_query_timer" {
 output "slc_ionosphere_download_timer" {
   value = aws_lambda_function.slc_ionosphere_download_timer
 }
+
+output "rtc_query_timer" {
+  value = aws_lambda_function.rtc_query_timer
+}

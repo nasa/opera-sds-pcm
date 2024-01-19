@@ -40,9 +40,6 @@ class AsfDaacRtcDownload(DaacDownload):
             downloads = []
 
         product_to_product_filepaths_map = defaultdict(set)
-        if args.smoke_run:
-            logger.info(f"{args.smoke_run=}. Capping downloads.")
-            downloads = downloads[:1]
         num_downloads = len(downloads)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
             futures = [
