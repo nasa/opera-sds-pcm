@@ -98,7 +98,7 @@ class CmrQuery:
             return
         if args.no_schedule_download:
             logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
-            return
+            return download_granules
         if not args.chunk_size:
             logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
             return

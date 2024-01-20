@@ -121,6 +121,8 @@ class CslcCmrQuery(CmrQuery):
             logger.info(f"{batch_id=} {len(download_batch)=}")
             frame_id, acquisition_cycle = split_download_batch_id(batch_id)
             max_bursts = len(self.disp_burst_map[frame_id].burst_ids)
+
+            # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
             if len(download_batch) == max_bursts:
                 logger.info(f"Download all granules for {batch_id}")
                 for download in download_batch.values():
@@ -136,6 +138,9 @@ class CslcCmrQuery(CmrQuery):
                     native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
                     args.native_id = native_id
                     logger.info(f"{args.native_id=}")
+
+                    #TODO: We can only use past frames which contain the exact same bursts as the current frame
+                    # If not, we will need to go back another cycle until, as long as we have to, we find one that does
 
                     # Move start and end date of args back by 12 * (i + 1) days, and then expand 10 days to cast a wide net
                     start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
@@ -155,7 +160,7 @@ class CslcCmrQuery(CmrQuery):
                     granules = self.eliminate_duplicate_granules(granules)
                     self.catalog_granules(granules, datetime.now())
                     print(f"{len(granules)=}")
-                    print(f"{granules=}") #TODO: Comment this out
+                    #print(f"{granules=}")
                     download_granules.extend(granules)
 
             if (len(download_batch) > max_bursts):
@@ -171,7 +176,7 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode == "historical":
 
             if args.frame_range is None:
-                raise AssertionError("Historical and reprocessing modes require frame range to be specified.")
+                raise AssertionError("Historical mode requires frame range to be specified.")
 
             granules = []
 
