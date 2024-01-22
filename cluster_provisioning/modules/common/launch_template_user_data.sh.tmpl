@@ -65,6 +65,18 @@ echo '{
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
           },
           {
+            "file_path": "/data/work/jobs/**/run_rtc_query.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_rtc_query.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/data/work/jobs/**/run_rtc_download.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_rtc_download.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
             "file_path": "/data/work/jobs/**/run_pcm_int.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_pcm_int.log",
             "timezone": "Local",
@@ -180,6 +192,12 @@ echo '{
           {
             "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l2_rtc_s1.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/opera-job_worker-sciflo-l2_rtc_s1.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/home/ops/verdi/log/opera-job_worker-sciflo-l2_rtc_s1_static.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/opera-job_worker-sciflo-l2_rtc_s1_static.log",
             "timezone": "Local",
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
           },

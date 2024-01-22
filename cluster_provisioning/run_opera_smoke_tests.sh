@@ -34,6 +34,7 @@ Options:
       --SLC-data-subscriber-query-lambda               The name of the AWS Lambda function that submits SLC query jobs.
       --SLC-data-subscriber-ionosphere-download-lambda The name of the AWS Lambda function that submits SLC ionosphere
                                                        download jobs.
+      --RTC-data-subscriber-query-lambda               The name of the AWS Lambda function that submits SLC query jobs.
       --artifactory-fn-api-key                         The Artifactory FN API Key. Used to download the sample data.
       --sample-data-artifactory-dir                    The repository path to the "hls_l2.tar.gz" sample data's parent
                                                        directory.
@@ -99,6 +100,10 @@ for i in "$@"; do
       SLC_data_subscriber_ionosphere_download_lambda="${i#*=}"
       shift
       ;;
+    --RTC-data-subscriber-query-lambda=*)
+      RTC_data_subscriber_query_lambda="${i#*=}"
+      shift
+      ;;
     --artifactory-fn-api-key=*)
       artifactory_fn_api_key="${i#*=}"
       shift
@@ -133,6 +138,7 @@ export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}
 export SLC_DATA_SUBSCRIBER_QUERY_LAMBDA=${SLC_data_subscriber_query_lambda}
 export SLC_DATA_SUBSCRIBER_IONOSPHERE_DOWNLOAD_LAMBDA=${SLC_data_subscriber_ionosphere_download_lambda}
+export RTC_DATA_SUBSCRIBER_QUERY_LAMBDA=${RTC_data_subscriber_query_lambda}
 
 set -e
 echo Executing integration tests. This can take at least 20 or 40 minutes...

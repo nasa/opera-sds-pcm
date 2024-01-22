@@ -1,5 +1,5 @@
 {
-  "label": "Query RTC data with datetime range",
+  "label": "Query CSLC data with datetime and frame ranges",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
@@ -18,7 +18,7 @@
     {
       "name": "end_datetime",
       "from": "submitter",
-      "placeholder": "e.g. --end-date=9999-12-31T23:59:59Z"
+      "placeholder": "e.g. --end-date=2022-12-31T23:59:59Z"
     },
     {
       "name": "bounding_box",
@@ -42,7 +42,7 @@
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
       "type": "text",
-      "default": "--job-queue=opera-job_worker-rtc_data_download"
+      "default": "--job-queue=opera-job_worker-slc_data_download"
     },
     {
       "name": "chunk_size",
@@ -88,6 +88,24 @@
       "name": "processing_mode",
       "from": "submitter",
       "placeholder": "e.g. --processing-mode",
+      "optional": true
+    },
+    {
+      "name": "include_regions",
+      "from": "submitter",
+      "placeholder": "e.g. --include_regions",
+      "optional": true
+    },
+    {
+      "name": "exclude_regions",
+      "from": "submitter",
+      "placeholder": "e.g. --exclude_regions",
+      "optional": true
+    },
+    {
+      "name": "frame_range",
+      "from": "submitter",
+      "placeholder": "e.g. --frame_range",
       "optional": true
     },
     {

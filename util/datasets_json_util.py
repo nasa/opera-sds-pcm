@@ -1,5 +1,34 @@
 from pathlib import PurePath
+from typing import Optional
+from util.os_util import norm_path
+import os
+import json
 
+
+class DatasetsJson:
+    """Parses conf/sds/files/datasets.json and makes access easier"""
+
+    def __init__(self, file: Optional[str] = None):
+        """Constructor. Parses datasets.json
+
+        :param file: filepath to datasets.json. Defaults to "../conf/sds/files/datasets.json", relative to this module.
+        """
+
+        if file is None:
+            file = norm_path(
+                os.path.join(os.path.dirname(__file__), "..", "conf", "sds", "files", "datasets.json")
+            )
+
+        # Open up the datasets.json file and create a dictionary of datasets keyed by dataset type
+        with open(file) as f:
+            datasets = json.load(f)["datasets"]
+            self._datasets_json = {dataset["type"]: dataset for dataset in datasets}
+
+    def get(self, key):
+        '''Returns the dataset with the given key. Key is the dataset type.'''
+        return self._datasets_json[key]
+
+# TODO: Refactor so that all the functions below are methods of DatasetsJson
 
 def find_publish_location_s3(datasets_json, dataset_type):
     """Example location: "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"

@@ -61,18 +61,19 @@ class DaacDownload:
 
     @staticmethod
     def get_download_object(args):
-        provider = COLLECTION_TO_PROVIDER_MAP[args.collection] if hasattr(args, "collection") else args.provider
+        provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection] if hasattr(args, "collection") else args.provider
         if provider == "LPCLOUD":
             from data_subscriber.lpdaac_download import DaacDownloadLpdaac
             return DaacDownloadLpdaac(provider)
         elif provider in ("ASF", "ASF-SLC"):
-            from data_subscriber.asf_download import DaacDownloadAsf
-            return DaacDownloadAsf(provider)
+            from data_subscriber.asf_slc_download import AsfDaacSlcDownload
+            return AsfDaacSlcDownload(provider)
         elif provider == "ASF-RTC":
             from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
             return AsfDaacRtcDownload(provider)
         elif provider == "ASF-CSLC":
-            raise NotImplementedError()
+            from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
+            return AsfDaacCslcDownload(provider)
 
         raise Exception("Unknown product provider: " + provider)
 
@@ -105,10 +106,6 @@ class DaacDownload:
         if not downloads:
             logger.info(f"No undownloaded files found in index.")
             return
-
-        if args.smoke_run:
-            logger.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
-            args.batch_ids = args.batch_ids[:1]
 
         session = SessionWithHeaderRedirection(username, password, netloc)
 
