@@ -6,7 +6,8 @@ from data_subscriber.cmr import async_query_cmr
 from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, \
     process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist, split_download_batch_id
 from data_subscriber.query import CmrQuery, DateTimeRange
-from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B, determine_acquisition_cycle
+from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B
+from data_subscriber.url import determine_acquisition_cycle
 from util import datasets_json_util
 from collections import defaultdict
 
@@ -38,8 +39,7 @@ class CslcCmrQuery(CmrQuery):
             acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
 
             # Determine acquisition cycle
-            instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
-            acquisition_cycle, _ = determine_acquisition_cycle(burst_id, acquisition_dts, instrument_epoch)
+            acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, granule_id)
             granule["acquisition_ts"] = acquisition_dts
             granule["acquisition_cycle"] = acquisition_cycle
             granule["burst_id"] = burst_id

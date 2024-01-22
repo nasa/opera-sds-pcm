@@ -2,6 +2,8 @@ import logging
 import re
 from pathlib import Path
 from typing import Any
+import dateutil
+from datetime import datetime, timedelta
 
 
 def form_batch_id(granule_id, revision_id):
@@ -87,3 +89,27 @@ def _to_https_urls(dl_dict: dict[str, Any]) -> str:
         return dl_dict["https_urls"]
     else:
         raise Exception(f"Couldn't find any URLs in {dl_dict=}")
+
+def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id):
+    """RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
+    The cycle restarts periodically with some miniscule drift over time and the life of the mission."""
+    # RTC: Calculating the Collection Cycle Index (Part 1):
+    #  required constants
+    MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
+    MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
+    MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
+    ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
+
+    # RTC: Calculating the Collection Cycle Index (Part 2):
+    #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
+    #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
+    burst_identification_number = int(burst_id.split(sep="-")[1])
+    instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
+    seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
+    acquisition_index = (
+                                seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
+                                    burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
+                        ) / ACQUISITION_CYCLE_DURATION_SECS
+
+    acquisition_cycle = round(acquisition_index)
+    return acquisition_cycle
