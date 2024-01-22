@@ -77,6 +77,7 @@ def clear_pcm_test_state():
     es_index_delete_by_prefix("hls_spatial_catalog")
     es_index_delete_by_prefix("slc_catalog")
     es_index_delete_by_prefix("slc_spatial_catalog")
+    es_index_delete_by_prefix("rtc_catalog")
 
     # clear ingest data indexes
     es_index_delete_by_prefix("grq_1_l1_s1_slc")
@@ -90,6 +91,7 @@ def clear_pcm_test_state():
     es_index_delete_by_prefix("grq_v0.1_l2_cslc_s1")
     es_index_delete_by_prefix("grq_v0.1_l2_cslc_s1_static")
     es_index_delete_by_prefix("grq_v2.0_l3_dswx_hls")
+    es_index_delete_by_prefix("grq_v0.1_l3_dswx_s1")
 
     es_index_delete_by_prefix("jobs_accountability_catalog")
 

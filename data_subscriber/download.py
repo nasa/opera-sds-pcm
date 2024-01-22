@@ -85,10 +85,6 @@ class DaacDownload:
             logger.info(f"No undownloaded files found in index.")
             return
 
-        if args.smoke_run:
-            logger.info(f"{args.smoke_run=}. Restricting to 1 tile(s).")
-            args.batch_ids = args.batch_ids[:1]
-
         session = SessionWithHeaderRedirection(username, password, netloc)
 
         logger.info("Creating directories to process products")
