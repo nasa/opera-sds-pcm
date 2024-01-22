@@ -96,6 +96,7 @@ class CslcCmrQuery(CmrQuery):
             return granules
 
         # Get unsubmitted granules, which are ES records without download_job_id fields
+        await self.refresh_index()
         unsubmitted = self.es_conn.get_unsubmitted_granules()
 
         logger.info(f"{len(granules)=}")

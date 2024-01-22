@@ -120,7 +120,8 @@ class CmrQuery:
 
         return {
             "success": succeeded,
-            "fail": failed
+            "fail": failed,
+            "download_granules": download_granules
         }
 
     async def query_cmr(self, args, token, cmr, settings, timerange, now: datetime):
@@ -242,7 +243,8 @@ class CmrQuery:
                 )
 
             # Record download job id in ES
-            self.es_conn.mark_download_job_id(batch_id, download_job_id)
+            for batch_id, urls in batch_chunk:
+                self.es_conn.mark_download_job_id(batch_id, download_job_id)
 
             job_submission_tasks.append(download_job_id)
 
