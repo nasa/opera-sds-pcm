@@ -1,4 +1,6 @@
 import boto3
+
+from geo.geo_util import does_bbox_intersect_region
 from util.conf_util import SettingsConf
 
 def localize_include_exclude(args):
