@@ -151,11 +151,11 @@ L3_DISP_S1:
         verify: true
         hash: md5
       # Pattern for parsing compressed SLC output filenames, such as:
-      # * "compressed_slc_t087_185683_iw2_20180222_20180330.h5"
-      # TODO: implement once file name conventions are implemented for compressed CSLC
-      #- regex: !!python/regexp '(?P<id>(compressed_slc_(?P<burst_id>\w{4}_\w{6}_\w{3})_(?P<time_series_start_ts>\d{8})_(?P<time_series_stop_ts>\d{8})))[.](?P<ext>h5)$'
-      #  verify: true
-      #  hash: md5
+      # * "compressed_t087_185683_iw2_20180222_20180330.h5"
+      # TODO: update if "official" file name conventions are implemented for compressed CSLC
+      - regex: !!python/regexp '(?P<id>(compressed_(?P<burst_id>\w{4}_\w{6}_\w{3})))_(?P<time_series_start_ts>\d{8})_(?P<time_series_stop_ts>\d{8})[.](?P<ext>h5)$'
+        verify: true
+        hash: md5
     Secondary:
       # Patterns for parsing aux filenames, such as:
       # * "OPERA_L3_DISP-S1_IW_F01234_v0.1_20230101T100506Z.catalog.json"
