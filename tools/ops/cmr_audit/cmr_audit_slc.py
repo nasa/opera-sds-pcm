@@ -110,6 +110,7 @@ async def async_get_cmr(
                 f"&collection_concept_id={collection_concept_id}"
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
+                "&bounding_box=-180,-60,180,90"
                 "&options[native-id][pattern]=true"
                 f"{native_id_patterns_query_params}"
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
