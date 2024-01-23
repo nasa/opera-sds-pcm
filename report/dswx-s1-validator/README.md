@@ -18,7 +18,7 @@
 
 Example:
 ```
-$ python dswx-s1-validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite
+$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite
  --threshold 50
 Retrieving 2316 granules from CMR.
 
@@ -71,12 +71,12 @@ This guide provides a quick way to get started with the script.
 ### Setup Instructions
 
 1. Clone the repository to your local machine.
-2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests`.
+2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests python_cmr`.
 3. Ensure you have internet access to the CMR API
    
 ### Run Instructions
 
-1. Run the script using Python: `python dswx-s1-validator.py --start <start_date> --end <end_date> --db <database_path>`.
+1. Run the script using Python: `python dswx_s1_validator.py --start <start_date> --end <end_date> --db <database_path>`.
 2. Optionally, use the `--file` argument to specify a file with granule IDs.
 3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by.
  
@@ -85,7 +85,7 @@ This guide provides a quick way to get started with the script.
 * Retrieve a list of MGRS Tile Set IDs for the RTC burst processing a given time range on CMR, and filter the results to show only MGRS Tile Sets that had coverage of greater than or equal to 50%.
 
 ```
-$ python dswx-s1-validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite
+$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite
  --threshold 50
 Retrieving 2316 granules from CMR.
 Fetching granules: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2316/2316 [00:34<00:00, 67.10it/s]
@@ -159,7 +159,7 @@ Calculating coverage: 100%|█████████████████�
   ```
 
   ```
-  $ python3 dswx-s1-validator.py --file granules.txt --db MGRS_tile_collection_v0.2.sqlite --threshold 50
+  $ python3 dswx_s1_validator.py --file granules.txt --db MGRS_tile_collection_v0.2.sqlite --threshold 50
 
   Calculating coverage: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 31500/31500 [00:01<00:00, 24706.38it/s]
 
@@ -172,7 +172,9 @@ Calculating coverage: 100%|█████████████████�
 
 ## Frequently Asked Questions (FAQ)
 
-No questions yet. Propose a question to be added here by reaching out to our contributors! See support section below.
+- **Q: One or more of the Python dependencies installed via `pip install` are not available on my machine / environment**
+  
+  A: Consider [building the dependency from source](https://devguide.python.org/getting-started/setup-building/) on your machine. For example, a reported missing dependency on an Apple M2 MacBook with Python 3.9.6 is `sqllite3` and requires a build from source following [this guide](https://til.simonwillison.net/sqlite/build-specific-sqlite-pysqlite-macos).
 
 ## Support
 
