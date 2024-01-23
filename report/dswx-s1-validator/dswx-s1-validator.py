@@ -218,7 +218,7 @@ conn = sqlite3.connect(args.db)
 cursor = conn.cursor()
 
 # Query to retrieve all mgrs_set_id and their bursts
-query = "SELECT mgrs_set_id, bursts FROM mgrs_burst_db"
+query = "SELECT mgrs_set_id, bursts FROM mgrs_burst_db WHERE land_ocean_flag <> 'water'"
 cursor.execute(query)
 mgrs_data = cursor.fetchall()
 
@@ -262,4 +262,4 @@ if args.threshold:
 
 # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
 print()
-print(tabulate(df[['MGRS Set ID','Coverage Percentage']], headers='keys', tablefmt='pretty', showindex=False))
+print(tabulate(df[['MGRS Set ID','Coverage Percentage']], headers='keys', tablefmt='plain', showindex=False))
