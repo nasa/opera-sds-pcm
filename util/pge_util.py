@@ -520,6 +520,7 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     base_name_template: str = pge_config['output_base_name']
     ancillary_name_template: str = pge_config['ancillary_base_name']
+    compressed_cslc_template: str = pge_config['compressed_cslc_name']
 
     creation_time = get_time_for_filename()
 
@@ -531,6 +532,14 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             sec_datetime="20190906T232711",
             product_version=dataset_match.groupdict()['product_version'],
             creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    elif extension.endswith('h5'):
+        base_name = compressed_cslc_template.format(
+            burst_id="t042_088905_iw1",
+            ts_start="20221119",
+            ts_end="20221213"
         )
 
         output_filenames.append(f'{base_name}.{extension}')
@@ -546,8 +555,6 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         # Should only be one of these files per simulated run
         if ancillary_file_name not in output_filenames:
             output_filenames.append(ancillary_file_name)
-
-    # TODO: support compressed CSLC files once file name convention is established
 
     return output_filenames
 

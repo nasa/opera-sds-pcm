@@ -94,6 +94,7 @@ set_extra_pge_output_metadata:
 output_types:
   L3_DISP_S1:
     - nc
+    - h5
     - png
     - catalog.json
     - iso.xml
@@ -129,3 +130,4 @@ input_file_base_name_regexes:
 sample_input_dataset_id: "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1"
 output_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
 ancillary_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{product_version}_{creation_ts}Z
+compressed_cslc_name: compressed_{burst_id}_{ts_start}_{ts_end}
