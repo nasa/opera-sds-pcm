@@ -66,7 +66,7 @@ postprocess:
 
 set_sample_product_metadata:
   s3_bucket: "opera-dev-lts-fwd-collinss"
-  s3_key: "sample_disp_s1_product_metadata_full.json"
+  s3_key: "sample_disp_s1_product_metadata_small.json"
 
 get_product_version:
   version_key: "DISP_S1_PRODUCT_VERSION"
