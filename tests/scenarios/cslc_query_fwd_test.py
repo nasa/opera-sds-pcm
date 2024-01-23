@@ -1,6 +1,7 @@
 import random
 import asyncio
 import sys
+import json
 from time import sleep
 from datetime import datetime, timedelta
 import logging
@@ -19,8 +20,9 @@ This test is run as a regular python script as opposed to pytest
 This test requires a GRQ ES instance. Best to run this on a Mozart box in a functional cluster.
 Set ASG Max of cslc_download worker to 0 to prevent it from running if that's desired."""
 
-arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--processing-mode=forward", "--k=2", "--chunk-size=1"]#, "--no-schedule-download"]
-base_args = daac_data_subscriber.create_parser().parse_args(arguments)
+# k comes from the input json file. We could parameterize other argments too if desired.
+query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--processing-mode=forward", "--chunk-size=1"]#, "--no-schedule-download"]
+base_args = daac_data_subscriber.create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
 cmr = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["BASE_URL"]
 edl = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["EARTHDATA_LOGIN"]
@@ -30,7 +32,7 @@ es_conn = CSLCProductCatalog(logging.getLogger(__name__))
 
 # Clear the elasticsearch index if clear argument is passed
 # TODO: Improve the way it's being cleared so that we don't have to specify the year and month in index name
-if len(sys.argv) > 1 and sys.argv[1] == "clear":
+if len(sys.argv) > 2 and sys.argv[2] == "clear":
     logging.info("Clearing CSLC index")
     es_conn.es.es.indices.delete(index="cslc_catalog-2024.01", ignore=[400, 404])
 
@@ -46,177 +48,59 @@ def group_by_download_batch_id(granules):
         batch_id_to_granules[download_batch_id].append(granule)
     return batch_id_to_granules
 
-async def run_query():
+async def run_query(validation_json):
     """Run query several times over a date range specifying the start and stop dates"""
 
-    # Build validation dictionary
-    date_time_expected_files_dict = {}
-    date_time_expected_files_dict["2023-12-01T06:00:00Z"] = 0
-    date_time_expected_files_dict["2023-12-01T07:00:00Z"] = 0
-    date_time_expected_files_dict["2023-12-01T08:00:00Z"] = 1080
-    '''f26694_a149: 27
-        f26694_a148: 27
-        f26693_a149: 27
-        f26693_a148: 27
-        f26692_a149: 27
-        f26692_a148: 27
-        f26691_a149: 27
-        f26691_a148: 27
-        f26690_a149: 27
-        f26690_a148: 27
-        f26689_a149: 27
-        f26689_a148: 27
-        f26688_a149: 27
-        f26688_a148: 27
-        f26687_a149: 27
-        f26687_a148: 27
-        f26684_a149: 27
-        f26684_a148: 27
-        f26683_a149: 27
-        f26683_a148: 27
-        f26682_a149: 27
-        f26682_a148: 27
-        f26681_a149: 27
-        f26681_a148: 27
-        f26680_a149: 27
-        f26680_a148: 27
-        f26679_a149: 27
-        f26679_a148: 27
-        f26678_a149: 27
-        f26678_a148: 27
-        f26435_a149: 27
-        f26435_a148: 27
-        f26434_a149: 27
-        f26434_a148: 27
-        f24733_a149: 27
-        f24733_a148: 27
-        f24725_a149: 27
-        f24725_a148: 27
-        f24724_a149: 27
-        f24724_a148: 27'''
-    date_time_expected_files_dict["2023-12-01T09:00:00Z"] = 162
-    '''f26686_a149: 27
-        f26686_a148: 27
-        f26685_a149: 27
-        f26685_a148: 27
-        f26677_a149: 27
-        f26677_a148: 27'''
-    date_time_expected_files_dict["2023-12-01T10:00:00Z"] = 540
-    '''f12908_a149: 27
-        f12908_a148: 27
-        f12907_a149: 27
-        f12907_a148: 27
-        f12906_a149: 27
-        f12906_a148: 27
-        f12905_a149: 27
-        f12905_a148: 27
-        f12904_a149: 27
-        f12904_a148: 27
-        f12903_a149: 27
-        f12903_a148: 27
-        f12902_a149: 27
-        f12902_a148: 27
-        f12901_a149: 27
-        f12901_a148: 27
-        f10859_a149: 27
-        f10859_a148: 27
-        f10855_a149: 27
-        f10855_a148: 27
-        540'''
-    date_time_expected_files_dict["2023-12-01T11:00:00Z"] = 594
-    '''f11116_a149: 27
-        f11116_a148: 27
-        f11115_a149: 27
-        f11115_a148: 27
-        f11114_a149: 27
-        f11114_a148: 27
-        f11113_a149: 27
-        f11113_a148: 27
-        f11112_a149: 27
-        f11112_a148: 27
-        f11111_a149: 27
-        f11111_a148: 27
-        f11110_a149: 27
-        f11110_a148: 27
-        f10860_a149: 27
-        f10860_a148: 27
-        f10858_a149: 27
-        f10858_a148: 27
-        f10857_a149: 27
-        f10857_a148: 27
-        f10856_a149: 27
-        f10856_a148: 27'''
-    date_time_expected_files_dict["2023-12-01T12:00:00Z"] = 0
-    date_time_expected_files_dict["2023-12-01T13:00:00Z"] = 486
-    '''f11639_a149: 27
-            f11639_a148: 27
-            f11634_a149: 27
-            f11634_a148: 27
-            f11633_a149: 27
-            f11633_a148: 27
-            f11632_a149: 27
-            f11632_a148: 27
-            f11631_a149: 27
-            f11631_a148: 27
-            f11630_a149: 27
-            f11630_a148: 27
-            f11629_a149: 27
-            f11629_a148: 27
-            f11628_a149: 27
-            f11628_a148: 27
-            f11627_a149: 27
-            f11627_a148: 27'''
-    date_time_expected_files_dict["2023-12-01T14:00:00Z"] = 0
-    date_time_expected_files_dict["2023-12-01T15:00:00Z"] = 0
-    date_time_expected_files_dict["2023-12-01T16:00:00Z"] = 108
-    '''f12917_a149: 27
-        f12917_a148: 27
-        f12916_a149: 27
-        f12916_a148: 27'''
-
-    # TODO: These can be derived from the dict above
-    start_date = datetime(2023, 12, 1, 6, 0, 0)
-    end_date = datetime(2023, 12, 1, 17, 0, 0)
+    # Open the scenario file and parse it. Get k from it and add as parameter.
+    # Start and end dates are the min and max dates in the file.
+    j = json.load(open(validation_json))
+    cslc_k = j["k"]
+    validation_data = j["validation_data"]
+    datetimes = sorted(validation_data.keys())
+    start_date = datetime.strptime(datetimes[0], DT_FORMAT)
+    end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
 
     # Run in 1 hour increments from start date to end date
     while start_date < end_date:
         new_end_date = start_date + timedelta(hours=1)
-        current_args = arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+        current_args = query_arguments + [f"--k={cslc_k}", f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
         args = daac_data_subscriber.create_parser().parse_args(current_args)
         c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings, cslc_utils.DISP_FRAME_BURST_MAP_JSON)
         q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
         q_result = q_result["download_granules"]
         print("+++++++++++++++++++++++++++++++++++++++++++++++")
-        #print(q_result)
         #for r in q_result:
         #    print(r["granule_id"])
-        d = group_by_download_batch_id(q_result)
-        for k, v in d.items():
-            print(f"{k}: {len(v)}")
+        q_result_dict = group_by_download_batch_id(q_result)
+        print(f'"{start_date.strftime(DT_FORMAT)}" :' + ' { ')
+        for k, v in q_result_dict.items():
+            print(f'"{k}": {len(v)},')
+        print('}')
         print(len(q_result))
-        '''Looks like this 
-                f26694_a149: 27
-                f26694_a148: 27
-                f26693_a149: 27
-                f26693_a148: 27'''
+        '''Looks like this  {"f26694_a149": 27,
+                             "f26694_a148": 27}'''
         print("+++++++++++++++++++++++++++++++++++++++++++++++")
 
         # Validation
-        # TODO: We might want to validate more than just the new files to be downloaded
-        validate_hour(q_result, start_date, date_time_expected_files_dict)
+        validate_hour(q_result_dict, start_date, validation_data)
 
         start_date = new_end_date # To the next query time range
 
-        #sleep(1)
-
-def validate_hour(q_result, start_date, date_time_expected_files_dict):
+def validate_hour(q_result_dict, start_date, validation_data):
     """Validate the number of files to be downloaded for a given hour"""
-    expected_files = date_time_expected_files_dict[start_date.strftime(DT_FORMAT)]
-    logging.info(f"On datetime {start_date}, we should have {expected_files} files ready to download")
-    assert len(q_result) == expected_files
+    expected_files = validation_data[start_date.strftime(DT_FORMAT)]
+    expected_count = sum(expected_files.values())
+    q_result_count = sum([len(l) for l in q_result_dict.values()])
+    logging.info(f"On datetime {start_date}, we should have {expected_count} files ready to download")
+    assert q_result_count == expected_count
 
-now = datetime.now()
-asyncio.run(run_query())
+    for batch_id, count in expected_files.items():
+        logging.info(f"Batch id {batch_id} should have {count} files ready to download")
+        assert len(q_result_dict[batch_id]) == count
+
+test_start_time = datetime.now()
+validation_json = sys.argv[1]
+asyncio.run(run_query(validation_json))
 
 logging.info("If no assertion errors were raised, then the test passed.")
-logging.info(f"Test took {datetime.now() - now} seconds to run")
+logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
