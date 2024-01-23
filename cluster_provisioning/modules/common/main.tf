@@ -41,6 +41,7 @@ locals {
   slcs1a_query_job_type            = "slcs1a_query"
   slc_ionosphere_download_job_type = "slc_download_ionosphere"
   rtc_query_job_type               = "rtc_query"
+  cslc_query_job_type              = "cslc_query"
 
   use_s3_uri_structure = var.use_s3_uri_structure
   grq_es_url           = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"

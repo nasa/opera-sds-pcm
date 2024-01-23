@@ -304,6 +304,71 @@ resource "aws_lambda_permission" "rtc_query_timer" {
 }
 
 
+resource "aws_lambda_function" "cslc_query_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a job that will query CSLC data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-cslc-query-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.8"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_URL" : "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE" : "opera-job_worker-cslc_data_query",
+      "JOB_TYPE" : local.cslc_query_job_type,
+      "JOB_RELEASE" : var.pcm_branch,
+      "MINUTES" : var.cslc_query_timer_trigger_frequency,
+      "CSLC_PROCESSING_K": "4",
+      "CSLC_PROCESSING_M": "4",
+      "PROVIDER" : var.rtc_provider, # CSLC and RTC use the same provider
+      "ENDPOINT" : "OPS",
+      "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-cslc_data_download.name,
+      "CHUNK_SIZE" : "1",
+      "MAX_REVISION" : "1000",
+      "SMOKE_RUN" : "false",
+      "DRY_RUN" : "false",
+      "NO_SCHEDULE_DOWNLOAD" : "false",
+      "BOUNDING_BOX" : ""
+      "USE_TEMPORAL" : "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME" : "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS" : "30",
+      "REVISION_START_DATETIME_MARGIN_MINS" : "0"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "cslc_query_timer" {
+  depends_on        = [aws_lambda_function.cslc_query_timer]
+  name              = "/aws/lambda/${aws_lambda_function.cslc_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "cslc_query_timer" {
+  name                = "${aws_lambda_function.cslc_query_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.cslc_query_timer_trigger_frequency
+  is_enabled          = local.enable_download_timer
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "cslc_query_timer" {
+  rule       = aws_cloudwatch_event_rule.cslc_query_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.cslc_query_timer.arn
+  depends_on = [aws_instance.mozart]
+}
+resource "aws_lambda_permission" "cslc_query_timer" {
+  statement_id  = aws_cloudwatch_event_rule.cslc_query_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.cslc_query_timer.arn
+  function_name = aws_lambda_function.cslc_query_timer.function_name
+}
+
 #######################################################################
 
 
@@ -321,14 +386,16 @@ resource "aws_lambda_function" "batch_query_timer" {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
   }
-  timeout = 30
+  timeout = 60 #Batch needs to load a large json file sometimes so needs more time
+  memory_size = 512 #Batch uses 290mb total when parsing the disp frame json file
   environment {
     variables = {
       "MOZART_IP" : "${aws_instance.mozart.private_ip}",
       "GRQ_IP" : "${aws_instance.grq.private_ip}",
       "GRQ_ES_PORT" : "9200",
       "ENDPOINT" : "OPS",
-      "JOB_RELEASE" : var.pcm_branch
+      "JOB_RELEASE" : var.pcm_branch,
+      "ANC_BUCKET": "opera-ancillaries"
     }
   }
 }

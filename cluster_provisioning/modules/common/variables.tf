@@ -610,6 +610,10 @@ variable "rtc_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
+variable "cslc_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "batch_query_timer_trigger_frequency" {
   default = "rate(1 minute)"
 }

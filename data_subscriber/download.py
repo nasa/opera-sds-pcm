@@ -71,7 +71,7 @@ class DaacDownload:
         elif provider == "ASF-RTC":
             from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
             return AsfDaacRtcDownload(provider)
-        elif provider == "ASF-CSLC":
+        elif provider in ("ASF-CSLC", "CSLC"):
             from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
             return AsfDaacCslcDownload(provider)
 
@@ -79,6 +79,32 @@ class DaacDownload:
 
     async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
+        downloads = self.get_downloads(args, es_conn)
+
+        if not downloads:
+            logger.info(f"No undownloaded files found in index.")
+            return
+
+        session = SessionWithHeaderRedirection(username, password, netloc)
+
+        logger.info("Creating directories to process products")
+
+        # house all file downloads
+        self.downloads_dir = Path("downloads")
+        self.downloads_dir.mkdir(exist_ok=True)
+
+        if args.dry_run:
+            logger.info(f"{args.dry_run=}. Skipping downloads.")
+
+        product_to_product_filepaths_map = self.perform_download(session, es_conn, downloads, args, token, job_id)
+
+        if rm_downloads_dir:
+            logger.info(f"Removing directory tree. {self.downloads_dir}")
+            shutil.rmtree(self.downloads_dir)
+
+        return product_to_product_filepaths_map
+
+    def get_downloads(self, args, es_conn):
         # This is a special case where we are being asked to download exactly one granule
         # identified its unique id. In such case we shouldn't gather all pending downloads at all;
         # simply find entries for that one granule
@@ -103,28 +129,7 @@ class DaacDownload:
                 logger.info(f"{len(downloads)=}")
                 logger.debug(f"{downloads=}")
 
-        if not downloads:
-            logger.info(f"No undownloaded files found in index.")
-            return
-
-        session = SessionWithHeaderRedirection(username, password, netloc)
-
-        logger.info("Creating directories to process products")
-
-        # house all file downloads
-        self.downloads_dir = Path("downloads")
-        self.downloads_dir.mkdir(exist_ok=True)
-
-        if args.dry_run:
-            logger.info(f"{args.dry_run=}. Skipping downloads.")
-
-        product_to_product_filepaths_map = self.perform_download(session, es_conn, downloads, args, token, job_id)
-
-        if rm_downloads_dir:
-            logger.info(f"Removing directory tree. {self.downloads_dir}")
-            shutil.rmtree(self.downloads_dir)
-
-        return product_to_product_filepaths_map
+        return downloads
 
     def perform_download(self, session, es_conn, downloads, args, token, job_id):
         pass

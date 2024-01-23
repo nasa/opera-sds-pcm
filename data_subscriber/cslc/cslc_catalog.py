@@ -31,6 +31,18 @@ class CSLCProductCatalog(SLCProductCatalog):
     def generate_es_index_name(self):
         return "cslc_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
 
+    def form_document(self, filename: str, granule: dict, job_id: str, query_dt: datetime,
+                      temporal_extent_beginning_dt: datetime, revision_date_dt: datetime, revision_id):
+        return {
+            "id": granule["unique_id"],
+            "granule_id": granule["granule_id"],
+            "creation_timestamp": datetime.now(),
+            "query_job_id": job_id,
+            "query_datetime": query_dt,
+            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
+            "revision_date": revision_date_dt
+        }
+
     def get_unsubmitted_granules(self):
         downloads = self.es.query(
             index=self.ES_INDEX_PATTERNS,
@@ -38,7 +50,7 @@ class CSLCProductCatalog(SLCProductCatalog):
                 "query": {
                     "bool": {
                         "must_not": [
-                            {"match": {"submitted": True}}
+                            {"exists": {"field": "download_job_id"}}
                         ]
                     }
                 }

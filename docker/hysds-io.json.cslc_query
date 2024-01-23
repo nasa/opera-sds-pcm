@@ -1,5 +1,5 @@
 {
-  "label": "Query CSLC data with datetime and frame ranges",
+  "label": "Query CSLC data with datetime",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
@@ -42,7 +42,7 @@
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
       "type": "text",
-      "default": "--job-queue=opera-job_worker-cslc_data_download_hist"
+      "default": "--job-queue=opera-job_worker-cslc_data_download"
     },
     {
       "name": "chunk_size",
@@ -50,6 +50,22 @@
       "placeholder": "e.g. --chunk-size=<chunk_size>",
       "type": "text",
       "default": "--chunk-size=1",
+      "optional": true
+    },
+    {
+      "name": "k",
+      "from": "submitter",
+      "placeholder": "e.g. --k=<k>",
+      "type": "text",
+      "default": "--k=2",
+      "optional": true
+    },
+    {
+      "name": "m",
+      "from": "submitter",
+      "placeholder": "e.g. --m=<m>",
+      "type": "text",
+      "default": "--m=2",
       "optional": true
     },
     {
@@ -88,24 +104,6 @@
       "name": "processing_mode",
       "from": "submitter",
       "placeholder": "e.g. --processing-mode",
-      "optional": true
-    },
-    {
-      "name": "include_regions",
-      "from": "submitter",
-      "placeholder": "e.g. --include_regions",
-      "optional": true
-    },
-    {
-      "name": "exclude_regions",
-      "from": "submitter",
-      "placeholder": "e.g. --exclude_regions",
-      "optional": true
-    },
-    {
-      "name": "frame_range",
-      "from": "submitter",
-      "placeholder": "e.g. --frame_range",
       "optional": true
     },
     {
