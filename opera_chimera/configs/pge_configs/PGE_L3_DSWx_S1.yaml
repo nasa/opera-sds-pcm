@@ -64,13 +64,13 @@ get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DSWx-S1
   algorithm_parameters:
     s3_bucket: "opera-ancillaries"
-    s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_beta_0.2.1.yaml"
+    s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_gamma_0.3.yaml"
   mgrs_database_file:
     s3_bucket: "opera-ancillaries"
     s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
   mgrs_collection_database_file:
     s3_bucket: "opera-ancillaries"
-    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.2.1.sqlite"
+    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite"
 
 get_dswx_s1_dynamic_ancillary_maps:
   # The s3 locations of the ancillary map VRT files (excluding DEM) used by DSWx-S1
