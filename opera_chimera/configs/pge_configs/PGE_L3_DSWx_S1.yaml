@@ -112,7 +112,7 @@ set_extra_pge_output_metadata:
 output_types:
   L3_DSWx_S1:
     - tif
-#    - png
+    - png
     - catalog.json
     - iso.xml
     - log

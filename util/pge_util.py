@@ -28,7 +28,7 @@ List of band identifiers for the multiple tif outputs produced by the DSWx-HLS
 PGE.
 """
 
-DSWX_S1_BAND_NAMES = ['WTR', 'BWTR', 'CONF']
+DSWX_S1_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG']
 """
 List of band identifiers for the multiple tif outputs produced by the DSWx-S1
 PGE.
@@ -494,6 +494,8 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         if extension.endswith('tiff') or extension.endswith('tif'):
             for band_idx, band_name in enumerate(DSWX_S1_BAND_NAMES, start=1):
                 output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+        elif extension.endswith('png'):
+            output_filenames.append(f'{base_name}_BROWSE.png')
         elif extension.endswith('iso.xml'):
             output_filenames.append(f'{base_name}.iso.xml')
         # Ancillary output product pattern, no tile ID or acquisition time

@@ -354,6 +354,7 @@ def test_simulate_dswx_s1_pge():
             for band_idx, band_name in enumerate(pge_util.DSWX_S1_BAND_NAMES, start=1):
                 assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_B{band_idx:02}_{band_name}.tif').exists()
 
+            assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_BROWSE.png').exists()
             assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.iso.xml').exists()
 
         assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()
