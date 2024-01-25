@@ -20,6 +20,18 @@ disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_fram
 def test_frame_range():
     assert forward_args.native_id == "*iw1*"
 
+def test_split_download_batch_id():
+    """Test that the download batch id is correctly split into frame and acquisition cycle"""
+    # Forward and reprocessing mode
+    frame_id, acquisition_cycle = cslc_utils.split_download_batch_id("f100_a200")
+    assert frame_id == 100
+    assert acquisition_cycle == 200
+
+    # Historical mode
+    frame_id, acquisition_cycle = cslc_utils.split_download_batch_id("2023_10_01t00_00_00z_2023_10_25t00_00_00z_3601")
+    assert frame_id == 3601
+    assert acquisition_cycle == None
+
 def test_arg_expansion():
     '''Test that the native_id field is expanded correctly for a given frame range'''
     native_id = cslc_utils.build_cslc_native_ids(100, disp_burst_map)

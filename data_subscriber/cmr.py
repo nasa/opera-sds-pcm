@@ -13,6 +13,8 @@ from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
 logger = logging.getLogger(__name__)
 
+CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
 COLLECTION_TO_PROVIDER_MAP = {
     "HLSL30": "LPCLOUD",
     "HLSS30": "LPCLOUD",
@@ -78,14 +80,14 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             params["options[native-id][pattern]"] = 'true'
 
     # derive and apply param "temporal"
-    now_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_date = now.strftime(CMR_TIME_FORMAT)
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
         if args.native_id:
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             acquisition_dt = dateutil.parser.parse(match_native_id.group("acquisition_ts"))
-            timerange_start_date = (acquisition_dt - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            timerange_end_date = (acquisition_dt + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            timerange_start_date = (acquisition_dt - timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
+            timerange_end_date = (acquisition_dt + timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
             temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
 
     if not silent:
@@ -100,7 +102,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
         if args.temporal_start_date:
             if not silent:
                 logger.info(f"{args.temporal_start_date=}")
-            params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime("%Y-%m-%dT%H:%M:%SZ")
+            params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
     if not silent:
         logger.info(f"Querying CMR. {request_url=} {params=}")

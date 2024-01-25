@@ -4,6 +4,9 @@ import json
 import boto3
 from pyproj import Transformer
 from util.conf_util import SettingsConf
+import re
+
+
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 
@@ -59,12 +62,12 @@ def build_cslc_native_ids(frame, disp_burst_map):
     native_ids = disp_burst_map[frame].burst_ids
     return "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
 
-def download_batch_id_hist(args):
+def download_batch_id_hist(args, granule):
     """For historical processing mode, download_batch_id is a function of start_date, end_date, and frame_range
     Use underscore instead of other special characters and lower case so that it can be used in ES TERM search"""
 
     download_batch_id = args.start_date + "_" + args.end_date
-    download_batch_id = download_batch_id + "_" + args.frame_range.split(",")[0]
+    download_batch_id = download_batch_id + "_" + str(granule["frame_id"])
     download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()
 
     return download_batch_id
@@ -79,10 +82,14 @@ def download_batch_id_forward_reproc(granule):
 
 def split_download_batch_id(download_batch_id):
     """Split the download_batch_id into frame_id and acquisition_cycle
-    example: f7098_a145 -> 7098, 145"""
-
-    frame_id, acquisition_cycle = download_batch_id.split("_")
-    return int(frame_id[1:]), int(acquisition_cycle[1:]) # Remove the leading "f" and "a"
+    example: forward/reproc f7098_a145 -> 7098, 145
+             historical     2023_10_01t00_00_00z_2023_10_25t00_00_00z_3601 -> 3601, None"""
+    if download_batch_id.startswith("f"):
+        frame_id, acquisition_cycle = download_batch_id.split("_")
+        return int(frame_id[1:]), int(acquisition_cycle[1:])  # Remove the leading "f" and "a"
+    else:
+        frame_id = download_batch_id.split("_")[-1]
+        return int(frame_id), None
 
 def get_bounding_box_for_frame(frame):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax]"""

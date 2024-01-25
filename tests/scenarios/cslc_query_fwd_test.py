@@ -12,8 +12,9 @@ from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber import daac_data_subscriber, query, cslc_utils
 from data_subscriber.cslc import cslc_query
 from data_subscriber.aws_token import supply_token
+from data_subscriber.cmr import CMR_TIME_FORMAT
 
-DT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+DT_FORMAT = CMR_TIME_FORMAT
 
 """This test runs cslc query several times in succession and verifies download jobs submitted
 This test is run as a regular python script as opposed to pytest
