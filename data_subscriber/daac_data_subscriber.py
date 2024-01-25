@@ -80,7 +80,8 @@ async def run(argv: list[str]):
         else:
             results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
 
-    logger.info(f"{results=}")
+    logger.info(f"{len(results)=}")
+    logger.debug(f"{results=}")
     logger.info("END")
 
     return results
