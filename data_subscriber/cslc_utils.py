@@ -56,6 +56,9 @@ def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
 
     return sorted_frame_data, burst_to_frame, metadata, version
 
+def parse_cslc_native_id(native_id, disp_burst_map):
+    pass
+
 def build_cslc_native_ids(frame, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 

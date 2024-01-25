@@ -130,9 +130,9 @@ class CslcCmrQuery(CmrQuery):
 
                 # Retrieve K- granules and M- compressed CSLCs for this batch
                 # Go back K- 12-day windows and find the same frame
+                args = self.args
                 if args.k > 1:
                     logger.info(f"Retrieving K-1 granules")
-                    args = self.args
 
                     # Add native-id condition in args
                     native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
@@ -185,6 +185,13 @@ class CslcCmrQuery(CmrQuery):
                 native_id = build_cslc_native_ids(frame, self.disp_burst_map)
                 args.native_id = native_id # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
                 granules.extend(await async_query_cmr(args, token, cmr, settings, timerange, now))
+
+        # If we are in reprocessing mode, we will expand the native_id to
+        # include all bursts in the frame to which this granule belongs.
+        elif self.proc_mode == "reprocessing":
+            native_id = build_cslc_native_ids(frame, self.disp_burst_map)
+            args.native_id = native_id  # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
+            granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
 
         else:
             granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
