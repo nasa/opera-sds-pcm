@@ -30,7 +30,7 @@ DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_PROVISIONAL_V0"
 DISP_S1_PRODUCT_VERSION: "0.1"
 
 # The minimum coverage, defined as the percent of bursts in a bursts set, required to run DSWx_S1
-#  Must be a number in the closed interval [0, 99].
+#  Must be a number in the closed interval [0, 100].
 DSWX_S1_COVERAGE_TARGET: 99
 # Force DSWx-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
 DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES: 210
