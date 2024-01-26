@@ -345,14 +345,14 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1" = {
       "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c5a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c5a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
     }
@@ -554,7 +554,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.0"
     "rtc_s1"   = "2.1.0"
     "dswx_s1"  = "3.0.0-er.5.0"
-    "disp_s1"  = "3.0.0-er.4.0"
+    "disp_s1"  = "3.0.0-er.5.1"
   }
 }
 

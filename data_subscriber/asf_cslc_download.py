@@ -68,11 +68,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         product = {
             "_id": product_id,
             "_source": {
-                "dataset": "dummy_dataset",
+                "dataset": f"L3_DISP_S1-{product_id}",
                 "metadata": {
                     "batch_id": product_id,
                     "frame_id": frame_id, # frame_id should be same for all download batches
-                    "product_paths": {"L2_DISP_S1": s3paths},
+                    "product_paths": {"L2_CSLC_S1": s3paths},
                     "FileName": product_id,
                     "id": product_id,
                     "bounding_box": bounding_box,
@@ -90,14 +90,16 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             }
         }
 
+        proc_mode_suffix = "_hist" if args.proc_mode == "historical" else ""
+
         return try_submit_mozart_job(
             product=product,
-            job_queue=f'opera-job_worker-{"sciflo-l3_disp_s1"}',
-            rule_name=f'trigger-{"SCIFLO_L3_DISP_S1"}',
+            job_queue=f'opera-job_worker-sciflo-l3_disp_s1{proc_mode_suffix}',
+            rule_name=f'trigger-SCIFLO_L3_DISP_S1{proc_mode_suffix}',
             params=self.create_job_params(product),
-            job_spec=f'job-{"SCIFLO_L3_DISP_S1"}:{settings["RELEASE_VERSION"]}',
-            job_type=f'hysds-io-{"SCIFLO_L3_DISP_S1"}:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-{"SCIFLO_L3_DISP_S1"}'
+            job_spec=f'job-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
+            job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1{proc_mode_suffix}'
         )
 
     def get_downloads(self, args, es_conn):
@@ -114,6 +116,12 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
     def create_job_params(self, product):
         return [
             {
+                "name": "dataset_type",
+                "from": "value",
+                "type": "text",
+                "value": "L2_CSLC_S1"
+            },
+            {
                 "name": "input_dataset_id",
                 "type": "text",
                 "from": "value",
@@ -124,74 +132,5 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 "from": "value",
                 "type": "object",
                 "value": product["_source"]
-            },
-            {
-                "name": "module_path",
-                "from": "value",
-                "type": "text",
-                "value": "/home/ops/verdi/ops/opera-pcm"
-            },
-            {
-                "name": "wf_dir",
-                "from": "value",
-                "type": "text",
-                "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
-            },
-            {
-                "name": "wf_name",
-                "from": "value",
-                "type": "text",
-                "value": "L3_DISP_S1"
-            },
-            {
-                "name": "dataset_type",
-                "from": "value",
-                "type": "text",
-                "value": "L2_CSLC_S1"
-            },
-            {
-                "name": "accountability_module_path",
-                "from": "value",
-                "type": "text",
-                "value": "opera_chimera.accountability"
-            },
-            {
-                "name": "accountability_class",
-                "from": "value",
-                "type": "text",
-                "value": "OperaAccountability"
-            },
-            {
-                "name": "pge_runconfig_dir",
-                "from": "value",
-                "type": "text",
-                "value": "pge_runconfig_dir"
-            },
-            {
-                "name": "pge_input_dir",
-                "from": "value",
-                "type": "text",
-                "value": "pge_input_dir"
-            },
-            {
-                "name": "pge_output_dir",
-                "from": "value",
-                "type": "text",
-                "value": "pge_output_dir"
-            },
-            {
-                "name": "container_home",
-                "from": "value",
-                "type": "text",
-                "value": "/home/mamba"
-            },
-            {
-                "name": "container_working_dir",
-                "from": "value",
-                "type": "text",
-                "value": "/home/mamba"
             }
         ]
-
-
-
