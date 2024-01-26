@@ -110,7 +110,7 @@ class CmrQuery:
 
         results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
         logger.info(f"{len(results)=}")
-        logger.info(f"{results=}")
+        logger.debug(f"{results=}")
 
         succeeded = [job_id for job_id in results if isinstance(job_id, str)]
         failed = [e for e in results if isinstance(e, Exception)]
@@ -208,7 +208,7 @@ class CmrQuery:
                         batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
                     else:
                         batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
-        logger.info(f"{batch_id_to_urls_map=}")
+        logger.debug(f"{batch_id_to_urls_map=}")
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "RTC":
             raise NotImplementedError()
         else:
@@ -229,7 +229,7 @@ class CmrQuery:
                 chunk_urls.extend(urls)
 
             logger.info(f"{chunk_batch_ids=}")
-            logger.info(f"{chunk_urls=}")
+            logger.debug(f"{chunk_urls=}")
 
             download_job_id = asyncio.get_event_loop().run_in_executor(
                     executor=None,

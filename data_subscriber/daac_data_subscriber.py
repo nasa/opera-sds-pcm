@@ -20,7 +20,7 @@ from smart_open import open
 import data_subscriber
 from commons.logger import NoJobUtilsFilter, NoBaseFilter
 from data_subscriber.aws_token import supply_token
-from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP, CMR_TIME_FORMAT
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.query import update_url_index, run_query
@@ -80,7 +80,8 @@ async def run(argv: list[str]):
         else:
             results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
 
-    logger.info(f"{results=}")
+    logger.info(f"{len(results)=}")
+    logger.debug(f"{results=}")
     logger.info("END")
 
     return results
@@ -450,7 +451,7 @@ def _validate_bounds(bbox):
 
 def _validate_date(date, prefix="start"):
     try:
-        datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+        datetime.strptime(date, CMR_TIME_FORMAT)
     except ValueError:
         raise ValueError(
             f"Error parsing {prefix} date: {date}. Format must be like 2021-01-14T00:00:00Z")

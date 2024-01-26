@@ -48,6 +48,13 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                                                                       key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                       files=files_to_upload))
 
+            # Delete the files from the file system after uploading to S3
+            if rm_downloads_dir:
+                logger.info("Removing downloaded files from local filesystem")
+                for fp_set in product_to_filepaths.values():
+                    for fp in fp_set:
+                        os.remove(fp)
+
         # Compute bounding box for frame. All batches should have the same frame_id so we pick the first one
         frame_id, _ = split_download_batch_id(args.batch_ids[0])
         frame = self.disp_burst_map[int(frame_id)]

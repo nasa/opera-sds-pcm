@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 
 import backoff
 
-from data_subscriber.cmr import async_query_cmr
+from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.query import get_query_timerange, DateTimeRange
 
-_date_format_str = "%Y-%m-%dT%H:%M:%SZ"
+_date_format_str = CMR_TIME_FORMAT
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
@@ -21,8 +21,8 @@ async def run_survey(args, token, cmr, settings):
     end_dt = datetime.strptime(args.end_date, _date_format_str)
 
     out_csv = open(args.out_csv, 'w')
-    out_csv.write("# DateTime Range:" + start_dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " to " + end_dt.strftime(
-        "%Y-%m-%dT%H:%M:%SZ") + '\n')
+    out_csv.write("# DateTime Range:" + start_dt.strftime(_date_format_str) + " to " + end_dt.strftime(
+        _date_format_str) + '\n')
 
     raw_csv = open(args.out_csv+".raw.csv", 'w')
     raw_csv.write("# Granule ID, Revision Time, Temporal Time, Revision-Temporal Delta Hours, revision-id \n")
@@ -38,8 +38,8 @@ async def run_survey(args, token, cmr, settings):
         step_time = timedelta(hours=float(args.step_hours))
         incre_time = step_time - timedelta(seconds=1)
 
-        start_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        end_str = (start_dt + incre_time).strftime("%Y-%m-%dT%H:%M:%SZ")
+        start_str = start_dt.strftime(_date_format_str)
+        end_str = (start_dt + incre_time).strftime(_date_format_str)
         args.start_date = start_str
         args.end_date = end_str
 

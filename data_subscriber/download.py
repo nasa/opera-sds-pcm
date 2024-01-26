@@ -13,7 +13,7 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP
+from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
@@ -136,7 +136,7 @@ class DaacDownload:
 
     def get_download_timerange(self, args):
         start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
-        end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_date = args.end_date if args.end_date else datetime.utcnow().strftime(CMR_TIME_FORMAT)
         download_timerange = DateTimeRange(start_date, end_date)
         logger.info(f"{download_timerange=}")
         return download_timerange

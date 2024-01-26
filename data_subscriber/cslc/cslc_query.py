@@ -2,7 +2,7 @@ import logging
 import re
 import copy
 from datetime import datetime, timedelta
-from data_subscriber.cmr import async_query_cmr
+from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, \
     process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist, split_download_batch_id
 from data_subscriber.query import CmrQuery, DateTimeRange
@@ -68,9 +68,8 @@ class CslcCmrQuery(CmrQuery):
         """For CSLC this is used to determine download_batch_id and attaching it the granule.
         Function extend_additional_records must have been called before this function."""
 
-        #TODO: There's no need to use different methods for historical. We can use the median date and then derive acquisition cycle from that.
         if self.proc_mode == "historical":
-            download_batch_id = download_batch_id_hist(args)
+            download_batch_id = download_batch_id_hist(args, granule)
         else: # forward or reprocessing
             download_batch_id = download_batch_id_forward_reproc(granule)
 
@@ -115,7 +114,7 @@ class CslcCmrQuery(CmrQuery):
 
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
         # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
-        # TODO Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) and xx% are available, download all granules for that batch
+        # TODO Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
         # TODO Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
         download_granules = []
         for batch_id, download_batch in by_download_batch_id.items():
@@ -131,9 +130,9 @@ class CslcCmrQuery(CmrQuery):
 
                 # Retrieve K- granules and M- compressed CSLCs for this batch
                 # Go back K- 12-day windows and find the same frame
-                logger.info(f"Retrieving K-1 granules")
-                for i in range(self.args.k - 1):
-                    args = self.args
+                args = self.args
+                if args.k > 1:
+                    logger.info(f"Retrieving K-1 granules")
 
                     # Add native-id condition in args
                     native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
@@ -143,11 +142,11 @@ class CslcCmrQuery(CmrQuery):
                     #TODO: We can only use past frames which contain the exact same bursts as the current frame
                     # If not, we will need to go back another cycle until, as long as we have to, we find one that does
 
-                    # Move start and end date of args back by 12 * (i + 1) days, and then expand 10 days to cast a wide net
-                    start_date = (datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
-                        days=12 * (i + 1) + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                    end_date = (datetime.strptime(args.end_date, "%Y-%m-%dT%H:%M:%SZ") - timedelta(
-                        days=12 * (i + 1) - 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    # Move start and end date of args back and expand 5 days at both ends to capture all k granules
+                    start_date = (datetime.strptime(args.start_date, CMR_TIME_FORMAT) - timedelta(
+                        days=12 * (args.k - 1) + 5)).strftime(CMR_TIME_FORMAT)
+                    end_date = (datetime.strptime(args.end_date, CMR_TIME_FORMAT) - timedelta(
+                        days=12 - 5)).strftime(CMR_TIME_FORMAT)
                     query_timerange = DateTimeRange(start_date, end_date)
                     logger.info(f"{query_timerange=}")
                     granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow())
@@ -186,6 +185,13 @@ class CslcCmrQuery(CmrQuery):
                 native_id = build_cslc_native_ids(frame, self.disp_burst_map)
                 args.native_id = native_id # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
                 granules.extend(await async_query_cmr(args, token, cmr, settings, timerange, now))
+
+        # If we are in reprocessing mode, we will expand the native_id to
+        # include all bursts in the frame to which this granule belongs.
+        elif self.proc_mode == "reprocessing":
+            native_id = build_cslc_native_ids(frame, self.disp_burst_map)
+            args.native_id = native_id  # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
+            granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
 
         else:
             granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
