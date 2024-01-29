@@ -22,7 +22,7 @@ This test requires a GRQ ES instance. Best to run this on a Mozart box in a func
 Set ASG Max of cslc_download worker to 0 to prevent it from running if that's desired."""
 
 # k comes from the input json file. We could parameterize other argments too if desired.
-query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--processing-mode=forward", "--chunk-size=1"]#, "--no-schedule-download"]
+query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--chunk-size=1"]#, "--no-schedule-download"]
 base_args = daac_data_subscriber.create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
 cmr = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["BASE_URL"]
@@ -56,43 +56,58 @@ async def run_query(validation_json):
     # Start and end dates are the min and max dates in the file.
     j = json.load(open(validation_json))
     cslc_k = j["k"]
+    proc_mode = j["processing_mode"]
     validation_data = j["validation_data"]
-    datetimes = sorted(validation_data.keys())
-    start_date = datetime.strptime(datetimes[0], DT_FORMAT)
-    end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
 
-    # Run in 1 hour increments from start date to end date
-    while start_date < end_date:
-        new_end_date = start_date + timedelta(hours=1)
-        current_args = query_arguments + [f"--k={cslc_k}", f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
-        args = daac_data_subscriber.create_parser().parse_args(current_args)
-        c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings, cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-        q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
-        q_result = q_result["download_granules"]
-        print("+++++++++++++++++++++++++++++++++++++++++++++++")
-        #for r in q_result:
-        #    print(r["granule_id"])
-        q_result_dict = group_by_download_batch_id(q_result)
-        print(f'"{start_date.strftime(DT_FORMAT)}" :' + ' { ')
-        for k, v in q_result_dict.items():
-            print(f'"{k}": {len(v)},')
-        print('}')
-        print(len(q_result))
-        '''Looks like this  {"f26694_a149": 27,
-                             "f26694_a148": 27}'''
-        print("+++++++++++++++++++++++++++++++++++++++++++++++")
+    query_arguments.extend([f"--k={cslc_k}", f"--processing-mode={proc_mode}"])
 
-        # Validation
-        validate_hour(q_result_dict, start_date, validation_data)
+    if (proc_mode == "forward"):
+        datetimes = sorted(validation_data.keys())
+        start_date = datetime.strptime(datetimes[0], DT_FORMAT)
+        end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
 
-        start_date = new_end_date # To the next query time range
+        # Run in 1 hour increments from start date to end date
+        while start_date < end_date:
+            new_end_date = start_date + timedelta(hours=1)
+            current_args = query_arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+            await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
-def validate_hour(q_result_dict, start_date, validation_data):
+            start_date = new_end_date # To the next query time range
+    elif (proc_mode == "reprocessing"):
+        # Run one native id at a time
+        for native_id in validation_data.keys():
+            current_args = query_arguments + [f"--native-id={native_id}"]
+            await query_and_validate(current_args, native_id, validation_data)
+
+async def query_and_validate(current_args, test_range, validation_data):
+    print("Querying with args: " + " ".join(current_args))
+    args = daac_data_subscriber.create_parser().parse_args(current_args)
+    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
+                                      cslc_utils.DISP_FRAME_BURST_MAP_JSON)
+    q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
+    q_result = q_result["download_granules"]
+    print("+++++++++++++++++++++++++++++++++++++++++++++++")
+    # for r in q_result:
+    #    print(r["granule_id"])
+    q_result_dict = group_by_download_batch_id(q_result)
+    print(f'"{test_range}" :' + ' { ')
+    for k, v in q_result_dict.items():
+        print(f'"{k}": {len(v)},')
+    print('}')
+    print(len(q_result))
+    '''Looks like this  {"f26694_a149": 27,
+                         "f26694_a148": 27}'''
+    print("+++++++++++++++++++++++++++++++++++++++++++++++")
+
+    # Validation
+    validate_hour(q_result_dict, test_range, validation_data)
+
+def validate_hour(q_result_dict, test_range, validation_data):
     """Validate the number of files to be downloaded for a given hour"""
-    expected_files = validation_data[start_date.strftime(DT_FORMAT)]
+    expected_files = validation_data[test_range]
     expected_count = sum(expected_files.values())
     q_result_count = sum([len(l) for l in q_result_dict.values()])
-    logging.info(f"On datetime {start_date}, we should have {expected_count} files ready to download")
+    logging.info(f"For {test_range}, we should have {expected_count} files ready to download")
     assert q_result_count == expected_count
 
     for batch_id, count in expected_files.items():

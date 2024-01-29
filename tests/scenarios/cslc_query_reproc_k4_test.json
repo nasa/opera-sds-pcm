@@ -1,0 +1,20 @@
+{ "description": "This file specifies expected files to be downloaded in a DISP-S1 reprocessing scenario",
+  "comment": "Note that when we have a granule whose burst overlaps in two frames, we always choose the lower-number frame.",
+  "processing_mode": "reprocessing",
+  "k": 4,
+  "validation_data": {
+    "OPERA_L2_CSLC-S1_T093-197858-IW3_20231118T013640Z_20231119T073552Z_S1A_VV_v1.0": {
+      "f24733_a145": 27,
+      "f24733_a146": 27,
+      "f24733_a147": 27,
+      "f24733_a148": 27
+    },
+    "OPERA_L2_CSLC-S1_T093-197865-IW3_20231118T013700Z_20231119T080745Z_S1A_VV_v1.0": {
+      "f24733_a145": 27,
+      "f24733_a146": 27,
+      "f24733_a147": 27,
+      "f24733_a148": 27
+    }
+  }
+}
+

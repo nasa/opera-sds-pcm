@@ -58,11 +58,6 @@ class CmrQuery:
         granules = await self.query_cmr(args, token, cmr, settings, query_timerange, now)
         logger.info("CMR query FINISHED")
 
-        # Evaluate granules for additional catalog record and extend list if found: granules is MODIFIED in place
-        # Can only happen for RTC and CSLC files
-        # This also adds useful metdata to granule dicts
-        self.extend_additional_records(granules)
-
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
         granules = self.eliminate_duplicate_granules(granules)
 
