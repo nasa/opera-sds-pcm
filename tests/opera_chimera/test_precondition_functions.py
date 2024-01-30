@@ -663,6 +663,88 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147", rc_params[oc_const.INPUT_FILE_PATHS])
         self.assertIn("s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148", rc_params[oc_const.INPUT_FILE_PATHS])
 
+    def test_get_dswx_s1_inundated_vegetation_enabled(self):
+        """Unit tests for get_dswx_s1_inundated_vegetation_enabled() precondition function"""
+        # First test the case where dual-polarization is provided
+        context = {
+            "dataset_type": "L2_RTC_S1",
+            "product_metadata": {
+                "metadata": {
+                    "product_paths": {
+                        "L2_RTC_S1": [
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VH.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_VV.tif",
+                            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+                        ]
+                    }
+                }
+            }
+        }
+
+        # These are not used with get_dswx_s1_exclude_inundated_vegetation()
+        pge_config = {}
+        settings = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_dswx_s1_inundated_vegetation_enabled()
+
+        self.assertIn(oc_const.INUNDATED_VEGETATION_ENABLED, rc_params)
+        self.assertIsInstance(rc_params[oc_const.INUNDATED_VEGETATION_ENABLED], bool)
+
+        # For dual-pol, inundated vegetation SHOULD be enabled
+        self.assertTrue(rc_params[oc_const.INUNDATED_VEGETATION_ENABLED])
+
+        # Now try the single-pol case
+        context["product_metadata"]["metadata"]["product_paths"]["L2_RTC_S1"] = [
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_HH.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_HH.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_HH.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+        ]
+
+        rc_params = precondition_functions.get_dswx_s1_inundated_vegetation_enabled()
+
+        self.assertIn(oc_const.INUNDATED_VEGETATION_ENABLED, rc_params)
+        self.assertIsInstance(rc_params[oc_const.INUNDATED_VEGETATION_ENABLED], bool)
+
+        # For single-pol, inundated vegetation SHOULD NOT be enabled
+        self.assertFalse(rc_params[oc_const.INUNDATED_VEGETATION_ENABLED])
+
+        # Lastly, test the error case where no polarization files are provided
+        context["product_metadata"]["metadata"]["product_paths"]["L2_RTC_S1"] = [
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_17$146/OPERA_L2_RTC-S1_T012-023801-IW1_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_18$147/OPERA_L2_RTC-S1_T013-023802-IW2_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0_mask.tif",
+            "s3://opera-dev-rs-fwd/dswx_s1/MS_12_19$148/OPERA_L2_RTC-S1_T014-023803-IW3_20231019T121502Z_20231019T232415Z_S1A_30_v1.0.h5",
+        ]
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        with self.assertRaises(ValueError):
+            precondition_functions.get_dswx_s1_inundated_vegetation_enabled()
+
     def test_get_disp_s1_input_filepaths(self):
         """Unit tests for get_s3_input_filepaths() precondition function for disp-s1"""
         # Set up the arguments to OperaPreConditionFunctions

@@ -521,6 +521,51 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dswx_s1_inundated_vegetation_enabled(self):
+        """
+        Determines the setting for the inundated vegetation enabled flag for
+        DSWx-S1 processing, based on the set of input RTC granules to be processed.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths = metadata["product_paths"][dataset_type]
+
+        # Define a regex pattern to match and extract the polarization field from
+        # an RTC-S1 tif product filename
+        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV).tif")
+
+        # Filter out all products to just those with a polarization field in the
+        # filename
+        polarization_layers = filter(
+            lambda path: pattern.match(os.path.basename(path)), product_paths
+        )
+
+        # Reduce each product filename to just the polarization field value
+        available_polarizations = map(
+            lambda path: pattern.match(os.path.basename(path)).groupdict()['pol'],
+            list(polarization_layers)
+        )
+
+        # Reduce again to just the unique set of polarization fields
+        unique_polarizations = set(list(available_polarizations))
+
+        if len(unique_polarizations) == 0:
+            raise ValueError('No polarization fields parsed from input product set')
+
+        # Disable the inundated vegetation check if only a single polarization
+        # channel is available
+        rc_params[oc_const.INUNDATED_VEGETATION_ENABLED] = len(unique_polarizations) > 1
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_gpu_enabled(self):
         logger.info(
             "Calling {} pre-condition function".format(oc_const.GPU_ENABLED))

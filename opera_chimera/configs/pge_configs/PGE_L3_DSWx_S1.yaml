@@ -43,6 +43,7 @@ preconditions:
   - get_static_ancillary_files
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem
+  - get_dswx_s1_inundated_vegetation_enabled
   # TODO: enable if shoreline files are needed by DSWx-S1 SAS
   #- get_shoreline_shapefiles
 

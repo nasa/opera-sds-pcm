@@ -78,6 +78,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     INPUT_FILE_PATHS = "input_file_paths"
 
+    INUNDATED_VEGETATION_ENABLED = "inundated_vegetation_enabled"
+
     IONOSPHERE_FILES = "ionosphere_files"
 
     L2_CSLC_S1 = "L2_CSLC_S1"
