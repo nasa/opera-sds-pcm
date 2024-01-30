@@ -74,7 +74,7 @@ def _object_download_file_patch(self, Filename, ExtraArgs=None, Callback=None, C
     """Patch for the boto3.s3.inject.object_download_file function"""
     # Create a dummy file in the expected location to simulate download
     with open(Filename, 'w') as outfile:
-        outfile.write("fake ancillary data")
+        outfile.write("fake ancillary data\n__PATTERN1__\n__PATTERN2__")
 
 
 class MockCollectionManager:
@@ -889,6 +889,51 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
             self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
                              "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.1.0/algorithm_parameters_forward.yaml")
+
+    @patch.object(boto3.s3.inject, "object_download_file", _object_download_file_patch)
+    def test_instantiate_algorithm_parameters_template(self):
+        """
+        Unit tests for the instantiate_algorithm_parameters_template()
+        precondition function
+        """
+        pge_config = {
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE: {
+                oc_const.S3_BUCKET: "opera-ancillaries",
+                oc_const.S3_KEY: "algorithm_parameters/algorithm_parameters.yaml.tmpl",
+                oc_const.TEMPLATE_MAPPING: {
+                    "param1": "__PATTERN1__",
+                    "param2": "__PATTERN2__"
+                }
+            }
+        }
+
+        job_params = {
+            "param1": "value1",
+            "param2": "value2"
+        }
+
+        # These are not used with instantiate_algorithm_parameters_template()
+        context = {}
+        settings = {}
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.instantiate_algorithm_parameters_template()
+
+        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertTrue(os.path.exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+
+        with open(rc_params[oc_const.ALGORITHM_PARAMETERS], 'r') as infile:
+            instantiated_template = infile.read()
+
+        self.assertNotIn("__PATTERN1__", instantiated_template)
+        self.assertNotIn("__PATTERN2__", instantiated_template)
+        self.assertIn("value1", instantiated_template)
+        self.assertIn("value2", instantiated_template)
+
 
 if __name__ == "__main__":
     unittest.main()

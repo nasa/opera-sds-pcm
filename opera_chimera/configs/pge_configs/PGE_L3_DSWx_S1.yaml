@@ -44,6 +44,7 @@ preconditions:
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem
   - get_dswx_s1_inundated_vegetation_enabled
+  - instantiate_algorithm_parameters_template
   # TODO: enable if shoreline files are needed by DSWx-S1 SAS
   #- get_shoreline_shapefiles
 
@@ -63,9 +64,6 @@ set_daac_product_type:
 
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DSWx-S1
-  algorithm_parameters:
-    s3_bucket: "opera-ancillaries"
-    s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_gamma_0.3.yaml"
   mgrs_database_file:
     s3_bucket: "opera-ancillaries"
     s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
@@ -104,6 +102,12 @@ get_shoreline_shapefiles:
     - "GSHHS_f_L1.prj"
     - "GSHHS_f_L1.shp"
     - "GSHHS_f_L1.shx"
+
+instantiate_algorithm_parameters_template:
+  s3_bucket: "opera-ancillaries"
+  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_gamma_0.3.yaml.tmpl"
+  template_mapping:
+    inundated_vegetation_enabled: __INUNDATED_VEGETATION_ENABLED__
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:

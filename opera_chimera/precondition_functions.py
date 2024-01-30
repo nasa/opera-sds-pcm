@@ -10,7 +10,7 @@ import json
 import os
 import re
 import traceback
-import zipfile
+
 from datetime import datetime
 from pathlib import PurePath
 from typing import Dict, List
@@ -1291,6 +1291,69 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.WORLDCOVER_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def instantiate_algorithm_parameters_template(self):
+        """
+        Downloads a template algorithm parameters yaml file from S3, then
+        performs string replacement in memory to instantiate the template.
+        String replacement is determined by a pattern mapping associated with
+        the chimera configuration for this function.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        # Download the configured template file to disk so we can replace patterns
+        # in memory
+        s3_bucket = self._pge_config.get(
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
+        )
+
+        with open(output_filepath, 'r') as infile:
+            template_contents = infile.read()
+
+        instantiated_contents = template_contents
+
+        # Pull the mapping of parameters names to the template patterns to be
+        # replaced with said parameter's value
+        template_mappings = self._pge_config.get(
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.TEMPLATE_MAPPING)
+
+        # Replace each pattern with a job parameter value
+        for parameter, pattern in template_mappings.items():
+            try:
+                value = self._job_params[parameter]
+            except KeyError:
+                raise RuntimeError(f'No value for parameter {parameter} in _job_params')
+
+            logger.info(f'Replacing pattern {pattern} with value {value}')
+            instantiated_contents = instantiated_contents.replace(pattern, json.dumps(value))
+
+        # Strip the .tmpl suffix to derive the instantiated output filename
+        output_filepath = output_filepath.replace(".tmpl", "")
+
+        with open(output_filepath, 'w') as outfile:
+            outfile.write(instantiated_contents)
+
+        # Return path to the instantiated template so it can be written to the
+        # runconfig
+        rc_params = {
+            oc_const.ALGORITHM_PARAMETERS: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
