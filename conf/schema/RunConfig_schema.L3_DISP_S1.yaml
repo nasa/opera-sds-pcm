@@ -10,7 +10,7 @@ RunConfig:
         InputFilePaths: list(str(), min=1, required=True)
 
       DynamicAncillaryFilesGroup:
-        AncillaryFileMap: map(str(), key=str(), min=0)
+        AncillaryFileMap: map(key=str(), min=0)
 
       ProductPathGroup:
         OutputProductPath: str(required=True)
@@ -49,37 +49,41 @@ RunConfig:
         # Path to file containing SAS algorithm parameters.
         algorithm_parameters_file: str(required=True)
 
-        # Paths to existing Amplitude Dispersion files (1 per burst) for PS update calculation. If
-        # none provided, computed using the input SLC stack.
+        # Paths to existing Amplitude Dispersion files (1 per burst) for PS update calculation.
+        # If none provided, computed using the input SLC stack.
         amplitude_dispersion_files: list(str(), required=False, min=0)
 
-        # Paths to an existing Amplitude Mean files (1 per burst) for PS update calculation. If none
-        # provided, computed using the input SLC stack.
+        # Paths to an existing Amplitude Mean files (1 per burst) for PS update calculation.
+        # If none provided, computed using the input SLC stack.
         amplitude_mean_files: list(str(), required=False, min=0)
 
-        # Paths to the incidence/azimuth-angle files (1 per burst). If none provided, corrections
-        # using incidence/azimuth-angle are skipped.
-        geometry_files: list(str(), required=False, min=0)
+        # Paths to the CSLC static_layer files (1 per burst) with line-of-sight
+        # unit vectors. If none provided, corrections using CSLC static_layer are skipped.
+        static_layers_files: list(str(), required=False, min=0)
 
         # Optional Byte mask file used to ignore low correlation/bad data (e.g water mask).
         # Convention is 0 for no data/invalid, and 1 for good data. Dtype must be uint8.
         mask_file: str(required=False)
 
-        # Path to the DEM file covering full frame. If none provided, corrections using DEM are
-        # skipped.
+        # Path to the DEM file covering full frame. If none provided, corrections using
+        # DEM are skipped.
         dem_file: str(required=False)
 
-        # List of paths to TEC files (1 per date) in IONEX format for ionosphere correction. If none
-        # provided, ionosphere corrections are skipped.
-        tec_files: list(str(), required=False, min=0)
+        # List of paths to TEC files (1 per date) in IONEX format for ionosphere correction.
+        # If none provided, ionosphere corrections are skipped.
+        ionosphere_files: list(str(), required=False, min=0)
 
         # List of paths to troposphere weather model files (1 per date). If none provided,
         # troposphere corrections are skipped.
-        weather_model_files: list(str(), required=False, min=0)
+        troposphere_files: list(str(), required=False, min=0)
+
+      static_ancillary_file_group:
+        # JSON file containing the mapping from frame_id to frame/burst information
+        frame_to_burst_json: str(required=False)
 
       primary_executable:
         # Product type of the PGE.
-        product_type: enum('DISP_S1_SINGLE')
+        product_type: enum('DISP_S1_FORWARD', 'DISP_S1_HISTORICAL')
 
       product_path_group:
         # Directory where PGE will place results.
@@ -94,24 +98,28 @@ RunConfig:
         # Version of the product, in ‘<major>.<minor>’ format.
         product_version: str(required=True)
 
-        # Whether the SAS should output and save the Compressed SLCs in addition to the standard
-        # product output.
+        # Whether the SAS should output and save the Compressed SLCs in addition to
+        # the standard product output.
         save_compressed_slc: bool(required=True)
 
       worker_settings:
         # Whether to use GPU for processing (if available).
         gpu_enabled: bool(required=True)
 
-        # (For non-GPU) Number of cpu cores to use for Python multiprocessing. Uses
-        # `multiprocessing.cpu_count()` if not set.
+        # (For non-GPU) Number of cpu cores to use for Python multiprocessing.
+        # Uses `multiprocessing.cpu_count()` if not set.
         n_workers: int(required=False)
 
-        # Number of threads to use per worker. This sets the OMP_NUM_THREADS environment variable in
-        #   each python process.
+        # Number of threads to use per worker. This sets the OMP_NUM_THREADS
+        # environment variable in each python process.
         threads_per_worker: int(required=True)
 
-        # Size (in GB) of blocks of data to load at a time.
-        block_size_gb: num(required=True)
+        # If processing separate spatial bursts, number of bursts to run in
+        # parallel for wrapped-phase-estimation.
+        n_parallel_bursts: int(required=False)
+
+        # Size (rows, columns) of blocks of data to load at a time.
+        block_shape: list(num(), required=True)
 
       # Path to the output log file in addition to logging to stderr.
       log_file: str(required=True)

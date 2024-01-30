@@ -1,8 +1,8 @@
 {
   "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
-  "disk_usage":"300GB",
-  "soft_time_limit": 40000,
-  "time_limit": 40060,
+  "disk_usage":"600GB",
+  "soft_time_limit": 129600,
+  "time_limit": 129660,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/disp_s1:3.0.0-er.4.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.0-er.4.0.tar.gz",
+      "container_image_name": "opera_pge/disp_s1:3.0.0-er.5.1",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.0-er.5.1.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
@@ -48,7 +48,11 @@
       "destination": "context"
     },
     {
-      "name":"input_dataset_id",
+      "name": "processing_mode",
+      "destination": "context"
+    },
+    {
+      "name": "input_dataset_id",
       "destination": "context"
     },
     {

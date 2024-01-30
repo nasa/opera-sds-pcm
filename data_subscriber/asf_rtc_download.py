@@ -67,6 +67,12 @@ class AsfDaacRtcDownload(DaacDownload):
             product_urls = _to_urls(download)
 
         list_product_id_product_filepath = []
+
+        # Small hack: if product_urls is not a list, make it a list. This is used for CSLC downloads.
+        # TODO: Change this more upstream so that this hack is not needed
+        if not isinstance(product_urls, list):
+            product_urls = [product_urls]
+
         for product_url in product_urls:
             logger.info(f"Processing {product_url=}")
             product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))

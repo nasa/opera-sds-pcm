@@ -3,7 +3,7 @@ PGE-specific functions for use with the OPERA PGE Wrapper
 """
 import glob
 import os
-from os.path import basename, splitext
+from os.path import basename, dirname, splitext
 from typing import Dict
 
 from commons.logger import logger
@@ -126,43 +126,44 @@ def dswx_s1_lineage_metadata(context, work_dir):
 
 def disp_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DISP-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+
     lineage_metadata = []
 
-    sample_data_dir = os.path.join(work_dir, 'delivery_data_dolphin_small')
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    for s3_input_filepath in run_config["input_file_group"]["input_file_paths"]:
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
 
-    lineage_metadata.append(os.path.join(sample_data_dir, 'algorithm_parameters.yaml'))
+        if os.path.isdir(local_input_filepath):
+            lineage_metadata.extend(
+                [os.path.join(local_input_filepath, file_name)
+                 for file_name in os.listdir(local_input_filepath)]
+            )
+        else:
+            lineage_metadata.append(local_input_filepath)
 
-    cslc_data_dir = os.path.join(sample_data_dir, 'input_slcs')
+    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+                                  "static_layers_files", "ionosphere_files", "troposphere_files"):
+        for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
+            local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+            lineage_metadata.append(local_input_filepath)
 
-    # TODO: update paths as necessary as simple inputs are phased out
-    lineage_metadata.extend(
-        [os.path.join(cslc_data_dir, cslc_file)
-         for cslc_file in os.listdir(cslc_data_dir)]
+    # Copy the pre-downloaded ancillaries for this job to the pge input directory
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
+    local_mask_filepaths = glob.glob(os.path.join(work_dir, "*mask*.*"))
+    lineage_metadata.extend(local_mask_filepaths)
+
+    local_algorithm_parameters_filepath = os.path.join(
+        work_dir, basename(run_config["processing"]["algorithm_parameters"])
     )
+    lineage_metadata.append(local_algorithm_parameters_filepath)
 
-    ancillary_data_dir = os.path.join(sample_data_dir, 'dynamic_ancillary')
-
-    lineage_metadata.extend(
-        [os.path.join(ancillary_data_dir, ancillary)
-         for ancillary in os.listdir(ancillary_data_dir)
-         if os.path.isfile(os.path.join(ancillary_data_dir, ancillary))]
+    local_frame_database_filepath = os.path.join(
+        work_dir, basename(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
     )
-
-    geometry_files_dir = os.path.join(ancillary_data_dir, 'geometry_files')
-
-    lineage_metadata.extend(
-        [os.path.join(geometry_files_dir, ancillary)
-         for ancillary in os.listdir(geometry_files_dir)
-         if os.path.isfile(os.path.join(geometry_files_dir, ancillary))]
-    )
-
-    ps_files_dir = os.path.join(ancillary_data_dir, 'ps_files')
-
-    lineage_metadata.extend(
-        [os.path.join(ps_files_dir, ancillary)
-         for ancillary in os.listdir(ps_files_dir)
-         if os.path.isfile(os.path.join(ps_files_dir, ancillary))]
-    )
+    lineage_metadata.append(local_frame_database_filepath)
 
     return lineage_metadata
 
@@ -284,37 +285,47 @@ def update_disp_s1_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    cslc_data_prefix = os.path.join(work_dir, 'delivery_data_dolphin_small', 'input_slcs')
 
-    input_file_paths = run_config["input_file_group"]["input_file_paths"]
-    input_file_paths = list(map(lambda x: x.replace(cslc_data_prefix, container_home_prefix), input_file_paths))
+    # TODO: kludge, assumes input dir will always be named pge_input_dir
+    local_input_dir = os.path.join(work_dir, "pge_input_dir")
 
-    run_config["input_file_group"]["input_file_paths"] = input_file_paths
+    updated_input_file_paths = []
 
-    # TODO: update these once we move away from sample inputs
-    run_config["dynamic_ancillary_file_group"]["amplitude_dispersion_files"] = [
-        f'{container_home_prefix}/t087_185683_iw2_amp_dispersion.tif',
-        f'{container_home_prefix}/t087_185684_iw2_amp_dispersion.tif'
-    ]
-    run_config["dynamic_ancillary_file_group"]["amplitude_mean_files"] = [
-        f'{container_home_prefix}/t087_185683_iw2_amp_mean.tif',
-        f'{container_home_prefix}/t087_185684_iw2_amp_mean.tif'
-    ]
-    run_config["dynamic_ancillary_file_group"]["geometry_files"] = [
-        f'{container_home_prefix}/t087_185684_iw2_topo.h5',
-        f'{container_home_prefix}/t087_185683_iw2_topo.h5'
-    ]
-    run_config["dynamic_ancillary_file_group"]["mask_file"] = f'{container_home_prefix}/water_mask.tif'
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.tif'
-    run_config["dynamic_ancillary_file_group"]["tec_files"] = [
-        f'{container_home_prefix}/jplg0410.18i.Z',
-        f'{container_home_prefix}/jplg1970.18i.Z'
-    ]
-    run_config["dynamic_ancillary_file_group"]["weather_model_files"] = [
-        f'{container_home_prefix}/GMAO_tropo_20180210T000000_ztd.nc',
-        f'{container_home_prefix}/GMAO_tropo_20180716T000000_ztd.nc'
-    ]
+    for input_file_path in glob.glob(os.path.join(local_input_dir, "*.h5")):
+        updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
-    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameters.yaml'
+    run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
+
+    dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
+
+    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+                                  "static_layers_files", "ionosphere_files", "troposphere_files"):
+        dynamic_ancillary_file_group[dynamic_ancillary_key] = [
+            os.path.join(container_home_prefix, basename(input_file_path))
+            for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
+        ]
+
+    static_ancillary_file_group = run_config["static_ancillary_file_group"]
+
+    for static_ancillary_key in ("frame_to_burst_json",):
+        static_ancillary_file_group[static_ancillary_key] = os.path.join(
+            container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
+        )
+
+    if "dem_file" in run_config["dynamic_ancillary_file_group"]:
+        run_config["dynamic_ancillary_file_group"]["dem_file"] = (
+            os.path.join(container_home_prefix,
+                         os.path.basename(run_config["dynamic_ancillary_file_group"]["dem_file"]))
+        )
+
+    if "mask_file" in run_config["dynamic_ancillary_file_group"]:
+        run_config["dynamic_ancillary_file_group"]["mask_file"] = (
+            os.path.join(container_home_prefix,
+                         os.path.basename(run_config["dynamic_ancillary_file_group"]["mask_file"]))
+        )
+
+    run_config["processing"]["algorithm_parameters"] = (
+        os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters"]))
+    )
 
     return run_config

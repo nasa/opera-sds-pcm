@@ -407,6 +407,22 @@
           "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1/{id}"
         ]
       }
+    },
+    {
+      "ipath": "hysds::data/L2_CSLC_S1_COMPRESSED",
+      "level": "L2",
+      "type": "L2_CSLC_S1_COMPRESSED",
+      "match_pattern": "(?P<id>(compressed_(?P<burst_id>\\w{4}_\\w{6}_\\w{3})))_(?P<time_series_start_ts>\\d{8})_(?P<time_series_stop_ts>\\d{8})$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/CSLC_S1_COMPRESSED/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/CSLC_S1_COMPRESSED/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/CSLC_S1_COMPRESSED/{id}"
+        ]
+      }
     }
   ]
 }

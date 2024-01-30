@@ -17,6 +17,7 @@ from data_subscriber.query import CmrQuery
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
+from data_subscriber.url import determine_acquisition_cycle
 from geo.geo_util import does_bbox_intersect_region
 from rtc_utils import rtc_granule_regex
 
@@ -199,32 +200,6 @@ class RtcCmrQuery(CmrQuery):
             "success": succeeded,
             "fail": failed
         }
-
-
-def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id):
-    """RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
-    The cycle restarts periodically with some miniscule drift over time and the life of the mission."""
-    # RTC: Calculating the Collection Cycle Index (Part 1):
-    #  required constants
-    MISSION_EPOCH_S1A = dateutil.parser.isoparse("20190101T000000Z")  # set approximate mission start date
-    MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
-    MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
-    ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
-
-    # RTC: Calculating the Collection Cycle Index (Part 2):
-    #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
-    #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
-    burst_identification_number = int(burst_id.split(sep="-")[1])
-    instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
-    seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
-    acquisition_index = (
-                                seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
-                                    burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
-                        ) / ACQUISITION_CYCLE_DURATION_SECS
-
-    acquisition_cycle = round(acquisition_index)
-    return acquisition_cycle
-
 
 def update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids):
     # construct filters for evaluation

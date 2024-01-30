@@ -13,7 +13,7 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP
+from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
@@ -71,7 +71,7 @@ class DaacDownload:
         elif provider == "ASF-RTC":
             from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
             return AsfDaacRtcDownload(provider)
-        elif provider == "ASF-CSLC":
+        elif provider in ("ASF-CSLC", "CSLC"):
             from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
             return AsfDaacCslcDownload(provider)
 
@@ -79,29 +79,7 @@ class DaacDownload:
 
     async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
-        # This is a special case where we are being asked to download exactly one granule
-        # identified its unique id. In such case we shouldn't gather all pending downloads at all;
-        # simply find entries for that one granule
-        if args.batch_ids and len(args.batch_ids) == 1:
-            one_granule = args.batch_ids[0]
-            logger.info(f"Downloading files for the granule {one_granule}")
-            downloads = es_conn.get_download_granule_revision(one_granule)
-        else:
-            download_timerange = self.get_download_timerange(args)
-            all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-                dateutil.parser.isoparse(download_timerange.start_date),
-                dateutil.parser.isoparse(download_timerange.end_date),
-                args.use_temporal
-            )
-            logger.info(f"{len(list(all_pending_downloads))=}")
-
-            downloads = all_pending_downloads
-            if args.batch_ids:
-                logger.info(f"Filtering pending downloads by {args.batch_ids=}")
-                id_func = _to_batch_id if self.provider in ("LPCLOUD", "ASF-RTC", "ASF-CSLC") else _to_orbit_number
-                downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
-                logger.info(f"{len(downloads)=}")
-                logger.debug(f"{downloads=}")
+        downloads = self.get_downloads(args, es_conn)
 
         if not downloads:
             logger.info(f"No undownloaded files found in index.")
@@ -126,12 +104,39 @@ class DaacDownload:
 
         return product_to_product_filepaths_map
 
+    def get_downloads(self, args, es_conn):
+        # This is a special case where we are being asked to download exactly one granule
+        # identified its unique id. In such case we shouldn't gather all pending downloads at all;
+        # simply find entries for that one granule
+        if args.batch_ids and len(args.batch_ids) == 1:
+            one_granule = args.batch_ids[0]
+            logger.info(f"Downloading files for the granule {one_granule}")
+            downloads = es_conn.get_download_granule_revision(one_granule)
+        else:
+            download_timerange = self.get_download_timerange(args)
+            all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
+                dateutil.parser.isoparse(download_timerange.start_date),
+                dateutil.parser.isoparse(download_timerange.end_date),
+                args.use_temporal
+            )
+            logger.info(f"{len(list(all_pending_downloads))=}")
+
+            downloads = all_pending_downloads
+            if args.batch_ids:
+                logger.info(f"Filtering pending downloads by {args.batch_ids=}")
+                id_func = _to_batch_id if self.provider in ("LPCLOUD", "ASF-RTC", "ASF-CSLC") else _to_orbit_number
+                downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
+                logger.info(f"{len(downloads)=}")
+                logger.debug(f"{downloads=}")
+
+        return downloads
+
     def perform_download(self, session, es_conn, downloads, args, token, job_id):
         pass
 
     def get_download_timerange(self, args):
         start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
-        end_date = args.end_date if args.end_date else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_date = args.end_date if args.end_date else datetime.utcnow().strftime(CMR_TIME_FORMAT)
         download_timerange = DateTimeRange(start_date, end_date)
         logger.info(f"{download_timerange=}")
         return download_timerange
