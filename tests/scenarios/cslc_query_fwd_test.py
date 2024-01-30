@@ -37,7 +37,7 @@ if len(sys.argv) > 2 and sys.argv[2] == "clear":
     logging.info("Clearing CSLC index")
     es_conn.es.es.indices.delete(index="cslc_catalog-2024.01", ignore=[400, 404])
 
-disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
+disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
 def group_by_download_batch_id(granules):
     """Group granules by download batch id"""
