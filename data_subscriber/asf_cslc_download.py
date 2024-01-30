@@ -90,7 +90,9 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             }
         }
 
-        proc_mode_suffix = "_hist" if args.proc_mode == "historical" else ""
+        proc_mode_suffix = ""
+        if "proc_mode" in args and args.proc_mode == "historical":
+            proc_mode_suffix = "_hist"
 
         return try_submit_mozart_job(
             product=product,

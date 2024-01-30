@@ -3,10 +3,10 @@ from types import SimpleNamespace
 import json
 import boto3
 from pyproj import Transformer
+from util import datasets_json_util
 from util.conf_util import SettingsConf
 import re
-
-
+from data_subscriber.url import determine_acquisition_cycle
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 
@@ -56,8 +56,19 @@ def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
 
     return sorted_frame_data, burst_to_frame, metadata, version
 
-def parse_cslc_native_id(native_id, disp_burst_map):
-    pass
+def parse_cslc_native_id(native_id, burst_to_frame):
+    dataset_json = datasets_json_util.DatasetsJson()
+    cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
+    match_product_id = re.match(cslc_granule_regex, native_id)
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+    acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
+
+    # Determine acquisition cycle
+    acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, native_id)
+
+    frame_ids = burst_to_frame[burst_id]
+
+    return burst_id, acquisition_dts, acquisition_cycle, frame_ids
 
 def build_cslc_native_ids(frame, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
