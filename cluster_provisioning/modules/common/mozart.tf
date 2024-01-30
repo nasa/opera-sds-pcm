@@ -574,8 +574,8 @@ resource "aws_instance" "mozart" {
       cd ~/mozart/ops/opera-pcm
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
-	  pip install '.[audit]'
-	  pip install '.[cmr_audit]'
+      pip install '.[audit]'
+      pip install '.[cmr_audit]'
       pip install --progress-bar off -e .
     EOT
     ]
