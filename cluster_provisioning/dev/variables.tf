@@ -33,7 +33,7 @@ variable "pcm_commons_repo" {
 }
 
 variable "pcm_commons_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "product_delivery_repo" {
