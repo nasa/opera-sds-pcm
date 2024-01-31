@@ -220,6 +220,16 @@ class CslcCmrQuery(CmrQuery):
 
         return granules
 
+    def get_download_chunks(self, batch_id_to_urls_map):
+        '''For CSLC chunks we must group them by frame id'''
+        chunk_map = defaultdict(list)
+        for batch_chunk in batch_id_to_urls_map.items():
+            print(batch_chunk)
+            frame_id, _ = split_download_batch_id(batch_chunk[0])
+            chunk_map[frame_id].append(batch_chunk)
+            if (len(chunk_map[frame_id]) > self.args.k):
+                raise AssertionError("Number of download batches is greater than K. This should not be possible!")
+        return chunk_map.values()
 
     async def refresh_index(self):
         logger.info("performing index refresh")
