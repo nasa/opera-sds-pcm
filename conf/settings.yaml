@@ -40,6 +40,15 @@ MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/MGRS_tile_collection_v0.
 #  Must be a number in the closed interval [0, 99].
 DISP_S1_COVERAGE_TARGET: 99
 
+# Force DISP-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
+# This can be over-ridden by argument into daac_data_subsriber.py
+DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES: 210
+
+# The k-multiple by which the CSLC granules are queried from CMR at a time for DISP-S1 processing.
+# If k=4 and this multiple is 2 then the CSLC granules will be queried by 8 acquisition-cycles at a time, which would be
+# 8 * 12  = 96 days. We can tune this number to minimize CMR queries without adding undue load on CMR.
+DISP_S1_K_FETCH_MULTIPLE: 2
+
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:

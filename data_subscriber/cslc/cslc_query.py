@@ -22,6 +22,11 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
 
+        if "grace_mins" in args:
+            self.grace_mins = args.grace_mins
+        else:
+            self.grace_mins = settings["DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES"]
+
     def extend_additional_records(self, granules, no_duplicate=False, force_frame_id = None):
         """Add frame_id, burst_id, and acquisition_cycle to all granules.
         In forward  and re-processing modes, extend the granules with potentially additional records
@@ -101,18 +106,34 @@ class CslcCmrQuery(CmrQuery):
                 download_batch[granule["id"]] = granule
 
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
-        # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
-        # TODO Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
+        # Rule 1: If all granules for a given download_batch_id are present, download all granules for that batch
+        # Rule 2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
         # TODO Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
         download_granules = []
         for batch_id, download_batch in by_download_batch_id.items():
             logger.info(f"{batch_id=} {len(download_batch)=}")
             frame_id, acquisition_cycle = split_download_batch_id(batch_id)
             max_bursts = len(self.disp_burst_map[frame_id].burst_ids)
+            new_downloads = False
 
-            # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
-            if len(download_batch) == max_bursts:
-                logger.info(f"Download all granules for {batch_id}")
+            if len(download_batch) == max_bursts: # Rule 1
+                logger.info(f"Download all granules for {batch_id} because all granules are present")
+                new_downloads = True
+            else:
+                # Rule 2
+                min_creation_time = datetime.now()
+                for download in download_batch.values():
+                    if "creation_timestamp" in download:
+                        # creation_time looks like this: 2024-01-31T20:45:25.723945
+                        creation_time = datetime.strptime(download["creation_timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
+                        if creation_time < min_creation_time:
+                            min_creation_time = creation_time
+
+                if (datetime.now() - min_creation_time).total_seconds() / 60.0 > self.grace_mins:
+                    logger.info(f"Download all granules for {batch_id} because it's been {self.grace_mins} minutes since the first file was ingested")
+                    new_downloads = True
+
+            if new_downloads:
                 for download in download_batch.values():
                     download_granules.append(download)
 

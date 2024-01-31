@@ -69,7 +69,7 @@ async def run_query(validation_json):
         # Run in 1 hour increments from start date to end date
         while start_date < end_date:
             new_end_date = start_date + timedelta(hours=1)
-            current_args = query_arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+            current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
             await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
             start_date = new_end_date # To the next query time range
