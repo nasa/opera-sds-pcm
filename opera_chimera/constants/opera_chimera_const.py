@@ -78,6 +78,10 @@ class OperaChimeraConstants(ChimeraConstants):
 
     INPUT_FILE_PATHS = "input_file_paths"
 
+    INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE = "instantiate_algorithm_parameters_template"
+
+    INUNDATED_VEGETATION_ENABLED = "inundated_vegetation_enabled"
+
     IONOSPHERE_FILES = "ionosphere_files"
 
     L2_CSLC_S1 = "L2_CSLC_S1"
@@ -131,6 +135,8 @@ class OperaChimeraConstants(ChimeraConstants):
     STATIC_LAYERS_FILES = "static_layers_files"
 
     TEC_FILE = "tec_file"
+
+    TEMPLATE_MAPPING = "template_mapping"
 
     TROPOSPHERE_FILES = "troposphere_files"
 
