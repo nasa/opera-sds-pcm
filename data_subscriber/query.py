@@ -210,13 +210,14 @@ class CmrQuery:
             job_submission_tasks = self.submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange)
         return job_submission_tasks
 
+    def get_download_chunks(self, batch_id_to_urls_map):
+        return chunked(batch_id_to_urls_map.items(), n=self.args.chunk_size)
+
     def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange):
         job_submission_tasks = []
         logger.info(f"{self.args.chunk_size=}")
-        for batch_chunk in chunked(batch_id_to_urls_map.items(), n=self.args.chunk_size):
-            chunk_id = str(uuid.uuid4())
-            logger.info(f"{chunk_id=}")
 
+        for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
             chunk_batch_ids = []
             chunk_urls = []
             for batch_id, urls in batch_chunk:
