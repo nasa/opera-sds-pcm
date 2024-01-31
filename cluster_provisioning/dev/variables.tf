@@ -201,7 +201,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "r5.8xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     data          = "/data"
     data_dev      = "/dev/xvdb"
