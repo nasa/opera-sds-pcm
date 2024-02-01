@@ -33,7 +33,7 @@ variable "pcm_commons_repo" {
 }
 
 variable "pcm_commons_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "product_delivery_repo" {
@@ -201,7 +201,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "r5.8xlarge"
+    instance_type = "r6i.xlarge"
     root_dev_size = 50
     data          = "/data"
     data_dev      = "/dev/xvdb"
@@ -389,7 +389,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.1.0"
     "rtc_s1"   = "2.1.0"
-    "dswx_s1"  = "3.0.0-er.5.0"
+    "dswx_s1"  = "3.0.0-rc.1.0"
     "disp_s1"  = "3.0.0-er.5.1"
   }
 }

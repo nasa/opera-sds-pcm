@@ -175,7 +175,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.1.0"
     "rtc_s1"   = "2.1.0"
-    "dswx_s1"  = "3.0.0-er.5.0"
+    "dswx_s1"  = "3.0.0-rc.1.0"
     "disp_s1"  = "3.0.0-er.5.1"
   }
 }
@@ -185,27 +185,27 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "pcm_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "product_delivery_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "bach_api_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 variable "bach_ui_branch" {
-  default = "3.0.0-er.2.0"
+  default = "3.0.0-er.3.0"
 }
 
 ###### Roles ########

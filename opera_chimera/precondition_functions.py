@@ -10,7 +10,7 @@ import json
 import os
 import re
 import traceback
-import zipfile
+
 from datetime import datetime
 from pathlib import PurePath
 from typing import Dict, List
@@ -516,6 +516,51 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
             rc_params[dynamic_ancillary_map_name] = output_filepath
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_s1_inundated_vegetation_enabled(self):
+        """
+        Determines the setting for the inundated vegetation enabled flag for
+        DSWx-S1 processing, based on the set of input RTC granules to be processed.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths = metadata["product_paths"][dataset_type]
+
+        # Define a regex pattern to match and extract the polarization field from
+        # an RTC-S1 tif product filename
+        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV).tif")
+
+        # Filter out all products to just those with a polarization field in the
+        # filename
+        polarization_layers = filter(
+            lambda path: pattern.match(os.path.basename(path)), product_paths
+        )
+
+        # Reduce each product filename to just the polarization field value
+        available_polarizations = map(
+            lambda path: pattern.match(os.path.basename(path)).groupdict()['pol'],
+            list(polarization_layers)
+        )
+
+        # Reduce again to just the unique set of polarization fields
+        unique_polarizations = set(list(available_polarizations))
+
+        if len(unique_polarizations) == 0:
+            raise ValueError('No polarization fields parsed from input product set')
+
+        # Disable the inundated vegetation check if only a single polarization
+        # channel is available
+        rc_params[oc_const.INUNDATED_VEGETATION_ENABLED] = len(unique_polarizations) > 1
 
         logger.info(f"rc_params : {rc_params}")
 
@@ -1246,6 +1291,69 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.WORLDCOVER_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def instantiate_algorithm_parameters_template(self):
+        """
+        Downloads a template algorithm parameters yaml file from S3, then
+        performs string replacement in memory to instantiate the template.
+        String replacement is determined by a pattern mapping associated with
+        the chimera configuration for this function.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        # Download the configured template file to disk so we can replace patterns
+        # in memory
+        s3_bucket = self._pge_config.get(
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
+        )
+
+        with open(output_filepath, 'r') as infile:
+            template_contents = infile.read()
+
+        instantiated_contents = template_contents
+
+        # Pull the mapping of parameters names to the template patterns to be
+        # replaced with said parameter's value
+        template_mappings = self._pge_config.get(
+            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.TEMPLATE_MAPPING)
+
+        # Replace each pattern with a job parameter value
+        for parameter, pattern in template_mappings.items():
+            try:
+                value = self._job_params[parameter]
+            except KeyError:
+                raise RuntimeError(f'No value for parameter {parameter} in _job_params')
+
+            logger.info(f'Replacing pattern {pattern} with value {value}')
+            instantiated_contents = instantiated_contents.replace(pattern, json.dumps(value))
+
+        # Strip the .tmpl suffix to derive the instantiated output filename
+        output_filepath = output_filepath.replace(".tmpl", "")
+
+        with open(output_filepath, 'w') as outfile:
+            outfile.write(instantiated_contents)
+
+        # Return path to the instantiated template so it can be written to the
+        # runconfig
+        rc_params = {
+            oc_const.ALGORITHM_PARAMETERS: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
