@@ -163,15 +163,26 @@ def response_jsons_to_cmr_granules(args, response_jsons):
     }
 
     granules = []
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+        sv_attrs = {"SV_POSITION_PRE", "SV_POSITION_POST", "SV_VELOCITY_PRE", "SV_VELOCITY_POST"}
     for item in items:
+        granule_id = item["umm"].get("GranuleUR")
+        revision_id = item.get("meta").get("revision-id")
+
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+            additional_attrs = {attr_["Name"] for attr_ in item["umm"]["AdditionalAttributes"]}
+            if not sv_attrs < additional_attrs:
+                logger.info(f'Missing SV attributes. Ignoring CMR search result. SV attributes expected in subsequent revision of {granule_id=} {revision_id=}')
+                continue
+
         if item["umm"]["TemporalExtent"].get("RangeDateTime"):
             temporal_extent_beginning_datetime = item["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"]
         else:
             temporal_extent_beginning_datetime = item["umm"]["TemporalExtent"]["SingleDateTime"]
 
         granules.append({
-            "granule_id": item["umm"].get("GranuleUR"),
-            "revision_id": item.get("meta").get("revision-id"),
+            "granule_id": granule_id,
+            "revision_id": revision_id,
             "provider": item.get("meta").get("provider-id"),
             "production_datetime": item["umm"].get("DataGranule").get("ProductionDateTime"),
             "temporal_extent_beginning_datetime": temporal_extent_beginning_datetime,
@@ -190,7 +201,7 @@ def response_jsons_to_cmr_granules(args, response_jsons):
             ],
             "related_urls": [url_item.get("URL") for url_item in item["umm"].get("RelatedUrls")],
             "identifier": next(
-                attr.get("Values")[0]
+                attr["Values"][0]
                 for attr in item["umm"].get("AdditionalAttributes")
                 if attr.get("Name") == collection_identifier_map[args.collection]
             ) if args.collection in collection_identifier_map else None
