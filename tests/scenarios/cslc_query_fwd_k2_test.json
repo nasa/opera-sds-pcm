@@ -1,7 +1,6 @@
 { "description": "This file specifies expected files to be downloaded in a DISP-S1 forward processing scenario",
   "processing_mode": "forward",
   "k": 2,
-  "grace_mins": 5,
   "validation_data": {
     "2023-12-01T06:00:00Z": {},
     "2023-12-01T07:00:00Z": {},

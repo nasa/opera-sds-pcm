@@ -22,7 +22,7 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
 
-        if "grace_mins" in args:
+        if args.grace_mins:
             self.grace_mins = args.grace_mins
         else:
             self.grace_mins = settings["DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES"]

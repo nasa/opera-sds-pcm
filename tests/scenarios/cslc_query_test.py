@@ -32,10 +32,11 @@ token = supply_token(edl, username, password)
 es_conn = CSLCProductCatalog(logging.getLogger(__name__))
 
 # Clear the elasticsearch index if clear argument is passed
-# TODO: Improve the way it's being cleared so that we don't have to specify the year and month in index name
 if len(sys.argv) > 2 and sys.argv[2] == "clear":
-    logging.info("Clearing CSLC index")
-    es_conn.es.es.indices.delete(index="cslc_catalog-2024.01", ignore=[400, 404])
+    for index in es_conn.es.es.indices.get_alias(index="*").keys():
+        if "cslc_catalog" in index:
+            logging.info("Deleting index: " + index)
+            es_conn.es.es.indices.delete(index=index, ignore=[400, 404])
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
@@ -58,6 +59,7 @@ async def run_query(validation_json):
     cslc_k = j["k"]
     proc_mode = j["processing_mode"]
     validation_data = j["validation_data"]
+    sleep_map = j["sleep_seconds"]
 
     query_arguments.extend([f"--k={cslc_k}", f"--processing-mode={proc_mode}"])
 
@@ -68,6 +70,13 @@ async def run_query(validation_json):
 
         # Run in 1 hour increments from start date to end date
         while start_date < end_date:
+
+            # Sleep if this start_date is in the sleep map
+            if start_date.strftime(DT_FORMAT) in sleep_map:
+                sleep_seconds = sleep_map[start_date.strftime(DT_FORMAT)]
+                logging.info(f"Sleeping for {sleep_seconds} seconds")
+                sleep(sleep_seconds)
+
             new_end_date = start_date + timedelta(hours=1)
             current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
             await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
