@@ -129,9 +129,12 @@ class CslcCmrQuery(CmrQuery):
                         if creation_time < min_creation_time:
                             min_creation_time = creation_time
 
-                if (datetime.now() - min_creation_time).total_seconds() / 60.0 > self.grace_mins:
-                    logger.info(f"Download all granules for {batch_id} because it's been {self.grace_mins} minutes since the first file was ingested")
+                mins_since_first_ingest = (datetime.now() - min_creation_time).total_seconds() / 60.0
+                if mins_since_first_ingest > self.grace_mins:
+                    logger.info(f"Download all granules for {batch_id} because it's been {mins_since_first_ingest} minutes \
+since the first CSLC file for the batch was ingested which is greater than the grace period of {self.grace_mins} minutes")
                     new_downloads = True
+                    #print(batch_id, download_batch)
 
             if new_downloads:
                 for download in download_batch.values():
@@ -168,7 +171,7 @@ class CslcCmrQuery(CmrQuery):
 
                     granules = self.eliminate_duplicate_granules(granules)
                     self.catalog_granules(granules, datetime.now())
-                    print(f"{len(granules)=}")
+                    logger.info(f"{len(granules)=}")
                     #print(f"{granules=}")
                     download_granules.extend(granules)
 
@@ -245,11 +248,12 @@ class CslcCmrQuery(CmrQuery):
         '''For CSLC chunks we must group them by frame id'''
         chunk_map = defaultdict(list)
         for batch_chunk in batch_id_to_urls_map.items():
-            print(batch_chunk)
             frame_id, _ = split_download_batch_id(batch_chunk[0])
             chunk_map[frame_id].append(batch_chunk)
             if (len(chunk_map[frame_id]) > self.args.k):
                 raise AssertionError("Number of download batches is greater than K. This should not be possible!")
+            print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
+            print(frame_id, batch_chunk[0])
         return chunk_map.values()
 
     async def refresh_index(self):
