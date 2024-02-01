@@ -227,8 +227,6 @@ class CslcCmrQuery(CmrQuery):
             print(batch_chunk)
             frame_id, _ = split_download_batch_id(batch_chunk[0])
             chunk_map[frame_id].append(batch_chunk)
-            if (len(chunk_map[frame_id]) > self.args.k):
-                raise AssertionError("Number of download batches is greater than K. This should not be possible!")
         return chunk_map.values()
 
     async def refresh_index(self):
