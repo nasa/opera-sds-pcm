@@ -137,8 +137,8 @@ class RTCProductCatalog(HLSProductCatalog):
         for batch_id, products in batch_id_to_products_map.items():
             docs = product_docs = products
             doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
-            latest_production_datetime = max(docs, key=lambda doc: doc["production_datetime"])
-            latest_creation_timestamp = max(docs, key=lambda doc: doc["creation_timestamp"])
+            latest_production_datetime = max(docs, key=lambda doc: doc["production_datetime"])["production_datetime"]
+            latest_creation_timestamp = max(docs, key=lambda doc: doc["creation_timestamp"])["creation_timestamp"]
             for doc in docs:
                 index = last(
                     doc_id_to_index_cache[doc["id"]],
@@ -154,7 +154,7 @@ class RTCProductCatalog(HLSProductCatalog):
                         "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"],
                         "latest_dswx_s1_job_ts": dswx_s1_job_dts,
                         "latest_production_datetime": latest_production_datetime,
-                        "latest_creation_datetime": latest_creation_timestamp
+                        "latest_creation_timestamp": latest_creation_timestamp
                     }
                 }
                 operations.append(operation)
