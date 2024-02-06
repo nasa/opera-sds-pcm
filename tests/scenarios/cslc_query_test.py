@@ -59,7 +59,11 @@ async def run_query(validation_json):
     cslc_k = j["k"]
     proc_mode = j["processing_mode"]
     validation_data = j["validation_data"]
-    sleep_map = j["sleep_seconds"]
+
+    # Sleep map is optional
+    sleep_map = {}
+    if "sleep_seconds" in j:
+        sleep_map = j["sleep_seconds"]
 
     query_arguments.extend([f"--k={cslc_k}", f"--processing-mode={proc_mode}"])
 

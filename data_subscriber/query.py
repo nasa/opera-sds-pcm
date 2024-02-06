@@ -198,6 +198,7 @@ class CmrQuery:
                 else:
                     raise AssertionError(f"Can't use {self.args.collection=} to select grouping function.")
 
+                #print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", granule["download_batch_id"])
                 for filter_url in granule.get("filtered_urls"):
                     if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "CSLC":
                         batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)

@@ -87,7 +87,7 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode != "forward":
             return granules
 
-        # Get unsubmitted granules, which are ES records without download_job_id fields
+        # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
         await self.refresh_index()
         unsubmitted = self.es_conn.get_unsubmitted_granules()
 
@@ -102,8 +102,8 @@ class CslcCmrQuery(CmrQuery):
             by_download_batch_id[granule["download_batch_id"]][granule["unique_id"]] = granule
         for granule in unsubmitted:
             download_batch = by_download_batch_id[granule["download_batch_id"]]
-            if granule["id"] not in download_batch:
-                download_batch[granule["id"]] = granule
+            if granule["unique_id"] not in download_batch:
+                download_batch[granule["unique_id"]] = granule
 
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
         # Rule 1: If all granules for a given download_batch_id are present, download all granules for that batch
@@ -139,6 +139,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             if new_downloads:
                 for download in download_batch.values():
                     download_granules.append(download)
+                    #print("**********************************************************", download["download_batch_id"])
 
                 # Retrieve K- granules and M- compressed CSLCs for this batch
                 # Go back K- 12-day windows and find the same frame
@@ -252,8 +253,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
             chunk_map[frame_id].append(batch_chunk)
             if (len(chunk_map[frame_id]) > self.args.k):
                 raise AssertionError("Number of download batches is greater than K. This should not be possible!")
-            print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
-            print(frame_id, batch_chunk[0])
+            #print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
+            #print(frame_id, batch_chunk[0])
         return chunk_map.values()
 
     async def refresh_index(self):
