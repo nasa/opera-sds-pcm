@@ -219,14 +219,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         Derives the list of S3 paths to the ionosphere files to be used with a
         DISP-S1 job.
-
-        TODO: current a stub, implement once CSLC static layer files are downloaded
-              to s3 by query job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        metadata = self._context["product_metadata"]["metadata"]
+
+        ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
+
         rc_params = {
-            oc_const.IONOSPHERE_FILES: list()
+            oc_const.IONOSPHERE_FILES: ionosphere_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
