@@ -20,7 +20,7 @@ runconfig:
     amplitude_mean_files: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
     #mask_file: __CHIMERA_VAL__  # TODO: need to determine source of (global?) mask
-    #dem_file: __CHIMERA_VAL__  # TODO: need bounding box info from query job
+    dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
     troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
@@ -41,7 +41,6 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
-  #- set_sample_product_metadata  # TODO: remove after integration with CSLC query/download job
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
@@ -56,8 +55,8 @@ preconditions:
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
   - get_disp_s1_troposphere_files
+  - get_disp_s1_dem
   # TODO: to be implemented with further releases
-  #- get_disp_s1_dem  # TODO: need bounding box info from query job
   #- get_disp_s1_mask_file  # TODO: need to determine source of (global?) mask
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
