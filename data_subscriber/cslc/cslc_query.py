@@ -177,6 +177,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     download_granules.extend(granules)
 
             if (len(download_batch) > max_bursts):
+                logger.error(f"{len(download_batch)=} {max_bursts=}")
+                logger.error(f"{download_batch=}")
                 raise AssertionError("Something seriously went wrong matching up CSLC input granules!")
 
         logger.info(f"{len(download_granules)=}")
