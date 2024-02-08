@@ -87,6 +87,11 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode != "forward":
             return granules
 
+        current_time = datetime.now()
+
+        # This list is what is ultimately returned by this function
+        download_granules = []
+
         # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
         await self.refresh_index()
         unsubmitted = self.es_conn.get_unsubmitted_granules()
@@ -100,6 +105,20 @@ class CslcCmrQuery(CmrQuery):
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
         for granule in granules:
             by_download_batch_id[granule["download_batch_id"]][granule["unique_id"]] = granule
+
+        # Rule 3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
+        # If the download_batch_id of the granules we received had already been submitted,
+        # we need to submit them again with the new granules. We add both the new granules and the previously-submitted granules
+        # immediately to the download_granules list because we know for sure that we want to download them without additional reasoning.
+        for batch_id, download_batch in by_download_batch_id.items():
+            submitted = self.es_conn.get_submitted_granules(batch_id)
+            if len(submitted) > 0:
+                asdf
+                for download in download_batch.values():
+                    download_granules.append(download)
+                for granule in submitted:
+                    download_granules.append(granule)
+
         for granule in unsubmitted:
             download_batch = by_download_batch_id[granule["download_batch_id"]]
             if granule["unique_id"] not in download_batch:
@@ -108,8 +127,6 @@ class CslcCmrQuery(CmrQuery):
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
         # Rule 1: If all granules for a given download_batch_id are present, download all granules for that batch
         # Rule 2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
-        # TODO Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
-        download_granules = []
         for batch_id, download_batch in by_download_batch_id.items():
             logger.info(f"{batch_id=} {len(download_batch)=}")
             frame_id, acquisition_cycle = split_download_batch_id(batch_id)
@@ -121,7 +138,7 @@ class CslcCmrQuery(CmrQuery):
                 new_downloads = True
             else:
                 # Rule 2
-                min_creation_time = datetime.now()
+                min_creation_time = current_time
                 for download in download_batch.values():
                     if "creation_timestamp" in download:
                         # creation_time looks like this: 2024-01-31T20:45:25.723945
@@ -129,7 +146,7 @@ class CslcCmrQuery(CmrQuery):
                         if creation_time < min_creation_time:
                             min_creation_time = creation_time
 
-                mins_since_first_ingest = (datetime.now() - min_creation_time).total_seconds() / 60.0
+                mins_since_first_ingest = (current_time - min_creation_time).total_seconds() / 60.0
                 if mins_since_first_ingest > self.grace_mins:
                     logger.info(f"Download all granules for {batch_id} because it's been {mins_since_first_ingest} minutes \
 since the first CSLC file for the batch was ingested which is greater than the grace period of {self.grace_mins} minutes")
@@ -171,7 +188,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
 
                     granules = self.eliminate_duplicate_granules(granules)
-                    self.catalog_granules(granules, datetime.now())
+                    self.catalog_granules(granules, current_time)
                     logger.info(f"{len(granules)=}")
                     #print(f"{granules=}")
                     download_granules.extend(granules)

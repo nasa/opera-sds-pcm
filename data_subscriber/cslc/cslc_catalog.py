@@ -44,6 +44,7 @@ class CSLCProductCatalog(SLCProductCatalog):
         }
 
     def get_unsubmitted_granules(self):
+        '''Returns all records that do not have the download_job_id field set.'''
         downloads = self.es.query(
             index=self.ES_INDEX_PATTERNS,
             body={
@@ -56,6 +57,24 @@ class CSLCProductCatalog(SLCProductCatalog):
                 }
             }
         )
+        return self.filter_query_result(downloads)
+
+    def get_submitted_granules(self, download_batch_id):
+        '''Returns all records that match the download_batch_id that also have the download_job_id'''
+        downloads = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"download_batch_id": download_batch_id}},
+                            {"exists": {"field": "download_job_id"}}
+                        ]
+                    }
+                }
+            }
+        )
+
         return self.filter_query_result(downloads)
 
     def get_download_granule_revision(self, id):
