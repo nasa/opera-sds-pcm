@@ -152,6 +152,8 @@ class CslcCmrQuery(CmrQuery):
                     download_granules.extend(granules)
 
             if (len(download_batch) > max_bursts):
+                logger.error(f"{len(download_batch)=} {max_bursts=}")
+                logger.error(f"{download_batch=}")
                 raise AssertionError("Something seriously went wrong matching up CSLC input granules!")
 
         logger.info(f"{len(download_granules)=}")
@@ -227,8 +229,6 @@ class CslcCmrQuery(CmrQuery):
             print(batch_chunk)
             frame_id, _ = split_download_batch_id(batch_chunk[0])
             chunk_map[frame_id].append(batch_chunk)
-            if (len(chunk_map[frame_id]) > self.args.k):
-                raise AssertionError("Number of download batches is greater than K. This should not be possible!")
         return chunk_map.values()
 
     async def refresh_index(self):

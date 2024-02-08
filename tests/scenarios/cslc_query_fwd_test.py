@@ -22,7 +22,7 @@ This test requires a GRQ ES instance. Best to run this on a Mozart box in a func
 Set ASG Max of cslc_download worker to 0 to prevent it from running if that's desired."""
 
 # k comes from the input json file. We could parameterize other argments too if desired.
-query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--chunk-size=1"]#, "--no-schedule-download"]
+query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--chunk-size=1"]#, "--no-schedule-download"]
 base_args = daac_data_subscriber.create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
 cmr = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["BASE_URL"]
@@ -35,7 +35,7 @@ es_conn = CSLCProductCatalog(logging.getLogger(__name__))
 # TODO: Improve the way it's being cleared so that we don't have to specify the year and month in index name
 if len(sys.argv) > 2 and sys.argv[2] == "clear":
     logging.info("Clearing CSLC index")
-    es_conn.es.es.indices.delete(index="cslc_catalog-2024.01", ignore=[400, 404])
+    es_conn.es.es.indices.delete(index="cslc_catalog-2024.02", ignore=[400, 404])
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
@@ -69,15 +69,25 @@ async def run_query(validation_json):
         # Run in 1 hour increments from start date to end date
         while start_date < end_date:
             new_end_date = start_date + timedelta(hours=1)
-            current_args = query_arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+            current_args = query_arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z",
+                                              "--job-queue=opera-job_worker-cslc_data_download"]
             await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
             start_date = new_end_date # To the next query time range
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
-            current_args = query_arguments + [f"--native-id={native_id}"]
+            current_args = query_arguments + [f"--native-id={native_id}", "--job-queue=opera-job_worker-cslc_data_download"]
             await query_and_validate(current_args, native_id, validation_data)
+    elif (proc_mode == "historical"):
+        # Run one frame range at a time over the data date range
+        data_start_date = j["data_start_date"]
+        data_end_date = (datetime.strptime(data_start_date, DT_FORMAT) + timedelta(days=cslc_k * 12)).isoformat() + "Z"
+        for frame_range in validation_data.keys():
+            current_args = query_arguments + [f"--frame-range={frame_range}", "--job-queue=opera-job_worker-cslc_data_download_hist",
+                                              f"--start-date={data_start_date}", f"--end-date={data_end_date}",
+                                              "--use-temporal"]
+            await query_and_validate(current_args, frame_range, validation_data)
 
 async def query_and_validate(current_args, test_range, validation_data):
     print("Querying with args: " + " ".join(current_args))
