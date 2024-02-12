@@ -132,7 +132,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
 
-    if args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
         for granule in product_granules:
             granule["filtered_urls"] = _filter_slc_granules(granule)
 
