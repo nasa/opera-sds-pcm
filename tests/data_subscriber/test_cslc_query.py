@@ -14,7 +14,7 @@ hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=histo
 hist_args = daac_data_subscriber.create_parser().parse_args(hist_arguments)
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-
+disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist()
 
 @pytest.mark.skip
 def test_frame_range():
@@ -43,6 +43,13 @@ def test_burst_to_frame_map():
     assert burst_to_frame["T001-000792-IW1"] == [99]
     assert burst_to_frame["T001-000793-IW1"] == [99, 100]
 
+def test_arg_expansion_hist():
+    '''Test that the native_id field is expanded correctly for a given frame range'''
+    native_id = cslc_utils.build_cslc_native_ids(46800, disp_burst_map_hist)
+    #print("----------------------------------")
+    assert native_id == "OPERA_L2_CSLC-S1_T175-374393-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW3*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW3*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW3*"
+
+
 def test_extend_additional_records():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
     c_query = cslc_query.CslcCmrQuery(forward_args, None, None, None, None, None, cslc_utils.DISP_FRAME_BURST_MAP_JSON)
@@ -65,5 +72,5 @@ def test_download_batch_id():
     assert download_batch_id == "f7098_a145"
 
     # Test historical mode, forward works the same way
-    download_batch_id = cslc_utils.download_batch_id_hist(hist_args)
-    assert download_batch_id == "2021_01_24t23_00_00z_2021_01_24t23_00_00z_100"
+    download_batch_id = cslc_utils.download_batch_id_hist(hist_args, granule)
+    assert download_batch_id == "2021_01_24t23_00_00z_2021_01_24t23_00_00z_7098"
