@@ -78,6 +78,18 @@ def process(orbit_to_interval_to_products_map: dict, orbit_to_mbc_orbit_dfs_map:
                 r = {max(r, key=len)}  # reduce_to_largest_set
                 coverage_result_set_id_to_product_sets_map[coverage_group][mgrs_set_id] = r
 
+    # remove redundant sets across coverage groups. the above removes redundant sets within a single group
+    mgrs_set_id_to_sets_count_map = defaultdict(int)
+    for coverage_group in coverage_result_set_id_to_product_sets_map:
+        for mgrs_set_id in coverage_result_set_id_to_product_sets_map[coverage_group]:
+            mgrs_set_id_to_sets_count_map[mgrs_set_id] = 1 + mgrs_set_id_to_sets_count_map[mgrs_set_id]
+    for mgrs_set_id in mgrs_set_id_to_sets_count_map:
+        if mgrs_set_id_to_sets_count_map[mgrs_set_id] > 1:
+            for coverage_group in [coverage_group for coverage_group in sorted(coverage_result_set_id_to_product_sets_map, reverse=True) if coverage_group != 100]:
+                if mgrs_set_id in coverage_result_set_id_to_product_sets_map[coverage_group].keys():
+                    del coverage_result_set_id_to_product_sets_map[coverage_group][mgrs_set_id]
+                    mgrs_set_id_to_sets_count_map[mgrs_set_id] = -1 + mgrs_set_id_to_sets_count_map[mgrs_set_id]
+
     return dict(coverage_result_set_id_to_product_sets_map)
 
 

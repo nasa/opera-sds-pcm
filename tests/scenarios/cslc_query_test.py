@@ -22,7 +22,7 @@ This test requires a GRQ ES instance. Best to run this on a Mozart box in a func
 Set ASG Max of cslc_download worker to 0 to prevent it from running if that's desired."""
 
 # k comes from the input json file. We could parameterize other argments too if desired.
-query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--chunk-size=1"]#, "--no-schedule-download"]
+query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--chunk-size=1"]#, "--no-schedule-download"]
 base_args = daac_data_subscriber.create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
 cmr = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["BASE_URL"]
@@ -89,8 +89,17 @@ async def run_query(validation_json):
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
-            current_args = query_arguments + [f"--native-id={native_id}"]
+            current_args = query_arguments + [f"--native-id={native_id}", "--job-queue=opera-job_worker-cslc_data_download"]
             await query_and_validate(current_args, native_id, validation_data)
+    elif (proc_mode == "historical"):
+        # Run one frame range at a time over the data date range
+        data_start_date = j["data_start_date"]
+        data_end_date = (datetime.strptime(data_start_date, DT_FORMAT) + timedelta(days=cslc_k * 12)).isoformat() + "Z"
+        for frame_range in validation_data.keys():
+            current_args = query_arguments + [f"--frame-range={frame_range}", "--job-queue=opera-job_worker-cslc_data_download_hist",
+                                              f"--start-date={data_start_date}", f"--end-date={data_end_date}",
+                                              "--use-temporal"]
+            await query_and_validate(current_args, frame_range, validation_data)
 
 async def query_and_validate(current_args, test_range, validation_data):
     print("Querying with args: " + " ".join(current_args))

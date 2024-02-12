@@ -43,8 +43,8 @@ class CSLCProductCatalog(SLCProductCatalog):
             "revision_date": revision_date_dt
         }
 
-    def get_unsubmitted_granules(self):
-        '''Returns all records that do not have the download_job_id field set.'''
+    def get_unsubmitted_granules(self, processing_mode="forward"):
+        '''returns all unsubmitted granules, should be in forward processing mode only'''
         downloads = self.es.query(
             index=self.ES_INDEX_PATTERNS,
             body={
@@ -52,6 +52,9 @@ class CSLCProductCatalog(SLCProductCatalog):
                     "bool": {
                         "must_not": [
                             {"exists": {"field": "download_job_id"}}
+                        ],
+                        "must": [
+                            {"term": {"processing_mode": processing_mode}}
                         ]
                     }
                 }
