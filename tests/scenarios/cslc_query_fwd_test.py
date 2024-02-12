@@ -22,7 +22,7 @@ This test requires a GRQ ES instance. Best to run this on a Mozart box in a func
 Set ASG Max of cslc_download worker to 0 to prevent it from running if that's desired."""
 
 # k comes from the input json file. We could parameterize other argments too if desired.
-query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--job-queue=opera-job_worker-cslc_data_download", "--chunk-size=1"]#, "--no-schedule-download"]
+query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--chunk-size=1"]#, "--no-schedule-download"]
 base_args = daac_data_subscriber.create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
 cmr = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["BASE_URL"]
@@ -69,15 +69,26 @@ async def run_query(validation_json):
         # Run in 1 hour increments from start date to end date
         while start_date < end_date:
             new_end_date = start_date + timedelta(hours=1)
-            current_args = query_arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+            current_args = query_arguments + [f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z",
+                                              "--job-queue=opera-job_worker-cslc_data_download"]
             await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
             start_date = new_end_date # To the next query time range
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
-            current_args = query_arguments + [f"--native-id={native_id}"]
+            current_args = query_arguments + [f"--native-id={native_id}", "--job-queue=opera-job_worker-cslc_data_download"]
             await query_and_validate(current_args, native_id, validation_data)
+
+    elif (proc_mode == "historical"):
+        # Run by the frame range
+        for key in validation_data.keys():
+            frame_range, end_date = key.split(";")
+            start_date = datetime.strptime(end_date, DT_FORMAT) - timedelta(days=12 * cslc_k)
+            start_date = start_date.strftime(DT_FORMAT)
+            current_args = query_arguments + [f"--frame-range={frame_range}", f"--start-date={start_date}",
+                                              f"--end-date={end_date}", "--job-queue=opera-job_worker-cslc_data_download_hist"]
+            await query_and_validate(current_args, key, validation_data)
 
 async def query_and_validate(current_args, test_range, validation_data):
     print("Querying with args: " + " ".join(current_args))

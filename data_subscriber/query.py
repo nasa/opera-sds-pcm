@@ -227,7 +227,7 @@ class CmrQuery:
             logger.info(f"{chunk_batch_ids=}")
             logger.debug(f"{chunk_urls=}")
 
-            download_job_id = asyncio.get_event_loop().run_in_executor(
+            download_job_id = await asyncio.get_event_loop().run_in_executor(
                     executor=None,
                     func=partial(
                         submit_download_job,

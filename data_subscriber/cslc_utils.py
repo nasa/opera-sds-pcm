@@ -102,7 +102,7 @@ def build_cslc_native_ids(frame, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 
     native_ids = disp_burst_map[frame].burst_ids
-    return "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
+    return len(native_ids), "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
 
 def download_batch_id_hist(args, granule):
     """For historical processing mode, download_batch_id is a function of start_date, end_date, and frame_range

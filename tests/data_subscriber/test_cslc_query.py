@@ -14,7 +14,7 @@ hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=histo
 hist_args = daac_data_subscriber.create_parser().parse_args(hist_arguments)
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist()
+disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 @pytest.mark.skip
 def test_frame_range():
@@ -34,8 +34,9 @@ def test_split_download_batch_id():
 
 def test_arg_expansion():
     '''Test that the native_id field is expanded correctly for a given frame range'''
-    native_id = cslc_utils.build_cslc_native_ids(100, disp_burst_map)
+    l, native_id = cslc_utils.build_cslc_native_ids(100, disp_burst_map)
     #print("----------------------------------")
+    assert l == 27
     assert native_id == "OPERA_L2_CSLC-S1_T001-000793-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000793-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000793-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000794-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000794-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000794-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000795-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000795-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000795-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000796-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000796-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000796-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000797-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000797-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000797-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000798-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000798-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000798-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000799-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000799-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000799-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000800-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000800-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000800-IW3*&native-id[]=OPERA_L2_CSLC-S1_T001-000801-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000801-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000801-IW3*"
 
 def test_burst_to_frame_map():
@@ -45,14 +46,15 @@ def test_burst_to_frame_map():
 
 def test_arg_expansion_hist():
     '''Test that the native_id field is expanded correctly for a given frame range'''
-    native_id = cslc_utils.build_cslc_native_ids(46800, disp_burst_map_hist)
+    l, native_id = cslc_utils.build_cslc_native_ids(46800, disp_burst_map_hist)
     #print("----------------------------------")
+    assert l == 9
     assert native_id == "OPERA_L2_CSLC-S1_T175-374393-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW3*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW3*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW3*"
 
 
 def test_extend_additional_records():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
-    c_query = cslc_query.CslcCmrQuery(forward_args, None, None, None, None, None, cslc_utils.DISP_FRAME_BURST_MAP_JSON)
+    c_query = cslc_query.CslcCmrQuery(forward_args, None, None, None, None, None, cslc_utils.DISP_FRAME_BURST_MAP_JSON, cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
     granules = []
     granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0"}) # frame 7098
