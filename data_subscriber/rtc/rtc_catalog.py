@@ -137,6 +137,8 @@ class RTCProductCatalog(HLSProductCatalog):
         for batch_id, products in batch_id_to_products_map.items():
             docs = product_docs = products
             doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
+            latest_production_datetime = max(docs, key=lambda doc: doc["production_datetime"])["production_datetime"]
+            latest_creation_timestamp = max(docs, key=lambda doc: doc["creation_timestamp"])["creation_timestamp"]
             for doc in docs:
                 index = last(
                     doc_id_to_index_cache[doc["id"]],
@@ -150,7 +152,9 @@ class RTCProductCatalog(HLSProductCatalog):
                     "doc_as_upsert": True,
                     "doc": {
                         "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"],
-                        "latest_dswx_s1_job_ts": dswx_s1_job_dts
+                        "latest_dswx_s1_job_ts": dswx_s1_job_dts,
+                        "latest_production_datetime": latest_production_datetime,
+                        "latest_creation_timestamp": latest_creation_timestamp
                     }
                 }
                 operations.append(operation)
@@ -203,7 +207,8 @@ class RTCProductCatalog(HLSProductCatalog):
                 "https_urls": [url for url in urls if "https://" in url],
                 "s3_urls": [url for url in urls if "s3://" in url],
                 "mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0],
-                "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index
+                "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index,
+                "production_datetime": granule["production_datetime"]
             }
             doc.update(kwargs)
             index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
