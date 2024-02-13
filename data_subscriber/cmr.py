@@ -132,6 +132,10 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
 
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+        for granule in product_granules:
+            granule["filtered_urls"] = _filter_slc_granules(granule)
+
     return product_granules
 
 
@@ -217,6 +221,9 @@ def _filter_granules(granule, args):
         for extension in collection_to_extensions_filter_map.get(filter_extension_key)
         if url.endswith(extension)
     ]
+
+def _filter_slc_granules(granule):
+    return [url for url in granule["related_urls"] if "IW" in url]
 
 
 def _match_identifier(settings, args, granule) -> bool:
