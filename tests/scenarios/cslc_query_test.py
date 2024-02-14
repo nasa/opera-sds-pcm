@@ -1,18 +1,19 @@
-import random
+#!/usr/bin/env python3
+
 import asyncio
-import sys
 import json
-from time import sleep
-from datetime import datetime, timedelta
 import logging
-from pathlib import Path
 import netrc
-from util.conf_util import SettingsConf
-from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
-from data_subscriber import daac_data_subscriber, query, cslc_utils
-from data_subscriber.cslc import cslc_query
+import sys
+from datetime import datetime, timedelta
+
+from data_subscriber import cslc_utils
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_TIME_FORMAT
+from data_subscriber.cslc import cslc_query
+from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
+from data_subscriber.parser import create_parser
+from util.conf_util import SettingsConf
 
 DT_FORMAT = CMR_TIME_FORMAT
 
@@ -23,7 +24,7 @@ Set ASG Max of cslc_download worker to 0 to prevent it from running if that's de
 
 # k comes from the input json file. We could parameterize other argments too if desired.
 query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--chunk-size=1"]#, "--no-schedule-download"]
-base_args = daac_data_subscriber.create_parser().parse_args(query_arguments)
+base_args = create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
 cmr = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["BASE_URL"]
 edl = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["EARTHDATA_LOGIN"]
@@ -105,7 +106,7 @@ async def run_query(validation_json):
 
 async def query_and_validate(current_args, test_range, validation_data):
     print("Querying with args: " + " ".join(current_args))
-    args = daac_data_subscriber.create_parser().parse_args(current_args)
+    args = create_parser().parse_args(current_args)
     c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
                                       cslc_utils.DISP_FRAME_BURST_MAP_JSON)
     q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
