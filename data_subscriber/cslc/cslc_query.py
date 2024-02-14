@@ -171,7 +171,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     logger.info(f"Retrieving K-1 granules")
 
                     # Add native-id condition in args
-                    native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+                    l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
                     args.native_id = native_id
                     logger.info(f"{args.native_id=}")
 
@@ -239,7 +239,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             timerange = DateTimeRange(start_date, end_date)
             args.use_temporal = True
             logger.info(f"Querying CMR for frame {frame_id}")
-            native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+            l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
             args.native_id = native_id  # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
             granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
 
