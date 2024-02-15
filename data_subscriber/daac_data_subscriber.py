@@ -17,16 +17,25 @@ from smart_open import open
 import data_subscriber
 from commons.logger import NoJobUtilsFilter, NoBaseFilter
 from data_subscriber.aws_token import supply_token
-from data_subscriber.cmr import Provider, COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.cmr import (ProductType,
+                                 Provider,
+                                 COLLECTION_TO_PROVIDER_TYPE_MAP,
+                                 COLLECTION_TO_PRODUCT_TYPE_MAP)
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
+from data_subscriber.cslc.cslc_query import CslcCmrQuery
 from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
+from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.download import run_download
+from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
+from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.parser import create_parser, validate_args
-from data_subscriber.query import update_url_index, run_query
+from data_subscriber.query import update_url_index
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
+from data_subscriber.rtc.rtc_query import RtcCmrQuery
 from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.slc.slc_query import SlcCmrQuery
 from data_subscriber.survey import run_survey
 from rtc_utils import rtc_product_file_revision_regex
 from util.aws_util import concurrent_s3_client_try_upload_file
@@ -97,6 +106,25 @@ async def run(argv: list[str]):
     logger.info("END")
 
     return results
+
+
+async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.HLS:
+        cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.SLC:
+        cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
+        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC:
+        cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC_STATIC:
+        cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    else:
+        raise ValueError(f'Unknown collection type "{args.collection}" provided')
+
+    result = await cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
+
+    return result
 
 
 async def run_rtc_download(args, token, es_conn, netloc, username, password, job_id):
