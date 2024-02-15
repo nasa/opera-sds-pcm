@@ -17,7 +17,7 @@ from smart_open import open
 import data_subscriber
 from commons.logger import NoJobUtilsFilter, NoBaseFilter
 from data_subscriber.aws_token import supply_token
-from data_subscriber.cmr import CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.cmr import Provider, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
@@ -86,10 +86,10 @@ async def run(argv: list[str]):
     if args.subparser_name == "download" or args.subparser_name == "full":
         netloc = urlparse(f"https://{edl}").netloc
 
-        if args.provider == "ASF-RTC":
+        if args.provider == Provider.ASF_RTC:
             results["download"] = await run_rtc_download(args, token, es_conn, netloc, username, password, job_id)
         else:
-            results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)  # return None
+            results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)
 
     logger.info(f"{len(results)=}")
     logger.debug(f"{results=}")
@@ -114,6 +114,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
     # convert to "batch_id" mapping
     batch_id_to_products_map = {}
+
     for affected_mgrs_set_id_acquisition_ts_cycle_index in affected_mgrs_set_id_acquisition_ts_cycle_indexes:
         es_docs = es_conn.filter_catalog_by_sets([affected_mgrs_set_id_acquisition_ts_cycle_index])
         batch_id_to_products_map[affected_mgrs_set_id_acquisition_ts_cycle_index] = es_docs
@@ -130,6 +131,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
     uploaded_batch_id_to_products_map = {}
     uploaded_batch_id_to_s3paths_map = {}
+
     for batch_id, product_burstset in batch_id_to_products_map.items():
         args_for_downloader = Namespace(provider=provider, batch_ids=[batch_id])
         downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
@@ -148,6 +150,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
         logger.info(f"Uploading MGRS burst set files to S3")
         burst_id_to_files_to_upload = defaultdict(set)
+
         for product_id, fp_set in product_to_product_filepaths_map.items():
             for fp in fp_set:
                 match_product_id = re.match(rtc_product_file_revision_regex, product_id)
@@ -155,6 +158,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
                 burst_id_to_files_to_upload[burst_id].add(fp)
 
         s3paths: list[str] = []
+
         for burst_id, filepaths in burst_id_to_files_to_upload.items():
             s3paths.extend(
                 concurrent_s3_client_try_upload_file(
@@ -168,12 +172,14 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         uploaded_batch_id_to_s3paths_map[batch_id] = s3paths
 
         logger.info(f"Submitting MGRS burst set download job {batch_id=}, num_bursts={len(product_burstset)}")
+
         # create args for job-submissions
         args_for_job_submitter = namedtuple(
             "Namespace",
             ["chunk_size", "release_version"],
             defaults=[1, args.release_version]
         )()
+
         if args.dry_run:
             logger.info(f"{args.dry_run=}. Skipping job submission. Producing mock job ID")
             results = [uuid.uuid4()]
@@ -183,6 +189,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
         suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
         failed_batch = [e for e in results if isinstance(e, Exception)]
+
         if suceeded_batch:
             for product in uploaded_batch_id_to_products_map[batch_id]:
                 if not product.get("dswx_s1_jobs_ids"):
@@ -192,7 +199,6 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
             if args.dry_run:
                 logger.info(f"{args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
-                pass
             else:
                 es_conn.mark_products_as_job_submitted({batch_id: uploaded_batch_id_to_products_map[batch_id]})
 
@@ -202,6 +208,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
             # manual cleanup since we needed to preserve downloads for manual s3 uploads
             for fp in chain.from_iterable(burst_id_to_files_to_upload.values()):
                 fp.unlink(missing_ok=True)
+
             logger.info("Removed downloads from disk")
 
     return {
@@ -211,14 +218,17 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
 
 def supply_es_conn(args):
-    provider = CMR_COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection] if hasattr(args, "collection") else args.provider
-    if provider == "LPCLOUD":
+    provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+                if hasattr(args, "collection")
+                else args.provider)
+
+    if provider == Provider.LPCLOUD:
         es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
-    elif provider in ("ASF", "ASF-SLC"):
+    elif provider in (Provider.ASF, Provider.ASF_SLC):
         es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
-    elif provider == "ASF-RTC":
+    elif provider == Provider.ASF_RTC:
         es_conn = RTCProductCatalog(logging.getLogger(__name__))
-    elif provider == "ASF-CSLC":
+    elif provider == Provider.ASF_CSLC:
         es_conn = CSLCProductCatalog(logging.getLogger(__name__))
     else:
         raise AssertionError(f"Unsupported {provider=}")

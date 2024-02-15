@@ -11,7 +11,7 @@ from pathlib import Path
 import dateutil.parser
 from more_itertools import first, last
 
-from data_subscriber.cmr import async_query_cmr, CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.cmr import async_query_cmr, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from data_subscriber.query import CmrQuery
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
@@ -155,7 +155,7 @@ class RtcCmrQuery(CmrQuery):
 
         if args.subparser_name == "full":
             logger.info(f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
-            args.provider = CMR_COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+            args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
             args.batch_ids = affected_mgrs_set_id_acquisition_ts_cycle_indexes
             return
         if args.no_schedule_download:
