@@ -47,33 +47,33 @@ class ProductType(str, Enum):
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 COLLECTION_TO_PROVIDER_MAP = {
-    Collection.HLSL30: Provider.LPCLOUD,
-    Collection.HLSS30: Provider.LPCLOUD,
-    Collection.S1A_SLC: Provider.ASF,
-    Collection.S1B_SLC: Provider.ASF,
-    Collection.RTC_S1_V1: Provider.ASF,
-    Collection.CSLC_S1_V1: Provider.ASF,
-    Collection.CSLC_S1_STATIC_V1: Provider.ASF
+    Collection.HLSL30: Provider.LPCLOUD.value,
+    Collection.HLSS30: Provider.LPCLOUD.value,
+    Collection.S1A_SLC: Provider.ASF.value,
+    Collection.S1B_SLC: Provider.ASF.value,
+    Collection.RTC_S1_V1: Provider.ASF.value,
+    Collection.CSLC_S1_V1: Provider.ASF.value,
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF.value
 }
 
 COLLECTION_TO_PROVIDER_TYPE_MAP = {
-    Collection.HLSL30: Provider.LPCLOUD,
-    Collection.HLSS30: Provider.LPCLOUD,
-    Collection.S1A_SLC: Provider.ASF,
-    Collection.S1B_SLC: Provider.ASF,
-    Collection.RTC_S1_V1: Provider.ASF_RTC,
-    Collection.CSLC_S1_V1: Provider.ASF_CSLC,
-    Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC
+    Collection.HLSL30: Provider.LPCLOUD.value,
+    Collection.HLSS30: Provider.LPCLOUD.value,
+    Collection.S1A_SLC: Provider.ASF.value,
+    Collection.S1B_SLC: Provider.ASF.value,
+    Collection.RTC_S1_V1: Provider.ASF_RTC.value,
+    Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
-    Collection.HLSL30: ProductType.HLS,
-    Collection.HLSS30: ProductType.HLS,
-    Collection.S1A_SLC: ProductType.SLC,
-    Collection.S1B_SLC: ProductType.SLC,
-    Collection.RTC_S1_V1: ProductType.RTC,
-    Collection.CSLC_S1_V1: ProductType.CSLC,
-    Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC
+    Collection.HLSL30: ProductType.HLS.value,
+    Collection.HLSS30: ProductType.HLS.value,
+    Collection.S1A_SLC: ProductType.SLC.value,
+    Collection.S1B_SLC: ProductType.SLC.value,
+    Collection.RTC_S1_V1: ProductType.RTC.value,
+    Collection.CSLC_S1_V1: ProductType.CSLC.value,
+    Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value
 }
 
 COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
