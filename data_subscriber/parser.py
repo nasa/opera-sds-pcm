@@ -3,11 +3,13 @@
 import argparse
 from datetime import datetime
 
-from data_subscriber.cmr import CMR_TIME_FORMAT
-
+from data_subscriber.cmr import (Collection,
+                                 Endpoint,
+                                 Provider,
+                                 CMR_TIME_FORMAT)
 
 def create_parser():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
     verbose = {"positionals": ["-v", "--verbose"],
@@ -22,30 +24,23 @@ def create_parser():
 
     endpoint = {"positionals": ["--endpoint"],
                 "kwargs": {"dest": "endpoint",
-                           "choices": ["OPS", "UAT"],
-                           "default": "OPS",
-                           "help": "Specify DAAC endpoint to use. Defaults to OPS."}}
+                           "choices": [endpoint.value for endpoint in Endpoint],
+                           "default": Endpoint.OPS.value,
+                           "help": "Specify the DAAC endpoint to use."}}
 
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
-                           "choices": ["LPCLOUD", "ASF", "ASF-SLC", "ASF-RTC", "ASF-CSLC"],
-                           "default": "LPCLOUD",
-                           "help": "Specify a provider for collection search. Default is LPCLOUD."}}
+                           "choices": [provider.value for provider in Provider],
+                           "default": Provider.LPCLOUD.value,
+                           "help": "Specify a provider for collection search."}}
 
     collection = {
         "positionals": ["-c", "--collection-shortname"],
         "kwargs": {
             "dest": "collection",
-            "choices": [
-                "HLSL30",
-                "HLSS30",
-                "SENTINEL-1A_SLC",
-                "SENTINEL-1B_SLC",
-                "OPERA_L2_RTC-S1_V1",
-                "OPERA_L2_CSLC-S1_V1"
-            ],
+            "choices": [collection.value for collection in Collection],
             "required": True,
-            "help": "The collection shortname for which you want to retrieve data."
+            "help": "The collection shortname to retrieve data for."
         }
     }
 
@@ -72,7 +67,7 @@ def create_parser():
                                "Due to an issue with parsing arguments, "
                                "to use this command, please use the "
                                "-b=\"-180,-90,180,90\" syntax when calling from "
-                               "the command line. Default: \"-180,-90,180,90\"."}}
+                               "the command line."}}
 
     minutes = {"positionals": ["-m", "--minutes"],
                "kwargs": {"dest": "minutes",
@@ -81,8 +76,7 @@ def create_parser():
                           "help": "How far back in time, in minutes, should the "
                                   "script look for data. If running this "
                                   "script as a cron, this value should be equal "
-                                  "to or greater than how often your "
-                                  "cron runs (default: 60 minutes)."}}
+                                  "to or greater than how often your cron runs."}}
 
     dry_run = {"positionals": ["--dry-run"],
                "kwargs": {"dest": "dry_run",
@@ -198,20 +192,20 @@ def create_parser():
     step_hours = {"positionals": ["--step-hours"],
                            "kwargs": {"dest": "step_hours",
                             "default": 1,
-                            "help": "Number of hours to step for each survey "
-                                    "iteration"}}
+                            "help": "Number of hours to step for each survey iteration."}}
 
     out_csv = {"positionals": ["--out-csv"],
                            "kwargs": {"dest": "out_csv",
                             "default": "cmr_survey.csv",
-                            "help": "Specify name of the output CSV file"}}
+                            "help": "Specify name of the output CSV file."}}
 
     transfer_protocol = {"positionals": ["-x", "--transfer-protocol"],
                "kwargs": {"dest": "transfer_protocol",
                           "choices": ["s3", "https", "auto"],
                           "default": "auto",
+                          "type": str.lower,
                           "help": "The protocol used for retrieving data, "
-                                  "HTTPS or S3 or AUTO, default of auto"}}
+                                  "HTTPS or S3 or AUTO."}}
 
     param_dswx_s1_coverage_target = {"positionals": ["--coverage-target"],
                                      "kwargs": {"dest": "coverage_target",
@@ -221,14 +215,16 @@ def create_parser():
     parser_arg_list = [verbose, file]
     _add_arguments(parser, parser_arg_list)
 
-    survey_parser = subparsers.add_parser("survey")
+    survey_parser = subparsers.add_parser("survey",
+                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     survey_parser_arg_list = [verbose, endpoint, provider, collection,
                               start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, frame_range, use_temporal,
                               temporal_start_date, step_hours, out_csv]
     _add_arguments(survey_parser, survey_parser_arg_list)
 
-    full_parser = subparsers.add_parser("full")
+    full_parser = subparsers.add_parser("full",
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
                             bbox, minutes, dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
@@ -237,7 +233,8 @@ def create_parser():
                             exclude_regions, proc_mode, param_dswx_s1_coverage_target]
     _add_arguments(full_parser, full_parser_arg_list)
 
-    query_parser = subparsers.add_parser("query")
+    query_parser = subparsers.add_parser("query",
+                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
                              bbox, minutes, k, m, coverage_percent, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
@@ -247,7 +244,8 @@ def create_parser():
                              param_dswx_s1_coverage_target]
     _add_arguments(query_parser, query_parser_arg_list)
 
-    download_parser = subparsers.add_parser("download")
+    download_parser = subparsers.add_parser("download",
+                                            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider,
                                 batch_ids, start_date, end_date, use_temporal,
                                 temporal_start_date, transfer_protocol, release_version]
