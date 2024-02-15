@@ -23,6 +23,7 @@ class Collection(str, Enum):
     S1B_SLC = "SENTINEL-1B_SLC"
     RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
+    CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
 
 class Endpoint(str, Enum):
     OPS = "OPS"
@@ -34,12 +35,14 @@ class Provider(str, Enum):
     ASF_SLC = "ASF-SLC"
     ASF_RTC = "ASF-RTC"
     ASF_CSLC = "ASF-CSLC"
+    ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
 
 class ProductType(str, Enum):
     HLS = "HLS"
     SLC = "SLC"
     RTC = "RTC"
     CSLC = "CSLC"
+    CSLC_STATIC = "CSLC_STATIC"
 
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -49,7 +52,8 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.S1A_SLC: Provider.ASF,
     Collection.S1B_SLC: Provider.ASF,
     Collection.RTC_S1_V1: Provider.ASF,
-    Collection.CSLC_S1_V1: Provider.ASF
+    Collection.CSLC_S1_V1: Provider.ASF,
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF
 }
 
 COLLECTION_TO_PROVIDER_TYPE_MAP = {
@@ -58,7 +62,8 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.S1A_SLC: Provider.ASF,
     Collection.S1B_SLC: Provider.ASF,
     Collection.RTC_S1_V1: Provider.ASF_RTC,
-    Collection.CSLC_S1_V1: Provider.ASF_CSLC
+    Collection.CSLC_S1_V1: Provider.ASF_CSLC,
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
@@ -67,7 +72,8 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.S1A_SLC: ProductType.SLC,
     Collection.S1B_SLC: ProductType.SLC,
     Collection.RTC_S1_V1: ProductType.RTC,
-    Collection.CSLC_S1_V1: ProductType.CSLC
+    Collection.CSLC_S1_V1: ProductType.CSLC,
+    Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC
 }
 
 COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
@@ -77,6 +83,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.S1B_SLC: ["zip"],
     Collection.RTC_S1_V1: ["tif", "h5"],
     Collection.CSLC_S1_V1: ["h5"],
+    Collection.CSLC_S1_STATIC_V1: ["h5"],
     "DEFAULT": ["tif", "h5"]
 }
 
