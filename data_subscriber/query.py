@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import asyncio
 import logging
 import uuid
@@ -13,9 +15,16 @@ from data_subscriber.cmr import (async_query_cmr,
                                  ProductType,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
-from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions, download_from_s3
+from data_subscriber.cslc.cslc_query import CslcCmrQuery
+from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.geojson_utils import (localize_include_exclude,
+                                           filter_granules_by_regions,
+                                           download_from_s3)
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
+from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
+from data_subscriber.rtc.rtc_query import RtcCmrQuery
+from data_subscriber.slc.slc_query import SlcCmrQuery
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
@@ -26,17 +35,15 @@ DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.HLS:
-        from data_subscriber.hls.hls_query import HlsCmrQuery
         cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.SLC:
-        from data_subscriber.slc.slc_query import SlcCmrQuery
         cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
-        from data_subscriber.rtc.rtc_query import RtcCmrQuery
         cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC:
-        from data_subscriber.cslc.cslc_query import CslcCmrQuery
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC_STATIC:
+        cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
@@ -199,6 +206,8 @@ class CmrQuery:
                     # For CSLC force chunk_size to be the same as k in args
                     if self.args.k:
                         self.args.chunk_size = self.args.k
+                elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC_STATIC:
+                    url_grouping_func = form_batch_id
                 else:
                     raise ValueError(f"Can't use {self.args.collection=} to select grouping function.")
 
