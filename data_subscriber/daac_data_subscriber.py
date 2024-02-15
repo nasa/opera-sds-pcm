@@ -19,6 +19,7 @@ from commons.logger import NoJobUtilsFilter, NoBaseFilter
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import Provider, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
+from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.parser import create_parser, validate_args
@@ -230,8 +231,10 @@ def supply_es_conn(args):
         es_conn = RTCProductCatalog(logging.getLogger(__name__))
     elif provider == Provider.ASF_CSLC:
         es_conn = CSLCProductCatalog(logging.getLogger(__name__))
+    elif provider == Provider.ASF_CSLC_STATIC:
+        es_conn = CSLCStaticProductCatalog(logging.getLogger(__name__))
     else:
-        raise AssertionError(f"Unsupported {provider=}")
+        raise ValueError(f'Unsupported provider "{provider}"')
 
     return es_conn
 
