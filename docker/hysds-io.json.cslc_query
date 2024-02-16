@@ -69,6 +69,14 @@
       "optional": true
     },
     {
+      "name": "grace_mins",
+      "from": "submitter",
+      "placeholder": "e.g. --grace-mins=<grace_mins>",
+      "type": "text",
+      "default": "--grace-mins=120",
+      "optional": true
+    },
+    {
       "name": "smoke_run",
       "from": "submitter",
       "placeholder": "e.g. --smoke-run",

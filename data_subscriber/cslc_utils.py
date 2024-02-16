@@ -9,17 +9,45 @@ import re
 from data_subscriber.url import determine_acquisition_cycle
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
+DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-constent-burst-ids.json'
 
-def localize_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
+# Seems a bit silly but need this class to match the interface with non-hist version
+class _HistBursts(object):
+    def __init__(self):
+        self.burst_ids = []
+
+def localize_anc_json(file):
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
     try:
         s3 = boto3.resource('s3')
         s3.Object(bucket, file).download_file(file)
     except Exception as e:
-        raise Exception("Exception while fetching CSLC burst map file: %s. " % file + str(e))
+        raise Exception("Exception while fetching CSLC ancillary file: %s. " % file + str(e))
 
+    return file
+
+def localize_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
+    localize_anc_json(file)
     return process_disp_frame_burst_json(file)
+
+def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
+    localize_anc_json(file)
+    return process_disp_frame_burst_hist(file)
+
+def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
+    '''Process the disp frame burst map json file intended for historical processing only and return the data as a dictionary'''
+
+    j = json.load(open(file))
+    frame_to_bursts = defaultdict(_HistBursts)
+
+    for frame in j:
+        b = frame_to_bursts[int(frame)].burst_ids
+        for burst in j[frame]:
+            burst = burst.upper().replace("_", "-")
+            b.append(burst)
+
+    return frame_to_bursts
 
 def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
 
@@ -74,7 +102,7 @@ def build_cslc_native_ids(frame, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 
     native_ids = disp_burst_map[frame].burst_ids
-    return "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
+    return len(native_ids), "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
 
 def download_batch_id_hist(args, granule):
     """For historical processing mode, download_batch_id is a function of start_date, end_date, and frame_range

@@ -44,6 +44,14 @@
       "destination": "positional"
     },
     {
+      "name": "k",
+      "destination": "positional"
+    },
+    {
+      "name": "m",
+      "destination": "positional"
+    },
+    {
       "name": "smoke_run",
       "destination": "positional"
     },

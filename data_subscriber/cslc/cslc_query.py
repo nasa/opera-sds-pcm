@@ -3,8 +3,9 @@ import re
 import copy
 from datetime import datetime, timedelta
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
-from data_subscriber.cslc_utils import localize_disp_frame_burst_json, build_cslc_native_ids, parse_cslc_native_id, \
-    process_disp_frame_burst_json, download_batch_id_forward_reproc, download_batch_id_hist, split_download_batch_id
+from data_subscriber.cslc_utils import localize_disp_frame_burst_json, localize_disp_frame_burst_hist, build_cslc_native_ids, \
+    parse_cslc_native_id, process_disp_frame_burst_json, process_disp_frame_burst_hist, download_batch_id_forward_reproc, \
+    download_batch_id_hist, split_download_batch_id
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B
 from data_subscriber.url import determine_acquisition_cycle
@@ -14,13 +15,23 @@ logger = logging.getLogger(__name__)
 
 class CslcCmrQuery(CmrQuery):
 
-    def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_file = None):
+    def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_file = None, disp_frame_burst_hist_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
         if disp_frame_burst_file is None:
             self.disp_burst_map, self.burst_to_frame, metadata, version = localize_disp_frame_burst_json()
         else:
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
+
+        if disp_frame_burst_hist_file is None:
+            self.disp_burst_map_hist = localize_disp_frame_burst_hist()
+        else:
+            self.disp_burst_map_hist = process_disp_frame_burst_hist(disp_frame_burst_hist_file)
+
+        if args.grace_mins:
+            self.grace_mins = args.grace_mins
+        else:
+            self.grace_mins = settings["DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES"]
 
     def extend_additional_records(self, granules, no_duplicate=False, force_frame_id = None):
         """Add frame_id, burst_id, and acquisition_cycle to all granules.
@@ -82,7 +93,12 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode != "forward":
             return granules
 
-        # Get unsubmitted granules, which are ES records without download_job_id fields
+        current_time = datetime.now()
+
+        # This list is what is ultimately returned by this function
+        download_granules = []
+
+        # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
         await self.refresh_index()
         unsubmitted = self.es_conn.get_unsubmitted_granules()
 
@@ -95,26 +111,58 @@ class CslcCmrQuery(CmrQuery):
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
         for granule in granules:
             by_download_batch_id[granule["download_batch_id"]][granule["unique_id"]] = granule
+
+        # Rule 3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
+        # If the download_batch_id of the granules we received had already been submitted,
+        # we need to submit them again with the new granules. We add both the new granules and the previously-submitted granules
+        # immediately to the download_granules list because we know for sure that we want to download them without additional reasoning.
+        for batch_id, download_batch in by_download_batch_id.items():
+            submitted = self.es_conn.get_submitted_granules(batch_id)
+            if len(submitted) > 0:
+                asdf
+                for download in download_batch.values():
+                    download_granules.append(download)
+                for granule in submitted:
+                    download_granules.append(granule)
+
         for granule in unsubmitted:
             download_batch = by_download_batch_id[granule["download_batch_id"]]
-            if granule["id"] not in download_batch:
-                download_batch[granule["id"]] = granule
+            if granule["unique_id"] not in download_batch:
+                download_batch[granule["unique_id"]] = granule
 
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
-        # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
-        # TODO Rule #2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
-        # TODO Rule #3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
-        download_granules = []
+        # Rule 1: If all granules for a given download_batch_id are present, download all granules for that batch
+        # Rule 2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
         for batch_id, download_batch in by_download_batch_id.items():
             logger.info(f"{batch_id=} {len(download_batch)=}")
             frame_id, acquisition_cycle = split_download_batch_id(batch_id)
             max_bursts = len(self.disp_burst_map[frame_id].burst_ids)
+            new_downloads = False
 
-            # Rule #1: If all granules for a given download_batch_id are present, download all granules for that batch
-            if len(download_batch) == max_bursts:
-                logger.info(f"Download all granules for {batch_id}")
+            if len(download_batch) == max_bursts: # Rule 1
+                logger.info(f"Download all granules for {batch_id} because all granules are present")
+                new_downloads = True
+            else:
+                # Rule 2
+                min_creation_time = current_time
+                for download in download_batch.values():
+                    if "creation_timestamp" in download:
+                        # creation_time looks like this: 2024-01-31T20:45:25.723945
+                        creation_time = datetime.strptime(download["creation_timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
+                        if creation_time < min_creation_time:
+                            min_creation_time = creation_time
+
+                mins_since_first_ingest = (current_time - min_creation_time).total_seconds() / 60.0
+                if mins_since_first_ingest > self.grace_mins:
+                    logger.info(f"Download all granules for {batch_id} because it's been {mins_since_first_ingest} minutes \
+since the first CSLC file for the batch was ingested which is greater than the grace period of {self.grace_mins} minutes")
+                    new_downloads = True
+                    #print(batch_id, download_batch)
+
+            if new_downloads:
                 for download in download_batch.values():
                     download_granules.append(download)
+                    #print("**********************************************************", download["download_batch_id"])
 
                 # Retrieve K- granules and M- compressed CSLCs for this batch
                 # Go back K- 12-day windows and find the same frame
@@ -123,7 +171,7 @@ class CslcCmrQuery(CmrQuery):
                     logger.info(f"Retrieving K-1 granules")
 
                     # Add native-id condition in args
-                    native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+                    l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
                     args.native_id = native_id
                     logger.info(f"{args.native_id=}")
 
@@ -146,8 +194,8 @@ class CslcCmrQuery(CmrQuery):
                     self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
 
                     granules = self.eliminate_duplicate_granules(granules)
-                    self.catalog_granules(granules, datetime.now())
-                    print(f"{len(granules)=}")
+                    self.catalog_granules(granules, current_time)
+                    logger.info(f"{len(granules)=}")
                     #print(f"{granules=}")
                     download_granules.extend(granules)
 
@@ -171,11 +219,13 @@ class CslcCmrQuery(CmrQuery):
             granules = []
             frame_start, frame_end = self.args.frame_range.split(",")
             for frame in range(int(frame_start), int(frame_end) + 1):
-                native_id = build_cslc_native_ids(frame, self.disp_burst_map)
+                count, native_id = build_cslc_native_ids(frame, self.disp_burst_map_hist)
+                if count == 0:
+                    continue
                 args.native_id = native_id # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
-                granules.extend(await async_query_cmr(args, token, cmr, settings, timerange, now))
-
-            self.extend_additional_records(granules)
+                new_granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
+                self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame)
+                granules.extend(new_granules)
 
         # If we are in reprocessing mode, we will expand the native_id to
         # include all bursts in the frame to which this granule belongs. And then restrict by the acquisition date
@@ -189,7 +239,7 @@ class CslcCmrQuery(CmrQuery):
             timerange = DateTimeRange(start_date, end_date)
             args.use_temporal = True
             logger.info(f"Querying CMR for frame {frame_id}")
-            native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+            l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
             args.native_id = native_id  # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
             granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
 
@@ -226,9 +276,12 @@ class CslcCmrQuery(CmrQuery):
         '''For CSLC chunks we must group them by frame id'''
         chunk_map = defaultdict(list)
         for batch_chunk in batch_id_to_urls_map.items():
-            print(batch_chunk)
             frame_id, _ = split_download_batch_id(batch_chunk[0])
             chunk_map[frame_id].append(batch_chunk)
+            if (len(chunk_map[frame_id]) > self.args.k):
+                raise AssertionError("Number of download batches is greater than K. This should not be possible!")
+            #print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
+            #print(frame_id, batch_chunk[0])
         return chunk_map.values()
 
     async def refresh_index(self):

@@ -1,0 +1,18 @@
+{ "description": "This file specifies expected files to be downloaded in a DISP-S1 reprocessing scenario",
+  "comment1": "Note that when we have a granule whose burst overlaps in two frames, we always choose the lower-number frame.",
+  "comment2": "Historical processing uses the start and end date as the acquisition time window and the two pair of numbers as start and end frame numbers",
+  "processing_mode": "historical",
+  "k": 2,
+  "m": 2,
+  "data_start_date": "2023-12-01T00:00:00Z",
+  "validation_data": {
+    "1,100": {},
+    "830,832": {
+      "2023_12_01t00_00_00z_2023_12_25t00_00_00z_831": 54,
+      "2023_12_01t00_00_00z_2023_12_25t00_00_00z_832": 54
+    },
+    "46800,46900": {
+    }
+  }
+}
+

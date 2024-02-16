@@ -260,6 +260,8 @@ resource "aws_lambda_function" "rtc_query_timer" {
       "JOB_TYPE" : local.rtc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
       "MINUTES" : var.rtc_query_timer_trigger_frequency,
+      "GRACE_MINS": "120",
+      "COVERAGE_PERCENT": "90",
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_data_download.name,
@@ -326,6 +328,7 @@ resource "aws_lambda_function" "cslc_query_timer" {
       "MINUTES" : var.cslc_query_timer_trigger_frequency,
       "CSLC_PROCESSING_K": "4",
       "CSLC_PROCESSING_M": "4",
+      "GRACE_MINS": "120",
       "PROVIDER" : var.rtc_provider, # CSLC and RTC use the same provider
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-cslc_data_download.name,

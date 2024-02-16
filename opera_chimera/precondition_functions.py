@@ -201,11 +201,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
-
-        # Currently, DISP frame number is stored as the first part of the "batch" ID
-        batch_id = metadata['batch_id']
-
-        frame_id = batch_id.split('_')[0]
+        frame_id = metadata['frame_id']
 
         rc_params = {
             oc_const.FRAME_ID: frame_id
