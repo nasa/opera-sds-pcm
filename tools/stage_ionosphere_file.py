@@ -46,8 +46,8 @@ def get_parser():
         description="Downloads and stages an Ionosphere Correction file for use "
                     "with an SLC-based processing job. The appropriate Ionosphere "
                     "file is obtained based on the start date of the input SLC "
-                    "archive. The start date is determined from the file name "
-                    "of the desired SLC SAFE archive file.",
+                    "(or CSLC) archive. The start date is determined from the "
+                    "file name of the desired archive file.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("-o", "--output-directory", type=str, action='store',
@@ -81,8 +81,8 @@ def get_parser():
                         choices=LogLevels.list(),
                         default=LogLevels.INFO.value,
                         help="Specify a logging verbosity level.")
-    parser.add_argument("input_safe_file", type=str, action='store',
-                        help="Name of the input SLC SAFE archive to obtain the "
+    parser.add_argument("input_filename", type=str, action='store',
+                        help="Name of the input archive (SLC or CSLC) to obtain the "
                              "corresponding Ionosphere Correction file for. "
                              "This may be the file name only, or a full/relative "
                              "path to the file.")
@@ -176,6 +176,95 @@ def parse_start_date_from_safe(input_safe_file):
 
     return safe_start_date
 
+
+def parse_start_date_from_cslc(input_cslc_file):
+    """
+    Parses the start date from the name of an input CSLC archive.
+
+    Parameters
+    ----------
+    input_cslc_file : str
+        Path or name of an CSLC archive to parse the start date from.
+
+    Returns
+    -------
+    cslc_start_date : str
+        The start date parsed from the CSLC filename in YYYYMMDD format.
+
+    Raises
+    ------
+    RuntimeError
+        If the provided CSLC name does not conform to the expected format.
+
+    """
+    # Remove any path and extension info from the provided file name
+    cslc_filename = os.path.splitext(os.path.basename(input_cslc_file))[0]
+
+    logger.debug(f'input_cslc_file: {input_cslc_file}')
+    logger.debug(f'safe_filename: {cslc_filename}')
+
+    # Parse the CSLC file name with the following regex, derived from the
+    # official naming conventions
+    cslc_regex_pattern = (
+        r"(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-"
+        r"(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_"
+        r"(?P<acquisition_ts>\d{8}T\d{6})Z_(?P<creation_ts>\d{8}T\d{6})Z_"
+        r"(?P<sensor>S1A|S1B)(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?_"
+        r"(?P<product_version>v\d+[.]\d+)(_BROWSE)?$"
+    )
+    cslc_regex = re.compile(cslc_regex_pattern)
+    match = cslc_regex.match(cslc_filename)
+
+    if not match:
+        raise RuntimeError(
+            f'CSLC file name {cslc_filename} does not conform to expected format'
+        )
+
+    cslc_start_time = match.groupdict()['acquisition_ts']
+
+    logger.debug(f'cslc_start_time: {cslc_start_time}')
+
+    cslc_start_date = cslc_start_time.split('T')[0]
+
+    logger.debug(f'cslc_start_date: {cslc_start_date}')
+
+    return cslc_start_date
+
+
+def parse_start_date_from_archive(input_archive_file):
+    """
+    Parses the start date from the provided archive filename by first
+    treating the filename as a SAFE archive, and failing that, trying as
+    a CSLC archive.
+
+    Parameters
+    ----------
+    input_archive_file : str
+        Path or name of an archive to parse the start date from.
+
+    Returns
+    -------
+    start_date : str
+        The start date parsed from the filename in YYYYMMDD format.
+
+    Raises
+    ------
+    RuntimeError
+        If the provided filename does not conform to either of the expected
+        formats.
+
+    """
+    try:
+        start_date = parse_start_date_from_safe(input_archive_file)
+    except RuntimeError:
+        try:
+            start_date = parse_start_date_from_cslc(input_archive_file)
+        except RuntimeError:
+            raise RuntimeError(
+                f"Archive name {input_archive_file} does not conform to either "
+                f"SLC or CSLC format.")
+
+    return start_date
 
 def safe_start_date_to_julian_day(safe_start_date):
     """
@@ -341,15 +430,15 @@ def main(args):
     if args.username is None and args.password is None and not args.url_only:
         args.username, _, args.password = netrc.netrc().authenticators(DEFAULT_EDL_ENDPOINT)
 
-    logger.info(f"Determining Ionosphere file for input SAFE file {args.input_safe_file}")
+    logger.info(f"Determining Ionosphere file for input file {args.input_filename}")
 
     # Parse the relevant info from the input SAFE filename
-    safe_start_date = parse_start_date_from_safe(args.input_safe_file)
+    start_date = parse_start_date_from_archive(args.input_filename)
 
-    logger.info(f"Parsed start date {safe_start_date} from SAFE filename")
+    logger.info(f"Parsed start date {start_date} from filename")
 
     # Convert start date to Year and Day of Year (Julian date)
-    year, doy = safe_start_date_to_julian_day(safe_start_date)
+    year, doy = safe_start_date_to_julian_day(start_date)
 
     # Formulate the archive name and URL location based on the file type and
     # the Julian date of the SLC archive. There are two file-naming conventions

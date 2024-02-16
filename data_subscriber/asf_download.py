@@ -1,8 +1,7 @@
 import json
 import logging
-import netrc
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import PurePath, Path
 
 import backoff
@@ -11,20 +10,13 @@ import requests.utils
 
 from data_subscriber.download import DaacDownload
 from data_subscriber.url import _has_url, _to_urls, _to_https_urls, _slc_url_to_chunk_id, form_batch_id
-from tools import stage_orbit_file
-from tools.stage_ionosphere_file import IonosphereFileNotFoundException
-from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
-                                    fatal_code,
-                                    NoQueryResultsException,
-                                    NoSuitableOrbitFileException,
-                                    T_ORBIT,
-                                    ORBIT_PAD)
+from tools.stage_orbit_file import fatal_code
 
 logger = logging.getLogger(__name__)
 
 
 class DaacDownloadAsf(DaacDownload):
-    '''This is practically an abstract class. You should never instantiate this.'''
+    """This is practically an abstract class. You should never instantiate this."""
     def perform_download(self,
             session: requests.Session,
             es_conn,
@@ -84,8 +76,8 @@ class DaacDownloadAsf(DaacDownload):
                 additional_metadata["intersects_north_america"] = True
 
             dataset_dir = self.extract_one_to_one(product, self.cfg, working_dir=Path.cwd(),
-                                             extra_metadata=additional_metadata,
-                                             name_postscript='-r'+str(download['revision_id']))
+                                                  extra_metadata=additional_metadata,
+                                                  name_postscript='-r'+str(download['revision_id']))
 
             self.update_pending_dataset_with_index_name(dataset_dir, '-r'+str(download['revision_id']))
 

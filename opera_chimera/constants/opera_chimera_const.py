@@ -38,6 +38,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DISP_S1_ALGORITHM_PARAMETERS = "get_disp_s1_algorithm_parameters"
 
+    GET_DISP_S1_DEM = "get_disp_s1_dem"
+
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_DSWX_S1_DEM = "get_dswx_s1_dem"
