@@ -50,13 +50,20 @@ logger = logging.getLogger(__name__)
 
 @exec_wrapper
 def main():
+    asyncio.run(run(sys.argv))
+
+
+def configure_logger(args):
+    global logger
+    loglevel = "DEBUG" if args.verbose else "INFO"
+    logging.basicConfig(level=loglevel)
+    logger.info("Log level set to " + loglevel)
+
     logger_hysds_commons = logging.getLogger("hysds_commons")
     logger_hysds_commons.addFilter(NoJobUtilsFilter())
 
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
-
-    asyncio.run(run(sys.argv))
 
 
 async def run(argv: list[str]):
@@ -64,6 +71,7 @@ async def run(argv: list[str]):
     parser = create_parser()
     args = parser.parse_args(argv[1:])
 
+    configure_logger(args)
     validate_args(args)
 
     es_conn = supply_es_conn(args)
