@@ -175,13 +175,16 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             )
 
     product_granules = least_revised_granules
-    logger.info(f"Filtered to {len(product_granules)} granules")
+    logger.info(f"Filtered to {len(product_granules)} granules after least "
+                f"revision check")
 
     if args.collection in settings["SHORTNAME_FILTERS"]:
-        product_granules = [granule for granule in product_granules if _match_identifier(settings, args, granule)]
+        product_granules = [granule for granule in product_granules
+                            if _match_identifier(settings, args, granule)]
 
-    if not silent:
-        logger.info(f"Filtered to {len(product_granules)} total granules")
+        if not silent:
+            logger.info(f"Filtered to {len(product_granules)} total granules "
+                        f"after shortname filter check")
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
