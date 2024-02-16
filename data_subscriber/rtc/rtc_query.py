@@ -127,7 +127,7 @@ class RtcCmrQuery(CmrQuery):
             )
         else:  # evaluate ALL sets in backlog
             logger.info("Performing full evaluation")
-            evaluator_results = evaluator.main(coverage_target=settings["DSWX_S1_COVERAGE_TARGET"])
+            evaluator_results = evaluator.main(coverage_target=args.coverage_target or settings["DSWX_S1_COVERAGE_TARGET"])
 
         processable_mgrs_set_ids = {
             mgrs_set_id

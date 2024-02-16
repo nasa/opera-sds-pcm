@@ -405,6 +405,11 @@ def create_parser():
                           "default": "auto",
                           "help": "The protocol used for retrieving data, HTTPS or S3 or AUTO, default of auto"}}
 
+    param_dswx_s1_coverage_target = {"positionals": ["--coverage-target"],
+         "kwargs": {"dest": "coverage_target",
+                    "type": int,
+                    "help": "For DSWx-S1 processing."}}
+
 
     parser_arg_list = [verbose, file]
     _add_arguments(parser, parser_arg_list)
@@ -418,14 +423,14 @@ def create_parser():
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes,
                             dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id, transfer_protocol,
-                            frame_range, include_regions, exclude_regions, proc_mode]
+                            frame_range, include_regions, exclude_regions, proc_mode, param_dswx_s1_coverage_target]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query")
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date, bbox, minutes, k, m, coverage_percent, grace_mins,
                              dry_run, smoke_run, no_schedule_download, release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol,
-                             frame_range, include_regions, exclude_regions, proc_mode]
+                             frame_range, include_regions, exclude_regions, proc_mode, param_dswx_s1_coverage_target]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download")
