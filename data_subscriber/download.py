@@ -13,9 +13,7 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from data_subscriber.cmr import (Provider,
-                                 COLLECTION_TO_PROVIDER_TYPE_MAP,
-                                 CMR_TIME_FORMAT)
+from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
@@ -48,11 +46,6 @@ class SessionWithHeaderRedirection(requests.Session):
                 del headers["Authorization"]
 
 
-async def run_download(args, token, es_conn, netloc, username, password, job_id):
-    download = DaacDownload.get_download_object(args)
-    await download.run_download(args, token, es_conn, netloc, username, password, job_id)
-
-
 class DaacDownload:
 
     def __init__(self, provider):
@@ -60,26 +53,6 @@ class DaacDownload:
         self.cfg = SettingsConf().cfg  # has metadata extractor config
 
         self.downloads_dir = None
-
-    @staticmethod
-    def get_download_object(args):
-        provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
-                    if hasattr(args, "collection") else args.provider)
-
-        if provider == Provider.LPCLOUD:
-            from data_subscriber.lpdaac_download import DaacDownloadLpdaac
-            return DaacDownloadLpdaac(provider)
-        elif provider in (Provider.ASF, Provider.ASF_SLC):
-            from data_subscriber.asf_slc_download import AsfDaacSlcDownload
-            return AsfDaacSlcDownload(provider)
-        elif provider == Provider.ASF_RTC:
-            from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
-            return AsfDaacRtcDownload(provider)
-        elif provider == Provider.ASF_CSLC:
-            from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
-            return AsfDaacCslcDownload(provider)
-
-        raise ValueError("Unknown product provider: " + provider)
 
     async def run_download(self, args, token, es_conn, netloc, username, password,
                            job_id, rm_downloads_dir=True):
