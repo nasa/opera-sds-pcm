@@ -1,14 +1,19 @@
 import logging
 import re
 import time
+from datetime import timedelta, datetime
+
+import dateutil
+import pytest
 
 import conftest
+from data_subscriber import daac_data_subscriber
 from int_test_util import \
     mock_cnm_r_success_sns, \
     mock_cnm_r_success_sqs, \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
-    wait_for_l3
+    wait_for_l3, es_index_delete_by_prefix
 from subscriber_util import \
     wait_for_query_job, \
     wait_for_download_job, \
@@ -501,6 +506,60 @@ def test_subscriber_rtc():
     assert_cnm_r_success(response_dswx_s1_11)
     response_dswx_s1_12 = wait_for_cnm_r_success(_id=response_dswx_s1_12.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
     assert_cnm_r_success(response_dswx_s1_12)
+
+
+@pytest.mark.asyncio
+async def test_subscriber_rtc_trigger_logic():
+    mgrs_set_ids_dt = [
+        ("MS_20_29", '20231101T013115Z'),
+        ("MS_33_26", '20231101T225251Z'),
+        ("MS_135_25", '20231108T224433Z'),
+        ("MS_4_8", '20231111T230027Z'),
+        ("MS_4_15", '20231111T230348Z'),
+        ("MS_33_13", '20231101T224618Z'),
+        ("MS_74_46", '20231023T183051Z'),
+        ("MS_1_59", '20231111T183217Z'),
+        ("MS_26_48", '20231101T113548Z')
+    ]
+    for mgrs_set_id, acq_dts in mgrs_set_ids_dt:
+        dt = dateutil.parser.parse(acq_dts)  #.strftime("%Y%m%dT%H%M%SZ")
+        if mgrs_set_id == "MS_74_46":
+            start_dt: datetime = dt - timedelta(minutes=2)
+            end_dt: datetime = dt + timedelta(minutes=2)
+        else:
+            start_dt: datetime = dt - timedelta(minutes=1)
+            end_dt: datetime = dt + timedelta(minutes=1)
+
+        start_dts = start_dt.strftime("%Y%m%dT%H%M%SZ")
+        end_dts = end_dt.strftime("%Y%m%dT%H%M%SZ")
+        print(start_dts, end_dts)
+
+        args = "dummy.py query " \
+               "--endpoint=OPS " \
+               "--collection-shortname=OPERA_L2_RTC-S1_V1 " \
+               f'--start-date={start_dt.isoformat(timespec="seconds").replace("+00:00", "Z")} ' \
+               f'--end-date={end_dt.isoformat(timespec="seconds").replace("+00:00", "Z")} ' \
+               "--transfer-protocol=https " \
+               "--chunk-size=1 " \
+               "--use-temporal " \
+               "".split()
+
+        # ACT
+        await daac_data_subscriber.run(args)  # call to populate GRQ
+
+    from data_subscriber.rtc import evaluator
+    result = evaluator.main(coverage_target=0)
+    assert result["mgrs_sets"]["MS_20_29"][0]["coverage_actual"] == 2
+    assert result["mgrs_sets"]["MS_33_26"][0]["coverage_actual"] == 80
+    assert result["mgrs_sets"]["MS_135_25"][0]["coverage_actual"] == 77
+    assert not result["mgrs_sets"].get("MS_4_8")
+    assert not result["mgrs_sets"].get("MS_4_15")
+    assert not result["mgrs_sets"].get("MS_33_13")
+    assert result["mgrs_sets"]["MS_74_46"][0]["coverage_actual"] == 29
+    assert not result["mgrs_sets"].get("MS_1_59")
+    assert result["mgrs_sets"]["MS_26_48"][0]["coverage_actual"] == 60
+
+    es_index_delete_by_prefix("rtc_catalog")
 
 
 def assert_cnm_s_success(response):
