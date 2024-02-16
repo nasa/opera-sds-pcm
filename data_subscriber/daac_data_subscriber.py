@@ -151,6 +151,8 @@ async def run_download(args, token, es_conn, netloc, username, password, job_id)
         downloader = AsfDaacRtcDownload(provider)
     elif provider == Provider.ASF_CSLC:
         downloader = AsfDaacCslcDownload(provider)
+    elif provider == Provider.ASF_CSLC_STATIC:
+        raise NotImplementedError("Direct download of CSLC-STATIC products is not supported")
     else:
         raise ValueError(f'Unknown product provider "{provider}"')
 
