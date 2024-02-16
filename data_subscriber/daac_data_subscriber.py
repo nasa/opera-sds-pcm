@@ -14,8 +14,10 @@ from urllib.parse import urlparse
 from more_itertools import first
 from smart_open import open
 
-import data_subscriber
 from commons.logger import NoJobUtilsFilter, NoBaseFilter
+from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
+from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
+from data_subscriber.asf_slc_download import AsfDaacSlcDownload
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import (ProductType,
                                  Provider,
@@ -25,10 +27,10 @@ from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
 from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
-from data_subscriber.download import run_download
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls.hls_query import HlsCmrQuery
+from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from data_subscriber.parser import create_parser, validate_args
 from data_subscriber.query import update_url_index
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
@@ -117,15 +119,17 @@ async def run(argv: list[str]):
 
 
 async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.HLS:
+    product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
+
+    if product_type == ProductType.HLS:
         cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.SLC:
+    elif product_type == ProductType.SLC:
         cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
+    elif product_type == ProductType.RTC:
         cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC:
+    elif product_type == ProductType.CSLC:
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC_STATIC:
+    elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
@@ -133,6 +137,24 @@ async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settin
     result = await cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
 
     return result
+
+
+async def run_download(args, token, es_conn, netloc, username, password, job_id):
+    provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+                if hasattr(args, "collection") else args.provider)
+
+    if provider == Provider.LPCLOUD:
+        downloader = DaacDownloadLpdaac(provider)
+    elif provider in (Provider.ASF, Provider.ASF_SLC):
+        downloader = AsfDaacSlcDownload(provider)
+    elif provider == Provider.ASF_RTC:
+        downloader = AsfDaacRtcDownload(provider)
+    elif provider == Provider.ASF_CSLC:
+        downloader = AsfDaacCslcDownload(provider)
+    else:
+        raise ValueError(f'Unknown product provider "{provider}"')
+
+    await downloader.run_download(args, token, es_conn, netloc, username, password, job_id)
 
 
 async def run_rtc_download(args, token, es_conn, netloc, username, password, job_id):
@@ -171,7 +193,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
 
     for batch_id, product_burstset in batch_id_to_products_map.items():
         args_for_downloader = Namespace(provider=provider, batch_ids=[batch_id])
-        downloader = data_subscriber.download.DaacDownload.get_download_object(args=args_for_downloader)
+        downloader = AsfDaacRtcDownload(provider)
 
         run_download_kwargs = {
             "token": token,
