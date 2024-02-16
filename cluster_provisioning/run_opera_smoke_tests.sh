@@ -148,6 +148,12 @@ source venv/bin/activate
 pip install -e '.[integration]'
 
 set +e
+
+# Run some trigger tests. These are quick.
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_hist_k2_test.json clear
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_reproc_k4_test.json clear
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_fwd_k2_test.json clear
+
 pytest --maxfail=2 --numprocesses=auto \
   integration/test_integration.py::test_subscriber_slc \
   integration/test_integration.py::test_subscriber_l30 \
