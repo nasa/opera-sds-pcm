@@ -80,7 +80,7 @@ See `data_subscriber/data_subscriber_client.py --help`, documentation comments, 
 1. Create a python virtual environment named `venv`.
     1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
 2. Activate the virtual environment and install the script dependencies referenced in the imports section as needed.
-    1. RECOMMENDED: install dependencies listed in the relevant section of `setup.py` using the following command `pip install -e '.[cmr_audit]'`
+    1. RECOMMENDED: install dependencies listed in the relevant sections of `setup.py` using the following command `pip install -e '.[subscriber]' && pip install -e '.[test]' && pip install -e '.[subscriber_client]'`
 
 ### Running locally
 
