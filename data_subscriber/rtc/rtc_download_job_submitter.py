@@ -47,7 +47,7 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, se
                     job_queue=args.job_queue,
                     rule_name=f"trigger-rtc_download",
                     params=create_rtc_download_job_params(args, product=product, batch_ids=[batch_id], release_version=args.release_version or settings["RELEASE_VERSION"]),
-                    job_spec=f'job-{"rtc_download"}:{args.release_version}',
+                    job_spec=f'job-{"rtc_download"}:{args.release_version or settings["RELEASE_VERSION"]}',
                     job_name=f"job-WF-rtc_download"
                 )
             )
