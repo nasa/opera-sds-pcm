@@ -2,7 +2,6 @@
 
 import argparse
 import asyncio
-import json
 import logging
 import netrc
 import re
@@ -36,13 +35,25 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
 
+logging.basicConfig(level="INFO")
+logger = logging.getLogger(__name__)
+
 
 @exec_wrapper
 def main():
+    logger_hysds_commons = logging.getLogger("hysds_commons")
+    logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+    logger_elasticsearch = logging.getLogger("elasticsearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+
     asyncio.run(run(sys.argv))
 
 
 async def run(argv: list[str]):
+    logger.info(f"{argv=}")
+    parser = create_parser()
+    args = parser.parse_args(argv[1:])
     try:
         validate(args)
     except ValueError as v:
@@ -473,19 +484,6 @@ def _validate_minutes(minutes):
     except ValueError:
         raise ValueError(f"Error parsing minutes: {minutes}. Number must be an integer.")
 
+
 if __name__ == "__main__":
-    parser = create_parser()
-    args = parser.parse_args(sys.argv[1:])
-
-    loglevel = "DEBUG" if args.verbose else "INFO"
-    logging.basicConfig(level=loglevel)
-    logger = logging.getLogger(__name__)
-    logger.info("Log level set to " + loglevel)
-
-    logger_hysds_commons = logging.getLogger("hysds_commons")
-    logger_hysds_commons.addFilter(NoJobUtilsFilter())
-
-    logger_elasticsearch = logging.getLogger("elasticsearch")
-    logger_elasticsearch.addFilter(NoBaseFilter())
-
     main()
