@@ -56,7 +56,7 @@ def main():
     args.output.write("\n".join(set_to_rtcs.values()))
 
     if args.submit_job:
-        for rtc_id in rtc_ids:
+        for rtc_id in set_to_rtcs.values():
             asyncio.run(run_data_subscriber(rtc_id))
 
 
@@ -64,10 +64,10 @@ async def run_data_subscriber(rtc_id):
     args = "dummy.py query " \
            "--endpoint=OPS " \
            "--collection-shortname=OPERA_L2_RTC-S1_V1 " \
-           f"--native-id={rtc_id} " \
-           "--transfer-protocol=https " \
+           "--job-queue=opera-job_worker-sciflo-l3_dswx_s1 " \
            "--chunk-size=1 " \
            "--use-temporal " \
+           f"--native-id={rtc_id} " \
            "".split()
     await daac_data_subscriber.run(args)
 

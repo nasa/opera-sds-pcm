@@ -24,7 +24,7 @@ async def example(batch_id_to_urls_map, args):
     logger.info(f"{failed=}")
 
 
-def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args):
+def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args, settings=None):
     job_submission_tasks = []
     mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
     for batch_id, s3paths in uploaded_batch_id_to_s3paths_map.items():
@@ -65,7 +65,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args)
                     job_queue=f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
                     rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
                     params=create_job_params(product),
-                    job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version}',
+                    job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version or settings["RELEASE_VERSION"]}',
                     job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}'
                 )
             )

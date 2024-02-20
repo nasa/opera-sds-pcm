@@ -22,7 +22,7 @@ async def example(batch_id_to_urls_map, args):
     logger.info(f"{failed=}")
 
 
-def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args):
+def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, settings=None):
     job_submission_tasks = []
     for batch_id, products_map in batch_id_to_products_map.items():
         mgrs_set_id_acquisition_ts_cycle_index = batch_id
@@ -46,7 +46,7 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args):
                     product=product,
                     job_queue=args.job_queue,
                     rule_name=f"trigger-rtc_download",
-                    params=create_rtc_download_job_params(args, product=product, batch_ids=[batch_id]),
+                    params=create_rtc_download_job_params(args, product=product, batch_ids=[batch_id], release_version=args.release_version or settings["RELEASE_VERSION"]),
                     job_spec=f'job-{"rtc_download"}:{args.release_version}',
                     job_name=f"job-WF-rtc_download"
                 )
@@ -55,7 +55,7 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args):
     return job_submission_tasks
 
 
-def create_rtc_download_job_params(args=None, product=None, batch_ids=None):
+def create_rtc_download_job_params(args=None, product=None, batch_ids=None, release_version: str = None):
     return [
         {
             "name": "batch_ids",
@@ -97,7 +97,7 @@ def create_rtc_download_job_params(args=None, product=None, batch_ids=None):
             "name": "dswx_s1_job_release",
             "from": "value",
             "type": "text",
-            "value": f"--release-version={args.release_version}"
+            "value": f"--release-version={release_version}"
         }
     ]
 

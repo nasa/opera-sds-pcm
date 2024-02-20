@@ -167,7 +167,7 @@ class RtcCmrQuery(CmrQuery):
 
         results = []
         for batch_id, products_map in batch_id_to_products_map.items():
-            job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, args)
+            job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, args, settings)
             results_batch = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
             results.extend(results_batch)
 
