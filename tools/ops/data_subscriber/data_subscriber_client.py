@@ -7,6 +7,8 @@ import sys
 from collections import defaultdict
 from pprint import pprint
 
+import dateutil.parser
+
 from data_subscriber import daac_data_subscriber
 from data_subscriber.rtc.mgrs_bursts_collection_db_client import cached_load_mgrs_burst_db, \
     product_burst_id_to_mapping_burst_id, burst_id_to_mgrs_set_ids
@@ -16,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rtc-native-ids", nargs="+", default=[], help="list of RTC native IDs to reduce to distinct native IDs per RTC burst set.")
-    parser.add_argument("--rtc-native-ids-file", "-f", type=argparse.FileType(), help="file housing a list of RTC native IDs. See `--rtc-native-ids`. Supports JSON and plain text formats (1 ID per line).")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--rtc-native-ids", nargs="+", default=[], help="list of RTC native IDs to reduce to distinct native IDs per RTC burst set.")
+    group.add_argument("--rtc-native-ids-file", "-f", type=argparse.FileType(), help="file housing a list of RTC native IDs. See `--rtc-native-ids`. Supports JSON and plain text formats (1 ID per line).")
     parser.add_argument("--submit-job", action="store_true", default=False, help="toggle submitting a query job. Only works when executed on mozart. Defaults to False.")
     parser.add_argument('--output', "-o", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="The output file to write the reduced list of RTC native IDs. Defaults to stdout.")
     args = parser.parse_args(sys.argv[1:])
