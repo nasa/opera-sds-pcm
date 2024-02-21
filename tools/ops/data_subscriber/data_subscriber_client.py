@@ -56,10 +56,11 @@ def main():
     set_to_rtcs = dict(set_to_rtcs)
     pprint(set_to_rtcs)
 
-    args.output.write("\n".join(set_to_rtcs.values()))
+    reduced_rtcs = set(set_to_rtcs.values())
+    args.output.write("\n".join(reduced_rtcs))
 
     if args.submit_job:
-        for rtc_id in set_to_rtcs.values():
+        for rtc_id in reduced_rtcs:
             asyncio.run(run_data_subscriber(rtc_id))
 
 
@@ -67,7 +68,7 @@ async def run_data_subscriber(rtc_id):
     args = "dummy.py query " \
            "--endpoint=OPS " \
            "--collection-shortname=OPERA_L2_RTC-S1_V1 " \
-           "--job-queue=opera-job_worker-sciflo-l3_dswx_s1 " \
+           "--job-queue=opera-job_worker-rtc_data_download " \
            "--chunk-size=1 " \
            "--use-temporal " \
            f"--native-id={rtc_id} " \
