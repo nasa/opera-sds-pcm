@@ -226,7 +226,8 @@ def create_parser():
     full_parser = subparsers.add_parser("full",
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
-                            bbox, minutes, dry_run, smoke_run, no_schedule_download,
+                            bbox, minutes, k, m, coverage_percent, grace_mins,
+                            dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_range, include_regions,
