@@ -21,6 +21,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "MINUTES" : var.hlsl30_query_timer_trigger_frequency,
       "PROVIDER" : var.hls_provider,
       "ENDPOINT" : "OPS",
+      "TRANSFER_PROTOCOL" : "AUTO",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-hls_data_download.name,
       "CHUNK_SIZE" : "1",
       "MAX_REVISION" : "1000",

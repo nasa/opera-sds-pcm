@@ -50,6 +50,10 @@
     {
       "name": "dry_run",
       "destination": "positional"
+    },
+    {
+      "name": "transfer_protocol",
+      "destination": "positional"
     }
   ]
 }

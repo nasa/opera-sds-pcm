@@ -32,7 +32,7 @@ variable "pcm_commons_repo" {
 }
 
 variable "pcm_commons_branch" {
-  default = "3.0.0-rc.1.0"
+  default = "3.0.0-rc.2.0"
 }
 
 variable "product_delivery_repo" {
