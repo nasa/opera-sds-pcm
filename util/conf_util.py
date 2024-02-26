@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 from __future__ import absolute_import
-from builtins import object
+
+import json
+import logging
 import os
 import re
-import json
+from builtins import object
 from typing import Optional
 
 import yaml
-import logging
 
 # Ignore if import fails. Some of our test scripts leverage other classes that are found in this file where yamale
 # isn't needed. Furthermore, yamale is not installed as part of HySDS Core.
@@ -50,8 +51,8 @@ class YamlConf(object):
 
         :param file: filepath to the YAML file.
         """
+        logger.debug("Loading YAML file: {}".format(file))
 
-        logger.info("file: {}".format(file))
         self._file = file
         with open(self._file) as f:
             self._cfg = yaml.safe_load(f)
