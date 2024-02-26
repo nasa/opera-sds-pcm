@@ -77,10 +77,16 @@ class CmrQuery:
         if args.subparser_name == "full":
             logger.info(
                 f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
+
             if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
                 args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 args.batch_ids = self.affected_mgrs_set_id_acquisition_ts_cycle_indexes
-            return
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC:
+                args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+                args.chunk_size = args.k
+                args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
+
+            return {"download_granules": download_granules}
 
         if args.no_schedule_download:
             logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
