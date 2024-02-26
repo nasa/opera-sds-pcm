@@ -56,11 +56,16 @@ class DaacDownload:
 
     async def run_download(self, args, token, es_conn, netloc, username, password,
                            job_id, rm_downloads_dir=True):
+        product_to_product_filepaths_map = {}
         downloads = self.get_downloads(args, es_conn)
 
         if not downloads:
             logger.info(f"No undownloaded files found in index.")
-            return
+            return product_to_product_filepaths_map
+
+        if args.dry_run:
+            logger.info(f"{args.dry_run=}. Skipping downloads.")
+            return product_to_product_filepaths_map
 
         session = SessionWithHeaderRedirection(username, password, netloc)
 
@@ -69,9 +74,6 @@ class DaacDownload:
         # house all file downloads
         self.downloads_dir = Path("downloads")
         self.downloads_dir.mkdir(exist_ok=True)
-
-        if args.dry_run:
-            logger.info(f"{args.dry_run=}. Skipping downloads.")
 
         product_to_product_filepaths_map = self.perform_download(
             session, es_conn, downloads, args, token, job_id
