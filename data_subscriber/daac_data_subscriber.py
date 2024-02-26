@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import boto3
 import logging
 import netrc
 import re
@@ -66,6 +67,8 @@ def configure_logger(args):
 
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
+
+    boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
 
 
 async def run(argv: list[str]):
