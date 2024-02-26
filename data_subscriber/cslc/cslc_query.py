@@ -125,7 +125,6 @@ class CslcCmrQuery(CmrQuery):
         for batch_id, download_batch in by_download_batch_id.items():
             submitted = self.es_conn.get_submitted_granules(batch_id)
             if len(submitted) > 0:
-                asdf
                 for download in download_batch.values():
                     download_granules.append(download)
                 for granule in submitted:
