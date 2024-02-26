@@ -2,10 +2,14 @@ import random
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
+import smart_open
 
 import pytest
 
-from data_subscriber import daac_data_subscriber, download, query
+from data_subscriber import daac_data_subscriber, download, query, cmr
+from data_subscriber.hls_spatial import hls_spatial_catalog_connection
+from data_subscriber.slc_spatial import slc_spatial_catalog_connection
+from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 
 
@@ -392,8 +396,8 @@ def test_download_granules_using_https(monkeypatch):
 
     mock_download_product_using_https = MagicMock(return_value=Path("downloads/granule1/granule1.Fmask.tif").resolve())
     monkeypatch.setattr(
-        download,
-        download.download_product_using_https.__name__,
+        DaacDownloadLpdaac,
+        DaacDownloadLpdaac.download_product_using_https.__name__,
         mock_download_product_using_https
     )
 
@@ -586,15 +590,15 @@ def patch_subscriber(monkeypatch):
         )
     )
     monkeypatch.setattr(
-        query,
-        query.get_hls_spatial_catalog_connection.__name__,
+        hls_spatial_catalog_connection,
+        hls_spatial_catalog_connection.get_hls_spatial_catalog_connection.__name__,
         MagicMock(
             return_value=MagicMock(process_granule=MagicMock())
         )
     )
     monkeypatch.setattr(
-        query,
-        query.get_slc_spatial_catalog_connection.__name__,
+        slc_spatial_catalog_connection,
+        slc_spatial_catalog_connection.get_slc_spatial_catalog_connection.__name__,
         MagicMock(
             return_value=MagicMock(process_granule=MagicMock())
         )
@@ -620,8 +624,8 @@ def patch_subscriber(monkeypatch):
         mock_token
     )
     monkeypatch.setattr(
-        query,
-        query._request_search.__name__,
+        cmr,
+        cmr._request_search_cmr_granules.__name__,
         MagicMock(return_value=(
             [
                 {
@@ -725,8 +729,8 @@ def patch_subscriber_io(monkeypatch):
 def mock_smart_open(monkeypatch):
     mock_open = MagicMock()
     monkeypatch.setattr(
-        download,
-        download.open.__name__,
+        smart_open,
+        smart_open.open.__name__,
         MagicMock(return_value=mock_open)
     )
 
