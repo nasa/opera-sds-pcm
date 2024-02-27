@@ -37,7 +37,10 @@ class DaacDownloadLpdaac(DaacDownload):
             granule_id = download['granule_id']
             revision_id = str(download['revision_id'])
             key = form_batch_id(granule_id, revision_id)
-            download_url = _to_urls(download)
+            if args.transfer_protocol == "https":
+                download_url = _to_https_urls(download)
+            else:
+                download_url = _to_urls(download)
             es_id = download['_id']
 
             download_map[key].granule_id = granule_id

@@ -36,12 +36,8 @@ def _to_urls(dl_dict: dict[str, Any]) -> str:
         return dl_dict["s3_url"]
     elif dl_dict.get("s3_urls"):
         return dl_dict["s3_urls"]
-    elif dl_dict.get("https_url"):
-        return dl_dict["https_url"]
-    elif dl_dict.get("https_urls"):
-        return dl_dict["https_urls"]
     else:
-        raise Exception(f"Couldn't find any URLs in {dl_dict=}")
+        raise Exception(f"Couldn't find any S3 paths in {dl_dict=}")
 
 def _url_to_tile_id(url: str):
     tile_re = r"T\w{5}"
