@@ -19,8 +19,6 @@ except ImportError:
 from .os_util import norm_path
 from jinja2 import Environment, FileSystemLoader
 
-log_format = "[%(asctime)s: %(levelname)s/%(name)s/%(funcName)s] %(message)s"
-logging.basicConfig(format=log_format, level=logging.INFO)
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 # have yaml parse regular expressions
