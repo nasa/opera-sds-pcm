@@ -146,6 +146,7 @@ echo Executing integration tests. This can take at least 20 or 40 minutes...
 python -m venv venv
 source venv/bin/activate
 pip install -e '.[integration]'
+pip install -e '.[subscriber]'
 
 set +e
 pytest --maxfail=2 --numprocesses=auto \
