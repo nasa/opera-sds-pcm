@@ -15,6 +15,7 @@ from mock import MagicMock
 from data_subscriber import daac_data_subscriber, download, query, cmr
 from data_subscriber.hls_spatial import hls_spatial_catalog_connection
 from data_subscriber.slc_spatial import slc_spatial_catalog_connection
+from data_subscriber.download import DaacDownload
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from product2dataset import product2dataset
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
@@ -53,14 +54,14 @@ async def test_full(monkeypatch):
     patch_subscriber(monkeypatch)
     patch_subscriber_io(monkeypatch)
     mock_get_aws_creds(monkeypatch)
-    mock_s3_transfer(monkeypatch)
+    #mock_s3_transfer(monkeypatch)
     mock_boto3(monkeypatch)
 
     mock_download_product_using_https = MagicMock(return_value=Path("downloads/T00003/T00003.B01").resolve())
 
     monkeypatch.setattr(
-        download,
-        download.download_product_using_https.__name__,
+        DaacDownloadLpdaac,
+        DaacDownloadLpdaac.download_product_using_https.__name__,
         mock_download_product_using_https
     )
 
@@ -77,8 +78,8 @@ async def test_full(monkeypatch):
         Path("downloads/T00002/T00002.B01").resolve()
     ])
     monkeypatch.setattr(
-        download,
-        download.download_product_using_s3.__name__,
+        DaacDownload,
+        DaacDownload.download_product_using_s3.__name__,
         mock_download_product_using_s3
     )
 
@@ -789,8 +790,8 @@ def mock_json_package(monkeypatch):
 
 def mock_get_aws_creds(monkeypatch):
     monkeypatch.setattr(
-        download,
-        download._get_aws_creds.__name__,
+        DaacDownloadLpdaac,
+        DaacDownloadLpdaac._get_aws_creds.__name__,
         MagicMock(return_value={
             "accessKeyId": None,
             "secretAccessKey": None,
@@ -801,26 +802,26 @@ def mock_get_aws_creds(monkeypatch):
 
 def mock_https_transfer(monkeypatch):
     monkeypatch.setattr(
-        download,
-        download._https_transfer.__name__,
+        DaacDownload,
+        DaacDownload._https_transfer.__name__,
         MagicMock(return_value={})
     )
 
 
 def mock_s3_transfer(monkeypatch):
     monkeypatch.setattr(
-        download,
-        download._s3_transfer.__name__,
+        DaacDownload,
+        DaacDownload._s3_transfer.__name__,
         MagicMock(return_value={})
     )
     monkeypatch.setattr(
-        download,
-        download._s3_download.__name__,
+        DaacDownload,
+        DaacDownload._s3_download.__name__,
         MagicMock()
     )
     monkeypatch.setattr(
-        download,
-        download._s3_upload.__name__,
+        DaacDownload,
+        DaacDownload._s3_upload.__name__,
         MagicMock(return_value="dummy_target_key")
     )
 
