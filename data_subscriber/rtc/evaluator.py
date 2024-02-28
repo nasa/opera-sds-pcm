@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import re
 import sys
@@ -202,5 +203,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--coverage-target", type=int, default=100)
     parser.add_argument("--rtc-product-ids", nargs="*")
+    parser.add_argument("--main", action="store_true", default=False)
     args = parser.parse_args(sys.argv[1:])
-    evaluate_rtc_products(**vars(args))
+    if args.main:
+        evaluator_results = main(coverage_target=args.coverage_target)
+        print(json.dumps(evaluator_results))
+    else:
+        evaluate_rtc_products(**vars(args))
