@@ -60,12 +60,8 @@ async def test_subscriber_rtc_trigger_logic():
         logger.info("Ran DAAC data subscriber")
 
     logger.info("Run evaluator")
-    result = subprocess.run([
-            "python data_subscriber/rtc/evaluator.py "
-            "--coverage-target=0 "
-            "--main "
-            ""
-        ],
+    result = subprocess.run(
+        ["python data_subscriber/rtc/evaluator.py --coverage-target=0 --main"],
         cwd=Path.cwd(),
         shell=True,
         text=True,
