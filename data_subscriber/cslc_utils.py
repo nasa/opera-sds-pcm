@@ -1,12 +1,14 @@
+import json
+import re
 from collections import defaultdict
 from types import SimpleNamespace
-import json
+
 import boto3
 from pyproj import Transformer
+
+from data_subscriber.url import determine_acquisition_cycle
 from util import datasets_json_util
 from util.conf_util import SettingsConf
-import re
-from data_subscriber.url import determine_acquisition_cycle
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-constent-burst-ids.json'
@@ -84,10 +86,19 @@ def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
 
     return sorted_frame_data, burst_to_frame, metadata, version
 
-def parse_cslc_native_id(native_id, burst_to_frame):
+def _parse_cslc_file_name(native_id):
     dataset_json = datasets_json_util.DatasetsJson()
     cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
     match_product_id = re.match(cslc_granule_regex, native_id)
+
+    if not match_product_id:
+        raise ValueError(f"CSLC native ID {native_id} could not be parsed with regex from datasets.json")
+
+    return match_product_id
+
+def parse_cslc_native_id(native_id, burst_to_frame):
+    match_product_id = _parse_cslc_file_name(native_id)
+
     burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
 
@@ -98,11 +109,26 @@ def parse_cslc_native_id(native_id, burst_to_frame):
 
     return burst_id, acquisition_dts, acquisition_cycle, frame_ids
 
+def parse_cslc_burst_id(native_id):
+    match_product_id = _parse_cslc_file_name(native_id)
+
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+
+    return burst_id
+
 def build_cslc_native_ids(frame, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 
     native_ids = disp_burst_map[frame].burst_ids
     return len(native_ids), "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
+
+
+def build_cslc_static_native_ids(burst_ids):
+    """
+    Builds the native_id string used with a CMR query for CSLC-S1 Static Layer
+    products based on the provided list of burst IDs.
+    """
+    return "OPERA_L2_CSLC-S1-STATIC_" + "*&native-id[]=OPERA_L2_CSLC-S1-STATIC_".join(burst_ids) + "*"
 
 def download_batch_id_hist(args, granule):
     """For historical processing mode, download_batch_id is a function of start_date, end_date, and frame_range

@@ -13,7 +13,7 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from data_subscriber.cmr import COLLECTION_TO_PROVIDER_MAP, CMR_TIME_FORMAT
+from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
@@ -46,11 +46,6 @@ class SessionWithHeaderRedirection(requests.Session):
                 del headers["Authorization"]
 
 
-async def run_download(args, token, es_conn, netloc, username, password, job_id):
-    download = DaacDownload.get_download_object(args)
-    await download.run_download(args, token, es_conn, netloc, username, password, job_id)
-
-
 class DaacDownload:
 
     def __init__(self, provider):
@@ -59,31 +54,18 @@ class DaacDownload:
 
         self.downloads_dir = None
 
-    @staticmethod
-    def get_download_object(args):
-        provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection] if hasattr(args, "collection") else args.provider
-        if provider == "LPCLOUD":
-            from data_subscriber.lpdaac_download import DaacDownloadLpdaac
-            return DaacDownloadLpdaac(provider)
-        elif provider in ("ASF", "ASF-SLC"):
-            from data_subscriber.asf_slc_download import AsfDaacSlcDownload
-            return AsfDaacSlcDownload(provider)
-        elif provider == "ASF-RTC":
-            from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
-            return AsfDaacRtcDownload(provider)
-        elif provider in ("ASF-CSLC", "CSLC"):
-            from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
-            return AsfDaacCslcDownload(provider)
-
-        raise Exception("Unknown product provider: " + provider)
-
-    async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
-
+    async def run_download(self, args, token, es_conn, netloc, username, password,
+                           job_id, rm_downloads_dir=True):
+        product_to_product_filepaths_map = {}
         downloads = self.get_downloads(args, es_conn)
 
         if not downloads:
             logger.info(f"No undownloaded files found in index.")
-            return
+            return product_to_product_filepaths_map
+
+        if args.dry_run:
+            logger.info(f"{args.dry_run=}. Skipping downloads.")
+            return product_to_product_filepaths_map
 
         session = SessionWithHeaderRedirection(username, password, netloc)
 
@@ -93,10 +75,9 @@ class DaacDownload:
         self.downloads_dir = Path("downloads")
         self.downloads_dir.mkdir(exist_ok=True)
 
-        if args.dry_run:
-            logger.info(f"{args.dry_run=}. Skipping downloads.")
-
-        product_to_product_filepaths_map = self.perform_download(session, es_conn, downloads, args, token, job_id)
+        product_to_product_filepaths_map = self.perform_download(
+            session, es_conn, downloads, args, token, job_id
+        )
 
         if rm_downloads_dir:
             logger.info(f"Removing directory tree. {self.downloads_dir}")
@@ -124,7 +105,10 @@ class DaacDownload:
             downloads = all_pending_downloads
             if args.batch_ids:
                 logger.info(f"Filtering pending downloads by {args.batch_ids=}")
-                id_func = _to_batch_id if self.provider in ("LPCLOUD", "ASF-RTC", "ASF-CSLC") else _to_orbit_number
+                id_func = (_to_batch_id
+                           if self.provider in (Provider.LPCLOUD, Provider.ASF_RTC, Provider.ASF_CSLC)
+                           else _to_orbit_number)
+
                 downloads = list(filter(lambda d: id_func(d) in args.batch_ids, all_pending_downloads))
                 logger.info(f"{len(downloads)=}")
                 logger.debug(f"{downloads=}")
@@ -162,7 +146,6 @@ class DaacDownload:
         return PurePath(dataset_dir)
 
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
-
         aws_creds = self.get_aws_creds(token)
         logger.debug(f"{self.get_aws_creds.cache_info()=}")
         s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -186,7 +169,8 @@ class DaacDownload:
     def get_aws_creds(self, token):
         return self._get_aws_creds(token)
 
-    def _get_aws_creds(self, token): raise
+    def _get_aws_creds(self, token):
+        raise NotImplementedError
 
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
     def _s3_download(self, url, s3, tmp_dir, staging_area=""):
