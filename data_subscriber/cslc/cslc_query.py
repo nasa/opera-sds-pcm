@@ -1,15 +1,21 @@
-import logging
-import re
+#!/usr/bin/env python3
+
 import copy
-from datetime import datetime, timedelta
-from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
-from data_subscriber.cslc_utils import localize_disp_frame_burst_json, localize_disp_frame_burst_hist, build_cslc_native_ids, \
-    parse_cslc_native_id, process_disp_frame_burst_json, process_disp_frame_burst_hist, download_batch_id_forward_reproc, \
-    download_batch_id_hist, split_download_batch_id
-from data_subscriber.query import CmrQuery, DateTimeRange
-from data_subscriber.rtc.rtc_query import MISSION_EPOCH_S1A, MISSION_EPOCH_S1B
-from data_subscriber.url import determine_acquisition_cycle
+import logging
 from collections import defaultdict
+from datetime import datetime, timedelta
+
+from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
+from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
+                                        localize_disp_frame_burst_hist,
+                                        build_cslc_native_ids,
+                                        parse_cslc_native_id,
+                                        process_disp_frame_burst_json,
+                                        process_disp_frame_burst_hist,
+                                        download_batch_id_forward_reproc,
+                                        download_batch_id_hist,
+                                        split_download_batch_id)
+from data_subscriber.query import CmrQuery, DateTimeRange
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +125,6 @@ class CslcCmrQuery(CmrQuery):
         for batch_id, download_batch in by_download_batch_id.items():
             submitted = self.es_conn.get_submitted_granules(batch_id)
             if len(submitted) > 0:
-                asdf
                 for download in download_batch.values():
                     download_granules.append(download)
                 for granule in submitted:

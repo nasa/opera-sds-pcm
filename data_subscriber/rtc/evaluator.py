@@ -10,6 +10,7 @@ from typing import Optional
 
 import dateutil.parser
 import pandas as pd
+from more_itertools import first
 
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
@@ -107,7 +108,7 @@ def main(
                     for rtc_granule_id_to_product_docs_map in product_burstset
                     for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
                 }
-                max_retrieval_dt = max(*retrieval_dts)
+                max_retrieval_dt = max(*retrieval_dts) if len(retrieval_dts) > 1 else first(retrieval_dts)
                 if datetime.now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
                     # burst set meets target, but not old enough. continue to ignore
                     logger.info(f"Target covered burst still within grace period. Will not process at this time. {mgrs_set_id=}, {i=}")

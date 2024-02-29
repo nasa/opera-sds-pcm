@@ -137,7 +137,8 @@ def disp_s1_lineage_metadata(context, work_dir):
         if os.path.isdir(local_input_filepath):
             lineage_metadata.extend(
                 [os.path.join(local_input_filepath, file_name)
-                 for file_name in os.listdir(local_input_filepath)]
+                 for file_name in os.listdir(local_input_filepath)
+                 if file_name.endswith(".h5")]
             )
         else:
             lineage_metadata.append(local_input_filepath)

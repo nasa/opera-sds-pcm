@@ -151,6 +151,8 @@ python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_fwd_k2_test
 python -m venv venv
 source venv/bin/activate
 pip install -e '.[integration]'
+pip install -e '.[test]'
+pip install -e '.[subscriber]'
 
 set +e
 
