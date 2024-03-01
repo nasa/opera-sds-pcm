@@ -4,8 +4,8 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import dateutil
 import pytest
+from dateutil.parser import parse
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ async def test_subscriber_rtc_trigger_logic():
         ("MS_26_48", '20231101T113548Z')
     ]
     for mgrs_set_id, acq_dts in mgrs_set_ids_dt:
-        dt = dateutil.parser.parse(acq_dts)  #.strftime("%Y%m%dT%H%M%SZ")
+        dt = parse(acq_dts)  #.strftime("%Y%m%dT%H%M%SZ")
         if mgrs_set_id == "MS_74_46":
             start_dt: datetime = dt - timedelta(minutes=2)
             end_dt: datetime = dt + timedelta(minutes=2)
@@ -47,6 +47,7 @@ async def test_subscriber_rtc_trigger_logic():
                 "--transfer-protocol=https "
                 "--chunk-size=1 "
                 "--use-temporal "
+                "--job-queue=opera-job_worker-rtc_data_download "
                 ""
             ],
             cwd=Path.cwd(),
