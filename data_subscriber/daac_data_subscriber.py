@@ -53,6 +53,12 @@ logger = logging.getLogger(__name__)
 
 @exec_wrapper
 def main():
+    logger_hysds_commons = logging.getLogger("hysds_commons")
+    logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+    logger_elasticsearch = logging.getLogger("elasticsearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+
     asyncio.run(run(sys.argv))
 
 
@@ -78,7 +84,7 @@ async def run(argv: list[str]):
 
     configure_logger(args)
     validate_args(args)
-
+    
     es_conn = supply_es_conn(args)
 
     if args.file:
@@ -248,7 +254,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
             logger.info(f"{args.dry_run=}. Skipping job submission. Producing mock job ID")
             results = [uuid.uuid4()]
         else:
-            job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter)
+            job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter, settings)
             results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
 
         suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
@@ -300,7 +306,6 @@ def supply_es_conn(args):
         raise ValueError(f'Unsupported provider "{provider}"')
 
     return es_conn
-
 
 if __name__ == "__main__":
     main()

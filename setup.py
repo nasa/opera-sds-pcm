@@ -143,6 +143,11 @@ setup(
             "more-itertools",
             "python-dateutil",
             "python-dotenv"
+        ],
+        "subscriber_client": [
+            "more-itertools",
+            "python-dateutil",
+            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
         ]
     }
 )
