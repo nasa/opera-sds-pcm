@@ -283,6 +283,58 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_mask_file(self):
+        """
+        This function downloads a sub-region of the water mask used with DISP-S1
+        processing over the bounding box provided in the input product metadata.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_MASK_FILE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_MASK_FILE, {}).get(oc_const.S3_KEY)
+
+        ancillary_type = "Water mask"
+        output_filepath = os.path.join(working_dir, 'water_mask.vrt')
+
+        # Set up arguments to stage_ancillary_map.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.outfile = output_filepath
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.bbox = bbox
+        args.margin = int(self._settings.get("DISP_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
+
+        pge_metrics = self.get_opera_ancillary(
+            ancillary_type=ancillary_type,
+            output_filepath=output_filepath,
+            staging_func=stage_ancillary_map,
+            staging_func_args=args
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params[oc_const.MASK_FILE] = output_filepath
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_num_workers(self):
         """
         Determines the number of workers/cores to assign to an DISP-S1 job as a
