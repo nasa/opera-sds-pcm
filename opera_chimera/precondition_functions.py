@@ -330,13 +330,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         Derives the S3 paths to the CSLC static layer files to be used with a
         DISP-S1 job.
 
-        TODO: current a stub, implement once CSLC static layer files are downloaded
-              to s3 by query job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        metadata = self._context["product_metadata"]["metadata"]
+
+        static_layers_paths = metadata["product_paths"].get("L2_CSLC_S1_STATIC", [])
+
         rc_params = {
-            oc_const.STATIC_LAYERS_FILES: list()
+            oc_const.STATIC_LAYERS_FILES: static_layers_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
