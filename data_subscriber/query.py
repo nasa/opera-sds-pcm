@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import asyncio
 import logging
 import uuid
@@ -5,39 +7,27 @@ from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
-from typing import Literal
 
 import dateutil.parser
-from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked
 
-from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, async_query_cmr, CMR_COLLECTION_TO_PROVIDER_TYPE_MAP
-from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions, download_from_s3
+from data_subscriber.cmr import (async_query_cmr,
+                                 ProductType,
+                                 COLLECTION_TO_PRODUCT_TYPE_MAP,
+                                 COLLECTION_TO_PROVIDER_TYPE_MAP)
+from data_subscriber.geojson_utils import (localize_include_exclude,
+                                           filter_granules_by_regions,
+                                           download_from_s3)
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
+from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
-async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "HLS":
-        from data_subscriber.hls.hls_query import HlsCmrQuery
-        cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
-        from data_subscriber.slc.slc_query import SlcCmrQuery
-        cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-        from data_subscriber.rtc.rtc_query import RtcCmrQuery
-        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "CSLC":
-        from data_subscriber.cslc.cslc_query import CslcCmrQuery
-        cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-
-    result = await cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
-    return result
 
 class CmrQuery:
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
@@ -65,7 +55,7 @@ class CmrQuery:
             logger.info(f"{args.smoke_run=}. Restricting to 1 granule(s).")
             granules = granules[:1]
 
-        # If processing mode is historical, apply include/exclude-region filtering
+        # If processing mode is historical, apply the include/exclude-region filtering
         if self.proc_mode == "historical":
             logging.info(f"Processing mode is historical so applying include and exclude regions...")
 
@@ -87,18 +77,26 @@ class CmrQuery:
         if args.subparser_name == "full":
             logger.info(
                 f"{args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
-                args.provider = CMR_COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
+                args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 args.batch_ids = self.affected_mgrs_set_id_acquisition_ts_cycle_indexes
-            return
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.CSLC:
+                args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
+                args.chunk_size = args.k
+                args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
+
+            return {"download_granules": download_granules}
+
         if args.no_schedule_download:
             logger.info(f"{args.no_schedule_download=}. Forcefully skipping download job submission.")
-            return download_granules
+            return {"download_granules": download_granules}
+
         if not args.chunk_size:
             logger.info(f"{args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
             return
 
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args, settings)
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
@@ -124,25 +122,30 @@ class CmrQuery:
         return granules
 
     def eliminate_duplicate_granules(self, granules):
-        """If we have two granules with the same granule_id, we only keep the one w the latest revision_id
-        This should be very rare"""
+        """
+        If we have two granules with the same granule_id, we only keep the one
+        with the latest revision_id. This should be very rare.
+        """
         granule_dict = {}
+
         for granule in granules:
             granule_id = granule.get("granule_id")
+
             if granule_id in granule_dict:
                 if granule.get("revision_id") > granule_dict[granule_id].get("revision_id"):
                     granule_dict[granule_id] = granule
             else:
                 granule_dict[granule_id] = granule
+
         granules = list(granule_dict.values())
 
         return granules
 
     def prepare_additional_fields(self, granule, args, granule_id):
-
-        additional_fields = {}
-        additional_fields["revision_id"] = granule.get("revision_id")
-        additional_fields["processing_mode"] = args.proc_mode
+        additional_fields = {
+            "revision_id": granule.get("revision_id"),
+            "processing_mode": args.proc_mode
+        }
 
         return additional_fields
 
@@ -179,36 +182,40 @@ class CmrQuery:
 
     def download_job_submission_handler(self, granules, query_timerange):
         batch_id_to_urls_map = defaultdict(set)
+        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+
         for granule in granules:
             granule_id = granule.get("granule_id")
             revision_id = granule.get("revision_id")
 
             if granule.get("filtered_urls"):
                 # group URLs by this mapping func. E.g. group URLs by granule_id
-                if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "HLS":
+                if product_type == ProductType.HLS:
                     url_grouping_func = form_batch_id
-                elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "SLC":
+                elif product_type == ProductType.SLC:
                     url_grouping_func = _slc_url_to_chunk_id
-                elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "RTC":
-                    pass
-                elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "CSLC":
+                elif product_type == ProductType.CSLC:
                     # For CSLC force chunk_size to be the same as k in args
                     if self.args.k:
                         self.args.chunk_size = self.args.k
+                elif product_type in (ProductType.RTC, ProductType.CSLC_STATIC):
+                    raise NotImplementedError(
+                        f"Download job submission is not supported for product type {product_type}"
+                    )
                 else:
-                    raise AssertionError(f"Can't use {self.args.collection=} to select grouping function.")
+                    raise ValueError(f"Can't use {self.args.collection=} to select grouping function.")
 
                 #print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", granule["download_batch_id"])
                 for filter_url in granule.get("filtered_urls"):
-                    if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "CSLC":
+                    if product_type == ProductType.CSLC:
                         batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
                     else:
                         batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
+
         logger.debug(f"{batch_id_to_urls_map=}")
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == "RTC":
-            raise NotImplementedError()
-        else:
-            job_submission_tasks = self.submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange)
+
+        job_submission_tasks = self.submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange)
+
         return job_submission_tasks
 
     def get_download_chunks(self, batch_id_to_urls_map):
@@ -306,7 +313,7 @@ class CmrQuery:
         return download_job_params
 
 
-def submit_download_job(*, release_version=None, product_type: Literal["HLS", "SLC", "RTC", "CSLC"], params: list[dict[str, str]], job_queue: str) -> str:
+def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]], job_queue: str) -> str:
     job_spec_str = f"job-{product_type.lower()}_download:{release_version}"
 
     return _submit_mozart_job_minimal(

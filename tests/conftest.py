@@ -23,6 +23,9 @@ mock_celeryconfig.GRQ_AWS_ES = False
 mock_celeryconfig.GRQ_ES_HOST = None
 mock_celeryconfig.GRQ_ES_URL = None
 mock_celeryconfig.AWS_REGION = None
+mock_celeryconfig.ES_CLUSTER_MODE = "dummy"
+mock_celeryconfig.JOBS_ES_URL = "http://127.0.0.1:9200"
+mock_celeryconfig.METRICS_ES_URL = "http://127.0.0.1/"
 
 mock_elasticsearch_utils = types.ModuleType('hysds_commons.elasticsearch_utils')
 sys.modules['hysds_commons.elasticsearch_utils'] = mock_elasticsearch_utils

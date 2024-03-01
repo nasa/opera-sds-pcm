@@ -98,7 +98,13 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     logger.info("Moving input files to input directories.")
     for local_input_filepath in lineage_metadata:
-        shutil.move(local_input_filepath, input_dir)
+        try:
+            shutil.move(local_input_filepath, input_dir)
+        except shutil.Error as err:
+            logger.warning(
+                f"Failed to move {local_input_filepath} to {input_dir}, "
+                f"reason: {str(err)}"
+            )
 
     if pge_name in runconfig_update_functions:
         logger.info("Updating run config for use with PGE.")

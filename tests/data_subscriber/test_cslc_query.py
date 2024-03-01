@@ -1,17 +1,16 @@
-import random
-from datetime import datetime
-from pathlib import Path
+#!/usr/bin/env python3
 
 import pytest
 
-from data_subscriber import daac_data_subscriber, query, cslc_utils
+from data_subscriber import cslc_utils
+from data_subscriber.parser import create_parser
 from data_subscriber.cslc import cslc_query
 
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z", "--end-date=2021-01-25T00:00:00Z"]
-forward_args = daac_data_subscriber.create_parser().parse_args(forward_arguments)
+forward_args = create_parser().parse_args(forward_arguments)
 
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z", "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
-hist_args = daac_data_subscriber.create_parser().parse_args(hist_arguments)
+hist_args = create_parser().parse_args(hist_arguments)
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
 disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)

@@ -1,6 +1,9 @@
+#!/usr/bin/env python3
+
 import logging
 import re
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Iterable
 
 import dateutil.parser
@@ -13,33 +16,75 @@ from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
 logger = logging.getLogger(__name__)
 
+class Collection(str, Enum):
+    HLSL30 = "HLSL30"
+    HLSS30 = "HLSS30"
+    S1A_SLC = "SENTINEL-1A_SLC"
+    S1B_SLC = "SENTINEL-1B_SLC"
+    RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
+    CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
+    CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
+
+class Endpoint(str, Enum):
+    OPS = "OPS"
+    UAT = "UAT"
+
+class Provider(str, Enum):
+    LPCLOUD = "LPCLOUD"
+    ASF = "ASF"
+    ASF_SLC = "ASF-SLC"
+    ASF_RTC = "ASF-RTC"
+    ASF_CSLC = "ASF-CSLC"
+    ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
+
+class ProductType(str, Enum):
+    HLS = "HLS"
+    SLC = "SLC"
+    RTC = "RTC"
+    CSLC = "CSLC"
+    CSLC_STATIC = "CSLC_STATIC"
+
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 COLLECTION_TO_PROVIDER_MAP = {
-    "HLSL30": "LPCLOUD",
-    "HLSS30": "LPCLOUD",
-    "SENTINEL-1A_SLC": "ASF",
-    "SENTINEL-1B_SLC": "ASF",
-    "OPERA_L2_RTC-S1_V1": "ASF",
-    "OPERA_L2_CSLC-S1_V1": "ASF"
+    Collection.HLSL30: Provider.LPCLOUD.value,
+    Collection.HLSS30: Provider.LPCLOUD.value,
+    Collection.S1A_SLC: Provider.ASF.value,
+    Collection.S1B_SLC: Provider.ASF.value,
+    Collection.RTC_S1_V1: Provider.ASF.value,
+    Collection.CSLC_S1_V1: Provider.ASF.value,
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF.value
 }
 
-CMR_COLLECTION_TO_PROVIDER_TYPE_MAP = {
-    "HLSL30": "LPCLOUD",
-    "HLSS30": "LPCLOUD",
-    "SENTINEL-1A_SLC": "ASF",
-    "SENTINEL-1B_SLC": "ASF",
-    "OPERA_L2_RTC-S1_V1": "ASF-RTC",
-    "OPERA_L2_CSLC-S1_V1": "ASF-CSLC"
+COLLECTION_TO_PROVIDER_TYPE_MAP = {
+    Collection.HLSL30: Provider.LPCLOUD.value,
+    Collection.HLSS30: Provider.LPCLOUD.value,
+    Collection.S1A_SLC: Provider.ASF.value,
+    Collection.S1B_SLC: Provider.ASF.value,
+    Collection.RTC_S1_V1: Provider.ASF_RTC.value,
+    Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
-    "HLSL30": "HLS",
-    "HLSS30": "HLS",
-    "SENTINEL-1A_SLC": "SLC",
-    "SENTINEL-1B_SLC": "SLC",
-    "OPERA_L2_RTC-S1_V1": "RTC",
-    "OPERA_L2_CSLC-S1_V1": "CSLC"
+    Collection.HLSL30: ProductType.HLS.value,
+    Collection.HLSS30: ProductType.HLS.value,
+    Collection.S1A_SLC: ProductType.SLC.value,
+    Collection.S1B_SLC: ProductType.SLC.value,
+    Collection.RTC_S1_V1: ProductType.RTC.value,
+    Collection.CSLC_S1_V1: ProductType.CSLC.value,
+    Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value
+}
+
+COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
+    Collection.HLSL30: ["B02.tif", "B03.tif", "B04.tif", "B05.tif", "B06.tif", "B07.tif", "Fmask.tif"],
+    Collection.HLSS30: ["B02.tif", "B03.tif", "B04.tif", "B8A.tif", "B11.tif", "B12.tif", "Fmask.tif"],
+    Collection.S1A_SLC: ["zip"],
+    Collection.S1B_SLC: ["zip"],
+    Collection.RTC_S1_V1: ["tif", "h5"],
+    Collection.CSLC_S1_V1: ["h5"],
+    Collection.CSLC_S1_STATIC_V1: ["h5"],
+    "DEFAULT": ["tif", "h5"]
 }
 
 
@@ -47,7 +92,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
 
-    if args.collection == "SENTINEL-1A_SLC" or args.collection == "SENTINEL-1B_SLC":
+    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC):
         bound_list = bounding_box.split(",")
 
         # Excludes Antarctica
@@ -64,13 +109,17 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     }
 
     if args.native_id:
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             burst_id = mbc_client.product_burst_id_to_mapping_burst_id(match_native_id.group("burst_id"))
             native_ids = mbc_client.get_reduced_rtc_native_id_patterns(mgrs[mgrs["bursts"].str.contains(burst_id)])
+
             if not native_ids:
-                raise Exception(f"The supplied {args.native_id=} is not associated with any MGRS tile collection")
+                raise Exception(
+                    f"The supplied {args.native_id=} is not associated with any MGRS tile collection"
+                )
+
             params["options[native-id][pattern]"] = 'true'
             params["native-id[]"] = native_ids
         else:
@@ -82,7 +131,8 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     # derive and apply param "temporal"
     now_date = now.strftime(CMR_TIME_FORMAT)
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "RTC":
+
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
         if args.native_id:
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             acquisition_dt = dateutil.parser.parse(match_native_id.group("acquisition_ts"))
@@ -106,33 +156,40 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     if not silent:
         logger.info(f"Querying CMR. {request_url=} {params=}")
+
     product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
     logger.info(f"Found {len(product_granules)} granules")
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
+
     for granule in product_granules:
         if granule['revision_id'] <= args.max_revision:
             least_revised_granules.append(granule)
         else:
             logger.warning(
-                f"Granule {granule['granule_id']} currently has revision-id of {granule['revision_id']} "
-                f"which is greater than the max {args.max_revision}. "
-                "Ignoring and not storing or processing this granule."
+                f"Granule {granule['granule_id']} currently has revision-id of "
+                f"{granule['revision_id']} which is greater than the max "
+                f"{args.max_revision}. Ignoring and not storing or processing "
+                f"this granule."
             )
+
     product_granules = least_revised_granules
-    logger.info(f"Filtered to {len(product_granules)} granules")
+    logger.info(f"Filtered to {len(product_granules)} granules after least "
+                f"revision check")
 
     if args.collection in settings["SHORTNAME_FILTERS"]:
-        product_granules = [granule for granule in product_granules if _match_identifier(settings, args, granule)]
+        product_granules = [granule for granule in product_granules
+                            if _match_identifier(settings, args, granule)]
 
-    if not silent:
-        logger.info(f"Filtered to {len(product_granules)} total granules")
+        if not silent:
+            logger.info(f"Filtered to {len(product_granules)} total granules "
+                        f"after shortname filter check")
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
 
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == "SLC":
+    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.SLC:
         for granule in product_granules:
             granule["filtered_urls"] = _filter_slc_granules(granule)
 
@@ -162,8 +219,8 @@ def response_jsons_to_cmr_granules(args, response_jsons):
              for item in response_json.get("items")]
 
     collection_identifier_map = {
-        "HLSL30": "LANDSAT_PRODUCT_ID",
-        "HLSS30": "PRODUCT_URI"
+        Collection.HLSL30: "LANDSAT_PRODUCT_ID",
+        Collection.HLSS30: "PRODUCT_URI"
     }
 
     granules = []
@@ -199,28 +256,23 @@ def response_jsons_to_cmr_granules(args, response_jsons):
                 if attr.get("Name") == collection_identifier_map[args.collection]
             ) if args.collection in collection_identifier_map else None
         })
+
     return granules
 
 
 def _filter_granules(granule, args):
-    collection_to_extensions_filter_map = {
-        "HLSL30": ["B02.tif", "B03.tif", "B04.tif", "B05.tif", "B06.tif", "B07.tif", "Fmask.tif"],
-        "HLSS30": ["B02.tif", "B03.tif", "B04.tif", "B8A.tif", "B11.tif", "B12.tif", "Fmask.tif"],
-        "SENTINEL-1A_SLC": ["zip"],
-        "SENTINEL-1B_SLC": ["zip"],
-        "OPERA_L2_RTC-S1_V1": ["tif", "h5"],
-        "OPERA_L2_CSLC-S1_V1": ["h5"],
-        "DEFAULT": ["tif"]
-    }
-
-    filter_extension_key = first_true(collection_to_extensions_filter_map.keys(), pred=lambda x: x == args.collection, default="DEFAULT")
+    filter_extension_key = first_true(
+        COLLECTION_TO_EXTENSIONS_FILTER_MAP.keys(),
+        pred=lambda x: x == args.collection, default="DEFAULT"
+    )
 
     return [
         url
         for url in granule.get("related_urls")
-        for extension in collection_to_extensions_filter_map.get(filter_extension_key)
+        for extension in COLLECTION_TO_EXTENSIONS_FILTER_MAP.get(filter_extension_key)
         if url.endswith(extension)
     ]
+
 
 def _filter_slc_granules(granule):
     return [url for url in granule["related_urls"] if "IW" in url]
