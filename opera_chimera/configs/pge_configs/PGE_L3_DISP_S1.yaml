@@ -19,7 +19,7 @@ runconfig:
     amplitude_dispersion_files: __CHIMERA_VAL__
     amplitude_mean_files: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
-    #mask_file: __CHIMERA_VAL__  # TODO: need to determine source of (global?) mask
+    mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
     troposphere_files: __CHIMERA_VAL__
@@ -55,9 +55,8 @@ preconditions:
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
   - get_disp_s1_troposphere_files
+  - get_disp_s1_mask_file
   - get_disp_s1_dem
-  # TODO: to be implemented with further releases
-  #- get_disp_s1_mask_file  # TODO: need to determine source of (global?) mask
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -84,6 +83,10 @@ get_disp_s1_algorithm_parameters:
   # an actual file will be selected based on the processing mode of the job (forward vs. historical)
   s3_bucket: "opera-ancillaries"
   s3_key: "algorithm_parameters/disp_s1/0.1.0"
+
+get_disp_s1_mask_file:
+  s3_bucket: "opera-water-mask"
+  s3_key: "v0.3/EPSG4326.vrt"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
