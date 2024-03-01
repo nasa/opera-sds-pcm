@@ -281,7 +281,7 @@ def update_disp_s1_runconfig(context, work_dir):
 
     updated_input_file_paths = []
 
-    for input_file_path in glob.glob(os.path.join(local_input_dir, "*.h5")):
+    for input_file_path in glob.glob(os.path.join(local_input_dir, "*CSLC-S1_*.h5")):
         updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
