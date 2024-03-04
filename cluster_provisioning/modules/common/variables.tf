@@ -285,7 +285,7 @@ variable "queues" {
   default = {
     "opera-job_worker-hls_data_ingest" = {
       "name"              = "opera-job_worker-hls_data_ingest"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -374,7 +374,7 @@ variable "queues" {
     }
     "opera-job_worker-hls_data_query" = {
       "name"              = "opera-job_worker-hls_data_query"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -394,7 +394,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_query" = {
       "name"              = "opera-job_worker-slc_data_query"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -404,7 +404,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_query_hist" = {
       "name"              = "opera-job_worker-slc_data_query_hist"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -454,7 +454,7 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_query" = {
       "name"              = "opera-job_worker-cslc_data_query"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -464,7 +464,7 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_query_hist" = {
       "name"              = "opera-job_worker-cslc_data_query_hist"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -504,7 +504,7 @@ variable "queues" {
     }
     "opera-job_worker-timer" = {
       "name"              = "opera-job_worker-timer"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "max_size"          = 10
