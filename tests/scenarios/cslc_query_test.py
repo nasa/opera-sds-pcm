@@ -4,10 +4,10 @@ import asyncio
 import json
 import logging
 import netrc
+import requests
 from time import sleep
 from datetime import datetime, timedelta
 import argparse
-import pika
 from data_subscriber import cslc_utils
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -17,6 +17,9 @@ from data_subscriber.parser import create_parser
 from util.conf_util import SettingsConf
 
 DT_FORMAT = CMR_TIME_FORMAT
+
+_rabbitmq_url = "https://localhost:15673/api/queues/%2F/"
+_jobs_processed_queue = "jobs_processed"
 
 """This test runs cslc query several times in succession and verifies download jobs submitted
 This test is run as a regular python script as opposed to pytest
@@ -36,6 +39,12 @@ username, _, password = netrc.netrc().authenticators(edl)
 token = supply_token(edl, username, password)
 es_conn = CSLCProductCatalog(logging.getLogger(__name__))
 
+# Create dict of proc_mode to job_queue
+job_queue = {}
+job_queue["forward"] =      "opera-job_worker-cslc_data_download"
+job_queue["reprocessing"] = "opera-job_worker-cslc_data_download"
+job_queue["historical"] =   "opera-job_worker-cslc_data_download_hist"
+
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
 def group_by_download_batch_id(granules):
@@ -48,12 +57,29 @@ def group_by_download_batch_id(granules):
         batch_id_to_granules[download_batch_id].append(granule)
     return batch_id_to_granules
 
-def purge_rabbitmq(mq_channel):
-    """Purge the download job queue"""
-    mq_channel.queue_purge("opera-job_worker-cslc_data_download")
-    mq_channel.queue_purge("opera-job_worker-cslc_data_download_hist")
+def do_delete_queue(args, authorization, job_queue):
+    '''Delete the job queue from rabbitmq. First check to make sure that the job_processed queue is empty.
+    The jobs seem to move from job_processed queue to the actual queue'''
+    if args.no_delete_jobs:
+        logging.info("NOT deleting jobs. These may continue to run as verdi workers when this test is over.")
+    else:
+        # Delete the download job from rabbitmq
+        logging.info(f"Purging {job_queue} queue. We don't need them to execute for this test.")
+        sleep(10)
+        response = requests.get(_rabbitmq_url+_jobs_processed_queue, auth=authorization, verify=False)
+        num_jobs_processed = response.json()['messages']
+        while num_jobs_processed > 0:
+            print(f"sleeping for 10 seconds until {_jobs_processed_queue} is empty...")
+            sleep(10)
+            response = requests.delete(_rabbitmq_url + job_queue, auth=('hysdsops', password), verify=False)
+            print(response.status_code)
+            response = requests.get(_rabbitmq_url+_jobs_processed_queue, auth=authorization, verify=False)
+            num_jobs_processed = response.json()['messages']
+        sleep(15)
+        response = requests.delete(_rabbitmq_url+job_queue, auth=('hysdsops', password), verify=False)
+        print(response.status_code)
 
-async def run_query(args, mq_channel):
+async def run_query(args, authorization):
     """Run query several times over a date range specifying the start and stop dates"""
 
     # Open the scenario file and parse it. Get k from it and add as parameter.
@@ -86,34 +112,34 @@ async def run_query(args, mq_channel):
                 sleep(sleep_seconds)
 
             new_end_date = start_date + timedelta(hours=1)
-            current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", "--job-queue=opera-job_worker-cslc_data_download", \
+            current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
                                               f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
 
             await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
             start_date = new_end_date # To the next query time range
 
-            if args.no_delete_jobs:
-                logging.info("NOT deleting download jobs. These may continue to run as verdi workers when this test is over.")
-            else:
-                # Delete the download job from rabbitmq
-                logging.info("Deleting all CSLC download jobs from the queue. We don't need them to execute for this test.")
-                purge_rabbitmq(mq_channel)
+            do_delete_queue(args, authorization, job_queue[proc_mode])
 
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
-            current_args = query_arguments + [f"--native-id={native_id}", "--job-queue=opera-job_worker-cslc_data_download"]
+            current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
             await query_and_validate(current_args, native_id, validation_data)
+
+            do_delete_queue(args, authorization, job_queue[proc_mode])
+
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
         data_start_date = j["data_start_date"]
         data_end_date = (datetime.strptime(data_start_date, DT_FORMAT) + timedelta(days=cslc_k * 12)).isoformat() + "Z"
         for frame_range in validation_data.keys():
-            current_args = query_arguments + [f"--frame-range={frame_range}", "--job-queue=opera-job_worker-cslc_data_download_hist",
+            current_args = query_arguments + [f"--frame-range={frame_range}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
             await query_and_validate(current_args, frame_range, validation_data)
+
+            do_delete_queue(args, authorization, job_queue[proc_mode])
 
 async def query_and_validate(current_args, test_range, validation_data):
     print("Querying with args: " + " ".join(current_args))
@@ -177,11 +203,8 @@ with open('/export/home/hysdsops/.creds') as f:
         if "rabbitmq-admin" in line:
             password = line.split()[2]
             break
-credentials = pika.PlainCredentials('hysdsops', password)
-connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', credentials=credentials))
-mq_channel = connection.channel()
 
-asyncio.run(run_query(args.validation_json, mq_channel))
+asyncio.run(run_query(args, ('hysdsops', password)))
 
 logging.info("If no assertion errors were raised, then the test passed.")
 logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
