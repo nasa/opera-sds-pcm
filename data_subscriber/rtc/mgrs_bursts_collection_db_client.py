@@ -54,7 +54,7 @@ def load_mgrs_burst_db(filter_land=True):
 
 def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     """Loads the MGRS Tile Collection Database. On AWS environments, this will localize from a known S3 location."""
-    mtc_local_filepath = Path("~/Downloads/MGRS_tile_collection_v0.2.sqlite").expanduser()
+    mtc_local_filepath = Path("~/Downloads/MGRS_tile_collection_v0.3.sqlite").expanduser()
     if mtc_local_filepath.exists():
         vector_gdf = gpd.read_file(mtc_local_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
     else:
