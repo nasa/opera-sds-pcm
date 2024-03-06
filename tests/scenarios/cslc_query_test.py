@@ -4,9 +4,10 @@ import asyncio
 import json
 import logging
 import netrc
-import sys
+from time import sleep
 from datetime import datetime, timedelta
-
+import argparse
+import pika
 from data_subscriber import cslc_utils
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -23,6 +24,9 @@ This test requires a GRQ ES instance. Best to run this on a Mozart box in a func
 Set ASG Max of cslc_download worker to 0 to prevent it from running if that's desired."""
 
 # k comes from the input json file. We could parameterize other argments too if desired.
+# NOTE: We really can't use the --no-schedule-download in forward processing test because the download job
+# marks the granule as downloaded in the ES. And that info is used to determine what to download in every interation.
+# This can be used in historical and reprocessing but don't think there's enough value to make it inconsistent.
 query_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--chunk-size=1"]#, "--no-schedule-download"]
 base_args = create_parser().parse_args(query_arguments)
 settings = SettingsConf().cfg
@@ -31,13 +35,6 @@ edl = settings["DAAC_ENVIRONMENTS"][base_args.endpoint]["EARTHDATA_LOGIN"]
 username, _, password = netrc.netrc().authenticators(edl)
 token = supply_token(edl, username, password)
 es_conn = CSLCProductCatalog(logging.getLogger(__name__))
-
-# Clear the elasticsearch index if clear argument is passed
-if len(sys.argv) > 2 and sys.argv[2] == "clear":
-    for index in es_conn.es.es.indices.get_alias(index="*").keys():
-        if "cslc_catalog" in index:
-            logging.info("Deleting index: " + index)
-            es_conn.es.es.indices.delete(index=index, ignore=[400, 404])
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
@@ -51,12 +48,18 @@ def group_by_download_batch_id(granules):
         batch_id_to_granules[download_batch_id].append(granule)
     return batch_id_to_granules
 
-async def run_query(validation_json):
+def purge_rabbitmq(mq_channel):
+    """Purge the download job queue"""
+    mq_channel.queue_purge("opera-job_worker-cslc_data_download")
+    mq_channel.queue_purge("opera-job_worker-cslc_data_download_hist")
+
+async def run_query(args, mq_channel):
     """Run query several times over a date range specifying the start and stop dates"""
 
     # Open the scenario file and parse it. Get k from it and add as parameter.
     # Start and end dates are the min and max dates in the file.
-    j = json.load(open(validation_json))
+
+    j = json.load(open(args.validation_json))
     cslc_k = j["k"]
     proc_mode = j["processing_mode"]
     validation_data = j["validation_data"]
@@ -89,6 +92,14 @@ async def run_query(validation_json):
             await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
             start_date = new_end_date # To the next query time range
+
+            if args.no_delete_jobs:
+                logging.info("NOT deleting download jobs. These may continue to run as verdi workers when this test is over.")
+            else:
+                # Delete the download job from rabbitmq
+                logging.info("Deleting all CSLC download jobs from the queue. We don't need them to execute for this test.")
+                purge_rabbitmq(mq_channel)
+
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
@@ -139,9 +150,38 @@ def validate_hour(q_result_dict, test_range, validation_data):
         logging.info(f"Batch id {batch_id} should have {count} files ready to download")
         assert len(q_result_dict[batch_id]) == count
 
+parser = argparse.ArgumentParser()
+parser.add_argument("validation_json", help="Input validation json file used to drive and validate this test")
+parser.add_argument("--clear", dest="clear", help="Clear GRQ ES cslc_catalog before running this test. You usually want this", required=False)
+parser.add_argument("--no-delete-jobs", dest="no_delete_jobs", help="By default the submitted downloaded jobs are deleted from the system.\
+ Set this flag to let the jobs stay in the system", required=False)
+args = parser.parse_args()
+
+# Clear the elasticsearch index if clear argument is passed
+if args.clear:
+    for index in es_conn.es.es.indices.get_alias(index="*").keys():
+        if "cslc_catalog" in index:
+            logging.info("Deleting index: " + index)
+            es_conn.es.es.indices.delete(index=index, ignore=[400, 404])
+
 test_start_time = datetime.now()
-validation_json = sys.argv[1]
-asyncio.run(run_query(validation_json))
+
+''' Get password for the hysdsops user from the file ~/.creds and set up rabbit_mq channel
+Looks like this:
+rabbitmq-admin hysdsops xxxxxxxxx
+redis single-password xxxxxxxxxxxxxxxxxxxxx
+'''
+with open('/export/home/hysdsops/.creds') as f:
+    lines = f.readlines()
+    for line in lines:
+        if "rabbitmq-admin" in line:
+            password = line.split()[2]
+            break
+credentials = pika.PlainCredentials('hysdsops', password)
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', credentials=credentials))
+mq_channel = connection.channel()
+
+asyncio.run(run_query(args.validation_json, mq_channel))
 
 logging.info("If no assertion errors were raised, then the test passed.")
 logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
