@@ -91,7 +91,7 @@
       "from": "value",
       "type": "text",
       "value": "/home/dswx_user",
-      "default": "/home/dswx_user"
+      "default": "/home/dswx_user/scratch"
     }
   ]
 }
