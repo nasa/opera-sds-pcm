@@ -143,6 +143,13 @@ export RTC_DATA_SUBSCRIBER_QUERY_LAMBDA=${RTC_data_subscriber_query_lambda}
 set -e
 echo Executing integration tests. This can take at least 20 or 40 minutes...
 
+# Run some trigger tests. These are quick. Run on bare Mozart default python environment
+source ~/.bash_profile
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_hist_k2_test.json --clear=true
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_reproc_k4_test.json --clear=true
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_fwd_k2_test.json --clear=true
+deactivate
+
 python -m venv venv
 source venv/bin/activate
 pip install -e '.[integration]'
@@ -150,6 +157,7 @@ pip install -e '.[test]'
 pip install -e '.[subscriber]'
 
 set +e
+
 pytest --maxfail=2 --numprocesses=auto \
   integration/test_integration.py::test_subscriber_slc \
   integration/test_integration.py::test_subscriber_l30 \
