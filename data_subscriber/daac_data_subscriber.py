@@ -81,7 +81,7 @@ async def run(argv: list[str]):
             update_url_index(es_conn, f.readlines(), None, None, None)
         exit(0)
 
-    logger.info(f"{argv=}")
+    logger.info(f"{args=}")
 
     job_id = supply_job_id()
     logger.info(f"{job_id=}")

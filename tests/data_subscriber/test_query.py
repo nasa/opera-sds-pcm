@@ -1,10 +1,5 @@
-import random
-from datetime import datetime
-from pathlib import Path
-
-import pytest
-
 from data_subscriber import query
+from data_subscriber.geojson_utils import localize_include_exclude
 
 _jpl = {"granule_id": "JPL", "bounding_box": [
         {"lon": -118.17243, "lat": 34.20025},
@@ -37,6 +32,13 @@ def get_set(filtered_granules):
 
     return result_set
 
+def localize_for_unittest(include_regions, exclude_regions):
+    class Arg:
+        def __init__(self):
+            self.include_regions = include_regions
+            self.exclude_regions = exclude_regions
+    localize_include_exclude(Arg())
+
 def test_all():
 
     include_regions = None
@@ -54,6 +56,7 @@ def test_north_america():
 
     include_regions = "north_america_opera"
     exclude_regions = None
+    localize_for_unittest(include_regions, exclude_regions)
 
     granules = []
     granules.append(_jpl)
@@ -71,6 +74,7 @@ def test_california():
 
     include_regions = "california_opera"
     exclude_regions = None
+    localize_for_unittest(include_regions, exclude_regions)
 
     granules = []
     granules.append(_jpl)
@@ -86,6 +90,7 @@ def test_north_america_except_california():
 
     include_regions = "north_america_opera"
     exclude_regions = "california_opera"
+    localize_for_unittest(include_regions, exclude_regions)
 
     granules = []
     granules.append(_jpl)
@@ -101,6 +106,7 @@ def test_all_except_nevada():
 
     include_regions = None
     exclude_regions = "nevada_opera"
+    localize_for_unittest(include_regions, exclude_regions)
 
     granules = []
     granules.append(_jpl)
@@ -116,6 +122,7 @@ def test_nevada():
 
     include_regions = "nevada_opera"
     exclude_regions = None
+    localize_for_unittest(include_regions, exclude_regions)
 
     granules = []
     granules.append(_jpl)
