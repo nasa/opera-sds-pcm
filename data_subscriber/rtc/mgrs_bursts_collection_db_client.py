@@ -70,7 +70,7 @@ def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     # vector_gdf = vector_gdf.overlay(na_gdf, how="intersection")
     logger.info(f"{len(vector_gdf)=}")
     if filter_land:
-        vector_gdf = vector_gdf[vector_gdf["land_ocean_flag"] == "water/land"]  # filter out water (water == no relevant data)
+        vector_gdf = vector_gdf[vector_gdf["land_ocean_flag"] in ["water/land", "land"]]   # filter out water (water == no relevant data)
         logger.info(f"{len(vector_gdf)=}")
 
     return vector_gdf
