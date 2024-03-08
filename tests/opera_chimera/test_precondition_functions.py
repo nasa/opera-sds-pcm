@@ -585,7 +585,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
                 },
                 "mgrs_collection_database_file": {
                     oc_const.S3_BUCKET: "opera-ancillaries",
-                    oc_const.S3_KEY: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.2.1.sqlite"
+                    oc_const.S3_KEY: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite"
                 }
             }
         }

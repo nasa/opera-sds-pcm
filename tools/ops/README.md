@@ -73,7 +73,7 @@ See `data_subscriber/data_subscriber_client.py --help`, documentation comments, 
 1. Python (see `.python-version`).
 1. A clone of the `opera-sds-pcm` repo.
 1. data_subscriber_client.py requires GDAL to be natively installed on the host machine. Installation instructions vary by operating system, but macOS users with Homebrew installed may install it using `brew install gdal` or as otherwise noted in `setup.py` in the `cmr_audit` dependency section. NOTE: native `gdal` is distinct from the `GDAL` python package dependency.
-1. data_subscriber_client.py requires the MGRS collection DB file to be present in `~/Downloads/MGRS_tile_collection_v0.2.sqlite` This file is found in the ancillary S3 and may also be in the opera-pcm repo.
+1. data_subscriber_client.py requires the MGRS collection DB file to be present in `~/Downloads/MGRS_tile_collection_v0.3.sqlite` or the path defined in environment variable `MGRS_TILE_COLLECTION_DB_FILEPATH`. This file is found in the ancillary S3 and may also be in the opera-pcm repo.
 
 ### Installation
 
