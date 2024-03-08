@@ -129,7 +129,7 @@ def main(
     return evaluator_results
 
 
-def evaluate_rtc_products(rtc_product_ids, coverage_target):
+def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):
     # load MGRS tile collection DB
     mgrs_burst_collections_gdf = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
 
