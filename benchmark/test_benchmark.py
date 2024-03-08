@@ -98,6 +98,26 @@ async def test_slc(event_loop: AbstractEventLoop):
         # wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
 
 
+@pytest.mark.asyncio
+async def test_rtc(event_loop: AbstractEventLoop):
+    branch = "develop"
+
+    for new_instance_type_queue_name in instance_type_queues:
+        logging.info(f"{new_instance_type_queue_name=}")
+
+        integration.conftest.clear_pcm_test_state()
+        swap_instance_type("trigger-SCIFLO_L3_DSWX_S1", new_instance_type_queue_name)
+
+        query_timer_lambda_response = await invoke_rtc_subscriber_query_lambda()
+        query_job_id = query_timer_lambda_response["Payload"].read().decode().strip("\"")
+        logging.info(f"{query_job_id=}")
+
+        wait_for_query_jobs_to_finish(job_type=f"job-rtc_query:{branch}")
+        wait_for_download_jobs_to_finish(job_type=f"job-rtc_download:{branch}")
+        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L3_DSWX_S1:{branch}")
+        # wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
+
+
 async def invoke_s30_subscriber_query_lambda():
     aws_lambda: LambdaClient = boto3.client("lambda")
     query_timer_lambda_response: InvocationResponseTypeDef = aws_lambda.invoke(
@@ -132,6 +152,29 @@ async def invoke_slc_subscriber_query_lambda():
                   "source": "aws.events",
                   "account": "123456789012",
                   "time": "2022-11-17T07:00:00Z",
+                  "region": "us-east-1",
+                  "resources": [
+                    "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"
+                  ],
+                  "detail": {}
+                }
+            """
+    )
+    assert query_timer_lambda_response["StatusCode"] == 200
+    return query_timer_lambda_response
+
+
+async def invoke_rtc_subscriber_query_lambda():
+    aws_lambda: LambdaClient = boto3.client("lambda")
+    query_timer_lambda_response: InvocationResponseTypeDef = aws_lambda.invoke(
+        FunctionName="opera-crivas-1-rtc-query-timer",
+        Payload=b"""
+                {
+                  "id": "cdc73f9d-aea9-11e3-9d5a-835b769c0d9c",
+                  "detail-type": "Scheduled Event",
+                  "source": "aws.events",
+                  "account": "123456789012",
+                  "time": "2023-10-20T01:00:00Z",
                   "region": "us-east-1",
                   "resources": [
                     "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"
