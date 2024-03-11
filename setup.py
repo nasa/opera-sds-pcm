@@ -59,7 +59,14 @@ setup(
             "validators",
             "cachetools==5.2.0",
             "geopandas",
-            "pyproj"
+            "pyproj",
+
+            # for additional daac subscriber test utilities that are executed from pytest
+            #  * DSWx-S1 trigger logic tests
+            "pytest==7.2.1",
+            "pytest-mock>=3.8.2",
+            "pytest-asyncio==0.20.3",
+            "pytest-cov==4.0.0",
         ],
         "test": [
             # The list of dependencies required to run tests locally.
