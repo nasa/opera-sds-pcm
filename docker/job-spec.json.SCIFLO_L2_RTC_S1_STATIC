@@ -80,6 +80,10 @@
       "destination": "context"
     },
     {
+      "name": "pge_scratch_dir",
+      "destination": "context"
+    },
+    {
       "name": "container_home",
       "destination": "context"
     },

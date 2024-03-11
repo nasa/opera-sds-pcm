@@ -131,7 +131,8 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
 
             # set additional files to triage
             self._context["_triage_additional_globs"] = [
-                "output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir", "pge_output_dir"
+                "output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir",
+                "pge_output_dir", "pge_scratch_dir"
             ]
 
             # set force publish (disable no-clobber)
