@@ -616,6 +616,29 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dswx_s1_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DSWx-S1 job as a
+        function of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        # Use one less than the available cores for standard processing
+        num_workers = max(available_cores - 1, 1)
+
+        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+
+        rc_params = {
+            "num_workers": num_workers
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_gpu_enabled(self):
         logger.info(
             "Calling {} pre-condition function".format(oc_const.GPU_ENABLED))

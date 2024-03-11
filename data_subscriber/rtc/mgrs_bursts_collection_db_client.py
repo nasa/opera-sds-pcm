@@ -54,7 +54,7 @@ def load_mgrs_burst_db(filter_land=True):
 
 def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     """Loads the MGRS Tile Collection Database. On AWS environments, this will localize from a known S3 location."""
-    mtc_local_filepath = Path("~/Downloads/MGRS_tile_collection_v0.2.sqlite").expanduser()
+    mtc_local_filepath = Path("~/Downloads/MGRS_tile_collection_v0.3.sqlite").expanduser()
     if mtc_local_filepath.exists():
         vector_gdf = gpd.read_file(mtc_local_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
     else:
@@ -70,7 +70,7 @@ def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     # vector_gdf = vector_gdf.overlay(na_gdf, how="intersection")
     logger.info(f"{len(vector_gdf)=}")
     if filter_land:
-        vector_gdf = vector_gdf[vector_gdf["land_ocean_flag"] == "water/land"]  # filter out water (water == no relevant data)
+        vector_gdf = vector_gdf[vector_gdf["land_ocean_flag"].isin(["water/land", "land"])]  # filter out water (water == no relevant data)
         logger.info(f"{len(vector_gdf)=}")
 
     return vector_gdf

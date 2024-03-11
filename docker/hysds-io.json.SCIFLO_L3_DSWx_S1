@@ -80,6 +80,13 @@
       "default": "pge_output_dir"
     },
     {
+      "name": "pge_scratch_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_scratch_dir",
+      "default": "pge_scratch_dir"
+    },
+    {
       "name": "container_home",
       "from": "value",
       "type": "text",
@@ -91,7 +98,7 @@
       "from": "value",
       "type": "text",
       "value": "/home/dswx_user",
-      "default": "/home/dswx_user"
+      "default": "/home/dswx_user/scratch"
     }
   ]
 }
