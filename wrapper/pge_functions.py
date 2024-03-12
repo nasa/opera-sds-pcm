@@ -85,15 +85,6 @@ def dswx_s1_lineage_metadata(context, work_dir):
         local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
 
-        # TODO: kludge to support current version of DSWx-S1 SAS, which wants
-        #  a "_layover_shadow_mask.tif" file, remove for next patch release
-        mask_files = glob.glob(os.path.join(local_input_filepath, "*_mask.tif"))
-        mask_file = mask_files[0]
-        old_name = mask_file
-        new_name = mask_file.replace("_mask.tif", "_layover_shadow_mask.tif")
-        logger.info(f"Renaming {old_name} to {new_name}")
-        os.rename(old_name, new_name)
-
     # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
     lineage_metadata.extend(local_dem_filepaths)
