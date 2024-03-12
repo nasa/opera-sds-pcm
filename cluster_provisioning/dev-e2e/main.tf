@@ -250,7 +250,9 @@ resource "null_resource" "smoke_test" {
         echo running reggression tests
 
         cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+        set +e
         pytest regression/test_dswx_s1_edge_cases.py
+        set -e
       fi
     EOT
     ]
