@@ -5,6 +5,7 @@ import random
 import re
 import sqlite3
 import time
+import sys
 
 from cmr import GranuleQuery
 from requests import get, exceptions
@@ -149,11 +150,12 @@ if __name__ == '__main__':
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
     parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
     parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the %)")
+    parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
 
     # Parse the command-line arguments
     args = parser.parse_args()
 
-    burst_ids = []
+    burst_ids = {}
 
     # Check if file input is provided, otherwise use CMR API to get burst IDs
     if args.file:
@@ -162,10 +164,9 @@ if __name__ == '__main__':
             for granule_id in granule_ids:
               burst_id = get_burst_id(granule_id)
               if (burst_id):
-                  burst_ids.append(burst_id)
+                  burst_ids[burst_id] = granule_id
               else:
                   print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
-        print(burst_ids)
     else:
         # Ensure start and end times are provided
         if not args.start or not args.end:
@@ -179,6 +180,11 @@ if __name__ == '__main__':
         print(f"Querying CMR for time range {args.start} to {args.end}.")
         total_granules = get_total_granules(api)
         print(f"Querying CMR for {total_granules} granules.")
+
+        # Exit with error code if no granules to process
+        if (total_granules == 0):
+            print(f"Error: no granules to process.")
+            sys.exit(1)
 
         # Optimize page_size and number of workers based on total_granules
         page_size = min(1000, total_granules)
@@ -206,7 +212,7 @@ if __name__ == '__main__':
                         granule_id = granule.get("producer_granule_id")
                         burst_id = get_burst_id(granule_id)
                         if (burst_id):
-                            burst_ids.append(burst_id)
+                            burst_ids[burst_id] = granule_id
                         else:
                             print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
         print("\nGranule fetching complete.")
@@ -226,7 +232,7 @@ if __name__ == '__main__':
     mgrs_data = cursor.fetchall()
 
     # Initialize DataFrame to store results
-    df = pd.DataFrame(columns=['MGRS Set ID', 'Coverage Percentage', 'Matching Bursts', 'Total Bursts'])
+    df = pd.DataFrame(columns=['MGRS Set ID', 'Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Total Bursts', 'Matching Burst Count', 'Total Burst Count'])
 
     # Initialize a list to store data for DataFrame
     data_for_df = []
@@ -240,16 +246,24 @@ if __name__ == '__main__':
         # 2. For each MGRS Set ID (i.e. mgrs_set_id), find the matching intersection (i.e. match_count) of RTC burst IDs (i.e. bursts_list) that map to the tile's burst IDs (i.e. burst_ids)
         # 3. Return the percentage of matches compared to the total number of bursts associated with the MGRS Tile Set ID (i.e. mgrs_set_id)
         bursts_list = bursts_string.strip("[]").replace("'", "").replace(" ", "").split(',')
-        matching_bursts = [burst for burst in bursts_list if burst in burst_ids]
-        match_count = len(matching_bursts)
+        # matching_bursts = [burst for burst in bursts_list if burst in burst_ids.keys]
+        matching_ids = {} 
+        for burst in burst_ids:
+            if burst in bursts_list:
+                matching_ids[burst] = burst_ids[burst]
+
+        match_count = len(matching_ids)
         coverage_percentage = round((match_count / len(bursts_list)) * 100, 2) if bursts_list else 0.0
 
         # Collect the db data we will need later
         data_for_df.append({
             'MGRS Set ID': mgrs_set_id,
             'Coverage Percentage': coverage_percentage,
-            'Matching Bursts': ', '.join(matching_bursts),
-            'Total Bursts': ', '.join(bursts_list)
+            'Matching Granules': ', '.join(list(matching_ids.values())),
+            'Matching Bursts': ', '.join(list(matching_ids.keys())),
+            'Total Bursts': ', '.join(bursts_list),
+            'Matching Burst Count': len(matching_ids),
+            'Total Burst Count': len(bursts_list)
         })
 
     # Close the database connection safely
@@ -266,4 +280,7 @@ if __name__ == '__main__':
     # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
     print()
     print('MGRS Set IDs covered:', len(df))
-    print(tabulate(df[['MGRS Set ID','Coverage Percentage']], headers='keys', tablefmt='plain', showindex=False))
+    if (args.verbose):
+        print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count']], headers='keys', tablefmt='plain', showindex=False))
+    else:
+        print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Burst Count', 'Total Burst Count']], headers='keys', tablefmt='plain', showindex=False))

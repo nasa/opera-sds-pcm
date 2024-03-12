@@ -16,28 +16,6 @@
 [![SLIM](https://img.shields.io/badge/Best%20Practices%20from-SLIM-blue)](https://nasa-ammos.github.io/slim/)
 <!-- ☝️ Add badges via: https://shields.io e.g. ![](https://img.shields.io/github/your_chosen_action/your_org/your_repo) ☝️ -->
 
-Example:
-```
-$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite
- --threshold 50
-Retrieving 2316 granules from CMR.
-
-Fetching granules: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2316/2316 [00:34<00:00, 67.10it/s]
-
-Calculating coverage: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 31500/31500 [00:48<00:00, 643.51it/s]
-
-+-------------+---------------------+
-| MGRS Set ID | Coverage Percentage |
-+-------------+---------------------+
-|  MS_166_30  |        70.0         |
-|  MS_166_31  |        100.0        |
-|  MS_166_32  |        100.0        |
-|  MS_166_33  |        100.0        |
-|  MS_166_34  |        100.0        |
-...
-+-------------+---------------------+
-```
-
 This repository contains a Python script for querying the CMR (Common Metadata Repository) to help validate DSWx-S1 job triggering. The script takes in specific temporal ranges to identify RTC bursts from CMR (or a granule file list) and generates a list of MGRS Tile Set IDs that represent the types of DSWx-S1 jobs that should have been run.  It includes functionality for handling large datasets, implementing efficient data fetching with exponential backoff and jittering, and standard out tabular results.
 
 ## Features
@@ -79,27 +57,59 @@ This guide provides a quick way to get started with the script.
 1. Run the script using Python: `python dswx_s1_validator.py --start <start_date> --end <end_date> --db <database_path>`.
 2. Optionally, use the `--file` argument to specify a file with granule IDs.
 3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by.
+4. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
  
 ### Usage Examples
 
 * Retrieve a list of MGRS Tile Set IDs for the RTC burst processing a given time range on CMR, and filter the results to show only MGRS Tile Sets that had coverage of greater than or equal to 50%.
 
 ```
-$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite
- --threshold 50
-Retrieving 2316 granules from CMR.
-Fetching granules: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2316/2316 [00:34<00:00, 67.10it/s]
-Calculating coverage: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 31500/31500 [00:48<00:00, 643.51it/s]
-+-------------+---------------------+
-| MGRS Set ID | Coverage Percentage |
-+-------------+---------------------+
-|  MS_166_30  |        70.0         |
-|  MS_166_31  |        100.0        |
-|  MS_166_32  |        100.0        |
-|  MS_166_33  |        100.0        |
-|  MS_166_34  |        100.0        |
-...
-+-------------+---------------------+
+$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
+Querying CMR for time range 2023-12-05T01:00:00Z to 2023-12-05T03:59:59Z.
+Querying CMR for 2316 granules.
+
+Fetching granules: 100%|███████████████████████████████████████| 2316/2316 [00:01<00:00, 1660.76it/s]
+
+Granule fetching complete.
+
+Calculating coverage: 100%|██████████████████████████████████| 12585/12585 [00:09<00:00, 1359.21it/s]
+
+MGRS Set IDs covered: 34
+MGRS Set ID      Coverage Percentage    Matching Burst Count    Total Burst Count
+MS_166_30                      70                         28                   40
+MS_166_31                     100                         40                   40
+MS_166_32                     100                         40                   40
+MS_166_33                     100                         40                   40
+MS_166_34                     100                         40                   40
+MS_166_35                     100                         40                   40
+MS_166_36                     100                         41                   41
+MS_166_37                     100                         41                   41
+MS_166_38                     100                         42                   42
+MS_166_39                     100                         42                   42
+MS_166_69                      90.24                      37                   41
+MS_166_70                     100                         40                   40
+MS_166_71                     100                         40                   40
+MS_166_72                     100                         39                   39
+MS_166_73                     100                         40                   40
+MS_166_74                     100                         40                   40
+MS_166_75                     100                         40                   40
+MS_166_76                     100                         41                   41
+MS_166_77                     100                         41                   41
+MS_166_78                     100                         41                   41
+MS_166_79                     100                         40                   40
+MS_166_80                     100                         40                   40
+MS_166_81                      50                         20                   40
+MS_166_88                     100                         40                   40
+MS_166_89                      90                         36                   40
+MS_167_68                     100                         41                   41
+MS_167_69                     100                         40                   40
+MS_167_70                     100                         40                   40
+MS_167_71                     100                         39                   39
+MS_167_72                     100                         40                   40
+MS_167_73                     100                         40                   40
+MS_167_74                     100                         39                   39
+MS_167_75                     100                         41                   41
+MS_167_77                     100                         41                   41
 ```
 
 * Process and display data related to granule IDs.
@@ -160,14 +170,11 @@ Calculating coverage: 100%|█████████████████�
 
   ```
   $ python3 dswx_s1_validator.py --file granules.txt --db MGRS_tile_collection_v0.2.sqlite --threshold 50
+  Calculating coverage: 100%|█████████████████████████████████| 12585/12585 [00:00<00:00, 41014.33it/s]
 
-  Calculating coverage: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 31500/31500 [00:01<00:00, 24706.38it/s]
-
-  +-------------+---------------------+
-  | MGRS Set ID | Coverage Percentage |
-  +-------------+---------------------+
-  |  MS_80_59   |        63.41        |
-  +-------------+---------------------+
+  MGRS Set IDs covered: 1
+  MGRS Set ID      Coverage Percentage    Matching Burst Count    Total Burst Count
+  MS_80_59                       63.41                      26                   41
   ```
 
 ## Frequently Asked Questions (FAQ)
@@ -175,6 +182,10 @@ Calculating coverage: 100%|█████████████████�
 - **Q: One or more of the Python dependencies installed via `pip install` are not available on my machine / environment**
   
   A: Consider [building the dependency from source](https://devguide.python.org/getting-started/setup-building/) on your machine. For example, a reported missing dependency on an Apple M2 MacBook with Python 3.9.6 is `sqllite3` and requires a build from source following [this guide](https://til.simonwillison.net/sqlite/build-specific-sqlite-pysqlite-macos).
+
+- **Q: How do I get more detailed output when running the script?**
+  
+  A: Run in *verbose mode* by adding the `--verbose` flag on the command-line.
 
 ## Support
 
