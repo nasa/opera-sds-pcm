@@ -83,7 +83,7 @@ async def test_subscriber_rtc_trigger_logic():
     assert not result["mgrs_sets"].get("MS_4_15")
     assert not result["mgrs_sets"].get("MS_33_13")
     assert result["mgrs_sets"]["MS_74_46"][0]["coverage_actual"] == 29
-    assert not result["mgrs_sets"].get("MS_1_59")
+    assert result["mgrs_sets"].get("MS_1_59")[0]["coverage_actual"] == 39
     assert result["mgrs_sets"]["MS_26_48"][0]["coverage_actual"] == 60
 
     with Path(__file__).parent.joinpath("results").open("w") as fp:
