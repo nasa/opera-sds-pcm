@@ -183,7 +183,7 @@ MS_167_77                     100                         41                   4
   
   A: Consider [building the dependency from source](https://devguide.python.org/getting-started/setup-building/) on your machine. For example, a reported missing dependency on an Apple M2 MacBook with Python 3.9.6 is `sqllite3` and requires a build from source following [this guide](https://til.simonwillison.net/sqlite/build-specific-sqlite-pysqlite-macos).
 
-- **Q: How do I get more detailed output when running the script?**
+- **Q: How do I get more detailed output like matching granule or batch IDs when running the script?**
   
   A: Run in *verbose mode* by adding the `--verbose` flag on the command-line.
 
