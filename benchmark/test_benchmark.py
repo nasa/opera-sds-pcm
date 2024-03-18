@@ -27,23 +27,37 @@ s3_client: S3Client = boto3.client("s3", config=(Config(max_pool_connections=30)
 # TEST INPUTS - SYSTEM
 #######################################################################
 instance_type_queues = [
-    # "opera-job_worker-sciflo-l3_dswx_hls",  # configured for t2.medium (Primary), t3.medium, t3a.medium
-    # "opera-job_worker-t3_large",
-    # "opera-job_worker-t3a_large",
-    # "opera-job_worker-m3_large",
-    # "opera-job_worker-m4_large",
-    # "opera-job_worker-m5_large",
-    # "opera-job_worker-m6i_large",
-    # "opera-job_worker-m5a_large",
-    # "opera-job_worker-m6a_large",
-    # "opera-job_worker-c6i_2xlarge",
-    # "opera-job_worker-c6a_2xlarge",
-    # "opera-job_worker-c6i_4xlarge",
-    # "opera-job_worker-c6a_4xlarge",
-    # "opera-job_worker-c5_4xlarge",
-    # "opera-job_worker-c5a_4xlarge",
+    # "opera-job_worker-sciflo-l3_dswx_s1",
+    "opera-job_worker-t3a_2xlarge",  # 8 vCPU burst
+    "opera-job_worker-m2_2xlarge",  # 4 vCPUs, 34.2 GB, moderate
+    "opera-job_worker-t3_2xlarge",  # 8 vCPU burst
+    "opera-job_worker-c6i_2xlarge",
+    # "opera-job_worker-c7i_2xlarge",
+    # "opera-job_worker-m6a_2xlarge",
     # "opera-job_worker-c5_2xlarge",
+    # "opera-job_worker-c6a_2xlarge",
+    # "opera-job_worker-m5d_2xlarge",
+    # "opera-job_worker-m6id_2xlarge",
+    # "opera-job_worker-t2_2xlarge",  # 8 vCPU burst, moderate
+    # "opera-job_worker-c3_2xlarge",  # 15 GB, high
+    # "opera-job_worker-c5ad_2xlarge",
+    # "opera-job_worker-m5_2xlarge",
+    # "opera-job_worker-c6id_2xlarge",
+    # "opera-job_worker-c4_2xlarge",  # 15 GB, high
+    # "opera-job_worker-c5d_2xlarge",
+    # "opera-job_worker-m7i_2xlarge",
     # "opera-job_worker-c5a_2xlarge",
+    # "opera-job_worker-c5n_2xlarge",
+    # "opera-job_worker-m7i_flex_2xlarge",
+    # "opera-job_worker-m6i_2xlarge",
+    # "opera-job_worker-c7a_2xlarge",
+    # "opera-job_worker-m7a_2xlarge",
+    # "opera-job_worker-m6in_2xlarge",
+    # "opera-job_worker-c6in_2xlarge",
+    # "opera-job_worker-m4_2xlarge",
+    # "opera-job_worker-m5a_2xlarge",
+    # "opera-job_worker-m6idn_2xlarge",
+
 ]
 
 
@@ -106,7 +120,7 @@ async def test_rtc(event_loop: AbstractEventLoop):
         logging.info(f"{new_instance_type_queue_name=}")
 
         integration.conftest.clear_pcm_test_state()
-        swap_instance_type("trigger-SCIFLO_L3_DSWX_S1", new_instance_type_queue_name)
+        swap_instance_type("trigger-SCIFLO_L3_DSWx_S1", new_instance_type_queue_name)
 
         query_timer_lambda_response = await invoke_rtc_subscriber_query_lambda()
         query_job_id = query_timer_lambda_response["Payload"].read().decode().strip("\"")
@@ -114,7 +128,7 @@ async def test_rtc(event_loop: AbstractEventLoop):
 
         wait_for_query_jobs_to_finish(job_type=f"job-rtc_query:{branch}")
         wait_for_download_jobs_to_finish(job_type=f"job-rtc_download:{branch}")
-        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L3_DSWX_S1:{branch}")
+        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L3_DSWx_S1:{branch}")
         # wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
 
 
