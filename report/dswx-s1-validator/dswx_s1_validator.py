@@ -14,7 +14,7 @@ from tabulate import tabulate
 import tqdm
 
 # NOTE: This should be contributed to https://github.com/nasa/python_cmr to be included as part of the library
-def get_custom(self, page_num=1, page_size=2000):
+def get_custom(url, page_num=1, page_size=2000):
     """
     Get results for a specific page with a defined page size.
 
@@ -23,19 +23,14 @@ def get_custom(self, page_num=1, page_size=2000):
     :returns: query results as a list
     """
 
-    url = self._build_url()
-    if self.headers is None:
-        self.headers = {}
-
     params = {
         'page_size': page_size,
         'page_num': page_num
     }
-    if 'cmr-search-after' in self.headers:
-        params['cmr-search-after'] = self.headers['cmr-search-after']
-
+    url = construct_query_url(url, params)
+    print(url)
     # Make an HTTP request for the specified page
-    response = get(url, headers=self.headers, params=params)
+    response = get(url, headers={}, params=params)
 
     try:
         response.raise_for_status()
@@ -43,14 +38,7 @@ def get_custom(self, page_num=1, page_size=2000):
         raise RuntimeError(ex.response.text)
 
     # Extract results based on JSON format
-    if self._format == "json":
-        results = response.json()['feed']['entry']
-    else:
-        results = [response.text]
-
-    # Reset the 'cmr-search-after' header
-    if 'cmr-search-after' in self.headers:
-        del self.headers['cmr-search-after']
+    results = response.json()
 
     return results
 
@@ -123,23 +111,44 @@ def get_burst_id(granule_id):
 
     return burst_id
 
-def get_total_granules(api, retries=5, backoff_factor=1):
+def get_total_granules(url, retries=5, backoff_factor=1):
     """
     Attempts to get the total number of granules with retry and exponential backoff.
 
-    :param api: CMR API object
-    :param retries: Number of retry attempts
-    :param backoff_factor: Factor to determine the next sleep time
-    :return: Total number of granules
+    :param base_url: The base URL for constructing the query URL.
+    :param retries: Number of retry attempts.
+    :param backoff_factor: Factor to determine the next sleep time.
+    :return: Total number of granules.
     """
+    # params = {
+    #     'page_size': 0,
+    # }
+    # url = construct_query_url(url, params)
     for attempt in range(retries):
         try:
-            return api.short_name("OPERA_L2_RTC-S1_V1").hits()
-        except exceptions.RequestException as e:
-            print(f"Attempt {attempt + 1} failed with error: {e}")
-            time.sleep(backoff_factor * (2 ** attempt))
-    raise RuntimeError("Failed to get total granules after several attempts.")
+            response = get_custom(url, page_size=0)
+            return response['hits']
+        except RuntimeError as e:
+            if attempt < retries - 1:
+                sleep_time = backoff_factor * (2 ** attempt) + random.uniform(0, 1)
+                time.sleep(sleep_time)
+            else:
+                raise RuntimeError("Failed to get total granules after several attempts.")
 
+
+def construct_query_url(base_url, params):
+    """
+    Constructs a URL for the query with given parameters.
+    
+    :param base_url: The base URL for the query.
+    :param params: Dictionary of query parameters.
+    :return: Constructed URL with query parameters.
+    """
+    query_string = '&'.join([f'{key}={value}' for key, value in params.items()])
+    if ('?' in base_url):
+        return f'{base_url}&{query_string}'
+    else:
+        return f'{base_url}?{query_string}'
 
 
 if __name__ == '__main__':
@@ -177,6 +186,19 @@ if __name__ == '__main__':
 
         # Query for granules with the specified temporal range and collection short name
         api.temporal(args.start, args.end)
+
+        # Base URL for granule searches
+        base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+        params = {
+            'provider': 'ASF',
+            'ShortName[]': 'OPERA_L2_RTC-S1_V1',
+            'created_at[]': f"{args.start},{args.end}"
+        }
+
+        # Construct the URL for the total granules query
+        url = construct_query_url(base_url, params)
+        total_granules = get_total_granules(url)
+        print(f"Total granules: {total_granules}")
         print(f"Querying CMR for time range {args.start} to {args.end}.")
         total_granules = get_total_granules(api)
         print(f"Querying CMR for {total_granules} granules.")
@@ -184,7 +206,7 @@ if __name__ == '__main__':
         # Exit with error code if no granules to process
         if (total_granules == 0):
             print(f"Error: no granules to process.")
-            sys.exit(1)
+        sys.exit(1)
 
         # Optimize page_size and number of workers based on total_granules
         page_size = min(1000, total_granules)
