@@ -125,19 +125,22 @@ class HLSProductCatalog:
             "revision_date": revision_date_dt
         }
 
-    def mark_product_as_downloaded(self, url, job_id):
+    def mark_product_as_downloaded(self, url, job_id, filesize = None):
         filename = url.split("/")[-1]
+
+        doc = {}
+        doc["downloaded"] = True
+        doc["download_datetime"] = datetime.now()
+        doc["download_job_id"] = job_id
+        if filesize:
+            doc["metadata"] = {"FileSize": filesize}
 
         index = self._get_index_name_for(_id=filename, default=self.generate_es_index_name())
         result = self.es.update_document(
             id=filename,
             body={
                 "doc_as_upsert": True,
-                "doc": {
-                    "downloaded": True,
-                    "download_datetime": datetime.now(),
-                    "download_job_id": job_id,
-                }
+                "doc": doc
             },
             index=index
         )
