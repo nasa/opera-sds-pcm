@@ -6,6 +6,7 @@ from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
+import hashlib
 
 import dateutil.parser
 from hysds_commons.job_utils import submit_mozart_job
@@ -120,6 +121,17 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
         logging.info(f"{chunk_batch_ids=}")
         logging.info(f"{chunk_urls=}")
 
+        # If we are processing ASF collection, we will compute payload hash using the granule_id without the revision_id
+        # NOTE: This will only work properly if the chunk size is 1 which should always be the case for ASF
+        payload_hash = None
+        if PRODUCT_PROVIDER_MAP[args.collection] == "ASF":
+            granule_to_hash = ''
+            for batch_id in chunk_batch_ids:
+                granule_id, revision_id = es_conn.granule_and_revision(batch_id)
+                granule_to_hash += granule_id
+
+            payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
+
         job_submission_tasks.append(
             loop.run_in_executor(
                 executor=None,
@@ -174,7 +186,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
                             "from": "value"
                         }
                     ],
-                    job_queue=args.job_queue
+                    job_queue=args.job_queue,
+                    payload_hash = payload_hash
                 )
             )
         )
@@ -207,7 +220,7 @@ def get_query_timerange(args, now: datetime, silent=False):
     return query_timerange
 
 def submit_download_job(*, release_version=None, provider="LPCLOUD", params: list[dict[str, str]],
-                        job_queue: str) -> str:
+                        job_queue: str, payload_hash = None) -> str:
     provider_map = {"LPCLOUD": "hls", "ASF": "slc"}
     job_spec_str = f"job-{provider_map[provider]}_download:{release_version}"
 
@@ -215,10 +228,11 @@ def submit_download_job(*, release_version=None, provider="LPCLOUD", params: lis
                                                "params": params,
                                                "job-specification": job_spec_str},
                                       job_queue=job_queue,
-                                      provider_str=provider_map[provider])
+                                      provider_str=provider_map[provider],
+                                      payload_hash=payload_hash)
 
 
-def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str) -> str:
+def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str, payload_hash = None) -> str:
     return submit_mozart_job(
         hysdsio=hysdsio,
         product={},
@@ -231,7 +245,7 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
         },
         queue=None,
         job_name=f"job-WF-{provider_str}_download",
-        payload_hash=None,
+        payload_hash=payload_hash,
         enable_dedup=None,
         soft_time_limit=None,
         time_limit=None,
