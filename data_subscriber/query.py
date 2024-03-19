@@ -129,12 +129,8 @@ async def run_query(args, token, es_conn, cmr, job_id, settings):
             for batch_id in chunk_batch_ids:
                 granule_id, revision_id = es_conn.granule_and_revision(batch_id)
                 granule_to_hash += granule_id
-            #print(granule_to_hash)
-            payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
-            #print(payload_hash)
 
-            #UNDO this... just testing right now
-            #payload_hash = 'c96bf0a0672d7a31d367b54a5fe31da6'
+            payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
 
         job_submission_tasks.append(
             loop.run_in_executor(
