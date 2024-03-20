@@ -12,37 +12,38 @@ from requests import get, exceptions
 import pandas as pd
 from tabulate import tabulate
 import tqdm
+from urllib.parse import urlparse, parse_qs, urlencode
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # NOTE: This should be contributed to https://github.com/nasa/python_cmr to be included as part of the library
-def get_custom(url, page_num=1, page_size=2000):
+def get_custom(url, params):
     """
     Get results for a specific page with a defined page size.
 
-    :page_num: The page number to retrieve.
-    :page_size: The number of results per page.
-    :returns: query results as a list
+    :params: The paramater arguments for the given url
+    :returns: query results as a dict (json) object
     """
 
-    params = {
-        'page_size': page_size,
-        'page_num': page_num
-    }
-    url = construct_query_url(url, params)
-    print(url)
-    # Make an HTTP request for the specified page
-    response = get(url, headers={}, params=params)
+    if ('page_num' not in params):
+        params['page_num'] = 1
+    if ('page_size' not in params):
+        params['page_size'] = 2000
 
     try:
+        response = get(url, params=params)
+        logging.debug(response.url)        
+
         response.raise_for_status()
-    except exceptions.HTTPError as ex:
-        raise RuntimeError(ex.response.text)
+    except Exception as e:
+        print(f"Error detected: {e}")
+        raise RuntimeError(e)
 
     # Extract results based on JSON format
-    results = response.json()
+    return response.json()
 
-    return results
-
-def fetch_with_backoff(api, page_num, page_size):
+def fetch_with_backoff(url, params):
     """
     Fetch a batch of granules with exponential backoff and jitter.
 
@@ -58,7 +59,8 @@ def fetch_with_backoff(api, page_num, page_size):
     while True:
         try:
             # Attempt to fetch granules
-            batch_granules = get_custom(api, page_num, page_size)
+            response = get_custom(url, params)
+            batch_granules = response['items']
             return batch_granules
         except Exception as e:
             # Exponential backoff with jitter
@@ -66,9 +68,9 @@ def fetch_with_backoff(api, page_num, page_size):
             delay = min(max_delay, base_delay * 2 ** attempts)
             jitter = random.uniform(0, delay / 2)
             time.sleep(delay + jitter)
-            print(f"Retrying page {page_num} after delay of {delay + jitter} seconds due to error: {e}")
+            print(f"Retrying page {params.get('page_num')} after delay of {delay + jitter} seconds due to error: {e}")
 
-def parallel_fetch(api, page_num, page_size, downloaded_batches, total_batches):
+def parallel_fetch(url, params, page_num, page_size, downloaded_batches, total_batches):
     """
     Fetches granules in parallel using the provided API.
 
@@ -83,8 +85,12 @@ def parallel_fetch(api, page_num, page_size, downloaded_batches, total_batches):
     Returns:
         list: A list of batch granules fetched from the API.
     """
+
+    params['page_num'] = page_num
+    params['page_size'] = page_size
+
     try:
-        batch_granules = fetch_with_backoff(api, page_num, page_size)
+        batch_granules = fetch_with_backoff(url, params)
         return batch_granules
     finally:
         with downloaded_batches.get_lock():  # Safely increment the count
@@ -111,7 +117,7 @@ def get_burst_id(granule_id):
 
     return burst_id
 
-def get_total_granules(url, retries=5, backoff_factor=1):
+def get_total_granules(url, params, retries=5, backoff_factor=1):
     """
     Attempts to get the total number of granules with retry and exponential backoff.
 
@@ -120,13 +126,12 @@ def get_total_granules(url, retries=5, backoff_factor=1):
     :param backoff_factor: Factor to determine the next sleep time.
     :return: Total number of granules.
     """
-    # params = {
-    #     'page_size': 0,
-    # }
+    params['page_size'] = 0
+
     # url = construct_query_url(url, params)
     for attempt in range(retries):
         try:
-            response = get_custom(url, page_size=0)
+            response = get_custom(url, params)
             return response['hits']
         except RuntimeError as e:
             if attempt < retries - 1:
@@ -135,25 +140,10 @@ def get_total_granules(url, retries=5, backoff_factor=1):
             else:
                 raise RuntimeError("Failed to get total granules after several attempts.")
 
-
-def construct_query_url(base_url, params):
-    """
-    Constructs a URL for the query with given parameters.
-    
-    :param base_url: The base URL for the query.
-    :param params: Dictionary of query parameters.
-    :return: Constructed URL with query parameters.
-    """
-    query_string = '&'.join([f'{key}={value}' for key, value in params.items()])
-    if ('?' in base_url):
-        return f'{base_url}&{query_string}'
-    else:
-        return f'{base_url}?{query_string}'
-
-
 if __name__ == '__main__':
     # Create an argument parser
     parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
+    parser.add_argument("--timestamp", required=False, help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
     parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
     parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
@@ -182,31 +172,32 @@ if __name__ == '__main__':
             raise ValueError("Start and end times are required if no file input is provided.")
 
         # Initialize the CMR API
-        api = GranuleQuery()
+        #api = GranuleQuery()
 
         # Query for granules with the specified temporal range and collection short name
-        api.temporal(args.start, args.end)
+        #api.temporal(args.start, args.end)
 
         # Base URL for granule searches
         base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
         params = {
             'provider': 'ASF',
-            'ShortName[]': 'OPERA_L2_RTC-S1_V1',
-            'created_at[]': f"{args.start},{args.end}"
+            'ShortName[]': 'OPERA_L2_RTC-S1_V1'
         }
+        if args.timestamp == "production":
+            params['production_date[]'] = f"{args.start},{args.end}"
+        elif args.timestamp == "revision":
+            params['revision_date[]'] = f"{args.start},{args.end}"
+        else: # default time query type if not provided or set to temporal
+            params['created_at[]'] = f"{args.start},{args.end}"
 
         # Construct the URL for the total granules query
-        url = construct_query_url(base_url, params)
-        total_granules = get_total_granules(url)
+        total_granules = get_total_granules(base_url, params)
         print(f"Total granules: {total_granules}")
         print(f"Querying CMR for time range {args.start} to {args.end}.")
-        total_granules = get_total_granules(api)
-        print(f"Querying CMR for {total_granules} granules.")
 
         # Exit with error code if no granules to process
         if (total_granules == 0):
             print(f"Error: no granules to process.")
-        sys.exit(1)
 
         # Optimize page_size and number of workers based on total_granules
         page_size = min(1000, total_granules)
@@ -222,7 +213,7 @@ if __name__ == '__main__':
             total_batches = (total_granules + page_size - 1) // page_size
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(parallel_fetch, api, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+                futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
 
                 for future in concurrent.futures.as_completed(futures):
                     granules = future.result()
@@ -231,7 +222,7 @@ if __name__ == '__main__':
                     # RegEx for extracting burst IDs from granule IDs
                     pattern = r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1A_\d+_v\d+\.\d+'
                     for granule in granules:
-                        granule_id = granule.get("producer_granule_id")
+                        granule_id = granule.get("umm").get("GranuleUR")
                         burst_id = get_burst_id(granule_id)
                         if (burst_id):
                             burst_ids[burst_id] = granule_id
