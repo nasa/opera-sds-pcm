@@ -17,6 +17,8 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
                                         split_download_batch_id)
 from data_subscriber.query import CmrQuery, DateTimeRange
 
+BURSTS_PER_FRAME = 27
+
 logger = logging.getLogger(__name__)
 
 class CslcCmrQuery(CmrQuery):
@@ -124,7 +126,7 @@ class CslcCmrQuery(CmrQuery):
         # immediately to the download_granules list because we know for sure that we want to download them without additional reasoning.
         for batch_id, download_batch in by_download_batch_id.items():
             submitted = self.es_conn.get_submitted_granules(batch_id)
-            if len(submitted) > 0:
+            if len(submitted) > 0 and len(submitted) < BURSTS_PER_FRAME:
                 for download in download_batch.values():
                     download_granules.append(download)
                 for granule in submitted:
