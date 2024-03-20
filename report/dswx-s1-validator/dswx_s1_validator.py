@@ -22,8 +22,9 @@ def get_custom(url, params):
     """
     Get results for a specific page with a defined page size.
 
-    :params: The paramater arguments for the given url
-    :returns: query results as a dict (json) object
+    :url: Base url to query cmr
+    :params: The parameter arguments for the given url
+    :returns: Query results as a dict (json) object
     """
 
     if ('page_num' not in params):
@@ -47,10 +48,9 @@ def fetch_with_backoff(url, params):
     """
     Fetch a batch of granules with exponential backoff and jitter.
 
-    :api: CMR API object
-    :page_num: Page number to fetch
-    :page_size: Size of each page
-    :returns: Batch of granules
+    :url: Base url to query cmr
+    :params: The parameter arguments for the given url
+    :returns: Batch of granules (json/dict objects)
     """
     base_delay = 1  # seconds
     max_delay = 60  # seconds
@@ -74,16 +74,15 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches, total_b
     """
     Fetches granules in parallel using the provided API.
 
-    Args:
-        api (GranuleQuery): An instance of GranuleQuery used to fetch granules.
-        page_num (int): The page number of the granule query.
-        page_size (int): The number of granules to fetch per page.
-        downloaded_batches (multiprocessing.Value): A shared integer value representing
-            the number of batches that have been successfully downloaded.
-        total_batches (int): The total number of batches to be downloaded.
+    :url: Base url to query cmr
+    :params: The parameter arguments for the given url
+    :page_num (int): The page number of the granule query.
+    :page_size (int): The number of granules to fetch per page.
+    :downloaded_batches (multiprocessing.Value): A shared integer value representing
+        the number of batches that have been successfully downloaded.
+    :total_batches (int): The total number of batches to be downloaded.
 
-    Returns:
-        list: A list of batch granules fetched from the API.
+    :returns (list): A list of batch granules fetched from the API.
     """
 
     params['page_num'] = page_num
@@ -100,11 +99,8 @@ def get_burst_id(granule_id):
     """
     Extracts the burst ID from a given granule ID string.
 
-    Args:
-        granule_id (str): The granule ID from which to extract the burst ID.
-
-    Returns:
-        str: The extracted burst ID, or an empty string if not found.
+    :granule_id (str): The granule ID from which to extract the burst ID.
+    :returns (str): The extracted burst ID, or an empty string if not found.
     """
     burst_id = ''
     if granule_id:
@@ -121,9 +117,10 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
     """
     Attempts to get the total number of granules with retry and exponential backoff.
 
-    :param base_url: The base URL for constructing the query URL.
-    :param retries: Number of retry attempts.
-    :param backoff_factor: Factor to determine the next sleep time.
+    :url: Base url to query cmr
+    :params: The parameter arguments for the given url
+    :retries: Number of retry attempts.
+    :backoff_factor: Factor to determine the next sleep time.
     :return: Total number of granules.
     """
     params['page_size'] = 0
@@ -143,7 +140,7 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
 if __name__ == '__main__':
     # Create an argument parser
     parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
-    parser.add_argument("--timestamp", required=False, help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
+    parser.add_argument("--timestamp", metavar="TEMPORAL|REVISION|PRODUCTION|CREATED", required=False, help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
     parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
     parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
@@ -171,12 +168,6 @@ if __name__ == '__main__':
         if not args.start or not args.end:
             raise ValueError("Start and end times are required if no file input is provided.")
 
-        # Initialize the CMR API
-        #api = GranuleQuery()
-
-        # Query for granules with the specified temporal range and collection short name
-        #api.temporal(args.start, args.end)
-
         # Base URL for granule searches
         base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
         params = {
@@ -187,8 +178,10 @@ if __name__ == '__main__':
             params['production_date[]'] = f"{args.start},{args.end}"
         elif args.timestamp == "revision":
             params['revision_date[]'] = f"{args.start},{args.end}"
-        else: # default time query type if not provided or set to temporal
+        elif args.timestamp == "created": 
             params['created_at[]'] = f"{args.start},{args.end}"
+        else: # default time query type if not provided or set to temporal
+            params['temporal[]'] = f"{args.start},{args.end}"
 
         # Construct the URL for the total granules query
         total_granules = get_total_granules(base_url, params)
@@ -233,7 +226,8 @@ if __name__ == '__main__':
         # Integrity check for total granules
         total_downloaded = sum(len(future.result()) for future in futures)
         if total_downloaded != total_granules:
-            print(f"\nWarning: Expected {total_granules} granules, but downloaded {total_downloaded}.")
+            print(f"\nError: Expected {total_granules} granules, but downloaded {total_downloaded}. Try running again after some delay.")
+            sys.exit(1)
 
     # Connect to the MGRS Tile Set SQLITE database
     conn = sqlite3.connect(args.db)
@@ -259,7 +253,6 @@ if __name__ == '__main__':
         # 2. For each MGRS Set ID (i.e. mgrs_set_id), find the matching intersection (i.e. match_count) of RTC burst IDs (i.e. bursts_list) that map to the tile's burst IDs (i.e. burst_ids)
         # 3. Return the percentage of matches compared to the total number of bursts associated with the MGRS Tile Set ID (i.e. mgrs_set_id)
         bursts_list = bursts_string.strip("[]").replace("'", "").replace(" ", "").split(',')
-        # matching_bursts = [burst for burst in bursts_list if burst in burst_ids.keys]
         matching_ids = {} 
         for burst in burst_ids:
             if burst in bursts_list:
