@@ -162,6 +162,8 @@ def convert(
             dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
         elif pge_name == "L3_DSWx_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            if product_metadata.get("ProductReceivedTime"):
+                dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
 
