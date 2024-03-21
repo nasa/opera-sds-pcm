@@ -14,6 +14,7 @@ from tools.stage_orbit_file import fatal_code
 
 logger = logging.getLogger(__name__)
 
+_S3_CREDS_SENTINEL_URL = "https://sentinel1.asf.alaska.edu/s3credentials"
 
 class DaacDownloadAsf(DaacDownload):
     """This is practically an abstract class. You should never instantiate this."""
@@ -148,8 +149,6 @@ class DaacDownloadAsf(DaacDownload):
     def _get_aws_creds(self, token):
         logger.info("entry")
 
-        with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
-                          headers={'Authorization': f'Bearer {token}'}) as r:
+        with requests.get(_S3_CREDS_SENTINEL_URL, headers={'Authorization': f'Bearer {token}'}) as r:
             r.raise_for_status()
-
             return r.json()
