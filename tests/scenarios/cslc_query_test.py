@@ -119,15 +119,11 @@ async def run_query(args, authorization):
 
             start_date = new_end_date # To the next query time range
 
-            do_delete_queue(args, authorization, job_queue[proc_mode])
-
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
             current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
             await query_and_validate(current_args, native_id, validation_data)
-
-            do_delete_queue(args, authorization, job_queue[proc_mode])
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
@@ -139,7 +135,7 @@ async def run_query(args, authorization):
                                               "--use-temporal"]
             await query_and_validate(current_args, frame_range, validation_data)
 
-            do_delete_queue(args, authorization, job_queue[proc_mode])
+    do_delete_queue(args, authorization, job_queue[proc_mode])
 
 async def query_and_validate(current_args, test_range, validation_data):
     print("Querying with args: " + " ".join(current_args))
