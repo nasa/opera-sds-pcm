@@ -28,10 +28,10 @@ s3_client: S3Client = boto3.client("s3", config=(Config(max_pool_connections=30)
 #######################################################################
 instance_type_queues = [
     # "opera-job_worker-sciflo-l3_dswx_s1",
-    "opera-job_worker-t3a_2xlarge",  # 8 vCPU burst
-    "opera-job_worker-m2_2xlarge",  # 4 vCPUs, 34.2 GB, moderate
-    "opera-job_worker-t3_2xlarge",  # 8 vCPU burst
-    "opera-job_worker-c6i_2xlarge",
+    # "opera-job_worker-t3a_2xlarge",  # 8 vCPU burst
+    # "opera-job_worker-m2_2xlarge",  # 4 vCPUs, 34.2 GB, moderate
+    # "opera-job_worker-t3_2xlarge",  # 8 vCPU burst
+    # "opera-job_worker-c6i_2xlarge",
     # "opera-job_worker-c7i_2xlarge",
     # "opera-job_worker-m6a_2xlarge",
     # "opera-job_worker-c5_2xlarge",
@@ -114,13 +114,45 @@ async def test_slc(event_loop: AbstractEventLoop):
 
 @pytest.mark.asyncio
 async def test_rtc(event_loop: AbstractEventLoop):
-    branch = "develop"
+    branch = "issue_704"
 
-    for new_instance_type_queue_name in instance_type_queues:
-        logging.info(f"{new_instance_type_queue_name=}")
+    instance_types = [
+        # "t3a.2xlarge",  # 8 vCPU burst
+        # "m2.2xlarge",  # 4 vCPUs, 34.2 GB, moderate
+        # "t3.2xlarge",  # 8 vCPU burst
+        # "c6i.2xlarge",
+        # "c7i.2xlarge",  # TODO chrisjrd: AWS no availability
+        # "m6a.2xlarge",  # TODO chrisjrd: AWS no availability
+        # "c5.2xlarge",
+        # "c6a.2xlarge",
+        # "m5d.2xlarge",  # TODO chrisjrd: AWS no availability
+        # "m6id.2xlarge",  # TODO chrisjrd: AWS no availability
+        "t2.2xlarge",  # 8 vCPU burst, moderate
+        "c3.2xlarge",  # 15 GB, high
+        # "c5ad.2xlarge",
+        # "m5.2xlarge",
+        # "c6id.2xlarge",
+        # "c4.2xlarge",  # 15 GB, high
+        # "c5d.2xlarge",
+        # "m7i.2xlarge",
+        # "c5a.2xlarge",
+        # "c5n.2xlarge",
+        # "m7i.flex.2xlarge",
+        # "m6i.2xlarge",
+        # "c7a.2xlarge",
+        # "m7a.2xlarge",
+        # "m6in.2xlarge",
+        # "c6in.2xlarge",
+        # "m4.2xlarge",
+        # "m5a.2xlarge",
+        # "m6idn.2xlarge",
+    ]
+
+    for new_instance_type in instance_types:
+        logging.info(f"{new_instance_type=}")
 
         integration.conftest.clear_pcm_test_state()
-        swap_instance_type("trigger-SCIFLO_L3_DSWx_S1", new_instance_type_queue_name)
+        swap_instance_type_asg(asg_name="opera-crivas-1-opera-job_worker-sciflo-l3_dswx_s1", instance_type=new_instance_type, max_size=3)
 
         query_timer_lambda_response = await invoke_rtc_subscriber_query_lambda()
         query_job_id = query_timer_lambda_response["Payload"].read().decode().strip("\"")
@@ -221,6 +253,37 @@ def create_job_queues(queues):
             verify=False
         )
         assert r.status_code in [201, 204]
+
+
+def swap_instance_type_asg(asg_name, instance_type, max_size=30):
+    logging.info("SWITCHING INSTANCE TYPES")
+
+    autoscaling: AutoScalingClient = boto3.client("autoscaling")
+
+    logging.info(f"Swapping with {instance_type=}")
+
+    update_asg_response = autoscaling.update_auto_scaling_group(
+        AutoScalingGroupName=asg_name,
+        MaxSize=0,
+        DesiredCapacity=0,
+        MixedInstancesPolicy={
+            "LaunchTemplate": {
+                "Overrides": [{"InstanceType": instance_type}]
+            }
+        }
+    )
+    assert update_asg_response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    logging.info("TRUNCATING ASG")
+    sleep_for(60)
+    logging.info("SCALING ASG")
+
+    update_asg_response = autoscaling.update_auto_scaling_group(
+        AutoScalingGroupName=asg_name,
+        MaxSize=max_size,
+        DesiredCapacity=max_size
+    )
+    assert update_asg_response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
 def swap_instance_type(grq_user_rule, instance_type_queue):
