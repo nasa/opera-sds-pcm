@@ -18,6 +18,7 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
 from data_subscriber.query import CmrQuery, DateTimeRange
 
 BURSTS_PER_FRAME = 27
+K_MULT_FACTOR = 3
 
 logger = logging.getLogger(__name__)
 
@@ -175,36 +176,46 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 # Go back K- 12-day windows and find the same frame
                 args = self.args
                 if args.k > 1:
-                    logger.info(f"Retrieving K-1 granules")
 
-                    # Add native-id condition in args
-                    l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
-                    args.native_id = native_id
-                    logger.info(f"{args.native_id=}")
+                    k_granules = []
+                    k_satified = 0
 
-                    #TODO: We can only use past frames which contain the exact same bursts as the current frame
-                    # If not, we will need to go back another cycle until, as long as we have to, we find one that does
+                    while k_satified < args.k:
+                        logger.info(f"Retrieving K-1 granules")
 
-                    # Move start and end date of args back and expand 5 days at both ends to capture all k granules
-                    start_date = (datetime.strptime(args.start_date, CMR_TIME_FORMAT) - timedelta(
-                        days=12 * (args.k - 1) + 5)).strftime(CMR_TIME_FORMAT)
-                    end_date = (datetime.strptime(args.end_date, CMR_TIME_FORMAT) - timedelta(
-                        days=12 - 5)).strftime(CMR_TIME_FORMAT)
-                    query_timerange = DateTimeRange(start_date, end_date)
-                    logger.info(f"{query_timerange=}")
-                    granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow())
+                        # Add native-id condition in args
+                        l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+                        args.native_id = native_id
+                        logger.info(f"{args.native_id=}")
 
-                    # This step is a bit tricky.
-                    # 1) We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames
-                    # 2) We already know what frame these new granules belong to because that's what we queried for. We need to
-                    #    force using that because 1/9 times one burst will belong to two frames
-                    self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
+                        #TODO: We can only use past frames which contain the exact same bursts as the current frame
+                        # If not, we will need to go back another cycle until, as long as we have to, we find one that does
 
-                    granules = self.eliminate_duplicate_granules(granules)
-                    self.catalog_granules(granules, current_time)
-                    logger.info(f"{len(granules)=}")
+                        # Move start and end date of args back and expand 5 days at both ends to capture all k granules
+                        goback_days = 12 * (args.k * K_MULT_FACTOR - 1) + 5
+                        start_date = (datetime.strptime(args.start_date, CMR_TIME_FORMAT) - timedelta(
+                            days=goback_days)).strftime(CMR_TIME_FORMAT)
+                        end_date = (datetime.strptime(args.end_date, CMR_TIME_FORMAT) - timedelta(
+                            days=12 - 5)).strftime(CMR_TIME_FORMAT)
+                        query_timerange = DateTimeRange(start_date, end_date)
+                        logger.info(f"{query_timerange=}")
+                        granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow())
+
+                        # This step is a bit tricky.
+                        # 1) We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames
+                        # 2) We already know what frame these new granules belong to because that's what we queried for. We need to
+                        #    force using that because 1/9 times one burst will belong to two frames
+                        self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
+
+                        granules = self.eliminate_duplicate_granules(granules)
+
+                        #TODO: Organize granules by the acquisition cycle index and then figure out how many k's they satify
+
+
+                    self.catalog_granules(k_granules, current_time)
+                    logger.info(f"{len(k_granules)=}")
                     #print(f"{granules=}")
-                    download_granules.extend(granules)
+                    download_granules.extend(k_granules)
 
             if (len(download_batch) > max_bursts):
                 logger.error(f"{len(download_batch)=} {max_bursts=}")
