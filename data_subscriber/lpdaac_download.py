@@ -23,6 +23,10 @@ class HLSDownload:
 
 class DaacDownloadLpdaac(DaacDownload):
 
+    def __init__(self, provider):
+        super().__init__(provider)
+        self.daac_s3_cred_settings_key = "HLS_DOWNLOAD"
+
     def perform_download(self,
             session: requests.Session,
             es_conn,
@@ -204,12 +208,3 @@ class DaacDownloadLpdaac(DaacDownload):
             with open(product_download_path, "wb") as output_file:
                 output_file.write(r.content)
             return product_download_path.resolve()
-
-    def _get_aws_creds(self, token):
-        logger.info("entry")
-
-        with requests.get("https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials",
-                          headers={'Authorization': f'Bearer {token}'}) as r:
-            r.raise_for_status()
-
-            return r.json()

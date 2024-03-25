@@ -17,6 +17,7 @@ from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
 from util.conf_util import SettingsConf
+from tools.stage_orbit_file import fatal_code
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class DaacDownload:
 
     def __init__(self, provider):
         self.provider = provider
+        self.daac_s3_cred_settings_key = None
         self.cfg = SettingsConf().cfg  # has metadata extractor config
 
         self.downloads_dir = None
@@ -169,8 +171,19 @@ class DaacDownload:
     def get_aws_creds(self, token):
         return self._get_aws_creds(token)
 
+    @backoff.on_exception(backoff.expo,
+                          requests.exceptions.RequestException,
+                          max_tries=3,
+                          jitter=None,
+                          giveup=fatal_code)
     def _get_aws_creds(self, token):
-        raise NotImplementedError
+        logger.info("entry")
+
+        with requests.get(self.cfg["DAAC_S3_CRED_URLS"][self.daac_s3_cred_settings_key],
+                          headers={'Authorization': f'Bearer {token}'}) as r:
+            r.raise_for_status()
+
+            return r.json()
 
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
     def _s3_download(self, url, s3, tmp_dir, staging_area=""):

@@ -29,6 +29,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
     def __init__(self, provider):
         super().__init__(provider)
         self.disp_burst_map, self.burst_to_frame, metadata, version = localize_disp_frame_burst_json()
+        self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
 
     async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
