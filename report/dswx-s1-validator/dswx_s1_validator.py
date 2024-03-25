@@ -14,6 +14,7 @@ from tabulate import tabulate
 import tqdm
 from urllib.parse import urlparse, parse_qs, urlencode
 import logging
+from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -174,14 +175,21 @@ if __name__ == '__main__':
             'provider': 'ASF',
             'ShortName[]': 'OPERA_L2_RTC-S1_V1'
         }
-        if args.timestamp == "production":
-            params['production_date[]'] = f"{args.start},{args.end}"
-        elif args.timestamp == "revision":
-            params['revision_date[]'] = f"{args.start},{args.end}"
-        elif args.timestamp == "created": 
-            params['created_at[]'] = f"{args.start},{args.end}"
+
+        # Set CMR param to ignore granule searches prior to a certain date
+        start_datetime = datetime.fromisoformat(args.start)
+        temporal_start_datetime = start_datetime - timedelta(days=30) # 30 days by default design - check with PCM team
+        params['temporal'] = f"{temporal_start_datetime.isoformat()}"
+
+        # Set time query type for CMR
+        if args.timestamp.lower() == "production":
+            params['production_date'] = f"{args.start},{args.end}"
+        elif args.timestamp.lower() == "revision":
+            params['revision_date'] = f"{args.start},{args.end}"
+        elif args.timestamp.lower() == "created": 
+            params['created_at'] = f"{args.start},{args.end}"
         else: # default time query type if not provided or set to temporal
-            params['temporal[]'] = f"{args.start},{args.end}"
+            params['temporal'] = f"{args.start},{args.end}"
 
         # Construct the URL for the total granules query
         total_granules = get_total_granules(base_url, params)
