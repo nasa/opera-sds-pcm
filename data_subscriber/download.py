@@ -21,6 +21,7 @@ from tools.stage_orbit_file import fatal_code
 
 logger = logging.getLogger(__name__)
 
+AWS_REGION = "us-west-2"
 
 class SessionWithHeaderRedirection(requests.Session):
     """
@@ -148,12 +149,17 @@ class DaacDownload:
         return PurePath(dataset_dir)
 
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
-        aws_creds = self.get_aws_creds(token)
-        logger.debug(f"{self.get_aws_creds.cache_info()=}")
-        s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
-                           aws_secret_access_key=aws_creds['secretAccessKey'],
-                           aws_session_token=aws_creds['sessionToken'],
-                           region_name='us-west-2').client("s3")
+
+        if self.cfg["USE_DAAC_S3_CREDENTIALS"] is True:
+            aws_creds = self.get_aws_creds(token)
+            logger.debug(f"{self.get_aws_creds.cache_info()=}")
+            s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
+                               aws_secret_access_key=aws_creds['secretAccessKey'],
+                               aws_session_token=aws_creds['sessionToken'],
+                               region_name=AWS_REGION).client("s3")
+        else:
+            s3 = boto3.Session(region_name=AWS_REGION).client("s3")
+
         product_download_path = self._s3_download(url, s3, str(target_dirpath))
         return product_download_path.resolve()
 
@@ -177,8 +183,6 @@ class DaacDownload:
                           jitter=None,
                           giveup=fatal_code)
     def _get_aws_creds(self, token):
-        logger.info("entry")
-
         with requests.get(self.cfg["DAAC_S3_CRED_URLS"][self.daac_s3_cred_settings_key],
                           headers={'Authorization': f'Bearer {token}'}) as r:
             r.raise_for_status()
