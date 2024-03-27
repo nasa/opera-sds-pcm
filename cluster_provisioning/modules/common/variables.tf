@@ -294,7 +294,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1"
-      "instance_type"     = ["c6a.2xlarge", "c6i.2xlarge", "c7i.2xlarge"]
+      "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "c6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 300
       "max_size"          = 50
@@ -302,7 +302,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_cslc_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1_hist"
-      "instance_type"     = ["c6a.2xlarge", "c6i.2xlarge", "c7i.2xlarge"]
+      "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "c6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 300
       "max_size"          = 100
@@ -310,7 +310,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
       "name"              = "opera-job_worker-sciflo-l2_rtc_s1"
-      "instance_type"     = ["c6a.2xlarge", "c6i.2xlarge", "c7i.2xlarge", "c6a.4xlarge", "c6i.4xlarge"]
+      "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "c6i.2xlarge", "c6a.4xlarge", "c6i.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "max_size"          = 25
@@ -326,7 +326,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_hls"
-      "instance_type"     = ["c6a.large", "c6i.large", "c7a.large"]
+      "instance_type"     = ["c7a.large", "c6a.large", "c6i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 50
       "min_size"          = 0
@@ -335,7 +335,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
-      "instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge"]
+      "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge", "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -414,7 +414,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_download" = {
       "name"              = "opera-job_worker-slc_data_download"
-      "instance_type"     = ["c5n.2xlarge", "m6in.2xlarge"]
+      "instance_type"     = ["m6in.2xlarge", "c5n.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -424,7 +424,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_download_hist" = {
       "name"              = "opera-job_worker-slc_data_download_hist"
-      "instance_type"     = ["c5n.2xlarge", "m6in.2xlarge"]
+      "instance_type"     = ["m6in.2xlarge", "c5n.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
