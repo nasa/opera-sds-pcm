@@ -6,7 +6,6 @@ import os
 from os.path import basename, splitext
 from typing import Dict
 
-
 def slc_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the CSLC-S1 and RTC-S1 PGEs"""
     run_config: Dict = context.get("run_config")
@@ -39,7 +38,7 @@ def slc_s1_lineage_metadata(context, work_dir):
     local_tec_filepaths = glob.glob(os.path.join(work_dir, "JPL*.INX"))
     lineage_metadata.extend(local_tec_filepaths)
 
-    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite3"))
+    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
     lineage_metadata.extend(local_burstdb_filepaths)
 
     return lineage_metadata
@@ -76,22 +75,85 @@ def dswx_hls_lineage_metadata(context, work_dir):
 
 def dswx_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DSWx-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+
     lineage_metadata = []
 
-    rtc_data_dir = os.path.join(work_dir, 'dswx_s1_sample_input_data', 'rtc_data')
+    for s3_input_filepath in run_config["input_file_group"]["input_file_paths"]:
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+        lineage_metadata.append(local_input_filepath)
 
-    # TODO: update paths as necessary as sample inputs are phased out
-    lineage_metadata.extend(
-        [os.path.join(rtc_data_dir, rtc_dir)
-         for rtc_dir in os.listdir(rtc_data_dir)]
+    # Copy the ancillaries downloaded for this job to the pge input directory
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
+    local_hand_filepaths = glob.glob(os.path.join(work_dir, "hand_file*.*"))
+    lineage_metadata.extend(local_hand_filepaths)
+
+    local_worldcover_filepaths = glob.glob(os.path.join(work_dir, "worldcover_file*.*"))
+    lineage_metadata.extend(local_worldcover_filepaths)
+
+    local_ref_water_filepaths = glob.glob(os.path.join(work_dir, "reference_water_file*.*"))
+    lineage_metadata.extend(local_ref_water_filepaths)
+
+    local_db_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
+    lineage_metadata.extend(local_db_filepaths)
+
+    local_algorithm_parameters_filepath = os.path.join(
+        work_dir, basename(run_config["processing"]["algorithm_parameters"])
     )
+    lineage_metadata.append(local_algorithm_parameters_filepath)
 
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_s1_sample_input_data', 'ancillary_data')
+    # TODO: enable if shoreline files are needed by DSWx-S1 SAS
+    #shoreline_shape_filename = run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"]
+    #shoreline_shape_basename = splitext(basename(shoreline_shape_filename))[0]
+    #local_shoreline_filepaths = glob.glob(os.path.join(work_dir, f"{shoreline_shape_basename}.*"))
+    #lineage_metadata.extend(local_shoreline_filepaths)
 
-    lineage_metadata.extend(
-        [os.path.join(ancillary_data_dir, ancillary)
-         for ancillary in os.listdir(ancillary_data_dir)]
+    return lineage_metadata
+
+
+def disp_s1_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DISP-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    for s3_input_filepath in run_config["input_file_group"]["input_file_paths"]:
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+
+        if os.path.isdir(local_input_filepath):
+            lineage_metadata.extend(
+                [os.path.join(local_input_filepath, file_name)
+                 for file_name in os.listdir(local_input_filepath)
+                 if file_name.endswith(".h5")]
+            )
+        else:
+            lineage_metadata.append(local_input_filepath)
+
+    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+                                  "static_layers_files", "ionosphere_files", "troposphere_files"):
+        for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
+            local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+            lineage_metadata.append(local_input_filepath)
+
+    # Copy the pre-downloaded ancillaries for this job to the pge input directory
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
+    local_mask_filepaths = glob.glob(os.path.join(work_dir, "*mask*.*"))
+    lineage_metadata.extend(local_mask_filepaths)
+
+    local_algorithm_parameters_filepath = os.path.join(
+        work_dir, basename(run_config["processing"]["algorithm_parameters"])
     )
+    lineage_metadata.append(local_algorithm_parameters_filepath)
+
+    local_frame_database_filepath = os.path.join(
+        work_dir, basename(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
+    )
+    lineage_metadata.append(local_frame_database_filepath)
 
     return lineage_metadata
 
@@ -176,19 +238,84 @@ def update_dswx_s1_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dswx_s1_sample_input_data', 'rtc_data')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
-    input_file_paths = list(map(lambda x: x.replace(rtc_data_prefix, container_home_prefix), input_file_paths))
+    updated_input_file_paths = [os.path.join(container_home_prefix, basename(input_file_path))
+                                for input_file_path in input_file_paths]
+    run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
 
-    run_config["input_file_group"]["input_file_paths"] = input_file_paths
+    dynamic_ancillary_file_paths = run_config["dynamic_ancillary_file_group"]
+    updated_dynamic_ancillary_file_paths = {
+        ancillary_file_type: os.path.join(container_home_prefix, basename(ancillary_file_path))
+        for ancillary_file_type, ancillary_file_path in dynamic_ancillary_file_paths.items()
+    }
+    run_config["dynamic_ancillary_file_group"] = updated_dynamic_ancillary_file_paths
 
-    # TODO update these once we move away from sample inputs
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.tif'
-    run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.tif'
-    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.tif'
-    run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.tif'
+    static_ancillary_file_paths = run_config["static_ancillary_file_group"]
+    updated_static_ancillary_file_paths = {
+        ancillary_file_type: os.path.join(container_home_prefix, basename(ancillary_file_path))
+        for ancillary_file_type, ancillary_file_path in static_ancillary_file_paths.items()
+    }
+    run_config["static_ancillary_file_group"] = updated_static_ancillary_file_paths
 
-    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameter_s1.yaml'
+    algorithm_parameters_filename = basename(run_config["processing"]["algorithm_parameters"])
+    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/{algorithm_parameters_filename}'
+
+    return run_config
+
+
+def update_disp_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DISP-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    # TODO: kludge, assumes input dir will always be named pge_input_dir
+    local_input_dir = os.path.join(work_dir, "pge_input_dir")
+
+    updated_input_file_paths = []
+
+    for input_file_path in glob.glob(os.path.join(local_input_dir, "*.h5")):
+        updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
+
+    run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
+
+    dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
+
+    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+                                  "static_layers_files", "ionosphere_files", "troposphere_files"):
+        dynamic_ancillary_file_group[dynamic_ancillary_key] = [
+            os.path.join(container_home_prefix, basename(input_file_path))
+            for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
+        ]
+
+    static_ancillary_file_group = run_config["static_ancillary_file_group"]
+
+    for static_ancillary_key in ("frame_to_burst_json",):
+        static_ancillary_file_group[static_ancillary_key] = os.path.join(
+            container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
+        )
+
+    if "dem_file" in run_config["dynamic_ancillary_file_group"]:
+        run_config["dynamic_ancillary_file_group"]["dem_file"] = (
+            os.path.join(container_home_prefix,
+                         os.path.basename(run_config["dynamic_ancillary_file_group"]["dem_file"]))
+        )
+
+    if "mask_file" in run_config["dynamic_ancillary_file_group"]:
+        run_config["dynamic_ancillary_file_group"]["mask_file"] = (
+            os.path.join(container_home_prefix,
+                         os.path.basename(run_config["dynamic_ancillary_file_group"]["mask_file"]))
+        )
+
+    run_config["processing"]["algorithm_parameters"] = (
+        os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters"]))
+    )
 
     return run_config

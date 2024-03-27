@@ -100,6 +100,7 @@ RunConfig:
             product_id:
             rtc_s1_static_validity_start_date: {{ data.product_path_group.data_validity_start_date }}
             product_data_access: "https://search.asf.alaska.edu/#/?dataset=OPERA-S1&productTypes=RTC"
+            static_layers_data_access: "https://search.asf.alaska.edu/#/?dataset=OPERA-S1&productTypes=RTC-STATIC&operaBurstID={burst_id}&end={end_date}"
             save_bursts: True
             save_mosaics: False
             save_browse: True
@@ -117,14 +118,6 @@ RunConfig:
 
             geocoding:
               memory_mode: auto
-
-              bursts_geogrid:
-                top_left:
-                  x:
-                  y:
-                bottom_right:
-                  x:
-                  y:
 
               estimated_geometric_accuracy_bias_x: {{ data.processing.estimated_geometric_accuracy_bias_x }}
               estimated_geometric_accuracy_bias_y: {{ data.processing.estimated_geometric_accuracy_bias_y }}
