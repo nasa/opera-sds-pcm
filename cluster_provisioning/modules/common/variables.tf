@@ -434,7 +434,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_download_ionosphere" = {
       "name"              = "opera-job_worker-slc_data_download_ionosphere"
-      "instance_type"     = ["m6a.large"]
+      "instance_type"     = ["m6a.large", "m5.large", "m6i.large", "m5ad.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
