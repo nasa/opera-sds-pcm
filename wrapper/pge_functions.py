@@ -3,10 +3,8 @@ PGE-specific functions for use with the OPERA PGE Wrapper
 """
 import glob
 import os
-from os.path import basename, dirname, splitext
+from os.path import basename, splitext
 from typing import Dict
-
-from commons.logger import logger
 
 def slc_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the CSLC-S1 and RTC-S1 PGEs"""
@@ -40,7 +38,7 @@ def slc_s1_lineage_metadata(context, work_dir):
     local_tec_filepaths = glob.glob(os.path.join(work_dir, "JPL*.INX"))
     lineage_metadata.extend(local_tec_filepaths)
 
-    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite3"))
+    local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
     lineage_metadata.extend(local_burstdb_filepaths)
 
     return lineage_metadata
