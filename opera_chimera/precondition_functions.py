@@ -345,13 +345,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 3/4th of the available cores for standard processing
-        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+        # Use all available cores for threads_per_worker
+        threads_per_worker = available_cores
 
-        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+        logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
+
+        # Use (1/2 + 1) of the available cores for parallel burst processing
+        n_parallel_bursts = max(int(round(available_cores / 2)) + 1, 1)
+
+        logger.info(f"Allocating {n_parallel_bursts=} out of {available_cores} available")
 
         rc_params = {
-            "n_workers": str(num_workers)
+            "threads_per_worker": str(threads_per_worker),
+            "n_parallel_bursts": str(n_parallel_bursts)
         }
 
         logger.info(f"rc_params : {rc_params}")
