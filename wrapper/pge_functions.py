@@ -155,6 +155,12 @@ def disp_s1_lineage_metadata(context, work_dir):
     )
     lineage_metadata.append(local_frame_database_filepath)
 
+    # TODO enable if/when provided the file
+    #local_reference_date_database = os.path.join(
+    #    work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
+    #)
+    #lineage_metadata.append(local_reference_date_database)
+
     return lineage_metadata
 
 
@@ -297,6 +303,7 @@ def update_disp_s1_runconfig(context, work_dir):
 
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
+    # TODO add "reference_date_database_json" if/when file becomes available
     for static_ancillary_key in ("frame_to_burst_json",):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
