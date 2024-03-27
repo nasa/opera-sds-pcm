@@ -121,14 +121,14 @@ async def test_rtc(event_loop: AbstractEventLoop):
         # "m2.2xlarge",  # 4 vCPUs, 34.2 GB, moderate
         # "t3.2xlarge",  # 8 vCPU burst
         # "c6i.2xlarge",
-        # "c7i.2xlarge",  # TODO chrisjrd: AWS no availability
-        # "m6a.2xlarge",  # TODO chrisjrd: AWS no availability
+        # "c7i.2xlarge",  # AWS no availability
+        # "m6a.2xlarge",
         # "c5.2xlarge",
         # "c6a.2xlarge",
-        # "m5d.2xlarge",  # TODO chrisjrd: AWS no availability
-        # "m6id.2xlarge",  # TODO chrisjrd: AWS no availability
-        "t2.2xlarge",  # 8 vCPU burst, moderate
-        "c3.2xlarge",  # 15 GB, high
+        # "m5d.2xlarge",  # AWS no availability. TERRIBLE
+        # "m6id.2xlarge",  # AWS no availability
+        # "t2.2xlarge",  # 8 vCPU burst, moderate
+        # "c3.2xlarge",  # 15 GB, high
         # "c5ad.2xlarge",
         # "m5.2xlarge",
         # "c6id.2xlarge",
@@ -137,14 +137,14 @@ async def test_rtc(event_loop: AbstractEventLoop):
         # "m7i.2xlarge",
         # "c5a.2xlarge",
         # "c5n.2xlarge",
-        # "m7i.flex.2xlarge",
+        # "m7i-flex.2xlarge",
         # "m6i.2xlarge",
         # "c7a.2xlarge",
         # "m7a.2xlarge",
         # "m6in.2xlarge",
-        # "c6in.2xlarge",
-        # "m4.2xlarge",
-        # "m5a.2xlarge",
+        # "c6in.2xlarge",  # AWS no availability
+        # "m4.2xlarge",  # AWS no availability
+        # "m5a.2xlarge",  # 33 GB
         # "m6idn.2xlarge",
     ]
 
