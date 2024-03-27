@@ -30,7 +30,8 @@ RunConfig:
         ProductIdentifier: DISP_S1
         ProductVersion: "{{ data.product_path_group.product_version }}"
         ProgramPath: disp-s1
-        ProgramOptions: []
+        ProgramOptions:
+          - run
         ErrorCodeBase: 500000
         SchemaPath: /home/mamba/opera/pge/disp_s1/schema/disp_s1_sas_schema.yaml
         AlgorithmParametersSchemaPath: /home/mamba/opera/pge/disp_s1/schema/algorithm_parameters_disp_s1_schema.yaml
@@ -81,9 +82,8 @@ RunConfig:
         save_compressed_slc: true
       worker_settings:
         gpu_enabled: false
-        n_workers: {{ data.processing.n_workers }}
-        threads_per_worker: 2
-        n_parallel_bursts: 1
+        threads_per_worker: {{ data.processing.threads_per_worker }}
+        n_parallel_bursts: {{ data.processing.n_parallel_bursts }}
         block_shape:
           - 512
           - 512
