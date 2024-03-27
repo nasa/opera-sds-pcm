@@ -25,15 +25,18 @@ runconfig:
     troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
+    # TODO: unsure if we have this yet or if it even needs to be provided in production
+    #reference_date_database_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
-    scratch_path: /home/mamba/output_dir/scratch_dir
+    scratch_path: /home/mamba/scratch_dir
   processing:
     frame_id: __CHIMERA_VAL__
     algorithm_parameters: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
-    n_workers: __CHIMERA_VAL__
+    threads_per_worker: __CHIMERA_VAL__
+    n_parallel_bursts: __CHIMERA_VAL__
     # TODO: DebugSwitch is currently hardcoded to True to bypass ancillary input checks in DISP-S1 PGE
     #       Reset to False once ancillaries are available
     debug_switch: True
@@ -76,13 +79,13 @@ get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
   frame_to_burst_json:
     s3_bucket: "opera-ancillaries"
-    s3_key: "disp_frames/disp-s1/0.1.0/opera-s1-disp-frame-to-burst.json"
+    s3_key: "disp_frames/disp-s1/0.2.8/opera-s1-disp-frame-to-burst.json"
 
 get_disp_s1_algorithm_parameters:
   # This S3 path only defines the location of the algorithm parameters files,
   # an actual file will be selected based on the processing mode of the job (forward vs. historical)
   s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.1.0"
+  s3_key: "algorithm_parameters/disp_s1/0.2.8"
 
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
