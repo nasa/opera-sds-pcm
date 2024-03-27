@@ -132,7 +132,8 @@ def disp_s1_lineage_metadata(context, work_dir):
         else:
             lineage_metadata.append(local_input_filepath)
 
-    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+    # TODO reenable amplitude mean/dispersion here if needed
+    for dynamic_ancillary_key in (#"amplitude_dispersion_files", "amplitude_mean_files",
                                   "static_layers_files", "ionosphere_files", "troposphere_files"):
         for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
             local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
@@ -294,7 +295,8 @@ def update_disp_s1_runconfig(context, work_dir):
 
     dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
 
-    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+    # TODO reenable amplitude mean/dispersion here if needed
+    for dynamic_ancillary_key in (#"amplitude_dispersion_files", "amplitude_mean_files",
                                   "static_layers_files", "ionosphere_files", "troposphere_files"):
         dynamic_ancillary_file_group[dynamic_ancillary_key] = [
             os.path.join(container_home_prefix, basename(input_file_path))
