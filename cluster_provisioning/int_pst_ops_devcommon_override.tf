@@ -2,7 +2,7 @@
 # testing, PST processing, and operations.ß
 
 variable "hysds_release" {
-  default = "v5.0.1"
+  default = "v5.0.0-rc.1.0"
 }
 
 variable "lambda_package_release" {

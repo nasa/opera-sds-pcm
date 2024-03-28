@@ -507,7 +507,7 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - Dec 2, 2023 - R2
+    # HySDS v5.0.0-rc.1.0 - Dec 2, 2023 - R2
     mozart    = "ami-0ea2ef3aba96651b5" # mozart v4.25 - 231202
     metrics   = "ami-09fee089c0b2716e6" # metrics v4.17 - 231202
     grq       = "ami-0c702e214b6e7bec9" # grq v4.18 - 231202
