@@ -120,6 +120,7 @@ setup(
             # The list of dependencies required for the benchmarking module
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
+            "boto3-stubs[autoscaling]",
             "botocore",
             "elasticsearch[async]",
             "more-itertools==8.13.0",

@@ -165,6 +165,9 @@ def convert(
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
 
+        if product_metadata.get("ProductReceivedTime"):
+            dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
+
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         catalog_metadata_files = glob.glob(os.path.join(product_dir, "*.catalog.json"))
