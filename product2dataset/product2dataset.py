@@ -164,6 +164,10 @@ def convert(
             # TODO: this is probably insufficient, as there will be multiple input granule ID's for each DSWx-S1 job
             dataset_met_json["input_granule_id"] = product_metadata["id"]
 
+        # for production time report 
+        if product_metadata.get("ProductReceivedTime"):
+            dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
+
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         catalog_metadata_files = glob.glob(os.path.join(product_dir, "*.catalog.json"))
