@@ -10,12 +10,16 @@ import requests.utils
 
 from data_subscriber.download import DaacDownload
 from data_subscriber.url import _has_url, _to_urls, _to_https_urls, _slc_url_to_chunk_id, form_batch_id
-from tools.stage_orbit_file import fatal_code
 
 logger = logging.getLogger(__name__)
 
 
 class DaacDownloadAsf(DaacDownload):
+
+    def __init__(self, provider):
+        super().__init__(provider)
+        self.daac_s3_cred_settings_key = "SLC_DOWNLOAD"
+
     """This is practically an abstract class. You should never instantiate this."""
     def perform_download(self,
             session: requests.Session,
@@ -140,16 +144,3 @@ class DaacDownloadAsf(DaacDownload):
 
         with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
             json.dump(dataset_json, fp)
-
-    @backoff.on_exception(backoff.expo,
-                          requests.exceptions.RequestException,
-                          max_time=300,
-                          giveup=fatal_code)
-    def _get_aws_creds(self, token):
-        logger.info("entry")
-
-        with requests.get("https://sentinel1.asf.alaska.edu/s3credentials",
-                          headers={'Authorization': f'Bearer {token}'}) as r:
-            r.raise_for_status()
-
-            return r.json()
