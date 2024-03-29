@@ -85,7 +85,7 @@ DSWX_HLS:
 
 RTC_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
-  ANCILLARY_MARGIN: 100
+  ANCILLARY_MARGIN: 200
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -97,7 +97,7 @@ RTC_S1_STATIC:
   # Validity start date used to tag static layer products
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
-  ANCILLARY_MARGIN: 100
+  ANCILLARY_MARGIN: 200
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
