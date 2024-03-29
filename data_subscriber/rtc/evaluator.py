@@ -94,6 +94,7 @@ def main(
     if mgrs_set_id_acquisition_ts_cycle_indexes or coverage_target == 100:
         # native-id flow, grace period does not apply
         #  if 100% coverage target set, grace period does not apply and sets have been handled already above
+        logger.info("ignoring grace period")
         pass
     elif coverage_target != 100:
         # skip recent target covered sets to wait for more data
