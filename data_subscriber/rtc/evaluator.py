@@ -91,9 +91,11 @@ def main(
                         "coverage_group": coverage_group,
                         "product_set": product_set_docs
                     })
-    # not native-id flow, grace period does not apply
-    #  if 100% coverage target set, grace period does not apply and sets have been handled already above
-    if not mgrs_set_id_acquisition_ts_cycle_indexes or coverage_target != 100:
+    if mgrs_set_id_acquisition_ts_cycle_indexes or coverage_target == 100:
+        # native-id flow, grace period does not apply
+        #  if 100% coverage target set, grace period does not apply and sets have been handled already above
+        pass
+    elif coverage_target != 100:
         # skip recent target covered sets to wait for more data
         #  until H hours have passed since most recent retrieval
         for mgrs_set_id in list(evaluator_results["mgrs_sets"]):
