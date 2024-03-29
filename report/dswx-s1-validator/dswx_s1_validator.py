@@ -148,6 +148,7 @@ if __name__ == '__main__':
     parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
     parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the %)")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
+    parser.add_argument("--endpoint", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue')
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -171,6 +172,8 @@ if __name__ == '__main__':
 
         # Base URL for granule searches
         base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+        if args.endpoint == 'UAT':
+            base_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
         params = {
             'provider': 'ASF',
             'ShortName[]': 'OPERA_L2_RTC-S1_V1'
