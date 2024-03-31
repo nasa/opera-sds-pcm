@@ -12,9 +12,11 @@ from typing import Dict, Tuple, List, Union
 from .pge_functions import (slc_s1_lineage_metadata,
                             dswx_hls_lineage_metadata,
                             dswx_s1_lineage_metadata,
+                            disp_s1_lineage_metadata,
                             update_slc_s1_runconfig,
                             update_dswx_hls_runconfig,
-                            update_dswx_s1_runconfig)
+                            update_dswx_s1_runconfig,
+                            update_disp_s1_runconfig)
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
@@ -31,7 +33,8 @@ lineage_metadata_functions = {
     'L2_RTC_S1': slc_s1_lineage_metadata,
     'L2_RTC_S1_STATIC': slc_s1_lineage_metadata,
     'L3_DSWx_HLS': dswx_hls_lineage_metadata,
-    'L3_DSWx_S1': dswx_s1_lineage_metadata
+    'L3_DSWx_S1': dswx_s1_lineage_metadata,
+    'L3_DISP_S1': disp_s1_lineage_metadata
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -41,7 +44,8 @@ runconfig_update_functions = {
     'L2_RTC_S1': update_slc_s1_runconfig,
     'L2_RTC_S1_STATIC': update_slc_s1_runconfig,
     'L3_DSWx_HLS': update_dswx_hls_runconfig,
-    'L3_DSWx_S1': update_dswx_s1_runconfig
+    'L3_DSWx_S1': update_dswx_s1_runconfig,
+    'L3_DISP_S1': update_disp_s1_runconfig
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
@@ -52,7 +56,10 @@ def main(job_json_file: str, workdir: str):
     job_context = jc.ctx
 
     # set additional files to triage
-    jc.set('_triage_additional_globs', ["output", "RunConfig.yaml", "pge_output_dir"])
+    jc.set(
+        '_triage_additional_globs',
+        ["output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir", "pge_output_dir", "pge_scratch_dir"]
+    )
 
     # Disable no-clobber errors for published files. Either the file naming conventions
     # will guarantee uniqueness, or we want certain files to be overwritten to avoid
@@ -76,7 +83,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info(f"Preparing Working Directory: {work_dir}")
     logger.debug(f"{list(Path(work_dir).iterdir())=}")
 
-    input_dir, output_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
+    input_dir, output_dir, scratch_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
 
     run_config: Dict = job_json_dict.get("run_config")
     pge_config: Dict = job_json_dict.get("pge_config")
@@ -91,7 +98,13 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     logger.info("Moving input files to input directories.")
     for local_input_filepath in lineage_metadata:
-        shutil.move(local_input_filepath, input_dir)
+        try:
+            shutil.move(local_input_filepath, input_dir)
+        except shutil.Error as err:
+            logger.warning(
+                f"Failed to move {local_input_filepath} to {input_dir}, "
+                f"reason: {str(err)}"
+            )
 
     if pge_name in runconfig_update_functions:
         logger.info("Updating run config for use with PGE.")
@@ -121,7 +134,8 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
             work_dir=work_dir,
             input_dir=input_dir,
             runconfig_dir=runconfig_dir,
-            output_dir=output_dir
+            output_dir=output_dir,
+            scratch_dir=scratch_dir
         )
     logger.debug(f"{os.listdir(output_dir)=}")
 
@@ -141,7 +155,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     return created_datasets
 
 
-def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str, str]:
+def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str, str, str]:
     """Creates the requisite directories per the PGE-PCM ICS"""
     logger.info("Creating directories for PGE.")
 
@@ -154,7 +168,10 @@ def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str,
     output_dir = os.path.join(work_dir, job_param_by_name(context, "pge_output_dir"))
     os.makedirs(output_dir, 0o755, exist_ok=True)
 
-    return input_dir, output_dir, runconfig_dir
+    scratch_dir = os.path.join(work_dir, job_param_by_name(context, "pge_scratch_dir"))
+    os.makedirs(scratch_dir, 0o755, exist_ok=True)
+
+    return input_dir, output_dir, scratch_dir, runconfig_dir
 
 
 def job_param_by_name(context: Dict, name: str):
@@ -170,7 +187,7 @@ def job_param_by_name(context: Dict, name: str):
     raise Exception(f"param ({name}) not found in _context.json")
 
 
-def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir: str, output_dir: str):
+def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir: str, output_dir: str, scratch_dir: str):
     logger.info("Preparing PGE docker command.")
 
     # get dependency image
@@ -206,6 +223,7 @@ def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir
         f"-v {runconfig_dir}:{container_home}/runconfig:ro",
         f"-v {input_dir}:{container_home}/input_dir:ro",
         f"-v {output_dir}:{container_home}/output_dir",
+        f"-v {scratch_dir}:{container_home}/scratch_dir",
         dep_img_name,
         f"--file {container_home}/runconfig/RunConfig.yaml",
     ]
