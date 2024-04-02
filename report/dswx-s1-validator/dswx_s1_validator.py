@@ -236,7 +236,7 @@ def get_burst_ids_from_query(start, end, timestamp, db):
 if __name__ == '__main__':
     # Create an argument parser
     parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
-    parser.add_argument("--timestamp", metavar="TEMPORAL|REVISION|PRODUCTION|CREATED", required=False, help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
+    parser.add_argument("--timestamp", metavar="TEMPORAL|REVISION|PRODUCTION|CREATED", default="temporal", required=False, help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision.  Default is 'TEMPORAL'")
     parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
     parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
