@@ -146,7 +146,7 @@ if __name__ == '__main__':
     parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
     parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
-    parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the %)")
+    parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the % sign)")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
 
     # Parse the command-line arguments
