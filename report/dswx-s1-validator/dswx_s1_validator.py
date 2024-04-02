@@ -138,6 +138,101 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
             else:
                 raise RuntimeError("Failed to get total granules after several attempts.")
 
+
+
+def get_burst_ids_from_file(filename):
+
+    burst_ids = {}
+    with open(filename, 'r') as file:
+        granule_ids = [line.strip() for line in file.readlines()]
+        for granule_id in granule_ids:
+            burst_id = get_burst_id(granule_id)
+            if (burst_id):
+                burst_ids[burst_id] = granule_id
+            else:
+                print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
+
+    return burst_ids
+
+
+def get_burst_ids_from_query(start, end, timestamp, db):
+
+    burst_ids = {}
+    # Ensure start and end times are provided
+    if not start or not end:
+        raise ValueError("Start and end times are required if no file input is provided.")
+
+    # Base URL for granule searches
+    base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+    params = {
+        'provider': 'ASF',
+        'ShortName[]': 'OPERA_L2_RTC-S1_V1'
+    }
+
+    # Set CMR param to ignore granule searches prior to a certain date
+    start_datetime = datetime.fromisoformat(start)
+    temporal_start_datetime = start_datetime - timedelta(days=30) # 30 days by default design - check with PCM team
+    params['temporal'] = f"{temporal_start_datetime.isoformat()}"
+
+    # Set time query type for CMR
+    if timestamp.lower() == "production":
+        params['production_date'] = f"{start},{end}"
+    elif timestamp.lower() == "revision":
+        params['revision_date'] = f"{start},{end}"
+    elif timestamp.lower() == "created":
+        params['created_at'] = f"{start},{end}"
+    else: # default time query type if not provided or set to temporal
+        params['temporal'] = f"{start},{end}"
+
+    # Construct the URL for the total granules query
+    total_granules = get_total_granules(base_url, params)
+    print(f"Total granules: {total_granules}")
+    print(f"Querying CMR for time range {start} to {end}.")
+
+    # Exit with error code if no granules to process
+    if (total_granules == 0):
+        print(f"Error: no granules to process.")
+
+    # Optimize page_size and number of workers based on total_granules
+    page_size = min(1000, total_granules)
+    num_workers = min(5, (total_granules + page_size - 1) // page_size)
+
+    # Initialize progress bar
+    tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
+    print()
+
+    # Main loop to fetch granules, update progress bar, and extract burst_ids
+    with tqdm.tqdm(total=total_granules, desc="Fetching granules", position=0) as pbar_global:
+        downloaded_batches = multiprocessing.Value('i', 0)  # For counting downloaded batches
+        total_batches = (total_granules + page_size - 1) // page_size
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+
+            for future in concurrent.futures.as_completed(futures):
+                granules = future.result()
+                pbar_global.update(len(granules))
+
+                # RegEx for extracting burst IDs from granule IDs
+                pattern = r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1A_\d+_v\d+\.\d+'
+                for granule in granules:
+                    granule_id = granule.get("umm").get("GranuleUR")
+                    burst_id = get_burst_id(granule_id)
+                    if (burst_id):
+                        burst_ids[burst_id] = granule_id
+                    else:
+                        print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
+    print("\nGranule fetching complete.")
+
+    # Integrity check for total granules
+    total_downloaded = sum(len(future.result()) for future in futures)
+    if total_downloaded != total_granules:
+        print(f"\nError: Expected {total_granules} granules, but downloaded {total_downloaded}. Try running again after some delay.")
+        sys.exit(1)
+
+    return burst_ids
+
+
 if __name__ == '__main__':
     # Create an argument parser
     parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
@@ -156,86 +251,14 @@ if __name__ == '__main__':
 
     # Check if file input is provided, otherwise use CMR API to get burst IDs
     if args.file:
-        with open(args.file, 'r') as file:
-            granule_ids = [line.strip() for line in file.readlines()]
-            for granule_id in granule_ids:
-              burst_id = get_burst_id(granule_id)
-              if (burst_id):
-                  burst_ids[burst_id] = granule_id
-              else:
-                  print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
+        burst_ids = get_burst_ids_from_file(filename=args.file)
+        
     else:
-        # Ensure start and end times are provided
-        if not args.start or not args.end:
-            raise ValueError("Start and end times are required if no file input is provided.")
-
-        # Base URL for granule searches
-        base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
-        params = {
-            'provider': 'ASF',
-            'ShortName[]': 'OPERA_L2_RTC-S1_V1'
-        }
-
-        # Set CMR param to ignore granule searches prior to a certain date
-        start_datetime = datetime.fromisoformat(args.start)
-        temporal_start_datetime = start_datetime - timedelta(days=30) # 30 days by default design - check with PCM team
-        params['temporal'] = f"{temporal_start_datetime.isoformat()}"
-
-        # Set time query type for CMR
-        if args.timestamp.lower() == "production":
-            params['production_date'] = f"{args.start},{args.end}"
-        elif args.timestamp.lower() == "revision":
-            params['revision_date'] = f"{args.start},{args.end}"
-        elif args.timestamp.lower() == "created": 
-            params['created_at'] = f"{args.start},{args.end}"
-        else: # default time query type if not provided or set to temporal
-            params['temporal'] = f"{args.start},{args.end}"
-
-        # Construct the URL for the total granules query
-        total_granules = get_total_granules(base_url, params)
-        print(f"Total granules: {total_granules}")
-        print(f"Querying CMR for time range {args.start} to {args.end}.")
-
-        # Exit with error code if no granules to process
-        if (total_granules == 0):
-            print(f"Error: no granules to process.")
-
-        # Optimize page_size and number of workers based on total_granules
-        page_size = min(1000, total_granules)
-        num_workers = min(5, (total_granules + page_size - 1) // page_size)
-
-        # Initialize progress bar
-        tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
-        print()
-
-        # Main loop to fetch granules, update progress bar, and extract burst_ids
-        with tqdm.tqdm(total=total_granules, desc="Fetching granules", position=0) as pbar_global:
-            downloaded_batches = multiprocessing.Value('i', 0)  # For counting downloaded batches
-            total_batches = (total_granules + page_size - 1) // page_size
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
-
-                for future in concurrent.futures.as_completed(futures):
-                    granules = future.result()
-                    pbar_global.update(len(granules))
-
-                    # RegEx for extracting burst IDs from granule IDs
-                    pattern = r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1A_\d+_v\d+\.\d+'
-                    for granule in granules:
-                        granule_id = granule.get("umm").get("GranuleUR")
-                        burst_id = get_burst_id(granule_id)
-                        if (burst_id):
-                            burst_ids[burst_id] = granule_id
-                        else:
-                            print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
-        print("\nGranule fetching complete.")
-
-        # Integrity check for total granules
-        total_downloaded = sum(len(future.result()) for future in futures)
-        if total_downloaded != total_granules:
-            print(f"\nError: Expected {total_granules} granules, but downloaded {total_downloaded}. Try running again after some delay.")
-            sys.exit(1)
+        burst_ids = get_burst_ids_from_query(start = args.start,
+                                 end = args.end,
+                                 timestamp = args.timestamp,
+                                 db = args.db,
+        )
 
     # Connect to the MGRS Tile Set SQLITE database
     conn = sqlite3.connect(args.db)
