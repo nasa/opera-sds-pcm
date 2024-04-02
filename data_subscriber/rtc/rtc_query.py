@@ -122,7 +122,7 @@ class RtcCmrQuery(CmrQuery):
             logger.info("Supplied native-id. Limiting evaluation")
             evaluator_results = evaluator.main(
                 coverage_target=args.coverage_target or settings["DSWX_S1_COVERAGE_TARGET"],
-                required_min_age_minutes_for_partial_burstsets=settings["DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES"],
+                required_min_age_minutes_for_partial_burstsets=args.grace_mins or settings["DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES"],
                 mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes
             )
         else:  # evaluate ALL sets in backlog
