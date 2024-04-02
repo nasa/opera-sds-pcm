@@ -574,7 +574,13 @@ resource "aws_instance" "mozart" {
       cd ~/mozart/ops/opera-pcm
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
+      pip install '.[audit]'
+      pip install '.[cmr_audit]'
       pip install --progress-bar off -e .
+
+      # For daac_data_subscriber utility tool
+      mkdir ~/Downloads/
+      aws s3 cp  s3://opera-ancillaries/mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite ~/Downloads/
     EOT
     ]
   }

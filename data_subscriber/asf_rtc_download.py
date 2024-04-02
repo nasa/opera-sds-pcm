@@ -10,6 +10,7 @@ import requests.utils
 from requests.exceptions import HTTPError
 
 from data_subscriber.download import DaacDownload
+from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class AsfDaacRtcDownload(DaacDownload):
     def perform_download(
         self,
         session: requests.Session,
-        es_conn,
+        es_conn: RTCProductCatalog,
         downloads: list[dict],
         args,
         token,
@@ -40,10 +41,8 @@ class AsfDaacRtcDownload(DaacDownload):
             downloads = []
 
         product_to_product_filepaths_map = defaultdict(set)
-        if args.smoke_run:
-            logger.info(f"{args.smoke_run=}. Capping downloads.")
-            downloads = downloads[:1]
         num_downloads = len(downloads)
+        download_id_to_downloads_map = {download["id"]: download for download in downloads}
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
             futures = [
                 executor.submit(self.perform_download_single, download, token, args, download_counter, num_downloads)
@@ -51,12 +50,15 @@ class AsfDaacRtcDownload(DaacDownload):
             ]
             list_product_id_product_filepath = [future.result() for future in concurrent.futures.as_completed(futures)]
             for product_id_product_filepath in list_product_id_product_filepath:
-                for product_id, product_filepath in product_id_product_filepath:
+                for product_id, product_filepath, download_id, filesize in product_id_product_filepath:
                     product_to_product_filepaths_map[product_id].add(product_filepath)
+                    if not download_id_to_downloads_map[download_id].get("filesize"):
+                        download_id_to_downloads_map[download_id]["filesize"] = 0
+                    download_id_to_downloads_map[download_id]["filesize"] += filesize
 
         for download in downloads:
             logger.info(f"Marking as downloaded. {download['id']=}")
-            es_conn.mark_product_as_downloaded(download['id'], job_id)
+            es_conn.mark_product_as_downloaded(download['id'], job_id, download_id_to_downloads_map[download["id"]]["filesize"])
 
         logger.info(f"downloaded {len(product_to_product_filepaths_map)} products")
         return product_to_product_filepaths_map
@@ -70,6 +72,12 @@ class AsfDaacRtcDownload(DaacDownload):
             product_urls = _to_urls(download)
 
         list_product_id_product_filepath = []
+
+        # Small hack: if product_urls is not a list, make it a list. This is used for CSLC downloads.
+        # TODO: Change this more upstream so that this hack is not needed
+        if not isinstance(product_urls, list):
+            product_urls = [product_urls]
+
         for product_url in product_urls:
             logger.info(f"Processing {product_url=}")
             product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))
@@ -88,7 +96,7 @@ class AsfDaacRtcDownload(DaacDownload):
                 )
             logger.info(f"{product_filepath=}")
 
-            list_product_id_product_filepath.append((product_id, product_filepath))
+            list_product_id_product_filepath.append((product_id, product_filepath, download["id"], os.path.getsize(product_filepath)))
         return list_product_id_product_filepath
 
     def download_asf_product(self, product_url, token: str, target_dirpath: Path):

@@ -18,11 +18,13 @@ runconfig:
   dynamic_ancillary_file_group:
     amplitude_dispersion_files: __CHIMERA_VAL__
     amplitude_mean_files: __CHIMERA_VAL__
-    geometry_files: __CHIMERA_VAL__
-    mask_file: __CHIMERA_VAL__
+    static_layers_files: __CHIMERA_VAL__
+    #mask_file: __CHIMERA_VAL__  # TODO: need to determine source of (global?) mask
     dem_file: __CHIMERA_VAL__
-    tec_files: __CHIMERA_VAL__
-    weather_model_files: __CHIMERA_VAL__
+    ionosphere_files: __CHIMERA_VAL__
+    troposphere_files: __CHIMERA_VAL__
+  static_ancillary_file_group:
+    frame_to_burst_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
@@ -30,6 +32,11 @@ runconfig:
   processing:
     frame_id: __CHIMERA_VAL__
     algorithm_parameters: __CHIMERA_VAL__
+    product_type: __CHIMERA_VAL__
+    n_workers: __CHIMERA_VAL__
+    # TODO: DebugSwitch is currently hardcoded to True to bypass ancillary input checks in DISP-S1 PGE
+    #       Reset to False once ancillaries are available
+    debug_switch: True
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -38,26 +45,45 @@ preconditions:
   - get_cnm_version
   - set_daac_product_type
   - get_disp_s1_frame_id
-  - get_disp_s1_sample_inputs
+  - get_disp_s1_product_type
+  - get_disp_s1_num_workers
+  - get_s3_input_filepaths
+  - get_static_ancillary_files
+  - get_disp_s1_algorithm_parameters
+  - get_disp_s1_amplitude_dispersion_files
+  - get_disp_s1_amplitude_mean_files
+  - get_disp_s1_static_layers_files
+  - get_disp_s1_ionosphere_files
+  - get_disp_s1_troposphere_files
+  - get_disp_s1_dem
   # TODO: to be implemented with further releases
-  #- get_disp_s1_input_filepaths
-  #- get_disp_s1_dem
-  #- get_disp_s1_amplitude_dispersion_files
-  #- get_disp_s1_amplitude_mean_files
-  #- get_disp_s1_geometry_files
-  #- get_disp_s1_mask_file
-  #- get_disp_s1_tec_files
-  #- get_disp_s1_weather_model_files
+  #- get_disp_s1_mask_file  # TODO: need to determine source of (global?) mask
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
+
+set_sample_product_metadata:
+  s3_bucket: "opera-dev-lts-fwd-collinss"
+  s3_key: "sample_disp_s1_product_metadata_small.json"
 
 get_product_version:
   version_key: "DISP_S1_PRODUCT_VERSION"
 
 set_daac_product_type:
   template: OPERA_L3_DISP_S1_{cnm_version}
+
+get_static_ancillary_files:
+  # The s3 locations of each of the static ancillary file types used by DISP-S1
+  frame_to_burst_json:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "disp_frames/disp-s1/0.1.0/opera-s1-disp-frame-to-burst.json"
+
+get_disp_s1_algorithm_parameters:
+  # This S3 path only defines the location of the algorithm parameters files,
+  # an actual file will be selected based on the processing mode of the job (forward vs. historical)
+  s3_bucket: "opera-ancillaries"
+  s3_key: "algorithm_parameters/disp_s1/0.1.0"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
@@ -67,6 +93,7 @@ set_extra_pge_output_metadata:
 output_types:
   L3_DISP_S1:
     - nc
+    - h5
     - png
     - catalog.json
     - iso.xml
@@ -85,8 +112,10 @@ primary_output: "L3_DISP_S1"
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
 localize_groups:
-  - product_paths
+  - input_file_group
   - dynamic_ancillary_file_group
+  - static_ancillary_file_group
+  - processing
 
 
 #######################################################################
@@ -99,3 +128,5 @@ input_file_base_name_regexes:
     - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?_(?P<product_version>v\d+[.]\d+))$'
 sample_input_dataset_id: "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1"
 output_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
+ancillary_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{product_version}_{creation_ts}Z
+compressed_cslc_name: compressed_{burst_id}_{ts_start}_{ts_end}

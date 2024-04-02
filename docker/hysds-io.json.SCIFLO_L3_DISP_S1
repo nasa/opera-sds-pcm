@@ -7,79 +7,104 @@
       "name": "module_path",
       "from": "value",
       "type": "text",
-      "value": "/home/ops/verdi/ops/opera-pcm"
+      "value": "/home/ops/verdi/ops/opera-pcm",
+      "default": "/home/ops/verdi/ops/opera-pcm"
     },
     {
       "name": "wf_dir",
       "from": "value",
       "type": "text",
-      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml",
+      "default": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
     },
     {
       "name": "wf_name",
       "from": "value",
       "type": "text",
-      "value": "L3_DISP_S1"
+      "value": "L3_DISP_S1",
+      "default": "L3_DISP_S1"
     },
     {
       "name":"dataset_type",
       "from": "value",
-      "type":"text",
-      "value":"L2_CSLC_S1"
+      "type": "text",
+      "value":"L2_CSLC_S1",
+      "default": "L2_CSLC_S1"
+    },
+    {
+      "name": "processing_mode",
+      "from": "value",
+      "type": "text",
+      "value": "forward",
+      "default": "forward"
     },
     {
       "name":"input_dataset_id",
       "type":"text",
       "from":"value",
-      "value": "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1"
+      "value": "placeholder_id"
     },
     {
      "name": "product_metadata",
      "from": "value",
      "type": "object",
-     "value" : "{ \"metadata\": { \"FileName\": \"OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1.h5\", \"id\": \"OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1\" } }"
+     "value" : "s3://opera-dev-lts-fwd-collinss/sample_disp_s1_product_metadata_small.json"
     },
     {
       "name": "accountability_module_path",
       "from": "value",
       "type": "text",
-      "value": "opera_chimera.accountability"
+      "value": "opera_chimera.accountability",
+      "default": "opera_chimera.accountability"
     },
     {
       "name": "accountability_class",
       "from": "value",
       "type": "text",
-      "value": "OperaAccountability"
+      "value": "OperaAccountability",
+      "default": "OperaAccountability"
     },
     {
       "name": "pge_runconfig_dir",
       "from": "value",
       "type": "text",
-      "value": "pge_runconfig_dir"
+      "value": "pge_runconfig_dir",
+      "default": "pge_runconfig_dir"
     },
     {
       "name": "pge_input_dir",
       "from": "value",
       "type": "text",
-      "value": "pge_input_dir"
+      "value": "pge_input_dir",
+      "default": "pge_input_dir"
     },
     {
       "name": "pge_output_dir",
       "from": "value",
       "type": "text",
-      "value": "pge_output_dir"
+      "value": "pge_output_dir",
+      "default": "pge_output_dir"
+    },
+    {
+      "name": "pge_scratch_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_scratch_dir",
+      "default": "pge_scratch_dir"
     },
     {
       "name": "container_home",
       "from": "value",
       "type": "text",
-      "value": "/home/mamba"
+      "value": "/home/mamba",
+      "default": "/home/mamba"
     },
     {
       "name": "container_working_dir",
       "from": "value",
       "type": "text",
-      "value": "/home/mamba"
+      "value": "/home/mamba",
+      "default": "/home/mamba"
     }
   ]
 }

@@ -285,7 +285,7 @@ variable "queues" {
   default = {
     "opera-job_worker-hls_data_ingest" = {
       "name"              = "opera-job_worker-hls_data_ingest"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -335,7 +335,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
-      "instance_type"     = ["r6a.large", "r6i.large"]
+      "instance_type"     = ["c5.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -345,20 +345,20 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1" = {
       "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c5a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c5a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-send_cnm_notify" = {
       "name"              = "opera-job_worker-send_cnm_notify"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 40
@@ -366,7 +366,7 @@ variable "queues" {
     }
     "opera-job_worker-rcv_cnm_notify" = {
       "name"              = "opera-job_worker-rcv_cnm_notify"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 20
@@ -374,7 +374,7 @@ variable "queues" {
     }
     "opera-job_worker-hls_data_query" = {
       "name"              = "opera-job_worker-hls_data_query"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -394,7 +394,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_query" = {
       "name"              = "opera-job_worker-slc_data_query"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -404,7 +404,7 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_query_hist" = {
       "name"              = "opera-job_worker-slc_data_query_hist"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -444,9 +444,9 @@ variable "queues" {
     }
     "opera-job_worker-rtc_data_query" = {
       "name"              = "opera-job_worker-rtc_data_query"
-      "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
+      "instance_type"     = ["m6i.large", "m6a.large", "m5.large", "m5a.large"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 25
       "min_size"          = 0
       "max_size"          = 1
       "total_jobs_metric" = false
@@ -454,7 +454,7 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_query" = {
       "name"              = "opera-job_worker-cslc_data_query"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -464,7 +464,7 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_query_hist" = {
       "name"              = "opera-job_worker-cslc_data_query_hist"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -504,7 +504,7 @@ variable "queues" {
     }
     "opera-job_worker-timer" = {
       "name"              = "opera-job_worker-timer"
-      "instance_type"     = ["t2.medium", "t3a.medium", "t3.medium"]
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "max_size"          = 10
@@ -553,8 +553,8 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.1.0"
     "rtc_s1"   = "2.1.0"
-    "dswx_s1"  = "3.0.0-er.5.0"
-    "disp_s1"  = "3.0.0-er.4.0"
+    "dswx_s1"  = "3.0.0-rc.2.0"
+    "disp_s1"  = "3.0.0-er.5.1"
   }
 }
 
@@ -607,6 +607,10 @@ variable "rtc_provider" {
 }
 
 variable "rtc_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "cslc_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

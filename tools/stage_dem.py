@@ -152,24 +152,38 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
     # (xres and yres) and starting coordinates (input_x_min and
     # input_x_max). Maximum values are rounded using np.ceil
     # and minimum values are rounded using np.floor
-    x_min = snap_coord(x_min, xres, input_x_min, np.floor)
-    x_max = snap_coord(x_max, xres, input_x_min, np.ceil)
-    y_min = snap_coord(y_min, yres, input_y_max, np.floor)
-    y_max = snap_coord(y_max, yres, input_y_max, np.ceil)
+    snapped_x_min = snap_coord(x_min, xres, input_x_min, np.floor)
+    snapped_x_max = snap_coord(x_max, xres, input_x_min, np.ceil)
+    snapped_y_min = snap_coord(y_min, yres, input_y_max, np.floor)
+    snapped_y_max = snap_coord(y_max, yres, input_y_max, np.ceil)
 
     input_y_min = input_y_max + length * yres
     input_x_max = input_x_min + width * xres
 
-    x_min = max(x_min, input_x_min)
-    x_max = min(x_max, input_x_max)
-    y_min = max(y_min, input_y_min)
-    y_max = min(y_max, input_y_max)
+    adjusted_x_min = max(snapped_x_min, input_x_min)
+    adjusted_x_max = min(snapped_x_max, input_x_max)
+    adjusted_y_min = max(snapped_y_min, input_y_min)
+    adjusted_y_max = min(snapped_y_max, input_y_max)
 
-    logger.info(f"Adjusted projection window {str([x_min, y_max, x_max, y_min])}")
+    logger.info(f"Adjusted projection window {str([adjusted_x_min, adjusted_y_max, adjusted_x_max, adjusted_y_min])}")
 
-    gdal.Translate(
-        output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
-    )
+    try:
+        gdal.Translate(
+            output_path, ds, format='GTiff',
+            projWin=[adjusted_x_min, adjusted_y_max, adjusted_x_max, adjusted_y_min]
+        )
+    except RuntimeError as err:
+        if "negative width and/or height" in str(err):
+            logger.warning(
+                f"Adjusted window translation failed due to negative width and/or "
+                f"height, defaulting to original projection window"
+            )
+            gdal.Translate(
+                output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
+            )
+            return
+
+        raise
 
 
 def download_dem(polys, epsgs, dem_location, outfile):

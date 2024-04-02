@@ -1,6 +1,9 @@
 import logging
 import re
 import time
+from pathlib import Path
+
+import pytest
 
 import conftest
 from int_test_util import \
@@ -21,7 +24,9 @@ from subscriber_util import \
     invoke_slc_subscriber_query_lambda, \
     update_env_vars_slc_subscriber_query_lambda, \
     reset_env_vars_slc_subscriber_query_lambda, invoke_slc_subscriber_ionosphere_download_lambda, \
-    update_env_vars_subscriber_slc_ionosphere_download_lambda, wait_for_job
+    update_env_vars_subscriber_slc_ionosphere_download_lambda, wait_for_job, \
+    update_env_vars_rtc_subscriber_query_lambda, invoke_rtc_subscriber_query_lambda, \
+    reset_env_vars_rtc_subscriber_query_lambda
 
 logger = logging.getLogger(__name__)
 
@@ -367,6 +372,148 @@ def test_subscriber_slc():
     # 73-IW1
     response = wait_for_cnm_r_success(_id=response_rtc_9.hits[0]["id"], index="grq_v0.1_l2_rtc_s1-*")
     assert_cnm_r_success(response)
+
+
+def test_subscriber_rtc():
+    logger.info("TRIGGERING DATA SUBSCRIBE")
+
+    update_env_vars_rtc_subscriber_query_lambda()
+    sleep_for(30)
+
+    response = invoke_rtc_subscriber_query_lambda()
+
+    reset_env_vars_rtc_subscriber_query_lambda()
+    sleep_for(30)
+
+    assert response["StatusCode"] == 200
+
+    job_id = response["Payload"].read().decode().strip("\"")
+    logger.info(f"{job_id=}")
+
+    logger.info("Sleeping for query job execution...")
+    sleep_for(300)  # max queue dwell time
+    sleep_for(180)  # observed job-started bootstrapping time
+
+    wait_for_query_job(job_id)
+
+    logger.info("Sleeping for download job execution...")
+    sleep_for(300)  # max queue dwell time
+    sleep_for(180)  # observed job-started bootstrapping time
+    wait_for_download_job(job_id, index="rtc_catalog-*")
+
+    logger.info("CHECKING FOR L3 ENTRIES, INDICATING SUCCESSFUL PGE EXECUTION")
+
+    logger.info("Sleeping for PGE execution...")
+    sleep_for(300)  # max queue dwell time
+    sleep_for(180)  # observed job-started bootstrapping time
+
+    response_dswx_s1_1 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MWA_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MWA_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_1.hits[0]["id"])
+    response_dswx_s1_2 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MVA_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MVA_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_2.hits[0]["id"])
+    response_dswx_s1_3 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MWV_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MWV_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_3.hits[0]["id"])
+    response_dswx_s1_4 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MWU_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MWU_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_4.hits[0]["id"])
+    response_dswx_s1_5 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MXV_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MXV_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_5.hits[0]["id"])
+    response_dswx_s1_6 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MVT_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MVT_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_6.hits[0]["id"])
+    response_dswx_s1_7 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MVV_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MVV_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_7.hits[0]["id"])
+    response_dswx_s1_8 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MWT_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MWT_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_8.hits[0]["id"])
+    response_dswx_s1_9 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MXA_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MXA_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_9.hits[0]["id"])
+    response_dswx_s1_10 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MXT_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MXT_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_10.hits[0]["id"])
+    response_dswx_s1_11= wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MXU_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MXU_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_11.hits[0]["id"])
+    response_dswx_s1_12 = wait_for_l3(_id="OPERA_L3_DSWx-S1_T18MVU_", index="grq_v0.1_l3_dswx_s1-*", query_name="match_phrase")
+    assert re.match(r"OPERA_L3_DSWx-S1_T18MVU_(\d+T\d+)Z_(\d+T\d+)Z_S1A_30_v0.1", response_dswx_s1_12.hits[0]["id"])
+
+    logger.info("CHECKING FOR CNM-S SUCCESS")
+
+    logger.info("Sleeping for CNM-S execution...")
+    sleep_for(300)  # max queue dwell time
+
+    response_dswx_s1_1 = wait_for_cnm_s_success(_id=response_dswx_s1_1.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_1)
+    response_dswx_s1_2 = wait_for_cnm_s_success(_id=response_dswx_s1_2.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_2)
+    response_dswx_s1_3 = wait_for_cnm_s_success(_id=response_dswx_s1_3.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_3)
+    response_dswx_s1_4 = wait_for_cnm_s_success(_id=response_dswx_s1_4.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_4)
+    response_dswx_s1_5 = wait_for_cnm_s_success(_id=response_dswx_s1_5.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_5)
+    response_dswx_s1_6 = wait_for_cnm_s_success(_id=response_dswx_s1_6.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_6)
+    response_dswx_s1_7 = wait_for_cnm_s_success(_id=response_dswx_s1_7.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_7)
+    response_dswx_s1_8 = wait_for_cnm_s_success(_id=response_dswx_s1_8.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_8)
+    response_dswx_s1_9 = wait_for_cnm_s_success(_id=response_dswx_s1_9.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_9)
+    response_dswx_s1_10 = wait_for_cnm_s_success(_id=response_dswx_s1_10.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_10)
+    response_dswx_s1_11 = wait_for_cnm_s_success(_id=response_dswx_s1_11.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_11)
+    response_dswx_s1_12 = wait_for_cnm_s_success(_id=response_dswx_s1_12.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_s_success(response_dswx_s1_12)
+
+    logger.info("TRIGGER AND CHECK FOR CNM-R SUCCESS")
+    # Note these file names use a dummy timestamp for production time
+    mock_cnm_r_success_sqs(id=response_dswx_s1_1.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_2.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_3.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_4.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_5.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_6.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_7.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_8.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_9.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_10.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_11.hits[0]["id"])
+    mock_cnm_r_success_sqs(id=response_dswx_s1_12.hits[0]["id"])
+
+    logger.info("Sleeping for CNM-R execution...")
+    sleep_for(300)  # max queue dwell time
+
+    response_dswx_s1_1 = wait_for_cnm_r_success(_id=response_dswx_s1_1.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_1)
+    response_dswx_s1_2 = wait_for_cnm_r_success(_id=response_dswx_s1_2.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_2)
+    response_dswx_s1_3 = wait_for_cnm_r_success(_id=response_dswx_s1_3.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_3)
+    response_dswx_s1_4 = wait_for_cnm_r_success(_id=response_dswx_s1_4.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_4)
+    response_dswx_s1_5 = wait_for_cnm_r_success(_id=response_dswx_s1_5.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_5)
+    response_dswx_s1_6 = wait_for_cnm_r_success(_id=response_dswx_s1_6.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_6)
+    response_dswx_s1_7 = wait_for_cnm_r_success(_id=response_dswx_s1_7.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_7)
+    response_dswx_s1_8 = wait_for_cnm_r_success(_id=response_dswx_s1_8.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_8)
+    response_dswx_s1_9 = wait_for_cnm_r_success(_id=response_dswx_s1_9.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_9)
+    response_dswx_s1_10 = wait_for_cnm_r_success(_id=response_dswx_s1_10.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_10)
+    response_dswx_s1_11 = wait_for_cnm_r_success(_id=response_dswx_s1_11.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_11)
+    response_dswx_s1_12 = wait_for_cnm_r_success(_id=response_dswx_s1_12.hits[0]["id"], index="grq_v0.1_l3_dswx_s1-*")
+    assert_cnm_r_success(response_dswx_s1_12)
+
+
+@pytest.mark.asyncio
+async def test_subscriber_rtc_trigger_logic():
+    regression_test_results = Path(__file__).parent.joinpath("results")
+    assert regression_test_results.exists()
+
+    with regression_test_results.open() as fp:
+        assert "PASS" in fp.read().strip()
+
 
 
 def assert_cnm_s_success(response):

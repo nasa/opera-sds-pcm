@@ -26,9 +26,10 @@ class SLCProductCatalog(HLSProductCatalog):
     def __init__(self, /, logger=None):
         super().__init__(logger=logger)
         self.ES_INDEX_PATTERNS = "slc_catalog*"
+
     def granule_and_revision(self, es_id):
         '''For S1A_IW_SLC__1SDV_20220601T000522_20220601T000549_043462_05308F_86F3.zip-r5 returns:
-                S1A_IW_SLC__1SDV_20220601T000522_20220601T000549_043462_05308F_86F3-SLC and 5 '''
+               S1A_IW_SLC__1SDV_20220601T000522_20220601T000549_043462_05308F_86F3-SLC and 5 '''
         return es_id.split('.zip')[0]+'-SLC', es_id.split('-r')[1]
 
     def generate_es_index_name(self):

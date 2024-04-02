@@ -36,6 +36,7 @@ L30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlsl30-query-timer
 S30_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-hlss30-query-timer
 SLC_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-slcs1a-query-timer
 SLC_DATA_SUBSCRIBER_IONOSPHERE_DOWNLOAD_LAMBDA = opera-foo-slc-ionosphere-download-timer
+RTC_DATA_SUBSCRIBER_QUERY_LAMBDA = opera-foo-rtc-query-timer
 
 CLEAR_DATA = true
 ```

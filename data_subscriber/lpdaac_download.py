@@ -9,7 +9,7 @@ import requests
 import requests.utils
 from datetime import datetime
 from product2dataset import product2dataset
-from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_url, _to_https_url, form_batch_id
+from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_urls, _to_https_urls, form_batch_id
 
 from data_subscriber.download import DaacDownload
 
@@ -37,7 +37,10 @@ class DaacDownloadLpdaac(DaacDownload):
             granule_id = download['granule_id']
             revision_id = str(download['revision_id'])
             key = form_batch_id(granule_id, revision_id)
-            download_url = _to_url(download)
+            if args.transfer_protocol == "https":
+                download_url = _to_https_urls(download)
+            else:
+                download_url = _to_urls(download)
             es_id = download['_id']
 
             download_map[key].granule_id = granule_id

@@ -27,9 +27,8 @@ runconfig:
     mgrs_collection_database_file: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
-    product_path: output_dir
-    # Scratch path is defined relative to output_dir to avoid file system permission issues
-    scratch_path: output_dir/scratch_dir
+    product_path: /home/dswx_user/output_dir
+    scratch_path: /home/dswx_user/scratch_dir
   processing:
     algorithm_parameters: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
@@ -39,11 +38,12 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
-  - get_algorithm_parameters
-  - get_dswx_s1_input_filepaths
-  - get_dswx_s1_static_ancillary_files
+  - get_s3_input_filepaths
+  - get_static_ancillary_files
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem
+  - get_dswx_s1_num_workers
+  - instantiate_algorithm_parameters_template
   # TODO: enable if shoreline files are needed by DSWx-S1 SAS
   #- get_shoreline_shapefiles
 
@@ -61,19 +61,14 @@ get_product_version:
 set_daac_product_type:
   template: OPERA_L3_DSWX_S1_{cnm_version}
 
-get_algorithm_parameters:
-  # The s3 location containing the algorithm parameters RunConfig to use
-  s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_beta_0.2.1.yaml"
-
-get_dswx_s1_static_ancillary_files:
+get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DSWx-S1
   mgrs_database_file:
     s3_bucket: "opera-ancillaries"
-    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_v0.2.1.sqlite"
+    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_v0.3.sqlite"
   mgrs_collection_database_file:
     s3_bucket: "opera-ancillaries"
-    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.2.1.sqlite"
+    s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite"
 
 get_dswx_s1_dynamic_ancillary_maps:
   # The s3 locations of the ancillary map VRT files (excluding DEM) used by DSWx-S1
@@ -107,6 +102,12 @@ get_shoreline_shapefiles:
     - "GSHHS_f_L1.shp"
     - "GSHHS_f_L1.shx"
 
+instantiate_algorithm_parameters_template:
+  s3_bucket: "opera-ancillaries"
+  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_calval_0.4.yaml.tmpl"
+  template_mapping:
+    num_workers: __NUMBER_CPU__
+
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
    daac_product_type: daac_product_type
@@ -115,7 +116,7 @@ set_extra_pge_output_metadata:
 output_types:
   L3_DSWx_S1:
     - tif
-#    - png
+    - png
     - catalog.json
     - iso.xml
     - log

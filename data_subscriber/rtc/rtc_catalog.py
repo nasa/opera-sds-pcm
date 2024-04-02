@@ -74,6 +74,28 @@ class RTCProductCatalog(HLSProductCatalog):
         logging.info(f"Found {len(es_docs)=}")
         return self.filter_query_result(es_docs)
 
+    def mark_product_as_downloaded(self, url, job_id, filesize):
+        filename = url.split("/")[-1]
+
+        index = self._get_index_name_for(_id=filename, default=self.generate_es_index_name())
+        result = self.es.update_document(
+            id=filename,
+            body={
+                "doc_as_upsert": True,
+                "doc": {
+                    "downloaded": True,
+                    "download_datetime": datetime.now(),
+                    "download_job_id": job_id,
+                    "metadata": {
+                        "FileSize": filesize
+                    }
+                }
+            },
+            index=index
+        )
+
+        self.logger.info(f"Document updated: {result}")
+
     def mark_products_as_download_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
         mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
@@ -137,6 +159,8 @@ class RTCProductCatalog(HLSProductCatalog):
         for batch_id, products in batch_id_to_products_map.items():
             docs = product_docs = products
             doc_id_to_index_cache = self.create_doc_id_to_index_cache(docs)
+            latest_production_datetime = max(docs, key=lambda doc: doc["production_datetime"])["production_datetime"]
+            latest_creation_timestamp = max(docs, key=lambda doc: doc["creation_timestamp"])["creation_timestamp"]
             for doc in docs:
                 index = last(
                     doc_id_to_index_cache[doc["id"]],
@@ -150,7 +174,9 @@ class RTCProductCatalog(HLSProductCatalog):
                     "doc_as_upsert": True,
                     "doc": {
                         "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"],
-                        "latest_dswx_s1_job_ts": dswx_s1_job_dts
+                        "latest_dswx_s1_job_ts": dswx_s1_job_dts,
+                        "latest_production_datetime": latest_production_datetime,
+                        "latest_creation_timestamp": latest_creation_timestamp
                     }
                 }
                 operations.append(operation)
@@ -203,7 +229,8 @@ class RTCProductCatalog(HLSProductCatalog):
                 "https_urls": [url for url in urls if "https://" in url],
                 "s3_urls": [url for url in urls if "s3://" in url],
                 "mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0],
-                "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index
+                "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index,
+                "production_datetime": granule["production_datetime"]
             }
             doc.update(kwargs)
             index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())

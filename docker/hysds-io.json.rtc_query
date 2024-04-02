@@ -53,6 +53,22 @@
       "optional": true
     },
     {
+      "name": "grace_mins",
+      "from": "submitter",
+      "placeholder": "e.g. --grace-mins=<grace_mins>",
+      "type": "text",
+      "default": "--grace-mins=120",
+      "optional": true
+    },
+    {
+      "name": "coverage_percent",
+      "from": "submitter",
+      "placeholder": "e.g. --coverage-percent=<coverage_percent>",
+      "type": "text",
+      "default": "--coverage-percent=90",
+      "optional": true
+    },
+    {
       "name": "smoke_run",
       "from": "submitter",
       "placeholder": "e.g. --smoke-run",

@@ -59,7 +59,14 @@ setup(
             "validators",
             "cachetools==5.2.0",
             "geopandas",
-            "pyproj"
+            "pyproj",
+
+            # for additional daac subscriber test utilities that are executed from pytest
+            #  * DSWx-S1 trigger logic tests
+            "pytest==7.2.1",
+            "pytest-mock>=3.8.2",
+            "pytest-asyncio==0.20.3",
+            "pytest-cov==4.0.0",
         ],
         "test": [
             # The list of dependencies required to run tests locally.
@@ -76,7 +83,7 @@ setup(
             "boto3",
             "botocore",
             "click==8.1.3",
-            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.7.0",  # install native gdal first. `brew install gdal` on macOS.
             "Shapely",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
@@ -143,6 +150,11 @@ setup(
             "more-itertools",
             "python-dateutil",
             "python-dotenv"
+        ],
+        "subscriber_client": [
+            "more-itertools",
+            "python-dateutil",
+            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
         ]
     }
 )

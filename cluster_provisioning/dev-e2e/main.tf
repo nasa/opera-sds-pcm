@@ -244,24 +244,39 @@ resource "null_resource" "smoke_test" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-              if [ "${var.run_smoke_test}" = true ]; then
-                cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+      set -ex
+      source ~/.bash_profile
+      if [ "${var.run_smoke_test}" = true ]; then
+        echo running reggression tests
 
-                chmod +x ./cluster_provisioning/run_opera_smoke_tests.sh
-                ./cluster_provisioning/run_opera_smoke_tests.sh \
-                --mozart-ip=${module.common.mozart.private_ip} \
-                --grq-host="grq:9200" \
-                --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
-                --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
-                --isl-bucket="${module.common.isl_bucket}" \
-                --rs-bucket="${module.common.dataset_bucket}" \
-                --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
-                --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
-                --SLC-data-subscriber-query-lambda=${module.common.slcs1a_query_timer.function_name} \
-                --SLC-data-subscriber-ionosphere-download-lambda=${module.common.slc_ionosphere_download_timer.function_name} \
-                --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
-                --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0"
-              fi
+        cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+        pytest regression/test_dswx_s1_edge_cases.py
+      fi
+    EOT
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      if [ "${var.run_smoke_test}" = true ]; then
+        cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+
+        chmod +x ./cluster_provisioning/run_opera_smoke_tests.sh
+        ./cluster_provisioning/run_opera_smoke_tests.sh \
+        --mozart-ip=${module.common.mozart.private_ip} \
+        --grq-host="grq:9200" \
+        --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
+        --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
+        --isl-bucket="${module.common.isl_bucket}" \
+        --rs-bucket="${module.common.dataset_bucket}" \
+        --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
+        --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
+        --SLC-data-subscriber-query-lambda=${module.common.slcs1a_query_timer.function_name} \
+        --SLC-data-subscriber-ionosphere-download-lambda=${module.common.slc_ionosphere_download_timer.function_name} \
+        --RTC-data-subscriber-query-lambda=${module.common.rtc_query_timer.function_name} \
+        --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
+        --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0"
+      fi
     EOT
     ]
   }
