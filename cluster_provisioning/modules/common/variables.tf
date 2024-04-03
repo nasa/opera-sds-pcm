@@ -132,12 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - Dec 2, 2023 - R2
-    mozart    = "ami-0ea2ef3aba96651b5" # mozart v4.25 - 231202
-    metrics   = "ami-09fee089c0b2716e6" # metrics v4.17 - 231202
-    grq       = "ami-0c702e214b6e7bec9" # grq v4.18 - 231202
-    factotum  = "ami-03f76131067be5e52" # factotum v4.16 - 231204
-    autoscale = "ami-08564e7f541e12f7b" # verdi v4.16 patchdate - 231202
+    # HySDS v5.0.1 - Apr 2, 2024 - R2
+    mozart    = "ami-00ca1f8fd748cd756" # mozart v4.25 - 240402
+    metrics   = "ami-00723bc8a818daeb5" # metrics v4.17 - 240402
+    grq       = "ami-0c97afc4b32f3ade5" # grq v4.18 - 240402
+    factotum  = "ami-0f9f976a1a1f7621d" # factotum v4.16 - 240308
+    autoscale = "ami-00174d6a170f2122b" # verdi v4.16 patchdate - 240402
   }
 }
 
