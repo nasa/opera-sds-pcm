@@ -105,7 +105,7 @@ def get_burst_id(granule_id):
     """
     burst_id = ''
     if granule_id:
-      match = re.search(r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1A_\d+_v\d+\.\d+', granule_id)
+      match = re.search(r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1[AB]_\d+_v\d+\.\d+', granule_id)
       if match:
           t_number = match.group(1)
           orbit_number = match.group(2)
@@ -202,6 +202,7 @@ if __name__ == '__main__':
         # Exit with error code if no granules to process
         if (total_granules == 0):
             print(f"Error: no granules to process.")
+            sys.exit(1)
 
         # Optimize page_size and number of workers based on total_granules
         page_size = min(1000, total_granules)
