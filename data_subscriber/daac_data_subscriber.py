@@ -243,6 +243,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
             logger.info(f"{args.dry_run=}. Skipping job submission. Producing mock job ID")
             results = [uuid.uuid4()]
         else:
+            logger.info(f"Submitting batches for DSWx-S1 job: {list(uploaded_batch_id_to_s3paths_map)}")
             job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter, settings)
             results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
 
