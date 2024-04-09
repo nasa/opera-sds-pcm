@@ -1,0 +1,30 @@
+{
+    "type": "FeatureCollection",
+    "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+    "features": [
+        { "type": "Feature",
+          "properties": {
+              "set_name": "antimeridian_east",
+              "start_date": "2016-05-01T00:00:00",
+              "end_date": "2023-10-05T00:00:00" },
+          "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": [ [ [ [ 179.5, -90.0 ], [ 179.5, 90.0 ], [ 180.0, 90.0 ], [ 180.0, -90.0 ], [ 179.5, -90.0 ] ] ] ] } },
+        { "type": "Feature",
+          "properties": {
+              "set_name": "antimeridian_west",
+              "start_date": "2016-05-01T00:00:00",
+              "end_date": "2023-10-05T00:00:00" },
+          "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": [ [ [ [ -180.0, -90.0 ], [ -180.0, 90.0 ], [ -179.5, 90.0 ], [ -179.5, -90.0 ], [ -180.0, -90.0 ] ] ] ] } },
+        { "type": "Feature",
+          "properties": {
+              "set_name": "high-latitude_north_of_70",
+              "start_date": "2016-05-01T00:00:00",
+              "end_date": "2023-10-05T00:00:00" },
+          "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": [ [ [ [ -180.0, 70.0 ], [ -180.0, 89.9 ], [ 180.0, 89.9 ], [ 180.0, 70.0 ], [ -180.0, 70.0 ] ] ] ] } }
+    ]
+}
