@@ -16,8 +16,8 @@ runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
-    amplitude_dispersion_files: __CHIMERA_VAL__
-    amplitude_mean_files: __CHIMERA_VAL__
+    #amplitude_dispersion_files: __CHIMERA_VAL__
+    #amplitude_mean_files: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
@@ -53,8 +53,8 @@ preconditions:
   - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_disp_s1_algorithm_parameters
-  - get_disp_s1_amplitude_dispersion_files
-  - get_disp_s1_amplitude_mean_files
+  #- get_disp_s1_amplitude_dispersion_files
+  #- get_disp_s1_amplitude_mean_files
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
   - get_disp_s1_troposphere_files
