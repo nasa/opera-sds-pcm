@@ -265,9 +265,9 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
 
     return query
 
-def fatal_code(err_code):
+def fatal_code(err: requests.exceptions.RequestException) -> bool:
     """Only retry for common transient errors"""
-    return err_code not in [401, 429, 500, 503, 504]
+    return err.response.status_code not in [401, 429, 500, 503, 504]
 
 def backoff_logger(details):
     """Log details about the current backoff/retry"""
