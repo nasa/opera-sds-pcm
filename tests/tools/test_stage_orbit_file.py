@@ -178,6 +178,8 @@ class TestStageOrbitFile(unittest.TestCase):
         response_429.status_code = 429
         response_500 = Response()
         response_500.status_code = 500
+        response_502 = Response()
+        response_502.status_code = 502
         response_503 = Response()
         response_503.status_code = 503
         response_504 = Response()
@@ -188,7 +190,7 @@ class TestStageOrbitFile(unittest.TestCase):
         response_200.status_code = 200
         response_200.raw = BytesIO(b'orbit file contents')
 
-        responses = [response_401, response_429, response_500, response_503, response_504, response_200]
+        responses = [response_401, response_429, response_500, response_502, response_503, response_504, response_200]
 
         # Set up a Mock function for session.get which will cycle through all
         # transient error codes before finally returning success (200)
