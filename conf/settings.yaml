@@ -339,3 +339,4 @@ PRODUCT_TYPES:
 # pushed to object storage (this should not include input product download jobs).
 FORCE_INGEST:
     INGEST_STAGED: !!bool true
+    slc_download: !!bool true
