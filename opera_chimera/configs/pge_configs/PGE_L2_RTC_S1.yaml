@@ -23,8 +23,7 @@ runconfig:
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/rtc_user/output_dir
-    # Scratch path is defined relative to output_dir to avoid file system permission issues
-    scratch_path: /home/rtc_user/output_dir/scratch_dir
+    scratch_path: /home/rtc_user/scratch_dir
   processing:
     polarization: __CHIMERA_VAL__
     num_workers: __CHIMERA_VAL__

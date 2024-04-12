@@ -1,15 +1,29 @@
 #!/usr/bin/env python3
 
 import json
+import os.path
+import tempfile
 import unittest
+from io import BytesIO
+from unittest.mock import MagicMock, patch
+
+from requests import Response, Session
 
 import tools.stage_orbit_file
 from tools.stage_orbit_file import (ORBIT_TYPE_POE,
                                     ORBIT_TYPE_RES,
                                     NoSuitableOrbitFileException)
 
+
 class TestStageOrbitFile(unittest.TestCase):
     """Unit tests for the stage_orbit_file.py script"""
+
+    def setUp(self) -> None:
+        # Create a temporary working directory
+        self.working_dir = tempfile.TemporaryDirectory(suffix="_temp", prefix="test_stage_orbit_file_")
+
+    def tearDown(self) -> None:
+        self.working_dir.cleanup()
 
     def test_parse_orbit_range_from_safe(self):
         """Tests for the parse_orbit_range_from_safe() function"""
@@ -154,3 +168,47 @@ class TestStageOrbitFile(unittest.TestCase):
 
         self.assertEqual(orbit_file_name, expected_orbit_file)
         self.assertEqual(orbit_file_request_id, expected_orbit_file_request_id)
+
+    def test_download_orbit_file_retry(self):
+        """Tests the backoff/retry logic assigned to all HTTP request functions in stage_orbit_file.py"""
+        # Set up some canned HTTP responses for the transient error codes we retry for
+        response_401 = Response()
+        response_401.status_code = 401
+        response_429 = Response()
+        response_429.status_code = 429
+        response_500 = Response()
+        response_500.status_code = 500
+        response_502 = Response()
+        response_502.status_code = 502
+        response_503 = Response()
+        response_503.status_code = 503
+        response_504 = Response()
+        response_504.status_code = 504
+        response_200 = Response()
+
+        # Create the successful response
+        response_200.status_code = 200
+        response_200.raw = BytesIO(b'orbit file contents')
+
+        responses = [response_401, response_429, response_500, response_502, response_503, response_504, response_200]
+
+        # Set up a Mock function for session.get which will cycle through all
+        # transient error codes before finally returning success (200)
+        mock_requests_get = MagicMock(side_effect=responses)
+
+        with patch.object(Session, "get", mock_requests_get):
+            tools.stage_orbit_file.download_orbit_file(
+                'http://fakeurl.com', self.working_dir.name, 'orbit_file.EOF', 'token'
+            )
+
+        # Ensure we retired for each of the failed responses
+        self.assertEqual(mock_requests_get.call_count, len(responses))
+
+        # Ensure the orbit file was "downloaded" to disk after the successful response
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir.name, 'orbit_file.EOF')))
+
+        # Ensure the "downloaded" contents match what is expected
+        with open(os.path.join(self.working_dir.name, 'orbit_file.EOF'), 'rb') as infile:
+            orbit_file_contents = infile.read()
+
+        self.assertEqual(b'orbit file contents', orbit_file_contents)

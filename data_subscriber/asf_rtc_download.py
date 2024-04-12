@@ -26,6 +26,11 @@ def giveup_asf_daac_credentials_requests(e):
 
 
 class AsfDaacRtcDownload(DaacDownload):
+
+    def __init__(self, provider):
+        super().__init__(provider)
+        self.daac_s3_cred_settings_key = "RTC_DOWNLOAD"
+
     def perform_download(
         self,
         session: requests.Session,
@@ -111,16 +116,3 @@ class AsfDaacRtcDownload(DaacDownload):
         with open(product_download_path, "wb") as file:
             file.write(asf_response.content)
         return product_download_path.resolve()
-
-    @backoff.on_exception(
-        backoff.expo,
-        exception=Exception,
-        max_tries=3,
-        jitter=None,
-        giveup=giveup_asf_daac_credentials_requests
-    )
-    def _get_aws_creds(self, token):
-        logger.info("entry")
-        with requests.get(_S3_CREDS_CUMULUS_URL, headers={'Authorization': f'Bearer {token}'}) as r:
-            r.raise_for_status()
-            return r.json()

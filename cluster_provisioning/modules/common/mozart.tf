@@ -470,6 +470,20 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  # Copy down latest opera-sds-int and opera-sds-ops repos for convenience
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
+      cd ~/mozart/ops
+      wget https://github.com/nasa/opera-sds-int/archive/refs/heads/main.zip -O opera-sds-int.zip
+      wget https://github.com/nasa/opera-sds-ops/archive/refs/heads/main.zip -O opera-sds-ops.zip
+      unzip opera-sds-int.zip
+      unzip opera-sds-ops.zip
+    EOT
+    ]
+  }
+
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done

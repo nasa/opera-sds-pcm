@@ -1,0 +1,22 @@
+{
+    "type": "FeatureCollection",
+    "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+    "features": [
+        { "type": "Feature",
+          "properties": {
+              "set_name": "antimeridian",
+              "start_date": "2016-05-01T00:00:00",
+              "end_date": "2023-10-05T00:00:00" },
+          "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": [ [ [ [ 179.9, -90.0 ], [ 179.9, 90.0 ], [ -179.9, 90.0 ], [ -179.9, -90.0 ], [ -179.9, -90.0 ] ] ] ] } },
+        { "type": "Feature",
+          "properties": {
+              "set_name": "high-latitude",
+              "start_date": "2016-05-01T00:00:00",
+              "end_date": "2023-10-05T00:00:00" },
+          "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": [ [ [ [ -180.0, 80.0 ], [ -180.0, 89.9 ], [ 180.0, 89.9 ], [ 180.0, 80.0 ], [ -180.0, 80.0 ] ] ] ] } },
+    ]
+}

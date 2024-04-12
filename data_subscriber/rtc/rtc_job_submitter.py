@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import logging
 import os
 from functools import partial
@@ -39,6 +40,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args,
                     "batch_id": batch_id,
                     "product_paths": {"L2_RTC_S1": s3paths},
                     "mgrs_set_id": mgrs_set_id,
+                    "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "FileName": batch_id,
                     "id": batch_id,
                     "bounding_box": bounding_box,
