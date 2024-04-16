@@ -40,8 +40,12 @@ def main(
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body = get_body(match_all=False)
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
+            # this constraint seems redundant, but it results in more consistent results
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
-            es_docs.extend(grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS))
+            tmp_es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+            # filter out any redundant results
+            tmp_es_docs = [doc for doc in tmp_es_docs if doc["_source"]["mgrs_set_id_acquisition_ts_cycle_index"] in mgrs_set_id_acquisition_ts_cycle_indexes]
+            es_docs.extend(tmp_es_docs)
         # NOTE: skipping job-submission filters to allow reprocessing
     else:
         # query 1: query for unsubmitted docs
