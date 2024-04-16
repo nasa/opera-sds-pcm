@@ -14,8 +14,11 @@ import shutil
 import subprocess
 import sys
 import traceback
-from pathlib import PurePath
+from pathlib import PurePath, Path
 from typing import Union, Tuple
+
+import xmltodict
+from more_itertools import one
 
 from commons.logger import logger
 from extractor import extract
@@ -35,7 +38,7 @@ def convert(
         product_dir: str,
         pge_name: str,
         rc_file: str = None,
-        pge_output_conf_file:str = None,
+        pge_output_conf_file: str = None,
         settings_conf_file: Union[str, SettingsConf, dict, None] = None,
         extra_met: dict = None,
         **kwargs
@@ -162,6 +165,45 @@ def convert(
             dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
         elif pge_name == "L3_DSWx_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+
+            iso_xml_path = one([
+                Path(iso_xml_path).absolute()
+                for iso_xml_path in search_for_iso_xml_file(dataset_dir)
+            ])
+            with iso_xml_path.open() as fp:
+                iso_xml = xmltodict.parse(fp.read())
+            additional_attributes = (
+                iso_xml
+                .get("gmi:MI_Metadata")
+                .get("gmd:contentInfo")
+                .get("gmd:MD_CoverageDescription")
+                .get("gmd:dimension")
+                .get("gmd:MD_Band")
+                .get("gmd:otherProperty")
+                .get("gco:Record")
+                .get("eos:AdditionalAttributes")
+            )["eos:AdditionalAttribute"]
+
+            additional_attributes = {
+                attr_["eos:reference"]["eos:EOS_AdditionalAttributeDescription"]["eos:name"]["gco:CharacterString"]:
+                attr_["eos:value"]
+                for attr_ in additional_attributes
+            }
+            rtc_sensing_start_time = additional_attributes["RTCSensingStartTime"]["gco:CharacterString"]
+            dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
+
+            rtc_sensing_end_time = additional_attributes["RTCSensingEndTime"]["gco:CharacterString"]
+            dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
+
+            rtc_input_list = json.loads(
+                "".join(
+                    json.loads(
+                        "".join(
+                            additional_attributes["RTCInputList"]["gco:CharacterString"]))
+                ).replace("'", '"')
+            )
+            rtc_input_list = sorted(rtc_input_list)
+            dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
 
@@ -170,7 +212,7 @@ def convert(
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
-        catalog_metadata_files = glob.glob(os.path.join(product_dir, "*.catalog.json"))
+        catalog_metadata_files = search_for_catalog_json_file(product_dir)
 
         if len(catalog_metadata_files) != 1:
             raise RuntimeError(
@@ -200,6 +242,7 @@ def convert(
             json.dump(dataset_met_json, outfile, indent=2)
 
     return list(created_datasets)
+
 
 def get_collection_info(dataset_id: str, settings: dict):
     """Returns the appropriate collection name and version for the provided dataset ID"""
@@ -245,7 +288,7 @@ def merge_dataset_met_json(datasets_parent_dir: str, extra_met: dict) -> Tuple[i
     """
     dataset_met_json = {"Files": []}
     combined_file_size = 0
-    for met_json_file in glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True):
+    for met_json_file in search_for_met_json_file(datasets_parent_dir):
         with open(met_json_file, 'r') as infile:
             met_json = json.load(infile)
             combined_file_size += int(met_json["FileSize"])
@@ -324,6 +367,18 @@ def process_outputs(product_dir, expected_outputs):
                 products[OPTIONAL_KEY][output_file] = optional_patterns[pattern]
 
     return products
+
+
+def search_for_iso_xml_file(dataset_dir):
+    return glob.iglob(os.path.join(dataset_dir, "**/*.iso.xml"), recursive=True)
+
+
+def search_for_catalog_json_file(product_dir):
+    return glob.glob(os.path.join(product_dir, "*.catalog.json"))
+
+
+def search_for_met_json_file(datasets_parent_dir):
+    return glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True)
 
 
 def main():
