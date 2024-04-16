@@ -11,12 +11,13 @@ from typing import Optional
 
 import dateutil.parser
 import pandas as pd
-from more_itertools import first
+from more_itertools import first, flatten
 
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core, rtc_catalog
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
-from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id
+from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id, \
+    burst_id_to_relative_orbit_numbers
 from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
 
@@ -139,9 +140,9 @@ def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):
     mgrs_burst_collections_gdf = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
 
     # transform product list to DataFrame for evaluation
-    cmr_df = load_cmr_df(rtc_product_ids)
+    cmr_df = load_cmr_df(rtc_product_ids, mgrs_burst_collections_gdf)
     cmr_df = cmr_df.sort_values(by=["relative_orbit_number", "acquisition_dt", "burst_id_normalized"])
-    cmr_orbits = cmr_df["relative_orbit_number"].unique()
+    cmr_orbits = list(set(flatten(cmr_df["relative_orbit_numbers"].to_list())))
     # a_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1A_30_v0.4"))]
     # b_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1B_30_v0.4"))]
 
@@ -152,8 +153,9 @@ def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):
     orbit_to_products_map = defaultdict(
         partial(defaultdict, partial(defaultdict, list)))  # optimized data structure to avoid dataframe queries
     for record in cmr_df.to_dict('records'):
-        orbit_to_products_map[record["relative_orbit_number"]][record["acquisition_dt"]][
-            record["burst_id_normalized"]].append(record)
+        for relative_orbit_number in record["relative_orbit_numbers"]:
+            orbit_to_products_map[relative_orbit_number][record["acquisition_dt"]][
+                record["burst_id_normalized"]].append(record)
     # TODO chrisjrd: group by time window to eliminate downstream for-loop
 
     # split into orbits frames
@@ -168,7 +170,7 @@ def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):
     return coverage_result_set_id_to_product_sets_map
 
 
-def load_cmr_df(rtc_product_ids):
+def load_cmr_df(rtc_product_ids, gdf):
     cmr_df_records = []
     for product_id in rtc_product_ids:
         match_product_id = re.match(rtc_granule_regex, product_id)
@@ -178,6 +180,7 @@ def load_cmr_df(rtc_product_ids):
         burst_id_normalized = product_burst_id_to_mapping_burst_id(burst_id)
         match_burst_id = re.match(rtc_relative_orbit_number_regex, burst_id_normalized)
         relative_orbit_number = int(match_burst_id.group("relative_orbit_number"))
+        relative_orbit_numbers = burst_id_to_relative_orbit_numbers(gdf, burst_id_normalized)
 
         cmr_df_record = {
             "product_id": product_id,
@@ -186,6 +189,7 @@ def load_cmr_df(rtc_product_ids):
             "burst_id": burst_id,
             "burst_id_normalized": burst_id_normalized,
             "relative_orbit_number": relative_orbit_number,
+            "relative_orbit_numbers": relative_orbit_numbers,
             "product_id_short": (burst_id_normalized, acquisition_dts),
         }
         cmr_df_records.append(cmr_df_record)
