@@ -21,7 +21,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "MINUTES" : var.hlsl30_query_timer_trigger_frequency,
       "PROVIDER" : var.hls_provider,
       "ENDPOINT" : "OPS",
-      "TRANSFER_PROTOCOL" : "AUTO", 
+      "TRANSFER_PROTOCOL" : "AUTO",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-hls_data_download.name,
       "CHUNK_SIZE" : "1",
       "MAX_REVISION" : "1000",
@@ -261,8 +261,8 @@ resource "aws_lambda_function" "rtc_query_timer" {
       "JOB_TYPE" : local.rtc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
       "MINUTES" : var.rtc_query_timer_trigger_frequency,
-      "GRACE_MINS": "120",
-      "COVERAGE_PERCENT": "90",
+      "GRACE_MINS" : "",
+      "COVERAGE_PERCENT" : "",
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_data_download.name,
@@ -327,9 +327,9 @@ resource "aws_lambda_function" "cslc_query_timer" {
       "JOB_TYPE" : local.cslc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
       "MINUTES" : var.cslc_query_timer_trigger_frequency,
-      "CSLC_PROCESSING_K": "4",
-      "CSLC_PROCESSING_M": "4",
-      "GRACE_MINS": "120",
+      "CSLC_PROCESSING_K" : "4",
+      "CSLC_PROCESSING_M" : "4",
+      "GRACE_MINS" : "120",
       "PROVIDER" : var.rtc_provider, # CSLC and RTC use the same provider
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-cslc_data_download.name,
@@ -390,7 +390,7 @@ resource "aws_lambda_function" "batch_query_timer" {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
   }
-  timeout = 60 #Batch needs to load a large json file sometimes so needs more time
+  timeout     = 60  #Batch needs to load a large json file sometimes so needs more time
   memory_size = 512 #Batch uses 290mb total when parsing the disp frame json file
   environment {
     variables = {
@@ -399,7 +399,7 @@ resource "aws_lambda_function" "batch_query_timer" {
       "GRQ_ES_PORT" : "9200",
       "ENDPOINT" : "OPS",
       "JOB_RELEASE" : var.pcm_branch,
-      "ANC_BUCKET": "opera-ancillaries"
+      "ANC_BUCKET" : "opera-ancillaries"
     }
   }
 }
