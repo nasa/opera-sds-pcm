@@ -49,6 +49,17 @@ logger.setLevel(logging.INFO)
 logger.addFilter(LogFilter())
 
 
+class NoLogUtilsFilter(logging.Filter):
+
+    """Filters out large JSON output of HySDS internals. Apply to any logger (typically __main__) or its
+    handlers."""
+    def filter(self, record):
+        if not record.filename == "elasticsearch_utils.py":
+            return True
+
+        return record.funcName != "update_document"
+
+
 class NoJobUtilsFilter(logging.Filter):
 
     """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its

@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from more_itertools import first
 from smart_open import open
 
-from commons.logger import NoJobUtilsFilter, NoBaseFilter
+from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
@@ -65,6 +65,8 @@ def configure_logger():
     logger_elasticsearch.addFilter(NoBaseFilter())
 
     boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
+
+    logger.addFilter(NoLogUtilsFilter())
 
 
 async def run(argv: list[str]):
