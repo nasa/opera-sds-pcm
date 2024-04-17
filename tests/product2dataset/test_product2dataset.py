@@ -182,7 +182,11 @@ def test_convert__when_L3_DSWx_S1_PGE__adds_PST_metadata(mocker: MockerFixture):
         "dummy_work_dir",
         "dummy_product_dir",
         "L3_DSWx_S1",
-        product_metadata={"id": "path/to/dummy_s1_product"})
+        product_metadata={
+            "id": "path/to/dummy_s1_product",
+            "mgrs_set_id": "test_mgrs_set_id"
+        }
+    )
 
     # ASSERT
     assert created_datasets == ["dir1/dir2/dummy_product"]

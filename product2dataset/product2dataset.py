@@ -17,11 +17,11 @@ import traceback
 from pathlib import PurePath, Path
 from typing import Union, Tuple
 
-import xmltodict
 from more_itertools import one
 
 from commons.logger import logger
 from extractor import extract
+import product2dataset.iso_xml_reader as iso_xml_reader
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
@@ -165,41 +165,33 @@ def convert(
             dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
         elif pge_name == "L3_DSWx_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
 
             iso_xml_path = one([
                 Path(iso_xml_path).absolute()
                 for iso_xml_path in search_for_iso_xml_file(dataset_dir)
             ])
-            with iso_xml_path.open() as fp:
-                iso_xml = xmltodict.parse(fp.read())
-            additional_attributes = (
-                iso_xml
-                .get("gmi:MI_Metadata")
-                .get("gmd:contentInfo")
-                .get("gmd:MD_CoverageDescription")
-                .get("gmd:dimension")
-                .get("gmd:MD_Band")
-                .get("gmd:otherProperty")
-                .get("gco:Record")
-                .get("eos:AdditionalAttributes")
-            )["eos:AdditionalAttribute"]
+            iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
 
-            additional_attributes = {
-                attr_["eos:reference"]["eos:EOS_AdditionalAttributeDescription"]["eos:name"]["gco:CharacterString"]:
-                attr_["eos:value"]
-                for attr_ in additional_attributes
-            }
-            rtc_sensing_start_time = additional_attributes["RTCSensingStartTime"]["gco:CharacterString"]
+            extents = iso_xml_reader.get_extents(iso_xml)
+            tile_id_extent = iso_xml_reader.get_tile_id_extent(extents)
+            tile_id = iso_xml_reader.get_tile_id(tile_id_extent)
+            dataset_met_json["tile_id"] = tile_id
+
+            additional_attributes = iso_xml_reader.get_additional_attributes(iso_xml)
+            additional_attributes = iso_xml_reader.get_additional_attributes_as_dict(additional_attributes)
+
+            rtc_sensing_start_time = iso_xml_reader.get_rtc_sensing_start_time_from_additional_attributes(additional_attributes)
             dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
 
-            rtc_sensing_end_time = additional_attributes["RTCSensingEndTime"]["gco:CharacterString"]
+            rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
             dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
 
             rtc_input_list = json.loads(
                 "".join(
                     json.loads(
                         "".join(
-                            additional_attributes["RTCInputList"]["gco:CharacterString"]))
+                            iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)))
                 ).replace("'", '"')
             )
             rtc_input_list = sorted(rtc_input_list)
