@@ -170,6 +170,12 @@ def burst_id_to_mgrs_set_ids(gdf: GeoDataFrame, burst_id):
     return mgrs_set_ids
 
 
+def burst_id_to_relative_orbit_numbers(gdf: GeoDataFrame, burst_id):
+    relative_orbit_numbers = gdf[{burst_id} < gdf["bursts_parsed"]]["relative_orbit_number"].unique().tolist()
+    relative_orbit_numbers.sort()
+    return relative_orbit_numbers
+
+
 def product_burst_id_to_mapping_burst_id(product_burst_id):
     return product_burst_id.lower().replace("-", "_")
 

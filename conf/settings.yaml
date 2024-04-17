@@ -17,7 +17,7 @@ CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_V1"
 RTC_COLLECTION_NAME: "OPERA_L2_RTC-S1_V1"
 CSLC_STATIC_COLLECTION_NAME: "OPERA_L2_CSLC-S1-STATIC_V1"
 RTC_STATIC_COLLECTION_NAME: "OPERA_L2_RTC-S1-STATIC_V1"
-CSLC_S1_PRODUCT_VERSION: "1.0"
+CSLC_S1_PRODUCT_VERSION: "1.1"
 RTC_S1_PRODUCT_VERSION: "1.0"
 CSLC_S1_STATIC_PRODUCT_VERSION: "1.0"
 RTC_S1_STATIC_PRODUCT_VERSION: "1.0"
@@ -117,7 +117,7 @@ DSWX_HLS:
 
 RTC_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
-  ANCILLARY_MARGIN: 100
+  ANCILLARY_MARGIN: 200
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -129,7 +129,7 @@ RTC_S1_STATIC:
   # Validity start date used to tag static layer products
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
-  ANCILLARY_MARGIN: 100
+  ANCILLARY_MARGIN: 200
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -409,3 +409,4 @@ PRODUCT_TYPES:
 # pushed to object storage (this should not include input product download jobs).
 FORCE_INGEST:
     INGEST_STAGED: !!bool true
+    slc_download: !!bool true
