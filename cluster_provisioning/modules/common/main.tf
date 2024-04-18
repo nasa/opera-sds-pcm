@@ -150,9 +150,12 @@ data "aws_iam_policy_document" "operator_notify" {
 
     effect = "Allow"
     principals {
-      type        = "AWS"
-      identifiers = ["*"]
+      type = "AWS"
+      identifiers = [
+        "arn:aws:iam::${var.aws_account_id}:root"
+      ]
     }
+
     resources = [
       aws_sns_topic.operator_notify.arn
     ]
