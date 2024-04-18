@@ -159,8 +159,8 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
     search_results_count = len(product_granules)
-    logger.info(f"Found {search_results_count} granules")
-    logger.info([(granule["granule_id"], granule["revision_id"]) for granule in product_granules])
+    logger.info(f"QUERY RESULTS: Found {search_results_count} granules")
+    logger.info(f'QUERY RESULTS: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules]}')
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -186,7 +186,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     if len(product_granules) != search_results_count:
         logger.info(f"Filtered to {len(product_granules)} total granules after shortname filter check")
-        logger.info([(granule["granule_id"], granule["revision_id"]) for granule in product_granules])
+        logger.info([(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules])
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
