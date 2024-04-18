@@ -149,9 +149,9 @@ def create_parser():
                              "help": "k is used only in DISP-S1 processing."}}
 
     coverage_percent = {"positionals": ["--coverage-percent"],
-         "kwargs": {"dest": "coverage_percent",
+         "kwargs": {"dest": "coverage_target",
                     "type": int,
-                    "help": "Used when querying for RTC and CSLC input files."}}
+                    "help": "For DSWx-S1 processing."}}
 
     grace_mins = {"positionals": ["--grace-mins"],
                         "kwargs": {"dest": "grace_mins",
@@ -231,7 +231,7 @@ def create_parser():
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_range, include_regions,
-                            exclude_regions, proc_mode, param_dswx_s1_coverage_target]
+                            exclude_regions, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
 
     query_parser = subparsers.add_parser("query",
@@ -241,8 +241,7 @@ def create_parser():
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol,
-                             frame_range, include_regions, exclude_regions, proc_mode,
-                             param_dswx_s1_coverage_target]
+                             frame_range, include_regions, exclude_regions, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
 
     download_parser = subparsers.add_parser("download",
