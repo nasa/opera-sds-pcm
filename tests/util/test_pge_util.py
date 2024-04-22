@@ -390,7 +390,7 @@ def test_simulate_disp_s1_pge():
     creation_ts = pge_util.get_time_for_filename()
     expected_output_basename = 'OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
     expected_ancillary_basename = 'OPERA_L3_DISP-S1_IW_F01234_v0.1_{creation_ts}Z'
-    expected_compressed_cslc_basename = 'compressed_t042_088905_iw1_20221119_20221213'
+    expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_{creation_ts}Z_VV_v0.1'
 
     try:
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
@@ -399,7 +399,11 @@ def test_simulate_disp_s1_pge():
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
-        assert Path(f'/tmp/{expected_compressed_cslc_basename}.h5').exists()
+        assert Path(f'/tmp/{expected_compressed_cslc_basename.format(creation_ts=creation_ts)}.h5').exists()
     finally:
         for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
             Path(path).unlink(missing_ok=True)
+
+        for path in glob.iglob('/tmp/OPERA_L2_COMPRESSED-CSLC-S1*.*'):
+            Path(path).unlink(missing_ok=True)
+

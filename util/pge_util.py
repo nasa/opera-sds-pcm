@@ -541,9 +541,12 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         output_filenames.append(f'{base_name}.{extension}')
     elif extension.endswith('h5'):
         base_name = compressed_cslc_template.format(
-            burst_id="t042_088905_iw1",
+            burst_id="T042-088905-IW1",
             ts_start="20221119",
-            ts_end="20221213"
+            ts_end="20221213",
+            creation_ts=creation_time,
+            pol="VV",
+            product_version=dataset_match.groupdict()['product_version']
         )
 
         output_filenames.append(f'{base_name}.{extension}')
