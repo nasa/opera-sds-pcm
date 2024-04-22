@@ -494,6 +494,8 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         if extension.endswith('tiff') or extension.endswith('tif'):
             for band_idx, band_name in enumerate(DSWX_S1_BAND_NAMES, start=1):
                 output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+
+            output_filenames.append(f'{base_name}_BROWSE.tif')
         elif extension.endswith('png'):
             output_filenames.append(f'{base_name}_BROWSE.png')
         elif extension.endswith('iso.xml'):
