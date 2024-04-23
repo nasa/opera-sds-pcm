@@ -16,16 +16,18 @@ async def test_subscriber_rtc_trigger_logic():
         ("MS_20_29", '20231101T013115Z'),
         ("MS_33_26", '20231101T225251Z'),
         ("MS_135_25", '20231108T224433Z'),
-        ("MS_4_8", '20231111T230027Z'),
+        ("MS_4_8", '20231111T230034Z'),  # became water only after MGRS tile collection db upgrade
         ("MS_4_15", '20231111T230348Z'),
         ("MS_33_13", '20231101T224618Z'),
-        ("MS_74_46", '20231023T183051Z'),
+        ("MS_74_46", '20231023T183051Z'),  # large set
         ("MS_1_59", '20231111T183217Z'),
-        ("MS_26_48", '20231101T113548Z')
+        ("MS_1_58", '20231111T183211Z'),
+        ("MS_26_48", '20231101T113548Z'),  # large set
+        ("MS_4_14", '20231111T230322Z'),
     ]
     for mgrs_set_id, acq_dts in mgrs_set_ids_dt:
         dt = parse(acq_dts)  #.strftime("%Y%m%dT%H%M%SZ")
-        if mgrs_set_id == "MS_74_46":
+        if mgrs_set_id in ("MS_74_46", "MS_26_48"):  # large sets
             start_dt: datetime = dt - timedelta(minutes=2)
             end_dt: datetime = dt + timedelta(minutes=2)
         else:
@@ -85,6 +87,9 @@ async def test_subscriber_rtc_trigger_logic():
     assert result["mgrs_sets"]["MS_74_46"][0]["coverage_actual"] == 29
     assert result["mgrs_sets"].get("MS_1_59")[0]["coverage_actual"] == 39
     assert result["mgrs_sets"]["MS_26_48"][0]["coverage_actual"] == 60
+    assert not result["mgrs_sets"].get("MS_4_8")
+    assert result["mgrs_sets"]["MS_1_58"][0]["coverage_actual"] == 53
+    assert not result["mgrs_sets"].get("MS_4_14")
 
     with Path(__file__).parent.joinpath("results").open("w") as fp:
         fp.write("PASS")
