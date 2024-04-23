@@ -12,11 +12,11 @@ from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef
 from mypy_boto3_s3 import S3Client
 from requests import Response
 
-import conftest
-import integration.conftest
-from benchmark_test_util import get_es_host as get_mozart_ip
-from benchmark.tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish, \
-    wait_for_jobs_to_finish, wait_for_slc_pge_jobs_to_finish
+from . import conftest
+import tests.integration.conftest
+from .benchmark_test_util import get_es_host as get_mozart_ip
+from tests.benchmark.tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish, \
+    wait_for_slc_pge_jobs_to_finish
 
 config = conftest.config
 
