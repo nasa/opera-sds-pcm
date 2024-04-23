@@ -28,6 +28,7 @@ def test_convert__when_L3_DSWx_HLS_PGE__adds_PST_metadata(mocker: MockerFixture)
     mocker.patch("product2dataset.product2dataset.extract", extract_mock)
 
     mocker.patch("product2dataset.product2dataset.search_for_met_json_file", return_value=["dir1/dir2/dummy_product/dummy_product.met.json"])
+    mocker.patch("product2dataset.product2dataset.search_for_catalog_json_file", return_value=["dir1/dir2/dummy_product/dummy_catalog.met.json"])
     mock_open = mocker.mock_open()
     mock_open.side_effect = [
         met_json := mocker.mock_open(read_data="""
