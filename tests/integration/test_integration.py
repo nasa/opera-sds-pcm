@@ -508,9 +508,13 @@ def test_subscriber_rtc():
 
 @pytest.mark.asyncio
 async def test_subscriber_rtc_trigger_logic():
-    regression_test_results = Path(__file__).parent.parent.parent.joinpath("target", "results")
+    regression_test_results = Path(__file__).parent.parent.parent.joinpath("target", "results_test_subscriber_rtc_trigger_logic")
     assert regression_test_results.exists()
+    with regression_test_results.open() as fp:
+        assert "PASS" in fp.read().strip()
 
+    regression_test_results = Path(__file__).parent.parent.parent.joinpath("target", "results_test_subscriber_rtc_trigger_logic_b")
+    assert regression_test_results.exists()
     with regression_test_results.open() as fp:
         assert "PASS" in fp.read().strip()
 
