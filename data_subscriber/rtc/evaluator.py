@@ -31,6 +31,7 @@ def main(
         *args,
         **kwargs
 ):
+    logger.info(f"{coverage_target=}")
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
 
@@ -79,12 +80,16 @@ def main(
     rtc_product_ids = product_id_to_product_files_map.keys()
 
     coverage_result_set_id_to_product_sets_map = evaluate_rtc_products(rtc_product_ids, coverage_target)
+    coverage_results_short = {coverage_group: list(id_to_sets) for coverage_group, id_to_sets in coverage_result_set_id_to_product_sets_map.items()}
+    logger.info(f"{coverage_results_short=}")
 
+    logger.info("Converting coverage results to evaluator results")
     mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
     for coverage_group, id_to_sets in coverage_result_set_id_to_product_sets_map.items():
         if coverage_group == -1:
-            logger.info("Skipping results that don't meet the target coverage")
+            logger.info(f"Skipping results that don't meet the target coverage ({coverage_target=}), {coverage_group=}: {list(id_to_sets)}")
             continue
+        logger.info(f"Results that meet the target coverage ({coverage_target=}), {coverage_group=}: {list(id_to_sets)}")
         mgrs_set_id_to_product_sets_docs_map = join_product_file_docs(id_to_sets, product_id_to_product_files_map)
         for mgrs_set_id, product_sets_docs in mgrs_set_id_to_product_sets_docs_map.items():
             for product_set_docs in product_sets_docs:
@@ -96,6 +101,7 @@ def main(
                         "coverage_group": coverage_group,
                         "product_set": product_set_docs
                     })
+
     # not native-id flow, grace period does not apply
     #  if 100% coverage target set, grace period does not apply and sets have been handled already above
     if mgrs_set_id_acquisition_ts_cycle_indexes or coverage_target == 100:
@@ -120,13 +126,14 @@ def main(
                     for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
                 }
                 max_retrieval_dt = max(*retrieval_dts) if len(retrieval_dts) > 1 else first(retrieval_dts)
+                grace_period_minutes_remaining = timedelta(minutes=required_min_age_minutes_for_partial_burstsets) - (datetime.now() - max_retrieval_dt)
                 if datetime.now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
                     # burst set meets target, but not old enough. continue to ignore
-                    logger.info(f"Target covered burst still within grace period. Will not process at this time. {mgrs_set_id=}, {i=}")
+                    logger.info(f"Target covered burst still within grace period ({grace_period_minutes_remaining=}). Will not process at this time. {mgrs_set_id=}, {i=}")
                     product_burstset_index_to_skip_processing.add(i)
                 else:
                     # burst set meets target, and old enough. process
-                    logger.info(f"Target covered burst set aged out of grace period. Will process at this time. {mgrs_set_id=}, {i=}")
+                    logger.info(f"Target covered burst set aged out of grace period ({grace_period_minutes_remaining=}). Will process at this time. {mgrs_set_id=}, {i=}")
                     pass
             for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
                 logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
