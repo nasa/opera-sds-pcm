@@ -528,7 +528,7 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     creation_time = get_time_for_filename()
 
-    if extension.endswith('nc') or extension.endswith('png') or extension.endswith('iso.xml'):
+    if extension.endswith('nc') or extension.endswith('iso.xml'):
         base_name = base_name_template.format(
             frame_id="F01234",
             pol="VV",
@@ -539,6 +539,17 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         )
 
         output_filenames.append(f'{base_name}.{extension}')
+    elif extension.endswith('png'):
+        base_name = base_name_template.format(
+            frame_id="F01234",
+            pol="VV",
+            ref_datetime="20190101T232711",
+            sec_datetime="20190906T232711",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}_BROWSE.{extension}')
     elif extension.endswith('h5'):
         base_name = compressed_cslc_template.format(
             burst_id="T042-088905-IW1",

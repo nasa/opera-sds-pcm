@@ -394,7 +394,7 @@ def test_simulate_disp_s1_pge():
 
     try:
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
-        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.png').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}_BROWSE.png').exists()
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.iso.xml').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
