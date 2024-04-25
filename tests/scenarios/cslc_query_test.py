@@ -40,10 +40,11 @@ token = supply_token(edl, username, password)
 es_conn = CSLCProductCatalog(logging.getLogger(__name__))
 
 # Create dict of proc_mode to job_queue
-job_queue = {}
-job_queue["forward"] =      "opera-job_worker-cslc_data_download"
-job_queue["reprocessing"] = "opera-job_worker-cslc_data_download"
-job_queue["historical"] =   "opera-job_worker-cslc_data_download_hist"
+job_queue = {
+    "forward":      "opera-job_worker-cslc_data_download",
+    "reprocessing": "opera-job_worker-cslc_data_download",
+    "historical":   "opera-job_worker-cslc_data_download_hist"
+}
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
@@ -98,36 +99,47 @@ async def run_query(args, authorization):
     query_arguments.extend([f"--k={cslc_k}", f"--processing-mode={proc_mode}"])
 
     if (proc_mode == "forward"):
-        datetimes = sorted(validation_data.keys())
-        start_date = datetime.strptime(datetimes[0], DT_FORMAT)
-        end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
+        if validation_data == "load_test":
+            start_date = datetime.strptime(j["load_test_start"], DT_FORMAT)
+            end_date = datetime.strptime(j["load_test_end"], DT_FORMAT)
 
-        # Run in 1 hour increments from start date to end date
-        while start_date < end_date:
+            while start_date < end_date:
+                new_end_date = start_date + timedelta(hours=1)
+                current_args = query_arguments + [f"--grace-mins={j['grace_mins']}",
+                                                  f"--job-queue={job_queue[proc_mode]}", \
+                                                  f"--start-date={start_date.isoformat()}Z",
+                                                  f"--end-date={new_end_date.isoformat()}Z"]
 
-            # Sleep if this start_date is in the sleep map
-            if start_date.strftime(DT_FORMAT) in sleep_map:
-                sleep_seconds = sleep_map[start_date.strftime(DT_FORMAT)]
-                logging.info(f"Sleeping for {sleep_seconds} seconds")
-                sleep(sleep_seconds)
+                await query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
 
-            new_end_date = start_date + timedelta(hours=1)
-            current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
-                                              f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+                start_date = new_end_date
+        else:
+            datetimes = sorted(validation_data.keys())
+            start_date = datetime.strptime(datetimes[0], DT_FORMAT)
+            end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
 
-            await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
+            # Run in 1 hour increments from start date to end date
+            while start_date < end_date:
 
-            start_date = new_end_date # To the next query time range
+                # Sleep if this start_date is in the sleep map
+                if start_date.strftime(DT_FORMAT) in sleep_map:
+                    sleep_seconds = sleep_map[start_date.strftime(DT_FORMAT)]
+                    logging.info(f"Sleeping for {sleep_seconds} seconds")
+                    sleep(sleep_seconds)
 
-            do_delete_queue(args, authorization, job_queue[proc_mode])
+                new_end_date = start_date + timedelta(hours=1)
+                current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
+                                                  f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+
+                await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
+
+                start_date = new_end_date # To the next query time range
 
     elif (proc_mode == "reprocessing"):
         # Run one native id at a time
         for native_id in validation_data.keys():
             current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
             await query_and_validate(current_args, native_id, validation_data)
-
-            do_delete_queue(args, authorization, job_queue[proc_mode])
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
@@ -139,9 +151,9 @@ async def run_query(args, authorization):
                                               "--use-temporal"]
             await query_and_validate(current_args, frame_range, validation_data)
 
-            do_delete_queue(args, authorization, job_queue[proc_mode])
+    do_delete_queue(args, authorization, job_queue[proc_mode])
 
-async def query_and_validate(current_args, test_range, validation_data):
+async def query_and_validate(current_args, test_range, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
     c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
@@ -162,7 +174,8 @@ async def query_and_validate(current_args, test_range, validation_data):
     print("+++++++++++++++++++++++++++++++++++++++++++++++")
 
     # Validation
-    validate_hour(q_result_dict, test_range, validation_data)
+    if validation_data:
+        validate_hour(q_result_dict, test_range, validation_data)
 
 def validate_hour(q_result_dict, test_range, validation_data):
     """Validate the number of files to be downloaded for a given hour"""

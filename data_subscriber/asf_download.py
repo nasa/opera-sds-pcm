@@ -13,7 +13,6 @@ from data_subscriber.url import _has_url, _to_urls, _to_https_urls, _slc_url_to_
 
 logger = logging.getLogger(__name__)
 
-
 class DaacDownloadAsf(DaacDownload):
 
     def __init__(self, provider):
