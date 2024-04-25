@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 async def test_subscriber_rtc_trigger_logic():
     mgrs_set_ids_dt = [
         ("MS_20_29", '20231101T013115Z'),
-        ("MS_33_26", '20231101T225251Z'),
+        # ("MS_33_26", '20231101T225251Z'),
         ("MS_135_25", '20231108T224433Z'),
         ("MS_4_8", '20231111T230034Z'),  # became water only after MGRS tile collection db upgrade
         ("MS_4_15", '20231111T230348Z'),
@@ -80,7 +80,7 @@ async def test_subscriber_rtc_trigger_logic():
     print(result)
 
     assert result["mgrs_sets"]["MS_20_29"][0]["coverage_actual"] == 2
-    assert result["mgrs_sets"]["MS_33_26"][0]["coverage_actual"] == 80
+    # assert result["mgrs_sets"]["MS_33_26"][0]["coverage_actual"] == 80
     assert result["mgrs_sets"]["MS_135_25"][0]["coverage_actual"] == 77
     assert not result["mgrs_sets"].get("MS_4_8")
     assert not result["mgrs_sets"].get("MS_4_15")
@@ -99,10 +99,10 @@ async def test_subscriber_rtc_trigger_logic():
 @pytest.mark.asyncio
 async def test_subscriber_rtc_trigger_logic_b():
     mgrs_set_ids_dt = [
-        ("OPERA_L2_RTC-S1_T033-069004-IW2_20231101T225305Z_20231104T110629Z_S1A_30_v1.0", "MS_33_26", '2023-11-04T11:34:36.968Z'),
-        ("OPERA_L2_RTC-S1_T033-069004-IW2_20231101T225305Z_20231209T024340Z_S1A_30_v1.0", "MS_33_26", '2023-12-09T03:03:27.716Z'),
+        ("OPERA_L2_RTC-S1_T033-069004-IW2_20231101T225305Z_20231104T110629Z_S1A_30_v1.0", "MS_33_26", '2023-11-04T11:34:36.968Z', 73),
+        ("OPERA_L2_RTC-S1_T033-069004-IW2_20231101T225305Z_20231209T024340Z_S1A_30_v1.0", "MS_33_26", '2023-12-09T03:03:27.716Z', 73),
     ]
-    for rtc_native_id, mgrs_set_id, acq_dts in mgrs_set_ids_dt:
+    for rtc_native_id, mgrs_set_id, acq_dts, expected_coverage in mgrs_set_ids_dt:
         dt = parse(acq_dts)  #.strftime("%Y%m%dT%H%M%SZ")
         if mgrs_set_id in ("MS_74_46", "MS_26_48"):  # large sets
             start_dt: datetime = dt - timedelta(minutes=2)
@@ -161,6 +161,7 @@ async def test_subscriber_rtc_trigger_logic_b():
             first(d.keys())
             for d in result["mgrs_sets"]["MS_33_26"][0]["product_set"]
         ]
+        assert result["mgrs_sets"]["MS_33_26"][0]["coverage_actual"] == expected_coverage
 
     with Path(__file__).parent.parent.parent.joinpath("target", "results_test_subscriber_rtc_trigger_logic_b").open("w") as fp:
         fp.write("PASS")
