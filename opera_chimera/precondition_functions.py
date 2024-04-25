@@ -275,8 +275,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
 
+        # TODO: hardcoded to empty set of files to bypass ionosphere correction
+        #       until file naming conventions are properly handled by DISP-S1 SAS
         rc_params = {
-            oc_const.IONOSPHERE_FILES: ionosphere_paths
+            oc_const.IONOSPHERE_FILES: list() #ionosphere_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
