@@ -12,11 +12,11 @@ from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef
 from mypy_boto3_s3 import S3Client
 from requests import Response
 
-import conftest
-import integration.conftest
-from benchmark_test_util import get_es_host as get_mozart_ip
-from benchmark.tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish, \
-    wait_for_jobs_to_finish, wait_for_slc_pge_jobs_to_finish
+from . import conftest
+import tests.integration.conftest
+from .benchmark_test_util import get_es_host as get_mozart_ip
+from tests.benchmark.tosca import wait_for_pge_jobs_to_finish, wait_for_download_jobs_to_finish, wait_for_query_jobs_to_finish, \
+    wait_for_slc_pge_jobs_to_finish
 
 config = conftest.config
 
@@ -77,7 +77,7 @@ async def test_s30(event_loop: AbstractEventLoop):
     for new_instance_type_queue_name in instance_type_queues:
         logging.info(f"{new_instance_type_queue_name=}")
 
-        integration.conftest.clear_pcm_test_state()
+        tests.integration.conftest.clear_pcm_test_state()
         swap_instance_type("trigger-SCIFLO_L3_DSWx_HLS_S30", new_instance_type_queue_name)
 
         query_timer_lambda_response = await invoke_s30_subscriber_query_lambda()
@@ -97,7 +97,7 @@ async def test_slc(event_loop: AbstractEventLoop):
     for new_instance_type_queue_name in instance_type_queues:
         logging.info(f"{new_instance_type_queue_name=}")
 
-        integration.conftest.clear_pcm_test_state()
+        tests.integration.conftest.clear_pcm_test_state()
         swap_instance_type("trigger-SCIFLO_L2_CSLC_S1", new_instance_type_queue_name)
         swap_instance_type("trigger-SCIFLO_L2_RTC_S1", new_instance_type_queue_name)
 
@@ -151,7 +151,7 @@ async def test_rtc(event_loop: AbstractEventLoop):
     for new_instance_type in instance_types:
         logging.info(f"{new_instance_type=}")
 
-        integration.conftest.clear_pcm_test_state()
+        tests.integration.conftest.clear_pcm_test_state()
         swap_instance_type_asg(asg_name="opera-crivas-1-opera-job_worker-sciflo-l3_dswx_s1", instance_type=new_instance_type, max_size=3)
 
         query_timer_lambda_response = await invoke_rtc_subscriber_query_lambda()

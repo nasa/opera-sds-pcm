@@ -152,7 +152,7 @@ def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):
 
     # transform product list to DataFrame for evaluation
     cmr_df = load_cmr_df(rtc_product_ids, mgrs_burst_collections_gdf)
-    cmr_df = cmr_df.sort_values(by=["relative_orbit_number", "acquisition_dt", "burst_id_normalized"])
+    cmr_df = cmr_df.sort_values(by=["relative_orbit_number", "acquisition_dt", "burst_id_normalized", "product_id"])
     cmr_orbits = list(set(flatten(cmr_df["relative_orbit_numbers"].to_list())))
     # a_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1A_30_v0.4"))]
     # b_cmr_df = cmr_df[cmr_df["product_id"].apply(lambda x: x.endswith("S1B_30_v0.4"))]
@@ -222,11 +222,15 @@ def join_product_file_docs(result_set_id_to_product_sets_map, product_id_to_prod
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--coverage-target", type=int, default=100)
+    parser.add_argument("--grace-period", type=int, default=0)
     parser.add_argument("--rtc-product-ids", nargs="*")
     parser.add_argument("--main", action="store_true", default=False)
     args = parser.parse_args(sys.argv[1:])
     if args.main:
-        evaluator_results = main(coverage_target=args.coverage_target)
+        evaluator_results = main(
+            coverage_target=args.coverage_target,
+            required_min_age_minutes_for_partial_burstsets=args.grace_period
+        )
         print(json.dumps(evaluator_results))
     else:
         evaluate_rtc_products(**vars(args))

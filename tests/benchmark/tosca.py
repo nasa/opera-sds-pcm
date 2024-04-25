@@ -8,8 +8,8 @@ import requests
 from requests import Response
 from requests.auth import HTTPBasicAuth
 
-from benchmark import conftest
-from benchmark.benchmark_test_util import raise_
+from tests.benchmark import conftest
+from tests.benchmark.benchmark_test_util import raise_
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s")
 
