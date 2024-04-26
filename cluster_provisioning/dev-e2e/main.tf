@@ -202,7 +202,7 @@ resource "null_resource" "mozart" {
                   --grq-es ${local.grq_es_url} \
                   --metrics-es http://${module.common.metrics.private_ip}:9200 \
                   --repository snapshot-repository \
-                  --policy-id hourly-snapshot
+                  --policy-id daily-snapshot
               fi
     EOF
     ]
@@ -251,7 +251,7 @@ resource "null_resource" "smoke_test" {
 
         cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
         set +e
-        pytest regression/test_dswx_s1_edge_cases.py
+        pytest tests/regression/test_dswx_s1_edge_cases.py
         set -e
       fi
     EOT

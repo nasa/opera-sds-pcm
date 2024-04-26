@@ -15,7 +15,6 @@ from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 
 logger = logging.getLogger(__name__)
 
-
 def giveup_asf_daac_credentials_requests(e):
     """giveup function for use with @backoff decorator when issuing DAAC requests using blocking `requests` functions."""
     if isinstance(e, HTTPError):

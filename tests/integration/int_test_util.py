@@ -13,7 +13,7 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch_dsl import Search, Index
 from elasticsearch_dsl.response import Response
 
-import conftest
+from . import conftest
 
 logger = logging.getLogger(__name__)
 

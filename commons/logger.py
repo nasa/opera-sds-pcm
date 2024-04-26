@@ -49,6 +49,17 @@ logger.setLevel(logging.INFO)
 logger.addFilter(LogFilter())
 
 
+class NoLogUtilsFilter(logging.Filter):
+
+    """Filters out large JSON output of HySDS internals. Apply to any logger (typically __main__) or its
+    handlers."""
+    def filter(self, record):
+        if not record.filename == "elasticsearch_utils.py":
+            return True
+
+        return record.funcName != "update_document"
+
+
 class NoJobUtilsFilter(logging.Filter):
 
     """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its
@@ -73,6 +84,10 @@ class NoBaseFilter(logging.Filter):
         if not record.funcName == "log_request_success":
             return True
 
+        # 'POST http://<es host>/<index pattern>/_search?... [status:200 request:0.013s]'
+        # 'POST http://<es host>/<index>/_update/<product ID> [status:200 request:0.018s]'
         return "/job_specs/_doc/" not in record.getMessage() \
             and "/hysds_ios-grq/_doc/" not in record.getMessage() \
-            and "/containers/_doc/" not in record.getMessage()
+            and "/containers/_doc/" not in record.getMessage() \
+            and "/_search?" not in record.getMessage() \
+            and "/_update" not in record.getMessage()

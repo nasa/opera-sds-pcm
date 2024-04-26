@@ -159,9 +159,9 @@ pip install -e '.[subscriber]'
 set +e
 
 pytest --maxfail=2 --numprocesses=auto \
-  integration/test_integration.py::test_subscriber_slc \
-  integration/test_integration.py::test_subscriber_l30 \
-  integration/test_integration.py::test_subscriber_s30
+  tests/integration/test_integration.py::test_subscriber_slc \
+  tests/integration/test_integration.py::test_subscriber_l30 \
+  tests/integration/test_integration.py::test_subscriber_s30
 set -e
 
 echo Copying JUnit report to public directory for CI/CD integration

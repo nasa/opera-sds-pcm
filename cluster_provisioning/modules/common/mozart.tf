@@ -237,6 +237,7 @@ resource "aws_instance" "mozart" {
       echo DATASET_S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config
       echo DATASET_S3_WEBSITE_ENDPOINT: s3-website-us-west-2.amazonaws.com >> ~/.sds/config
       echo DATASET_BUCKET: ${local.dataset_bucket} >> ~/.sds/config
+      echo ISL_BUCKET: ${local.isl_bucket} >> ~/.sds/config
       echo OSL_BUCKET: ${local.osl_bucket} >> ~/.sds/config
       echo TRIAGE_BUCKET: ${local.triage_bucket} >> ~/.sds/config
       echo LTS_BUCKET: ${local.lts_bucket} >> ~/.sds/config

@@ -1,5 +1,6 @@
 import boto3
 import logging
+import os
 
 from geo.geo_util import does_bbox_intersect_region
 from util.conf_util import SettingsConf
@@ -19,13 +20,19 @@ def localize_geojsons(geojsons):
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
 
-    try:
-        for geojson in geojsons:
-            key = geojson.strip() + ".geojson"
-            # output_filepath = os.path.join(working_dir, key)
+    # First try to get the geojsons from the official S3 location. If not found, try to use one in the current working directory
+    for geojson in geojsons:
+        key = geojson.strip() + ".geojson"
+
+        try:
             download_from_s3(bucket, key, key)
-    except Exception as e:
-        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
+        except Exception as e:
+            logging.error("Exception while fetching geojson files: %s from S3 bucket %s. \
+Will try to fetch the same file from current working directory - this should only be done in testing scenarios. " % (key, bucket) + str(e))
+
+        # See if the file exists in the current working directory
+        if not os.path.exists(key):
+            raise Exception("Geojson file %s not found in S3 bucket %s or the current working directory" % (key, bucket))
 
 def does_granule_intersect_regions(granule, intersect_regions):
     regions = intersect_regions.split(',')
@@ -69,4 +76,4 @@ def download_from_s3(bucket, file, path):
     try:
         s3.Object(bucket, file).download_file(path)
     except Exception as e:
-        raise Exception("Exception while fetching disp frame map json file: %s. " % file + str(e))
+        raise Exception("Exception while fetching file: %s from S3 bucket %s. " % (file, bucket) + str(e))
