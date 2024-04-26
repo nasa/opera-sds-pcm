@@ -15,8 +15,8 @@ from mypy_boto3_lambda import LambdaClient
 from mypy_boto3_lambda.type_defs import InvocationResponseTypeDef, FunctionConfigurationResponseTypeDef
 from requests import Response
 
-import conftest
-from int_test_util import success_handler, raise_, get_es_host, get_es_client, index_not_found
+from . import conftest
+from .int_test_util import success_handler, raise_, get_es_host, get_es_client, index_not_found
 
 config = conftest.config
 

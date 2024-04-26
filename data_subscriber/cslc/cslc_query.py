@@ -17,6 +17,9 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
                                         split_download_batch_id)
 from data_subscriber.query import CmrQuery, DateTimeRange
 
+BURSTS_PER_FRAME = 27
+K_MULT_FACTOR = 3 #TODO: This should be a setting in probably settings.yaml.
+
 logger = logging.getLogger(__name__)
 
 class CslcCmrQuery(CmrQuery):
@@ -124,7 +127,7 @@ class CslcCmrQuery(CmrQuery):
         # immediately to the download_granules list because we know for sure that we want to download them without additional reasoning.
         for batch_id, download_batch in by_download_batch_id.items():
             submitted = self.es_conn.get_submitted_granules(batch_id)
-            if len(submitted) > 0:
+            if len(submitted) > 0 and len(submitted) < BURSTS_PER_FRAME:
                 for download in download_batch.values():
                     download_granules.append(download)
                 for granule in submitted:
@@ -165,44 +168,21 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     #print(batch_id, download_batch)
 
             if new_downloads:
+                # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
+                # And also add these downloads into the return download list
+                burst_id_set = set()
                 for download in download_batch.values():
+                    burst_id_set.add(download["burst_id"])
                     download_granules.append(download)
                     #print("**********************************************************", download["download_batch_id"])
 
                 # Retrieve K- granules and M- compressed CSLCs for this batch
-                # Go back K- 12-day windows and find the same frame
-                args = self.args
-                if args.k > 1:
-                    logger.info(f"Retrieving K-1 granules")
-
-                    # Add native-id condition in args
-                    l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
-                    args.native_id = native_id
-                    logger.info(f"{args.native_id=}")
-
-                    #TODO: We can only use past frames which contain the exact same bursts as the current frame
-                    # If not, we will need to go back another cycle until, as long as we have to, we find one that does
-
-                    # Move start and end date of args back and expand 5 days at both ends to capture all k granules
-                    start_date = (datetime.strptime(args.start_date, CMR_TIME_FORMAT) - timedelta(
-                        days=12 * (args.k - 1) + 5)).strftime(CMR_TIME_FORMAT)
-                    end_date = (datetime.strptime(args.end_date, CMR_TIME_FORMAT) - timedelta(
-                        days=12 - 5)).strftime(CMR_TIME_FORMAT)
-                    query_timerange = DateTimeRange(start_date, end_date)
-                    logger.info(f"{query_timerange=}")
-                    granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow())
-
-                    # This step is a bit tricky.
-                    # 1) We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames
-                    # 2) We already know what frame these new granules belong to because that's what we queried for. We need to
-                    #    force using that because 1/9 times one burst will belong to two frames
-                    self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
-
-                    granules = self.eliminate_duplicate_granules(granules)
-                    self.catalog_granules(granules, current_time)
-                    logger.info(f"{len(granules)=}")
+                if self.args.k > 1:
+                    k_granules = await self.retrieve_k_granules(frame_id, burst_id_set, self.args, self.args.k-1)
+                    self.catalog_granules(k_granules, current_time)
+                    logger.info(f"Length of K-granules: {len(k_granules)=}")
                     #print(f"{granules=}")
-                    download_granules.extend(granules)
+                    download_granules.extend(k_granules)
 
             if (len(download_batch) > max_bursts):
                 logger.error(f"{len(download_batch)=} {max_bursts=}")
@@ -212,6 +192,68 @@ since the first CSLC file for the batch was ingested which is greater than the g
         logger.info(f"{len(download_granules)=}")
 
         return download_granules
+
+    async def retrieve_k_granules(self, frame_id, burst_id_set, args, k_minus_one):
+        '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the current frame
+        Return all the granules that satisfy that'''
+        k_granules = []
+        k_satified = 0
+
+        # Move start and end date of args back and expand 5 days at both ends to capture all k granules
+        shift_day_grouping = 12 * (k_minus_one * K_MULT_FACTOR) # Number of days by which to shift each iteration
+
+        counter = 1
+        while k_satified < k_minus_one:
+            start_date_shift = timedelta(days=6 + counter * shift_day_grouping)
+            end_date_shift = timedelta(days= 6 + (counter-1) * shift_day_grouping)
+            start_date = (datetime.strptime(args.start_date, CMR_TIME_FORMAT) - start_date_shift).strftime(CMR_TIME_FORMAT)
+            end_date = (datetime.strptime(args.end_date, CMR_TIME_FORMAT) - end_date_shift).strftime(CMR_TIME_FORMAT)
+            logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {frame_id=}")
+
+            # Add native-id condition in args
+            l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map)
+            args.native_id = native_id
+            logger.info(f"{args.native_id=}")
+
+            # TODO: We can only use past frames which contain the exact same bursts as the current frame
+            # If not, we will need to go back another cycle until, as long as we have to, we find one that does
+
+            query_timerange = DateTimeRange(start_date, end_date)
+            logger.info(f"{query_timerange=}")
+            granules = await self.query_cmr(args, self.token, self.cmr, self.settings, query_timerange,
+                                            datetime.utcnow())
+
+            if len(granules) == 0:
+                raise AssertionError(f"No more granules were found when looking for k-granules for {frame_id=}. {start_date=} {end_date=}")
+
+            # This step is a bit tricky.
+            # 1) We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames
+            # 2) We already know what frame these new granules belong to because that's what we queried for. We need to
+            #    force using that because 1/9 times one burst will belong to two frames
+            self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
+
+            granules = self.eliminate_duplicate_granules(granules)
+
+            # Step 1 of 2 Organize granules by the acquisition cycle index and then...
+            burst_set_map = defaultdict(set)
+            granules_map = defaultdict(list)
+            for granule in granules:
+                burst_id, _, acquisition_cycle, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frame)
+                burst_set_map[acquisition_cycle].add(burst_id)
+                granules_map[acquisition_cycle].append(granule)
+
+            # Step 2 of 2 ...find the acquisition cycles that contain all the bursts in the current frame, i.e. subset of burst_id_set
+            for acquisition_cycle, burst_set in burst_set_map.items():
+                if burst_id_set.issubset(burst_set):
+                    k_granules.extend(granules_map[acquisition_cycle])
+                    k_satified += 1
+                    logger.info(f"{acquisition_cycle=} satifies. {k_satified=} {k_minus_one=}")
+                    if k_satified == k_minus_one:
+                        break
+
+            counter += 1
+
+        return k_granules
 
     async def query_cmr(self, args, token, cmr, settings, timerange, now):
 

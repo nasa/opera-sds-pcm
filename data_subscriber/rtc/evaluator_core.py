@@ -181,7 +181,7 @@ def _find_set_coverage_in_burst(burst_set_row: Series, orbit_to_window_to_produc
         for burst in found_bursts
         for orbit in orbits
         # the defaultdict creates an empty set() upon lookup with []. workaround is using .get() to return a default empty list
-        for product in orbit_to_window_to_products_map[orbit][time_window].get(burst, [])[:1]  # TODO chrisjrd: which one to add?
+        for product in orbit_to_window_to_products_map[orbit][time_window].get(burst, [])[-1:]  # add latest revision
     }
 
     return mgrs_set_id, frozenset(product_set), int(coverage * 100)

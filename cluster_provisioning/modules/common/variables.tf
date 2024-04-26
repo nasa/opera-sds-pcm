@@ -476,7 +476,7 @@ variable "queues" {
       "name"              = "opera-job_worker-cslc_data_download"
       "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
         "root_dev_size"     = 50
-        "data_dev_size"     = 100
+        "data_dev_size"     = 250
         "min_size"          = 0
         "max_size"          = 10
         "total_jobs_metric" = true
@@ -496,7 +496,7 @@ variable "queues" {
       "name"              = "opera-job_worker-cslc_data_download_hist"
       "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 250
       "min_size"          = 0
       "max_size"          = 25
       "total_jobs_metric" = true
