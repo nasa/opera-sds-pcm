@@ -1,3 +1,4 @@
+import os
 from data_subscriber import query
 from data_subscriber.geojson_utils import localize_include_exclude
 
@@ -42,6 +43,21 @@ def get_set(filtered_granules):
     return result_set
 
 def localize_for_unittest(include_regions, exclude_regions):
+
+    # Create file system symlinks to the geojson files
+    # include_regions and exclude_regions are comma-separated strings
+    # the file names are geo/[include and exclude regions].geojson
+    # Create only if the symlink does not exist
+    regions = []
+    if include_regions is not None:
+        regions.extend(include_regions.split(","))
+    if exclude_regions is not None:
+        regions.extend(exclude_regions.split(","))
+    for region in regions:
+        region = region.strip()
+        if not os.path.islink(f"{region}.geojson"):
+            os.symlink(f"geo/{region}.geojson", f"{region}.geojson")
+
     class Arg:
         def __init__(self):
             self.include_regions = include_regions
