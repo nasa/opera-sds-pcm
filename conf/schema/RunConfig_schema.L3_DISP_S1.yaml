@@ -81,6 +81,9 @@ RunConfig:
         # JSON file containing the mapping from frame_id to frame/burst information
         frame_to_burst_json: str(required=False)
 
+        # JSON file containing list of reference date changes for each frame
+        reference_date_database_json: str(required=False)
+
       primary_executable:
         # Product type of the PGE.
         product_type: enum('DISP_S1_FORWARD', 'DISP_S1_HISTORICAL')
@@ -106,20 +109,16 @@ RunConfig:
         # Whether to use GPU for processing (if available).
         gpu_enabled: bool(required=True)
 
-        # (For non-GPU) Number of cpu cores to use for Python multiprocessing.
-        # Uses `multiprocessing.cpu_count()` if not set.
-        n_workers: int(required=False)
-
         # Number of threads to use per worker. This sets the OMP_NUM_THREADS
         # environment variable in each python process.
         threads_per_worker: int(required=True)
 
         # If processing separate spatial bursts, number of bursts to run in
         # parallel for wrapped-phase-estimation.
-        n_parallel_bursts: int(required=False)
+        n_parallel_bursts: int(required=True)
 
         # Size (rows, columns) of blocks of data to load at a time.
         block_shape: list(num(), required=True)
 
       # Path to the output log file in addition to logging to stderr.
-      log_file: str(required=True)
+      log_file: str(required=False)

@@ -171,31 +171,40 @@ def convert(
                 Path(iso_xml_path).absolute()
                 for iso_xml_path in search_for_iso_xml_file(dataset_dir)
             ])
-            iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
 
-            extents = iso_xml_reader.get_extents(iso_xml)
-            tile_id_extent = iso_xml_reader.get_tile_id_extent(extents)
-            tile_id = iso_xml_reader.get_tile_id(tile_id_extent)
-            dataset_met_json["tile_id"] = tile_id
+            # When running PGE simulation mode the iso xml product will be fake,
+            # so we need to handle that accordingly here
+            try:
+                iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
+            except Exception as err:
+                logger.warning(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
+                logger.warning('Not including additional DSWx-S1 metadata in .met.json file')
+                iso_xml = None
 
-            additional_attributes = iso_xml_reader.get_additional_attributes(iso_xml)
-            additional_attributes = iso_xml_reader.get_additional_attributes_as_dict(additional_attributes)
+            if iso_xml:
+                extents = iso_xml_reader.get_extents(iso_xml)
+                tile_id_extent = iso_xml_reader.get_tile_id_extent(extents)
+                tile_id = iso_xml_reader.get_tile_id(tile_id_extent)
+                dataset_met_json["tile_id"] = tile_id
 
-            rtc_sensing_start_time = iso_xml_reader.get_rtc_sensing_start_time_from_additional_attributes(additional_attributes)
-            dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
+                additional_attributes = iso_xml_reader.get_additional_attributes(iso_xml)
+                additional_attributes = iso_xml_reader.get_additional_attributes_as_dict(additional_attributes)
 
-            rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
-            dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
+                rtc_sensing_start_time = iso_xml_reader.get_rtc_sensing_start_time_from_additional_attributes(additional_attributes)
+                dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
 
-            rtc_input_list = json.loads(
-                "".join(
-                    json.loads(
-                        "".join(
-                            iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)))
-                ).replace("'", '"')
-            )
-            rtc_input_list = sorted(rtc_input_list)
-            dataset_met_json["rtc_input_list"] = rtc_input_list
+                rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
+                dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
+
+                rtc_input_list = json.loads(
+                    "".join(
+                        json.loads(
+                            "".join(
+                                iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)))
+                    ).replace("'", '"')
+                )
+                rtc_input_list = sorted(rtc_input_list)
+                dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
 

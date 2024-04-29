@@ -40,6 +40,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DISP_S1_DEM = "get_disp_s1_dem"
 
+    GET_DISP_S1_MASK_FILE = "get_disp_s1_mask_file"
+
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_DSWX_S1_DEM = "get_dswx_s1_dem"
@@ -85,6 +87,8 @@ class OperaChimeraConstants(ChimeraConstants):
     INUNDATED_VEGETATION_ENABLED = "inundated_vegetation_enabled"
 
     IONOSPHERE_FILES = "ionosphere_files"
+
+    MASK_FILE = "mask_file"
 
     L2_CSLC_S1 = "L2_CSLC_S1"
 

@@ -132,7 +132,8 @@ def disp_s1_lineage_metadata(context, work_dir):
         else:
             lineage_metadata.append(local_input_filepath)
 
-    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+    # TODO reenable amplitude mean/dispersion here if needed
+    for dynamic_ancillary_key in (#"amplitude_dispersion_files", "amplitude_mean_files",
                                   "static_layers_files", "ionosphere_files", "troposphere_files"):
         for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
             local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
@@ -154,6 +155,12 @@ def disp_s1_lineage_metadata(context, work_dir):
         work_dir, basename(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
     )
     lineage_metadata.append(local_frame_database_filepath)
+
+    # TODO enable if/when provided the file
+    #local_reference_date_database = os.path.join(
+    #    work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
+    #)
+    #lineage_metadata.append(local_reference_date_database)
 
     return lineage_metadata
 
@@ -281,14 +288,15 @@ def update_disp_s1_runconfig(context, work_dir):
 
     updated_input_file_paths = []
 
-    for input_file_path in glob.glob(os.path.join(local_input_dir, "*.h5")):
+    for input_file_path in glob.glob(os.path.join(local_input_dir, "*CSLC-S1_*.h5")):
         updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
 
     dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
 
-    for dynamic_ancillary_key in ("amplitude_dispersion_files", "amplitude_mean_files",
+    # TODO reenable amplitude mean/dispersion here if needed
+    for dynamic_ancillary_key in (#"amplitude_dispersion_files", "amplitude_mean_files",
                                   "static_layers_files", "ionosphere_files", "troposphere_files"):
         dynamic_ancillary_file_group[dynamic_ancillary_key] = [
             os.path.join(container_home_prefix, basename(input_file_path))
@@ -297,6 +305,7 @@ def update_disp_s1_runconfig(context, work_dir):
 
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
+    # TODO add "reference_date_database_json" if/when file becomes available
     for static_ancillary_key in ("frame_to_burst_json",):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
