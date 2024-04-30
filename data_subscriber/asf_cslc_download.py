@@ -5,6 +5,7 @@ import os
 
 from os.path import basename
 from pathlib import PurePath, Path
+from datetime import datetime, timezone
 
 from data_subscriber import ionosphere_download
 from data_subscriber.cmr import Collection
@@ -116,6 +117,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 "metadata": {
                     "batch_id": product_id,
                     "frame_id": frame_id, # frame_id should be same for all download batches
+                    "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "product_paths": {
                         "L2_CSLC_S1": cslc_s3paths,
                         "L2_CSLC_S1_STATIC": cslc_static_s3paths,
