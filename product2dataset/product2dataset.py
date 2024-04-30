@@ -208,6 +208,15 @@ def convert(
                 dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            logger.info("product_metadata: %s", product_metadata)
+            # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
+            if product_metadata["dataset_type"] is "L2_CSLC_S1_COMPRESSED":
+                one_file_name = product_metadata["metadata"]["runconfig"]["input_file_group"]["input_file_paths"][0]
+                acquisition_cycle = determine_acquisition_cycle(
+                    product_metadata["burst_id"], product_metadata["ref_date_time"]+"T000000Z", one_file_name)
+                dataset_met_json["acquisition_cycle"] = acquisition_cycle
+                dataset_met_json["burst_id"] = product_metadata["burst_id"]
+                dataset_met_json["ccslc_m_index"] = product_metadata["burst_id"] + "_" + acquisition_cycle
 
             # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
             # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
