@@ -13,9 +13,16 @@ RunConfig:
         AncillaryFileMap:
           {%- for type in data.dynamic_ancillary_file_group.keys() %}
           {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is iterable and data.dynamic_ancillary_file_group[ type ] is not string %}
+          {{ type }}:
+          {%- for value in data.dynamic_ancillary_file_group[ type ] %}
+            - {{ value }}
+          {%- endfor %}{# for value in data.dynamic_ancillary_file_group[ type ] #}
+          {%- else %}
           {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
-          {%- endif %}
-          {%- endfor %}
+          {%- endif %}{# if data.dynamic_ancillary_file_group[ type ] is iterable and data.dynamic_ancillary_file_group[ type ] is not string #}
+          {%- endif %}{# if data.dynamic_ancillary_file_group[ type ] is not none #}
+          {%- endfor %}{# for type in data.dynamic_ancillary_file_group.keys() #}
       ProductPathGroup:
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
@@ -23,7 +30,8 @@ RunConfig:
         ProductIdentifier: DISP_S1
         ProductVersion: "{{ data.product_path_group.product_version }}"
         ProgramPath: disp-s1
-        ProgramOptions: []
+        ProgramOptions:
+          - run
         ErrorCodeBase: 500000
         SchemaPath: /home/mamba/opera/pge/disp_s1/schema/disp_s1_sas_schema.yaml
         AlgorithmParametersSchemaPath: /home/mamba/opera/pge/disp_s1/schema/algorithm_parameters_disp_s1_schema.yaml
@@ -46,11 +54,16 @@ RunConfig:
         algorithm_parameters_file: {{ data.processing.algorithm_parameters }}
         {%- for type in data.dynamic_ancillary_file_group.keys() %}
         {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
-        {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
-        {%- else %}
+        {%- if data.dynamic_ancillary_file_group[ type ] is iterable and data.dynamic_ancillary_file_group[ type ] is not string %}
         {{ type }}:
-        {%- endif %}
-        {%- endfor %}
+        {%- for value in data.dynamic_ancillary_file_group[ type ] %}
+          - {{ value }}
+        {%- endfor %}{# for value in data.dynamic_ancillary_file_group[ type ] #}
+        {%- else %}
+        {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+        {%- endif %}{# if data.dynamic_ancillary_file_group[ type ] is iterable and data.dynamic_ancillary_file_group[ type ] is not string #}
+        {%- endif %}{# if data.dynamic_ancillary_file_group[ type ] is not none #}
+        {%- endfor %}{# for type in data.dynamic_ancillary_file_group.keys() #}
       static_ancillary_file_group:
         {%- for type in data.static_ancillary_file_group.keys() %}
         {%- if data.static_ancillary_file_group[ type ] is not none %}
@@ -69,9 +82,8 @@ RunConfig:
         save_compressed_slc: true
       worker_settings:
         gpu_enabled: false
-        n_workers: {{ data.processing.n_workers }}
-        threads_per_worker: 2
-        n_parallel_bursts: 1
+        threads_per_worker: {{ data.processing.threads_per_worker }}
+        n_parallel_bursts: {{ data.processing.n_parallel_bursts }}
         block_shape:
           - 512
           - 512

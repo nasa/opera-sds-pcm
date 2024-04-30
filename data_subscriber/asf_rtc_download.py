@@ -15,7 +15,6 @@ from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 
 logger = logging.getLogger(__name__)
 
-
 def giveup_asf_daac_credentials_requests(e):
     """giveup function for use with @backoff decorator when issuing DAAC requests using blocking `requests` functions."""
     if isinstance(e, HTTPError):
@@ -25,6 +24,11 @@ def giveup_asf_daac_credentials_requests(e):
 
 
 class AsfDaacRtcDownload(DaacDownload):
+
+    def __init__(self, provider):
+        super().__init__(provider)
+        self.daac_s3_cred_settings_key = "RTC_DOWNLOAD"
+
     def perform_download(
         self,
         session: requests.Session,
@@ -110,16 +114,3 @@ class AsfDaacRtcDownload(DaacDownload):
         with open(product_download_path, "wb") as file:
             file.write(asf_response.content)
         return product_download_path.resolve()
-
-    @backoff.on_exception(
-        backoff.expo,
-        exception=Exception,
-        max_tries=3,
-        jitter=None,
-        giveup=giveup_asf_daac_credentials_requests
-    )
-    def _get_aws_creds(self, token):
-        logger.info("entry")
-        with requests.get("https://cumulus.asf.alaska.edu/s3credentials", headers={'Authorization': f'Bearer {token}'}) as r:
-            r.raise_for_status()
-            return r.json()

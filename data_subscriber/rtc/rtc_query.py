@@ -120,9 +120,15 @@ class RtcCmrQuery(CmrQuery):
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
         if args.native_id:  # limit query to the 1 or 2 affected sets in backlog
             logger.info("Supplied native-id. Limiting evaluation")
+            coverage_target = args.coverage_target
+            if coverage_target is None:
+                coverage_target = settings["DSWX_S1_COVERAGE_TARGET"]
+            grace_mins = args.grace_mins
+            if grace_mins is None:
+                grace_mins = settings["DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES"]
             evaluator_results = evaluator.main(
-                coverage_target=settings["DSWX_S1_COVERAGE_TARGET"],
-                required_min_age_minutes_for_partial_burstsets=settings["DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES"],
+                coverage_target=coverage_target,
+                required_min_age_minutes_for_partial_burstsets=grace_mins,
                 mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes
             )
         else:  # evaluate ALL sets in backlog
@@ -166,6 +172,7 @@ class RtcCmrQuery(CmrQuery):
             return
 
         results = []
+        logger.info(f"Submitting batches for RTC download job: {list(batch_id_to_products_map)}")
         for batch_id, products_map in batch_id_to_products_map.items():
             job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, args, settings)
             results_batch = await asyncio.gather(*job_submission_tasks, return_exceptions=True)

@@ -275,9 +275,63 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
 
+        # TODO: hardcoded to empty set of files to bypass ionosphere correction
+        #       until file naming conventions are properly handled by DISP-S1 SAS
         rc_params = {
-            oc_const.IONOSPHERE_FILES: ionosphere_paths
+            oc_const.IONOSPHERE_FILES: list() #ionosphere_paths
         }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_mask_file(self):
+        """
+        This function downloads a sub-region of the water mask used with DISP-S1
+        processing over the bounding box provided in the input product metadata.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_MASK_FILE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_MASK_FILE, {}).get(oc_const.S3_KEY)
+
+        ancillary_type = "Water mask"
+        output_filepath = os.path.join(working_dir, 'water_mask.vrt')
+
+        # Set up arguments to stage_ancillary_map.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.outfile = output_filepath
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.bbox = bbox
+        args.margin = int(self._settings.get("DISP_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
+
+        pge_metrics = self.get_opera_ancillary(
+            ancillary_type=ancillary_type,
+            output_filepath=output_filepath,
+            staging_func=stage_ancillary_map,
+            staging_func_args=args
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params[oc_const.MASK_FILE] = output_filepath
 
         logger.info(f"rc_params : {rc_params}")
 
@@ -293,13 +347,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 3/4th of the available cores for standard processing
-        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+        # Use all available cores for threads_per_worker
+        threads_per_worker = available_cores
 
-        logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
+        logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
+
+        # Use (1/2 + 1) of the available cores for parallel burst processing
+        n_parallel_bursts = max(int(round(available_cores / 2)) + 1, 1)
+
+        logger.info(f"Allocating {n_parallel_bursts=} out of {available_cores} available")
 
         rc_params = {
-            "n_workers": str(num_workers)
+            "threads_per_worker": str(threads_per_worker),
+            "n_parallel_bursts": str(n_parallel_bursts)
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -330,13 +390,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         Derives the S3 paths to the CSLC static layer files to be used with a
         DISP-S1 job.
 
-        TODO: current a stub, implement once CSLC static layer files are downloaded
-              to s3 by query job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        metadata = self._context["product_metadata"]["metadata"]
+
+        static_layers_paths = metadata["product_paths"].get("L2_CSLC_S1_STATIC", [])
+
         rc_params = {
-            oc_const.STATIC_LAYERS_FILES: list()
+            oc_const.STATIC_LAYERS_FILES: static_layers_paths
         }
 
         logger.info(f"rc_params : {rc_params}")

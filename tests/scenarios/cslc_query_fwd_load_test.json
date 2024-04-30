@@ -1,0 +1,10 @@
+{ "description": "This file specifies a DISP-S1 forward processing load test scenario.",
+  "comment": "MAKE SURE to set ASG max of download jobs to be 0. Otherwise you'll get tons and tons of download jobs.",
+  "comment2": "We ignore validation data and just run query through a large range of dates to perform load test on query",
+  "processing_mode": "forward",
+  "k": 2,
+  "grace_mins": 100,
+  "validation_data": "load_test",
+  "load_test_start": "2023-12-01T06:00:00Z",
+  "load_test_end": "2023-12-31T06:00:00Z"
+}

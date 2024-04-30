@@ -77,10 +77,11 @@ RunConfig:
             product_path: {{ data.product_path_group.product_path }}
             scratch_path: {{ data.product_path_group.scratch_path }}
             sas_output_path: {{ data.product_path_group.product_path }}
-            product_version: {{ data.product_path_group.product_version }}
+            product_version: "{{ data.product_path_group.product_version }}"
             output_imagery_format: 'COG'
           browse_image_group:
             save_browse: True
             browse_image_height: 1024
             browse_image_width: 1024
+            save_tif_to_output: True
           log_file: {{ data.product_path_group.scratch_path }}/dswx-s1.log

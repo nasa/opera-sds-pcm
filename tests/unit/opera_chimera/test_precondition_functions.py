@@ -796,7 +796,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         context = {
             "product_metadata": {
                 "metadata": {
-                    "batch_id": "88_145"  # Format is <frame_id>_<acquisition_time_index>
+                    "frame_id": "88"
                 }
             }
         }

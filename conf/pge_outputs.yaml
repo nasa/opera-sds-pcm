@@ -148,13 +148,13 @@ L3_DISP_S1:
     Primary:
       # Pattern for parsing output product filenames, such as:
       # * "OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_20230101T100506Z.nc"
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>nc|png|iso\.xml)$'
+      # * "OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_20230101T100506Z_BROWSE.png"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))(_BROWSE)?[.](?P<ext>nc|png|iso\.xml)$'
         verify: true
         hash: md5
       # Pattern for parsing compressed SLC output filenames, such as:
-      # * "compressed_t087_185683_iw2_20180222_20180330.h5"
-      # TODO: update if "official" file name conventions are implemented for compressed CSLC
-      - regex: !!python/regexp '(?P<id>(compressed_(?P<burst_id>\w{4}_\w{6}_\w{3})))_(?P<time_series_start_ts>\d{8})_(?P<time_series_stop_ts>\d{8})[.](?P<ext>h5)$'
+      # * "OPERA_L2_COMPRESSED-CSLC-S1_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
         verify: true
         hash: md5
     Secondary:

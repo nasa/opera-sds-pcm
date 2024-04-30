@@ -29,6 +29,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
     def __init__(self, provider):
         super().__init__(provider)
         self.disp_burst_map, self.burst_to_frame, metadata, version = localize_disp_frame_burst_json()
+        self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
 
     async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
 
@@ -175,8 +176,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         cslc_query_args.no_schedule_download = True
         cslc_query_args.collection = Collection.CSLC_S1_STATIC_V1.value
         cslc_query_args.bbox = "-180,-90,180,90"
-        cslc_query_args.start_time = None
-        cslc_query_args.stop_time = None
+        cslc_query_args.start_date = None
+        cslc_query_args.end_date = None
         cslc_query_args.use_temporal = False
         cslc_query_args.max_revision = 1000
         cslc_query_args.proc_mode = "forward"  # CSLC static query does not care about

@@ -55,7 +55,7 @@ def setup_session(tmp_path_factory, worker_id):
 
 
 def clear_pcm_test_state():
-    from integration.int_test_util import \
+    from .int_test_util import \
         delete_output_files, \
         es_index_delete_by_prefix
 

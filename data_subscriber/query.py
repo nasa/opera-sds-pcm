@@ -5,6 +5,7 @@ from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
+import hashlib
 
 import dateutil.parser
 from more_itertools import chunked
@@ -230,19 +231,32 @@ class CmrQuery:
                 chunk_batch_ids.append(batch_id)
                 chunk_urls.extend(urls)
 
+            # If we are downlaoding SLC input data, we will compute payload hash using the granule_id without the revision_id
+            # NOTE: This will only work properly if the chunk size is 1 which should always be the case for SLC downloads
+            payload_hash = None
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.SLC:
+                granule_to_hash = ''
+                for batch_id in chunk_batch_ids:
+                    granule_id, revision_id = self.es_conn.granule_and_revision(batch_id)
+                    granule_to_hash += granule_id
+
+                payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
+
             logger.info(f"{chunk_batch_ids=}")
+            logger.info(f"{payload_hash=}")
             logger.debug(f"{chunk_urls=}")
 
             download_job_id = asyncio.get_event_loop().run_in_executor(
-                    executor=None,
-                    func=partial(
-                        submit_download_job,
-                        release_version=self.settings["RELEASE_VERSION"],
-                        product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection],
-                        params=self.create_download_job_params(query_timerange, chunk_batch_ids),
-                        job_queue=self.args.job_queue
-                    )
+                executor=None,
+                func=partial(
+                    submit_download_job,
+                    release_version=self.settings["RELEASE_VERSION"],
+                    product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection],
+                    params=self.create_download_job_params(query_timerange, chunk_batch_ids),
+                    job_queue=self.args.job_queue,
+                    payload_hash = payload_hash
                 )
+            )
 
             # Record download job id in ES
             for batch_id, urls in batch_chunk:
@@ -311,7 +325,8 @@ class CmrQuery:
         return download_job_params
 
 
-def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]], job_queue: str) -> str:
+def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]],
+                        job_queue: str, payload_hash = None) -> str:
     job_spec_str = f"job-{product_type.lower()}_download:{release_version}"
 
     return _submit_mozart_job_minimal(
@@ -321,11 +336,12 @@ def submit_download_job(*, release_version=None, product_type: str, params: list
             "job-specification": job_spec_str
         },
         job_queue=job_queue,
-        provider_str=product_type.lower()
+        provider_str=product_type.lower(),
+        payload_hash = payload_hash
     )
 
 
-def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str) -> str:
+def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str, payload_hash = None) -> str:
     return submit_mozart_job(
         hysdsio=hysdsio,
         product={},
@@ -338,7 +354,7 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
         },
         queue=None,
         job_name=f"job-WF-{provider_str}_download",
-        payload_hash=None,
+        payload_hash=payload_hash,
         enable_dedup=None,
         soft_time_limit=None,
         time_limit=None,

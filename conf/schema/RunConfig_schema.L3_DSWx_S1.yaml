@@ -108,7 +108,7 @@ RunConfig:
             # according to proper file naming conventions.
             sas_output_path: str()
 
-            product_version: num(required=False)
+            product_version: str(required=False)
 
             # DSWx-S1 product format (default is 'COG')
             output_imagery_format: enum('GTiff', 'COG', required=False)
@@ -151,5 +151,8 @@ RunConfig:
 
             # Flag to set ocean-masked pixels to NoData value if set to True.
             set_ocean_masked_to_nodata: bool(required=False)
+
+            # Flag to save Geotiff to output directory if set to True.
+            save_tif_to_output: bool(required=False)
 
           log_file: str(required=False)

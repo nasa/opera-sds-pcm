@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-import conftest
-from int_test_util import \
+from . import conftest
+from .int_test_util import \
     mock_cnm_r_success_sns, \
     mock_cnm_r_success_sqs, \
     wait_for_cnm_s_success, \
     wait_for_cnm_r_success, \
     wait_for_l3
-from subscriber_util import \
+from .subscriber_util import \
     wait_for_query_job, \
     wait_for_download_job, \
     invoke_l30_subscriber_query_lambda, \
@@ -508,9 +508,13 @@ def test_subscriber_rtc():
 
 @pytest.mark.asyncio
 async def test_subscriber_rtc_trigger_logic():
-    regression_test_results = Path(__file__).parent.joinpath("results")
+    regression_test_results = Path(__file__).parent.parent.parent.joinpath("target", "results_test_subscriber_rtc_trigger_logic")
     assert regression_test_results.exists()
+    with regression_test_results.open() as fp:
+        assert "PASS" in fp.read().strip()
 
+    regression_test_results = Path(__file__).parent.parent.parent.joinpath("target", "results_test_subscriber_rtc_trigger_logic_b")
+    assert regression_test_results.exists()
     with regression_test_results.open() as fp:
         assert "PASS" in fp.read().strip()
 

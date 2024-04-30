@@ -237,6 +237,7 @@ resource "aws_instance" "mozart" {
       echo DATASET_S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config
       echo DATASET_S3_WEBSITE_ENDPOINT: s3-website-us-west-2.amazonaws.com >> ~/.sds/config
       echo DATASET_BUCKET: ${local.dataset_bucket} >> ~/.sds/config
+      echo ISL_BUCKET: ${local.isl_bucket} >> ~/.sds/config
       echo OSL_BUCKET: ${local.osl_bucket} >> ~/.sds/config
       echo TRIAGE_BUCKET: ${local.triage_bucket} >> ~/.sds/config
       echo LTS_BUCKET: ${local.lts_bucket} >> ~/.sds/config
@@ -470,6 +471,20 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  # Copy down latest opera-sds-int and opera-sds-ops repos for convenience
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
+      cd ~/mozart/ops
+      wget https://github.com/nasa/opera-sds-int/archive/refs/heads/main.zip -O opera-sds-int.zip
+      wget https://github.com/nasa/opera-sds-ops/archive/refs/heads/main.zip -O opera-sds-ops.zip
+      unzip opera-sds-int.zip
+      unzip opera-sds-ops.zip
+    EOT
+    ]
+  }
+
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
@@ -523,16 +538,12 @@ resource "aws_instance" "mozart" {
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
-		sleep 180
         sds -d update grq -f
-		sleep 180
         sds -d update metrics -f
         sds -d update factotum -f
       else
         sds -d update mozart -f -c
-		sleep 180
         sds -d update grq -f -c
-		sleep 180
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
@@ -546,7 +557,6 @@ resource "aws_instance" "mozart" {
       fi
       sed -i "s/DATASET_BUCKET: '{{ DATASET_BUCKET }}'/DATASET_BUCKET: '${local.dataset_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
-	  sleep 180
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
       else
@@ -557,10 +567,8 @@ resource "aws_instance" "mozart" {
       fi
 
       fab -f ~/.sds/cluster.py -R grq update_grq_es
-	  sleep 180
       fab -f ~/.sds/cluster.py -R metrics update_metrics_es
 
-      sleep 180
       sds -d ship
 
       cd ~/mozart/pkgs
@@ -623,6 +631,7 @@ resource "aws_instance" "mozart" {
   }
 
   // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
+  // Snapshot schedule is in UTC, 5 AM UTC is 9/10 PM PST, depending on daylight savingss
   provisioner "remote-exec" {
     inline = [<<-EOT
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
@@ -630,17 +639,17 @@ resource "aws_instance" "mozart" {
       source ~/.bash_profile
       echo // grq
       ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog --schedule="0 0 5 * * ?"
       curl -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // mozart
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers --schedule="0 0 5 * * ?"
       curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
       echo // metrics
       ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id hourly-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
       curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
 
     EOT

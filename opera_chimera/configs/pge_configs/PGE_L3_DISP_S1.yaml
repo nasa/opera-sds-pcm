@@ -16,24 +16,27 @@ runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
-    amplitude_dispersion_files: __CHIMERA_VAL__
-    amplitude_mean_files: __CHIMERA_VAL__
+    #amplitude_dispersion_files: __CHIMERA_VAL__
+    #amplitude_mean_files: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
-    #mask_file: __CHIMERA_VAL__  # TODO: need to determine source of (global?) mask
+    mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
     troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
+    # TODO: unsure if we have this yet or if it even needs to be provided in production
+    #reference_date_database_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
-    scratch_path: /home/mamba/output_dir/scratch_dir
+    scratch_path: /home/mamba/scratch_dir
   processing:
     frame_id: __CHIMERA_VAL__
     algorithm_parameters: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
-    n_workers: __CHIMERA_VAL__
+    threads_per_worker: __CHIMERA_VAL__
+    n_parallel_bursts: __CHIMERA_VAL__
     # TODO: DebugSwitch is currently hardcoded to True to bypass ancillary input checks in DISP-S1 PGE
     #       Reset to False once ancillaries are available
     debug_switch: True
@@ -50,14 +53,13 @@ preconditions:
   - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_disp_s1_algorithm_parameters
-  - get_disp_s1_amplitude_dispersion_files
-  - get_disp_s1_amplitude_mean_files
+  #- get_disp_s1_amplitude_dispersion_files
+  #- get_disp_s1_amplitude_mean_files
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
   - get_disp_s1_troposphere_files
+  - get_disp_s1_mask_file
   - get_disp_s1_dem
-  # TODO: to be implemented with further releases
-  #- get_disp_s1_mask_file  # TODO: need to determine source of (global?) mask
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -77,13 +79,17 @@ get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
   frame_to_burst_json:
     s3_bucket: "opera-ancillaries"
-    s3_key: "disp_frames/disp-s1/0.1.0/opera-s1-disp-frame-to-burst.json"
+    s3_key: "disp_frames/disp-s1/0.2.8/opera-s1-disp-frame-to-burst.json"
 
 get_disp_s1_algorithm_parameters:
   # This S3 path only defines the location of the algorithm parameters files,
   # an actual file will be selected based on the processing mode of the job (forward vs. historical)
   s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.1.0"
+  s3_key: "algorithm_parameters/disp_s1/0.2.8"
+
+get_disp_s1_mask_file:
+  s3_bucket: "opera-water-mask"
+  s3_key: "v0.3/EPSG4326.vrt"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
@@ -129,4 +135,4 @@ input_file_base_name_regexes:
 sample_input_dataset_id: "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1"
 output_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
 ancillary_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{product_version}_{creation_ts}Z
-compressed_cslc_name: compressed_{burst_id}_{ts_start}_{ts_end}
+compressed_cslc_name: OPERA_L2_COMPRESSED-CSLC-S1_{burst_id}_{ts_start}T000000Z_{ts_start}T000000Z_{ts_end}T000000Z_{creation_ts}Z_{pol}_{product_version}

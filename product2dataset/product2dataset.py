@@ -14,11 +14,14 @@ import shutil
 import subprocess
 import sys
 import traceback
-from pathlib import PurePath
+from pathlib import PurePath, Path
 from typing import Union, Tuple
+
+from more_itertools import one
 
 from commons.logger import logger
 from extractor import extract
+import product2dataset.iso_xml_reader as iso_xml_reader
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
@@ -35,7 +38,7 @@ def convert(
         product_dir: str,
         pge_name: str,
         rc_file: str = None,
-        pge_output_conf_file:str = None,
+        pge_output_conf_file: str = None,
         settings_conf_file: Union[str, SettingsConf, dict, None] = None,
         extra_met: dict = None,
         **kwargs
@@ -162,12 +165,55 @@ def convert(
             dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
         elif pge_name == "L3_DSWx_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
+
+            iso_xml_path = one([
+                Path(iso_xml_path).absolute()
+                for iso_xml_path in search_for_iso_xml_file(dataset_dir)
+            ])
+
+            # When running PGE simulation mode the iso xml product will be fake,
+            # so we need to handle that accordingly here
+            try:
+                iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
+            except Exception as err:
+                logger.warning(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
+                logger.warning('Not including additional DSWx-S1 metadata in .met.json file')
+                iso_xml = None
+
+            if iso_xml:
+                extents = iso_xml_reader.get_extents(iso_xml)
+                tile_id_extent = iso_xml_reader.get_tile_id_extent(extents)
+                tile_id = iso_xml_reader.get_tile_id(tile_id_extent)
+                dataset_met_json["tile_id"] = tile_id
+
+                additional_attributes = iso_xml_reader.get_additional_attributes(iso_xml)
+                additional_attributes = iso_xml_reader.get_additional_attributes_as_dict(additional_attributes)
+
+                rtc_sensing_start_time = iso_xml_reader.get_rtc_sensing_start_time_from_additional_attributes(additional_attributes)
+                dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
+
+                rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
+                dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
+
+                rtc_input_list = json.loads(
+                    "".join(
+                        json.loads(
+                            "".join(
+                                iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)))
+                    ).replace("'", '"')
+                )
+                rtc_input_list = sorted(rtc_input_list)
+                dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
 
+        if product_metadata.get("ProductReceivedTime"):
+            dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
+
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
-        catalog_metadata_files = glob.glob(os.path.join(product_dir, "*.catalog.json"))
+        catalog_metadata_files = search_for_catalog_json_file(product_dir)
 
         if len(catalog_metadata_files) != 1:
             raise RuntimeError(
@@ -197,6 +243,7 @@ def convert(
             json.dump(dataset_met_json, outfile, indent=2)
 
     return list(created_datasets)
+
 
 def get_collection_info(dataset_id: str, settings: dict):
     """Returns the appropriate collection name and version for the provided dataset ID"""
@@ -242,7 +289,7 @@ def merge_dataset_met_json(datasets_parent_dir: str, extra_met: dict) -> Tuple[i
     """
     dataset_met_json = {"Files": []}
     combined_file_size = 0
-    for met_json_file in glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True):
+    for met_json_file in search_for_met_json_file(datasets_parent_dir):
         with open(met_json_file, 'r') as infile:
             met_json = json.load(infile)
             combined_file_size += int(met_json["FileSize"])
@@ -321,6 +368,18 @@ def process_outputs(product_dir, expected_outputs):
                 products[OPTIONAL_KEY][output_file] = optional_patterns[pattern]
 
     return products
+
+
+def search_for_iso_xml_file(dataset_dir):
+    return glob.iglob(os.path.join(dataset_dir, "**/*.iso.xml"), recursive=True)
+
+
+def search_for_catalog_json_file(product_dir):
+    return glob.glob(os.path.join(product_dir, "*.catalog.json"))
+
+
+def search_for_met_json_file(datasets_parent_dir):
+    return glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True)
 
 
 def main():

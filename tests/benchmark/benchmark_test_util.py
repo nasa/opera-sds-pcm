@@ -1,10 +1,8 @@
 import contextlib
 import logging
-import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Union
 
 import backoff
 import boto3
@@ -15,9 +13,9 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch_dsl import Search, Index
 from elasticsearch_dsl.response import Response
 
-import benchmark.conftest
+import tests.benchmark.conftest
 
-config = benchmark.conftest.config
+config = tests.benchmark.conftest.config
 
 s3_client = boto3.client("s3", config=(Config(max_pool_connections=30)))
 sqs_client = boto3.client("sqs")

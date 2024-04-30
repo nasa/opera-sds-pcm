@@ -104,7 +104,7 @@ get_shoreline_shapefiles:
 
 instantiate_algorithm_parameters_template:
   s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_calval_0.4.yaml.tmpl"
+  s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_calval_0.4.2.yaml.tmpl"
   template_mapping:
     num_workers: __NUMBER_CPU__
 

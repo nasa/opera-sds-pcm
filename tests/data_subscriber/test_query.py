@@ -1,3 +1,4 @@
+import os
 from data_subscriber import query
 from data_subscriber.geojson_utils import localize_include_exclude
 
@@ -25,6 +26,15 @@ _paris = {"granule_id": "Paris", "bounding_box": [
         {"lon": 2.3522, "lat": 48.8566}
     ]}
 
+_S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC = {
+    "granule_id": "S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC",
+    "bounding_box": [{'lat': 46.255867, 'lon': -76.713303},
+                     {'lat': 44.639988, 'lon': -76.258331},
+                     {'lat': 45.03212, 'lon': -73.094223},
+                     {'lat': 46.648479, 'lon': -73.453896},
+                     {'lat': 46.255867, 'lon': -76.713303}]
+}
+
 def get_set(filtered_granules):
     result_set = set()
     for granule in filtered_granules:
@@ -33,6 +43,21 @@ def get_set(filtered_granules):
     return result_set
 
 def localize_for_unittest(include_regions, exclude_regions):
+
+    # Create file system symlinks to the geojson files
+    # include_regions and exclude_regions are comma-separated strings
+    # the file names are geo/[include and exclude regions].geojson
+    # Create only if the symlink does not exist
+    regions = []
+    if include_regions is not None:
+        regions.extend(include_regions.split(","))
+    if exclude_regions is not None:
+        regions.extend(exclude_regions.split(","))
+    for region in regions:
+        region = region.strip()
+        if not os.path.islink(f"{region}.geojson"):
+            os.symlink(f"geo/{region}.geojson", f"{region}.geojson")
+
     class Arg:
         def __init__(self):
             self.include_regions = include_regions
@@ -135,3 +160,41 @@ def test_nevada():
     assert "JPL" not in result_set
     assert "Vegas" in result_set
     assert "Paris" not in result_set
+
+def test_10TFP():
+    include_regions = "10TFP"
+    exclude_regions = None
+    localize_for_unittest(include_regions, exclude_regions)
+
+    granules = []
+    granules.append(_jpl)
+    granules.append(_vegas)
+    granules.append(_paris)
+    granules.append(_S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC)
+
+    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    result_set = get_set(filtered_granules)
+
+    assert "JPL" not in result_set
+    assert "Vegas" not in result_set
+    assert "Paris" not in result_set
+    assert "S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC" not in result_set
+
+def test_cslc_s1_priority_framebased():
+    include_regions = "dissolved_cslc-s1_priority_framebased"
+    exclude_regions = None
+    localize_for_unittest(include_regions, exclude_regions)
+
+    granules = []
+    granules.append(_jpl)
+    granules.append(_vegas)
+    granules.append(_paris)
+    granules.append(_S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC)
+
+    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    result_set = get_set(filtered_granules)
+
+    assert "JPL" not in result_set
+    assert "Vegas" not in result_set
+    assert "Paris" not in result_set
+    assert "S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC" not in result_set
