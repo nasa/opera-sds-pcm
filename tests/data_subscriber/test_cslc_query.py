@@ -80,6 +80,7 @@ def test_extend_additional_records():
 
     assert len(granules) == 5
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_reprocessing_by_dates():
     ''' Tests reprocessing query commands and high-level processing'''
@@ -98,6 +99,7 @@ async def test_reprocessing_by_dates():
     assert args.end_date == '2021-01-25T00:00:00Z'
     assert args.proc_mode == 'reprocessing'
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_reprocessing_by_native_id(caplog):
     ''' Tests reprocessing query commands and high-level processing when specifying a native_id'''

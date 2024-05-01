@@ -1,4 +1,6 @@
 { "description": "This file specifies expected files to be downloaded in a DISP-S1 forward processing scenario",
+  "comment": "This test is can be undeterministic because it relies on timing of the CMR return",
+  "comment2": "This at least exercised the grace parameter so leave it but this failing doesn't necessarily mean that there is a bug",
   "processing_mode": "forward",
   "k": 2,
   "grace_mins": 1,
@@ -98,13 +100,18 @@
       "f27201_a448": 27,
       "f27200_a449": 27,
       "f27200_a448": 27,
-      "f11626_a449": 3,
+      "f11640_a449": 6,
+      "f11640_a448": 24,
       "f11634_a449": 25,
+      "f11634_a448": 27,
+      "f11626_a449": 3,
+      "f11626_a448": 3,
+      "f11635_a449": 1,
+      "f11635_a448": 24,
       "f12918_a449": 12,
       "f12918_a448": 12,
-      "f11640_a449": 6,
       "f11638_a449": 3,
-      "f11635_a449": 1
+      "f11638_a448": 3
       }
   }
 }
