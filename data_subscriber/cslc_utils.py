@@ -13,6 +13,8 @@ from util.conf_util import SettingsConf
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-constent-burst-ids.json'
 
+_CSLC_EPOCH_DATE = "20090222T000000Z"
+
 # Seems a bit silly but need this class to match the interface with non-hist version
 class _HistBursts(object):
     def __init__(self):
@@ -102,8 +104,8 @@ def parse_cslc_native_id(native_id, burst_to_frame):
     burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
 
-    # Determine acquisition cycle
-    acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, native_id)
+    # Determine acquisition cycle, we use an older date for epoch because we process historical data for CSLC/DISP-S1
+    acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, native_id, _CSLC_EPOCH_DATE)
 
     frame_ids = burst_to_frame[burst_id]
 
