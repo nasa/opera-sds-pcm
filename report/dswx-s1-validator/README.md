@@ -58,7 +58,8 @@ This guide provides a quick way to get started with the script.
 2. Optionally, use the `--file` argument to specify a file with granule IDs.
 3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by.
 4. Optionally, use the `--timestamp` argument to specify the type of timestamp to query CMR with. Example values: `TEMPORAL|PRODUCTION|REVISION|CREATED`. Default value is `TEMPORAL`. See [CMR documentation](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html) for details. 
-5. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
+5. Optionally, use the `--endpoint` argument to specify the CMR endpoint venue. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
+6. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
  
 ### Usage Examples
 
@@ -66,7 +67,7 @@ This guide provides a quick way to get started with the script.
 
 ```
 $ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
-Querying CMR for time range 2023-12-05T01:00:00Z to 2023-12-05T03:59:59Z.
+Querying CMR for time range 2023-12-05T01:00:00 to 2023-12-05T03:59:59.
 Querying CMR for 2316 granules.
 
 Fetching granules: 100%|███████████████████████████████████████| 2316/2316 [00:01<00:00, 1660.76it/s]
