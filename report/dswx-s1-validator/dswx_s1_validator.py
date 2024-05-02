@@ -90,11 +90,16 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches, total_b
     params['page_size'] = page_size
 
     try:
+        logging.debug(f"Fetching {url} with {params}")
         batch_granules = fetch_with_backoff(url, params)
-        return batch_granules
+        logging.debug(f"Fetch success: {len(batch_granules)} batch granules downloaded.")
+    except Exception as e:
+        logging.error(f"Failed to fetch granules for page {page_num}: {e}")
+        batch_granules = []
     finally:
         with downloaded_batches.get_lock():  # Safely increment the count
             downloaded_batches.value += 1
+        return batch_granules
 
 def get_burst_id(granule_id):
     """
@@ -141,7 +146,7 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
 if __name__ == '__main__':
     # Create an argument parser
     parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
-    parser.add_argument("--timestamp", metavar="TEMPORAL|REVISION|PRODUCTION|CREATED", required=False, help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
+    parser.add_argument("--timestamp", required=False, default='TEMPORAL', metavar="TEMPORAL|REVISION|PRODUCTION|CREATED",  help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
     parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
     parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
@@ -218,7 +223,14 @@ if __name__ == '__main__':
             total_batches = (total_granules + page_size - 1) // page_size
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+                # futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+                futures = []
+                for page_num in range(1, total_batches + 1):
+                    future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches)
+                    futures.append(future)
+                    random_delay = random.uniform(0, 0.1)
+                    time.sleep(random_delay) # Stagger the submission of function calls for CMR optimization
+                    logging.debug(f"Scheduled granule fetch for batch {page_num}")
 
                 for future in concurrent.futures.as_completed(futures):
                     granules = future.result()
