@@ -95,6 +95,16 @@ class CSLCProductCatalog(SLCProductCatalog):
         )
         return self.filter_query_result(downloads)
 
+    def mark_product_as_downloaded(self, url, job_id, filesize=None, extra_fields={}):
+
+        #TODO: Also want fields like these:
+        # "number_of_bursts_expected": number_of_bursts_expected,
+        # "number_of_bursts_actual": number_of_bursts_actual,
+        extra_fields["latest_download_job_ts"] = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+
+        super().mark_product_as_downloaded(url, job_id, filesize, extra_fields)
+
+
 class CSLCHistProductCatalog(CSLCProductCatalog):
     def __init__(self, /, logger=None):
         super().__init__(logger=logger)
