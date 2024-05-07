@@ -7,23 +7,25 @@ from os.path import basename
 from pathlib import PurePath, Path
 from datetime import datetime, timezone
 
-from data_subscriber import ionosphere_download
+from data_subscriber import ionosphere_download, es_conn_util
 from data_subscriber.cmr import Collection
 from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.download import SessionWithHeaderRedirection
 from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.url import cslc_unique_id
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
-from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
-                                        split_download_batch_id,
-                                        get_bounding_box_for_frame)
+from data_subscriber.cslc_utils import (localize_disp_frame_burst_json, split_download_batch_id,
+                                        get_bounding_box_for_frame, parse_cslc_native_id)
 
 logger = logging.getLogger(__name__)
 
+_c_cslc_es = es_conn_util.get_es_connection(logger)
+_C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
 class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
@@ -38,6 +40,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         product_id = "_".join([batch_id for batch_id in args.batch_ids])
         logger.info(f"{product_id=}")
         cslc_s3paths = []
+        cslc_c_s3paths = []
         cslc_static_s3paths = []
         ionosphere_s3paths = []
 
@@ -57,6 +60,15 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                      key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                      files=cslc_files_to_upload))
+
+            # Mark the CSLC files as downloaded in the CSLC ES with the file size
+            for granule_id, fp_set in cslc_products_to_filepaths.items():
+                filepath = list(fp_set)[0]
+                file_size = os.path.getsize(filepath)
+                native_id = granule_id.split(".h5")[0] # remove file extension and revision id
+                burst_id, _, _, _ = parse_cslc_native_id(native_id, self.burst_to_frame)
+                unique_id = cslc_unique_id(batch_id, burst_id)
+                es_conn.mark_product_as_downloaded(unique_id, job_id, filesize=file_size, extra_fields={})
 
             logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
             cslc_static_granules = await self.query_cslc_static_files_for_cslc_batch(
@@ -106,6 +118,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         bounding_box = get_bounding_box_for_frame(frame)
         print(f'{bounding_box=}')
 
+        ''' TODO: Gather M Compressed CSLCs by querying compressed cslc GRQ ES 
+        Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
+        '''
+
         # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
         # Now submit DISP-S1 SCIFLO job
         logger.info(f"Submitting DISP-S1 SCIFLO job")
@@ -120,6 +136,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "product_paths": {
                         "L2_CSLC_S1": cslc_s3paths,
+                        "L2_CSLC_S1_COMPRESSED": cslc_c_s3paths,
                         "L2_CSLC_S1_STATIC": cslc_static_s3paths,
                         "IONOSPHERE_TEC": ionosphere_s3paths
                     },
@@ -129,7 +146,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,
-                            "FileSize": 1,
+                            "FileSize": 1, #TODO? Get file size? It's also 1 in rtc_job_submitter.py
                             "FileLocation": os.path.dirname(s3path),
                             "id": PurePath(s3path).name,
                             "product_paths": "$.product_paths"

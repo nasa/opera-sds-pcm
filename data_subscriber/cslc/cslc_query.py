@@ -16,6 +16,7 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
                                         download_batch_id_hist,
                                         split_download_batch_id)
 from data_subscriber.query import CmrQuery, DateTimeRange
+from data_subscriber.url import cslc_unique_id
 
 BURSTS_PER_FRAME = 27
 K_MULT_FACTOR = 3 #TODO: This should be a setting in probably settings.yaml.
@@ -58,7 +59,7 @@ class CslcCmrQuery(CmrQuery):
             granule["burst_id"] = burst_id
             granule["frame_id"] = frame_ids[0] if force_frame_id is None else force_frame_id
             granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
-            granule["unique_id"] = granule["download_batch_id"] + "_" + granule["burst_id"]
+            granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
 
             assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
@@ -70,7 +71,7 @@ class CslcCmrQuery(CmrQuery):
                 new_granule = copy.deepcopy(granule)
                 new_granule["frame_id"] = self.burst_to_frame[burst_id][1]
                 new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
-                new_granule["unique_id"] = new_granule["download_batch_id"] + "_" + new_granule["burst_id"]
+                new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
                 extended_granules.append(new_granule)
 
         granules.extend(extended_granules)

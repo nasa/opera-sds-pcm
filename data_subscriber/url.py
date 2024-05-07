@@ -12,6 +12,9 @@ def form_batch_id(granule_id, revision_id):
 def form_batch_id_cslc(granule_id, revision_id):
     return granule_id+'.h5-r'+str(revision_id)
 
+def cslc_unique_id(download_batch_id, burst_id):
+    return download_batch_id+'_'+burst_id
+
 def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
 

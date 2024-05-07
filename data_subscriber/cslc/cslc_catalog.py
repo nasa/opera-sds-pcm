@@ -8,7 +8,6 @@ null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
 ES_INDEX_PATTERNS = "cslc_catalog*"
-ES_INDEX_PATTERN_HIST = "cslc_catalog_hist*"
 
 class CSLCProductCatalog(SLCProductCatalog):
     """
@@ -103,9 +102,3 @@ class CSLCProductCatalog(SLCProductCatalog):
         extra_fields["latest_download_job_ts"] = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
 
         super().mark_product_as_downloaded(url, job_id, filesize, extra_fields)
-
-
-class CSLCHistProductCatalog(CSLCProductCatalog):
-    def __init__(self, /, logger=None):
-        super().__init__(logger=logger)
-        self.ES_INDEX_PATTERNS = ES_INDEX_PATTERN_HIST
