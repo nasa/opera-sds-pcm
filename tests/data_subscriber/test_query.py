@@ -1,6 +1,7 @@
 import os
-from data_subscriber import query
+#from data_subscriber import query
 from data_subscriber.geojson_utils import localize_include_exclude
+from data_subscriber import cslc_utils
 
 _jpl = {"granule_id": "JPL", "bounding_box": [
         {"lon": -118.17243, "lat": 34.20025},
@@ -198,3 +199,15 @@ def test_cslc_s1_priority_framebased():
     assert "Vegas" not in result_set
     assert "Paris" not in result_set
     assert "S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC" not in result_set
+
+def test_determine_acquisition_cycle():
+    """Test that the acquisition cycle is correctly determined"""
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle("T034-071111-IW1", "20240406T002953Z", "S1A")
+    assert acquisition_cycle == 160
+
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle("T034-071111-IW1", "20240401T002953Z","S1B")
+    assert acquisition_cycle == 159
+
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle("T034-071111-IW1", "20240406T002953Z",
+                                                               "S1A", cycle_days=6)
+    assert acquisition_cycle == 320

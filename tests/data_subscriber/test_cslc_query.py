@@ -131,5 +131,10 @@ def test_build_ccslc_m_index():
 
 def test_determine_acquisition_cycle_cslc():
     """Test that the acquisition cycle is correctly determined"""
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T034-071111-IW1", "20240406T002953Z", "OPERA_L2_CSLC-S1_T034-071111-IW1_20240406T002953Z_20240419T001633Z_S1A_VV_v1.1")
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T034-071111-IW1", "20240406T002953Z",
+                                                                    "doesn't matter")
     assert acquisition_cycle == 460
+
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T001-000001-IW1", "20160703T000000Z",
+                                                                    "doesn't matter")
+    assert acquisition_cycle == 224

@@ -90,26 +90,33 @@ def _to_https_urls(dl_dict: dict[str, Any]) -> str:
     else:
         raise Exception(f"Couldn't find any URLs in {dl_dict=}")
 
-def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = _EPOCH_S1A):
+def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = None, cycle_days = 12):
     """RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
     The cycle restarts periodically with some miniscule drift over time and the life of the mission."""
     # RTC: Calculating the Collection Cycle Index (Part 1):
     #  required constants
-    MISSION_EPOCH_S1A = dateutil.parser.isoparse(epoch)  # set approximate mission start date
-    MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
+
+    if epoch is not None:
+        instrument_epoch = dateutil.parser.isoparse(epoch)  # We use whatever was passed in
+    else:
+        MISSION_EPOCH_S1A = dateutil.parser.isoparse(_EPOCH_S1A)  # set approximate mission start date
+        MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
+        instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
+
     MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
-    ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
+    ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=cycle_days).total_seconds()
 
     # RTC: Calculating the Collection Cycle Index (Part 2):
     #  RTC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
     #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
     burst_identification_number = int(burst_id.split(sep="-")[1])
-    instrument_epoch = MISSION_EPOCH_S1A if "S1A" in granule_id else MISSION_EPOCH_S1B
     seconds_after_mission_epoch = (dateutil.parser.isoparse(acquisition_dts) - instrument_epoch).total_seconds()
     acquisition_index = (
                                 seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
                                     burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
                         ) / ACQUISITION_CYCLE_DURATION_SECS
+
+    #print(acquisition_index)
 
     acquisition_cycle = round(acquisition_index)
     assert acquisition_cycle >= 0, f"Acquisition cycle is negative: {acquisition_cycle=}"
