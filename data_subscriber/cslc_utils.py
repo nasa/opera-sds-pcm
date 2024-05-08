@@ -98,6 +98,9 @@ def _parse_cslc_file_name(native_id):
 
     return match_product_id
 
+def determine_acquisition_cycle_cslc(burst_id, acquisition_dts, native_id):
+    return determine_acquisition_cycle(burst_id, acquisition_dts, native_id, _CSLC_EPOCH_DATE)
+
 def parse_cslc_native_id(native_id, burst_to_frame):
     match_product_id = _parse_cslc_file_name(native_id)
 
@@ -105,7 +108,7 @@ def parse_cslc_native_id(native_id, burst_to_frame):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
 
     # Determine acquisition cycle, we use an older date for epoch because we process historical data for CSLC/DISP-S1
-    acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, native_id, _CSLC_EPOCH_DATE)
+    acquisition_cycle = determine_acquisition_cycle_cslc(burst_id, acquisition_dts, native_id)
 
     frame_ids = burst_to_frame[burst_id]
 
@@ -142,6 +145,8 @@ def download_batch_id_hist(args, granule):
 
     return download_batch_id
 
+def build_ccslc_m_index(burst_id, acquisition_cycle):
+    return (burst_id + "_" + str(acquisition_cycle)).replace("-", "_").lower()
 def download_batch_id_forward_reproc(granule):
     """For forward and re-processing modes, download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 

@@ -124,3 +124,7 @@ def test_download_batch_id():
     # Test historical mode, forward works the same way
     download_batch_id = cslc_utils.download_batch_id_hist(hist_args, granule)
     assert download_batch_id == "2021_01_24t23_00_00z_2021_01_24t23_00_00z_7098"
+
+def test_build_ccslc_m_index():
+    """Test that the ccslc_m index is correctly constructed"""
+    assert cslc_utils.build_ccslc_m_index("T027-056778-IW1", 445) == "t027_056778_iw1_445"

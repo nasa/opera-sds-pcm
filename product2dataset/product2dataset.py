@@ -25,7 +25,7 @@ import product2dataset.iso_xml_reader as iso_xml_reader
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
-from data_subscriber.url import determine_acquisition_cycle
+from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc, build_ccslc_m_index
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -214,10 +214,10 @@ def convert(
             # There should only be one file in the dataset, so we can just grab the first one
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
                 ccslc_file = dataset_met_json["Files"][0]
-                acquisition_cycle = determine_acquisition_cycle(
+                acquisition_cycle = determine_acquisition_cycle_cslc(
                     ccslc_file["burst_id"], str(ccslc_file["ref_date_time"])+"T000000Z", dataset_met_json["id"])
                 dataset_met_json["acquisition_cycle"] = acquisition_cycle
-                dataset_met_json["ccslc_m_index"] = ccslc_file["burst_id"] + "_" + str(acquisition_cycle)
+                dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]

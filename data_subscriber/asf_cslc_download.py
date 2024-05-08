@@ -20,7 +20,7 @@ from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_json, split_download_batch_id,
-                                        get_bounding_box_for_frame, parse_cslc_native_id)
+                                        get_bounding_box_for_frame, parse_cslc_native_id, build_ccslc_m_index)
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         for mm in range(m):
             acq_cycle_index = latest_acq_cycle_index - mm
             for burst_id in burst_id_set:
-                ccsls_m_index = f"{burst_id}_{acq_cycle_index}"
+                ccsls_m_index = build_ccslc_m_index(burst_id, acq_cycle_index)
                 logger.info("Retrieving Compressed CSLCs for ccsls_m_index: %s", ccsls_m_index)
                 ccslcs = es_conn.es.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
