@@ -128,3 +128,8 @@ def test_download_batch_id():
 def test_build_ccslc_m_index():
     """Test that the ccslc_m index is correctly constructed"""
     assert cslc_utils.build_ccslc_m_index("T027-056778-IW1", 445) == "t027_056778_iw1_445"
+
+def test_determine_acquisition_cycle_cslc():
+    """Test that the acquisition cycle is correctly determined"""
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T034-071111-IW1", "20240406T002953Z", "OPERA_L2_CSLC-S1_T034-071111-IW1_20240406T002953Z_20240419T001633Z_S1A_VV_v1.1")
+    assert acquisition_cycle == 460

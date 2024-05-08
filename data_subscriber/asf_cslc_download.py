@@ -63,6 +63,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             logger.info(f"Uploading CSLC input files to S3")
             cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
+            #TODO: uncomment this
             cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                      key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                      files=cslc_files_to_upload))
@@ -124,17 +125,19 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
-        for mm in range(m):
-            acq_cycle_index = latest_acq_cycle_index - mm
+        for mm in range(m-1): # m parameter is inclusive of the current frame at hand
+            acq_cycle_index = latest_acq_cycle_index - mm - 1
             for burst_id in burst_id_set:
                 ccsls_m_index = build_ccslc_m_index(burst_id, acq_cycle_index)
                 logger.info("Retrieving Compressed CSLCs for ccsls_m_index: %s", ccsls_m_index)
                 ccslcs = es_conn.es.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
                     body={"query": {  "bool": {  "must": [
-                                    {"term": {"ccsls_m_index": ccsls_m_index}}]}}})
+                                    {"term": {"metadata.ccsls_m_index": ccsls_m_index}}]}}})
 
-                #TODO: Fail if compressed cslc returned is not 1
+                # Should have exactly one compressed cslc per acq cycle per burst
+                if len(ccslcs) != 1:
+                    raise Exception(f"Expected 1 Compressed CSLC for {ccsls_m_index}, got {len(ccslcs)}")
 
                 for ccslc in ccslcs:
                     c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
@@ -180,7 +183,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             }
         }
 
-        print(f"{product=}")
+        # TODO: get rid of this print
+        #print(f"{product=}")
 
         proc_mode_suffix = ""
         if "proc_mode" in args and args.proc_mode == "historical":

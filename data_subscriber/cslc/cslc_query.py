@@ -43,6 +43,26 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.grace_mins = settings["DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES"]
 
+    def validate_args(self):
+
+        if self.proc_mode == "historical":
+            if self.args.frame_range is None:
+                raise AssertionError("Historical mode requires frame range to be specified.")
+
+        if self.proc_mode == "reprocessing":
+            if self.args.native_id is None and self.args.start_date is None and self.args.end_date is None:
+                raise AssertionError("Reprocessing mode requires either a native_id or a date range to be specified.")
+
+        if self.args.k is None:
+            raise AssertionError("k parameter must be specified.")
+        if self.args.k < 1:
+            raise AssertionError("k parameter must be greater than 0.")
+
+        if self.args.m is None:
+            raise AssertionError("m parameter must be specified.")
+        if self.args.m < 1:
+            raise AssertionError("m parameter must be greater than 0.")
+
     def extend_additional_records(self, granules, no_duplicate=False, force_frame_id = None):
         """Add frame_id, burst_id, and acquisition_cycle to all granules.
         In forward  and re-processing modes, extend the granules with potentially additional records
@@ -293,9 +313,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
-
-            if args.frame_range is None:
-                raise AssertionError("Historical mode requires frame range to be specified.")
 
             all_granules = []
             frame_start, frame_end = self.args.frame_range.split(",")

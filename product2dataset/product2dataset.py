@@ -215,7 +215,7 @@ def convert(
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
                 ccslc_file = dataset_met_json["Files"][0]
                 acquisition_cycle = determine_acquisition_cycle_cslc(
-                    ccslc_file["burst_id"], str(ccslc_file["ref_date_time"])+"T000000Z", dataset_met_json["id"])
+                    ccslc_file["burst_id"], str(ccslc_file["last_date_time"])+"T000000Z", dataset_met_json["id"])
                 dataset_met_json["acquisition_cycle"] = acquisition_cycle
                 dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
 
