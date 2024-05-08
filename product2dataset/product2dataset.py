@@ -214,8 +214,10 @@ def convert(
             # There should only be one file in the dataset, so we can just grab the first one
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
                 ccslc_file = dataset_met_json["Files"][0]
+
+                # last_date_time looks like this: "2024-04-18T00:00:00.000000Z"
                 acquisition_cycle = determine_acquisition_cycle_cslc(
-                    ccslc_file["burst_id"], str(ccslc_file["last_date_time"])+"T000000Z", dataset_met_json["id"])
+                    ccslc_file["burst_id"], ccslc_file["last_date_time"], dataset_met_json["id"])
                 dataset_met_json["acquisition_cycle"] = acquisition_cycle
                 dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
 
