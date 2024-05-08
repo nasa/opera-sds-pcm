@@ -93,6 +93,8 @@ class CslcCmrQuery(CmrQuery):
         for f in ["burst_id", "frame_id", "acquisition_ts", "acquisition_cycle", "unique_id"]:
             additional_fields[f] = granule[f]
         additional_fields["download_batch_id"] = download_batch_id
+        additional_fields["k"] = args.k
+        additional_fields["m"] = args.m
 
         return additional_fields
 

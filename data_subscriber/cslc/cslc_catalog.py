@@ -94,6 +94,24 @@ class CSLCProductCatalog(SLCProductCatalog):
         )
         return self.filter_query_result(downloads)
 
+    def get_k_and_m(self, id):
+        one_doc = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "size": 1,
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"download_batch_id": id}}
+                        ]
+                    }
+                }
+            }
+        )
+        k = int(one_doc[0]["_source"]["k"])
+        m = int(one_doc[0]["_source"]["m"])
+        return k, m
+
     def mark_product_as_downloaded(self, url, job_id, filesize=None, extra_fields={}):
 
         #TODO: Also want fields like these:

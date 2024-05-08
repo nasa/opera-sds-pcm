@@ -24,7 +24,6 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_json, split_do
 
 logger = logging.getLogger(__name__)
 
-_c_cslc_es = es_conn_util.get_es_connection(logger)
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
 class AsfDaacCslcDownload(AsfDaacRtcDownload):
@@ -40,14 +39,21 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         product_id = "_".join([batch_id for batch_id in args.batch_ids])
         logger.info(f"{product_id=}")
         cslc_s3paths = []
-        cslc_c_s3paths = []
+        c_cslc_s3paths = []
         cslc_static_s3paths = []
         ionosphere_s3paths = []
+        latest_acq_cycle_index = 0
+        burst_id_set = set()
 
         new_args = copy.deepcopy(args)
 
         for batch_id in args.batch_ids:
             logger.info(f"Downloading CSLC files for batch {batch_id}")
+
+            # Determine the highest acquisition cycle index here for later use in retrieving m compressed CSLCs
+            _, acq_cycle_index = split_download_batch_id(batch_id)
+            latest_acq_cycle_index = max(latest_acq_cycle_index, int(acq_cycle_index))
+
             new_args.batch_ids = [batch_id]
 
             # First, download the files from ASF
@@ -62,13 +68,15 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                                                                      files=cslc_files_to_upload))
 
             # Mark the CSLC files as downloaded in the CSLC ES with the file size
+            # While at it also build up burst_id set for compressed CSLC query
             for granule_id, fp_set in cslc_products_to_filepaths.items():
                 filepath = list(fp_set)[0]
                 file_size = os.path.getsize(filepath)
                 native_id = granule_id.split(".h5")[0] # remove file extension and revision id
                 burst_id, _, _, _ = parse_cslc_native_id(native_id, self.burst_to_frame)
                 unique_id = cslc_unique_id(batch_id, burst_id)
-                es_conn.mark_product_as_downloaded(unique_id, job_id, filesize=file_size, extra_fields={})
+                es_conn.mark_product_as_downloaded(unique_id, job_id, filesize=file_size)
+                burst_id_set.add(burst_id)
 
             logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
             cslc_static_granules = await self.query_cslc_static_files_for_cslc_batch(
@@ -112,15 +120,30 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 for iono_file in ionosphere_paths:
                     os.remove(iono_file)
 
+        # Determine M Compressed CSLCs by querying compressed cslc GRQ ES
+        # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
+        k, m = es_conn.get_k_and_m(args.batch_ids[0])
+        logger.info(f"{k=}, {m=}")
+        for mm in range(m):
+            acq_cycle_index = latest_acq_cycle_index - mm
+            for burst_id in burst_id_set:
+                ccsls_m_index = f"{burst_id}_{acq_cycle_index}"
+                logger.info("Retrieving Compressed CSLCs for ccsls_m_index: %s", ccsls_m_index)
+                ccslcs = es_conn.es.query(
+                    index=_C_CSLC_ES_INDEX_PATTERNS,
+                    body={"query": {  "bool": {  "must": [
+                                    {"term": {"ccsls_m_index": ccsls_m_index}}]}}})
+
+                #TODO: Fail if compressed cslc returned is not 1
+
+                for ccslc in ccslcs:
+                    c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
+
         # Compute bounding box for frame. All batches should have the same frame_id so we pick the first one
         frame_id, _ = split_download_batch_id(args.batch_ids[0])
         frame = self.disp_burst_map[int(frame_id)]
         bounding_box = get_bounding_box_for_frame(frame)
         print(f'{bounding_box=}')
-
-        ''' TODO: Gather M Compressed CSLCs by querying compressed cslc GRQ ES 
-        Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
-        '''
 
         # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
         # Now submit DISP-S1 SCIFLO job
@@ -136,7 +159,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "product_paths": {
                         "L2_CSLC_S1": cslc_s3paths,
-                        "L2_CSLC_S1_COMPRESSED": cslc_c_s3paths,
+                        "L2_CSLC_S1_COMPRESSED": c_cslc_s3paths,
                         "L2_CSLC_S1_STATIC": cslc_static_s3paths,
                         "IONOSPHERE_TEC": ionosphere_s3paths
                     },
@@ -151,11 +174,13 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                             "id": PurePath(s3path).name,
                             "product_paths": "$.product_paths"
                         }
-                        for s3path in cslc_s3paths + cslc_static_s3paths + ionosphere_s3paths
+                        for s3path in cslc_s3paths + c_cslc_s3paths + cslc_static_s3paths + ionosphere_s3paths
                     ]
                 }
             }
         }
+
+        print(f"{product=}")
 
         proc_mode_suffix = ""
         if "proc_mode" in args and args.proc_mode == "historical":
