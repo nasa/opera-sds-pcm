@@ -128,16 +128,16 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         for mm in range(m-1): # m parameter is inclusive of the current frame at hand
             acq_cycle_index = latest_acq_cycle_index - mm - 1
             for burst_id in burst_id_set:
-                ccsls_m_index = build_ccslc_m_index(burst_id, acq_cycle_index)
-                logger.info("Retrieving Compressed CSLCs for ccsls_m_index: %s", ccsls_m_index)
+                ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index) #looks like t034_071112_iw3_461
+                logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
                 ccslcs = es_conn.es.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
                     body={"query": {  "bool": {  "must": [
-                                    {"term": {"metadata.ccsls_m_index": ccsls_m_index}}]}}})
+                                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
 
                 # Should have exactly one compressed cslc per acq cycle per burst
                 if len(ccslcs) != 1:
-                    raise Exception(f"Expected 1 Compressed CSLC for {ccsls_m_index}, got {len(ccslcs)}")
+                    raise Exception(f"Expected 1 Compressed CSLC for {ccslc_m_index}, got {len(ccslcs)}")
 
                 for ccslc in ccslcs:
                     c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
