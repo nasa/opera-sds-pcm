@@ -232,11 +232,20 @@ def response_jsons_to_cmr_granules(args, response_jsons):
         else:
             temporal_extent_beginning_datetime = item["umm"]["TemporalExtent"]["SingleDateTime"]
 
+        # NOTE: ProviderDates.Insert provides a better timestamp than ProductionDateTime across products for calculating
+        # retrieval time. Especially for SLC products.
+        provider_datetime = None
+        for provider_date in item["umm"].get("ProviderDates", []):
+            if provider_date["Type"] == "Insert":
+                provider_datetime = provider_date["Date"]
+                break
+        production_datetime = item["umm"].get("DataGranule").get("ProductionDateTime")
         granules.append({
             "granule_id": item["umm"].get("GranuleUR"),
             "revision_id": item.get("meta").get("revision-id"),
             "provider": item.get("meta").get("provider-id"),
-            "production_datetime": item["umm"].get("DataGranule").get("ProductionDateTime"),
+            "production_date": production_datetime,
+            "provider_date": provider_datetime,
             "temporal_extent_beginning_datetime": temporal_extent_beginning_datetime,
             "revision_date": item["meta"]["revision-date"],
             "short_name": item["umm"].get("Platforms")[0].get("ShortName"),
