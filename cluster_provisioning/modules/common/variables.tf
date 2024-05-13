@@ -510,6 +510,16 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
     }
+    "opera-job_worker-pge_smoke_test" = {
+      "name"              = "opera-job_worker-pge_smoke_test"
+      "instance_type"     = ["r6i.xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
   }
 }
 

@@ -1,0 +1,21 @@
+{
+    "label": "On-demand PGE integration smoke test",
+    "submission_type": "individual",
+    "allowed_accounts": [ "ops" ],
+    "params": [
+        {
+            "name": "pge_name",
+            "from": "submitter",
+            "type": "enum",
+            "enumerables": ["dswx_s1", "disp_s1"],
+            "optional": false
+        },
+        {
+            "name": "s3_bucket",
+            "from": "submitter",
+            "placeholder": "e.g. opera-int-lts-fwd",
+            "type": "text",
+            "optional": false
+        }
+    ]
+}
