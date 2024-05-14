@@ -8,7 +8,6 @@ null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
 ES_INDEX_PATTERNS = "cslc_catalog*"
-ES_INDEX_PATTERN_HIST = "cslc_catalog_hist*"
 
 class CSLCProductCatalog(SLCProductCatalog):
     """
@@ -95,7 +94,29 @@ class CSLCProductCatalog(SLCProductCatalog):
         )
         return self.filter_query_result(downloads)
 
-class CSLCHistProductCatalog(CSLCProductCatalog):
-    def __init__(self, /, logger=None):
-        super().__init__(logger=logger)
-        self.ES_INDEX_PATTERNS = ES_INDEX_PATTERN_HIST
+    def get_k_and_m(self, id):
+        one_doc = self.es.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "size": 1,
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"download_batch_id": id}}
+                        ]
+                    }
+                }
+            }
+        )
+        k = int(one_doc[0]["_source"]["k"])
+        m = int(one_doc[0]["_source"]["m"])
+        return k, m
+
+    def mark_product_as_downloaded(self, url, job_id, filesize=None, extra_fields={}):
+
+        #TODO: Also want fields like these:
+        # "number_of_bursts_expected": number_of_bursts_expected,
+        # "number_of_bursts_actual": number_of_bursts_actual,
+        extra_fields["latest_download_job_ts"] = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+
+        super().mark_product_as_downloaded(url, job_id, filesize, extra_fields)

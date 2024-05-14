@@ -38,6 +38,11 @@ class CmrQuery:
         self.settings = settings
         self.proc_mode = args.proc_mode
 
+        self.validate_args()
+
+    def validate_args(self):
+        pass
+
     async def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
         query_dt = datetime.now()
         now = datetime.utcnow()

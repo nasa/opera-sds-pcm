@@ -125,10 +125,11 @@ class HLSProductCatalog:
             "revision_date": revision_date_dt
         }
 
-    def mark_product_as_downloaded(self, url, job_id, filesize = None):
+    def mark_product_as_downloaded(self, url, job_id, filesize = None, doc={}):
         filename = url.split("/")[-1]
 
-        doc = {}
+        #print(url, job_id, doc, filesize)
+
         doc["downloaded"] = True
         doc["download_datetime"] = datetime.now()
         doc["download_job_id"] = job_id

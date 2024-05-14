@@ -16,6 +16,7 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_json,
                                         download_batch_id_hist,
                                         split_download_batch_id)
 from data_subscriber.query import CmrQuery, DateTimeRange
+from data_subscriber.url import cslc_unique_id
 
 BURSTS_PER_FRAME = 27
 K_MULT_FACTOR = 3 #TODO: This should be a setting in probably settings.yaml.
@@ -42,6 +43,26 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.grace_mins = settings["DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES"]
 
+    def validate_args(self):
+
+        if self.proc_mode == "historical":
+            if self.args.frame_range is None:
+                raise AssertionError("Historical mode requires frame range to be specified.")
+
+        if self.proc_mode == "reprocessing":
+            if self.args.native_id is None and self.args.start_date is None and self.args.end_date is None:
+                raise AssertionError("Reprocessing mode requires either a native_id or a date range to be specified.")
+
+        if self.args.k is None:
+            raise AssertionError("k parameter must be specified.")
+        if self.args.k < 1:
+            raise AssertionError("k parameter must be greater than 0.")
+
+        if self.args.m is None:
+            raise AssertionError("m parameter must be specified.")
+        if self.args.m < 1:
+            raise AssertionError("m parameter must be greater than 0.")
+
     def extend_additional_records(self, granules, no_duplicate=False, force_frame_id = None):
         """Add frame_id, burst_id, and acquisition_cycle to all granules.
         In forward  and re-processing modes, extend the granules with potentially additional records
@@ -58,7 +79,7 @@ class CslcCmrQuery(CmrQuery):
             granule["burst_id"] = burst_id
             granule["frame_id"] = frame_ids[0] if force_frame_id is None else force_frame_id
             granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
-            granule["unique_id"] = granule["download_batch_id"] + "_" + granule["burst_id"]
+            granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
 
             assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
@@ -70,7 +91,7 @@ class CslcCmrQuery(CmrQuery):
                 new_granule = copy.deepcopy(granule)
                 new_granule["frame_id"] = self.burst_to_frame[burst_id][1]
                 new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
-                new_granule["unique_id"] = new_granule["download_batch_id"] + "_" + new_granule["burst_id"]
+                new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
                 extended_granules.append(new_granule)
 
         granules.extend(extended_granules)
@@ -92,6 +113,8 @@ class CslcCmrQuery(CmrQuery):
         for f in ["burst_id", "frame_id", "acquisition_ts", "acquisition_cycle", "unique_id"]:
             additional_fields[f] = granule[f]
         additional_fields["download_batch_id"] = download_batch_id
+        additional_fields["k"] = args.k
+        additional_fields["m"] = args.m
 
         return additional_fields
 
@@ -290,9 +313,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
-
-            if args.frame_range is None:
-                raise AssertionError("Historical mode requires frame range to be specified.")
 
             all_granules = []
             frame_start, frame_end = self.args.frame_range.split(",")
