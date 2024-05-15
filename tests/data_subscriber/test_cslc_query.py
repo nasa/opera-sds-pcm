@@ -22,13 +22,12 @@ def test_extend_additional_records():
     c_query = cslc_query.CslcCmrQuery(forward_args, None, None, None, None, None, cslc_utils.DISP_FRAME_BURST_MAP_JSON, cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
     granules = []
-    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0"}) # frame 7098
-    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056777-IW3_20231008T133101Z_20231009T204457Z_S1A_VV_v1.0"}) # frames 7097, 7098
-    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T027-056777-IW2_20231008T133100Z_20231009T204457Z_S1A_VV_v1.0"}) # frames 7097, 7098
+    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T042-088921-IW1_20160705T140755Z_20240425T204418Z_S1A_VV_v1.1"}) # frame 11115, 11116
+    granules.append({"granule_id": "OPERA_L2_CSLC-S1_T042-088919-IW1_20160705T140750Z_20240425T204418Z_S1A_VV_v1.1"}) # frames 11115
 
     c_query.extend_additional_records(granules)
 
-    assert len(granules) == 5
+    assert len(granules) == 3
 
 @pytest.mark.skip
 @pytest.mark.asyncio

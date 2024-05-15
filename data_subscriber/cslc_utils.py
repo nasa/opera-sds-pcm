@@ -43,13 +43,32 @@ def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     localize_anc_json(file)
     return process_disp_frame_burst_hist(file)
 
+def sensing_time_day_index(sensing_time, frame_number, frame_to_bursts):
+    ''' Return the day index of the sensing time relative to the first sensing time of the frame AND
+    seconds since the first sensing time of the frame'''
+
+    frame = frame_to_bursts[frame_number]
+    delta = sensing_time - frame.sensing_datetimes[0]
+    seconds = int(delta.total_seconds())
+    day_index_high_precision = seconds / (24 * 3600)
+
+    # Sanity check of the day index, 1 minute tolerance 1 / 24 / 60 = 0.00069444444 ~= 0.0007
+    remainder = day_index_high_precision - int(day_index_high_precision)
+    assert not (remainder > 0.49993 and remainder < 0.50007), \
+        f"Potential ambiguous day index grouping: {frame=} {day_index_high_precision=}"
+
+    day_index = int(round(day_index_high_precision))
+
+    return day_index, seconds
+
+
 def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     '''Process the disp frame burst map json file intended for historical processing only and return the data as a dictionary'''
 
     j = json.load(open(file))
     frame_to_bursts = defaultdict(_HistBursts)
-    burst_to_frames = defaultdict(_HistBursts)
-    datetime_to_frames = defaultdict(list)
+    burst_to_frames = defaultdict(list)         # List of frame numbers
+    datetime_to_frames = defaultdict(list)      # List of frame numbers
 
     for frame in j:
         frame_to_bursts[int(frame)].frame_number = int(frame)
@@ -60,19 +79,18 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
             b.append(burst)
 
             # Map from burst id to the frames
-            burst_to_frames[burst] = frame_to_bursts[int(frame)]
+            burst_to_frames[burst].append(int(frame))
+            assert len(burst_to_frames[burst]) <= 2  # A burst can belong to at most two frames
 
         frame_to_bursts[int(frame)].sensing_datetimes =\
             [dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]]
         for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
-            delta = sensing_time - frame_to_bursts[int(frame)].sensing_datetimes[0]
-            seconds = int(delta.total_seconds())
+            day_index, seconds = sensing_time_day_index(sensing_time, int(frame), frame_to_bursts)
             frame_to_bursts[int(frame)].sensing_seconds_since_first.append(seconds)
-            day_index = int(round(seconds / (24 * 3600)))
             frame_to_bursts[int(frame)].sensing_datetime_days_index.append(day_index)
 
             # Build up dict of day_index to the frame object
-            datetime_to_frames[sensing_time].append(frame_to_bursts[int(frame)])
+            datetime_to_frames[sensing_time].append(int(frame))
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
 
@@ -121,21 +139,27 @@ def _parse_cslc_file_name(native_id):
 
     return match_product_id
 
-def determine_acquisition_cycle_cslc(burst_id, acquisition_dts, native_id):
-    return determine_acquisition_cycle(burst_id, acquisition_dts, native_id, _CSLC_EPOCH_DATE)
+def determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bursts):
+    sensing_time = dateutil.parser.isoparse(acquisition_dts[:-1]) #Take the timezone off because that doesn't exist in the database
+    day_index, seconds = sensing_time_day_index(sensing_time, frame_number, frame_to_bursts)
 
-def parse_cslc_native_id(native_id, burst_to_frame):
+    return day_index
+
+def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
     match_product_id = _parse_cslc_file_name(native_id)
 
     burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+    frame_ids = burst_to_frames[burst_id]
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
 
-    # Determine acquisition cycle, we use an older date for epoch because we process historical data for CSLC/DISP-S1
-    acquisition_cycle = determine_acquisition_cycle_cslc(burst_id, acquisition_dts, native_id)
+    # Acquisition cycle is frame-dependent and one CSLC burst can belong to at most two frames
+    acquisition_cycles = {}
+    for frame_id in frame_ids:
+        acquisition_cycles[frame_id] = determine_acquisition_cycle_cslc(acquisition_dts, frame_id, frame_to_bursts)
 
-    frame_ids = burst_to_frame[burst_id]
+    assert len(acquisition_cycles) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
-    return burst_id, acquisition_dts, acquisition_cycle, frame_ids
+    return burst_id, acquisition_dts, acquisition_cycles, frame_ids
 
 def parse_cslc_burst_id(native_id):
     match_product_id = _parse_cslc_file_name(native_id)

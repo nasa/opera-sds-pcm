@@ -14,7 +14,7 @@ hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=histo
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 #TODO: We may change the database json during production that could have different burst ids for the same frame
 #TODO: So we may want to create different versions of this unit test, one for each version of the database json
@@ -42,24 +42,18 @@ def test_split_download_batch_id():
 
 def test_arg_expansion():
     '''Test that the native_id field is expanded correctly for a given frame range'''
-    l, native_id = cslc_utils.build_cslc_native_ids(100, disp_burst_map)
+    l, native_id = cslc_utils.build_cslc_native_ids(46800, disp_burst_map_hist)
     #print("----------------------------------")
-    assert l == 27
+    assert l == 9
     assert native_id == \
-           "OPERA_L2_CSLC-S1_T001-000793-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000793-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000793-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000794-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000794-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000794-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000795-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000795-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000795-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000796-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000796-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000796-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000797-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000797-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000797-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000798-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000798-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000798-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000799-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000799-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000799-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000800-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000800-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000800-IW3*\
-&native-id[]=OPERA_L2_CSLC-S1_T001-000801-IW1*&native-id[]=OPERA_L2_CSLC-S1_T001-000801-IW2*&native-id[]=OPERA_L2_CSLC-S1_T001-000801-IW3*"
+           "OPERA_L2_CSLC-S1_T175-374393-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW3*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW3*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW3*"
 
 def test_burst_to_frame_map():
-    '''Test that the burst to frame map is correctly constructed'''
-    assert burst_to_frame["T001-000792-IW1"] == [99]
-    assert burst_to_frame["T001-000793-IW1"] == [99, 100]
+    '''Test that the burst to frame map is correctly constructed
+    Bursts belong to exactly 1 or 2 frames'''
+    assert burst_to_frames["T004-006648-IW3"][0] == 831
+    assert burst_to_frames["T004-006649-IW3"][0] == 831
+    assert burst_to_frames["T004-006649-IW3"][1] == 832
 
 #TODO: We may change the database json during production that could have different burst ids for the same frame
 #TODO: So we may want to create different versions of this unit test, one for each version of the database json
@@ -86,17 +80,27 @@ def test_download_batch_id():
     download_batch_id = cslc_utils.download_batch_id_hist(hist_args, granule)
     assert download_batch_id == "2021_01_24t23_00_00z_2021_01_24t23_00_00z_7098"
 
+def test_parse_cslc_native_id():
+    """Test that we get all the right info from parsing the native_id"""
+    burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
+        cslc_utils.parse_cslc_native_id("OPERA_L2_CSLC-S1_T158-338083-IW1_20170403T130213Z_20240428T010605Z_S1A_VV_v1.1", burst_to_frames, disp_burst_map_hist)
+
+    print(burst_id, acquisition_dts, acquisition_cycles, frame_ids)
+
+    assert burst_id == "T158-338083-IW1"
+    assert acquisition_dts == "20170403T130213Z"
+    assert acquisition_cycles == {42261: 324}
+    assert frame_ids == [42261]
+
 def test_build_ccslc_m_index():
     """Test that the ccslc_m index is correctly constructed"""
     assert cslc_utils.build_ccslc_m_index("T027-056778-IW1", 445) == "t027_056778_iw1_445"
 
 def test_determine_acquisition_cycle_cslc():
     """Test that the acquisition cycle is correctly determined"""
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T034-071111-IW1", "20240406T002953Z",
-                                                                    "doesn't matter")
-    assert acquisition_cycle == 460
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("2017-02-27T23:05:24", 831, disp_burst_map_hist)
+    assert acquisition_cycle == 12
 
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T001-000001-IW1", "20160703T000000Z",
-                                                                    "doesn't matter")
-    assert acquisition_cycle == 224
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("2017-02-03T23:05:47", 832, disp_burst_map_hist)
+    assert acquisition_cycle == 216
 

@@ -34,9 +34,10 @@ class CslcCmrQuery(CmrQuery):
             self.disp_burst_map, self.burst_to_frame, metadata, version = process_disp_frame_burst_json(disp_frame_burst_file)
 
         if disp_frame_burst_hist_file is None:
-            self.disp_burst_map_hist = localize_disp_frame_burst_hist()
+            self.disp_burst_map_hist, self.burst_to_frames, self.datetime_to_frames = localize_disp_frame_burst_hist()
         else:
-            self.disp_burst_map_hist = process_disp_frame_burst_hist(disp_frame_burst_hist_file)
+            self.disp_burst_map_hist, self.burst_to_frames, self.datetime_to_frames = \
+                process_disp_frame_burst_hist(disp_frame_burst_hist_file)
 
         if args.grace_mins:
             self.grace_mins = args.grace_mins
@@ -72,16 +73,15 @@ class CslcCmrQuery(CmrQuery):
         for granule in granules:
             granule_id = granule["granule_id"]
 
-            burst_id, acquisition_dts, acquisition_cycle, frame_ids = parse_cslc_native_id(granule_id, self.burst_to_frame)
+            burst_id, acquisition_dts, acquisition_cycles, frame_ids = parse_cslc_native_id(granule_id, self.burst_to_frame, self.disp_burst_map_hist)
 
             granule["acquisition_ts"] = acquisition_dts
-            granule["acquisition_cycle"] = acquisition_cycle
+
             granule["burst_id"] = burst_id
             granule["frame_id"] = frame_ids[0] if force_frame_id is None else force_frame_id
+            granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
             granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
             granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
-
-            assert len(frame_ids) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
             if self.proc_mode not in ["forward"] or no_duplicate:
                 continue
@@ -90,6 +90,7 @@ class CslcCmrQuery(CmrQuery):
             if len(frame_ids) == 2:
                 new_granule = copy.deepcopy(granule)
                 new_granule["frame_id"] = self.burst_to_frame[burst_id][1]
+                granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
                 new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
                 new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
                 extended_granules.append(new_granule)
