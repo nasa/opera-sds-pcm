@@ -11,7 +11,7 @@ from util import datasets_json_util
 from util.conf_util import SettingsConf
 
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
-DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-constent-burst-ids.json'
+DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 
 _CSLC_EPOCH_DATE = "20090222T000000Z"
 
@@ -19,6 +19,7 @@ _CSLC_EPOCH_DATE = "20090222T000000Z"
 class _HistBursts(object):
     def __init__(self):
         self.burst_ids = []
+        self.sensing_datetimes = []
 
 def localize_anc_json(file):
     settings = SettingsConf().cfg
@@ -47,9 +48,10 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
 
     for frame in j:
         b = frame_to_bursts[int(frame)].burst_ids
-        for burst in j[frame]:
+        for burst in j[frame]["burst_id_list"]:
             burst = burst.upper().replace("_", "-")
             b.append(burst)
+        frame_to_bursts[int(frame)].sensing_datetimes = j[frame]["sensing_time_list"]
 
     return frame_to_bursts
 
