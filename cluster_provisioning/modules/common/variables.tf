@@ -1,4 +1,4 @@
-variable "artifactory_base_url" {
+ariable "artifactory_base_url" {
   default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
@@ -132,12 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - Apr 2, 2024 - R2
-    mozart    = "ami-00ca1f8fd748cd756" # mozart v4.25 - 240402
-    metrics   = "ami-00723bc8a818daeb5" # metrics v4.17 - 240402
-    grq       = "ami-0c97afc4b32f3ade5" # grq v4.18 - 240402
+    # HySDS v5.0.1 - May 2, 2024 - R3
+    mozart    = "ami-008ab4db50135992e" # mozart v4.25 - 240502
+    metrics   = "ami-057cd64c6bf997db3" # metrics v4.17 - 240502
+    grq       = "ami-043800c909828de92" # grq v4.18 - 240502
     factotum  = "ami-0f9f976a1a1f7621d" # factotum v4.16 - 240308
-    autoscale = "ami-00174d6a170f2122b" # verdi v4.16 patchdate - 240402
+    autoscale = "ami-01dbc66421258cc80" # verdi v4.16 patchdate - 240502
   }
 }
 
