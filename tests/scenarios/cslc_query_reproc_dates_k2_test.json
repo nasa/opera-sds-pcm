@@ -3,6 +3,7 @@
   "processing_mode": "reprocessing",
   "param_type": "date_range",
   "k": 2,
+  "m": 1,
   "validation_data": {
     "2023-05-01T08:00:00Z, 2023-05-01T08:01:00Z": {},
     "2023-12-01T08:00:00Z, 2023-12-01T09:00:00Z": {

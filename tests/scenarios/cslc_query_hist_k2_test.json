@@ -3,7 +3,7 @@
   "comment2": "Historical processing uses the start and end date as the acquisition time window and the two pair of numbers as start and end frame numbers",
   "processing_mode": "historical",
   "k": 2,
-  "m": 2,
+  "m": 1,
   "data_start_date": "2023-12-01T00:00:00Z",
   "validation_data": {
     "1,100": {},

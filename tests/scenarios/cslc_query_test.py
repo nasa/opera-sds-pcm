@@ -88,6 +88,7 @@ async def run_query(args, authorization):
 
     j = json.load(open(args.validation_json))
     cslc_k = j["k"]
+    cslc_m = j["m"]
     proc_mode = j["processing_mode"]
     validation_data = j["validation_data"]
 
@@ -96,7 +97,7 @@ async def run_query(args, authorization):
     if "sleep_seconds" in j:
         sleep_map = j["sleep_seconds"]
 
-    query_arguments.extend([f"--k={cslc_k}", f"--processing-mode={proc_mode}"])
+    query_arguments.extend([f"--k={cslc_k}", f"--m={cslc_m}", f"--processing-mode={proc_mode}"])
 
     if (proc_mode == "forward"):
         if validation_data == "load_test":

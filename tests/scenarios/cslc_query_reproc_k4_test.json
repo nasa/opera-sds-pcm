@@ -3,7 +3,7 @@
   "processing_mode": "reprocessing",
   "param_type": "native_id",
   "k": 4,
-  "m": 2,
+  "m": 1,
   "validation_data": {
     "OPERA_L2_CSLC-S1_T093-197858-IW3_20231118T013640Z_20231119T073552Z_S1A_VV_v1.0": {
       "f24733_a445": 27,

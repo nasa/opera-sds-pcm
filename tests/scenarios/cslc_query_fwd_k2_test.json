@@ -2,6 +2,7 @@
   "comment": "grace_mins is very large to make it a non-factor for this particular test case",
   "processing_mode": "forward",
   "k": 2,
+  "m": 1,
   "grace_mins": 5000,
   "validation_data": {
     "2023-12-01T06:00:00Z": {},
