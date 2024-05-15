@@ -5,6 +5,7 @@ import conftest
 
 from data_subscriber import cslc_utils
 from data_subscriber.parser import create_parser
+import dateutil
 from data_subscriber.cslc import cslc_query
 from datetime import datetime
 from data_subscriber.query import DateTimeRange
@@ -14,6 +15,18 @@ hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=histo
 
 disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
 disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+
+#TODO: We may change the database json during production that could have different burst ids for the same frame
+#TODO: So we may want to create different versions of this unit test, one for each version of the database json
+def test_burst_map():
+    assert len(disp_burst_map_hist.keys()) == 1433
+    assert disp_burst_map_hist[46800].burst_ids == ["T175-374393-IW1","T175-374393-IW2","T175-374393-IW3","T175-374394-IW1",\
+                                                      "T175-374394-IW2","T175-374394-IW3","T175-374395-IW1","T175-374395-IW2",\
+                                                      "T175-374395-IW3"]
+    assert disp_burst_map_hist[46800].sensing_datetimes[0] == dateutil.parser.isoparse("2019-11-14T16:51:06")
+
+    assert len(disp_burst_map_hist[46799].burst_ids) == 15
+    assert len(disp_burst_map_hist[46799].sensing_datetimes) == 2
 
 def test_split_download_batch_id():
     """Test that the download batch id is correctly split into frame and acquisition cycle"""
@@ -48,6 +61,8 @@ def test_burst_to_frame_map():
     assert burst_to_frame["T001-000792-IW1"] == [99]
     assert burst_to_frame["T001-000793-IW1"] == [99, 100]
 
+#TODO: We may change the database json during production that could have different burst ids for the same frame
+#TODO: So we may want to create different versions of this unit test, one for each version of the database json
 def test_arg_expansion_hist():
     '''Test that the native_id field is expanded correctly for a given frame range'''
     l, native_id = cslc_utils.build_cslc_native_ids(46800, disp_burst_map_hist)
@@ -57,7 +72,6 @@ def test_arg_expansion_hist():
            "OPERA_L2_CSLC-S1_T175-374393-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374393-IW3*\
 &native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374394-IW3*\
 &native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW1*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW2*&native-id[]=OPERA_L2_CSLC-S1_T175-374395-IW3*"
-
 
 def test_download_batch_id():
     """Test that the download batch id is correctly constructed for forward processing mode"""

@@ -2,6 +2,7 @@ import json
 import re
 from collections import defaultdict
 from types import SimpleNamespace
+import dateutil
 
 import boto3
 from pyproj import Transformer
@@ -15,11 +16,13 @@ DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.j
 
 _CSLC_EPOCH_DATE = "20090222T000000Z"
 
-# Seems a bit silly but need this class to match the interface with non-hist version
 class _HistBursts(object):
     def __init__(self):
-        self.burst_ids = []
-        self.sensing_datetimes = []
+        self.frame_number = None
+        self.burst_ids = []                   # Burst id string
+        self.sensing_datetimes = []           # Sensing datetimes as datetime object
+        self.sensing_seconds_since_first = [] # Sensing time in seconds since the first sensing time
+        self.sensing_datetime_days_index = [] # Sensing time in days since the first sensing time, rounded to the nearest day
 
 def localize_anc_json(file):
     settings = SettingsConf().cfg
@@ -45,15 +48,33 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
 
     j = json.load(open(file))
     frame_to_bursts = defaultdict(_HistBursts)
+    burst_to_frames = defaultdict(_HistBursts)
+    datetime_to_frames = defaultdict(list)
 
     for frame in j:
+        frame_to_bursts[int(frame)].frame_number = int(frame)
+
         b = frame_to_bursts[int(frame)].burst_ids
         for burst in j[frame]["burst_id_list"]:
             burst = burst.upper().replace("_", "-")
             b.append(burst)
-        frame_to_bursts[int(frame)].sensing_datetimes = j[frame]["sensing_time_list"]
 
-    return frame_to_bursts
+            # Map from burst id to the frames
+            burst_to_frames[burst] = frame_to_bursts[int(frame)]
+
+        frame_to_bursts[int(frame)].sensing_datetimes =\
+            [dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]]
+        for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
+            delta = sensing_time - frame_to_bursts[int(frame)].sensing_datetimes[0]
+            seconds = int(delta.total_seconds())
+            frame_to_bursts[int(frame)].sensing_seconds_since_first.append(seconds)
+            day_index = int(round(seconds / (24 * 3600)))
+            frame_to_bursts[int(frame)].sensing_datetime_days_index.append(day_index)
+
+            # Build up dict of day_index to the frame object
+            datetime_to_frames[sensing_time].append(frame_to_bursts[int(frame)])
+
+    return frame_to_bursts, burst_to_frames, datetime_to_frames
 
 def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
 
