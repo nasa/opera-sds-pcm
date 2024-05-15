@@ -1,4 +1,4 @@
-ariable "artifactory_base_url" {
+variable "artifactory_base_url" {
   default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
 }
 
