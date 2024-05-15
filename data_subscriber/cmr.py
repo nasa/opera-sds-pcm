@@ -244,7 +244,7 @@ def response_jsons_to_cmr_granules(args, response_jsons):
             "granule_id": item["umm"].get("GranuleUR"),
             "revision_id": item.get("meta").get("revision-id"),
             "provider": item.get("meta").get("provider-id"),
-            "production_date": production_datetime,
+            "production_datetime": production_datetime,
             "provider_date": provider_datetime,
             "temporal_extent_beginning_datetime": temporal_extent_beginning_datetime,
             "revision_date": item["meta"]["revision-date"],
