@@ -9,7 +9,7 @@ from os.path import abspath, dirname, join
 from util import pge_util
 
 TEST_DIR = dirname(abspath(__file__))
-REPO_DIR = abspath(join(TEST_DIR, os.pardir, os.pardir))
+REPO_DIR = abspath(join(TEST_DIR, os.pardir, os.pardir, os.pardir))
 
 
 def test_simulate_cslc_s1_pge():
@@ -19,7 +19,7 @@ def test_simulate_cslc_s1_pge():
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_CSLC_S1.yaml')
 
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
     pge_util.simulate_run_pge(
         pge_config['runconfig'],
@@ -65,7 +65,7 @@ def test_simulate_cslc_s1_static_pge():
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_CSLC_S1_STATIC.yaml')
 
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
     pge_util.simulate_run_pge(
         pge_config['runconfig'],
@@ -110,7 +110,7 @@ def test_simulate_rtc_s1_pge():
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_RTC_S1.yaml')
 
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
     pge_util.simulate_run_pge(
         pge_config['runconfig'],
@@ -159,7 +159,7 @@ def test_simulate_rtc_s1_static_pge():
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L2_RTC_S1_STATIC.yaml')
 
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
     pge_util.simulate_run_pge(
         pge_config['runconfig'],
@@ -213,7 +213,7 @@ def test_simulate_dswx_hls_pge_with_l30():
 
     # ARRANGE
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
         # ACT
         pge_util.simulate_run_pge(
@@ -260,7 +260,7 @@ def test_simulate_dswx_hls_pge_with_s30():
 
     # ARRANGE
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
         # ACT
         pge_util.simulate_run_pge(
@@ -305,7 +305,7 @@ def test_simulate_dswx_hls_pge_with_unsupported():
     # ARRANGE
     with pytest.raises(Exception) as exc_info:
         with open(pge_config_file_path) as pge_config_file:
-            pge_config = yaml.load(pge_config_file)
+            pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
             # ACT
             pge_util.simulate_run_pge(
@@ -332,7 +332,7 @@ def test_simulate_dswx_s1_pge():
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DSWx_S1.yaml')
 
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
     pge_util.simulate_run_pge(
         pge_config['runconfig'],
@@ -374,7 +374,7 @@ def test_simulate_disp_s1_pge():
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DISP_S1.yaml')
 
     with open(pge_config_file_path) as pge_config_file:
-        pge_config = yaml.load(pge_config_file)
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
 
     pge_util.simulate_run_pge(
         pge_config['runconfig'],
