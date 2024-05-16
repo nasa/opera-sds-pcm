@@ -3,6 +3,7 @@
   "comment2": "This at least exercised the grace parameter so leave it but this failing doesn't necessarily mean that there is a bug",
   "processing_mode": "forward",
   "k": 2,
+  "m": 1,
   "grace_mins": 1,
   "sleep_seconds": {
     "2023-12-01T15:00:00Z": 60
