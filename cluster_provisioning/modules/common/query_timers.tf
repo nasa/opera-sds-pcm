@@ -263,6 +263,7 @@ resource "aws_lambda_function" "rtc_query_timer" {
       "MINUTES" : var.rtc_query_timer_trigger_frequency,
       "GRACE_MINS" : "",
       "COVERAGE_PERCENT" : "",
+      "COVERAGE_NUM" : "",
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_data_download.name,
