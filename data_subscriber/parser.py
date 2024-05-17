@@ -153,6 +153,11 @@ def create_parser():
                     "type": int,
                     "help": "For DSWx-S1 processing."}}
 
+    coverage_num = {"positionals": ["--coverage-num"],
+                                     "kwargs": {"dest": "coverage_target_num",
+                                                "type": int,
+                                                "help": "For DSWx-S1 processing."}}
+
     grace_mins = {"positionals": ["--grace-mins"],
                         "kwargs": {"dest": "grace_mins",
                                    "type": int,
@@ -207,11 +212,6 @@ def create_parser():
                           "help": "The protocol used for retrieving data, "
                                   "HTTPS or S3 or AUTO."}}
 
-    param_dswx_s1_coverage_target = {"positionals": ["--coverage-target"],
-                                     "kwargs": {"dest": "coverage_target",
-                                                "type": int,
-                                                "help": "For DSWx-S1 processing."}}
-
     parser_arg_list = [verbose, file]
     _add_arguments(parser, parser_arg_list)
 
@@ -226,23 +226,26 @@ def create_parser():
     full_parser = subparsers.add_parser("full",
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
-                            bbox, minutes, k, m, coverage_percent, grace_mins,
+                            bbox, minutes, k, m, grace_mins,
                             dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_range, include_regions,
                             exclude_regions, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
+    _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
-                             bbox, minutes, k, m, coverage_percent, grace_mins,
+                             bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol,
                              frame_range, include_regions, exclude_regions, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
+    _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
+
 
     download_parser = subparsers.add_parser("download",
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -250,6 +253,7 @@ def create_parser():
                                 batch_ids, start_date, end_date, use_temporal,
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
+    _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
     return parser
 

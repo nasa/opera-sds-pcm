@@ -37,8 +37,13 @@ DAAC_S3_CRED_URLS:
   CSLC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
 
 # The minimum coverage, defined as the percent of bursts in a bursts set, required to run DSWx_S1
-#  Must be a number in the closed interval [0, 100].
-DSWX_S1_COVERAGE_TARGET: 99
+#  Must be an integer in the closed interval [0, 100] or null (~).
+#  Cannot be set together with DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED.
+DSWX_S1_COVERAGE_TARGET: ~
+# The minimum coverage, defined as the number of bursts in a bursts set, required to run DSWx_S1
+#  Must be a non-negative integer or null (~).
+#  Cannot be set together with DSWX_S1_COVERAGE_TARGET.
+DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED: 4
 # Force DSWx-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
 DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES: 210
 MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite"
