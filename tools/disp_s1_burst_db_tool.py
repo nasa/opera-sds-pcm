@@ -46,8 +46,10 @@ elif args.subparser_name == "frame":
         exit(-1)
 
     print("Frame number: ", frame_number)
-    print("Burst ids: ", disp_burst_map[frame_number].burst_ids)
-    print("Sensing datetimes: ", [t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes])
+    print("Burst ids (%d): " % len(disp_burst_map[frame_number].burst_ids))
+    print(disp_burst_map[frame_number].burst_ids)
+    print("Sensing datetimes (%d): " % len(disp_burst_map[frame_number].sensing_datetimes))
+    print([t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes])
 
 elif args.subparser_name == "burst":
     burst_id = args.burst_id
@@ -60,6 +62,7 @@ elif args.subparser_name == "burst":
     print("Frame numbers: ", frame_numbers)
     print("Sensing datetimes: ")
     for f in frame_numbers:
+        print("(%d): " % len(disp_burst_map[f].sensing_datetimes))
         print([t.isoformat() for t in disp_burst_map[f].sensing_datetimes])
 
 elif args.subparser_name == "time_range":
@@ -70,6 +73,7 @@ elif args.subparser_name == "time_range":
         for t in disp_burst_map[frame_number].sensing_datetimes:
             if start_time <= t <= end_time:
                 print("Frame number: ", frame_number)
-                print("Sensing datetime: ", t.isoformat())
-                print("Burst ids:", disp_burst_map[frame_number].burst_ids)
+                print("\tSensing datetime: ", t.isoformat())
+                print("\tBurst ids (%d):" % len(disp_burst_map[frame_number].burst_ids))
+                print("\t", disp_burst_map[frame_number].burst_ids)
 
