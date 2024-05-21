@@ -25,6 +25,7 @@ import product2dataset.iso_xml_reader as iso_xml_reader
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
+from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc, build_ccslc_m_index
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -207,6 +208,18 @@ def convert(
                 dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+
+            # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
+            # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
+            # There should only be one file in the dataset, so we can just grab the first one
+            if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
+                ccslc_file = dataset_met_json["Files"][0]
+
+                # last_date_time looks like this: "2024-04-18T00:00:00.000000Z"
+                acquisition_cycle = determine_acquisition_cycle_cslc(
+                    ccslc_file["burst_id"], ccslc_file["last_date_time"], dataset_met_json["id"])
+                dataset_met_json["acquisition_cycle"] = acquisition_cycle
+                dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
@@ -392,6 +405,13 @@ def main():
     rc_file = None
     if len(sys.argv) == 5:
         rc_file = sys.argv[4]
+
+    '''from util import pge_util
+    from util.ctx_util import JobContext
+    jc = JobContext(PurePath(work_dir, "_context.json"))
+    job_json_dict = jc.ctx
+    product_metadata = pge_util.get_product_metadata(job_json_dict)
+    convert(work_dir, product_dir, product_type, rc_file, product_metadata=product_metadata)'''
 
     convert(work_dir, product_dir, product_type, rc_file)
 

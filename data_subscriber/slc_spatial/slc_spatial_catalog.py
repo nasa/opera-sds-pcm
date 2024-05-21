@@ -43,6 +43,7 @@ class SLCSpatialProductCatalog:
             "id": granule["granule_id"],
             "provider": granule["provider"],
             "production_datetime": granule["production_datetime"],
+            "provider_date": granule.get("provider_date"),
             "short_name": granule["short_name"],
             "product_id": granule["identifier"],
             "bounding_box": granule["bounding_box"],

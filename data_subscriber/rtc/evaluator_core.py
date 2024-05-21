@@ -35,7 +35,7 @@ def _create_orbit_to_interval_to_products_map_helper(orbit_to_products_map, orbi
     orbit_to_interval_to_products_map = defaultdict(partial(defaultdict, partial(defaultdict, set)))
 
     acquisition_dts = sorted(orbit_to_products_map[orbit].keys())
-    BURST_SET_MAX_DURATION_SECONDS = 62 * 2.7 + 1  # 62==max_sized burst set (MS_16_47 and MS_59_47), 2.7 ~ time between bursts, 1 == safe margin
+    BURST_SET_MAX_DURATION_SECONDS = 123 * 2.7 + 1  # 123==max_sized burst set (e.g. MS_175_137), 2.7 ~ time between bursts, 1 == safe margin
     BURST_SET_MAX_DURATION_MINUTES = math.ceil(BURST_SET_MAX_DURATION_SECONDS / 60)
     dt_windows = windowed_by_predicate(iterable=acquisition_dts, pred=lambda a, b: max(a, b) - min(a, b) <= timedelta(minutes=BURST_SET_MAX_DURATION_MINUTES), sorted_=True, set_=False)
 

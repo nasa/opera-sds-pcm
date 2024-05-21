@@ -88,6 +88,7 @@ async def run_query(args, authorization):
 
     j = json.load(open(args.validation_json))
     cslc_k = j["k"]
+    cslc_m = j["m"]
     proc_mode = j["processing_mode"]
     validation_data = j["validation_data"]
 
@@ -96,7 +97,7 @@ async def run_query(args, authorization):
     if "sleep_seconds" in j:
         sleep_map = j["sleep_seconds"]
 
-    query_arguments.extend([f"--k={cslc_k}", f"--processing-mode={proc_mode}"])
+    query_arguments.extend([f"--k={cslc_k}", f"--m={cslc_m}", f"--processing-mode={proc_mode}"])
 
     if (proc_mode == "forward"):
         if validation_data == "load_test":
@@ -136,10 +137,18 @@ async def run_query(args, authorization):
                 start_date = new_end_date # To the next query time range
 
     elif (proc_mode == "reprocessing"):
-        # Run one native id at a time
-        for native_id in validation_data.keys():
-            current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
-            await query_and_validate(current_args, native_id, validation_data)
+        if j["param_type"] == "native_id":
+            # Run one native id at a time
+            for native_id in validation_data.keys():
+                current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
+                await query_and_validate(current_args, native_id, validation_data)
+        elif j["param_type"] == "date_range":
+            # Run one date range at a time
+            for date_range in validation_data.keys():
+                start_date = date_range.split(",")[0].strip()
+                end_date = date_range.split(",")[1].strip()
+                current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
+                await query_and_validate(current_args, date_range, validation_data)
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range

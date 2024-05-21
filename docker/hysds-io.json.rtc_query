@@ -57,7 +57,6 @@
       "from": "submitter",
       "placeholder": "e.g. --grace-mins=<grace_mins>",
       "type": "text",
-      "default": "--grace-mins=210",
       "optional": true
     },
     {
@@ -65,7 +64,13 @@
       "from": "submitter",
       "placeholder": "e.g. --coverage-percent=<coverage_percent>",
       "type": "text",
-      "default": "--coverage-percent=100",
+      "optional": true
+    },
+    {
+      "name": "coverage_num",
+      "from": "submitter",
+      "placeholder": "e.g. --coverage-num=<coverage_num>",
+      "type": "text",
       "optional": true
     },
     {

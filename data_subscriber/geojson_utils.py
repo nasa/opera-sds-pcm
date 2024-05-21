@@ -27,7 +27,7 @@ def localize_geojsons(geojsons):
         try:
             download_from_s3(bucket, key, key)
         except Exception as e:
-            logging.error("Exception while fetching geojson files: %s from S3 bucket %s. \
+            logging.warning("Exception while fetching geojson files: %s from S3 bucket %s. \
 Will try to fetch the same file from current working directory - this should only be done in testing scenarios. " % (key, bucket) + str(e))
 
         # See if the file exists in the current working directory

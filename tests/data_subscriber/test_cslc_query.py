@@ -5,6 +5,8 @@ import pytest
 from data_subscriber import cslc_utils
 from data_subscriber.parser import create_parser
 from data_subscriber.cslc import cslc_query
+from datetime import datetime
+from data_subscriber.query import DateTimeRange
 
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",\
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60"]
@@ -14,8 +16,8 @@ hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=histo
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 hist_args = create_parser().parse_args(hist_arguments)
 
-disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-disp_burst_map_hist = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
+disp_burst_map_hist = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 @pytest.mark.skip
 def test_frame_range():
@@ -78,6 +80,39 @@ def test_extend_additional_records():
 
     assert len(granules) == 5
 
+@pytest.mark.skip
+@pytest.mark.asyncio
+async def test_reprocessing_by_dates():
+    ''' Tests reprocessing query commands and high-level processing'''
+    reprocessing_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=reprocessing",
+                              "--start-date=2021-01-24T23:00:00Z", "--end-date=2021-01-25T00:00:00Z",
+                              "--k=4", "--no-schedule-download"]
+    reproc_args = create_parser().parse_args(reprocessing_arguments)
+    query_timerange = DateTimeRange(reproc_args.start_date, reproc_args.end_date)
+    c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
+                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},
+                                      cslc_utils.DISP_FRAME_BURST_MAP_JSON, cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+    cr = await c_query.query_cmr(reproc_args, None, None, None, query_timerange, datetime.utcnow())
+    args = cr.cr_frame.f_locals["args"]
+    assert args.collection == 'OPERA_L2_CSLC-S1_V1'
+    assert args.start_date == '2021-01-24T23:00:00Z'
+    assert args.end_date == '2021-01-25T00:00:00Z'
+    assert args.proc_mode == 'reprocessing'
+
+@pytest.mark.skip
+@pytest.mark.asyncio
+async def test_reprocessing_by_native_id(caplog):
+    ''' Tests reprocessing query commands and high-level processing when specifying a native_id'''
+    reprocessing_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=reprocessing", "--k=4",
+                              "--native-id=OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0", "--no-schedule-download"]
+    reproc_args = create_parser().parse_args(reprocessing_arguments)
+    c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
+                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},
+                                      cslc_utils.DISP_FRAME_BURST_MAP_JSON, cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+    cr = await c_query.query_cmr(reproc_args, None, None, None, None, datetime.utcnow())
+    assert 'OPERA_L2_CSLC-S1_T027-056777-IW2' in caplog.text
+
+
 def test_download_batch_id():
     """Test that the download batch id is correctly constructed for forward processing mode"""
 
@@ -89,3 +124,17 @@ def test_download_batch_id():
     # Test historical mode, forward works the same way
     download_batch_id = cslc_utils.download_batch_id_hist(hist_args, granule)
     assert download_batch_id == "2021_01_24t23_00_00z_2021_01_24t23_00_00z_7098"
+
+def test_build_ccslc_m_index():
+    """Test that the ccslc_m index is correctly constructed"""
+    assert cslc_utils.build_ccslc_m_index("T027-056778-IW1", 445) == "t027_056778_iw1_445"
+
+def test_determine_acquisition_cycle_cslc():
+    """Test that the acquisition cycle is correctly determined"""
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T034-071111-IW1", "20240406T002953Z",
+                                                                    "doesn't matter")
+    assert acquisition_cycle == 460
+
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("T001-000001-IW1", "20160703T000000Z",
+                                                                    "doesn't matter")
+    assert acquisition_cycle == 224

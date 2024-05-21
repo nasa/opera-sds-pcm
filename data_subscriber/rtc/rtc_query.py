@@ -120,6 +120,9 @@ class RtcCmrQuery(CmrQuery):
         logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
         if args.native_id:  # limit query to the 1 or 2 affected sets in backlog
             logger.info("Supplied native-id. Limiting evaluation")
+            min_num_bursts = args.coverage_target_num
+            if not min_num_bursts:
+                min_num_bursts = settings["DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED"]
             coverage_target = args.coverage_target
             if coverage_target is None:
                 coverage_target = settings["DSWX_S1_COVERAGE_TARGET"]
@@ -129,11 +132,18 @@ class RtcCmrQuery(CmrQuery):
             evaluator_results = evaluator.main(
                 coverage_target=coverage_target,
                 required_min_age_minutes_for_partial_burstsets=grace_mins,
-                mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes
+                mgrs_set_id_acquisition_ts_cycle_indexes=affected_mgrs_set_id_acquisition_ts_cycle_indexes,
+                min_num_bursts=min_num_bursts
             )
         else:  # evaluate ALL sets in backlog
             logger.info("Performing full evaluation")
-            evaluator_results = evaluator.main(coverage_target=args.coverage_target or settings["DSWX_S1_COVERAGE_TARGET"])
+            min_num_bursts = args.coverage_target_num
+            if not min_num_bursts:
+                min_num_bursts = settings["DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED"]
+            coverage_target = args.coverage_target
+            if coverage_target is None:
+                coverage_target = settings["DSWX_S1_COVERAGE_TARGET"]
+            evaluator_results = evaluator.main(coverage_target=coverage_target, min_num_bursts=min_num_bursts)
 
         processable_mgrs_set_ids = {
             mgrs_set_id

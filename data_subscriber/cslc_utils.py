@@ -13,6 +13,8 @@ from util.conf_util import SettingsConf
 DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-constent-burst-ids.json'
 
+_CSLC_EPOCH_DATE = "20090222T000000Z"
+
 # Seems a bit silly but need this class to match the interface with non-hist version
 class _HistBursts(object):
     def __init__(self):
@@ -96,14 +98,17 @@ def _parse_cslc_file_name(native_id):
 
     return match_product_id
 
+def determine_acquisition_cycle_cslc(burst_id, acquisition_dts, native_id):
+    return determine_acquisition_cycle(burst_id, acquisition_dts, native_id, _CSLC_EPOCH_DATE)
+
 def parse_cslc_native_id(native_id, burst_to_frame):
     match_product_id = _parse_cslc_file_name(native_id)
 
     burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
 
-    # Determine acquisition cycle
-    acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, native_id)
+    # Determine acquisition cycle, we use an older date for epoch because we process historical data for CSLC/DISP-S1
+    acquisition_cycle = determine_acquisition_cycle_cslc(burst_id, acquisition_dts, native_id)
 
     frame_ids = burst_to_frame[burst_id]
 
@@ -140,6 +145,8 @@ def download_batch_id_hist(args, granule):
 
     return download_batch_id
 
+def build_ccslc_m_index(burst_id, acquisition_cycle):
+    return (burst_id + "_" + str(acquisition_cycle)).replace("-", "_").lower()
 def download_batch_id_forward_reproc(granule):
     """For forward and re-processing modes, download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
