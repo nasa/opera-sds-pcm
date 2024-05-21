@@ -12,6 +12,8 @@ subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
 server_parser = subparsers.add_parser("list", help="List all frame numbers")
 
+server_parser = subparsers.add_parser("summary", help="List all frame numbers, number of bursts, and sensing datetimes")
+
 server_parser = subparsers.add_parser("native_id", help="Print information based on native_id")
 server_parser.add_argument("id", help="The CSLC native id from CMR")
 
@@ -25,12 +27,38 @@ asg_parser = subparsers.add_parser("time_range", help="Print frame that are avai
 asg_parser.add_argument("start_time", help="Start time looks like 2023-10-01T00:00:00")
 asg_parser.add_argument("end_time", help="End time looks like 2023-10-25T00:00:00")
 
+server_parser = subparsers.add_parser("unique_id", help="Print information based on unique_id... unique_id is combination of burst patern and acquisition time")
+server_parser.add_argument("burst", help="The Burst ID T175-374393-IW1")
+server_parser.add_argument("date_time", help="The Acquisition Datetime looks like 2023-10-01T00:00:00")
+
+#TODO
+server_parser = subparsers.add_parser("simulate", help="Simulate a historical processing run")
+
 args = parser.parse_args()
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 if args.subparser_name == "list":
-    print(list(disp_burst_map.keys()))
+    l = list(disp_burst_map.keys())
+    print("Frame numbers (%d): \n" % len(l), l)
+
+elif args.subparser_name == "summary":
+    l = list(disp_burst_map.keys())
+    print([(f, len(disp_burst_map[f].burst_ids), len(disp_burst_map[f].sensing_datetimes))  for f in l])
+
+    print("Frame numbers: %d" % len(l))
+
+    # Add up all the sensing times and print it out
+    total_sensing_times = 0
+    for f in l:
+        total_sensing_times += len(disp_burst_map[f].sensing_datetimes)
+    print("Total sensing times: ", total_sensing_times)
+
+    # Add up and print out the total number of granules.
+    total_granules = 0
+    for f in l:
+        total_granules += len(disp_burst_map[f].burst_ids) * len(disp_burst_map[f].sensing_datetimes)
+    print("Total granules: ", total_granules)
 
 elif args.subparser_name == "native_id":
     burst_id, acquisition_dts, acquisition_cycles, frame_ids = cslc_utils.parse_cslc_native_id(args.id, burst_to_frames, disp_burst_map)

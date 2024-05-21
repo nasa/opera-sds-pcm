@@ -11,16 +11,13 @@ from data_subscriber.url import determine_acquisition_cycle
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
-DISP_FRAME_BURST_MAP_JSON = 'opera-s1-disp-frame-to-burst.json'
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
-
-_CSLC_EPOCH_DATE = "20090222T000000Z"
 
 class _HistBursts(object):
     def __init__(self):
         self.frame_number = None
         self.burst_ids = []                   # Burst id string
-        self.sensing_datetimes = []           # Sensing datetimes as datetime object
+        self.sensing_datetimes = []           # Sensing datetimes as datetime object, sorted
         self.sensing_seconds_since_first = [] # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = [] # Sensing time in days since the first sensing time, rounded to the nearest day
 
@@ -34,10 +31,6 @@ def localize_anc_json(file):
         raise Exception("Exception while fetching CSLC ancillary file: %s. " % file + str(e))
 
     return file
-
-def localize_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
-    localize_anc_json(file)
-    return process_disp_frame_burst_json(file)
 
 def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     localize_anc_json(file)
@@ -61,7 +54,6 @@ def sensing_time_day_index(sensing_time, frame_number, frame_to_bursts):
 
     return day_index, seconds
 
-
 def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     '''Process the disp frame burst map json file intended for historical processing only and return the data as a dictionary'''
 
@@ -83,7 +75,7 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
             assert len(burst_to_frames[burst]) <= 2  # A burst can belong to at most two frames
 
         frame_to_bursts[int(frame)].sensing_datetimes =\
-            [dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]]
+            sorted([dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]])
         for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
             day_index, seconds = sensing_time_day_index(sensing_time, int(frame), frame_to_bursts)
             frame_to_bursts[int(frame)].sensing_seconds_since_first.append(seconds)
@@ -93,41 +85,6 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
             datetime_to_frames[sensing_time].append(int(frame))
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
-
-def process_disp_frame_burst_json(file = DISP_FRAME_BURST_MAP_JSON):
-
-    j = json.load(open(file))
-
-    metadata = j["metadata"]
-    version = metadata["version"]
-    data = j["data"]
-    frame_data = {}
-
-    frame_ids = []
-    for f in data:
-        frame_ids.append(f)
-
-    # Note that we are using integer as the dict key instead of the original string so that it can be sorted
-    # more predictably
-    for frame_id in frame_ids:
-        items = SimpleNamespace(**(data[frame_id]))
-
-        # Convert burst ids to upper case and replace "_" with "-" because this is how it shows up in granule id
-        for i in range(len(items.burst_ids)):
-            items.burst_ids[i] = items.burst_ids[i].upper().replace("_", "-")
-
-        frame_data[int(frame_id)] = items
-
-    sorted_frame_data = dict(sorted(frame_data.items()))
-
-    # Now create a map that maps burst id to frame id
-    burst_to_frame = defaultdict(list)
-    for frame_id in sorted_frame_data:
-        for burst_id in sorted_frame_data[frame_id].burst_ids:
-            burst_to_frame[burst_id].append(frame_id)
-            assert len(burst_to_frame[burst_id]) <= 2  # A burst can belong to at most two frames
-
-    return sorted_frame_data, burst_to_frame, metadata, version
 
 def _parse_cslc_file_name(native_id):
     dataset_json = datasets_json_util.DatasetsJson()

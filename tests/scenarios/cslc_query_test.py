@@ -46,8 +46,6 @@ job_queue = {
     "historical":   "opera-job_worker-cslc_data_download_hist"
 }
 
-disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
-
 def group_by_download_batch_id(granules):
     """Group granules by download batch id"""
     batch_id_to_granules = {}
@@ -166,7 +164,7 @@ async def query_and_validate(current_args, test_range, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
     c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
-                                      cslc_utils.DISP_FRAME_BURST_MAP_JSON)
+                                      cslc_utils.DISP_FRAME_BURST_MAP_HIST)
     q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
     q_result = q_result["download_granules"]
     print("+++++++++++++++++++++++++++++++++++++++++++++++")

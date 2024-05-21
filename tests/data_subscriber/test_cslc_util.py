@@ -6,14 +6,12 @@ import conftest
 from data_subscriber import cslc_utils
 from data_subscriber.parser import create_parser
 import dateutil
-from data_subscriber.cslc import cslc_query
 from datetime import datetime
 from data_subscriber.query import DateTimeRange
 
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
-disp_burst_map, burst_to_frame, metadata, version = cslc_utils.process_disp_frame_burst_json(cslc_utils.DISP_FRAME_BURST_MAP_JSON)
 disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 #TODO: We may change the database json during production that could have different burst ids for the same frame
