@@ -127,12 +127,12 @@ resource "aws_sns_topic" "operator_notify" {
 }
 
 resource "aws_sns_topic_policy" "operator_notify" {
-  arn        = aws_sns_topic.operator_notify.arn
-  policy     = data.aws_iam_policy_document.operator_notify.json
+  arn    = aws_sns_topic.operator_notify.arn
+  policy = data.aws_iam_policy_document.operator_notify.json
 }
 
 data "aws_iam_policy_document" "operator_notify" {
-  policy_id  = "__default_policy_ID"
+  policy_id = "__default_policy_ID"
   statement {
     actions = [
       "SNS:Publish",
@@ -215,7 +215,7 @@ resource "aws_sqs_queue" "cnm_response" {
 }
 
 data "aws_sqs_queue" "cnm_response" {
-  name       = aws_sqs_queue.cnm_response.name
+  name = aws_sqs_queue.cnm_response.name
 }
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
@@ -544,16 +544,16 @@ resource "aws_sns_topic" "cnm_response" {
 }
 
 data "aws_sns_topic" "cnm_response" {
-  name       = aws_sns_topic.cnm_response.name
+  name = aws_sns_topic.cnm_response.name
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
-  arn        = aws_sns_topic.cnm_response.arn
-  policy     = data.aws_iam_policy_document.sns_topic_policy.json
+  arn    = aws_sns_topic.cnm_response.arn
+  policy = data.aws_iam_policy_document.sns_topic_policy.json
 }
 
 data "aws_iam_policy_document" "sns_topic_policy" {
-  policy_id  = "__default_policy_ID"
+  policy_id = "__default_policy_ID"
   statement {
     actions = [
       "SNS:Publish",
@@ -580,9 +580,9 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 }
 
 resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
-  topic_arn  = aws_sns_topic.cnm_response.arn
-  protocol   = "lambda"
-  endpoint   = aws_lambda_function.sns_cnm_response_handler.arn
+  topic_arn = aws_sns_topic.cnm_response.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.sns_cnm_response_handler.arn
 }
 
 resource "aws_lambda_permission" "allow_sns_cnm_r" {
