@@ -127,13 +127,11 @@ resource "aws_sns_topic" "operator_notify" {
 }
 
 resource "aws_sns_topic_policy" "operator_notify" {
-  depends_on = [aws_sns_topic.operator_notify, data.aws_iam_policy_document.operator_notify]
   arn        = aws_sns_topic.operator_notify.arn
   policy     = data.aws_iam_policy_document.operator_notify.json
 }
 
 data "aws_iam_policy_document" "operator_notify" {
-  depends_on = [aws_sns_topic.operator_notify]
   policy_id  = "__default_policy_ID"
   statement {
     actions = [
@@ -217,12 +215,10 @@ resource "aws_sqs_queue" "cnm_response" {
 }
 
 data "aws_sqs_queue" "cnm_response" {
-  depends_on = [aws_sqs_queue.cnm_response]
   name       = aws_sqs_queue.cnm_response.name
 }
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
-  depends_on       = [aws_sqs_queue.cnm_response, aws_lambda_function.sqs_cnm_response_handler]
   count            = local.sqs_count
   event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
   #event_source_arn = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : aws_sqs_queue.cnm_response.arn
@@ -548,18 +544,15 @@ resource "aws_sns_topic" "cnm_response" {
 }
 
 data "aws_sns_topic" "cnm_response" {
-  depends_on = [aws_sns_topic.cnm_response]
   name       = aws_sns_topic.cnm_response.name
 }
 
 resource "aws_sns_topic_policy" "cnm_response" {
-  depends_on = [aws_sns_topic.cnm_response, data.aws_iam_policy_document.sns_topic_policy]
   arn        = aws_sns_topic.cnm_response.arn
   policy     = data.aws_iam_policy_document.sns_topic_policy.json
 }
 
 data "aws_iam_policy_document" "sns_topic_policy" {
-  depends_on = [aws_sns_topic.cnm_response]
   policy_id  = "__default_policy_ID"
   statement {
     actions = [
@@ -587,7 +580,6 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 }
 
 resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
-  depends_on = [aws_sns_topic.cnm_response, aws_lambda_function.sns_cnm_response_handler]
   topic_arn  = aws_sns_topic.cnm_response.arn
   protocol   = "lambda"
   endpoint   = aws_lambda_function.sns_cnm_response_handler.arn
@@ -608,7 +600,6 @@ resource "aws_kinesis_stream" "cnm_response" {
 }
 
 resource "aws_lambda_event_source_mapping" "kinesis_event_source_mapping" {
-  depends_on        = [aws_kinesis_stream.cnm_response, aws_lambda_function.sns_cnm_response_handler]
   count             = local.cnm_r_kinesis_count
   event_source_arn  = aws_kinesis_stream.cnm_response[count.index].arn
   function_name     = aws_lambda_function.sns_cnm_response_handler.arn
