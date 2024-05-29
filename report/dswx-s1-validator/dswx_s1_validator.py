@@ -247,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
     parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
     parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the % sign)")
+    parser.add_argument("--matching_burst_count", required=False, help="Matching burst count to filter results by. Typically 4 or more is advised.")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
     parser.add_argument("--endpoint", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue')
 
@@ -391,10 +392,13 @@ if __name__ == '__main__':
     # Create DataFrame from the collected data to use for fancy stuff
     df = pd.DataFrame(data_for_df)
 
-    # Apply threshold filtering if provided. This is the place for more fancy logic if needed.
+    # Apply threshold filtering if provided or use a minimum burst count match for filtering if provided. This is the place for more fancy logic if needed.
     if args.threshold:
         threshold = float(args.threshold)
         df = df[df['Coverage Percentage'] >= threshold]
+    elif args.matching_burst_count:
+        matching_burst_count = int(args.matching_burst_count)
+        df = df[df['Matching Burst Count'] >= matching_burst_count]
 
     # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
     print()
