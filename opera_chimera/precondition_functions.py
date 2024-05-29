@@ -275,10 +275,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
 
-        # TODO: hardcoded to empty set of files to bypass ionosphere correction
-        #       until file naming conventions are properly handled by DISP-S1 SAS
         rc_params = {
-            oc_const.IONOSPHERE_FILES: list() #ionosphere_paths
+            oc_const.IONOSPHERE_FILES: ionosphere_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -410,8 +408,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         Derives the S3 paths to the troposphere files to be used with a DISP-S1
         job.
 
-        TODO: current a stub, implement once CSLC static layer files are downloaded
-              to s3 by query job.
+        TODO: current a stub, implement once ECMWF files are available
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
