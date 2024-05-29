@@ -247,7 +247,7 @@ if __name__ == '__main__':
     parser.add_argument("--db", required=True, help="Path to the SQLite database file")
     parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
     parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the % sign)")
-    parser.add_argument("--matching_burst_count", required=False, help="Matching burst count to filter results by. Typically 4 or more is advised.")
+    parser.add_argument("--matching_burst_count", required=False, help="Matching burst count to filter results by. Typically four or more is advised. Using this with the --threshold flag makes this flag inactive (only one of '--threshold' or '--matching_burst_count' may be used)")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
     parser.add_argument("--endpoint", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue')
 
