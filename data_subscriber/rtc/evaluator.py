@@ -133,7 +133,7 @@ def main(
                 product_burstset = product_set_and_coverage_dict["product_set"]
                 if min_num_bursts is not None:
                     number_of_bursts = len(product_burstset)
-                    logger.info(f"{number_of_bursts=}, {min_num_bursts=}")
+                    logger.info(f"{mgrs_set_id=}, {number_of_bursts=}, {min_num_bursts=}")
                     if number_of_bursts < min_num_bursts:
                         product_burstset_index_to_skip_processing.add(i)
                         continue
