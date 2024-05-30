@@ -56,7 +56,7 @@ This guide provides a quick way to get started with the script.
 
 1. Run the script using Python: `python dswx_s1_validator.py --start <start_date> --end <end_date> --db <database_path>`.
 2. Optionally, use the `--file` argument to specify a file with granule IDs.
-3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by.
+3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by or use the `--matching_burst_count` to specify the minimum number of bursts to expect a match for for filtering. If both are provided, `--threshold` is used and `--matching_burst_count` is ignored. 
 4. Optionally, use the `--timestamp` argument to specify the type of timestamp to query CMR with. Example values: `TEMPORAL|PRODUCTION|REVISION|CREATED`. Default value is `TEMPORAL`. See [CMR documentation](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html) for details. 
 5. Optionally, use the `--endpoint` argument to specify the CMR endpoint venue. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
 6. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
