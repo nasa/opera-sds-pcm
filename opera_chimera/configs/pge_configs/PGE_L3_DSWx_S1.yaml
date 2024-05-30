@@ -43,6 +43,7 @@ preconditions:
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem
   - get_dswx_s1_num_workers
+  - get_dswx_s1_algorithm_parameters
   - instantiate_algorithm_parameters_template
   # TODO: enable if shoreline files are needed by DSWx-S1 SAS
   #- get_shoreline_shapefiles
@@ -102,9 +103,11 @@ get_shoreline_shapefiles:
     - "GSHHS_f_L1.shp"
     - "GSHHS_f_L1.shx"
 
-instantiate_algorithm_parameters_template:
+get_dswx_s1_algorithm_parameters:
   s3_bucket: "opera-ancillaries"
   s3_key: "algorithm_parameters/dswx_s1/dswx_s1_algorithm_parameters_calval_0.4.2.yaml.tmpl"
+
+instantiate_algorithm_parameters_template:
   template_mapping:
     num_workers: __NUMBER_CPU__
 
