@@ -3,6 +3,14 @@ from util.geo_util import polygon_from_bounding_box, polygon_from_mgrs_tile
 
 from shapely.geometry import Polygon
 
+
+def setup_module():
+    import geo
+    from pathlib import Path
+    geo.geo_util._NORTH_AMERICA = str(Path(geo.geo_util.__file__).parent / geo.geo_util._NORTH_AMERICA)
+    geo.geo_util._CALIFORNIA = str(Path(geo.geo_util.__file__).parent / geo.geo_util._CALIFORNIA)
+
+
 def test_bbox_not_in_north_america():
     # random bbox from CMR
     # https://cmr.earthdata.nasa.gov/search/granules.umm_json?provider=ASF&temporal=2022-09-27T00:00:00Z%2C2022-09-28T01:00:00Z&ShortName=SENTINEL-1A_SLC
