@@ -127,7 +127,6 @@ async def test_subscriber_rtc_trigger_logic_b():
                 "--chunk-size=1 "
                 # "--use-temporal "  # use revision time
                 "--job-queue=opera-job_worker-rtc_data_download "
-                "--coverage-percent=1 "
                 "--grace-mins=0 "  # this command is called to push data into the system only. trigger logic evaluation is done below
                 ""
             ],

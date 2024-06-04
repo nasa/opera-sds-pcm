@@ -583,7 +583,9 @@ resource "aws_instance" "mozart" {
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
       pip install '.[audit]'
-      pip install '.[cmr_audit]'
+
+      # comment out on 5-15-24 due to deployment failure 
+      #pip install '.[cmr_audit]'
       pip install --progress-bar off -e .
 
       # For daac_data_subscriber utility tool

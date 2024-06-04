@@ -326,7 +326,6 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
 
 resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart CNM-R dead letter queue"
-  depends_on                = [aws_sqs_queue.cnm_response_dead_letter_queue]
   comparison_operator       = "GreaterThanOrEqualToThreshold"
   evaluation_periods        = "2"
   metric_name               = "ApproximateNumberOfMessagesVisible"
@@ -344,7 +343,6 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
 
 resource "aws_cloudwatch_metric_alarm" "sqs_dead_letter_alarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart ISL dead letter queue"
-  depends_on                = [aws_sqs_queue.isl_dead_letter_queue]
   comparison_operator       = "GreaterThanOrEqualToThreshold"
   evaluation_periods        = "2"
   metric_name               = "ApproximateNumberOfMessagesVisible"

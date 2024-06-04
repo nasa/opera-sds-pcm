@@ -25,13 +25,24 @@ logger = logging.getLogger(__name__)
 
 
 def main(
-        coverage_target: int = 100,
+        coverage_target: Optional[int] = None,
         required_min_age_minutes_for_partial_burstsets: int = 0,
         mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None,
+        min_num_bursts: Optional[int] = None,
         *args,
         **kwargs
 ):
-    logger.info(f"{coverage_target=}")
+    logger.info(f"{coverage_target=}, {min_num_bursts=}")
+    if coverage_target is not None and min_num_bursts is not None:
+        raise AssertionError("Both coverage_target and min_num_bursts was specified. Specify one or the other.")
+    if coverage_target is None and min_num_bursts is None:
+        raise AssertionError("Both coverage_target and min_num_bursts were not specified. Specify one or the other.")
+
+    if coverage_target is None:
+        coverage_target = 0
+    if min_num_bursts is None:
+        min_num_bursts = 0
+
     # query GRQ catalog
     grq_es = es_conn_util.get_es_connection(logger)
 
@@ -117,9 +128,16 @@ def main(
             product_burstset_index_to_skip_processing = set()
             for i, product_set_and_coverage_dict in enumerate(product_set_and_coverage_dicts):
                 coverage_group = product_set_and_coverage_dict["coverage_group"]
-                if coverage_group != coverage_target:
+                if coverage_target is not None and coverage_group != coverage_target:
                     continue
                 product_burstset = product_set_and_coverage_dict["product_set"]
+                if min_num_bursts is not None:
+                    number_of_bursts = len(product_burstset)
+                    logger.info(f"{mgrs_set_id=}, {number_of_bursts=}, {min_num_bursts=}")
+                    if number_of_bursts < min_num_bursts:
+                        product_burstset_index_to_skip_processing.add(i)
+                        continue
+                    continue
                 retrieval_dts = {
                     dateutil.parser.parse(product_doc["creation_timestamp"])
                     for rtc_granule_id_to_product_docs_map in product_burstset
@@ -135,6 +153,7 @@ def main(
                     # burst set meets target, and old enough. process
                     logger.info(f"Target covered burst set aged out of grace period ({grace_period_minutes_remaining=}). Will process at this time. {mgrs_set_id=}, {i=}")
                     pass
+
             for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
                 logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
                 del evaluator_results["mgrs_sets"][mgrs_set_id][i]

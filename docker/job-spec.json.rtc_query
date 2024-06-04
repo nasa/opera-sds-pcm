@@ -52,6 +52,10 @@
       "destination": "positional"
     },
     {
+      "name": "coverage_num",
+      "destination": "positional"
+    },
+    {
       "name": "max_revision",
       "destination": "positional"
     },
