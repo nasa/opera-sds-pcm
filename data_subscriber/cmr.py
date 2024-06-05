@@ -15,6 +15,7 @@ from tools.ops.cmr_audit import cmr_client
 from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
 logger = logging.getLogger(__name__)
+MAX_CHARS_PER_LINE = 250000 #This is the maximum number of characters per line you can display in cloudwatch logs
 
 class Collection(str, Enum):
     HLSL30 = "HLSL30"
@@ -160,7 +161,16 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
     search_results_count = len(product_granules)
     logger.info(f"QUERY RESULTS: Found {search_results_count} granules")
-    logger.info(f'QUERY RESULTS: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules]}')
+
+    # Print out all the query results but limit the number of characters per line
+    one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
+    chars_per_line = len(one_logout) + 6 # 6 is a fudge factor
+    products_per_line = MAX_CHARS_PER_LINE // chars_per_line
+    for i in range(0, search_results_count, products_per_line):
+        end_range = i + products_per_line
+        if end_range > search_results_count:
+            end_range = search_results_count
+        logger.info(f'QUERY RESULTS {i} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -186,7 +196,11 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     if len(product_granules) != search_results_count:
         logger.info(f"Filtered to {len(product_granules)} total granules after shortname filter check")
-        logger.info([(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules])
+        for i in range(0, len(product_granules), products_per_line):
+            end_range = i + products_per_line
+            if end_range > len(product_granules):
+                end_range = len(product_granules)
+            logger.info(f'FILTERED RESULTS {i} to {end_range} of {len(product_granules)}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
