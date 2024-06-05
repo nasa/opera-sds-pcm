@@ -28,6 +28,10 @@ DSWX_S1_PRODUCT_VERSION: "0.4"
 DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_PROVISIONAL_V0"
 DISP_S1_PRODUCT_VERSION: "0.3"
 
+# DSWx-NI in R4
+DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
+DSWX_NI_PRODUCT_VERSION: "0.1"
+
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
 DAAC_S3_CRED_URLS:
@@ -150,6 +154,10 @@ DSWX_S1:
 
 DISP_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 50
+
+DSWX_NI:
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
 
 # End PGE Configuration section
