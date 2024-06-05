@@ -56,17 +56,25 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             new_args.batch_ids = [batch_id]
 
-            # First, download the files from ASF
-            cslc_products_to_filepaths: dict[str, set[Path]] = await super().run_download(
-                new_args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=False
-            )
-
-            logger.info(f"Uploading CSLC input files to S3")
-            cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
-            #TODO: uncomment this
-            cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
-                                                                     key_prefix=f"tmp/disp_s1/{batch_id}",
-                                                                     files=cslc_files_to_upload))
+            # Download the files from ASF only if the transfer protocol is HTTPS
+            if args.transfer_protocol == "https":
+                cslc_products_to_filepaths: dict[str, set[Path]] = await super().run_download(
+                    new_args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=False
+                )
+                logger.info(f"Uploading CSLC input files to S3")
+                cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
+                # TODO: uncomment this
+                cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
+                                                                         key_prefix=f"tmp/disp_s1/{batch_id}",
+                                                                         files=cslc_files_to_upload))
+            # For s3 we can use the files directly so simply copy over the paths
+            else: # s3 or auto
+                downloads = self.get_downloads(args, es_conn)
+                cslc_s3paths = [download["s3_url"] for download in downloads]
+                if len(cslc_s3paths) == 0:
+                    raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
+                print(f"{cslc_s3paths=}")
+                exit()
 
             # Mark the CSLC files as downloaded in the CSLC ES with the file size
             # While at it also build up burst_id set for compressed CSLC query
