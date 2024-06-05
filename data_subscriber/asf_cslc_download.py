@@ -6,6 +6,7 @@ import os
 from os.path import basename
 from pathlib import PurePath, Path
 from datetime import datetime, timezone
+import boto3
 
 from data_subscriber import ionosphere_download, es_conn_util
 from data_subscriber.cmr import Collection
@@ -55,6 +56,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             latest_acq_cycle_index = max(latest_acq_cycle_index, int(acq_cycle_index))
 
             new_args.batch_ids = [batch_id]
+            granule_sizes = []
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
@@ -67,20 +69,37 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                          key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                          files=cslc_files_to_upload))
+
+                for granule_id, fp_set in cslc_products_to_filepaths.items():
+                    filepath = list(fp_set)[0]
+                    file_size = os.path.getsize(filepath)
+                    granule_sizes.append((granule_id, file_size))
+
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
+                logger.info("Skipping download CSLC bursts and intead using ASF S3 paths for direct SCIFLO PGE ingestion")
                 downloads = self.get_downloads(args, es_conn)
                 cslc_s3paths = [download["s3_url"] for download in downloads]
                 if len(cslc_s3paths) == 0:
                     raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
-                print(f"{cslc_s3paths=}")
-                exit()
+
+                for p in cslc_s3paths:
+                    # Split the following into bucket name and key
+                    # 's3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
+                    bucket = p.split("/")[2]
+                    key = "/".join(p.split("/")[3:])
+
+                    granule_id = p.split("/")[-1]
+                    file_size = int(boto3.client("s3").head_object(Bucket=bucket, Key=key)["ContentLength"])
+                    granule_sizes.append((granule_id, file_size))
+
+                cslc_files_to_upload = [Path(p) for p in cslc_s3paths] # Need this for querying static CSLCs
+
+                cslc_products_to_filepaths = {} # Dummy when trying to delete files later in this function
 
             # Mark the CSLC files as downloaded in the CSLC ES with the file size
             # While at it also build up burst_id set for compressed CSLC query
-            for granule_id, fp_set in cslc_products_to_filepaths.items():
-                filepath = list(fp_set)[0]
-                file_size = os.path.getsize(filepath)
+            for granule_id, file_size in granule_sizes:
                 native_id = granule_id.split(".h5")[0] # remove file extension and revision id
                 burst_id, _, _, _ = parse_cslc_native_id(native_id, self.burst_to_frame)
                 unique_id = cslc_unique_id(batch_id, burst_id)
