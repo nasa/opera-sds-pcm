@@ -170,7 +170,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
         end_range = i + products_per_line
         if end_range > search_results_count:
             end_range = search_results_count
-        logger.info(f'QUERY RESULTS {i} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
+        logger.info(f'QUERY RESULTS {i+1} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -200,7 +200,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             end_range = i + products_per_line
             if end_range > len(product_granules):
                 end_range = len(product_granules)
-            logger.info(f'FILTERED RESULTS {i} to {end_range} of {len(product_granules)}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
+            logger.info(f'FILTERED RESULTS {i+1} to {end_range} of {len(product_granules)}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
