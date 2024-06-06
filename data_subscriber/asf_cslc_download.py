@@ -1,4 +1,3 @@
-
 import copy
 import logging
 import os
@@ -77,7 +76,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
-                logger.info("Skipping download CSLC bursts and intead using ASF S3 paths for direct SCIFLO PGE ingestion")
+                logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
                 downloads = self.get_downloads(args, es_conn)
                 cslc_s3paths = [download["s3_url"] for download in downloads]
                 if len(cslc_s3paths) == 0:
@@ -111,20 +110,35 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 cslc_files_to_upload, args, token, job_id, settings
             )
 
-            logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
-            cslc_static_products_to_filepaths: dict[str, set[Path]] = await self.download_cslc_static_files_for_cslc_batch(
-                cslc_static_granules, args, token, netloc,
-                username, password, job_id
-            )
+            # Download the files from ASF only if the transfer protocol is HTTPS
+            if args.transfer_protocol == "https":
+                logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
+                cslc_static_products_to_filepaths: dict[str, set[Path]] = await self.download_cslc_static_files_for_cslc_batch(
+                    cslc_static_granules, args, token, netloc,
+                    username, password, job_id
+                )
 
-            logger.info("Uploading CSLC Static input files to S3")
-            cslc_static_files_to_upload = [fp for fp_set in cslc_static_products_to_filepaths.values() for fp in fp_set]
-            cslc_static_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
-                                                                            key_prefix=f"tmp/disp_s1/{batch_id}",
-                                                                            files=cslc_static_files_to_upload))
+                logger.info("Uploading CSLC Static input files to S3")
+                cslc_static_files_to_upload = [fp for fp_set in cslc_static_products_to_filepaths.values() for fp in fp_set]
+                cslc_static_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
+                                                                                key_prefix=f"tmp/disp_s1/{batch_id}",
+                                                                                files=cslc_static_files_to_upload))
+            # For s3 we can use the files directly so simply copy over the paths
+            else:  # s3 or auto
+                logger.info("Skipping download CSLC static files and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
 
-            # Download all Ionosphere files corresponding to the dates covered by the
-            # input CSLC set
+                cslc_static_products_to_filepaths = {} # Dummy when trying to delete files later in this function
+
+                for cslc_static_granule in cslc_static_granules:
+                    for url in cslc_static_granule["filtered_urls"]:
+                        if url.startswith("s3"):
+                            cslc_static_s3paths.append(url)
+
+                if len(cslc_static_s3paths) == 0:
+                    raise Exception(f"No s3_path found for static files for {batch_id}. You probably should specify https transfer protocol.")
+
+            # Download all Ionosphere files corresponding to the dates covered by the input CSLC set
+            # We always download ionosphere files, there is no direct S3 ingestion option
             logger.info(f"Downloading Ionosphere files for {batch_id}")
             ionosphere_paths = self.download_ionosphere_files_for_cslc_batch(cslc_files_to_upload,
                                                                              self.downloads_dir)
