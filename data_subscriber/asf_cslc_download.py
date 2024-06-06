@@ -4,6 +4,7 @@ import os
 
 from os.path import basename
 from pathlib import PurePath, Path
+import urllib.parse
 from datetime import datetime, timezone
 import boto3
 
@@ -64,7 +65,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 )
                 logger.info(f"Uploading CSLC input files to S3")
                 cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
-                # TODO: uncomment this
                 cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                          key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                          files=cslc_files_to_upload))
@@ -85,11 +85,18 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 for p in cslc_s3paths:
                     # Split the following into bucket name and key
                     # 's3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
-                    bucket = p.split("/")[2]
-                    key = "/".join(p.split("/")[3:])
-
+                    parsed_url = urllib.parse.urlparse(p)
+                    bucket = parsed_url.netloc
+                    key = parsed_url.path[1:]
                     granule_id = p.split("/")[-1]
-                    file_size = int(boto3.client("s3").head_object(Bucket=bucket, Key=key)["ContentLength"])
+
+                    try:
+                        head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
+                    except Exception as e:
+                        logger.error("Failed when accessing the S3 object:" + p)
+                        raise e
+                    file_size = int(head_object["ContentLength"])
+
                     granule_sizes.append((granule_id, file_size))
 
                 cslc_files_to_upload = [Path(p) for p in cslc_s3paths] # Need this for querying static CSLCs
