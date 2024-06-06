@@ -44,9 +44,9 @@ RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
                  'T069-147172-IW2', 'T069-147172-IW3', 'T069-147173-IW1']
 """List of sample burst ID's to simulate RTC-S1 multi-product output"""
 
-DSWX_S1_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
-                 'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
-"""List of sample MGRS tile ID's to simulate DSWx-S1 multi-product output"""
+DSWX_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
+              'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
+"""List of sample MGRS tile ID's to simulate DSWx-S1/NI multi-product output"""
 
 
 def get_disk_usage(path, follow_symlinks=True):
@@ -480,7 +480,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     creation_time = get_time_for_filename()
 
-    for tile_id in DSWX_S1_TILES:
+    for tile_id in DSWX_TILES:
         base_name = base_name_template.format(
             tile_id=tile_id,
             acquisition_ts=acq_time,
@@ -507,6 +507,53 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
                 sensor='S1A',
                 spacing='30',
                 product_version=dataset_match.groupdict()['product_version']
+            )
+
+            ancillary_file_name = f'{base_name}.{extension}'
+
+            # Should only be one of these files per simulated run
+            if ancillary_file_name not in output_filenames:
+                output_filenames.append(ancillary_file_name)
+
+    return output_filenames
+
+def get_dswx_ni_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DSWx-NI PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    acq_time = get_time_for_filename()
+    creation_time = get_time_for_filename()
+
+    for tile_id in DSWX_TILES:
+        base_name = base_name_template.format(
+            tile_id=tile_id,
+            acquisition_ts=acq_time,
+            creation_ts=creation_time,
+            sensor='LSAR',
+            spacing='30',
+            product_version='0.1'
+        )
+
+        # Simulate the multiple output tif files created by this PGE
+        if extension.endswith('tiff') or extension.endswith('tif'):
+            for band_idx, band_name in enumerate(DSWX_S1_BAND_NAMES, start=1):
+                output_filenames.append(f'{base_name}_B{band_idx:02}_{band_name}.tif')
+
+            output_filenames.append(f'{base_name}_BROWSE.tif')
+        elif extension.endswith('png'):
+            output_filenames.append(f'{base_name}_BROWSE.png')
+        elif extension.endswith('iso.xml'):
+            output_filenames.append(f'{base_name}.iso.xml')
+        # Ancillary output product pattern, no tile ID or acquisition time
+        else:
+            base_name = ancillary_name_template.format(
+                creation_ts=creation_time,
+                sensor='LSAR',
+                spacing='30',
+                product_version='0.1'
             )
 
             ancillary_file_name = f'{base_name}.{extension}'
@@ -587,7 +634,8 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L2_RTC_S1_STATIC': get_rtc_s1_static_simulated_output_filenames,
             'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames,
             'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames,
-            'L3_DISP_S1': get_disp_s1_simulated_output_filenames
+            'L3_DISP_S1': get_disp_s1_simulated_output_filenames,
+            'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames
         }
 
         try:
