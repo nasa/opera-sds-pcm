@@ -162,15 +162,17 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     search_results_count = len(product_granules)
     logger.info(f"QUERY RESULTS: Found {search_results_count} granules")
 
-    # Print out all the query results but limit the number of characters per line
-    one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
-    chars_per_line = len(one_logout) + 6 # 6 is a fudge factor
-    products_per_line = MAX_CHARS_PER_LINE // chars_per_line
-    for i in range(0, search_results_count, products_per_line):
-        end_range = i + products_per_line
-        if end_range > search_results_count:
-            end_range = search_results_count
-        logger.info(f'QUERY RESULTS {i+1} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
+    products_per_line = 1000 # Default but this would never be used because we calculate dynamically below. Just here incase code moves around and we want a reasonable default
+    if search_results_count > 0:
+        # Print out all the query results but limit the number of characters per line
+        one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
+        chars_per_line = len(one_logout) + 6 # 6 is a fudge factor
+        products_per_line = MAX_CHARS_PER_LINE // chars_per_line
+        for i in range(0, search_results_count, products_per_line):
+            end_range = i + products_per_line
+            if end_range > search_results_count:
+                end_range = search_results_count
+            logger.info(f'QUERY RESULTS {i+1} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
