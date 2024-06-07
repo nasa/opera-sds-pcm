@@ -47,12 +47,12 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
+  - get_disp_s1_polarization
   - get_disp_s1_frame_id
   - get_disp_s1_product_type
   - get_disp_s1_num_workers
   - get_s3_input_filepaths
   - get_static_ancillary_files
-  - get_disp_s1_algorithm_parameters
   #- get_disp_s1_amplitude_dispersion_files
   #- get_disp_s1_amplitude_mean_files
   - get_disp_s1_static_layers_files
@@ -60,6 +60,8 @@ preconditions:
   - get_disp_s1_troposphere_files
   - get_disp_s1_mask_file
   - get_disp_s1_dem
+  - get_disp_s1_algorithm_parameters
+  - instantiate_algorithm_parameters_template
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -81,15 +83,19 @@ get_static_ancillary_files:
     s3_bucket: "opera-ancillaries"
     s3_key: "disp_frames/disp-s1/0.2.8/opera-s1-disp-frame-to-burst.json"
 
-get_disp_s1_algorithm_parameters:
-  # This S3 path only defines the location of the algorithm parameters files,
-  # an actual file will be selected based on the processing mode of the job (forward vs. historical)
-  s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.2.8"
-
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
   s3_key: "v0.3/EPSG4326.vrt"
+
+get_disp_s1_algorithm_parameters:
+  # This S3 path only defines a location pattern of an algorithm parameters template file,
+  # the processing mode (forward vs. historical) will be filled in by the function itself
+  s3_bucket: "opera-ancillaries"
+  s3_key: "algorithm_parameters/disp_s1/0.2.8/algorithm_parameters_{processing_mode}.yaml.tmpl"
+
+instantiate_algorithm_parameters_template:
+  template_mapping:
+    polarization: __POLARIZATION__
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:

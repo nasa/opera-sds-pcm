@@ -143,6 +143,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        # get the working directory
+        working_dir = get_working_dir()
+
         processing_mode = self._context["processing_mode"]
 
         # Convert reprocessing mode to forward for sake of selecting a parameter config
@@ -152,8 +155,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
         s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
+        # Fill in the processing mode
+        s3_key = s3_key.format(processing_mode=processing_mode)
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
+        )
+
         rc_params = {
-            oc_const.ALGORITHM_PARAMETERS: f"s3://{s3_bucket}/{s3_key}/algorithm_parameters_{processing_mode}.yaml"
+            oc_const.ALGORITHM_PARAMETERS: output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -275,10 +287,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
 
-        # TODO: hardcoded to empty set of files to bypass ionosphere correction
-        #       until file naming conventions are properly handled by DISP-S1 SAS
         rc_params = {
-            oc_const.IONOSPHERE_FILES: list() #ionosphere_paths
+            oc_const.IONOSPHERE_FILES: ionosphere_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -366,6 +376,54 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_polarization(self):
+        """
+        Determines the polarization value of the CSLC-S1 products used with a
+        DISP-S1 job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths = metadata["product_paths"][dataset_type]
+
+        # Define a regex pattern to match and extract the polarization field from
+        # a CSLC-S1 tif product filename
+        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV)_.*\.h5")
+
+        # Filter out all products to just those with a polarization field in the
+        # filename
+        polarization_layers = filter(
+            lambda path: pattern.match(os.path.basename(path)), product_paths
+        )
+
+        # Reduce each product filename to just the polarization field value
+        available_polarizations = map(
+            lambda path: pattern.match(os.path.basename(path)).groupdict()['pol'],
+            list(polarization_layers)
+        )
+
+        # Reduce again to just the unique set of polarization fields
+        unique_polarizations = set(list(available_polarizations))
+
+        # Make sure we are left with only a single polarization value
+        if len(unique_polarizations) == 0:
+            raise ValueError('No polarization fields parsed from input CSLC product set')
+
+        if len(unique_polarizations) > 1:
+            raise ValueError(f'More than one ({len(unique_polarizations)}) polarization values '
+                             f'parsed from set of input CSLC granules')
+
+        rc_params[oc_const.POLARIZATION] = list(unique_polarizations)[0]
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_product_type(self):
         """
         Assigns the product type (forward/historical) to the RunConfig for
@@ -410,8 +468,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         Derives the S3 paths to the troposphere files to be used with a DISP-S1
         job.
 
-        TODO: current a stub, implement once CSLC static layer files are downloaded
-              to s3 by query job.
+        TODO: current a stub, implement once ECMWF files are available
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -524,6 +581,33 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
         return {"L2_HLS": product_paths}
+
+    def get_dswx_s1_algorithm_parameters(self):
+        """
+        Downloads the designated algorithm parameters runconfig from S3 for use
+        with a DSWx-S1 job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DSWX_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
+        )
+
+        rc_params = {
+            oc_const.ALGORITHM_PARAMETERS: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
 
     def get_dswx_s1_dem(self):
         """
@@ -694,7 +778,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
 
         rc_params = {
-            "num_workers": num_workers
+            "num_workers": str(num_workers)
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1446,18 +1530,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         logger.info("working_dir : {}".format(working_dir))
 
-        # Download the configured template file to disk so we can replace patterns
-        # in memory
-        s3_bucket = self._pge_config.get(
-            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(
-            oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE, {}).get(oc_const.S3_KEY)
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
-        )
+        # Get the path to the templated parameters file which should have already been
+        # downloaded at this point
+        output_filepath = self._job_params[oc_const.ALGORITHM_PARAMETERS]
 
         with open(output_filepath, 'r') as infile:
             template_contents = infile.read()
@@ -1477,7 +1552,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 raise RuntimeError(f'No value for parameter {parameter} in _job_params')
 
             logger.info(f'Replacing pattern {pattern} with value {value}')
-            instantiated_contents = instantiated_contents.replace(pattern, json.dumps(value))
+            instantiated_contents = instantiated_contents.replace(pattern, str(value))
 
         # Strip the .tmpl suffix to derive the instantiated output filename
         output_filepath = output_filepath.replace(".tmpl", "")
@@ -1485,8 +1560,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         with open(output_filepath, 'w') as outfile:
             outfile.write(instantiated_contents)
 
-        # Return path to the instantiated template so it can be written to the
-        # runconfig
+        # Return the updated path to the instantiated template, so it can be
+        # written to the runconfig used with the PGE job
         rc_params = {
             oc_const.ALGORITHM_PARAMETERS: output_filepath
         }

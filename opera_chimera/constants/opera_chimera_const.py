@@ -44,6 +44,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
+    GET_DSWX_S1_ALGORITHM_PARAMETERS = "get_dswx_s1_algorithm_parameters"
+
     GET_DSWX_S1_DEM = "get_dswx_s1_dem"
 
     GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS = "get_dswx_s1_dynamic_ancillary_maps"
