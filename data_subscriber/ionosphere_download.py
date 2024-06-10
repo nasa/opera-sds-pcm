@@ -4,7 +4,7 @@ import logging
 import shutil
 import sys
 from collections import namedtuple, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path, PurePath
 
@@ -132,7 +132,7 @@ def generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_
             "job_id": job_util.supply_job_id(),
             "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
             "source_url": ionosphere_url,
-            "download_datetime":  datetime.now()
+            "download_datetime":  datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         }
     }
     # DEV: compare to CoreMetExtractor.py
