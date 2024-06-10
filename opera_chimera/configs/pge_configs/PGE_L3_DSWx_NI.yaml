@@ -95,4 +95,5 @@ input_file_base_name_regexes:
     - '(?P<id>ALPSRP\d{9}_gcov)$'
 sample_input_dataset_id: "ALPSRP271200660_gcov"
 output_base_name: OPERA_L3_DSWx-NI_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_{spacing}_v{product_version}
-ancillary_base_name: OPERA_L3_DSWx-NI_{creation_ts}Z_{sensor}_{spacing}_v{product_version}
+# TODO: update once ancillary filename application is implemented
+ancillary_base_name: OPERA_L3_DSWx-NI_{creation_ts}

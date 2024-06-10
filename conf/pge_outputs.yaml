@@ -180,7 +180,8 @@ L3_DSWx_NI:
     Secondary:
       # Patterns for parsing aux filenames, such as:
       # * "OPERA_L3_DSWx-NI_20230317T190549Z_LSAR_30_v0.1.catalog.json"
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>NI)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>LSAR)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>log|qa\.log|catalog\.json)$'
+      # TODO: update once ancillary filename application is implemented
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>NI)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})))[.](?P<ext>log|qa\.log|catalog\.json)$'
         verify: false
     Optional: []
       # Pattern for optional output product filenames
