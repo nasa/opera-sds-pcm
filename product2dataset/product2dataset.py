@@ -137,10 +137,10 @@ def convert(
         logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
         product_metadata: dict = kwargs["product_metadata"]
 
-        dataset_type = job_json_dict["params"]["dataset_type"]
+        output_dataset_type = job_json_dict["params"]["wf_name"]
 
-        publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
-        publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
+        publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
+        publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
 
         logger.info(f"{pge_shortname=}")
