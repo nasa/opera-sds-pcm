@@ -309,21 +309,26 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return granules
 
+    async def query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange):
+        new_args = copy.deepcopy(args)
+        all_granules = []
+        frame_start, frame_end = self.args.frame_range.split(",")
+        for frame in range(int(frame_start), int(frame_end) + 1):
+            count, native_id = build_cslc_native_ids(frame, self.disp_burst_map_hist)
+            if count == 0:
+                continue
+            new_args.native_id = native_id
+            new_granules = await async_query_cmr(new_args, token, cmr, settings, timerange, now)
+            self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame)
+            all_granules.extend(new_granules)
+
+        return all_granules
+
     async def query_cmr(self, args, token, cmr, settings, timerange, now):
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
-
-            all_granules = []
-            frame_start, frame_end = self.args.frame_range.split(",")
-            for frame in range(int(frame_start), int(frame_end) + 1):
-                count, native_id = build_cslc_native_ids(frame, self.disp_burst_map_hist)
-                if count == 0:
-                    continue
-                args.native_id = native_id # Note that the native_id is overwritten here. It doesn't get used after this point so this should be ok.
-                new_granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
-                self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame)
-                all_granules.extend(new_granules)
+            all_granules = await self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
 
         # Reprocessing can be done by specifying either a native_id or a date range
         # native_id search takes precedence over date range if both are specified
@@ -332,7 +337,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
             if args.native_id is not None:
                 all_granules = await self.query_cmr_by_native_id(args, token, cmr, settings, now, args.native_id)
 
-            # TODO: query by frame id
+            # Query by frame range and date range. Both must exist.
+            elif self.args.frame_range is not None and args.start_date is not None and args.end_date is not None:
+                all_granules = await self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
 
             # Reprocessing by date range is a two-step process:
             # 1) Query CMR for all CSLC files in the date range specified and create list of granules with unique frame_ids
@@ -353,7 +360,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     new_granules = await self.query_cmr_by_native_id(args, token, cmr, settings, now, native_id)
                     all_granules.extend(new_granules)
             else:
-                raise Exception("Reprocessing mode requires either a native_id or a date range to be specified.")
+                raise Exception("Reprocessing mode requires 1) a native_id 2) frame range and date range or 3) a date range to be specified.")
 
         else:
             all_granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
@@ -383,9 +390,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
             frame_id, _ = split_download_batch_id(batch_chunk[0])
             chunk_map[frame_id].append(batch_chunk)
             if (len(chunk_map[frame_id]) > self.args.k):
-                raise AssertionError("Number of download batches is greater than K. This should not be possible!")
-            #print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
-            #print(frame_id, batch_chunk[0])
+                logger.error([chunk for chunk, data in chunk_map[frame_id]])
+                err_str = f"Number of download batches {len(chunk_map[frame_id])} for frame {frame_id} is greater than K {self.args.k}."
+                raise AssertionError(err_str)
         return chunk_map.values()
 
     async def refresh_index(self):

@@ -848,6 +848,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
             self.assertEqual(oc_const.DISP_S1_FORWARD, rc_params[oc_const.PRODUCT_TYPE])
 
+    @patch.object(boto3.s3.inject, "object_download_file", _object_download_file_patch)
     def test_get_disp_s1_algorithm_parameters(self):
         """Unit tests for get_disp_s1_algorithm_parameters() precondition function"""
         # Set up the arguments to OperaPreConditionFunctions
@@ -858,7 +859,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         pge_config = {
             oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS: {
                 oc_const.S3_BUCKET: "opera-ancillaries",
-                oc_const.S3_KEY: "algorithm_parameters/disp_s1/0.1.0"
+                oc_const.S3_KEY: "algorithm_parameters/disp_s1/0.1.0/algorithm_parameters_{processing_mode}.yaml"
             }
         }
 
@@ -875,8 +876,9 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         # Ensure the S3 URI was formed as expected
         self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
         self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
-        self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
-                         "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.1.0/algorithm_parameters_historical.yaml")
+        self.assertIn("algorithm_parameters_historical.yaml",
+                       rc_params[oc_const.ALGORITHM_PARAMETERS])
+        self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
 
         # Ensure both forward and reprocessing modes resolve to the forward parameters
         for proc_mode in [oc_const.PROCESSING_MODE_FORWARD, oc_const.PROCESSING_MODE_REPROCESSING]:
@@ -887,19 +889,21 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             )
 
             rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
-            self.assertEqual(rc_params[oc_const.ALGORITHM_PARAMETERS],
-                             "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.1.0/algorithm_parameters_forward.yaml")
+            self.assertIn("algorithm_parameters_forward.yaml",
+                          rc_params[oc_const.ALGORITHM_PARAMETERS])
+            self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
 
-    @patch.object(boto3.s3.inject, "object_download_file", _object_download_file_patch)
     def test_instantiate_algorithm_parameters_template(self):
         """
         Unit tests for the instantiate_algorithm_parameters_template()
         precondition function
         """
+        # Use the mock object download file function to write a dummy algorithm parameters file
+        parameter_file = os.path.join(self.working_dir.name, 'algorithm_parameters.yaml.tmpl')
+        _object_download_file_patch(self, Filename=parameter_file)
+
         pge_config = {
             oc_const.INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE: {
-                oc_const.S3_BUCKET: "opera-ancillaries",
-                oc_const.S3_KEY: "algorithm_parameters/algorithm_parameters.yaml.tmpl",
                 oc_const.TEMPLATE_MAPPING: {
                     "param1": "__PATTERN1__",
                     "param2": "__PATTERN2__"
@@ -908,6 +912,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         }
 
         job_params = {
+            oc_const.ALGORITHM_PARAMETERS: parameter_file,
             "param1": "value1",
             "param2": "value2"
         }
@@ -925,6 +930,7 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
         self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
         self.assertTrue(os.path.exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+        self.assertFalse(rc_params[oc_const.ALGORITHM_PARAMETERS].endswith(".tmpl"))
 
         with open(rc_params[oc_const.ALGORITHM_PARAMETERS], 'r') as infile:
             instantiated_template = infile.read()
