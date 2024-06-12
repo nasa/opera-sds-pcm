@@ -144,7 +144,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             force_temporal = True
 
     if not silent:
-        logger.info("Temporal Range: " + temporal_range)
+        logger.info(f"Time Range: {temporal_range}  use_temporal: {args.use_temporal}")
 
     if args.use_temporal or force_temporal is True:
         params["temporal"] = temporal_range
