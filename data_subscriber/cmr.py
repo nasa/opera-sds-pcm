@@ -133,6 +133,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     now_date = now.strftime(CMR_TIME_FORMAT)
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
 
+    force_temporal = False
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
         if args.native_id:
             match_native_id = re.match(rtc_granule_regex, args.native_id)
@@ -140,11 +141,12 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             timerange_start_date = (acquisition_dt - timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
             timerange_end_date = (acquisition_dt + timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
             temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
+            force_temporal = True
 
     if not silent:
-        logger.info("Temporal Range: " + temporal_range)
+        logger.info(f"Time Range: {temporal_range}  use_temporal: {args.use_temporal}")
 
-    if args.use_temporal or args.native_id:
+    if args.use_temporal or force_temporal is True:
         params["temporal"] = temporal_range
     else:
         params["revision_date"] = temporal_range
