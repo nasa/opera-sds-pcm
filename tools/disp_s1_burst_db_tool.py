@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 
+import asyncio
+import logging
 from data_subscriber import cslc_utils
 from datetime import datetime
 import argparse
+from util.conf_util import SettingsConf
+from data_subscriber.cmr import get_cmr_token
+from data_subscriber.parser import create_parser
 
 ''' Tool to query the DISP S1 burst database 
     The burst database file must be in the same directory as this script'''
+
+logging.basicConfig(level="INFO")
+logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
@@ -16,6 +24,7 @@ server_parser = subparsers.add_parser("summary", help="List all frame numbers, n
 
 server_parser = subparsers.add_parser("native_id", help="Print information based on native_id")
 server_parser.add_argument("id", help="The CSLC native id from CMR")
+server_parser.add_argument("--k", dest="k", help="If the k parameter is provided, the k-cycle of this granule is computed", required=False)
 
 server_parser = subparsers.add_parser("frame", help="Print information based on frame")
 server_parser.add_argument("number", help="The frame number")
@@ -37,6 +46,17 @@ server_parser = subparsers.add_parser("simulate", help="Simulate a historical pr
 args = parser.parse_args()
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+
+async def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k):
+
+    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
+
+    settings = SettingsConf().cfg
+    cmr, token = get_cmr_token(subs_args.endpoint, settings)
+
+    k_cycle = await cslc_utils.determine_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, subs_args, token, cmr, settings)
+
+    return k_cycle
 
 if args.subparser_name == "list":
     l = list(disp_burst_map.keys())
@@ -66,6 +86,15 @@ elif args.subparser_name == "native_id":
     print("Acquisition datetime: ", acquisition_dts)
     print("Acquisition cycles: ", acquisition_cycles)
     print("Frame ids: ", frame_ids)
+
+    if args.k:
+        k = int(args.k)
+
+        k_cycle = asyncio.run(get_k_cycle(acquisition_dts, frame_ids[0], disp_burst_map, k))
+        if (k_cycle >= 0):
+            print(f"K-cycle: {k_cycle} out of {k}")
+        else:
+            print("K-cycle can not computed")
 
 elif args.subparser_name == "frame":
     frame_number = int(args.number)
@@ -104,4 +133,3 @@ elif args.subparser_name == "time_range":
                 print("\tSensing datetime: ", t.isoformat())
                 print("\tBurst ids (%d):" % len(disp_burst_map[frame_number].burst_ids))
                 print("\t", disp_burst_map[frame_number].burst_ids)
-

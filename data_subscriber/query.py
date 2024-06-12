@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
@@ -11,7 +11,7 @@ import dateutil.parser
 from more_itertools import chunked
 
 from data_subscriber.cmr import (async_query_cmr,
-                                 ProductType,
+                                 ProductType, DateTimeRange,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
 from data_subscriber.geojson_utils import (localize_include_exclude,
@@ -24,9 +24,6 @@ from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
-
-DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
-
 
 class CmrQuery:
     def __init__(self, args, token, es_conn, cmr, job_id, settings):

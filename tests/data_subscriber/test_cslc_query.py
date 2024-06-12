@@ -7,7 +7,7 @@ from data_subscriber import cslc_utils
 from data_subscriber.parser import create_parser
 from data_subscriber.cslc import cslc_query
 from datetime import datetime
-from data_subscriber.query import DateTimeRange
+from data_subscriber.cmr import DateTimeRange
 
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",\
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60", "--k=4", "--m=4"]

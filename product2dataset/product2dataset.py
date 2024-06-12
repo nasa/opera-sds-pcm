@@ -218,6 +218,7 @@ def convert(
                 # last_date_time looks like this: "2024-04-18T00:00:00.000000Z"
                 acquisition_cycle = determine_acquisition_cycle_cslc(
                     ccslc_file["burst_id"], ccslc_file["last_date_time"], dataset_met_json["id"])
+                dataset_met_json["burst_id"] = ccslc_file["burst_id"]
                 dataset_met_json["acquisition_cycle"] = acquisition_cycle
                 dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
 

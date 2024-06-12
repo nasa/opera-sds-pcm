@@ -3,7 +3,6 @@
 import asyncio
 import boto3
 import logging
-import netrc
 import re
 import sys
 import uuid
@@ -19,9 +18,8 @@ from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
-from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import (ProductType,
-                                 Provider,
+                                 Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
@@ -89,11 +87,7 @@ async def run(argv: list[str]):
     logger.info(f"{job_id=}")
 
     settings = SettingsConf().cfg
-    cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
-
-    edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-    username, _, password = netrc.netrc().authenticators(edl)
-    token = supply_token(edl, username, password)
+    cmr, token = get_cmr_token(args.endpoint, settings)
 
     results = {}
 

@@ -5,10 +5,13 @@ import re
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Iterable
+from collections import namedtuple
+import netrc
 
 import dateutil.parser
 from more_itertools import first_true
 
+from data_subscriber.aws_token import supply_token
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
@@ -16,6 +19,8 @@ from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
 logger = logging.getLogger(__name__)
 MAX_CHARS_PER_LINE = 250000 #This is the maximum number of characters per line you can display in cloudwatch logs
+
+DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 class Collection(str, Enum):
     HLSL30 = "HLSL30"
@@ -88,6 +93,14 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     "DEFAULT": ["tif", "h5"]
 }
 
+def get_cmr_token(endpoint, settings):
+
+    cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
+    edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
+
+    return cmr, token
 
 async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
     request_url = f"https://{cmr}/search/granules.umm_json"

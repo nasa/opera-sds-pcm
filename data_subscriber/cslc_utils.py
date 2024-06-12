@@ -1,13 +1,13 @@
 import json
 import re
 from collections import defaultdict
-from types import SimpleNamespace
+from datetime import datetime, timedelta
 import dateutil
 
 import boto3
 from pyproj import Transformer
 
-from data_subscriber.url import determine_acquisition_cycle
+from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -16,7 +16,7 @@ DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.j
 class _HistBursts(object):
     def __init__(self):
         self.frame_number = None
-        self.burst_ids = []                   # Burst id string
+        self.burst_ids = set()                  # Burst ids as strings in a set
         self.sensing_datetimes = []           # Sensing datetimes as datetime object, sorted
         self.sensing_seconds_since_first = [] # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = [] # Sensing time in days since the first sensing time, rounded to the nearest day
@@ -36,23 +36,28 @@ def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     localize_anc_json(file)
     return process_disp_frame_burst_hist(file)
 
+def _calculate_sensing_time_day_index(sensing_time, first_frame_time):
+    ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
+
+    delta = sensing_time - first_frame_time
+    seconds = int(delta.total_seconds())
+    day_index_high_precision = seconds / (24 * 3600)
+
+    # Sanity check of the day index, 10 minute tolerance 10 / 24 / 60 = 0.0069444444 ~= 0.007
+    remainder = day_index_high_precision - int(day_index_high_precision)
+    assert not (remainder > 0.493 and remainder < 0.507), \
+        f"Potential ambiguous day index grouping: {day_index_high_precision=}"
+
+    day_index = int(round(day_index_high_precision))
+
+    return day_index, seconds
+
 def sensing_time_day_index(sensing_time, frame_number, frame_to_bursts):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame AND
     seconds since the first sensing time of the frame'''
 
     frame = frame_to_bursts[frame_number]
-    delta = sensing_time - frame.sensing_datetimes[0]
-    seconds = int(delta.total_seconds())
-    day_index_high_precision = seconds / (24 * 3600)
-
-    # Sanity check of the day index, 1 minute tolerance 1 / 24 / 60 = 0.00069444444 ~= 0.0007
-    remainder = day_index_high_precision - int(day_index_high_precision)
-    assert not (remainder > 0.49993 and remainder < 0.50007), \
-        f"Potential ambiguous day index grouping: {frame=} {day_index_high_precision=}"
-
-    day_index = int(round(day_index_high_precision))
-
-    return day_index, seconds
+    return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
 def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     '''Process the disp frame burst map json file intended for historical processing only and return the data as a dictionary'''
@@ -68,7 +73,7 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
         b = frame_to_bursts[int(frame)].burst_ids
         for burst in j[frame]["burst_id_list"]:
             burst = burst.upper().replace("_", "-")
-            b.append(burst)
+            b.add(burst)
 
             # Map from burst id to the frames
             burst_to_frames[burst].append(int(frame))
@@ -76,6 +81,7 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
 
         frame_to_bursts[int(frame)].sensing_datetimes =\
             sorted([dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]])
+
         for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
             day_index, seconds = sensing_time_day_index(sensing_time, int(frame), frame_to_bursts)
             frame_to_bursts[int(frame)].sensing_seconds_since_first.append(seconds)
@@ -101,6 +107,35 @@ def determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bur
     day_index, seconds = sensing_time_day_index(sensing_time, frame_number, frame_to_bursts)
 
     return day_index
+
+async def determine_k_cycle(acquisition_dts, frame_number, frame_to_bursts, k, args, token, cmr, settings):
+    '''Return where in the k-cycle this acquisition falls for the frame_number
+    Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle'''
+
+    frame = frame_to_bursts[frame_number]
+
+    day_index = determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bursts)
+
+    # If the day index is within the historical database it's much simpler
+    # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
+    # Clearly if we somehow end up with like 1000
+    try:
+        index_number = frame.sensing_datetime_days_index.index(day_index) # note "index" is overloaded term here
+        return index_number % k
+    except ValueError:
+        # If not, we have to query CMR for all records for this frame, filter out ones that don't match the burst pattern,
+        # and then determine the k-cycle index
+        start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30) # Make sure we are not counting this last sensing time cycle
+        end_date = dateutil.parser.isoparse(acquisition_dts[:-1])
+
+        # Add native-id condition in args
+        l, native_id = build_cslc_native_ids(frame_number, frame_to_bursts)
+        args.native_id = native_id
+
+        query_timerange = DateTimeRange(start_date, end_date)
+        granules = await async_query_cmr(args, token, cmr, settings, query_timerange, datetime.utcnow(), silent=True)
+
+    return -1
 
 def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
     match_product_id = _parse_cslc_file_name(native_id)
@@ -128,9 +163,9 @@ def parse_cslc_burst_id(native_id):
 def build_cslc_native_ids(frame, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 
-    native_ids = disp_burst_map[frame].burst_ids
+    native_ids = list(disp_burst_map[frame].burst_ids)
+    native_ids = sorted(native_ids) # Sort to just enforce consistency
     return len(native_ids), "OPERA_L2_CSLC-S1_" + "*&native-id[]=OPERA_L2_CSLC-S1_".join(native_ids) + "*"
-
 
 def build_cslc_static_native_ids(burst_ids):
     """
