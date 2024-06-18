@@ -83,7 +83,7 @@ def main(
         for mgrs_set_id_acquisition_ts_cycle_index, burst_set in grouped_es_docs.items():
             # collect burst sets that have at least 1 new burst since last processed
             if any({
-                burst["_source"].get("downloaded") is None
+                not burst["_source"].get("downloaded")
                 for burst in burst_set
             }):
                 es_docs.extend(burst_set)
