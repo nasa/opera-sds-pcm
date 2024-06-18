@@ -124,4 +124,13 @@ def test_determine_k_cycle():
     k_cycle = cslc_utils.determine_k_cycle("2017-05-10T23:05:49Z", 832, disp_burst_map_hist, 10, args, token, cmr, settings)
     assert k_cycle == 0
 
+def test_frame_geo_map():
+    """Test that the frame geo simple map is correctly constructed"""
+    frame_geo_map = cslc_utils.process_frame_geo_json()
+    assert frame_geo_map[10859] == [[-101.239536, 20.325197], [-100.942045, 21.860135], [-98.526059, 21.55014], [-98.845633, 20.021978], [-101.239536, 20.325197]]
 
+def test_frame_bounds():
+    """Test that the frame geo simple map is correctly constructed"""
+    frame_geo_map = cslc_utils.process_frame_geo_json()
+    bounds = cslc_utils.get_bounding_box_for_frame(10859, frame_geo_map)
+    assert bounds == [-101.239536, 20.021978, -98.526059, 21.860135]

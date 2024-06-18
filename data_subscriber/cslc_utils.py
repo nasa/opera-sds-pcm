@@ -3,15 +3,14 @@ import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 import dateutil
-
 import boto3
-from pyproj import Transformer
 
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
+FRAME_GEO_SIMPLE_JSON = 'frame-geometries-simple.geojson'
 
 class _HistBursts(object):
     def __init__(self):
@@ -35,6 +34,10 @@ def localize_anc_json(file):
 def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     localize_anc_json(file)
     return process_disp_frame_burst_hist(file)
+
+def localize_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
+    localize_anc_json(file)
+    return process_frame_geo_json(file)
 
 def _calculate_sensing_time_day_index(sensing_time, first_frame_time):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
@@ -60,7 +63,7 @@ def sensing_time_day_index(sensing_time, frame_number, frame_to_bursts):
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
 def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
-    '''Process the disp frame burst map json file intended for historical processing only and return the data as a dictionary'''
+    '''Process the disp frame burst map json file intended and return 3 dictionaries'''
 
     j = json.load(open(file))
     frame_to_bursts = defaultdict(_HistBursts)
@@ -91,6 +94,16 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
             datetime_to_frames[sensing_time].append(int(frame))
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
+
+def process_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
+    '''Process the frame-geometries-simple.geojson file as dictionary used for determining frame bounding box'''
+
+    frame_geo_map = {}
+    j = json.load(open(file))
+    for feature in j["features"]:
+        frame_geo_map[feature["id"]] = feature["geometry"]["coordinates"][0]
+
+    return frame_geo_map
 
 def _parse_cslc_file_name(native_id):
     dataset_json = datasets_json_util.DatasetsJson()
@@ -226,14 +239,14 @@ def split_download_batch_id(download_batch_id):
         frame_id = download_batch_id.split("_")[-1]
         return int(frame_id), None
 
-def get_bounding_box_for_frame(frame):
-    """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax]"""
+def get_bounding_box_for_frame(frame_id, frame_geo_map):
+    """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
-    proj_from = f'EPSG:{frame.epsg}'
-    transformer = Transformer.from_crs(proj_from, "EPSG:4326")
-
-    xmin, ymin = transformer.transform(xx=frame.xmin, yy=frame.ymin)
-    xmax, ymax = transformer.transform(xx=frame.xmax, yy=frame.ymax)
+    coords = frame_geo_map[frame_id]
+    xmin = min([x for x, y in coords])
+    ymin = min([y for x, y in coords])
+    xmax = max([x for x, y in coords])
+    ymax = max([y for x, y in coords])
 
     return [xmin, ymin, xmax, ymax]
 

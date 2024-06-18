@@ -21,7 +21,8 @@ from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
-                                        get_bounding_box_for_frame, parse_cslc_native_id, build_ccslc_m_index)
+                                        get_bounding_box_for_frame, parse_cslc_native_id, build_ccslc_m_index,
+                                        localize_frame_geo_json)
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
     def __init__(self, provider):
         super().__init__(provider)
         self.disp_burst_map, self.burst_to_frames, self.datetime_to_frames = localize_disp_frame_burst_hist()
+        self.frame_geo_map = localize_frame_geo_json()
         self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
 
     async def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
@@ -45,6 +47,9 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         ionosphere_s3paths = []
         latest_acq_cycle_index = 0
         burst_id_set = set()
+
+        # All batches should have the same frame_id so we pick the first one
+        frame_id, _ = split_download_batch_id(args.batch_ids[0])
 
         new_args = copy.deepcopy(args)
 
@@ -169,12 +174,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 for iono_file in ionosphere_paths:
                     os.remove(iono_file)
 
-        # Determine M Compressed CSLCs by querying compressed cslc GRQ ES
+        # Determine M Compressed CSLCs by querying compressed cslc GRQ ES   -------------->
         # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
-
-        frame_id, _ = split_download_batch_id(args.batch_ids[0])
 
         # Search for all previous M compressed CSLCs
         prev_day_indices = await get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
@@ -194,14 +197,12 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                 for ccslc in ccslcs:
                     c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
+        # <------------------------- Compressed CSLC look up
 
-        # Compute bounding box for frame. All batches should have the same frame_id so we pick the first one
-        #TODO: Renable this when we get epsg, xmin/max, and ymin/max values for the frame.
-        frame = self.disp_burst_map[int(frame_id)]
-        #bounding_box = get_bounding_box_for_frame(frame)
-        #print(f'{bounding_box=}')
+        # Look up bounding box for frame
+        bounding_box = get_bounding_box_for_frame(int(frame_id), self.frame_geo_map)
+        print(f'{bounding_box=}')
 
-        # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
         # Now submit DISP-S1 SCIFLO job
         logger.info(f"Submitting DISP-S1 SCIFLO job")
 
@@ -226,7 +227,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     },
                     "FileName": product_id,
                     "id": product_id,
-                    #"bounding_box": bounding_box, TODO: enable this when available
+                    "bounding_box": bounding_box,
                     "save_compressed_slcs": save_compressed_slcs,
                     "Files": [
                         {
