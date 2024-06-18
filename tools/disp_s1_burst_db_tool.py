@@ -107,6 +107,7 @@ elif args.subparser_name == "frame":
     print(disp_burst_map[frame_number].burst_ids)
     print("Sensing datetimes (%d): " % len(disp_burst_map[frame_number].sensing_datetimes))
     print([t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes])
+    print("Day indices: ", disp_burst_map[frame_number].sensing_datetime_days_index)
 
 elif args.subparser_name == "burst":
     burst_id = args.burst_id

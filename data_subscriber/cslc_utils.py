@@ -108,6 +108,20 @@ def determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bur
 
     return day_index
 
+async def get_prev_day_indices(day_index, frame_number, frame_to_bursts, args, token, cmr, settings):
+    '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
+
+    frame = frame_to_bursts[frame_number]
+
+    # If the day index is within the historical database it's much simpler
+    # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
+    try:
+        # array.index returns 0-based index so add 1
+        current_index = frame.sensing_datetime_days_index.index(day_index)
+        return frame.sensing_datetime_days_index[:current_index]
+    except ValueError:
+        raise Exception("Currently non-historical processing mode is not supported for retrieving previous day indices.")
+
 async def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_bursts, k, args, token, cmr, settings):
     '''Return where in the k-cycle this acquisition falls for the frame_number
     Must specify either acquisition_dts or day_index.

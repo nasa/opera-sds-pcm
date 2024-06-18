@@ -20,7 +20,7 @@ from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
-from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id,
+from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
                                         get_bounding_box_for_frame, parse_cslc_native_id, build_ccslc_m_index)
 
 logger = logging.getLogger(__name__)
@@ -174,9 +174,12 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
 
-        #TODO: Change this logic to query ES for the latest m compressed CSLCs, holding burst_id constant.
+        frame_id, _ = split_download_batch_id(args.batch_ids[0])
+
+        # Search for all previous M compressed CSLCs
+        prev_day_indices = await get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
         for mm in range(m-1): # m parameter is inclusive of the current frame at hand
-            acq_cycle_index = latest_acq_cycle_index - mm - 1
+            acq_cycle_index = prev_day_indices[len(prev_day_indices) - mm - 1]
             for burst_id in burst_id_set:
                 ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index) #looks like t034_071112_iw3_461
                 logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
@@ -193,10 +196,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
 
         # Compute bounding box for frame. All batches should have the same frame_id so we pick the first one
-        frame_id, _ = split_download_batch_id(args.batch_ids[0])
-        frame = self.disp_burst_map[int(frame_id)]
-
         #TODO: Renable this when we get epsg, xmin/max, and ymin/max values for the frame.
+        frame = self.disp_burst_map[int(frame_id)]
         #bounding_box = get_bounding_box_for_frame(frame)
         #print(f'{bounding_box=}')
 
