@@ -108,21 +108,25 @@ def determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bur
 
     return day_index
 
-async def determine_k_cycle(acquisition_dts, frame_number, frame_to_bursts, k, args, token, cmr, settings):
+async def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_bursts, k, args, token, cmr, settings):
     '''Return where in the k-cycle this acquisition falls for the frame_number
+    Must specify either acquisition_dts or day_index.
     Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle'''
 
-    frame = frame_to_bursts[frame_number]
+    if day_index is None:
+        day_index = determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bursts)
 
-    day_index = determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bursts)
+    frame = frame_to_bursts[frame_number]
 
     # If the day index is within the historical database it's much simpler
     # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
     # Clearly if we somehow end up with like 1000
     try:
-        index_number = frame.sensing_datetime_days_index.index(day_index) # note "index" is overloaded term here
+        # array.index returns 0-based index so add 1
+        index_number = frame.sensing_datetime_days_index.index(day_index) + 1 # note "index" is overloaded term here
         return index_number % k
     except ValueError:
+        #TODO:
         # If not, we have to query CMR for all records for this frame, filter out ones that don't match the burst pattern,
         # and then determine the k-cycle index
         start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30) # Make sure we are not counting this last sensing time cycle
@@ -134,6 +138,9 @@ async def determine_k_cycle(acquisition_dts, frame_number, frame_to_bursts, k, a
 
         query_timerange = DateTimeRange(start_date, end_date)
         granules = await async_query_cmr(args, token, cmr, settings, query_timerange, datetime.utcnow(), silent=True)
+        print(granules)
+
+        #raise Exception("Currently non-historical processing mode is not supported for determining k-cycle.")
 
     return -1
 

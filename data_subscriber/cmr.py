@@ -100,7 +100,7 @@ def get_cmr_token(endpoint, settings):
     username, _, password = netrc.netrc().authenticators(edl)
     token = supply_token(edl, username, password)
 
-    return cmr, token
+    return cmr, token, username, password, edl
 
 async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
     request_url = f"https://{cmr}/search/granules.umm_json"

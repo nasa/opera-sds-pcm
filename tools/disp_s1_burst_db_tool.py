@@ -52,9 +52,9 @@ async def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k):
     subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
 
     settings = SettingsConf().cfg
-    cmr, token = get_cmr_token(subs_args.endpoint, settings)
+    cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
-    k_cycle = await cslc_utils.determine_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, subs_args, token, cmr, settings)
+    k_cycle = await cslc_utils.determine_k_cycle(acquisition_dts, None, frame_id, disp_burst_map, k, subs_args, token, cmr, settings)
 
     return k_cycle
 

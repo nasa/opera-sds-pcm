@@ -12,7 +12,7 @@ from data_subscriber import ionosphere_download, es_conn_util
 from data_subscriber.cmr import Collection
 from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.download import SessionWithHeaderRedirection
-from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids
+from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.url import cslc_unique_id
@@ -31,10 +31,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
     def __init__(self, provider):
         super().__init__(provider)
-        self.disp_burst_map, self.burst_to_frame, metadata, version = localize_disp_frame_burst_hist()
+        self.disp_burst_map, self.burst_to_frames, self.datetime_to_frames = localize_disp_frame_burst_hist()
         self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
 
-    async def run_download(self, args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=True):
+    async def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
 
         settings = SettingsConf().cfg
         product_id = "_".join([batch_id for batch_id in args.batch_ids])
@@ -61,7 +61,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
                 cslc_products_to_filepaths: dict[str, set[Path]] = await super().run_download(
-                    new_args, token, es_conn, netloc, username, password, job_id, rm_downloads_dir=False
+                    new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
                 )
                 logger.info(f"Uploading CSLC input files to S3")
                 cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
@@ -107,7 +107,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             # While at it also build up burst_id set for compressed CSLC query
             for granule_id, file_size in granule_sizes:
                 native_id = granule_id.split(".h5")[0] # remove file extension and revision id
-                burst_id, _, _, _ = parse_cslc_native_id(native_id, self.burst_to_frame)
+                burst_id, _, _, _ = parse_cslc_native_id(native_id, self.burst_to_frames, self.disp_burst_map)
                 unique_id = cslc_unique_id(batch_id, burst_id)
                 es_conn.mark_product_as_downloaded(unique_id, job_id, filesize=file_size)
                 burst_id_set.add(burst_id)
@@ -195,12 +195,19 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         # Compute bounding box for frame. All batches should have the same frame_id so we pick the first one
         frame_id, _ = split_download_batch_id(args.batch_ids[0])
         frame = self.disp_burst_map[int(frame_id)]
-        bounding_box = get_bounding_box_for_frame(frame)
-        print(f'{bounding_box=}')
+
+        #TODO: Renable this when we get epsg, xmin/max, and ymin/max values for the frame.
+        #bounding_box = get_bounding_box_for_frame(frame)
+        #print(f'{bounding_box=}')
 
         # TODO: This code differs from data_subscriber/rtc/rtc_job_submitter.py. Ideally both should be refactored into a common function
         # Now submit DISP-S1 SCIFLO job
         logger.info(f"Submitting DISP-S1 SCIFLO job")
+
+        save_compressed_slcs = False
+        if await determine_k_cycle(None, latest_acq_cycle_index, frame_id, self.disp_burst_map, k, args, token, cmr, settings) == 0:
+            save_compressed_slcs = True
+        logger.info(f"{save_compressed_slcs=}")
 
         product = {
             "_id": product_id,
@@ -218,7 +225,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     },
                     "FileName": product_id,
                     "id": product_id,
-                    "bounding_box": bounding_box,
+                    #"bounding_box": bounding_box, TODO: enable this when available
                     "save_compressed_slcs": save_compressed_slcs,
                     "Files": [
                         {
