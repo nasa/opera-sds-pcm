@@ -137,10 +137,10 @@ def convert(
         logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
         product_metadata: dict = kwargs["product_metadata"]
 
-        dataset_type = job_json_dict["params"]["dataset_type"]
+        output_dataset_type = job_json_dict["params"]["wf_name"]
 
-        publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
-        publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
+        publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
+        publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
 
         logger.info(f"{pge_shortname=}")
@@ -220,6 +220,9 @@ def convert(
                     ccslc_file["burst_id"], ccslc_file["last_date_time"], dataset_met_json["id"])
                 dataset_met_json["acquisition_cycle"] = acquisition_cycle
                 dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
+        elif pge_name == "L3_DSWx_NI":
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
@@ -284,6 +287,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "disp-s1" in dataset_id.lower():
         collection_name = settings.get("DISP_S1_COLLECTION_NAME")
         product_version = settings.get("DISP_S1_PRODUCT_VERSION")
+    elif "dswx-ni" in dataset_id.lower():
+        collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
+        product_version = settings.get("DSWX_NI_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"

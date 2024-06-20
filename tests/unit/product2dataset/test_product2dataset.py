@@ -41,7 +41,7 @@ def test_convert__when_L3_DSWx_HLS_PGE__adds_PST_metadata(mocker: MockerFixture)
         jobs_json := mocker.mock_open(read_data="""
             {
                 "params": {
-                    "dataset_type": "L2_HLS_S30"
+                    "wf_name": "L3_DSWx_HLS"
                 },
                 "context": {
                     "container_specification": {
@@ -61,7 +61,7 @@ def test_convert__when_L3_DSWx_HLS_PGE__adds_PST_metadata(mocker: MockerFixture)
         {
             "datasets": [
               {
-                "type": "L2_HLS_S30",
+                "type": "L3_DSWx_HLS",
                 "publish": {
                   "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
                   "urls": [
@@ -133,7 +133,7 @@ def test_convert__when_L3_DSWx_S1_PGE__adds_PST_metadata(mocker: MockerFixture):
         jobs_json := mocker.mock_open(read_data="""
             {
                 "params": {
-                    "dataset_type": "L2_RTC_S1"
+                    "wf_name": "L3_DSWx_S1"
                 },
                 "context": {
                     "container_specification": {
@@ -153,7 +153,7 @@ def test_convert__when_L3_DSWx_S1_PGE__adds_PST_metadata(mocker: MockerFixture):
         {
             "datasets": [
               {
-                "type": "L2_RTC_S1",
+                "type": "L3_DSWx_S1",
                 "publish": {
                   "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}",
                   "urls": [

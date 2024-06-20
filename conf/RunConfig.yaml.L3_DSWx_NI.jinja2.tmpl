@@ -1,0 +1,94 @@
+RunConfig:
+  Name: OPERA-DSWX-NI-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DSWX_NI_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          {%- for type in data.dynamic_ancillary_file_group.keys() %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}
+          {%- endfor %}
+      ProductPathGroup:
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: DSWX_NI
+        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProgramPath: python3
+        ProgramOptions:
+          - /home/dswx_user/OPERA/DSWX-SAR/src/dswx_sar/dswx_ni.py
+        ErrorCodeBase: 600000
+        SchemaPath: /home/dswx_user/opera/pge/dswx_ni/schema/dswx_ni_sas_schema.yaml
+        AlgorithmParametersSchemaPath: /home/dswx_user/opera/pge/dswx_ni/schema/algorithm_parameters_ni_schema.yaml
+        # TODO: add once available
+        IsoTemplatePath:
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions:
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+    SAS:
+      runconfig:
+        name: dswx_ni_workflow_default
+        groups:
+          pge_name_group:
+            pge_name: DSWX_NI_PGE
+          input_file_group:
+            input_file_path:
+              {%- for input in data.input_file_group.input_file_paths %}
+              - {{ input }}
+              {%- endfor %}
+            input_file_historical_path:
+            input_mgrs_collection_id: {{ data.input_file_group.input_mgrs_collection_id }}
+          dynamic_ancillary_file_group:
+            {%- for type in data.dynamic_ancillary_file_group.keys() %}
+            {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
+            {%- endfor %}
+            mean_backscattering:
+            standard_deviation_backscattering:
+            algorithm_parameters: {{ data.processing.algorithm_parameters }}
+            # TODO: update descriptions as necessary when new ancillary releases are available
+            dem_file_description: 'Copernicus DEM GLO-30 2021 WGS84'
+            worldcover_file_description: 'ESA WorldCover 10m 2020 v1.0'
+            reference_water_file_description: 'JRC Global Surface Water - collection from 1984 to 2021'
+            hand_file_description: 'ASF HAND GLO30'
+            # TODO: uncomment if shoreline shapefile usage is ever reenabled
+            #shoreline_shapefile_description: 'NOAA GSHHS Level 1 resolution f - GSHHS_f_L1'
+          static_ancillary_file_group:
+            static_ancillary_inputs_flag: True
+            {%- for type in data.static_ancillary_file_group.keys() %}
+            {%- if data.static_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
+            {%- else %}
+            {{ type }}:
+            {%- endif %}
+            {%- endfor %}
+          primary_executable:
+            product_type: dswx_ni
+          product_path_group:
+            product_path: {{ data.product_path_group.product_path }}
+            scratch_path: {{ data.product_path_group.scratch_path }}
+            sas_output_path: {{ data.product_path_group.product_path }}
+            # TODO: this should become a string once SAS schema is fixed
+            product_version: {{ data.product_path_group.product_version }}
+            output_imagery_format: 'COG'
+          browse_image_group:
+            save_browse: True
+            browse_image_height: 1024
+            browse_image_width: 1024
+            save_tif_to_output: True
+          log_file: {{ data.product_path_group.scratch_path }}/dswx-ni.log
