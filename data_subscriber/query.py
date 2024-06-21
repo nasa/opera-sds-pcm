@@ -40,13 +40,13 @@ class CmrQuery:
     def validate_args(self):
         pass
 
-    async def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+    def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
         query_dt = datetime.now()
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(args, now)
 
         logger.info("CMR query STARTED")
-        granules = await self.query_cmr(args, token, cmr, settings, query_timerange, now)
+        granules = self.query_cmr(args, token, cmr, settings, query_timerange, now)
         logger.info("CMR query FINISHED")
 
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
@@ -66,14 +66,14 @@ class CmrQuery:
 
         # TODO: This function only applies to CSLC, merge w RTC at some point
         # Given the new granules coming in and existing unsubmitted granules, determine which granules to download
-        download_granules = await self.determine_download_granules(granules)
+        download_granules = self.determine_download_granules(granules)
 
         logger.info("catalogue-ing STARTED")
         self.catalog_granules(granules, query_dt)
         logger.info("catalogue-ing FINISHED")
 
         #TODO: This function only applies to RTC, merge w CSLC at some point
-        batch_id_to_products_map = await self.refresh_index()
+        batch_id_to_products_map = self.refresh_index()
 
         if args.subparser_name == "full":
             logger.info(
@@ -99,10 +99,12 @@ class CmrQuery:
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args, settings)
+            results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
+            results = job_submission_tasks
 
-        results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+
         logger.info(f"{len(results)=}")
         logger.debug(f"{results=}")
 
@@ -118,8 +120,8 @@ class CmrQuery:
             "download_granules": download_granules
         }
 
-    async def query_cmr(self, args, token, cmr, settings, timerange, now: datetime):
-        granules = await async_query_cmr(args, token, cmr, settings, timerange, now)
+    def query_cmr(self, args, token, cmr, settings, timerange, now: datetime):
+        granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
         return granules
 
     def eliminate_duplicate_granules(self, granules):
@@ -153,7 +155,7 @@ class CmrQuery:
     def extend_additional_records(self, granules):
         pass
 
-    async def determine_download_granules(self, granules):
+    def determine_download_granules(self, granules):
         return granules
 
     def catalog_granules(self, granules, query_dt):
@@ -178,7 +180,7 @@ class CmrQuery:
     def update_granule_index(self, granule):
         pass
 
-    async def refresh_index(self):
+    def refresh_index(self):
         pass
 
     def download_job_submission_handler(self, granules, query_timerange):
@@ -248,17 +250,12 @@ class CmrQuery:
             logger.info(f"{payload_hash=}")
             logger.debug(f"{chunk_urls=}")
 
-            download_job_id = asyncio.get_event_loop().run_in_executor(
-                executor=None,
-                func=partial(
-                    submit_download_job,
-                    release_version=self.settings["RELEASE_VERSION"],
+            download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
                     product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection],
                     params=self.create_download_job_params(query_timerange, chunk_batch_ids),
                     job_queue=self.args.job_queue,
                     payload_hash = payload_hash
                 )
-            )
 
             # Record download job id in ES
             for batch_id, urls in batch_chunk:

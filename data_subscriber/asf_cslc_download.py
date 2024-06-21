@@ -36,7 +36,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         self.frame_geo_map = localize_frame_geo_json()
         self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
 
-    async def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
+    def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
 
         settings = SettingsConf().cfg
         product_id = "_".join([batch_id for batch_id in args.batch_ids])
@@ -65,7 +65,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
-                cslc_products_to_filepaths: dict[str, set[Path]] = await super().run_download(
+                cslc_products_to_filepaths: dict[str, set[Path]] = super().run_download(
                     new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
                 )
                 logger.info(f"Uploading CSLC input files to S3")
@@ -118,14 +118,14 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 burst_id_set.add(burst_id)
 
             logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
-            cslc_static_granules = await self.query_cslc_static_files_for_cslc_batch(
+            cslc_static_granules = self.query_cslc_static_files_for_cslc_batch(
                 cslc_files_to_upload, args, token, job_id, settings
             )
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
                 logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
-                cslc_static_products_to_filepaths: dict[str, set[Path]] = await self.download_cslc_static_files_for_cslc_batch(
+                cslc_static_products_to_filepaths: dict[str, set[Path]] = self.download_cslc_static_files_for_cslc_batch(
                     cslc_static_granules, args, token, netloc,
                     username, password, job_id
                 )
@@ -179,10 +179,23 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
 
-        # Search for all previous M compressed CSLCs
-        prev_day_indices = await get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
-        for mm in range(m-1): # m parameter is inclusive of the current frame at hand
-            acq_cycle_index = prev_day_indices[len(prev_day_indices) - mm - 1]
+        ''' Search for all previous M compressed CSLCs
+        Indices are overloaded term here:
+        1. prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of 
+                            the latest acq cycle index
+        2. last_m_index: The index of the last M compressed CSLC, index into prev_day_indices
+        3. acq_cycle_index: The index of the acq cycle, index into disp_burst_map
+        '''
+
+        prev_day_indices = get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
+        num_prev_indices = len(prev_day_indices)
+        last_m_index = num_prev_indices % k
+        if num_prev_indices % k == 0:
+            last_m_index -= 1
+        last_m_index *= k
+
+        for mm in range(0, m-1): # m parameter is inclusive of the current frame at hand
+            acq_cycle_index = prev_day_indices[last_m_index - 1 - (mm*k)] # jump by k
             for burst_id in burst_id_set:
                 ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index) #looks like t034_071112_iw3_461
                 logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
@@ -197,6 +210,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                 for ccslc in ccslcs:
                     c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
+        #asdfg
         # <------------------------- Compressed CSLC look up
 
         # Look up bounding box for frame
@@ -207,7 +221,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         logger.info(f"Submitting DISP-S1 SCIFLO job")
 
         save_compressed_slcs = False
-        if await determine_k_cycle(None, latest_acq_cycle_index, frame_id, self.disp_burst_map, k, args, token, cmr, settings) == 0:
+        if determine_k_cycle(None, latest_acq_cycle_index, frame_id, self.disp_burst_map, k, args, token, cmr, settings) == 0:
             save_compressed_slcs = True
         logger.info(f"{save_compressed_slcs=}")
 
@@ -269,7 +283,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         return all_downloads
 
-    async def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
+    def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
         cslc_query_args = copy.deepcopy(args)
 
         cmr = settings["DAAC_ENVIRONMENTS"][cslc_query_args.endpoint]["BASE_URL"]
@@ -293,11 +307,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         cmr_query = CslcStaticCmrQuery(cslc_query_args, token, es_conn, cmr, job_id, settings)
 
-        result = await cmr_query.run_query(cslc_query_args, token, es_conn, cmr, job_id, settings)
+        result = cmr_query.run_query(cslc_query_args, token, es_conn, cmr, job_id, settings)
 
         return result["download_granules"]
 
-    async def download_cslc_static_files_for_cslc_batch(self, cslc_static_granules, args, token,
+    def download_cslc_static_files_for_cslc_batch(self, cslc_static_granules, args, token,
                                                         netloc, username, password, job_id):
 
         session = SessionWithHeaderRedirection(username, password, netloc)

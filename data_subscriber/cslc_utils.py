@@ -1,9 +1,11 @@
 import json
 import re
 from collections import defaultdict
+import asyncio
 from datetime import datetime, timedelta
 import dateutil
 import boto3
+import logging
 
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 from util import datasets_json_util
@@ -32,11 +34,19 @@ def localize_anc_json(file):
     return file
 
 def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
-    localize_anc_json(file)
+    try:
+        localize_anc_json(file)
+    except:
+        logging.warning(f"Could not download {file} from S3. Attempting to use local copy.")
+
     return process_disp_frame_burst_hist(file)
 
 def localize_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
-    localize_anc_json(file)
+    try:
+        localize_anc_json(file)
+    except:
+        logging.warning(f"Could not download {file} from S3. Attempting to use local copy.")
+
     return process_frame_geo_json(file)
 
 def _calculate_sensing_time_day_index(sensing_time, first_frame_time):
@@ -121,7 +131,7 @@ def determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bur
 
     return day_index
 
-async def get_prev_day_indices(day_index, frame_number, frame_to_bursts, args, token, cmr, settings):
+def get_prev_day_indices(day_index, frame_number, frame_to_bursts, args, token, cmr, settings):
     '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
 
     frame = frame_to_bursts[frame_number]
@@ -135,7 +145,7 @@ async def get_prev_day_indices(day_index, frame_number, frame_to_bursts, args, t
     except ValueError:
         raise Exception("Currently non-historical processing mode is not supported for retrieving previous day indices.")
 
-async def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_bursts, k, args, token, cmr, settings):
+def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_bursts, k, args, token, cmr, settings):
     '''Return where in the k-cycle this acquisition falls for the frame_number
     Must specify either acquisition_dts or day_index.
     Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle'''
@@ -164,7 +174,7 @@ async def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_b
         args.native_id = native_id
 
         query_timerange = DateTimeRange(start_date, end_date)
-        granules = await async_query_cmr(args, token, cmr, settings, query_timerange, datetime.utcnow(), silent=True)
+        granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, datetime.utcnow(), silent=True))
         print(granules)
 
         #raise Exception("Currently non-historical processing mode is not supported for determining k-cycle.")

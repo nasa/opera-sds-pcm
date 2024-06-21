@@ -130,7 +130,7 @@ def test_frame_geo_map():
     assert frame_geo_map[10859] == [[-101.239536, 20.325197], [-100.942045, 21.860135], [-98.526059, 21.55014], [-98.845633, 20.021978], [-101.239536, 20.325197]]
 
 def test_frame_bounds():
-    """Test that the frame geo simple map is correctly constructed"""
+    """Test that the frame bounds is correctly computed and formatted"""
     frame_geo_map = cslc_utils.process_frame_geo_json()
     bounds = cslc_utils.get_bounding_box_for_frame(10859, frame_geo_map)
     assert bounds == [-101.239536, 20.021978, -98.526059, 21.860135]
