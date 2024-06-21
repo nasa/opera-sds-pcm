@@ -8,8 +8,7 @@ from datetime import datetime, timedelta
 
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
-                                        process_disp_frame_burst_hist, download_batch_id_forward_reproc,
-                                        download_batch_id_hist, split_download_batch_id)
+                                        process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
@@ -92,10 +91,7 @@ class CslcCmrQuery(CmrQuery):
         """For CSLC this is used to determine download_batch_id and attaching it the granule.
         Function extend_additional_records must have been called before this function."""
 
-        if self.proc_mode == "historical":
-            download_batch_id = download_batch_id_hist(args, granule)
-        else: # forward or reprocessing
-            download_batch_id = download_batch_id_forward_reproc(granule)
+        download_batch_id = download_batch_id_forward_reproc(granule)
 
         # Additional fields are lost after writing to ES so better to keep this in the granule
         granule["download_batch_id"] = download_batch_id

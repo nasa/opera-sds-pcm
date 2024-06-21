@@ -218,16 +218,6 @@ def build_cslc_static_native_ids(burst_ids):
     """
     return "OPERA_L2_CSLC-S1-STATIC_" + "*&native-id[]=OPERA_L2_CSLC-S1-STATIC_".join(burst_ids) + "*"
 
-def download_batch_id_hist(args, granule):
-    """For historical processing mode, download_batch_id is a function of start_date, end_date, and frame_range
-    Use underscore instead of other special characters and lower case so that it can be used in ES TERM search"""
-
-    download_batch_id = args.start_date + "_" + args.end_date
-    download_batch_id = download_batch_id + "_" + str(granule["frame_id"])
-    download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()
-
-    return download_batch_id
-
 def build_ccslc_m_index(burst_id, acquisition_cycle):
     return (burst_id + "_" + str(acquisition_cycle)).replace("-", "_").lower()
 def download_batch_id_forward_reproc(granule):
@@ -240,14 +230,9 @@ def download_batch_id_forward_reproc(granule):
 
 def split_download_batch_id(download_batch_id):
     """Split the download_batch_id into frame_id and acquisition_cycle
-    example: forward/reproc f7098_a145 -> 7098, 145
-             historical     2023_10_01t00_00_00z_2023_10_25t00_00_00z_3601 -> 3601, None"""
-    if download_batch_id.startswith("f"):
-        frame_id, acquisition_cycle = download_batch_id.split("_")
-        return int(frame_id[1:]), int(acquisition_cycle[1:])  # Remove the leading "f" and "a"
-    else:
-        frame_id = download_batch_id.split("_")[-1]
-        return int(frame_id), None
+    example: forward/reproc f7098_a145 -> 7098, 145"""
+    frame_id, acquisition_cycle = download_batch_id.split("_")
+    return int(frame_id[1:]), int(acquisition_cycle[1:])  # Remove the leading "f" and "a"
 
 def get_bounding_box_for_frame(frame_id, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
