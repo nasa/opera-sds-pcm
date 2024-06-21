@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import asyncio
 import json
 import logging
 import netrc
@@ -78,7 +77,7 @@ def do_delete_queue(args, authorization, job_queue):
         response = requests.delete(_rabbitmq_url+job_queue, auth=('hysdsops', password), verify=False)
         print(response.status_code)
 
-async def run_query(args, authorization):
+def run_query(args, authorization):
     """Run query several times over a date range specifying the start and stop dates"""
 
     # Open the scenario file and parse it. Get k from it and add as parameter.
@@ -109,7 +108,7 @@ async def run_query(args, authorization):
                                                   f"--start-date={start_date.isoformat()}Z",
                                                   f"--end-date={new_end_date.isoformat()}Z"]
 
-                await query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
+                query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
 
                 start_date = new_end_date
         else:
@@ -130,7 +129,7 @@ async def run_query(args, authorization):
                 current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
                                                   f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
 
-                await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
+                query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
                 start_date = new_end_date # To the next query time range
 
@@ -139,14 +138,14 @@ async def run_query(args, authorization):
             # Run one native id at a time
             for native_id in validation_data.keys():
                 current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
-                await query_and_validate(current_args, native_id, validation_data)
+                query_and_validate(current_args, native_id, validation_data)
         elif j["param_type"] == "date_range":
             # Run one date range at a time
             for date_range in validation_data.keys():
                 start_date = date_range.split(",")[0].strip()
                 end_date = date_range.split(",")[1].strip()
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
-                await query_and_validate(current_args, date_range, validation_data)
+                query_and_validate(current_args, date_range, validation_data)
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
@@ -156,16 +155,16 @@ async def run_query(args, authorization):
             current_args = query_arguments + [f"--frame-range={frame_range}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
-            await query_and_validate(current_args, frame_range, validation_data)
+            query_and_validate(current_args, frame_range, validation_data)
 
     do_delete_queue(args, authorization, job_queue[proc_mode])
 
-async def query_and_validate(current_args, test_range, validation_data=None):
+def query_and_validate(current_args, test_range, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
     c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
                                       cslc_utils.DISP_FRAME_BURST_MAP_HIST)
-    q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
+    q_result = c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
     q_result = q_result["download_granules"]
     print("+++++++++++++++++++++++++++++++++++++++++++++++")
     # for r in q_result:
@@ -224,7 +223,7 @@ with open('/export/home/hysdsops/.creds') as f:
             password = line.split()[2]
             break
 
-asyncio.run(run_query(args, ('hysdsops', password)))
+run_query(args, ('hysdsops', password))
 
 logging.info("If no assertion errors were raised, then the test passed.")
 logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")

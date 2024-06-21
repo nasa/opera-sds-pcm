@@ -111,10 +111,20 @@ class CslcCmrQuery(CmrQuery):
         return additional_fields
 
     def determine_download_granules(self, granules):
-        """Combine these new granules with existing unsubmitted granules to determine which granules to download.
-        This only applies to forward processing mode. Valid only in forward processing mode."""
+        """In forward processing mode combine these new granules with existing unsubmitted granules to determine
+        which granules to download. And also retrieve k granules.
+        In reprocessing, just retrieve the k granules."""
 
-        if self.proc_mode != "forward":
+        if self.proc_mode == "reprocessing":
+            if self.args.k > 1:
+                k_granules = self.retrieve_k_granules(granules, self.args, self.args.k - 1)
+                self.catalog_granules(k_granules, datetime.now())
+                logger.info(f"Length of K-granules: {len(k_granules)=}")
+                # print(f"{granules=}")
+                granules.extend(k_granules)
+            return granules
+
+        if self.proc_mode == "historical":
             return granules
 
         current_time = datetime.now()
@@ -185,18 +195,16 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     #print(batch_id, download_batch)
 
             if new_downloads:
-                # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
+
                 # And also add these downloads into the return download list
-                burst_id_set = set()
                 for download in download_batch.values():
-                    burst_id_set.add(download["burst_id"])
                     download_granules.append(download)
                     #print("**********************************************************", download["download_batch_id"])
 
                 # Retrieve K- granules and M- compressed CSLCs for this batch
                 if self.args.k > 1:
                     logger.info("Retrieving K frames worth of data from CMR")
-                    k_granules = self.retrieve_k_granules(frame_id, burst_id_set, self.args, self.args.k-1)
+                    k_granules = self.retrieve_k_granules(download_batch.values(), self.args, self.args.k-1)
                     self.catalog_granules(k_granules, current_time)
                     logger.info(f"Length of K-granules: {len(k_granules)=}")
                     #print(f"{granules=}")
@@ -211,12 +219,22 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return download_granules
 
-    def retrieve_k_granules(self, frame_id, burst_id_set, args, k_minus_one):
+    def retrieve_k_granules(self, downloads, args, k_minus_one):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the current frame
         Return all the granules that satisfy that'''
         k_granules = []
         k_satified = 0
         new_args = copy.deepcopy(args)
+
+        '''All download granules should have the same frame_id
+        All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
+        frame_id = downloads[0]["frame_id"]
+        acquisition_time = datetime.strptime(downloads[0]["acquisition_ts"], "%Y%m%dT%H%M%SZ")
+
+        # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
+        burst_id_set = set()
+        for download in downloads:
+            burst_id_set.add(download["burst_id"])
 
         # Move start and end date of new_args back and expand 5 days at both ends to capture all k granules
         shift_day_grouping = 12 * (k_minus_one * K_MULT_FACTOR) # Number of days by which to shift each iteration
@@ -225,8 +243,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
         while k_satified < k_minus_one:
             start_date_shift = timedelta(days=6 + counter * shift_day_grouping)
             end_date_shift = timedelta(days= 6 + (counter-1) * shift_day_grouping)
-            start_date = (datetime.strptime(new_args.start_date, CMR_TIME_FORMAT) - start_date_shift).strftime(CMR_TIME_FORMAT)
-            end_date_object = (datetime.strptime(new_args.end_date, CMR_TIME_FORMAT) - end_date_shift)
+            start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
+            end_date_object = (acquisition_time - end_date_shift)
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
 
             # Sanity check: If the end date object is earlier year 2016 then error out. We've exhaust data space.
@@ -242,8 +260,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
             query_timerange = DateTimeRange(start_date, end_date)
             logger.info(f"{query_timerange=}")
-            granules = self.query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange,
-                                            datetime.utcnow())
+            granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange,  datetime.utcnow()))
 
             if len(granules) == 0:
                 raise AssertionError(f"No more granules were found when looking for k-granules for {frame_id=}. {start_date=} {end_date=}")
@@ -263,7 +280,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
             burst_set_map = defaultdict(set)
             granules_map = defaultdict(list)
             for granule in granules:
-                burst_id, _, acquisition_cycle, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames)
+                burst_id, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
+                acquisition_cycle = acquisition_cycles[granule["frame_id"]]
                 burst_set_map[acquisition_cycle].add(burst_id)
                 granules_map[acquisition_cycle].append(granule)
 
@@ -298,9 +316,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         frame_id = min(frame_ids)  # In case of this burst belonging to two frames, pick the lower frame id
         acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")  # 20231006T183321Z
-        start_date = (acquisition_time - (local_args.k - 1) * timedelta(days=12) - timedelta(days=1)).strftime(
-            CMR_TIME_FORMAT)
-        end_date = (acquisition_time + timedelta(days=1)).strftime(CMR_TIME_FORMAT)
+        start_date = (acquisition_time - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        end_date = (acquisition_time + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
         logger.info(
             f"Querying CMR for all CSLC files that belong to the frame {frame_id}, derived from the native_id {native_id}")
@@ -314,13 +331,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
             _, _, _, f_ids_local = parse_cslc_native_id(g["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
             if frame_id not in f_ids_local:
                 granules.remove(g)
-
-        if self.args.k > 1:
-            k_granules = self.retrieve_k_granules(frame_id, burst_id_set, self.args, self.args.k - 1)
-            self.catalog_granules(k_granules, current_time)
-            logger.info(f"Length of K-granules: {len(k_granules)=}")
-            # print(f"{granules=}")
-            download_granules.extend(k_granules)
 
         self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
 
