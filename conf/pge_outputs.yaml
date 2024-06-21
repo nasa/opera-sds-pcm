@@ -168,3 +168,24 @@ L3_DISP_S1:
   Missing_Metadata: {
     # "daac_product_type": "OPERA_L3_DSWX_HLS_0.0"
   }
+L3_DSWx_NI:
+  Outputs:
+    Primary:
+      # Pattern for parsing output image filenames, such as:
+      # * "OPERA_L3_DSWx-NI_T11SLS_20110226T061749Z_20240329T181033Z_LSAR_30_v0.1_B01_WTR.tif"
+      # * "OPERA_L3_DSWx-NI_T11SLT_20110226T061749Z_20240329T181033Z_LSAR_30_v0.1_BROWSE.png"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>NI)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>LSAR)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
+        verify: true
+        hash: md5
+    Secondary:
+      # Patterns for parsing aux filenames, such as:
+      # * "OPERA_L3_DSWx-NI_20230317T190549Z_LSAR_30_v0.1.catalog.json"
+      # TODO: update once ancillary filename application is implemented
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>NI)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})))[.](?P<ext>log|qa\.log|catalog\.json)$'
+        verify: false
+    Optional: []
+      # Pattern for optional output product filenames
+
+  Missing_Metadata: {
+    # "daac_product_type": "OPERA_L3_DSWX_NI_0.0"
+  }
