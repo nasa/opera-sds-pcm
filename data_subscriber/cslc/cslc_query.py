@@ -204,7 +204,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 # Retrieve K- granules and M- compressed CSLCs for this batch
                 if self.args.k > 1:
                     logger.info("Retrieving K frames worth of data from CMR")
-                    k_granules = self.retrieve_k_granules(download_batch.values(), self.args, self.args.k-1)
+                    k_granules = self.retrieve_k_granules(list(download_batch.values()), self.args, self.args.k-1)
                     self.catalog_granules(k_granules, current_time)
                     logger.info(f"Length of K-granules: {len(k_granules)=}")
                     #print(f"{granules=}")
