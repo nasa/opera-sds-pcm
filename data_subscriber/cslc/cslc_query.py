@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
-                                        process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id)
+                                        process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id,
+                                        get_k_granules_from_cmr, parse_cslc_file_name)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
@@ -110,6 +111,9 @@ class CslcCmrQuery(CmrQuery):
         """In forward processing mode combine these new granules with existing unsubmitted granules to determine
         which granules to download. And also retrieve k granules.
         In reprocessing, just retrieve the k granules."""
+
+        if len(granules) == 0:
+            return []
 
         if self.proc_mode == "reprocessing":
             if self.args.k > 1:
@@ -225,7 +229,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
         '''All download granules should have the same frame_id
         All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
         frame_id = downloads[0]["frame_id"]
-        acquisition_time = datetime.strptime(downloads[0]["acquisition_ts"], "%Y%m%dT%H%M%SZ")
+        acquisition_time = downloads[0]["acquisition_ts"]
 
         # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
         burst_id_set = set()
@@ -242,6 +246,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
             end_date_object = (acquisition_time - end_date_shift)
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
+            query_timerange = DateTimeRange(start_date, end_date)
 
             # Sanity check: If the end date object is earlier year 2016 then error out. We've exhaust data space.
             if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_CSLC_DATE, CMR_TIME_FORMAT):
@@ -249,46 +254,27 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
             logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {frame_id=}")
 
-            # Add native-id condition in new_args
-            l, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map_hist)
-            new_args.native_id = native_id
-            logger.info(f"{new_args.native_id=}")
+            # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
+            _, granules_map = get_k_granules_from_cmr(query_timerange, frame_id, self.disp_burst_map_hist,
+                                                         args, self.token, self.cmr, self.settings, silent=False)
 
-            query_timerange = DateTimeRange(start_date, end_date)
-            logger.info(f"{query_timerange=}")
-            granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange,  datetime.utcnow()))
+            # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
+            acq_day_indices = sorted(granules_map.keys(), reverse=True)
+            for acq_day_index in acq_day_indices:
 
-            if len(granules) == 0:
-                raise AssertionError(f"No more granules were found when looking for k-granules for {frame_id=}. {start_date=} {end_date=}")
+                ''' This step is a bit tricky.
+                1. We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames.
+                2. We already know what frame these new granules belong to because that's what we queried for. 
+                    We need to force using that because 1/9 times one burst will belong to two frames.'''
+                granules = granules_map[acq_day_index]
+                self.extend_additional_records(granules ,no_duplicate=True, force_frame_id=frame_id)
+                granules = self.eliminate_duplicate_granules(granules)
 
-            # This step is a bit tricky.
-            # 1) We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames
-            # 2) We already know what frame these new granules belong to because that's what we queried for. We need to
-            #    force using that because 1/9 times one burst will belong to two frames
-            self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
-
-            granules = self.eliminate_duplicate_granules(granules)
-
-            # TODO: We can only use past frames which contain the exact same bursts as the current frame
-            # If not, we will need to go back another cycle until, as long as we have to, we find one that does
-
-            # Step 1 of 2 Organize granules by the acquisition cycle index and then...
-            burst_set_map = defaultdict(set)
-            granules_map = defaultdict(list)
-            for granule in granules:
-                burst_id, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
-                acquisition_cycle = acquisition_cycles[granule["frame_id"]]
-                burst_set_map[acquisition_cycle].add(burst_id)
-                granules_map[acquisition_cycle].append(granule)
-
-            # Step 2 of 2 ...find the acquisition cycles that contain all the bursts in the current frame, i.e. subset of burst_id_set
-            for acquisition_cycle, burst_set in burst_set_map.items():
-                if burst_id_set.issubset(burst_set):
-                    k_granules.extend(granules_map[acquisition_cycle])
-                    k_satified += 1
-                    logger.info(f"{acquisition_cycle=} satifies. {k_satified=} {k_minus_one=}")
-                    if k_satified == k_minus_one:
-                        break
+                k_granules.extend(granules)
+                k_satified += 1
+                logger.info(f"{acq_day_index=} satifies. {k_satified=} {k_minus_one=}")
+                if k_satified == k_minus_one:
+                    break
 
             counter += 1
 
@@ -301,7 +287,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
         # expand the native_id to include all bursts in the frame to which this granule belongs.
         # And then restrict by the acquisition date. Go back 12 days * (k -1) to cover the acquisition date range
         local_args.use_temporal = True
-        burst_id, acquisition_dts, _, frame_ids = parse_cslc_native_id(native_id, self.burst_to_frames, self.disp_burst_map_hist)
+        burst_id, acquisition_time, _, frame_ids = parse_cslc_native_id(native_id, self.burst_to_frames, self.disp_burst_map_hist)
 
         if len(frame_ids) == 0:
             logger.warning(f"{native_id=} is not found in the DISP-S1 Burst ID Database JSON. Nothing to process")
@@ -311,7 +297,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
         # Not sure if parse_cslc_native_id() should also perform that check or not
 
         frame_id = min(frame_ids)  # In case of this burst belonging to two frames, pick the lower frame id
-        acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")  # 20231006T183321Z
         start_date = (acquisition_time - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         end_date = (acquisition_time + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
@@ -387,16 +372,24 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         else:
             all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
+            all_granules = self.eliminate_none_frames(all_granules)
             self.extend_additional_records(all_granules)
 
         return all_granules
 
     def eliminate_duplicate_granules(self, granules):
         """For CSLC granules revision_id is always one. Instead, we correlate the granules by the unique_id
-        which is a function of download_batch_id and burst_id"""
+         which is a function of download_batch_id and burst_id
+
+         You must run extend_additional_records before calling this function because it requires granules to have
+         many properties that are added by that function."""
+
         granule_dict = {}
         for granule in granules:
+            granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
+            granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
             unique_id = granule["unique_id"]
+
             if unique_id in granule_dict:
                 if granule["granule_id"] > granule_dict[unique_id]["granule_id"]:
                     granule_dict[unique_id] = granule
@@ -405,6 +398,17 @@ since the first CSLC file for the batch was ingested which is greater than the g
         granules = list(granule_dict.values())
 
         return granules
+
+    def eliminate_none_frames(self, granules):
+        '''Get rid of frames that don't show up in the historical database json.'''
+
+        new_granules = []
+        for granule in granules:
+            burst_id, _ = parse_cslc_file_name(granule["granule_id"])
+            if burst_id in self.burst_to_frames:
+                new_granules.append(granule)
+
+        return new_granules
 
     def get_download_chunks(self, batch_id_to_urls_map):
         '''For CSLC chunks we must group them by frame id'''

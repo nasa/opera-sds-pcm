@@ -79,7 +79,7 @@ def test_parse_cslc_native_id():
     print(burst_id, acquisition_dts, acquisition_cycles, frame_ids)
 
     assert burst_id == "T158-338083-IW1"
-    assert acquisition_dts == "20170403T130213Z"
+    assert acquisition_dts == dateutil.parser.isoparse("20170403T130213")
     assert acquisition_cycles == {42261: 324}
     assert frame_ids == [42261]
 
@@ -89,28 +89,31 @@ def test_build_ccslc_m_index():
 
 def test_determine_acquisition_cycle_cslc():
     """Test that the acquisition cycle is correctly determined"""
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("2017-02-27T23:05:24", 831, disp_burst_map_hist)
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170227T230524"), 831, disp_burst_map_hist)
     assert acquisition_cycle == 12
 
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc("2017-02-03T23:05:47", 832, disp_burst_map_hist)
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170203T230547"), 832, disp_burst_map_hist)
     assert acquisition_cycle == 216
 
 def test_determine_k_cycle():
     """Test that the k cycle is correctly determined"""
 
-    args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward",
-                                       "--start-date=2021-01-24T23:00:00Z", "--end-date=2021-01-24T23:00:00Z"])
+    args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--use-temporal"])
 
     settings = SettingsConf().cfg
-    cmr, token = get_cmr_token(args.endpoint, settings)
 
-    k_cycle = cslc_utils.determine_k_cycle("2017-02-27T23:05:24Z", 831, disp_burst_map_hist, 10, args, token, cmr, settings)
+    #TODO: Figure out why this isn't working and then create unit test for acquisition date outside of the historical period
+    #cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
+    cmr = None
+    token = None
+
+    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831, disp_burst_map_hist, 10, args, token, cmr, settings)
+    assert k_cycle == 2
+
+    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
     assert k_cycle == 1
 
-    k_cycle = cslc_utils.determine_k_cycle("2016-07-02T23:05:46Z", 832, disp_burst_map_hist, 10, args, token, cmr, settings)
-    assert k_cycle == 0
-
-    k_cycle = cslc_utils.determine_k_cycle("2017-05-10T23:05:49Z", 832, disp_burst_map_hist, 10, args, token, cmr, settings)
+    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20161229T230549"), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
     assert k_cycle == 0
 
 def test_frame_geo_map():

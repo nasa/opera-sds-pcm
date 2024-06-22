@@ -15,6 +15,7 @@ logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.", required=False, default=False)
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
 server_parser = subparsers.add_parser("list", help="List all frame numbers")
@@ -46,16 +47,14 @@ args = parser.parse_args()
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
-def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k):
+def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
     subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
 
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
-    print(f'{subs_args=} \n {token=} \n {cmr=} \n {settings=}')
-
-    k_cycle: int = cslc_utils.determine_k_cycle(acquisition_dts, None, frame_id, disp_burst_map, k, subs_args, token, cmr, settings)
+    k_cycle: int = cslc_utils.determine_k_cycle(acquisition_dts, None, frame_id, disp_burst_map, k, subs_args, token, cmr, settings, silent = not verbose)
 
     return k_cycle
 
@@ -91,7 +90,7 @@ elif args.subparser_name == "native_id":
     if args.k:
         k = int(args.k)
 
-        k_cycle = get_k_cycle(acquisition_dts, frame_ids[0], disp_burst_map, k)
+        k_cycle = get_k_cycle(acquisition_dts, frame_ids[0], disp_burst_map, k, args.verbose)
         if (k_cycle >= 0):
             print(f"K-cycle: {k_cycle} out of {k}")
         else:

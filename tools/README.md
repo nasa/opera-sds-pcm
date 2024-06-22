@@ -56,3 +56,20 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+
+Examples: 
+
+    python tools/disp_s1_burst_db_tool.py frame 24733                                                                                    
+    Frame number:  24733
+    Burst ids (27): 
+    {'T093-197865-IW2', ... 'T093-197861-IW3'}
+    Sensing datetimes (196): 
+    ['2016-05-10T01:35:47', ... '2023-08-14T01:36:34', '2023-08-26T01:36:35', '2023-09-07T01:36:35']
+    Day indices:  [0, 12, 36, 60, 84, ...2616, 2628, 2640, 2652, 2664, 2676]
+    
+    python tools/disp_s1_burst_db_tool.py native_id OPERA_L2_CSLC-S1_T093-197858-IW3_20231118T013640Z_20231119T073552Z_S1A_VV_v1.0 --k=20
+    Burst id:  T093-197858-IW3
+    Acquisition datetime:  2023-11-18 01:36:40
+    Acquisition cycles:  {24733: 2748}
+    Frame ids:  [24733]
+    K-cycle: 2 out of 20
