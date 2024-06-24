@@ -119,19 +119,21 @@ def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
         cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.SLC:
         cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif product_type == ProductType.RTC:
-        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC:
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
+
+    # RTC is a special case in that it needs to run asynchronously
+    elif product_type == ProductType.RTC:
+        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+        result = asyncio.run(cmr_query.run_query(args, token, es_conn, cmr, job_id, settings))
+        return result
+
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
-    result = cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
-
-    return result
-
+    return cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
 
 def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
