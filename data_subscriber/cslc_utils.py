@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import dateutil
 import boto3
 import logging
+from functools import cache
 
 from util import datasets_json_util
 from util.conf_util import SettingsConf
@@ -36,6 +37,7 @@ def localize_anc_json(file):
 
     return file
 
+@cache
 def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     try:
         localize_anc_json(file)
@@ -44,6 +46,7 @@ def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
 
     return process_disp_frame_burst_hist(file)
 
+@cache
 def localize_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
     try:
         localize_anc_json(file)
@@ -75,6 +78,7 @@ def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_b
     frame = frame_to_bursts[frame_number]
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
+@cache
 def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
 
@@ -108,6 +112,7 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
 
+@cache
 def process_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
     '''Process the frame-geometries-simple.geojson file as dictionary used for determining frame bounding box'''
 
