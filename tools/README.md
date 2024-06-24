@@ -73,3 +73,17 @@ Examples:
     Acquisition cycles:  {24733: 2748}
     Frame ids:  [24733]
     K-cycle: 2 out of 20
+
+    python tools/disp_s1_burst_db_tool.py time_range 2016-05-01T00:00:00 2016-07-01T00:00:00
+    ...
+    Frame number:  46540
+	Sensing datetime:  2016-05-15T15:15:45
+	Burst ids (27):
+	 {'T174-372316-IW2', ...'T174-372314-IW1'}
+    Frame number:  46540
+	Sensing datetime:  2016-06-08T15:15:46
+	Burst ids (27):
+	 {'T174-372316-IW2', ... 'T174-372314-IW1'}
+
+    python tools/disp_s1_burst_db_tool.py time_range 2016-05-01T00:00:00 2016-07-01T00:00:00 | grep Sensing | wc -l
+    1669

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timedelta
 
@@ -11,11 +12,12 @@ _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
 @backoff.on_exception(backoff.expo, Exception, max_value=13, max_time=34)
-async def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True):
-    return await async_query_cmr(args, token, cmr, settings, query_timerange, now, silent)
+def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True):
+    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
+    return result
 
 
-async def run_survey(args, token, cmr, settings):
+def run_survey(args, token, cmr, settings):
 
     start_dt = datetime.strptime(args.start_date, _date_format_str)
     end_dt = datetime.strptime(args.end_date, _date_format_str)
@@ -45,7 +47,7 @@ async def run_survey(args, token, cmr, settings):
 
         query_timerange: DateTimeRange = get_query_timerange(args, now, silent=True)
 
-        granules = await _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True)
+        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True)
 
         count = 0
         for granule in granules:

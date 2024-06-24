@@ -51,6 +51,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         # All batches should have the same frame_id so we pick the first one
         frame_id, _ = split_download_batch_id(args.batch_ids[0])
 
+        # We need these info later when we query CMR which is needed for k-cycle determination, etc
+        # These are automatically set in query but not in download jobs
+        args.bbox = "-180,-90,180,90"
+        args.collection = Collection.CSLC_S1_V1
+        args.max_revision = 1000
         new_args = copy.deepcopy(args)
 
         for batch_id in args.batch_ids:

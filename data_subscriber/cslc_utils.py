@@ -52,7 +52,7 @@ def localize_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
 
     return process_frame_geo_json(file)
 
-def _calculate_sensing_time_day_index(sensing_time, first_frame_time):
+def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
 
     delta = sensing_time - first_frame_time
@@ -68,7 +68,7 @@ def _calculate_sensing_time_day_index(sensing_time, first_frame_time):
 
     return day_index, seconds
 
-def sensing_time_day_index(sensing_time, frame_number, frame_to_bursts):
+def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_bursts):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame AND
     seconds since the first sensing time of the frame'''
 
@@ -130,25 +130,37 @@ def parse_cslc_file_name(native_id):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
-def determine_acquisition_cycle_cslc(acquisition_dts, frame_number, frame_to_bursts):
+def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
 
-def get_prev_day_indices(day_index, frame_number, frame_to_bursts, args, token, cmr, settings):
+def get_prev_day_indices(day_index: int, frame_number: int, frame_to_bursts, args, token, cmr, settings):
     '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
+
+    if frame_number not in frame_to_bursts:
+        raise Exception(f"Frame number {frame_number} not found in the historical database. \
+OPERA does not process this frame for DISP-S1.")
 
     frame = frame_to_bursts[frame_number]
 
-    # If the day index is within the historical database it's much simpler
-    # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
-    try:
-        # array.index returns 0-based index so add 1
-        current_index = frame.sensing_datetime_days_index.index(day_index)
-        return frame.sensing_datetime_days_index[:current_index]
-    except ValueError:
-        raise Exception("Currently non-historical processing mode is not supported for retrieving previous day indices.")
-def get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts, args, token, cmr, settings, silent = False):
+    if day_index <= frame.sensing_datetime_days_index[-1]:
+        # If the day index is within the historical database, simply return from the database
+        # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
+        list_index = frame.sensing_datetime_days_index.index(day_index)
+        return frame.sensing_datetime_days_index[:list_index]
+    else:
+        # If not, we must query CMR and then append that to the database values
+        start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30)
+        days_delta = day_index - frame.sensing_datetime_days_index[-1]
+        end_date = start_date + timedelta(days=days_delta) - 1 # We don't want the current day index in this
+        query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
+        acq_index_to_bursts, _ = get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts,
+                                                           args, token, cmr, settings)
+        all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
+        logger.info(f"All previous day indices: {all_prev_indices}")
+        return all_prev_indices
+def get_k_granules_from_cmr(query_timerange, frame_number: int, frame_to_bursts, args, token, cmr, settings, silent = False):
     '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
     1. acq_index_to_bursts: day index to set of burst ids
     2. acq_index_to_granules: day index to list of granules that match the burst
@@ -183,7 +195,7 @@ def get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts, args
 
     return acq_index_to_bursts, acq_index_to_granules
 
-def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_bursts, k, args, token, cmr, settings, silent = False):
+def determine_k_cycle(acquisition_dts: datetime, day_index: int, frame_number: int, frame_to_bursts, k, args, token, cmr, settings, silent = False):
     '''Return where in the k-cycle this acquisition falls for the frame_number
     Must specify either acquisition_dts or day_index.
     Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle
@@ -205,9 +217,14 @@ def determine_k_cycle(acquisition_dts, day_index, frame_number, frame_to_bursts,
         # If not, we have to query CMR for all records after the historical database, filter out ones that don't match the burst pattern,
         # and then determine the k-cycle index
         start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30) # Make sure we are not counting this last sensing time cycle
-        end_date = acquisition_dts.strftime(CMR_TIME_FORMAT)
 
-        query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date)
+        if acquisition_dts is None:
+            days_delta = day_index - frame.sensing_datetime_days_index[-1]
+            end_date = start_date + timedelta(days=days_delta)
+        else:
+            end_date = acquisition_dts
+
+        query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
         acq_index_to_bursts, _ = get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts,
                                                          args, token, cmr, settings, silent)
 
@@ -267,7 +284,7 @@ def split_download_batch_id(download_batch_id):
     frame_id, acquisition_cycle = download_batch_id.split("_")
     return int(frame_id[1:]), int(acquisition_cycle[1:])  # Remove the leading "f" and "a"
 
-def get_bounding_box_for_frame(frame_id, frame_geo_map):
+def get_bounding_box_for_frame(frame_id: int, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
     coords = frame_geo_map[frame_id]
