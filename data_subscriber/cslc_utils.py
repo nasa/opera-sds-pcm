@@ -158,7 +158,7 @@ OPERA does not process this frame for DISP-S1.")
         # If not, we must query CMR and then append that to the database values
         start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30)
         days_delta = day_index - frame.sensing_datetime_days_index[-1]
-        end_date = start_date + timedelta(days=days_delta) - 1 # We don't want the current day index in this
+        end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
         query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
         acq_index_to_bursts, _ = get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts,
                                                            args, token, cmr, settings)
