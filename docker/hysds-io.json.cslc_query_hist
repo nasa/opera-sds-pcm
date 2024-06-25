@@ -119,9 +119,9 @@
       "optional": true
     },
     {
-      "name": "frame_range",
+      "name": "frame_id",
       "from": "submitter",
-      "placeholder": "e.g. --frame_range",
+      "placeholder": "e.g. --frame-id",
       "optional": true
     },
     {

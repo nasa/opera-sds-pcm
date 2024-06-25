@@ -37,8 +37,8 @@ class CslcCmrQuery(CmrQuery):
     def validate_args(self):
 
         if self.proc_mode == "historical":
-            if self.args.frame_range is None:
-                raise AssertionError("Historical mode requires frame range to be specified.")
+            if self.args.frame_id is None:
+                raise AssertionError("Historical mode requires frame id to be specified.")
 
         if self.proc_mode == "reprocessing":
             if self.args.native_id is None and self.args.start_date is None and self.args.end_date is None:
@@ -318,17 +318,21 @@ since the first CSLC file for the batch was ingested which is greater than the g
         return granules
 
     def query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange):
+
+        frame_id = int(self.args.frame_id)
+        if frame_id not in self.disp_burst_map_hist:
+            raise Exception(f"Frame number {frame_id} not found in the historical database. \
+        OPERA does not process this frame for DISP-S1.")
+
         new_args = copy.deepcopy(args)
         all_granules = []
-        frame_start, frame_end = self.args.frame_range.split(",")
-        for frame in range(int(frame_start), int(frame_end) + 1):
-            count, native_id = build_cslc_native_ids(frame, self.disp_burst_map_hist)
-            if count == 0:
-                continue
-            new_args.native_id = native_id
-            new_granules = asyncio.run(async_query_cmr(new_args, token, cmr, settings, timerange, now))
-            self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame)
-            all_granules.extend(new_granules)
+        count, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map_hist)
+        if count == 0:
+            return all_granules
+        new_args.native_id = native_id
+        new_granules = asyncio.run(async_query_cmr(new_args, token, cmr, settings, timerange, now))
+        self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame_id)
+        all_granules.extend(new_granules)
 
         return all_granules
 
@@ -346,7 +350,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 all_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, args.native_id)
 
             # Query by frame range and date range. Both must exist.
-            elif self.args.frame_range is not None and args.start_date is not None and args.end_date is not None:
+            elif self.args.frame_id is not None and args.start_date is not None and args.end_date is not None:
                 all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
 
             # Reprocessing by date range is a two-step process:

@@ -13,6 +13,7 @@ from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc import cslc_query
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber.parser import create_parser
+from data_subscriber.cslc_utils import  localize_disp_frame_burst_hist
 from util.conf_util import SettingsConf
 
 DT_FORMAT = CMR_TIME_FORMAT
@@ -149,13 +150,13 @@ def run_query(args, authorization):
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
-        data_start_date = j["data_start_date"]
-        data_end_date = (datetime.strptime(data_start_date, DT_FORMAT) + timedelta(days=cslc_k * 12)).isoformat() + "Z"
-        for frame_range in validation_data.keys():
-            current_args = query_arguments + [f"--frame-range={frame_range}", f"--job-queue={job_queue[proc_mode]}",
+        data_start_date = j["date_range"].split(",")[0].strip()
+        data_end_date = j["date_range"].split(",")[1].strip()
+        for frame_id in validation_data.keys():
+            current_args = query_arguments + [f"--frame-id={frame_id}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
-            query_and_validate(current_args, frame_range, validation_data)
+            query_and_validate(current_args, frame_id, validation_data)
 
     do_delete_queue(args, authorization, job_queue[proc_mode])
 
@@ -222,6 +223,8 @@ with open('/export/home/hysdsops/.creds') as f:
         if "rabbitmq-admin" in line:
             password = line.split()[2]
             break
+
+localize_disp_frame_burst_hist()
 
 run_query(args, ('hysdsops', password))
 
