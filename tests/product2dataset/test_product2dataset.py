@@ -7,6 +7,7 @@ def test_decorate_compressed_cslc():
     dataset_met_json = {
         "id": "OPERA_L2_CSLC-S1_T093-197858-IW3_20231118T013640Z_20231119T073552Z_S1A_VV_v1.0",
         "frame_id": 24733,
+        "acquisition_cycle": 2748,
         "Files": [
             {
                 "burst_id": "T093-197858-IW3",

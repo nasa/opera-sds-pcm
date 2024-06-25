@@ -80,7 +80,7 @@ def test_parse_cslc_native_id():
 
     assert burst_id == "T158-338083-IW1"
     assert acquisition_dts == dateutil.parser.isoparse("20170403T130213")
-    assert acquisition_cycles == {42261: 324}
+    assert acquisition_cycles == {42261: 276}
     assert frame_ids == [42261]
 
 def test_build_ccslc_m_index():
