@@ -45,6 +45,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         c_cslc_s3paths = []
         cslc_static_s3paths = []
         ionosphere_s3paths = []
+        to_mark_downloaded = []
         latest_acq_cycle_index = 0
         burst_id_set = set()
 
@@ -113,13 +114,13 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                 cslc_products_to_filepaths = {} # Dummy when trying to delete files later in this function
 
-            # Mark the CSLC files as downloaded in the CSLC ES with the file size
+            # Create list of CSLC files marked as downloaded, this will be used as the very last step in this function
             # While at it also build up burst_id set for compressed CSLC query
             for granule_id, file_size in granule_sizes:
                 native_id = granule_id.split(".h5")[0] # remove file extension and revision id
                 burst_id, _, _, _ = parse_cslc_native_id(native_id, self.burst_to_frames, self.disp_burst_map)
                 unique_id = cslc_unique_id(batch_id, burst_id)
-                es_conn.mark_product_as_downloaded(unique_id, job_id, filesize=file_size)
+                to_mark_downloaded.append((unique_id, file_size))
                 burst_id_set.add(burst_id)
 
             logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
@@ -238,6 +239,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     "id": product_id,
                     "bounding_box": bounding_box,
                     "save_compressed_slcs": save_compressed_slcs,
+                    "acquisition_cycle": latest_acq_cycle_index,
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,
@@ -258,7 +260,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         if "proc_mode" in args and args.proc_mode == "historical":
             proc_mode_suffix = "_hist"
 
-        return try_submit_mozart_job(
+        submitted =  try_submit_mozart_job(
             product=product,
             job_queue=f'opera-job_worker-sciflo-l3_disp_s1{proc_mode_suffix}',
             rule_name=f'trigger-SCIFLO_L3_DISP_S1{proc_mode_suffix}',
@@ -267,6 +269,22 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
             job_name=f'job-WF-SCIFLO_L3_DISP_S1{proc_mode_suffix}'
         )
+
+        # Mark the CSLC files as downloaded in the CSLC ES with the file size only after SCIFLO job has been submitted
+        for unique_id, file_size in to_mark_downloaded:
+            es_conn.mark_product_as_downloaded(unique_id, job_id, filesize=file_size)
+
+        return submitted
+
+    def get_downloads(self, args, es_conn):
+        # For CSLC download, the batch_ids are globally unique so there's no need to query for dates
+        all_downloads = []
+        for batch_id in args.batch_ids:
+            downloads = es_conn.get_download_granule_revision(batch_id)
+            logger.info(f"Got {len(downloads)=} downloads for {batch_id=}")
+            all_downloads.extend(downloads)
+
+        return all_downloads
 
     def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
         cslc_query_args = copy.deepcopy(args)

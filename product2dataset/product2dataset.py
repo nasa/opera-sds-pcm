@@ -213,9 +213,9 @@ def convert(
 
             # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
             # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
-            # There should only be one file in the dataset, so we can just grab the first one
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
                 decorate_compressed_cslc(dataset_met_json)
+                
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
@@ -397,19 +397,10 @@ def search_for_met_json_file(datasets_parent_dir):
     return glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True)
 
 def decorate_compressed_cslc(dataset_met_json):
-
-    # This is cached so we can call it many times in a loop without an issue
-    frame_to_bursts, _, _ = localize_disp_frame_burst_hist()
-
-    ccslc_file = dataset_met_json["Files"][0]
-
-    # last_date_time looks like this: "2024-04-18T00:00:00.000000Z"
-    acquisition_cycle = determine_acquisition_cycle_cslc(
-        datetime.strptime(ccslc_file["last_date_time"], "%Y-%m-%dT%H:%M:%S.%fZ")
-        , dataset_met_json["frame_id"], frame_to_bursts)
+    ccslc_file = dataset_met_json["Files"][0] # There should only be one file in the dataset, so we can just grab the first one
     dataset_met_json["burst_id"] = ccslc_file["burst_id"]
-    dataset_met_json["acquisition_cycle"] = acquisition_cycle
-    dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
+    dataset_met_json["acquisition_cycle"] = ccslc_file["acquisition_cycle"]
+    dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(ccslc_file["acquisition_cycle"]))
 
 def main():
     """
