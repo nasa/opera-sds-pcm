@@ -75,6 +75,19 @@ def main(
 
         es_docs = unsubmitted_docs + submitted_but_incomplete_docs
 
+        grouped_es_docs = defaultdict(list)
+        for es_doc in es_docs:
+            grouped_es_docs[es_doc["_source"]["mgrs_set_id_acquisition_ts_cycle_index"]].append(es_doc)
+
+        es_docs = []
+        for mgrs_set_id_acquisition_ts_cycle_index, burst_set in grouped_es_docs.items():
+            # collect burst sets that have at least 1 new burst since last processed
+            if any({
+                not burst["_source"].get("downloaded")
+                for burst in burst_set
+            }):
+                es_docs.extend(burst_set)
+
     evaluator_results = {
         "coverage_target": coverage_target,
         "mgrs_sets": defaultdict(list)
