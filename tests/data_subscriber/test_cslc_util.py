@@ -152,6 +152,14 @@ def test_get_prev_day_indices():
      2376, 2388, 2412, 2424, 2436, 2448, 2460, 2472, 2484, 2496, 2508, 2520, 2532, 2544, 2556, 2568, 2580, 2592, 2604, 
      2616, 2628, 2640, 2652, 2664, 2676, 2736, 2724, 2712, 2700]'''
 
+def test_get_dependent_ccslc_index():
+    prev_day_indices = [0, 24, 48, 72]
+    assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
+    assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
+    prev_day_indices = [0, 24, 48, 72, 96]
+    assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
+    assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
+
 def test_frame_geo_map():
     """Test that the frame geo simple map is correctly constructed"""
     frame_geo_map = cslc_utils.process_frame_geo_json()

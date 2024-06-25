@@ -21,7 +21,7 @@ from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
-                                        get_bounding_box_for_frame, parse_cslc_native_id, build_ccslc_m_index,
+                                        get_bounding_box_for_frame, parse_cslc_native_id, get_dependent_ccslc_index,
                                         localize_frame_geo_json)
 
 logger = logging.getLogger(__name__)
@@ -185,24 +185,14 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         logger.info(f"{k=}, {m=}")
 
         ''' Search for all previous M compressed CSLCs
-        Indices are overloaded term here:
-        1. prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of 
+        prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of 
                             the latest acq cycle index
-        2. last_m_index: The index of the last M compressed CSLC, index into prev_day_indices
-        3. acq_cycle_index: The index of the acq cycle, index into disp_burst_map
         '''
-
         prev_day_indices = get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
-        num_prev_indices = len(prev_day_indices)
-        last_m_index = num_prev_indices % k
-        if num_prev_indices % k == 0:
-            last_m_index -= 1
-        last_m_index *= k
 
         for mm in range(0, m-1): # m parameter is inclusive of the current frame at hand
-            acq_cycle_index = prev_day_indices[last_m_index - 1 - (mm*k)] # jump by k
             for burst_id in burst_id_set:
-                ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index) #looks like t034_071112_iw3_461
+                ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id) #looks like t034_071112_iw3_461
                 logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
                 ccslcs = es_conn.es.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
@@ -277,16 +267,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
             job_name=f'job-WF-SCIFLO_L3_DISP_S1{proc_mode_suffix}'
         )
-
-    def get_downloads(self, args, es_conn):
-        # For CSLC download, the batch_ids are globally unique so there's no need to query for dates
-        all_downloads = []
-        for batch_id in args.batch_ids:
-            downloads = es_conn.get_download_granule_revision(batch_id)
-            logger.info(f"Got {len(downloads)=} downloads for {batch_id=}")
-            all_downloads.extend(downloads)
-
-        return all_downloads
 
     def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
         cslc_query_args = copy.deepcopy(args)

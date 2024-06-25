@@ -238,6 +238,19 @@ def determine_k_cycle(acquisition_dts: datetime, day_index: int, frame_number: i
         logger.info(f"{len(frame.sensing_datetime_days_index)} day indices already in historical database.")
         index_number = len(frame.sensing_datetime_days_index) + len(acq_index_to_bursts.keys()) + 1
         return index_number % k
+
+def get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id):
+    '''last_m_index: The index of the last M compressed CSLC, index into prev_day_indices
+       acq_cycle_index: The index of the acq cycle, index into disp_burst_map'''
+    num_prev_indices = len(prev_day_indices)
+    last_m_index = num_prev_indices // k
+    last_m_index *= k
+
+    acq_cycle_index = prev_day_indices[last_m_index - 1 - (mm * k)]  # jump by k
+    ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index)  # looks like t034_071112_iw3_461
+
+    return ccslc_m_index
+
 def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 
     burst_id, acquisition_dts = parse_cslc_file_name(native_id)

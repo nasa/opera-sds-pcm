@@ -43,15 +43,15 @@ def test_reprocessing_by_native_id(caplog):
 def test_historical_query(caplog):
     ''' Tests historical query commands and high-level processing when specifying a frame range'''
     hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--k=4", "--m=4",
-                      "--start-date=2022-07-18T13:02:00Z", "--end-date=2022-07-19T13:01:53Z", "--frame-range=44044,44045"]
+                      "--start-date=2022-07-18T13:02:00Z", "--end-date=2022-07-19T13:01:53Z", "--frame-id=44044åå"]
     args = create_parser().parse_args(hist_arguments)
     query_timerange = DateTimeRange(args.start_date, args.end_date)
     c_query = cslc_query.CslcCmrQuery(args, None, None, None, None,
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60}, cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
     # TODO: figure out how to test the query_cmr method
-    #await c_query.query_cmr(args, None, None, None, query_timerange, datetime.utcnow())
-    #assert ("native_id='OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0' is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
+    #await c_query.query_cmr(args, None, None, None, query_timerange, datetime.utcnow())å
+    #assert ("native_id='OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0å' is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
     #        in caplog.text)
 
 @pytest.mark.skip
