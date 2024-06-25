@@ -267,7 +267,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             params=self.create_job_params(product),
             job_spec=f'job-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-SCIFLO_L3_DISP_S1{proc_mode_suffix}'
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}'
         )
 
         # Mark the CSLC files as downloaded in the CSLC ES with the file size only after SCIFLO job has been submitted

@@ -19,6 +19,7 @@ from data_subscriber.geojson_utils import (localize_include_exclude,
                                            download_from_s3)
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
+from data_subscriber.cslc_utils import split_download_batch_id
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
@@ -250,10 +251,19 @@ class CmrQuery:
             logger.info(f"{payload_hash=}")
             logger.debug(f"{chunk_urls=}")
 
+            product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
+                frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
+                acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
+                job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
+            else:
+                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+
             download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
-                    product_type=COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection],
+                    product_type=product_type,
                     params=self.create_download_job_params(query_timerange, chunk_batch_ids),
                     job_queue=self.args.job_queue,
+                    job_name = job_name,
                     payload_hash = payload_hash
                 )
 
@@ -325,8 +335,8 @@ class CmrQuery:
 
 
 def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]],
-                        job_queue: str, payload_hash = None) -> str:
-    job_spec_str = f"job-{product_type.lower()}_download:{release_version}"
+                        job_queue: str, job_name = None, payload_hash = None) -> str:
+    job_spec_str = f"job-{product_type}_download:{release_version}"
 
     return _submit_mozart_job_minimal(
         hysdsio={
@@ -335,12 +345,17 @@ def submit_download_job(*, release_version=None, product_type: str, params: list
             "job-specification": job_spec_str
         },
         job_queue=job_queue,
-        provider_str=product_type.lower(),
+        provider_str=product_type,
+        job_name=job_name,
         payload_hash = payload_hash
     )
 
 
-def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str, payload_hash = None) -> str:
+def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str, job_name = None, payload_hash = None) -> str:
+
+    if not job_name:
+        job_name = f"job-WF-{provider_str}_download"
+
     return submit_mozart_job(
         hysdsio=hysdsio,
         product={},
@@ -352,7 +367,7 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
             "enable_dedup": True
         },
         queue=None,
-        job_name=f"job-WF-{provider_str}_download",
+        job_name=job_name,
         payload_hash=payload_hash,
         enable_dedup=None,
         soft_time_limit=None,
