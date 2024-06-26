@@ -219,7 +219,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return download_granules
 
-    def retrieve_k_granules(self, downloads, args, k_minus_one):
+    def retrieve_k_granules(self, downloads, args, k_minus_one, VV_only = True):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the current frame
         Return all the granules that satisfy that'''
         k_granules = []
@@ -256,7 +256,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
             _, granules_map = get_k_granules_from_cmr(query_timerange, frame_id, self.disp_burst_map_hist,
-                                                         args, self.token, self.cmr, self.settings, silent=False)
+                                                         args, self.token, self.cmr, self.settings, VV_only, silent=False)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
@@ -378,6 +378,10 @@ since the first CSLC file for the batch was ingested which is greater than the g
             all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
             all_granules = self.eliminate_none_frames(all_granules)
             self.extend_additional_records(all_granules)
+
+        # Get rid of any granules that don't have the VV polarization
+        # TODO: at some point we will change the code so that we can process HH polarization too
+        all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]]
 
         return all_granules
 

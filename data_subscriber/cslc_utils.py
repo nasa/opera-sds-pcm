@@ -140,7 +140,7 @@ def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: in
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
 
-def get_prev_day_indices(day_index: int, frame_number: int, frame_to_bursts, args, token, cmr, settings):
+def get_prev_day_indices(day_index: int, frame_number: int, frame_to_bursts, args, token, cmr, settings, VV_only = True):
     '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
 
     if frame_number not in frame_to_bursts:
@@ -161,11 +161,11 @@ OPERA does not process this frame for DISP-S1.")
         end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
         query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
         acq_index_to_bursts, _ = get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts,
-                                                           args, token, cmr, settings)
+                                                           args, token, cmr, settings, VV_only)
         all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
         logger.info(f"All previous day indices: {all_prev_indices}")
         return all_prev_indices
-def get_k_granules_from_cmr(query_timerange, frame_number: int, frame_to_bursts, args, token, cmr, settings, silent = False):
+def get_k_granules_from_cmr(query_timerange, frame_number: int, frame_to_bursts, args, token, cmr, settings, VV_only = True, silent = False):
     '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
     1. acq_index_to_bursts: day index to set of burst ids
     2. acq_index_to_granules: day index to list of granules that match the burst
@@ -183,6 +183,9 @@ def get_k_granules_from_cmr(query_timerange, frame_number: int, frame_to_bursts,
     granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, datetime.utcnow(), silent))
 
     for granule in granules:
+        if VV_only and "_VV_" not in granule["granule_id"]:
+            logger.info(f"Skipping granule {granule['granule_id']} because it doesn't have VV polarization")
+            continue
         burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
         acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
         g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, frame_to_bursts)
@@ -200,7 +203,7 @@ def get_k_granules_from_cmr(query_timerange, frame_number: int, frame_to_bursts,
 
     return acq_index_to_bursts, acq_index_to_granules
 
-def determine_k_cycle(acquisition_dts: datetime, day_index: int, frame_number: int, frame_to_bursts, k, args, token, cmr, settings, silent = False):
+def determine_k_cycle(acquisition_dts: datetime, day_index: int, frame_number: int, frame_to_bursts, k, args, token, cmr, settings, VV_only = True, silent = False):
     '''Return where in the k-cycle this acquisition falls for the frame_number
     Must specify either acquisition_dts or day_index.
     Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle
@@ -231,7 +234,7 @@ def determine_k_cycle(acquisition_dts: datetime, day_index: int, frame_number: i
 
         query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
         acq_index_to_bursts, _ = get_k_granules_from_cmr(query_timerange, frame_number, frame_to_bursts,
-                                                         args, token, cmr, settings, silent)
+                                                         args, token, cmr, settings, VV_only, silent)
 
         # The k-index is then the complete index number (historical + post historical) mod k
         logger.info(f"{len(acq_index_to_bursts.keys())} day indices since historical that match the burst pattern: {acq_index_to_bursts.keys()}")
