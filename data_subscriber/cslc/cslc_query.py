@@ -342,6 +342,11 @@ since the first CSLC file for the batch was ingested which is greater than the g
         if self.proc_mode == "historical":
             all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
 
+            # Get rid of any granules that aren't in the historical database sensing_datetime_days_index
+            frame_id = int(self.args.frame_id)
+            all_granules = [granule for granule in all_granules
+                            if granule["acquisition_cycle"] in self.disp_burst_map_hist[frame_id].sensing_datetime_days_index]
+
         # Reprocessing can be done by specifying either a native_id or a date range
         # native_id search takes precedence over date range if both are specified
         elif self.proc_mode == "reprocessing":

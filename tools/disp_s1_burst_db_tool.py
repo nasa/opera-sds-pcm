@@ -45,7 +45,7 @@ server_parser = subparsers.add_parser("simulate", help="Simulate a historical pr
 
 args = parser.parse_args()
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
