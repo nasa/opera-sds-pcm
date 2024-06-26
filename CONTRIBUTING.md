@@ -4,13 +4,25 @@
 
 >All example commands should be executed from the project root directory unless indicated otherwise.
 
+### Prerequisites
+
+1. Git.
+2. Python (see `.python-version`).
+3. A clone of the `opera-sds-pcm` repo.
+
+### Setup
+
+1. Create a python virtual environment named `venv`.
+    1. RECOMMENDED: move `pip.conf` into the resulting `venv/` directory.
+2. Activate the virtual environment and install dependencies listed in the relevant section of `setup.py` using a command like the following `pip install -e '.[test]'`
+
 ## Running Tests
 
 To run the tests:
 
 Install test dependencies
 ```shell
-pip install '.[test]'
+pip install -e '.[test]'
 ```
 
 Run unit tests
