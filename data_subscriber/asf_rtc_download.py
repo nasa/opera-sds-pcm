@@ -4,23 +4,13 @@ import os
 from collections import defaultdict
 from pathlib import PurePath, Path
 
-import backoff
-import requests
 import requests.utils
-from requests.exceptions import HTTPError
 
 from data_subscriber.download import DaacDownload
-from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+from data_subscriber.catalog import ProductCatalog
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 
 logger = logging.getLogger(__name__)
-
-def giveup_asf_daac_credentials_requests(e):
-    """giveup function for use with @backoff decorator when issuing DAAC requests using blocking `requests` functions."""
-    if isinstance(e, HTTPError):
-        if e.response.status_code == 502:  # Bad Gateway. transient error when getting s3credentials
-            return False
-    return False
 
 
 class AsfDaacRtcDownload(DaacDownload):
@@ -32,7 +22,7 @@ class AsfDaacRtcDownload(DaacDownload):
     def perform_download(
         self,
         session: requests.Session,
-        es_conn: RTCProductCatalog,
+        es_conn: ProductCatalog,
         downloads: list[dict],
         args,
         token,
