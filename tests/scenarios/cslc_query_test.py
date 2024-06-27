@@ -205,10 +205,10 @@ args = parser.parse_args()
 
 # Clear the elasticsearch index if clear argument is passed
 if args.clear:
-    for index in es_conn.es.es.indices.get_alias(index="*").keys():
+    for index in es_conn.es_util.es.indices.get_alias(index="*").keys():
         if "cslc_catalog" in index:
             logging.info("Deleting index: " + index)
-            es_conn.es.es.indices.delete(index=index, ignore=[400, 404])
+            es_conn.es_util.es.indices.delete(index=index, ignore=[400, 404])
 
 test_start_time = datetime.now()
 

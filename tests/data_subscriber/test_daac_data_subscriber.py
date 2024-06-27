@@ -1,9 +1,10 @@
 import random
+import sys
 from datetime import datetime
 from pathlib import Path
-import smart_open
-import sys
+
 import pytest
+import smart_open
 
 try:
     import unittest.mock as umock
@@ -13,13 +14,9 @@ sys.modules["hysds.celery"] = umock.MagicMock()
 from mock import MagicMock
 
 from data_subscriber import daac_data_subscriber, download, query, cmr
-from data_subscriber.hls_spatial import hls_spatial_catalog_connection
-from data_subscriber.slc_spatial import slc_spatial_catalog_connection
 from data_subscriber.download import DaacDownload
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from product2dataset import product2dataset
-from data_subscriber.hls.hls_catalog import HLSProductCatalog
-
 
 
 def setup_module():
@@ -577,51 +574,6 @@ def mock_token(*args):
 
 
 def patch_subscriber(monkeypatch):
-    monkeypatch.setattr(
-        daac_data_subscriber,
-        daac_data_subscriber.get_hls_catalog_connection.__name__,
-            MagicMock(
-                return_value=MagicMock(
-                get_all_between=MagicMock(
-                    return_value=[
-                        {
-                            "https_url": "https://example.com/T00000.B01.tif",
-                            "s3_url": "s3://example/T00000.B01.tif"
-                        },
-                        {
-                            "https_url": "https://example.com/T00001.B01.tif",
-                            "s3_url": "s3://example/T00001.B01.tif"
-                        },
-                        {
-                            "https_url": "https://example.com/T00001.B02.tif",
-                            "s3_url": "s3://example/T00001.B02.tif"
-                        },
-                        {
-                            "https_url": "https://example.com/T00002.B01.tif",
-                            "s3_url": "s3://example/T00002.B01.tif"
-                        },
-                        {
-                            "https_url": "https://example.com/T00003.B01.tif",
-                        }
-                    ]
-                )
-            )
-        )
-    )
-    monkeypatch.setattr(
-        hls_spatial_catalog_connection,
-        hls_spatial_catalog_connection.get_hls_spatial_catalog_connection.__name__,
-        MagicMock(
-            return_value=MagicMock(process_granule=MagicMock())
-        )
-    )
-    monkeypatch.setattr(
-        slc_spatial_catalog_connection,
-        slc_spatial_catalog_connection.get_slc_spatial_catalog_connection.__name__,
-        MagicMock(
-            return_value=MagicMock(process_granule=MagicMock())
-        )
-    )
     monkeypatch.setattr(
         daac_data_subscriber.netrc,
         daac_data_subscriber.netrc.netrc.__name__,
