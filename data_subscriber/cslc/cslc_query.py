@@ -347,6 +347,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             all_granules = [granule for granule in all_granules
                             if granule["acquisition_cycle"] in self.disp_burst_map_hist[frame_id].sensing_datetime_days_index]
 
+        # TODO: How do we handle partial frames when querying by date? Make them all whole or only process the full frames?
         # Reprocessing can be done by specifying either a native_id or a date range
         # native_id search takes precedence over date range if both are specified
         elif self.proc_mode == "reprocessing":
