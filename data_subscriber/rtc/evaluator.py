@@ -149,7 +149,7 @@ def main(
                     number_of_bursts = len(product_burstset)
                     logger.info(f"{mgrs_set_id=}, {number_of_bursts=}, {min_num_bursts=}")
                     if number_of_bursts < min_num_bursts:
-                        logger.info(f"Burst set {mgrs_set_id=} does not meet {min_num_bursts=}. Will not process at this time.")
+                        logger.info(f"Burst set {mgrs_set_id=} does not meet {min_num_bursts=}. Found {number_of_bursts=}. Will not process at this time.")
                         product_burstset_index_to_skip_processing.add(i)
                         continue
 
