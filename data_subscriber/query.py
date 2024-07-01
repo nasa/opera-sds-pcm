@@ -1,15 +1,16 @@
 import asyncio
+import hashlib
 import logging
 import uuid
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from pathlib import Path
-import hashlib
 
 import dateutil.parser
 from more_itertools import chunked
 
+from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (async_query_cmr,
                                  ProductType,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
@@ -17,7 +18,6 @@ from data_subscriber.cmr import (async_query_cmr,
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions,
                                            download_from_s3)
-from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
@@ -43,7 +43,7 @@ class CmrQuery:
     def validate_args(self):
         pass
 
-    async def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+    async def run_query(self, args, token, es_conn: ProductCatalog, cmr, job_id, settings):
         query_dt = datetime.now()
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(args, now)

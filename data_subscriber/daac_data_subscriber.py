@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-
+import argparse
 import asyncio
-import boto3
 import logging
 import netrc
 import re
@@ -12,6 +11,7 @@ from itertools import chain
 from pathlib import Path
 from urllib.parse import urlparse
 
+import boto3
 from more_itertools import first
 from smart_open import open
 
@@ -20,16 +20,15 @@ from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
 from data_subscriber.aws_token import supply_token
+from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (ProductType,
                                  Provider,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
-from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
+from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
-from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
-from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from data_subscriber.parser import create_parser, validate_args
@@ -37,7 +36,7 @@ from data_subscriber.query import update_url_index
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.rtc.rtc_query import RtcCmrQuery
-from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.slc.slc_catalog import SLCProductCatalog
 from data_subscriber.slc.slc_query import SlcCmrQuery
 from data_subscriber.survey import run_survey
 from rtc_utils import rtc_product_file_revision_regex
@@ -118,7 +117,7 @@ async def run(argv: list[str]):
     return results
 
 
-async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+async def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr, job_id, settings):
     product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
 
     if product_type == ProductType.HLS:
@@ -285,9 +284,9 @@ def supply_es_conn(args):
                 else args.provider)
 
     if provider == Provider.LPCLOUD:
-        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+        es_conn = HLSProductCatalog(logging.getLogger(__name__))
     elif provider in (Provider.ASF, Provider.ASF_SLC):
-        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+        es_conn = SLCProductCatalog(logging.getLogger(__name__))
     elif provider == Provider.ASF_RTC:
         es_conn = RTCProductCatalog(logging.getLogger(__name__))
     elif provider == Provider.ASF_CSLC:
