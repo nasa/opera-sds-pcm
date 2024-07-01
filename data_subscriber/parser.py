@@ -188,11 +188,10 @@ def create_parser():
                                        "Comma-separated list. Only applies in "
                                        "Historical processing mode."}}
 
-    frame_range = {"positionals": ["--frame-range"],
-                       "kwargs": {"dest": "frame_range",
+    frame_id = {"positionals": ["--frame-id"],
+                       "kwargs": {"dest": "frame_id",
                                   "help": "Only applies to DISP-S1 processing. "
-                                          "Start and stop frame number range, "
-                                          "inclusive on both ends."}}
+                                          "CSLC frame id to process."}}
 
     step_hours = {"positionals": ["--step-hours"],
                            "kwargs": {"dest": "step_hours",
@@ -219,7 +218,7 @@ def create_parser():
                                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     survey_parser_arg_list = [verbose, endpoint, provider, collection,
                               start_date, end_date, bbox, minutes, max_revision,
-                              smoke_run, native_id, frame_range, use_temporal,
+                              smoke_run, native_id, frame_id, use_temporal,
                               temporal_start_date, step_hours, out_csv]
     _add_arguments(survey_parser, survey_parser_arg_list)
 
@@ -230,7 +229,7 @@ def create_parser():
                             dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
-                            transfer_protocol, frame_range, include_regions,
+                            transfer_protocol, frame_id, include_regions,
                             exclude_regions, proc_mode]
     _add_arguments(full_parser, full_parser_arg_list)
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
@@ -242,7 +241,7 @@ def create_parser():
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol,
-                             frame_range, include_regions, exclude_regions, proc_mode]
+                             frame_id, include_regions, exclude_regions, proc_mode]
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 

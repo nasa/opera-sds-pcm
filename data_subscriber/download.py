@@ -61,7 +61,7 @@ class DaacDownload:
         self.downloads_dir = Path("downloads")
         self.downloads_dir.mkdir(exist_ok=True)
 
-    async def run_download(self, args, token, es_conn, netloc, username, password,
+    def run_download(self, args, token, es_conn, netloc, username, password, cmr,
                            job_id, rm_downloads_dir=True):
         product_to_product_filepaths_map = {}
         downloads = self.get_downloads(args, es_conn)

@@ -5,10 +5,13 @@ import re
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Iterable
+from collections import namedtuple
+import netrc
 
 import dateutil.parser
 from more_itertools import first_true
 
+from data_subscriber.aws_token import supply_token
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
@@ -16,6 +19,8 @@ from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
 logger = logging.getLogger(__name__)
 MAX_CHARS_PER_LINE = 250000 #This is the maximum number of characters per line you can display in cloudwatch logs
+
+DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 class Collection(str, Enum):
     HLSL30 = "HLSL30"
@@ -88,10 +93,22 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     "DEFAULT": ["tif", "h5"]
 }
 
+def get_cmr_token(endpoint, settings):
+
+    cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
+    edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
+
+    return cmr, token, username, password, edl
 
 async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
+
+    # Assert that timerange looks like this: 2016-08-22T23:00:00Z
+    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC):
         bound_list = bounding_box.split(",")
@@ -162,19 +179,20 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
     search_results_count = len(product_granules)
-    logger.info(f"QUERY RESULTS: Found {search_results_count} granules")
 
-    products_per_line = 1000 # Default but this would never be used because we calculate dynamically below. Just here incase code moves around and we want a reasonable default
-    if search_results_count > 0:
-        # Print out all the query results but limit the number of characters per line
-        one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
-        chars_per_line = len(one_logout) + 6 # 6 is a fudge factor
-        products_per_line = MAX_CHARS_PER_LINE // chars_per_line
-        for i in range(0, search_results_count, products_per_line):
-            end_range = i + products_per_line
-            if end_range > search_results_count:
-                end_range = search_results_count
-            logger.info(f'QUERY RESULTS {i+1} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
+    if not silent:
+        logger.info(f"QUERY RESULTS: Found {search_results_count} granules")
+        products_per_line = 1000 # Default but this would never be used because we calculate dynamically below. Just here incase code moves around and we want a reasonable default
+        if search_results_count > 0:
+            # Print out all the query results but limit the number of characters per line
+            one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
+            chars_per_line = len(one_logout) + 6 # 6 is a fudge factor
+            products_per_line = MAX_CHARS_PER_LINE // chars_per_line
+            for i in range(0, search_results_count, products_per_line):
+                end_range = i + products_per_line
+                if end_range > search_results_count:
+                    end_range = search_results_count
+                logger.info(f'QUERY RESULTS {i+1} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []

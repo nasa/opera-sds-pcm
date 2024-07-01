@@ -3,7 +3,6 @@
 import asyncio
 import boto3
 import logging
-import netrc
 import re
 import sys
 import uuid
@@ -19,9 +18,8 @@ from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
-from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import (ProductType,
-                                 Provider,
+                                 Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
@@ -54,7 +52,7 @@ logger = logging.getLogger(__name__)
 @exec_wrapper
 def main():
     configure_logger()
-    asyncio.run(run(sys.argv))
+    run(sys.argv)
 
 
 def configure_logger():
@@ -69,7 +67,7 @@ def configure_logger():
     logger.addFilter(NoLogUtilsFilter())
 
 
-async def run(argv: list[str]):
+def run(argv: list[str]):
     logger.info(f"{argv=}")
     parser = create_parser()
     args = parser.parse_args(argv[1:])
@@ -89,27 +87,23 @@ async def run(argv: list[str]):
     logger.info(f"{job_id=}")
 
     settings = SettingsConf().cfg
-    cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
-
-    edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-    username, _, password = netrc.netrc().authenticators(edl)
-    token = supply_token(edl, username, password)
+    cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
 
     results = {}
 
     if args.subparser_name == "survey":
-        await run_survey(args, token, cmr, settings)
+        run_survey(args, token, cmr, settings)
 
     if args.subparser_name == "query" or args.subparser_name == "full":
-        results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
+        results["query"] = run_query(args, token, es_conn, cmr, job_id, settings)
 
     if args.subparser_name == "download" or args.subparser_name == "full":
         netloc = urlparse(f"https://{edl}").netloc
 
         if args.provider == Provider.ASF_RTC:
-            results["download"] = await run_rtc_download(args, token, es_conn, netloc, username, password, job_id)
+            results["download"] = run_rtc_download(args, token, es_conn, netloc, username, password, job_id)
         else:
-            results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)
+            results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
     logger.info(f"{len(results)=}")
     logger.debug(f"{results=}")
@@ -118,28 +112,30 @@ async def run(argv: list[str]):
     return results
 
 
-async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
     product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
 
     if product_type == ProductType.HLS:
         cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.SLC:
         cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif product_type == ProductType.RTC:
-        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC:
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
+
+    # RTC is a special case in that it needs to run asynchronously
+    elif product_type == ProductType.RTC:
+        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+        result = asyncio.run(cmr_query.run_query(args, token, es_conn, cmr, job_id, settings))
+        return result
+
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
-    result = await cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
+    return cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
 
-    return result
-
-
-async def run_download(args, token, es_conn, netloc, username, password, job_id):
+def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection") else args.provider)
 
@@ -156,7 +152,7 @@ async def run_download(args, token, es_conn, netloc, username, password, job_id)
     else:
         raise ValueError(f'Unknown product provider "{provider}"')
 
-    await downloader.run_download(args, token, es_conn, netloc, username, password, job_id)
+    downloader.run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
 
 async def run_rtc_download(args, token, es_conn, netloc, username, password, job_id):
