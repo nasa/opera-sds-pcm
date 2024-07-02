@@ -25,7 +25,7 @@ JOB_TYPE = "cslc_query_hist"
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
 
-CSLC_COLLECTIONS = ["OPERA_L2_CSLC-S1_V1"]
+CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
@@ -122,7 +122,6 @@ def proc_once(eu, procs, dryrun = False):
 
 def form_job_params(p, frame_id, sensing_time_position_zero_based):
 
-    assert p.collection_short_name in CSLC_COLLECTIONS
     data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
 
@@ -142,10 +141,12 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
     if p.processing_mode == "historical":
         temporal = True  # temporal is always true for historical processing
 
+    frame_sensing_datetimes = disp_burst_map[frame_id].sensing_datetimes
+
     '''start and end data datetime is basically 1 hour window around the total k frame sensing time window.
     TRICKY! the sensing time position is in user-friendly 1-based index, but we need to use 0-based index in code'''
     try:
-        s_date = disp_burst_map[frame_id].sensing_datetimes[sensing_time_position_zero_based] - timedelta(minutes=30)
+        s_date = frame_sensing_datetimes[sensing_time_position_zero_based] - timedelta(minutes=30)
     except IndexError:
         finished = True
         do_submit = False
@@ -155,12 +156,20 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
 
     # TODO: If we don't have enough to cover k, submit reprocessing jobs instead
     try:
-        e_date = disp_burst_map[frame_id].sensing_datetimes[sensing_time_position_zero_based + p.k - 1] + timedelta(minutes=30)
+        e_date = frame_sensing_datetimes[sensing_time_position_zero_based + p.k - 1] + timedelta(minutes=30)
     except IndexError:
         finished = True
         do_submit = False
         e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
         logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
+
+        # Print out all the reprocessing job commands. This is temporary until it can be automated
+        for i in range(sensing_time_position_zero_based, len(frame_sensing_datetimes)):
+            s_date = frame_sensing_datetimes[i] - timedelta(minutes=30)
+            e_date = frame_sensing_datetimes[i] + timedelta(minutes=30)
+            logger.info(f"python ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py query -c {CSLC_COLLECTION} \
+--chunk-size=1 --k={p.k} --m={p.m} --job-queue={p.download_job_queue} --processing-mode=reprocessing --grace-mins=0 \
+--start-date={convert_datetime(s_date)} --end-date={convert_datetime(e_date)} --frame-id={frame_id} ")
 
     if s_date < data_start_date:
         do_submit = False
