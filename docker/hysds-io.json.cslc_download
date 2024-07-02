@@ -49,7 +49,7 @@
     {
       "name": "processing_mode",
       "from": "submitter",
-      "placeholder": "e.g. --processing-mode",
+      "placeholder": "e.g. --processing-mode=forward",
       "optional": true
     },
     {
