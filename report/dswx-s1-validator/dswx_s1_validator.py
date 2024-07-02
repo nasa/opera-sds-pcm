@@ -369,11 +369,12 @@ def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoin
         retrieved_tiles_set = set(retrieved_tiles)
         unique_mgrs_tiles_set = set(formatted_mgrs_tiles)
 
+        print()
         if retrieved_tiles_set == unique_mgrs_tiles_set:
-            print(f"Validation successful: All DSWx-S1 tiles available at CMR for input RTC sensing time range: {smallest_date_iso} to {greatest_date_iso}.")
+            print(f"✅ Validation successful: All DSWx-S1 tiles available at CMR for corresponding matched input RTC bursts within sensing time range.")
             return True
         else:
-            print(f"Validation failed: Mismatch in DSWx-S1 tiles available at CMR for input RTC sensing time range: {smallest_date_iso} to {greatest_date_iso}.")
+            print(f"❌ Validation failed: Mismatch in DSWx-S1 tiles available at CMR for corresponding matched input RTC bursts within sensing time range.")
             print(f"Expected({len(unique_mgrs_tiles_set)}): {unique_mgrs_tiles_set}")
             print(f"Received({len(retrieved_tiles_set)}): {retrieved_tiles_set}")
             return False
@@ -486,6 +487,7 @@ if __name__ == '__main__':
     greatest_date = burst_dates_series.max()
 
     print()
+    print(f"Expected DSWx-S1 product sensing time range: {smallest_date} to {greatest_date}")
     mgrs_tiles_series = df['MGRS Tiles'].str.split(', ').explode()
     unique_mgrs_tiles = mgrs_tiles_series.unique()
 

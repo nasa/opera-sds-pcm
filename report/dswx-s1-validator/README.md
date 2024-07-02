@@ -66,7 +66,7 @@ This guide provides a quick way to get started with the script.
 * Retrieve a list of MGRS Tile Set IDs for the RTC burst processing a given time range on CMR, and filter the results to show only MGRS Tile Sets that had coverage of greater than or equal to 50%.
 
 ```
-$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
+$ python dswx_s1_validator.py --start "2023-12-05T01:00:00" --end "2023-12-05T03:59:59" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
 Querying CMR for time range 2023-12-05T01:00:00 to 2023-12-05T03:59:59.
 Querying CMR for 2316 granules.
 
