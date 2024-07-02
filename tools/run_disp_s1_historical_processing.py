@@ -1,40 +1,26 @@
 #!/usr/bin/env python3
 
 import logging
-
 import json
-import os
-import re
-from distutils.util import strtobool
-from typing import Dict
-import dateutil.parser
+from pathlib import Path
 import requests
-import boto3
-from collections import defaultdict
-
 from types import SimpleNamespace
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
-import logging
 from data_subscriber import cslc_utils
 import argparse
 from util.conf_util import SettingsConf
-from data_subscriber.cmr import get_cmr_token
-from data_subscriber.parser import create_parser
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
-# Requires these 5 env variables
-_ENV_MOZART_IP = "MOZART_IP"
-_ENV_GRQ_IP = "GRQ_IP"
 _ENV_GRQ_ES_PORT = "GRQ_ES_PORT"
 _ENV_ENDPOINT = "ENDPOINT"
 _ENV_JOB_RELEASE = "JOB_RELEASE"
-_ENV_ANC_BUCKET = "ANC_BUCKET"
 ES_INDEX = "batch_proc"
+JOB_TYPE = "cslc_query_hist"
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -43,8 +29,9 @@ CSLC_COLLECTIONS = ["OPERA_L2_CSLC-S1_V1"]
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
-def proc_once(eu, dryrun = False):
-    procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
+def proc_once(eu, procs, dryrun = False):
+    job_success = True
+
     for proc in procs:
         doc_id = proc['_id']
         proc = proc['_source']
@@ -55,20 +42,17 @@ def proc_once(eu, dryrun = False):
             continue
 
         # Only process cslc query jobs, which is for DISP-S1 processing
-        if p.job_type != "cslc_query":
+        if p.job_type != JOB_TYPE:
             continue
 
-        if "frame_list" not in vars(p):
-            p.frame_list = generate_initial_frame_states(p.frame)
-
-        print(p.frame_list)
+        if "frame_states" not in vars(p):
+            p.frame_states = generate_initial_frame_states(p.frames)
 
         now = datetime.utcnow()
-        if "last_run_date" not in p:
-            new_last_run_date = datetime.strptime("1900-01-01T00:00:00", ES_DATETIME_FORMAT)
-        else:
-            new_last_run_date = datetime.strptime(p.last_run_date, ES_DATETIME_FORMAT) + timedelta(
-                minutes=p.wait_between_acq_cycles_mins)
+        if "last_run_date" not in vars(p):
+            p.last_run_date = "2000-01-01T00:00:00"
+        new_last_run_date = (datetime.strptime(p.last_run_date, ES_DATETIME_FORMAT) +
+                             timedelta(minutes=p.wait_between_acq_cycles_mins))
 
         # If it's not time to run yet, just continue
         if new_last_run_date > now:
@@ -81,66 +65,69 @@ def proc_once(eu, dryrun = False):
                                      "last_run_date": now.strftime(ES_DATETIME_FORMAT), }},
                            index=ES_INDEX)
 
-        # Compute job parameters
-        job_name, job_spec, job_params, job_tags, last_proc_date, last_proc_frame, finished = \
-            form_job_params(p)
+        proc_finished = True # It's actually false here but need to set it to True for the boolean logic to work
+        for frame_id, last_frame_processed in p.frame_states.items():
+            logger.info(f"{frame_id=}, {last_frame_processed=}")
 
-        # See if we've reached the end of this batch proc. If so, disable it.
-        if finished:
+            # Compute job parameters, whether to process or not, and if we're finished
+            do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
+                form_job_params(p, int(frame_id), last_frame_processed)
+
+            proc_finished = proc_finished & finished # All frames must be finished for this batch proc to be finished
+
+            # submit mozart job
+            if do_submit:
+                print("Submitting query job for", p.label, "frame", frame_id,
+                      "with start date", job_params["start_datetime"].split("=")[1],
+                      "and end date", job_params["end_datetime"].split("=")[1])
+                logger.info(job_params)
+
+                if dryrun:
+                    job_success = True
+                else:
+                    job_id = submit_job(job_name, job_spec, job_params, p.job_queue, job_tags)
+                    if job_id is False:
+                        job_success = False
+                    else:
+                        logger.info("Job submitted successfully. Job ID: %s" % job_id)
+                    job_success = job_success & job_success
+
+                if job_success:
+                    p.frame_states[frame_id] = next_frame_pos
+                    eu.update_document(id=doc_id,
+                           body={"doc_as_upsert": True,
+                                 "doc": { "frame_states": p.frame_states, }},
+                           index=ES_INDEX)
+                else:
+                    logger.error("Job submission failed for %s" % job_name)
+
+        if proc_finished:
+            # See if we've reached the end of this batch proc. If so, disable it.
             print(p.label, "Batch Proc completed processing. It is now disabled")
             eu.update_document(id=doc_id,
                                body={"doc_as_upsert": True,
                                      "doc": {
                                          "enabled": False, }},
                                index=ES_INDEX)
-            continue
 
-        # update last_attempted_proc_data_date here
-        eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": {
-                                     "last_attempted_proc_data_date": last_proc_date, }},
-                           index=ES_INDEX)
-
-        # TODO: we need to update proc_frame info
-        eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": {
-                                     "last_attempted_proc_frame": last_proc_frame, }},
-                           index=ES_INDEX)
-
-        # submit mozart job
-        print("Submitting query job for", p.label,
-              "with start date", job_params["start_datetime"].split("=")[1],
-              "and end date", job_params["end_datetime"].split("=")[1])
-        if (last_proc_frame is not None):
-            print("Last proc frame", last_proc_frame)
-
-        if not dryrun:
-            job_success = submit_job(job_name, job_spec, job_params, p.job_queue, job_tags)
-        else:
-            job_success = True
-
-        # Update last_successful_proc_data_date here
-        eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": {
-                                     "last_successful_proc_data_date": last_proc_date, }},
-                           index=ES_INDEX)
-
-        # If we are processing CSLC we need to update proc_frame info. last_proc_frame was defined earlier
-        if "frame_range" in job_params:
+        # Update last job run time. This is on a per batch_proc basis
+        if job_success is True:
             eu.update_document(id=doc_id,
-                               body={"doc_as_upsert": True,
-                                     "doc": {
-                                         "last_successful_proc_frame": last_proc_frame, }},
-                               index=ES_INDEX)
+                           body={"doc_as_upsert": True,
+                                 "doc": {
+                                     "last_run_date": now.strftime(ES_DATETIME_FORMAT), }},
+                           index=ES_INDEX)
 
-        return job_success
+    return job_success
 
-def form_job_params(p, disp_frame_map):
+def form_job_params(p, frame_id, sensing_time_position_zero_based):
+
+    assert p.collection_short_name in CSLC_COLLECTIONS
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
+    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+
+    do_submit = True
     finished = False
-    end_point = ENDPOINT
     download_job_queue = p.download_job_queue
     try:
         if p.temporal is True:
@@ -148,77 +135,62 @@ def form_job_params(p, disp_frame_map):
         else:
             temporal = False
     except:
-        print("Temporal parameter not found in batch proc. Defaulting to false.")
-        temporal = False
+        temporal = True
+        print(f"Temporal parameter not found in batch proc. Defaulting to {temporal}.")
 
     processing_mode = p.processing_mode
     if p.processing_mode == "historical":
         temporal = True  # temporal is always true for historical processing
 
-    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
-    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
-    frame_range = ""
-    last_proc_date = None
-    last_proc_frame = None
+    '''start and end data datetime is basically 1 hour window around the total k frame sensing time window.
+    TRICKY! the sensing time position is in user-friendly 1-based index, but we need to use 0-based index in code'''
+    try:
+        s_date = disp_burst_map[frame_id].sensing_datetimes[sensing_time_position_zero_based] - timedelta(minutes=30)
+    except IndexError:
+        finished = True
+        do_submit = False
+        s_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
+        logger.info(f"{frame_id=} reached end of historical processing. No reprocessing needed")
 
-    # Start date time is when the last successful process data time.
-    # If this is before the data start time, which may be the case when this batch_proc is first run,
-    # change it to the data start time.
-    s_date = datetime.strptime(p.last_successful_proc_data_date, ES_DATETIME_FORMAT)
+
+    # TODO: If we don't have enough to cover k, submit reprocessing jobs instead
+    try:
+        e_date = disp_burst_map[frame_id].sensing_datetimes[sensing_time_position_zero_based + p.k - 1] + timedelta(minutes=30)
+    except IndexError:
+        finished = True
+        do_submit = False
+        e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
+        logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
+
     if s_date < data_start_date:
-        s_date = data_start_date
+        do_submit = False
+    if e_date > data_end_date:
+        do_submit = False
+        finished = True
 
-    # For CSLC input data, which is for DISP-S1 production, we need to do perform more logic
-    # Frame numbers are 1-based and inclusive on both ends of the range
-    if p.collection_short_name in CSLC_COLLECTIONS:
-
-        sorted_frame_list = sorted(disp_frame_map.keys())
-        max_frame = sorted_frame_list[-1]
-
-        try:
-            last_frame = p.last_successful_proc_frame
-        except Exception:
-            last_frame = sorted_frame_list[0]
-
-        # For CSLC only we add some time buffer because sensing time varies by a few minutes for each burst within the frame
-        # and each acquisition cycle is at least 6 days
-        s_date = s_date + timedelta(minutes=30)
-
-        # If the last processed time is the end of the time series for this frame, it's time to go to the next frame
-        if s_date > disp_frame_map[last_frame].sensing_datetimes[-1]:
-            frame_id = next_disp_frame(last_frame, sorted_frame_list)
-            s_date = data_start_date
-        else:
-            frame_id = last_frame
-
-        frame_range = f'--frame-range={frame_id},{frame_id}'
-
-        # For CSLC historical processing we increment the data time by k number of sensing dates
-        # If there isn't enough date to make K, we are done for this batch proc completely
-        e_date = s_date + timedelta(days=p.k * CSLC_DAYS_PER_COLLECTION_CYCLE)
-        if e_date > data_end_date:
-            e_date = s_date = s_date - timedelta(days=p.k * CSLC_DAYS_PER_COLLECTION_CYCLE)
-            last_proc_date = s_date
-            last_proc_frame = max_frame
-            finished = True
-        else:
-            last_proc_date = s_date
-            last_proc_frame = frame_id
-
+    #Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
+    # this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
+    if compressed_cslc_satisfied(frame_id, sensing_time_position_zero_based, p.k, p.m):
+        next_sensing_time_position = sensing_time_position_zero_based + p.k
     else:
-        raise RuntimeError("Unknown collection %s ." % p.collection_short_name)
+        do_submit = False
+        next_sensing_time_position = sensing_time_position_zero_based
+        logger.info("Compressed CSLC not satisfied for frame %s at sensing time position %s. \
+Skipping now but will be retried in the future." % (frame_id, sensing_time_position_zero_based))
 
-    job_spec = "job-%s:%s" % (p.job_type, JOB_RELEASE)
+    # Create job parameters used to submit query job into Mozart
+    # Note that if do_submit is False, none of this is actually used
+    job_spec = f"job-{p.job_type}:{JOB_RELEASE}"
     job_params = {
         "start_datetime": f"--start-date={convert_datetime(s_date)}",
         "end_datetime": f"--end-date={convert_datetime(e_date)}",
-        "endpoint": f'--endpoint={end_point}',
+        "endpoint": f'--endpoint=OPS',
         "bounding_box": "",
-        "download_job_release": f'--release-version={JOB_RELEASE}',
         "download_job_queue": f'--job-queue={download_job_queue}',
+        "download_job_release": f'--release-version={JOB_RELEASE}', #TODO: remove this after removing from jobspec docker files
         "chunk_size": f'--chunk-size={p.chunk_size}',
         "processing_mode": f'--processing-mode={processing_mode}',
-        "frame_range": frame_range,
+        "frame_id": f"--frame-id={frame_id}",
         "smoke_run": "",
         "dry_run": "",
         "no_schedule_download": "",
@@ -234,19 +206,19 @@ def form_job_params(p, disp_frame_map):
     if len(excludes.strip()) > 0:
         job_params["exclude_regions"] = f'--exclude-regions={excludes}'
 
-    if p.collection_short_name in CSLC_COLLECTIONS:
-        job_params["k"] = f"--k={p.k}"
-        job_params["m"] = f"--m={p.m}"
+    job_params["k"] = f"--k={p.k}"
+    job_params["m"] = f"--m={p.m}"
 
     tags = ["data-subscriber-query-timer"]
     if processing_mode == 'historical':
         tags.append("historical_processing")
     else:
         tags.append("batch_processing")
-    job_name = "data-subscriber-query-timer-{}_{}-{}".format(p.label, s_date.strftime(ES_DATETIME_FORMAT),
+    job_name = "data-subscriber-query-timer-{}_f{}-{}-{}".format(p.label, frame_id, s_date.strftime(ES_DATETIME_FORMAT),
                                                              e_date.strftime(ES_DATETIME_FORMAT))
 
-    return job_name, job_spec, job_params, tags, last_proc_date, last_proc_frame, finished
+    ''' frame sensing time list position is 1-based index so adding 1 to it'''
+    return do_submit, job_name, job_spec, job_params, tags, next_sensing_time_position, finished
 
 def submit_job(job_name, job_spec, job_params, queue, tags, priority=0):
     """Submit job to mozart via REST API."""
@@ -285,10 +257,20 @@ def submit_job(job_name, job_spec, job_params, queue, tags, priority=0):
     else:
         raise Exception("job not submitted successfully: %s" % result)
 
-def generate_initial_frame_states(frames):
-    '''frame_list is a list of frame number or a range of frame numbers'''
+    return False
 
-    frame_states = []
+def generate_initial_frame_states(frames):
+    '''
+    Generate initial frame states for historical processing
+
+    Args:
+        frames (list): a list of frame number or a range of frame numbers
+    Returns:
+        frame_states (dict): a dictionary with frame number as key and
+        the value is the last processed location in the frame sensing times list
+    '''
+
+    frame_states = {}
 
     for frame in frames:
         if type(frame) == list:
@@ -300,15 +282,22 @@ def generate_initial_frame_states(frames):
             for f in range(frame[0], frame[1] + 1):
                 if f not in disp_burst_map.keys():
                     logger.warning(f"Frame number {f} does not exist. Skipping.")
-                frame_states.append({f: 0})
+                frame_states[f] = 0
 
         else:
             if frame not in disp_burst_map.keys():
                 logger.warning(f"Frame number {frame} does not exist. Skipping.")
-            frame_states.append({frame: 0})
+            frame_states[frame] = 0
 
     return frame_states
 
+def compressed_cslc_satisfied(frame_id, day_index, k, m):
+    '''Look for the compressed cslc records needed to process this frame at day index in GRQ ES'''
+
+    logger.warning("compresed_cslc_satisfied not implemented yet. Hard-coding true for all.")
+
+    #TODO: implement this
+    return True
 
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
@@ -318,25 +307,6 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
         return datetime_obj.strftime(strformat)
     return datetime.strptime(str(datetime_obj), strformat)
 
-def get_elasticsearch_utility():
-    for ev in [_ENV_MOZART_IP, _ENV_GRQ_IP, _ENV_ENDPOINT, _ENV_JOB_RELEASE, _ENV_GRQ_ES_PORT]:
-        if ev not in os.environ:
-            raise RuntimeError("Need to specify %s in environment." % ev)
-    MOZART_IP = os.environ[_ENV_MOZART_IP]
-    GRQ_IP = os.environ[_ENV_GRQ_IP]
-    GRQ_ES_PORT = os.environ[_ENV_GRQ_ES_PORT]
-    ENDPOINT = os.environ[_ENV_ENDPOINT]
-    JOB_RELEASE = os.environ[_ENV_JOB_RELEASE]
-    ANC_BUCKET = os.environ[_ENV_ANC_BUCKET]
-
-    MOZART_URL = 'https://%s/mozart' % MOZART_IP
-    JOB_SUBMIT_URL = "%s/api/v0.1/job/submit?enable_dedup=false" % MOZART_URL
-
-
-    eu = ElasticsearchUtility('http://%s:%s' % (GRQ_IP, str(GRQ_ES_PORT)), logger)
-
-    return eu
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -344,13 +314,22 @@ if __name__ == "__main__":
                         help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.",
                         required=False, default=False)
     parser.add_argument("--sleep-secs", dest="sleep_secs", help="Sleep between running for a cycle in seconds",
-                        required=False, default=1)
+                        required=False, default=60)
     parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False)
 
     args = parser.parse_args()
 
-    eu = get_elasticsearch_utility()
+    SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
+    MOZART_IP = SETTINGS["MOZART_PVT_IP"]
+    GRQ_IP = SETTINGS["GRQ_PVT_IP"]
+    JOB_RELEASE = SETTINGS["STAGING_AREA"]["JOB_RELEASE"]
+
+    MOZART_URL = 'https://%s/mozart' % MOZART_IP
+    JOB_SUBMIT_URL = "%s/api/v0.1/job/submit?enable_dedup=false" % MOZART_URL
+
+    eu = ElasticsearchUtility('http://%s:%s' % (GRQ_IP, str(9200)), logger)
 
     while (True):
-        print(eu, proc_once(args.dry_run))
-        time.sleep(args.sleep_secs)
+        batch_procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
+        proc_once(eu, batch_procs, args.dry_run)
+        time.sleep(int(args.sleep_secs))
