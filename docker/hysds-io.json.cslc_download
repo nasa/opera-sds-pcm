@@ -47,6 +47,12 @@
       "optional": true
     },
     {
+      "name": "processing_mode",
+      "from": "submitter",
+      "placeholder": "e.g. --processing-mode",
+      "optional": true
+    },
+    {
       "name": "transfer_protocol",
       "from": "submitter",
       "placeholder": "e.g. --transfer-protocol=auto",

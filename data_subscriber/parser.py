@@ -249,7 +249,7 @@ def create_parser():
     download_parser = subparsers.add_parser("download",
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider,
-                                batch_ids, start_date, end_date, use_temporal,
+                                batch_ids, start_date, end_date, use_temporal, proc_mode,
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
