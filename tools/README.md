@@ -38,26 +38,26 @@ Tool to query and analyze the DISP S1 historical burst database. The burst datab
 The database file can be found here
 https://opera-ancillaries.s3.us-west-2.amazonaws.com/opera-disp-s1-consistent-burst-ids-with-datetimes.json
 
-python tools/disp_s1_burst_db_tool.py --help     
-usage: disp_s1_burst_db_tool.py [-h] {list,summary,native_id,frame,burst,time_range,unique_id,simulate} ...
+    python tools/disp_s1_burst_db_tool.py --help     
+    usage: disp_s1_burst_db_tool.py [-h] {list,summary,native_id,frame,burst,time_range,unique_id,simulate} ...
+    
+    positional arguments:
+    
+      {list,summary,native_id,frame,burst,time_range,unique_id,simulate}
+    
+        list                List all frame numbers
+        summary             List all frame numbers, number of bursts, and sensing datetimes
+        native_id           Print information based on native_id
+        frame               Print information based on frame
+        burst               Print information based on burst id.
+        time_range          Print frame that are available within a time range
+        unique_id           Print information based on unique_id... unique_id is combination of burst patern and acquisition time (not yet implemented)
+        simulate            Simulate a historical processing run (not yet implemented)
+    
+    optional arguments:
+      -h, --help            show this help message and exit
 
-positional arguments:
-
-  {list,summary,native_id,frame,burst,time_range,unique_id,simulate}
-
-    list                List all frame numbers
-    summary             List all frame numbers, number of bursts, and sensing datetimes
-    native_id           Print information based on native_id
-    frame               Print information based on frame
-    burst               Print information based on burst id.
-    time_range          Print frame that are available within a time range
-    unique_id           Print information based on unique_id... unique_id is combination of burst patern and acquisition time (not yet implemented)
-    simulate            Simulate a historical processing run (not yet implemented)
-
-optional arguments:
-  -h, --help            show this help message and exit
-
-Examples: 
+#### Examples: 
 
     python tools/disp_s1_burst_db_tool.py frame 24733                                                                                    
     Frame number:  24733
@@ -87,3 +87,35 @@ Examples:
 
     python tools/disp_s1_burst_db_tool.py time_range 2016-05-01T00:00:00 2016-07-01T00:00:00 | grep Sensing | wc -l
     1669
+
+## run_disp_s1_historical_processing.py
+
+This is a stand-alone CLI application that runs the DISP S1 historical processing.
+It uses the batch_procs stored in GRQ ES ```batch_proc``` index which are managed by ```pcm_batch.py``` 
+which is the same as how historical processing works for R2 CSLC products.
+This application, however, replaces the batch processing lambda used for R2 historical processing.
+
+Every sleep cycle, it will query the batch_proc index for processing. If the batch_proc is ready to be processed,
+ it will submit the corresponding download job.
+
+See OPERA wiki for detailed CONOPS and use-cases of DISP-S1 historical processing.
+
+    ./run_disp_s1_historical_processing.py --help
+    usage: run_disp_s1_historical_processing.py [-h] [--verbose VERBOSE] [--sleep-secs SLEEP_SECS] [--dry-run DRY_RUN]
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose VERBOSE     If true, print out verbose information, mainly cmr queries and k-cycle calculation.
+      --sleep-secs SLEEP_SECS
+                            Sleep between running for a cycle in seconds
+      --dry-run DRY_RUN     If true, do not submit jobs
+
+#### Examples:
+    # Dry run will print out what it will do but does not submit a job. Useful for double checking the batch_proc
+    # May be good to use a quicker sleep cycle to see the results faster
+    ./run_disp_s1_historical_processing.py --sleep-secs 10 --dry-run
+
+    # Run the historical processing with a 5 minute sleep cycle. Every sleep cycle will print out to the terminal
+    # and that may become verbose. If you're actually running, you'd have to wait at least 1 hr between 
+    # job submissions anyway so no point in running too often.
+    ./run_disp_s1_historical_processing.py --sleep-secs 300

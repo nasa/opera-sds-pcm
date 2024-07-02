@@ -41,7 +41,8 @@ server_parser.add_argument("burst", help="The Burst ID T175-374393-IW1")
 server_parser.add_argument("date_time", help="The Acquisition Datetime looks like 2023-10-01T00:00:00")
 
 #TODO
-server_parser = subparsers.add_parser("simulate", help="Simulate a historical processing run")
+server_parser = subparsers.add_parser("validate", help="Validates the burst database file against the CMR")
+server_parser.add_argument("frame_id", help="The frame id to validate")
 
 args = parser.parse_args()
 
