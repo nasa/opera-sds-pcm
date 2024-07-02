@@ -47,7 +47,7 @@
       "optional": true
     },
     {
-      "name": "processing_mode",
+      "name": "proc_mode",
       "from": "submitter",
       "placeholder": "e.g. --processing-mode=forward",
       "optional": true

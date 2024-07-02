@@ -40,7 +40,7 @@
       "destination": "positional"
     },
     {
-      "name": "processing_mode",
+      "name": "proc_mode",
       "destination": "positional"
     },
     {
