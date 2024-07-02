@@ -162,6 +162,19 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
 
 
 def get_burst_ids_from_file(filename):
+    """
+    Reads a file containing granule IDs and extracts both burst IDs and sensing date-times from them.
+
+    This function opens a specified file and reads through each line, treating each line as a granule ID.
+    For each granule ID, it attempts to extract a burst ID and the corresponding burst sensing datetime.
+    If successful, these are stored in dictionaries mapping burst IDs to granule IDs and burst dates respectively.
+    If the extraction fails (indicating malformed data), a warning is printed.
+
+    :param filename: The path to the file containing the granule IDs.
+    :return: A tuple of two dictionaries:
+             1. burst_ids: Mapping of burst IDs to granule IDs.
+             2. burst_dates: Mapping of burst IDs to their sensing date-times.
+    """
 
     burst_ids = {}
     burst_dates = {}
@@ -179,6 +192,25 @@ def get_burst_ids_from_file(filename):
     return burst_ids, burst_dates
 
 def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_name = 'OPERA_L2_RTC-S1_V1', window_length_days = 30, timestamp_type = 'temporal'):
+    """
+    Generates URL parameters for querying granules from CMR (Common Metadata Repository) based on provided criteria.
+
+    This function constructs the base URL and parameters necessary for making granule search requests to the CMR API. 
+    It configures search parameters including the provider, the product short name, and a temporal filter that limits 
+    searches to a specific time range around the provided start and end dates. The temporal filter can be adjusted based 
+    on production, revision, or creation dates, or a default window surrounding the specified dates.
+
+    :param start: The starting date-time for the temporal range (ISO 8601 format).
+    :param end: The ending date-time for the temporal range (ISO 8601 format).
+    :param endpoint: Optional; specifies the API endpoint ('OPS' for operational, 'UAT' for user acceptance testing). Defaults to 'OPS'.
+    :param provider: Optional; specifies the data provider's ID. Defaults to 'ASF'.
+    :param short_name: Optional; specifies the short name of the data product. Defaults to 'OPERA_L2_RTC-S1_V1'.
+    :param window_length_days: Optional; sets the number of days before the start date to also include in searches. Defaults to 30 days.
+    :param timestamp_type: Optional; determines the type of timestamp to use for filtering ('temporal', 'production', 'revision', 'created'). Defaults to 'temporal'.
+
+    :return: A tuple containing the base URL and a dictionary of parameters for the granule search.
+    """
+
     # Ensure start and end times are provided
     if not start or not end:
         raise ValueError("Start and end times are required if no file input is provided.")
@@ -210,6 +242,18 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     return base_url, params
 
 def get_burst_ids_from_query(start, end, timestamp, endpoint):
+    """
+    Queries the CMR (Common Metadata Repository) API to fetch granule information within a specified temporal range and 
+    checks if the burst IDs from those granules match the expected criteria. This function uses threading to parallelize 
+    requests for granule batches, handling potential large volumes of data efficiently.
+
+    :param start: The starting date-time for the temporal range (ISO 8601 format).
+    :param end: The ending date-time for the temporal range (ISO 8601 format).
+    :param timestamp: Type of timestamp to be used for filtering the data ('temporal', 'production', 'revision', 'created').
+    :param endpoint: Specifies the API endpoint to be used ('OPS' for operational, 'UAT' for user acceptance testing).
+
+    :return: Two dictionaries containing the burst IDs and their corresponding dates, keying by the burst ID and linking to the granule ID and its sensing date respectively.
+    """
 
     burst_ids = {}
     burst_dates = {}
@@ -399,18 +443,6 @@ if __name__ == '__main__':
         match_burst_count = len(matching_burst_ids)
         coverage_percentage = round((match_burst_count / len(bursts_list)) * 100, 2) if bursts_list else 0.0
 
-        # Logic to set the DSWx-S1 sensor datetime: pick the middle sorted value from the list of input RTC burst sensor date times
-        # burst_sorted_dates = sorted(matching_burst_dates.values())
-        # if len(burst_sorted_dates) > 0:
-        #     #burst_date_middle_value = len(burst_sorted_dates) // 2
-        #     #dswx_s1_sensor_datetime = burst_sorted_dates[burst_date_middle_value] 
-
-        #     dswx_s1_sensor_startdate = burst_sorted_dates[0]
-        #     dswx_s1_sensor_enddate = burst_sorted_dates[-1]
-        # else:
-        #     print(f"\nError: Expected RTC bursts to be greater than zero.")
-        #     sys.exit(1)
-
         # Collect the db data we will need later
         data_for_df.append({
             'MGRS Set ID': mgrs_set_id,
@@ -422,7 +454,6 @@ if __name__ == '__main__':
             'Total Burst Count': len(bursts_list),
             'MGRS Tiles': ', '.join(mgrs_tiles_list),
             'MGRS Tiles Count': len(mgrs_tiles_list),
-            #'DSWx-S1 Granule ID Signature': [f"OPERA_L3_DSWx-S1_T{mgrs_tile}_{dswx_s1_sensor_datetime}_*_S1A_30_v0.4" for mgrs_tile in mgrs_tiles_list],
             'Burst Dates': [pd.to_datetime(date, format='%Y%m%dT%H%M%SZ') for date in matching_burst_dates.values()]
         })
 
@@ -450,22 +481,12 @@ if __name__ == '__main__':
     else:
         print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
 
-    # Assuming 'df' is your DataFrame already containing datetime objects in 'Burst Dates'
-    # First, you might need to explode the 'Burst Dates' column if it contains lists of dates
     burst_dates_series = df['Burst Dates'].explode()
-
-    # Now find the smallest and greatest date
     smallest_date = burst_dates_series.min()
     greatest_date = burst_dates_series.max()
 
-    # Output the results
     print()
-
     mgrs_tiles_series = df['MGRS Tiles'].str.split(', ').explode()
     unique_mgrs_tiles = mgrs_tiles_series.unique()
 
-    # Example usage:
-    #smallest_date = '2024-05-12T09:32:35.000'
-    #greatest_date = '2024-05-12T09:33:18.000'
-    #unique_mgrs_tiles = ["T20HNF", "T20HMF", "T20HLF", "T20HKF", "T19HGA", "T20HME", "T20HNE", "T20HLE", "T19HGV", "T20HKE", "T20HMD", "T20HLD", "T20HKD", "T19HGU"]
     validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles)
