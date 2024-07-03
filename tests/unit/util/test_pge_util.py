@@ -389,7 +389,7 @@ def test_simulate_dswx_ni_pge():
 
     creation_ts = pge_util.get_time_for_filename()
     expected_output_basename = 'OPERA_L3_DSWx-NI_{tile_id}_{creation_ts}Z_{creation_ts}Z_LSAR_30_v0.1'
-    expected_ancillary_basename = f'OPERA_L3_DSWx-NI_{creation_ts}'
+    expected_ancillary_basename = f'OPERA_L3_DSWx-NI_{creation_ts}Z_LSAR_30_v0.1'
 
     try:
         for tile_id in pge_util.DSWX_TILES:
