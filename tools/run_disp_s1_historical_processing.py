@@ -153,8 +153,8 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
         s_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
         logger.info(f"{frame_id=} reached end of historical processing. No reprocessing needed")
 
-
-    # TODO: If we don't have enough to cover k, submit reprocessing jobs instead
+    # If we are outside of the database sensing time range, we are done with this frame
+    # Submit reprocessing job for any remainder within this incomplete k-cycle
     try:
         e_date = frame_sensing_datetimes[sensing_time_position_zero_based + p.k - 1] + timedelta(minutes=30)
     except IndexError:
@@ -164,6 +164,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
         logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
 
         # Print out all the reprocessing job commands. This is temporary until it can be automated
+        # TODO: submit reprocessing jobs instead of just printing them
         for i in range(sensing_time_position_zero_based, len(frame_sensing_datetimes)):
             s_date = frame_sensing_datetimes[i] - timedelta(minutes=30)
             e_date = frame_sensing_datetimes[i] + timedelta(minutes=30)
@@ -179,7 +180,9 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
 
     #Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
     # this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
-    if compressed_cslc_satisfied(frame_id, sensing_time_position_zero_based, p.k, p.m):
+    if compressed_cslc_satisfied(frame_id,
+                                 disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based],
+                                 p.k, p.m):
         next_sensing_time_position = sensing_time_position_zero_based + p.k
     else:
         do_submit = False
@@ -309,9 +312,29 @@ def generate_initial_frame_states(frames):
 def compressed_cslc_satisfied(frame_id, day_index, k, m):
     '''Look for the compressed cslc records needed to process this frame at day index in GRQ ES'''
 
-    logger.warning("compresed_cslc_satisfied not implemented yet. Hard-coding true for all.")
+    #TODO: This code is mostly identical to asf_cslc_download.py lines circa 200. Refactor into one place
+    prev_day_indices = cslc_utils.get_prev_day_indices(day_index, frame_id, disp_burst_map, args, None, None,
+                                            None)
 
-    #TODO: implement this
+    #special case for early sensing time series
+    if len(prev_day_indices) < k * (m-1):
+        m = (len(prev_day_indices) // k ) + 1
+
+    _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
+    for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
+        for burst_id in disp_burst_map[frame_id].burst_ids:
+            ccslc_m_index = cslc_utils.get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id)
+            ccslcs = eu.query(
+                index=_C_CSLC_ES_INDEX_PATTERNS,
+                body={"query": {"bool": {"must": [
+                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
+
+            # Should have exactly one compressed cslc per acq cycle per burst
+            if len(ccslcs) != 1:
+                logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
+                return False
+
+    logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
     return True
 
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
