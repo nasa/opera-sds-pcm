@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import asyncio
+import concurrent.futures
+import os
+
 import boto3
 import logging
 import re
@@ -101,7 +104,7 @@ def run(argv: list[str]):
         netloc = urlparse(f"https://{edl}").netloc
 
         if args.provider == Provider.ASF_RTC:
-            results["download"] = run_rtc_download(args, token, es_conn, netloc, username, password, job_id)
+            results["download"] = run_rtc_download(args, token, es_conn, netloc, username, password, cmr, job_id)
         else:
             results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
@@ -155,7 +158,7 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     downloader.run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
 
-async def run_rtc_download(args, token, es_conn, netloc, username, password, job_id):
+def run_rtc_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = args.provider  # "ASF-RTC"
     settings = SettingsConf().cfg
 
@@ -199,10 +202,11 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
             "netloc": netloc,
             "username": username,
             "password": password,
+            "cmr": cmr,
             "job_id": job_id
         }
 
-        product_to_product_filepaths_map: dict[str, set[Path]] = await downloader.run_download(
+        product_to_product_filepaths_map: dict[str, set[Path]] = downloader.run_download(
             args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
 
         logger.info(f"Uploading MGRS burst set files to S3")
@@ -243,7 +247,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         else:
             logger.info(f"Submitting batches for DSWx-S1 job: {list(uploaded_batch_id_to_s3paths_map)}")
             job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter, settings)
-            results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+            results = multithread_gather(job_submission_tasks)
 
         suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
         failed_batch = [e for e in results if isinstance(e, Exception)]
@@ -273,6 +277,23 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         "success": succeeded,
         "fail": failed
     }
+
+
+def multithread_gather(job_submission_tasks):
+    """
+    Given a list of tasks, executes them concurrently and gathers the results.
+    Exceptions are returned as results rather than re-raised.
+    """
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
+        futures = [executor.submit(job_submission_task) for job_submission_task in job_submission_tasks]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = exc
+            results.append(result)
+    return results
 
 
 def supply_es_conn(args):
