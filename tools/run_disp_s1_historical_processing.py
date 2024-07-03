@@ -222,7 +222,7 @@ Skipping now but will be retried in the future." % (frame_id, sensing_time_posit
 
     # We need to adjust the m parameter early in the sensing time series
     # For example, if this is the very first k-set, there won't be compressed cslc and therefore m should be 1
-    if sensing_time_position_zero_based < p.k * p.m:
+    if sensing_time_position_zero_based < p.k * (p.m-1):
         job_params["m"] = f"--m={(sensing_time_position_zero_based // p.k) + 1}"
     else:
         job_params["m"] = f"--m={p.m}"

@@ -69,6 +69,9 @@ class CmrQuery:
         # Given the new granules coming in and existing unsubmitted granules, determine which granules to download
         download_granules = self.determine_download_granules(granules)
 
+        '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
+        Otherwise, fail this job'''
+
         logger.info("catalogue-ing STARTED")
         self.catalog_granules(granules, query_dt)
         logger.info("catalogue-ing FINISHED")
