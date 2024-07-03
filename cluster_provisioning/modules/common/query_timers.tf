@@ -37,7 +37,6 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
-  depends_on        = [aws_lambda_function.hlsl30_query_timer]
   name              = "/aws/lambda/${aws_lambda_function.hlsl30_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -52,7 +51,7 @@ resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
   rule       = aws_cloudwatch_event_rule.hlsl30_query_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.hlsl30_query_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "hlsl30_query_timer" {
   statement_id  = aws_cloudwatch_event_rule.hlsl30_query_timer.name
@@ -100,7 +99,6 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
-  depends_on        = [aws_lambda_function.hlss30_query_timer]
   name              = "/aws/lambda/${aws_lambda_function.hlss30_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -115,7 +113,7 @@ resource "aws_cloudwatch_event_target" "hlss30_query_timer" {
   rule       = aws_cloudwatch_event_rule.hlss30_query_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.hlss30_query_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "hlss30_query_timer" {
   statement_id  = aws_cloudwatch_event_rule.hlss30_query_timer.name
@@ -164,7 +162,6 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "slcs1a_query_timer" {
-  depends_on        = [aws_lambda_function.slcs1a_query_timer]
   name              = "/aws/lambda/${aws_lambda_function.slcs1a_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -179,7 +176,7 @@ resource "aws_cloudwatch_event_target" "slcs1a_query_timer" {
   rule       = aws_cloudwatch_event_rule.slcs1a_query_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.slcs1a_query_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "slcs1a_query_timer" {
   statement_id  = aws_cloudwatch_event_rule.slcs1a_query_timer.name
@@ -215,7 +212,6 @@ resource "aws_lambda_function" "slc_ionosphere_download_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "slc_ionosphere_download_timer" {
-  depends_on        = [aws_lambda_function.slc_ionosphere_download_timer]
   name              = "/aws/lambda/${aws_lambda_function.slc_ionosphere_download_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -224,13 +220,13 @@ resource "aws_cloudwatch_event_rule" "slc_ionosphere_download_timer" {
   description         = "Cloudwatch event to trigger the Data Subscriber Ionosphere Download Timer Lambda"
   schedule_expression = var.slc_ionosphere_download_timer_trigger_frequency
   is_enabled          = local.enable_download_timer
-  depends_on          = [null_resource.install_pcm_and_pges]
+  depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "slc_ionosphere_download_timer" {
   rule       = aws_cloudwatch_event_rule.slc_ionosphere_download_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.slc_ionosphere_download_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "slc_ionosphere_download_timer" {
   statement_id  = aws_cloudwatch_event_rule.slc_ionosphere_download_timer.name
@@ -282,7 +278,6 @@ resource "aws_lambda_function" "rtc_query_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "rtc_query_timer" {
-  depends_on        = [aws_lambda_function.rtc_query_timer]
   name              = "/aws/lambda/${aws_lambda_function.rtc_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -297,7 +292,7 @@ resource "aws_cloudwatch_event_target" "rtc_query_timer" {
   rule       = aws_cloudwatch_event_rule.rtc_query_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.rtc_query_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "rtc_query_timer" {
   statement_id  = aws_cloudwatch_event_rule.rtc_query_timer.name
@@ -349,7 +344,6 @@ resource "aws_lambda_function" "cslc_query_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "cslc_query_timer" {
-  depends_on        = [aws_lambda_function.cslc_query_timer]
   name              = "/aws/lambda/${aws_lambda_function.cslc_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -364,7 +358,7 @@ resource "aws_cloudwatch_event_target" "cslc_query_timer" {
   rule       = aws_cloudwatch_event_rule.cslc_query_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.cslc_query_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "cslc_query_timer" {
   statement_id  = aws_cloudwatch_event_rule.cslc_query_timer.name
@@ -405,7 +399,6 @@ resource "aws_lambda_function" "batch_query_timer" {
   }
 }
 resource "aws_cloudwatch_log_group" "batch_query_timer" {
-  depends_on        = [aws_lambda_function.batch_query_timer]
   name              = "/aws/lambda/${aws_lambda_function.batch_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
@@ -420,7 +413,7 @@ resource "aws_cloudwatch_event_target" "batch_query_timer" {
   rule       = aws_cloudwatch_event_rule.batch_query_timer.name
   target_id  = "Lambda"
   arn        = aws_lambda_function.batch_query_timer.arn
-  depends_on = [aws_instance.mozart]
+  depends_on = [null_resource.setup_trigger_rules]
 }
 resource "aws_lambda_permission" "batch_query_timer" {
   statement_id  = aws_cloudwatch_event_rule.batch_query_timer.name

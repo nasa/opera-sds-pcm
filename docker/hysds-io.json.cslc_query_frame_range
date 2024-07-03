@@ -1,5 +1,5 @@
 {
-  "label": "Query CSLC data with datetime and frame ranges",
+  "label": "Query CSLC data with datetime and frame_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
@@ -103,9 +103,9 @@
       "optional": true
     },
     {
-      "name": "frame_range",
+      "name": "frame_id",
       "from": "submitter",
-      "placeholder": "e.g. --frame_range",
+      "placeholder": "e.g. --frame-id",
       "optional": true
     },
     {

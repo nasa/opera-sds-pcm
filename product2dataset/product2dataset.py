@@ -16,6 +16,7 @@ import sys
 import traceback
 from pathlib import PurePath, Path
 from typing import Union, Tuple
+from datetime import datetime
 
 from more_itertools import one
 
@@ -25,7 +26,7 @@ import product2dataset.iso_xml_reader as iso_xml_reader
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
-from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc, build_ccslc_m_index
+from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc, build_ccslc_m_index, localize_disp_frame_burst_hist
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -137,10 +138,10 @@ def convert(
         logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
         product_metadata: dict = kwargs["product_metadata"]
 
-        dataset_type = job_json_dict["params"]["dataset_type"]
+        output_dataset_type = job_json_dict["params"]["wf_name"]
 
-        publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type)
-        publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type)
+        publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
+        publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
 
         logger.info(f"{pge_shortname=}")
@@ -208,18 +209,17 @@ def convert(
                 dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["frame_id"] = product_metadata["frame_id"]
+            dataset_met_json["acquisition_cycle"] = product_metadata["acquisition_cycle"]
 
             # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
             # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
-            # There should only be one file in the dataset, so we can just grab the first one
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
-                ccslc_file = dataset_met_json["Files"][0]
+                decorate_compressed_cslc(dataset_met_json)
 
-                # last_date_time looks like this: "2024-04-18T00:00:00.000000Z"
-                acquisition_cycle = determine_acquisition_cycle_cslc(
-                    ccslc_file["burst_id"], ccslc_file["last_date_time"], dataset_met_json["id"])
-                dataset_met_json["acquisition_cycle"] = acquisition_cycle
-                dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
+        elif pge_name == "L3_DSWx_NI":
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
@@ -284,6 +284,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "disp-s1" in dataset_id.lower():
         collection_name = settings.get("DISP_S1_COLLECTION_NAME")
         product_version = settings.get("DISP_S1_PRODUCT_VERSION")
+    elif "dswx-ni" in dataset_id.lower():
+        collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
+        product_version = settings.get("DSWX_NI_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"
@@ -394,6 +397,10 @@ def search_for_catalog_json_file(product_dir):
 def search_for_met_json_file(datasets_parent_dir):
     return glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True)
 
+def decorate_compressed_cslc(dataset_met_json):
+    ccslc_file = dataset_met_json["Files"][0] # There should only be one file in the dataset, so we can just grab the first one
+    dataset_met_json["burst_id"] = ccslc_file["burst_id"]
+    dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(dataset_met_json["acquisition_cycle"]))
 
 def main():
     """

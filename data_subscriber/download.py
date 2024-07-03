@@ -55,9 +55,13 @@ class DaacDownload:
         self.daac_s3_cred_settings_key = None
         self.cfg = SettingsConf().cfg  # has metadata extractor config
 
-        self.downloads_dir = None
+        logger.info("Creating directories to process products")
 
-    async def run_download(self, args, token, es_conn, netloc, username, password,
+        # house all file downloads
+        self.downloads_dir = Path("downloads")
+        self.downloads_dir.mkdir(exist_ok=True)
+
+    def run_download(self, args, token, es_conn, netloc, username, password, cmr,
                            job_id, rm_downloads_dir=True):
         product_to_product_filepaths_map = {}
         downloads = self.get_downloads(args, es_conn)
@@ -71,12 +75,6 @@ class DaacDownload:
             return product_to_product_filepaths_map
 
         session = SessionWithHeaderRedirection(username, password, netloc)
-
-        logger.info("Creating directories to process products")
-
-        # house all file downloads
-        self.downloads_dir = Path("downloads")
-        self.downloads_dir.mkdir(exist_ok=True)
 
         product_to_product_filepaths_map = self.perform_download(
             session, es_conn, downloads, args, token, job_id

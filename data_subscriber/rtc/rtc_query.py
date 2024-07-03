@@ -143,7 +143,14 @@ class RtcCmrQuery(CmrQuery):
             coverage_target = args.coverage_target
             if coverage_target is None:
                 coverage_target = settings["DSWX_S1_COVERAGE_TARGET"]
-            evaluator_results = evaluator.main(coverage_target=coverage_target, min_num_bursts=min_num_bursts)
+            grace_mins = args.grace_mins
+            if grace_mins is None:
+                grace_mins = settings["DSWX_S1_COLLECTION_GRACE_PERIOD_MINUTES"]
+            evaluator_results = evaluator.main(
+                coverage_target=coverage_target,
+                required_min_age_minutes_for_partial_burstsets=grace_mins,
+                min_num_bursts=min_num_bursts
+            )
 
         processable_mgrs_set_ids = {
             mgrs_set_id

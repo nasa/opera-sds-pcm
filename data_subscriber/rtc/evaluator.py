@@ -75,6 +75,19 @@ def main(
 
         es_docs = unsubmitted_docs + submitted_but_incomplete_docs
 
+        grouped_es_docs = defaultdict(list)
+        for es_doc in es_docs:
+            grouped_es_docs[es_doc["_source"]["mgrs_set_id_acquisition_ts_cycle_index"]].append(es_doc)
+
+        es_docs = []
+        for mgrs_set_id_acquisition_ts_cycle_index, burst_set in grouped_es_docs.items():
+            # collect burst sets that have at least 1 new burst since last processed
+            if any({
+                not burst["_source"].get("downloaded")
+                for burst in burst_set
+            }):
+                es_docs.extend(burst_set)
+
     evaluator_results = {
         "coverage_target": coverage_target,
         "mgrs_sets": defaultdict(list)
@@ -130,22 +143,24 @@ def main(
                 coverage_group = product_set_and_coverage_dict["coverage_group"]
                 if coverage_target is not None and coverage_group != coverage_target:
                     continue
+
                 product_burstset = product_set_and_coverage_dict["product_set"]
                 if min_num_bursts is not None:
                     number_of_bursts = len(product_burstset)
-                    logger.info(f"{number_of_bursts=}, {min_num_bursts=}")
+                    logger.info(f"{mgrs_set_id=}, {number_of_bursts=}, {min_num_bursts=}")
                     if number_of_bursts < min_num_bursts:
+                        logger.info(f"Burst set {mgrs_set_id=} does not meet {min_num_bursts=}. Found {number_of_bursts=}. Will not process at this time.")
                         product_burstset_index_to_skip_processing.add(i)
                         continue
-                    continue
+
                 retrieval_dts = {
                     dateutil.parser.parse(product_doc["creation_timestamp"])
                     for rtc_granule_id_to_product_docs_map in product_burstset
                     for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
                 }
                 max_retrieval_dt = max(*retrieval_dts) if len(retrieval_dts) > 1 else first(retrieval_dts)
-                grace_period_minutes_remaining = timedelta(minutes=required_min_age_minutes_for_partial_burstsets) - (datetime.now() - max_retrieval_dt)
-                if datetime.now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
+                grace_period_minutes_remaining = timedelta(minutes=required_min_age_minutes_for_partial_burstsets) - (datetime_now() - max_retrieval_dt)
+                if datetime_now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
                     # burst set meets target, but not old enough. continue to ignore
                     logger.info(f"Target covered burst still within grace period ({grace_period_minutes_remaining=}). Will not process at this time. {mgrs_set_id=}, {i=}")
                     product_burstset_index_to_skip_processing.add(i)
@@ -155,7 +170,7 @@ def main(
                     pass
 
             for i in sorted(product_burstset_index_to_skip_processing, reverse=True):
-                logger.info(f"Removing target covered burst still within grace period. {mgrs_set_id=}, {i=}")
+                logger.info(f"Burst set {mgrs_set_id=} flagged for skipping further processing at this time. {i=}")
                 del evaluator_results["mgrs_sets"][mgrs_set_id][i]
                 if not evaluator_results["mgrs_sets"][mgrs_set_id]:
                     del evaluator_results["mgrs_sets"][mgrs_set_id]
@@ -163,6 +178,11 @@ def main(
     evaluator_results["mgrs_sets"] = dict(evaluator_results["mgrs_sets"])
 
     return evaluator_results
+
+
+def datetime_now():
+    """Calls datetime.now(). Encapsulated in a function for unit-testing purposes."""
+    return datetime.now()
 
 
 def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):

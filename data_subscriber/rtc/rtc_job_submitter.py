@@ -59,17 +59,14 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args,
         }
 
         job_submission_tasks.append(
-            asyncio.get_event_loop().run_in_executor(
-                executor=None,
-                func=partial(
-                    submit_dswx_s1_job,
-                    product=product,
-                    job_queue=f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
-                    rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
-                    params=create_job_params(product),
-                    job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version or settings["RELEASE_VERSION"]}',
-                    job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}'
-                )
+            partial(
+                submit_dswx_s1_job,
+                product=product,
+                job_queue=f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
+                rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
+                params=create_job_params(product),
+                job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version or settings["RELEASE_VERSION"]}',
+                job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}'
             )
         )
     return job_submission_tasks
