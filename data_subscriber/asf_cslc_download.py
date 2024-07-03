@@ -191,6 +191,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         '''
         prev_day_indices = get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
 
+        # special case for early sensing time series. Reduce m if there aren't enough sensing times in the database in the first place
+        # For example, if k was 4 and m was 3, but there are only 4 previous sensing times in the database, then m should be 2
+        if len(prev_day_indices) < k * (m - 1):
+            m = (len(prev_day_indices) // k) + 1
+
         for mm in range(0, m-1): # m parameter is inclusive of the current frame at hand
             for burst_id in burst_id_set:
                 ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id) #looks like t034_071112_iw3_461
@@ -206,7 +211,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                 for ccslc in ccslcs:
                     c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
-        #asdfg
         # <------------------------- Compressed CSLC look up
 
         # Look up bounding box for frame
