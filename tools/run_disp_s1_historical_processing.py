@@ -22,8 +22,10 @@ _ENV_JOB_RELEASE = "JOB_RELEASE"
 ES_INDEX = "batch_proc"
 JOB_TYPE = "cslc_query_hist"
 
-logging.basicConfig(level="INFO")
-logger = logging.getLogger(__name__)
+logging.basicConfig(level="INFO",
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger("DISP-S1-HISTORICAL")
 
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
@@ -77,9 +79,8 @@ def proc_once(eu, procs, dryrun = False):
 
             # submit mozart job
             if do_submit:
-                print("Submitting query job for", p.label, "frame", frame_id,
-                      "with start date", job_params["start_datetime"].split("=")[1],
-                      "and end date", job_params["end_datetime"].split("=")[1])
+                logger.info(f"Submitting query job for {p.label} {frame_id=} with start date \
+{job_params['start_datetime'].split('=')[1]} and end date {job_params['end_datetime'].split('=')[1]}")
                 logger.info(job_params)
 
                 if dryrun:
@@ -103,7 +104,7 @@ def proc_once(eu, procs, dryrun = False):
 
         if proc_finished:
             # See if we've reached the end of this batch proc. If so, disable it.
-            print(p.label, "Batch Proc completed processing. It is now disabled")
+            logger.info(f"{p.label} Batch Proc completed processing. It is now disabled")
             eu.update_document(id=doc_id,
                                body={"doc_as_upsert": True,
                                      "doc": {
@@ -135,7 +136,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
             temporal = False
     except:
         temporal = True
-        print(f"Temporal parameter not found in batch proc. Defaulting to {temporal}.")
+        logger.info(f"Temporal parameter not found in batch proc. Defaulting to {temporal}.")
 
     processing_mode = p.processing_mode
     if p.processing_mode == "historical":
@@ -348,14 +349,21 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verbose", dest="verbose",
-                        help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.",
-                        required=False, default=False)
+    parser.add_argument("--verbose", dest="verbose", required=False, default=False,
+                        help="If true, print out verbose information, mainly INFO logs from elasticsearch module... it's a lot!")
     parser.add_argument("--sleep-secs", dest="sleep_secs", help="Sleep between running for a cycle in seconds",
                         required=False, default=60)
     parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False)
 
     args = parser.parse_args()
+
+    eu_logger = logging.getLogger("ElasticsearchUtility")
+    eu_logger.setLevel(logging.INFO)
+
+    # Suppress all logs from elasticsearch except for warnings and errors if not in verbose mode
+    if not args.verbose:
+        logging.getLogger('elasticsearch').setLevel(logging.WARNING)
+        eu_logger.setLevel(logging.WARNING)
 
     SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
     MOZART_IP = SETTINGS["MOZART_PVT_IP"]
@@ -365,7 +373,7 @@ if __name__ == "__main__":
     MOZART_URL = 'https://%s/mozart' % MOZART_IP
     JOB_SUBMIT_URL = "%s/api/v0.1/job/submit?enable_dedup=false" % MOZART_URL
 
-    eu = ElasticsearchUtility('http://%s:%s' % (GRQ_IP, str(9200)), logger)
+    eu = ElasticsearchUtility('http://%s:%s' % (GRQ_IP, str(9200)), eu_logger)
 
     while (True):
         batch_procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
