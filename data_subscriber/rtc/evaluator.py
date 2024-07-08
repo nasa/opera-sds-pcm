@@ -28,10 +28,9 @@ def main(
         coverage_target: Optional[int] = None,
         required_min_age_minutes_for_partial_burstsets: int = 0,
         mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None,
-        min_num_bursts: Optional[int] = None,
-        *args,
-        **kwargs
+        min_num_bursts: Optional[int] = None
 ):
+    """Entrypoint into the evaluator function. Evaluates the catalog of RTC products for burst set coverage."""
     logger.info(f"{coverage_target=}, {min_num_bursts=}")
     if coverage_target is not None and min_num_bursts is not None:
         raise AssertionError("Both coverage_target and min_num_bursts was specified. Specify one or the other.")
@@ -159,8 +158,8 @@ def main(
                     for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
                 }
                 max_retrieval_dt = max(*retrieval_dts) if len(retrieval_dts) > 1 else first(retrieval_dts)
-                grace_period_minutes_remaining = timedelta(minutes=required_min_age_minutes_for_partial_burstsets) - (datetime_now() - max_retrieval_dt)
-                if datetime_now() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
+                grace_period_minutes_remaining = timedelta(minutes=required_min_age_minutes_for_partial_burstsets) - (current_evaluation_datetime() - max_retrieval_dt)
+                if current_evaluation_datetime() - max_retrieval_dt < timedelta(minutes=required_min_age_minutes_for_partial_burstsets):
                     # burst set meets target, but not old enough. continue to ignore
                     logger.info(f"Target covered burst still within grace period ({grace_period_minutes_remaining=}). Will not process at this time. {mgrs_set_id=}, {i=}")
                     product_burstset_index_to_skip_processing.add(i)
@@ -180,7 +179,7 @@ def main(
     return evaluator_results
 
 
-def datetime_now():
+def current_evaluation_datetime():
     """Calls datetime.now(). Encapsulated in a function for unit-testing purposes."""
     return datetime.now()
 
