@@ -335,7 +335,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
-      "instance_type"     = ["c7i.xlarge", "c7i.2xlarge", "c7i.4xlarge", "c7i.8xlarge", "m7i.xlarge", "m7i.2xlarge", "m7i.4xlarge", "m7i.8xlarge]
+      "instance_type"     = ["c7i.xlarge", "c7i.2xlarge", "c7i.4xlarge", "c7i.8xlarge", "m7i.xlarge", "m7i.2xlarge", "m7i.4xlarge", "m7i.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
