@@ -122,61 +122,6 @@ def batch_proc_once():
             print("Creating batch proc using parameters")
             print(args)
 
-    exit(0)
-
-    procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
-    for proc in procs:
-        doc_id = proc['_id']
-        proc = proc['_source']
-        p = SimpleNamespace(**proc)
-
-        # If this batch proc is disabled, continue TODO: this goes away when we change the query above
-        if p.enabled == False:
-            continue
-
-        now = datetime.utcnow()
-        new_last_run_date = datetime.strptime(p.last_run_date, ES_DATETIME_FORMAT) + timedelta(
-            minutes=p.run_interval_mins)
-
-        # If it's not time to run yet, just continue
-        if new_last_run_date > now:
-            continue
-
-        # Update last_run_date here
-        eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": {
-                                     "enabled": True, }},
-                           index=ES_INDEX)
-
-        data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
-        data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
-
-        # Start date time is when the last successful process data time.
-        # If this is before the data start time, which may be the case when this batch_proc is first run,
-        # change it to the data start time.
-        s_date = datetime.strptime(p.last_successful_proc_data_date, ES_DATETIME_FORMAT)
-        if s_date < data_start_date:
-            s_date = data_start_date
-
-        # End date time is when the start data time plus data increment time in minutes.
-        # If this is after the data end time, which would be the case when this is the very last iteration of this proc,
-        # change it to the data end time.
-        e_date = s_date + timedelta(minutes=p.data_date_incr_mins)
-        if e_date > data_end_date:
-            e_date = data_end_date
-
-        # update last_attempted_proc_data_date here
-        eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": {
-                                     "last_attempted_proc_data_date": e_date, }},
-                           index=ES_INDEX)
-
-        job_name = "data-subscriber-query-timer-{}_{}-{}".format(p.label, s_date.strftime(ES_DATETIME_FORMAT),
-                                                                 e_date.strftime(ES_DATETIME_FORMAT))
-
-
 def create_parser():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
