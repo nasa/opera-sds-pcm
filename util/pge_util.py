@@ -551,10 +551,9 @@ def get_dswx_ni_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                # TODO: reenable once ancillary filename application is implemented
-                #sensor='LSAR',
-                #spacing='30',
-                #product_version='0.1'
+                sensor='LSAR',
+                spacing='30',
+                product_version='0.1'
             )
 
             ancillary_file_name = f'{base_name}.{extension}'
