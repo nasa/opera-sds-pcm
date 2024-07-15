@@ -66,54 +66,54 @@ This guide provides a quick way to get started with the script.
 
 * Retrieve a list of MGRS Tile Set IDs for the RTC burst processing a given time range on CMR, and filter the results to show only MGRS Tile Sets that had coverage of greater than or equal to 50%.
 
-```
-$ python dswx_s1_validator.py --start "2023-12-05T01:00:00" --end "2023-12-05T03:59:59" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
-Querying CMR for time range 2023-12-05T01:00:00 to 2023-12-05T03:59:59.
-Querying CMR for 2316 granules.
+  ```
+  $ python dswx_s1_validator.py --start "2023-12-05T01:00:00" --end "2023-12-05T03:59:59" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
+  Querying CMR for time range 2023-12-05T01:00:00 to 2023-12-05T03:59:59.
+  Querying CMR for 2316 granules.
 
-Fetching granules: 100%|███████████████████████████████████████| 2316/2316 [00:01<00:00, 1660.76it/s]
+  Fetching granules: 100%|███████████████████████████████████████| 2316/2316 [00:01<00:00, 1660.76it/s]
 
-Granule fetching complete.
+  Granule fetching complete.
 
-Calculating coverage: 100%|██████████████████████████████████| 12585/12585 [00:09<00:00, 1359.21it/s]
+  Calculating coverage: 100%|██████████████████████████████████| 12585/12585 [00:09<00:00, 1359.21it/s]
 
-MGRS Set IDs covered: 34
-MGRS Set ID      Coverage Percentage    Matching Burst Count    Total Burst Count
-MS_166_30                      70                         28                   40
-MS_166_31                     100                         40                   40
-MS_166_32                     100                         40                   40
-MS_166_33                     100                         40                   40
-MS_166_34                     100                         40                   40
-MS_166_35                     100                         40                   40
-MS_166_36                     100                         41                   41
-MS_166_37                     100                         41                   41
-MS_166_38                     100                         42                   42
-MS_166_39                     100                         42                   42
-MS_166_69                      90.24                      37                   41
-MS_166_70                     100                         40                   40
-MS_166_71                     100                         40                   40
-MS_166_72                     100                         39                   39
-MS_166_73                     100                         40                   40
-MS_166_74                     100                         40                   40
-MS_166_75                     100                         40                   40
-MS_166_76                     100                         41                   41
-MS_166_77                     100                         41                   41
-MS_166_78                     100                         41                   41
-MS_166_79                     100                         40                   40
-MS_166_80                     100                         40                   40
-MS_166_81                      50                         20                   40
-MS_166_88                     100                         40                   40
-MS_166_89                      90                         36                   40
-MS_167_68                     100                         41                   41
-MS_167_69                     100                         40                   40
-MS_167_70                     100                         40                   40
-MS_167_71                     100                         39                   39
-MS_167_72                     100                         40                   40
-MS_167_73                     100                         40                   40
-MS_167_74                     100                         39                   39
-MS_167_75                     100                         41                   41
-MS_167_77                     100                         41                   41
-```
+  MGRS Set IDs covered: 34
+  MGRS Set ID      Coverage Percentage    Matching Burst Count    Total Burst Count
+  MS_166_30                      70                         28                   40
+  MS_166_31                     100                         40                   40
+  MS_166_32                     100                         40                   40
+  MS_166_33                     100                         40                   40
+  MS_166_34                     100                         40                   40
+  MS_166_35                     100                         40                   40
+  MS_166_36                     100                         41                   41
+  MS_166_37                     100                         41                   41
+  MS_166_38                     100                         42                   42
+  MS_166_39                     100                         42                   42
+  MS_166_69                      90.24                      37                   41
+  MS_166_70                     100                         40                   40
+  MS_166_71                     100                         40                   40
+  MS_166_72                     100                         39                   39
+  MS_166_73                     100                         40                   40
+  MS_166_74                     100                         40                   40
+  MS_166_75                     100                         40                   40
+  MS_166_76                     100                         41                   41
+  MS_166_77                     100                         41                   41
+  MS_166_78                     100                         41                   41
+  MS_166_79                     100                         40                   40
+  MS_166_80                     100                         40                   40
+  MS_166_81                      50                         20                   40
+  MS_166_88                     100                         40                   40
+  MS_166_89                      90                         36                   40
+  MS_167_68                     100                         41                   41
+  MS_167_69                     100                         40                   40
+  MS_167_70                     100                         40                   40
+  MS_167_71                     100                         39                   39
+  MS_167_72                     100                         40                   40
+  MS_167_73                     100                         40                   40
+  MS_167_74                     100                         39                   39
+  MS_167_75                     100                         41                   41
+  MS_167_77                     100                         41                   41
+  ```
 
 * Process and display data related to granule IDs.
 
