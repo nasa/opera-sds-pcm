@@ -15,6 +15,7 @@
 runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
+    compressed_cslc_paths: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     #amplitude_dispersion_files: __CHIMERA_VAL__
     #amplitude_mean_files: __CHIMERA_VAL__
@@ -55,6 +56,7 @@ preconditions:
   - get_static_ancillary_files
   #- get_disp_s1_amplitude_dispersion_files
   #- get_disp_s1_amplitude_mean_files
+  - get_disp_s1_compressed_cslc_files
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
   - get_disp_s1_troposphere_files
