@@ -519,6 +519,26 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
     }
+    "opera-job_worker-pge_smoke_test_amd" = {
+      "name"              = "opera-job_worker-pge_smoke_test_amd"
+      "instance_type"     = ["r6a.xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
+    "opera-job_worker-pge_smoke_test_intel" = {
+      "name"              = "opera-job_worker-pge_smoke_test_intel"
+      "instance_type"     = ["r6i.xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
   }
 }
 
