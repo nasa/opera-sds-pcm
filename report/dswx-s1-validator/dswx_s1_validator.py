@@ -341,7 +341,7 @@ def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoin
         start=smallest_date_iso,
         end=greatest_date_iso,
         endpoint=endpoint,
-        provider='',  # or the appropriate provider
+        provider='',  # leave blank
         short_name='OPERA_L3_DSWX-S1_PROVISIONAL_V0',  # Use the specific product short name
         timestamp_type='temporal'  # Ensure this matches the query requirements
     )
@@ -374,9 +374,18 @@ def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoin
             print(f"✅ Validation successful: All DSWx-S1 tiles available at CMR for corresponding matched input RTC bursts within sensing time range.")
             return True
         else:
+            missing_tiles = unique_mgrs_tiles_set - retrieved_tiles_set
+            extra_tiles = retrieved_tiles_set - unique_mgrs_tiles_set
             print(f"❌ Validation failed: Mismatch in DSWx-S1 tiles available at CMR for corresponding matched input RTC bursts within sensing time range.")
+            print()
             print(f"Expected({len(unique_mgrs_tiles_set)}): {unique_mgrs_tiles_set}")
+            print()
             print(f"Received({len(retrieved_tiles_set)}): {retrieved_tiles_set}")
+            print()
+            if missing_tiles:
+                print(f"Missing tiles({len(missing_tiles)}): {missing_tiles}")
+            if extra_tiles:
+                print(f"Extra tiles({len(extra_tiles)}): {extra_tiles}")
             return False
 
     except requests.exceptions.RequestException as e:
@@ -395,6 +404,7 @@ if __name__ == '__main__':
     parser.add_argument("--matching_burst_count", required=False, help="Matching burst count to filter results by. Typically four or more is advised. Using this with the --threshold flag makes this flag inactive (only one of '--threshold' or '--matching_burst_count' may be used)")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
     parser.add_argument("--endpoint", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue')
+    parser.add_argument("--validate", action='store_true', help="Validate if DSWx-S1 products have been delivered for given time range (use --timestamp TEMPORAL mode only)")
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -482,13 +492,14 @@ if __name__ == '__main__':
     else:
         print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
 
-    burst_dates_series = df['Burst Dates'].explode()
-    smallest_date = burst_dates_series.min()
-    greatest_date = burst_dates_series.max()
+    if args.validate:
+        burst_dates_series = df['Burst Dates'].explode()
+        smallest_date = burst_dates_series.min()
+        greatest_date = burst_dates_series.max()
 
-    print()
-    print(f"Expected DSWx-S1 product sensing time range: {smallest_date} to {greatest_date}")
-    mgrs_tiles_series = df['MGRS Tiles'].str.split(', ').explode()
-    unique_mgrs_tiles = mgrs_tiles_series.unique()
+        print()
+        print(f"Expected DSWx-S1 product sensing time range: {smallest_date} to {greatest_date}")
+        mgrs_tiles_series = df['MGRS Tiles'].str.split(', ').explode()
+        unique_mgrs_tiles = mgrs_tiles_series.unique()
 
-    validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles)
+        validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles)
