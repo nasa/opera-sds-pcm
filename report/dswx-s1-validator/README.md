@@ -183,7 +183,7 @@ This guide provides a quick way to get started with the script.
 * Validate whether DSWx-S1 processing has kept up with input RTC processing (success condition)
 
   ```
-  $ python dswx_s1_validator.py --start "2024-05-12T08:00:00" --end "2024-05-12T08:59:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
+  $ python dswx_s1_validator.py --endpoint UAT --start "2024-05-12T08:00:00" --end "2024-05-12T08:59:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
   Total granules: 114
   Querying CMR for time range 2024-05-12T08:00:00 to 2024-05-12T08:59:00.
 
@@ -206,7 +206,7 @@ This guide provides a quick way to get started with the script.
 * Validate whether DSWx-S1 processing has kept up with input RTC processing (failure condition)
 
   ```
-  $ python dswx_s1_validator.py --start "2024-05-12T04:10:00" --end "2024-05-12T05:10:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
+  $ python dswx_s1_validator.py --endpoint UAT --start "2024-05-12T04:10:00" --end "2024-05-12T05:10:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
 
   Total granules: 894
   Querying CMR for time range 2024-05-12T04:10:00 to 2024-05-12T05:10:00.

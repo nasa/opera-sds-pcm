@@ -318,7 +318,7 @@ def get_burst_ids_from_query(start, end, timestamp, endpoint):
     
     return burst_ids, burst_dates
 
-def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoint='UAT'):
+def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoint):
     """
     Validates that the MGRS tiles from the CMR query match the provided unique MGRS tiles list.
 
@@ -492,7 +492,7 @@ if __name__ == '__main__':
     else:
         print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
 
-    if args.validate:
+    if args.validate and len(df) > 0:
         burst_dates_series = df['Burst Dates'].explode()
         smallest_date = burst_dates_series.min()
         greatest_date = burst_dates_series.max()
@@ -502,4 +502,4 @@ if __name__ == '__main__':
         mgrs_tiles_series = df['MGRS Tiles'].str.split(', ').explode()
         unique_mgrs_tiles = mgrs_tiles_series.unique()
 
-        validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles)
+        validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, args.endpoint)
