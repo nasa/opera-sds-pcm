@@ -220,10 +220,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         # Now submit DISP-S1 SCIFLO job
         logger.info(f"Submitting DISP-S1 SCIFLO job")
 
-        save_compressed_slcs = False
+        save_compressed_cslc = False
         if determine_k_cycle(None, latest_acq_cycle_index, frame_id, self.disp_burst_map, k, args, token, cmr, settings) == 0:
-            save_compressed_slcs = True
-        logger.info(f"{save_compressed_slcs=}")
+            save_compressed_cslc = True
+        logger.info(f"{save_compressed_cslc=}")
 
         product = {
             "_id": product_id,
@@ -242,7 +242,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     "FileName": product_id,
                     "id": product_id,
                     "bounding_box": bounding_box,
-                    "save_compressed_slcs": save_compressed_slcs,
+                    "save_compressed_cslc": save_compressed_cslc,
                     "acquisition_cycle": latest_acq_cycle_index,
                     "Files": [
                         {
