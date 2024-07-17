@@ -318,23 +318,46 @@ def get_burst_ids_from_query(start, end, timestamp, endpoint):
     
     return burst_ids, burst_dates
 
-def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoint):
-    """
-    Validates that the MGRS tiles from the CMR query match the provided unique MGRS tiles list.
+def extract_rtc_granule_from_file_path(path):
+    # Define a regular expression pattern to extract the desired substring
+    # This pattern assumes the substring starts with 'OPERA_' and ends before the last underscore followed by a suffix that includes the file extension
+    pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1A_30_v\d+\.\d+)"
+    
+    # Search for the pattern
+    match = re.search(pattern, full_string)
+    
+    # Return the matched substring or None if no match is found
+    if match:
+        return match.group(1)
+    else:
+        return None
 
-    :param smallest_date: The earliest date in the range (ISO 8601 format).
-    :param greatest_date: The latest date in the range (ISO 8601 format).
-    :param unique_mgrs_tiles: List of unique MGRS tiles to validate against.
-    :param endpoint: CMR environment ('UAT' or 'OPS').
-    :return: Boolean indicating if the validation was successful.
+def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
+    """
+    Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
+    It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
+    The function then updates the DataFrame to include a count of unprocessed bursts based on the missing granules.
+
+    :param smallest_date: datetime.datetime
+        The earliest date in the range (ISO 8601 format).
+    :param greatest_date: datetime.datetime
+        The latest date in the range (ISO 8601 format).
+    :param endpoint: str
+        CMR environment ('UAT' or 'OPS') to specify the operational setting for the data query.
+    :param df: pandas.DataFrame
+        A DataFrame containing columns with granule identifiers which will be checked against the CMR query results.
+        
+    :return: pandas.DataFrame or bool
+        A modified DataFrame with additional columns 'Unprocessed Bursts' and 'Unprocessed Bursts Count' showing
+        granules not found in the CMR results and their count respectively. Returns False if the CMR query fails.
+    
+    Raises:
+        requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
     """
 
     # Convert Timestamps to strings in ISO 8601 format
     smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
     greatest_date_iso = greatest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
-
-    # Add 'T' prefix to MGRS tiles if not already present
-    formatted_mgrs_tiles = [f"T{tile}" if not tile.startswith('T') else tile for tile in unique_mgrs_tiles]
 
     # Generate the base URL and parameters for the CMR query
     base_url, params = generate_url_params(
@@ -359,38 +382,43 @@ def validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, endpoin
         granules = response.json()
 
         # Extract MGRS tiles from the response
-        retrieved_tiles = []
+        available_rtc_bursts = []
+        pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1A_30_v\d+\.\d+)"
         for item in granules['items']:
-            for attribute in item['umm']['AdditionalAttributes']:
-                if 'AdditionalAttributes' in item['umm'] and attribute['Name'] == 'MGRS_TILE_ID':
-                    retrieved_tiles.append(attribute['Values'][0])
+            for path in item['umm']['InputGranules']:
+                # Extract the granule burst ID from the full path
+                match = re.search(pattern, path)
+                if match:
+                    available_rtc_bursts.append(match.group(1))
 
-        # Validate against provided unique MGRS tiles
-        retrieved_tiles_set = set(retrieved_tiles)
-        unique_mgrs_tiles_set = set(formatted_mgrs_tiles)
+        unique_available_rtc_bursts = set(available_rtc_bursts)
 
-        print()
-        if retrieved_tiles_set == unique_mgrs_tiles_set:
-            print(f"✅ Validation successful: All DSWx-S1 tiles available at CMR for corresponding matched input RTC bursts within sensing time range.")
-            return True
-        else:
-            missing_tiles = unique_mgrs_tiles_set - retrieved_tiles_set
-            extra_tiles = retrieved_tiles_set - unique_mgrs_tiles_set
-            print(f"❌ Validation failed: Mismatch in DSWx-S1 tiles available at CMR for corresponding matched input RTC bursts within sensing time range.")
-            print()
-            print(f"Expected({len(unique_mgrs_tiles_set)}): {unique_mgrs_tiles_set}")
-            print()
-            print(f"Received({len(retrieved_tiles_set)}): {retrieved_tiles_set}")
-            print()
-            if missing_tiles:
-                print(f"Missing tiles({len(missing_tiles)}): {missing_tiles}")
-            if extra_tiles:
-                print(f"Extra tiles({len(extra_tiles)}): {extra_tiles}")
-            return False
+        # Function to identify missing bursts
+        def filter_and_find_missing(row):
+            rtc_bursts_in_df_row = set(row['Matching Granules'].split(', '))
+            unprocessed_rtc_bursts = rtc_bursts_in_df_row - unique_available_rtc_bursts
+            if unprocessed_rtc_bursts:
+                return ', '.join(unprocessed_rtc_bursts)
+            return None  # or pd.NA 
+
+        # Function to count missing bursts
+        def count_missing(row):
+            count = len(row['Unprocessed Bursts'].split(', '))
+            return count
+
+        # Apply the function and create a new column 'Unprocessed Bursts'
+        df['Unprocessed Bursts'] = df.apply(filter_and_find_missing, axis=1)
+        df = df.dropna(subset=['Unprocessed Bursts'])
+
+        # Using loc to safely modify the DataFrame without triggering SettingWithCopyWarning
+        df.loc[:, 'Unprocessed Bursts Count'] = df.apply(count_missing, axis=1)
+
+        return df
 
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to fetch data from CMR: {e}")
-        return False
+        
+    return False
 
 if __name__ == '__main__':
     # Create an argument parser
@@ -403,7 +431,8 @@ if __name__ == '__main__':
     parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the % sign)")
     parser.add_argument("--matching_burst_count", required=False, help="Matching burst count to filter results by. Typically four or more is advised. Using this with the --threshold flag makes this flag inactive (only one of '--threshold' or '--matching_burst_count' may be used)")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
-    parser.add_argument("--endpoint", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue')
+    parser.add_argument("--endpoint_rtc", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for RTC granules')
+    parser.add_argument("--endpoint_dswx_s1", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for DSWx-S1 granules')
     parser.add_argument("--validate", action='store_true', help="Validate if DSWx-S1 products have been delivered for given time range (use --timestamp TEMPORAL mode only)")
 
     # Parse the command-line arguments
@@ -416,7 +445,7 @@ if __name__ == '__main__':
     if args.file:
         burst_ids, burst_dates = get_burst_ids_from_file(filename=args.file)
     else:
-        burst_ids, burst_dates = get_burst_ids_from_query(args.start, args.end, args.timestamp, args.endpoint)
+        burst_ids, burst_dates = get_burst_ids_from_query(args.start, args.end, args.timestamp, args.endpoint_rtc)
 
     # Connect to the MGRS Tile Set SQLITE database
     conn = sqlite3.connect(args.db)
@@ -465,7 +494,9 @@ if __name__ == '__main__':
             'Total Burst Count': len(bursts_list),
             'MGRS Tiles': ', '.join(mgrs_tiles_list),
             'MGRS Tiles Count': len(mgrs_tiles_list),
-            'Burst Dates': [pd.to_datetime(date, format='%Y%m%dT%H%M%SZ') for date in matching_burst_dates.values()]
+            'Burst Dates': [pd.to_datetime(date, format='%Y%m%dT%H%M%SZ') for date in matching_burst_dates.values()],
+            'Unprocessed Bursts': '',
+            'Unprocessed Bursts Count': 0
         })
 
         logging.debug(f"len(matching_burst_dates) = {matching_burst_dates}")
@@ -486,11 +517,6 @@ if __name__ == '__main__':
 
     # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
     print()
-    print('MGRS Set IDs covered:', len(df))
-    if (args.verbose):
-        print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Burst Dates']], headers='keys', tablefmt='plain', showindex=False))
-    else:
-        print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
 
     if args.validate and len(df) > 0:
         burst_dates_series = df['Burst Dates'].explode()
@@ -499,7 +525,27 @@ if __name__ == '__main__':
 
         print()
         print(f"Expected DSWx-S1 product sensing time range: {smallest_date} to {greatest_date}")
-        mgrs_tiles_series = df['MGRS Tiles'].str.split(', ').explode()
-        unique_mgrs_tiles = mgrs_tiles_series.unique()
 
-        validate_mgrs_tiles(smallest_date, greatest_date, unique_mgrs_tiles, args.endpoint)
+        validated_df = validate_mgrs_tiles(smallest_date, greatest_date, args.endpoint_dswx_s1, df)
+
+        print()
+        if len(validated_df) == 0:
+            print(f"✅ Validation successful: All DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
+            if (args.verbose):
+                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed Bursts', 'Unprocessed Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+            else:
+                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total Burst Count', 'Matching Burst Count', 'Unprocessed Bursts Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
+        else:
+            print(f"❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
+            print()
+            print('Incomplete MGRS Set IDs:', len(validated_df))
+            if (args.verbose):
+                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed Bursts', 'Unprocessed Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+            else:
+                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total Burst Count', 'Matching Burst Count', 'Unprocessed Bursts Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
+    else:
+        print('MGRS Set IDs covered:', len(df))
+        if (args.verbose):
+            print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count']], headers='keys', tablefmt='plain', showindex=False))
+        else:
+            print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total Burst Count', 'Matching Burst Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
