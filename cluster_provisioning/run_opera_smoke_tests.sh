@@ -144,12 +144,11 @@ set -e
 echo Executing integration tests. This can take at least 20 or 40 minutes...
 
 # Run some trigger tests. These are quick. Run on bare Mozart default python environment
-# comment out this for now (07-08-24)
-#source ~/.bash_profile
-#python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_hist_k2_test.json --clear=true
-#python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_reproc_k4_test.json --clear=true
-#python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_fwd_k2_test.json --clear=true
-#deactivate
+source ~/.bash_profile
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_hist_k2_test.json --clear=true
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_reproc_k4_test.json --clear=true
+python tests/scenarios/cslc_query_test.py tests/scenarios/cslc_query_fwd_k2_test.json --clear=true
+deactivate
 
 python -m venv venv
 source venv/bin/activate
