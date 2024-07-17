@@ -461,6 +461,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_save_compressed_slc(self):
+        """
+        Assigns the save_compressed_slc flag based on the value passed to the
+        job from the CSLC download job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        save_compressed_cslc = metadata["save_compressed_cslc"]
+
+        rc_params = {
+            "save_compressed_slc": save_compressed_cslc
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_static_layers_files(self):
         """
         Derives the S3 paths to the CSLC static layer files to be used with a

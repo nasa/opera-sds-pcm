@@ -79,7 +79,7 @@ RunConfig:
         scratch_path: {{ data.product_path_group.scratch_path }}
         sas_output_path: {{ data.product_path_group.product_path }}
         product_version: "{{ data.product_path_group.product_version }}"
-        save_compressed_slc: true
+        save_compressed_slc: {{ data.product_path_group.save_compressed_slc }}
       worker_settings:
         gpu_enabled: false
         threads_per_worker: {{ data.processing.threads_per_worker }}
