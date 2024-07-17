@@ -430,9 +430,9 @@ def test_simulate_disp_s1_pge():
     )
 
     creation_ts = pge_util.get_time_for_filename()
-    expected_output_basename = 'OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
-    expected_ancillary_basename = 'OPERA_L3_DISP-S1_IW_F01234_v0.1_{creation_ts}Z'
-    expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_{creation_ts}Z_VV_v0.1'
+    expected_output_basename = 'OPERA_L3_DISP-S1_IW_F10859_VV_20160705T000000Z_20160822T000000Z_v0.1_{creation_ts}Z'
+    expected_ancillary_basename = 'OPERA_L3_DISP-S1_IW_F10859_v0.1_{creation_ts}Z'
+    expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_{burst_id}_20160705T000000Z_20160822T000000Z_20160915T000000Z_{creation_ts}Z_VV_v0.1'
 
     try:
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
@@ -441,7 +441,9 @@ def test_simulate_disp_s1_pge():
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
-        assert Path(f'/tmp/{expected_compressed_cslc_basename.format(creation_ts=creation_ts)}.h5').exists()
+
+        for burst_id in pge_util.CCSLC_BURST_IDS:
+            assert Path(f'/tmp/{expected_compressed_cslc_basename.format(burst_id=burst_id, creation_ts=creation_ts)}.h5').exists()
     finally:
         for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
             Path(path).unlink(missing_ok=True)

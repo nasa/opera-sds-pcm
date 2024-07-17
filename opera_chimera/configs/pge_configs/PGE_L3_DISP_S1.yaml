@@ -142,7 +142,7 @@ localize_groups:
 #######################################################################
 input_file_base_name_regexes:
     - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?_(?P<product_version>v\d+[.]\d+))$'
-sample_input_dataset_id: "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230720T213954Z_S1A_VV_v0.1"
+sample_input_dataset_id: "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20160822T000000Z_S1A_VV_v0.1"
 output_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
 ancillary_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{product_version}_{creation_ts}Z
-compressed_cslc_name: OPERA_L2_COMPRESSED-CSLC-S1_{burst_id}_{ts_start}T000000Z_{ts_start}T000000Z_{ts_end}T000000Z_{creation_ts}Z_{pol}_{product_version}
+compressed_cslc_name: OPERA_L2_COMPRESSED-CSLC-S1_{burst_id}_{ref_date}T000000Z_{first_date}T000000Z_{last_date}T000000Z_{creation_ts}Z_{pol}_{product_version}
