@@ -206,11 +206,8 @@ def parse_start_date_from_cslc(input_cslc_file):
     # Parse the CSLC file name with the following regex, derived from the
     # official naming conventions
     cslc_regex_pattern = (
-        r"(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-"
-        r"(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_"
-        r"(?P<acquisition_ts>\d{8}T\d{6})Z_(?P<creation_ts>\d{8}T\d{6})Z_"
-        r"(?P<sensor>S1A|S1B)(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV))?_"
-        r"(?P<product_version>v\d+[.]\d+)(_BROWSE)?$"
+        r"OPERA_L2_(COMPRESSED-)?CSLC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_"
+        r"(?P<acquisition_ts>\d{8}T\d{6})Z_.*"
     )
     cslc_regex = re.compile(cslc_regex_pattern)
     match = cslc_regex.match(cslc_filename)
