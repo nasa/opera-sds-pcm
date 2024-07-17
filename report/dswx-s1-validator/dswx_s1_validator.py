@@ -348,7 +348,7 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
         A DataFrame containing columns with granule identifiers which will be checked against the CMR query results.
         
     :return: pandas.DataFrame or bool
-        A modified DataFrame with additional columns 'Unprocessed Bursts' and 'Unprocessed Bursts Count' showing
+        A modified DataFrame with additional columns 'Unprocessed RTC Native IDs' and 'Unprocessed RTC Native IDs Count' showing
         granules not found in the CMR results and their count respectively. Returns False if the CMR query fails.
     
     Raises:
@@ -395,7 +395,7 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
 
         # Function to identify missing bursts
         def filter_and_find_missing(row):
-            rtc_bursts_in_df_row = set(row['Matching Granules'].split(', '))
+            rtc_bursts_in_df_row = set(row['Covered RTC Native IDs'].split(', '))
             unprocessed_rtc_bursts = rtc_bursts_in_df_row - unique_available_rtc_bursts
             if unprocessed_rtc_bursts:
                 return ', '.join(unprocessed_rtc_bursts)
@@ -403,15 +403,15 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
 
         # Function to count missing bursts
         def count_missing(row):
-            count = len(row['Unprocessed Bursts'].split(', '))
+            count = len(row['Unprocessed RTC Native IDs'].split(', '))
             return count
 
-        # Apply the function and create a new column 'Unprocessed Bursts'
-        df['Unprocessed Bursts'] = df.apply(filter_and_find_missing, axis=1)
-        df = df.dropna(subset=['Unprocessed Bursts'])
+        # Apply the function and create a new column 'Unprocessed RTC Native IDs'
+        df['Unprocessed RTC Native IDs'] = df.apply(filter_and_find_missing, axis=1)
+        df = df.dropna(subset=['Unprocessed RTC Native IDs'])
 
         # Using loc to safely modify the DataFrame without triggering SettingWithCopyWarning
-        df.loc[:, 'Unprocessed Bursts Count'] = df.apply(count_missing, axis=1)
+        df.loc[:, 'Unprocessed RTC Native IDs Count'] = df.apply(count_missing, axis=1)
 
         return df
 
@@ -457,7 +457,7 @@ if __name__ == '__main__':
     mgrs_data = cursor.fetchall()
 
     # Initialize DataFrame to store results
-    df = pd.DataFrame(columns=['MGRS Set ID', 'Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Total Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Burst Dates'])
+    df = pd.DataFrame(columns=['MGRS Set ID', 'Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Total RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count', 'RTC Burst ID Dates'])
 
     # Initialize a list to store data for DataFrame
     data_for_df = []
@@ -487,16 +487,16 @@ if __name__ == '__main__':
         data_for_df.append({
             'MGRS Set ID': mgrs_set_id,
             'Coverage Percentage': coverage_percentage,
-            'Matching Granules': ', '.join(list(matching_burst_ids.values())),
-            'Matching Bursts': ', '.join(list(matching_burst_ids.keys())),
-            'Total Bursts': ', '.join(bursts_list),
-            'Matching Burst Count': len(matching_burst_ids),
-            'Total Burst Count': len(bursts_list),
+            'Covered RTC Native IDs': ', '.join(list(matching_burst_ids.values())),
+            'Covered RTC Burst IDs': ', '.join(list(matching_burst_ids.keys())),
+            'Total RTC Burst IDs': ', '.join(bursts_list),
+            'Covered RTC Burst ID Count': len(matching_burst_ids),
+            'Total RTC Burst IDs Count': len(bursts_list),
             'MGRS Tiles': ', '.join(mgrs_tiles_list),
             'MGRS Tiles Count': len(mgrs_tiles_list),
-            'Burst Dates': [pd.to_datetime(date, format='%Y%m%dT%H%M%SZ') for date in matching_burst_dates.values()],
-            'Unprocessed Bursts': '',
-            'Unprocessed Bursts Count': 0
+            'RTC Burst ID Dates': [pd.to_datetime(date, format='%Y%m%dT%H%M%SZ') for date in matching_burst_dates.values()],
+            'Unprocessed RTC Native IDs': '',
+            'Unprocessed RTC Native IDs Count': 0
         })
 
         logging.debug(f"len(matching_burst_dates) = {matching_burst_dates}")
@@ -513,13 +513,13 @@ if __name__ == '__main__':
         df = df[df['Coverage Percentage'] >= threshold]
     elif args.matching_burst_count:
         matching_burst_count = int(args.matching_burst_count)
-        df = df[df['Matching Burst Count'] >= matching_burst_count]
+        df = df[df['Covered RTC Burst ID Count'] >= matching_burst_count]
 
     # Pretty print results - adjust tablefmt accordingly (https://github.com/astanin/python-tabulate#table-format)
     print()
 
     if args.validate and len(df) > 0:
-        burst_dates_series = df['Burst Dates'].explode()
+        burst_dates_series = df['RTC Burst ID Dates'].explode()
         smallest_date = burst_dates_series.min()
         greatest_date = burst_dates_series.max()
 
@@ -532,20 +532,20 @@ if __name__ == '__main__':
         if len(validated_df) == 0:
             print(f"✅ Validation successful: All DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
             if (args.verbose):
-                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed Bursts', 'Unprocessed Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed RTC Native IDs', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
             else:
-                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total Burst Count', 'Matching Burst Count', 'Unprocessed Bursts Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
+                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
         else:
             print(f"❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
             print()
             print('Incomplete MGRS Set IDs:', len(validated_df))
             if (args.verbose):
-                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed Bursts', 'Unprocessed Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed RTC Native IDs', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
             else:
-                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total Burst Count', 'Matching Burst Count', 'Unprocessed Bursts Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
+                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
     else:
         print('MGRS Set IDs covered:', len(df))
         if (args.verbose):
-            print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Matching Granules', 'Matching Bursts', 'Matching Burst Count', 'Total Burst Count', 'MGRS Tiles', 'MGRS Tiles Count']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count']], headers='keys', tablefmt='plain', showindex=False))
         else:
-            print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total Burst Count', 'Matching Burst Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))

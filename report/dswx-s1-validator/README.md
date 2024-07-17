@@ -58,9 +58,10 @@ This guide provides a quick way to get started with the script.
 2. Optionally, use the `--file` argument to specify a file with granule IDs.
 3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by or use the `--matching_burst_count` to specify the minimum number of bursts to expect a match for for filtering. If both are provided, `--threshold` is used and `--matching_burst_count` is ignored. 
 4. Optionally, use the `--timestamp` argument to specify the type of timestamp to query CMR with. Example values: `TEMPORAL|PRODUCTION|REVISION|CREATED`. Default value is `TEMPORAL`. See [CMR documentation](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html) for details. 
-5. Optionally, use the `--endpoint` argument to specify the CMR endpoint venue. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
-6. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
-7. Optionally, use the `--validate` argument to check if expected DSWx-S1 products (tiles) exist for relevant RTC input bursts 
+5. Optionally, use the `--endpoint_rtc` argument to specify the CMR endpoint venue for RTC granules. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
+6. Optionally, use the `--endpoint_dswx_s1` argument to specify the CMR endpoint venue for DSWx-S1 granules. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
+7. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
+8. Optionally, use the `--validate` argument to check if expected DSWx-S1 products (tiles) exist for relevant RTC input bursts 
  
 ### Usage Examples
 
@@ -183,7 +184,7 @@ This guide provides a quick way to get started with the script.
 * Validate whether DSWx-S1 processing has kept up with input RTC processing (success condition)
 
   ```
-  $ python dswx_s1_validator.py --endpoint UAT --start "2024-05-12T08:00:00" --end "2024-05-12T08:59:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
+  $ python dswx_s1_validator.py --endpoint_dswx_s1 UAT --start "2024-05-12T08:00:00" --end "2024-05-12T08:59:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
   Total granules: 114
   Querying CMR for time range 2024-05-12T08:00:00 to 2024-05-12T08:59:00.
 
@@ -206,7 +207,7 @@ This guide provides a quick way to get started with the script.
 * Validate whether DSWx-S1 processing has kept up with input RTC processing (failure condition)
 
   ```
-  $ python dswx_s1_validator.py --endpoint UAT --start "2024-05-12T04:10:00" --end "2024-05-12T05:10:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
+  $ python dswx_s1_validator.py --endpoint_dswx_s1 UAT --start "2024-05-12T04:10:00" --end "2024-05-12T05:10:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
 
   Total granules: 894
   Querying CMR for time range 2024-05-12T04:10:00 to 2024-05-12T05:10:00.
