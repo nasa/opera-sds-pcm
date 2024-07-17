@@ -531,8 +531,9 @@ if __name__ == '__main__':
         print()
         if len(validated_df) == 0:
             print(f"✅ Validation successful: All DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
+            print()
             if (args.verbose):
-                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed RTC Native IDs', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
+                print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
             else:
                 print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
         else:
@@ -540,12 +541,12 @@ if __name__ == '__main__':
             print()
             print('Incomplete MGRS Set IDs:', len(validated_df))
             if (args.verbose):
-                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count', 'Unprocessed RTC Native IDs', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
+                print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
             else:
                 print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
     else:
         print('MGRS Set IDs covered:', len(df))
         if (args.verbose):
-            print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Covered RTC Native IDs', 'Covered RTC Burst IDs', 'Covered RTC Burst ID Count', 'Total RTC Burst IDs Count', 'MGRS Tiles', 'MGRS Tiles Count']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Covered RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
         else:
-            print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count']], headers='keys', tablefmt='plain', showindex=False))
