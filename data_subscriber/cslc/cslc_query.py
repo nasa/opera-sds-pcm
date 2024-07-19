@@ -116,9 +116,6 @@ class CslcCmrQuery(CmrQuery):
         which granules to download. And also retrieve k granules.
         In reprocessing, just retrieve the k granules."""
 
-        if len(granules) == 0:
-            return []
-
         if self.proc_mode == "reprocessing":
             if self.args.k > 1:
                 k_granules = self.retrieve_k_granules(granules, self.args, self.args.k - 1)
@@ -173,7 +170,7 @@ class CslcCmrQuery(CmrQuery):
             if granule["unique_id"] not in download_batch:
                 download_batch[granule["unique_id"]] = granule
 
-        # Print them all here so it's nicely all in one place
+        # Print them all here so that it's nicely all in one place
         logger.info("After merging unsubmitted granules with the new ones returned from CMR")
         for batch_id, download_batch in by_download_batch_id.items():
             logger.info(f"{batch_id=} {len(download_batch)=}")

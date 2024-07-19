@@ -66,7 +66,8 @@ class CmrQuery:
             granules[:] = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
         # TODO: This function only applies to CSLC, merge w RTC at some point
-        # Given the new granules coming in and existing unsubmitted granules, determine which granules to download
+        # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
+        # triggering logic is applied to granules to determine which ones need to be downloaded
         download_granules = self.determine_download_granules(granules)
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
