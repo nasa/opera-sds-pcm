@@ -19,7 +19,7 @@ from data_subscriber.geojson_utils import (localize_include_exclude,
                                            download_from_s3)
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
-from data_subscriber.cslc_utils import split_download_batch_id
+from data_subscriber.cslc_utils import split_download_batch_id, compressed_cslc_satisfied, save_blocked_download_job
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
@@ -254,17 +254,30 @@ class CmrQuery:
             logger.info(f"{payload_hash=}")
             logger.debug(f"{chunk_urls=}")
 
+            params = self.create_download_job_params(query_timerange, chunk_batch_ids)
+
             product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
             if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
                 frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
                 acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
                 job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
+
+                # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
+                # and wait for the next query to come in. Any acquisition index will work because all batches
+                # require the same compressed cslcs
+                if not compressed_cslc_satisfied(frame_id, acq_indices[0], self.args.k, self.args.m, self.args,
+                                                 self.disp_burst_map_hist, self.es_conn.es):
+                    logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied")
+                    save_blocked_download_job(self.es_conn.es, product_type, params, self.args.job_queue, job_name,
+                                              frame_id, acq_indices[0], self.args.k, self.args.m)
+                    continue
+
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
                     product_type=product_type,
-                    params=self.create_download_job_params(query_timerange, chunk_batch_ids),
+                    params=params,
                     job_queue=self.args.job_queue,
                     job_name = job_name,
                     payload_hash = payload_hash
@@ -277,7 +290,6 @@ class CmrQuery:
             job_submission_tasks.append(download_job_id)
 
         return job_submission_tasks
-
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         args = self.args

@@ -58,7 +58,7 @@ def test_form_job_params_basic():
     p = generate_p()
     p.frame_states = generate_initial_frame_states(p.frames)
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert do_submit == True
     assert job_name == "data-subscriber-query-timer-historical1_f831-2017-02-15T22:35:24-2017-03-23T23:35:24"
@@ -72,7 +72,7 @@ def test_form_job_params_basic():
     assert job_params["exclude_regions"] == f'--exclude-regions={EXCLUDE_REGIONS}'
     assert job_params["frame_id"] == f'--frame-id=831'
     assert job_params["k"] == f'--k=4'
-    assert job_params["m"] == f'--m=2'
+    assert job_params["m"] == f'--m=1'
 
     assert next_frame_sensing_position == 4
     assert finished == False
@@ -84,7 +84,7 @@ def test_form_job_params_early():
     p.frame_states = generate_initial_frame_states(p.frames)
     p.data_start_date = '2018-07-01T00:00:00'
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert next_frame_sensing_position == 4
     assert do_submit == False
@@ -97,7 +97,7 @@ def test_form_job_params_late():
     p.frame_states = generate_initial_frame_states(p.frames)
     p.data_end_date = '2015-07-01T00:00:00'
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert do_submit == False
     assert finished == True
@@ -106,14 +106,14 @@ def test_form_job_params_no_ccslc(monkeypatch):
     '''If compressed cslcs are not found, don't process this round and don't increment the position'''
 
     mock_ccslc = MagicMock(return_value=False)
-    monkeypatch.setattr(tools.run_disp_s1_historical_processing,
-                        tools.run_disp_s1_historical_processing.compressed_cslc_satisfied.__name__, mock_ccslc)
+    monkeypatch.setattr(cslc_utils,
+                        cslc_utils.compressed_cslc_satisfied.__name__, mock_ccslc)
 
     p = generate_p()
     p.frame_states = generate_initial_frame_states(p.frames)
     p.data_end_date = '2015-07-01T00:00:00'
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert do_submit == False
     assert next_frame_sensing_position == 0

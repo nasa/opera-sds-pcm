@@ -15,6 +15,8 @@ from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 FRAME_GEO_SIMPLE_JSON = 'frame-geometries-simple.geojson'
+_C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
+_BLOCKED_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_blocked_downloads"
 
 logger = logging.getLogger(__name__)
 
@@ -269,6 +271,65 @@ def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
     assert len(acquisition_cycles) <= 2  # A burst can belong to at most two frames. If it doesn't, we have a problem.
 
     return burst_id, acquisition_dts, acquisition_cycles, frame_ids
+
+def compressed_cslc_satisfied(frame_id, day_index, k, m, args, frame_to_bursts, eu):
+
+    if get_dependent_compressed_cslcs(frame_id, day_index, k, m, args, frame_to_bursts, eu) == False:
+        return False
+    return True
+
+def get_dependent_compressed_cslcs(frame_id, day_index, k, m, args, disp_burst_map, eu):
+    ''' Search for all previous M compressed CSLCs
+        prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of
+                            the latest acq cycle index
+    '''
+
+    prev_day_indices = get_prev_day_indices(day_index, frame_id, disp_burst_map, args, None, None,
+                                            None)
+
+    ccslcs = []
+
+    #special case for early sensing time series
+    if len(prev_day_indices) < k * (m-1):
+        m = (len(prev_day_indices) // k ) + 1
+
+    # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
+    for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
+        for burst_id in disp_burst_map[frame_id].burst_ids:
+            ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id)
+            ccslcs = eu.query(
+                index=_C_CSLC_ES_INDEX_PATTERNS,
+                body={"query": {"bool": {"must": [
+                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
+
+            # Should have exactly one compressed cslc per acq cycle per burst
+            if len(ccslcs) != 1:
+                logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
+                return False
+
+    logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
+    return ccslcs
+
+def save_blocked_download_job(eu, product_type, params, job_queue, job_name, frame_id, acq_index, k, m):
+    """Save the blocked download job in the ES index"""
+
+    eu.index_document(
+        index=_BLOCKED_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        id = job_name,
+        body= {
+            "doc":{
+                "job_name": job_name,
+                "job_queue": job_queue,
+                "job_params": params,
+                "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
+                "product_type": product_type,
+                "frame_id": frame_id,
+                "acq_index": acq_index,
+                "k": k,
+                "m": m
+            }
+        }
+    )
 
 def parse_cslc_burst_id(native_id):
 

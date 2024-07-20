@@ -12,7 +12,7 @@ from data_subscriber import ionosphere_download, es_conn_util
 from data_subscriber.cmr import Collection
 from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.download import SessionWithHeaderRedirection
-from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle
+from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle, get_dependent_compressed_cslcs
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.url import cslc_unique_id
@@ -181,37 +181,15 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     os.remove(iono_file)
 
         # Determine M Compressed CSLCs by querying compressed cslc GRQ ES   -------------->
-        # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
 
-        ''' Search for all previous M compressed CSLCs
-        prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of 
-                            the latest acq cycle index
-        '''
-        prev_day_indices = get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
+        ccslcs = get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, k, m, args, self.disp_burst_map, es_conn.es)
+        if ccslcs is False:
+            raise Exception(f"Failed to get compressed cslc for frame {frame_id} and day index {latest_acq_cycle_index}")
 
-        # special case for early sensing time series. Reduce m if there aren't enough sensing times in the database in the first place
-        # For example, if k was 4 and m was 3, but there are only 4 previous sensing times in the database, then m should be 2
-        if len(prev_day_indices) < k * (m - 1):
-            m = (len(prev_day_indices) // k) + 1
-
-        for mm in range(0, m-1): # m parameter is inclusive of the current frame at hand
-            for burst_id in burst_id_set:
-                ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id) #looks like t034_071112_iw3_461
-                logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
-                ccslcs = es_conn.es.query(
-                    index=_C_CSLC_ES_INDEX_PATTERNS,
-                    body={"query": {  "bool": {  "must": [
-                                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
-
-                # Should have exactly one compressed cslc per acq cycle per burst
-                if len(ccslcs) != 1:
-                    raise Exception(f"Expected 1 Compressed CSLC for {ccslc_m_index}, got {len(ccslcs)}")
-
-                for ccslc in ccslcs:
-                    c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
-        # <------------------------- Compressed CSLC look up
+        for ccslc in ccslcs:
+            c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
 
         # Look up bounding box for frame
         bounding_box = get_bounding_box_for_frame(int(frame_id), self.frame_geo_map)
