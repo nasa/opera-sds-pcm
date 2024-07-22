@@ -268,8 +268,9 @@ class CmrQuery:
                 if not compressed_cslc_satisfied(frame_id, acq_indices[0], self.args.k, self.args.m, self.args,
                                                  self.disp_burst_map_hist, self.es_conn.es):
                     logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied")
-                    save_blocked_download_job(self.es_conn.es, product_type, params, self.args.job_queue, job_name,
-                                              frame_id, acq_indices[0], self.args.k, self.args.m)
+                    save_blocked_download_job(self.es_conn.es, self.settings["RELEASE_VERSION"],
+                                              product_type, params, self.args.job_queue, job_name,
+                                              frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
                     continue
 
             else:

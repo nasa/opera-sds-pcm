@@ -15,8 +15,10 @@ from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 
 DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 FRAME_GEO_SIMPLE_JSON = 'frame-geometries-simple.geojson'
+PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
+PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
-_BLOCKED_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_blocked_downloads"
+
 
 logger = logging.getLogger(__name__)
 
@@ -310,14 +312,16 @@ def get_dependent_compressed_cslcs(frame_id, day_index, k, m, args, disp_burst_m
     logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
     return ccslcs
 
-def save_blocked_download_job(eu, product_type, params, job_queue, job_name, frame_id, acq_index, k, m):
+def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
+                              frame_id, acq_index, k, m, batch_ids):
     """Save the blocked download job in the ES index"""
 
     eu.index_document(
-        index=_BLOCKED_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
         id = job_name,
-        body= {
-            "doc":{
+        body = {
+                "job_type": PENDING_TYPE_CSLC_DOWNLOAD,
+                "release_version": release_version,
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
@@ -326,8 +330,33 @@ def save_blocked_download_job(eu, product_type, params, job_queue, job_name, fra
                 "frame_id": frame_id,
                 "acq_index": acq_index,
                 "k": k,
-                "m": m
+                "m": m,
+                "batch_ids": batch_ids,
+                "submitted": False,
+                "submitted_job_id": None
+        }
+    )
+
+def get_pending_download_jobs(es):
+    return es.query(
+        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        body={"query": {
+                "bool": {
+                    "must": [
+                        {"term": {"submitted": False}},
+                        {"match": {"job_type": PENDING_TYPE_CSLC_DOWNLOAD}}
+                    ]
+                }
             }
+        }
+    )
+
+def mark_pending_download_job_submitted(es, doc_id, download_job_id):
+    return es.update_document(
+        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        id = doc_id,
+        body={ "doc_as_upsert": True,
+                "doc": {"submitted": True, "submitted_job_id": download_job_id}
         }
     )
 
