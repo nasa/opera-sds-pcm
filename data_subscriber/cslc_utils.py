@@ -7,6 +7,7 @@ import dateutil
 import boto3
 import logging
 from functools import cache
+import elasticsearch
 
 from util import datasets_json_util
 from util.conf_util import SettingsConf
@@ -338,18 +339,25 @@ def save_blocked_download_job(eu, release_version, product_type, params, job_que
     )
 
 def get_pending_download_jobs(es):
-    return es.query(
-        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
-        body={"query": {
-                "bool": {
-                    "must": [
-                        {"term": {"submitted": False}},
-                        {"match": {"job_type": PENDING_TYPE_CSLC_DOWNLOAD}}
-                    ]
+    '''Retrieve all pending cslc download jobs from the ES index'''
+
+    try:
+        result =  es.query(
+            index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+            body={"query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"submitted": False}},
+                            {"match": {"job_type": PENDING_TYPE_CSLC_DOWNLOAD}}
+                        ]
+                    }
                 }
             }
-        }
-    )
+        )
+    except elasticsearch.exceptions.NotFoundError as e:
+        return []
+
+    return result
 
 def mark_pending_download_job_submitted(es, doc_id, download_job_id):
     return es.update_document(

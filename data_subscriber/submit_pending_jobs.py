@@ -39,9 +39,6 @@ def configure_logger():
 
 def run(argv: list[str]):
     logger.info(f"{argv=}")
-    #parser = create_parser()
-    #args = parser.parse_args(argv[1:])
-    #validate_args(args)
 
     job_submission_tasks = []
     disp_burst_map, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist()
