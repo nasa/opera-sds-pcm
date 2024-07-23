@@ -484,12 +484,12 @@ variable "queues" {
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
       "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
-        "root_dev_size"     = 50
-        "data_dev_size"     = 250
-        "min_size"          = 0
-        "max_size"          = 10
-        "total_jobs_metric" = true
-        "use_private_vpc"   = false
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
     }
     "opera-job_worker-rtc_data_download" = {
       "name"              = "opera-job_worker-rtc_data_download"
@@ -510,6 +510,13 @@ variable "queues" {
       "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
+    }
+    "opera-job_worker-ecmwf-subsetter" = {
+      "instance_type"     = ["c7i.4xlarge", "c7i.8xlarge", "m7i.4xlarge", "m7i-flex.4xlarge", "c7a.4xlarge", "m7a.4xlarge", "m7i.8xlarge", "c6i.4xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 600
+      "max_size"          = 10
+      "total_jobs_metric" = true
     }
     "opera-job_worker-timer" = {
       "name"              = "opera-job_worker-timer"
