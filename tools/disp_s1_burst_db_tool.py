@@ -90,6 +90,10 @@ elif args.subparser_name == "native_id":
     print("Acquisition cycles: ", acquisition_cycles)
     print("Frame ids: ", frame_ids)
 
+    if len(frame_ids) == 0:
+        print("Frame ids not found for burst id: ", burst_id, " this burst likely is not valid for DISP-S1 processing")
+        exit(-1)
+
     if args.k:
         k = int(args.k)
 
