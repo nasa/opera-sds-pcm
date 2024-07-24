@@ -11,4 +11,4 @@ SHELL=/bin/bash
 #
 #######################################################################
 
-#@hourly $HOME/.local/bin/cron/submit_job.py 2>&1 | logger -i -p user.notice -t submit_pending_jobs-task
+0 * * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_job.py 2>&1 | logger -i -p user.notice -t submit_pending_jobs-task
