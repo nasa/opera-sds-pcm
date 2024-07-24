@@ -16,17 +16,16 @@ import sys
 import traceback
 from pathlib import PurePath, Path
 from typing import Union, Tuple
-from datetime import datetime
 
 from more_itertools import one
 
-from commons.logger import logger
-from extractor import extract
 import product2dataset.iso_xml_reader as iso_xml_reader
+from commons.logger import logger
+from data_subscriber.cslc_utils import build_ccslc_m_index
+from extractor import extract
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
-from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc, build_ccslc_m_index, localize_disp_frame_burst_hist
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -216,6 +215,22 @@ def convert(
             # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
                 decorate_compressed_cslc(dataset_met_json)
+
+                # Compressed CSLC files are published to the LTS bucket, so we need to overwrite the default publish URLs here
+                publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
+                publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
+                pge_shortname = "CSLC_S1_COMPRESSED"
+
+                dataset_met_json["product_urls"] = [
+                    f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
+                    f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
+                    for file in dataset_met_json["Files"]
+                ]
+                dataset_met_json["product_s3_paths"] = [
+                    f's3://{publish_bucket}'
+                    f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
+                    for file in dataset_met_json["Files"]
+                ]
 
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]

@@ -58,61 +58,63 @@ This guide provides a quick way to get started with the script.
 2. Optionally, use the `--file` argument to specify a file with granule IDs.
 3. Optionally, use the `--threshold` argument to a threshold percentage to filter MGRS Tile Set coverages by or use the `--matching_burst_count` to specify the minimum number of bursts to expect a match for for filtering. If both are provided, `--threshold` is used and `--matching_burst_count` is ignored. 
 4. Optionally, use the `--timestamp` argument to specify the type of timestamp to query CMR with. Example values: `TEMPORAL|PRODUCTION|REVISION|CREATED`. Default value is `TEMPORAL`. See [CMR documentation](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html) for details. 
-5. Optionally, use the `--endpoint` argument to specify the CMR endpoint venue. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
-6. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
+5. Optionally, use the `--endpoint_rtc` argument to specify the CMR endpoint venue for RTC granules. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
+6. Optionally, use the `--endpoint_dswx_s1` argument to specify the CMR endpoint venue for DSWx-S1 granules. Accepted values are `OPS|UAT`, with `OPS` set as the default value.
+7. Optionally, use the `--verbose` argument to get detailed information like a list of matching bursts and granule IDs
+8. Optionally, use the `--validate` argument to check if expected DSWx-S1 products (tiles) exist for relevant RTC input bursts 
  
 ### Usage Examples
 
 * Retrieve a list of MGRS Tile Set IDs for the RTC burst processing a given time range on CMR, and filter the results to show only MGRS Tile Sets that had coverage of greater than or equal to 50%.
 
-```
-$ python dswx_s1_validator.py --start "2023-12-05T01:00:00Z" --end "2023-12-05T03:59:59Z" --db MGRS_tile_collection_v0.2.sqlite --threshold 50
-Querying CMR for time range 2023-12-05T01:00:00 to 2023-12-05T03:59:59.
-Querying CMR for 2316 granules.
+  ```
+  $ python dswx_s1_validator.py --start "2023-12-05T01:00:00" --end "2023-12-05T03:59:59" --db MGRS_tile_collection_v0.3.sqlite --threshold 50
+  Total granules: 2316
+  Querying CMR for time range 2023-12-05T01:00:00 to 2023-12-05T03:59:59.
 
-Fetching granules: 100%|███████████████████████████████████████| 2316/2316 [00:01<00:00, 1660.76it/s]
+  Fetching granules: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2316/2316 [00:01<00:00, 1266.29it/s]
 
-Granule fetching complete.
+  Granule fetching complete.
 
-Calculating coverage: 100%|██████████████████████████████████| 12585/12585 [00:09<00:00, 1359.21it/s]
+  Calculating coverage: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████| 14687/14687 [00:08<00:00, 1834.83it/s]
 
-MGRS Set IDs covered: 34
-MGRS Set ID      Coverage Percentage    Matching Burst Count    Total Burst Count
-MS_166_30                      70                         28                   40
-MS_166_31                     100                         40                   40
-MS_166_32                     100                         40                   40
-MS_166_33                     100                         40                   40
-MS_166_34                     100                         40                   40
-MS_166_35                     100                         40                   40
-MS_166_36                     100                         41                   41
-MS_166_37                     100                         41                   41
-MS_166_38                     100                         42                   42
-MS_166_39                     100                         42                   42
-MS_166_69                      90.24                      37                   41
-MS_166_70                     100                         40                   40
-MS_166_71                     100                         40                   40
-MS_166_72                     100                         39                   39
-MS_166_73                     100                         40                   40
-MS_166_74                     100                         40                   40
-MS_166_75                     100                         40                   40
-MS_166_76                     100                         41                   41
-MS_166_77                     100                         41                   41
-MS_166_78                     100                         41                   41
-MS_166_79                     100                         40                   40
-MS_166_80                     100                         40                   40
-MS_166_81                      50                         20                   40
-MS_166_88                     100                         40                   40
-MS_166_89                      90                         36                   40
-MS_167_68                     100                         41                   41
-MS_167_69                     100                         40                   40
-MS_167_70                     100                         40                   40
-MS_167_71                     100                         39                   39
-MS_167_72                     100                         40                   40
-MS_167_73                     100                         40                   40
-MS_167_74                     100                         39                   39
-MS_167_75                     100                         41                   41
-MS_167_77                     100                         41                   41
-```
+  MGRS Set IDs covered: 34
+  MGRS Set ID      Coverage Percentage    Total RTC Burst IDs Count    Covered RTC Burst ID Count
+  MS_166_30                      70                              40                            28
+  MS_166_31                     100                              40                            40
+  MS_166_32                     100                              40                            40
+  MS_166_33                     100                              40                            40
+  MS_166_34                     100                              40                            40
+  MS_166_35                     100                              40                            40
+  MS_166_36                     100                              41                            41
+  MS_166_37                     100                              41                            41
+  MS_166_38                     100                              42                            42
+  MS_166_39                     100                              42                            42
+  MS_166_69                      90.24                           41                            37
+  MS_166_70                     100                              40                            40
+  MS_166_71                     100                              40                            40
+  MS_166_72                     100                              39                            39
+  MS_166_73                     100                              40                            40
+  MS_166_74                     100                              40                            40
+  MS_166_75                     100                              40                            40
+  MS_166_76                     100                              41                            41
+  MS_166_77                     100                              41                            41
+  MS_166_78                     100                              41                            41
+  MS_166_79                     100                              40                            40
+  MS_166_80                     100                              40                            40
+  MS_166_81                      50                              40                            20
+  MS_166_88                     100                              40                            40
+  MS_166_89                      90                              40                            36
+  MS_167_68                     100                              41                            41
+  MS_167_69                     100                              40                            40
+  MS_167_70                     100                              40                            40
+  MS_167_71                     100                              39                            39
+  MS_167_72                     100                              40                            40
+  MS_167_73                     100                              40                            40
+  MS_167_74                     100                              39                            39
+  MS_167_75                     100                              41                            41
+  MS_167_77                     100                              41                            41
+  ```
 
 * Process and display data related to granule IDs.
 
@@ -171,12 +173,65 @@ MS_167_77                     100                         41                   4
   ```
 
   ```
-  $ python3 dswx_s1_validator.py --file granules.txt --db MGRS_tile_collection_v0.2.sqlite --threshold 50
+  $ python3 dswx_s1_validator.py --file granules.txt --db MGRS_tile_collection_v0.3.sqlite --threshold 50
   Calculating coverage: 100%|█████████████████████████████████| 12585/12585 [00:00<00:00, 41014.33it/s]
 
   MGRS Set IDs covered: 1
-  MGRS Set ID      Coverage Percentage    Matching Burst Count    Total Burst Count
-  MS_80_59                       63.41                      26                   41
+  MGRS Set ID      Coverage Percentage    Total RTC Burst IDs Count    Covered RTC Burst ID Count
+  MS_80_59                       63.41                           41                            26
+  ```
+
+* Validate whether DSWx-S1 processing has kept up with input RTC processing (success condition)
+
+  ```
+  $ python dswx_s1_validator.py --endpoint_dswx_s1 UAT --start "2024-05-12T08:00:00" --end "2024-05-12T08:59:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
+  Total granules: 114
+  Querying CMR for time range 2024-05-12T08:00:00 to 2024-05-12T08:59:00.
+
+  Fetching granules: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 114/114 [00:00<00:00, 146.10it/s]
+
+  Granule fetching complete.
+
+  Calculating coverage: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████| 14687/14687 [00:00<00:00, 15351.02it/s]
+
+
+  Expected DSWx-S1 product sensing time range: 2024-05-12 08:30:14 to 2024-05-12 08:31:23
+
+  ✅ Validation successful: All DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.
+
+  MGRS Set ID      Coverage Percentage    Total RTC Burst IDs Count    Covered RTC Burst ID Count    Unprocessed RTC Native IDs Count
+  MS_38_176                        100                           40                            40                                   0
+  MS_38_177                        100                           41                            41                                   0
+  ```
+
+* Validate whether DSWx-S1 processing has kept up with input RTC processing (failure condition)
+
+  ```
+  $ python dswx_s1_validator.py --endpoint_dswx_s1 UAT --start "2024-05-12T04:10:00" --end "2024-05-12T05:10:00" --db MGRS_tile_collection_v0.3.sqlite --threshold 99 --validate
+
+  Total granules: 894
+  Querying CMR for time range 2024-05-12T04:10:00 to 2024-05-12T05:10:00.
+
+  Fetching granules: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 894/894 [00:01<00:00, 460.74it/s]
+
+  Granule fetching complete.
+
+  Calculating coverage: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████| 14687/14687 [00:06<00:00, 2301.05it/s]
+
+
+  Expected DSWx-S1 product sensing time range: 2024-05-12 04:10:50 to 2024-05-12 04:28:28
+
+  ❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.
+
+  Incomplete MGRS Set IDs: 1
+  MGRS Set ID      Coverage Percentage    Total RTC Burst IDs Count    Covered RTC Burst ID Count    Unprocessed RTC Native IDs Count
+  MS_36_64                         100                           41                            41                                  22
+  ``` 
+
+  Note that the above validation failure can also be validated using cURL, to check individually if the expected tiles have been processed and delivered to the DAACs. In the below example, we verify whether the missing tile `T36UWG` exists at CMR in a very wide time window range, and we see it does not return a document match.  
+
+  ```
+  curl "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json?short_name=OPERA_L3_DSWX-S1_PROVISIONAL_V0&temporal[]=2024-05-10T02:10:00.000Z,2024-05-14T09:55:13.000Z&page_size=1000&provider=POCLOUD" | jq '.items[] | select(.umm.AdditionalAttributes[] | .Name == "MGRS_TILE_ID" and .Values[] == "T36UWG")'
   ```
 
 ## Frequently Asked Questions (FAQ)

@@ -132,12 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - June 15, 2024 - R3
-    mozart    = "ami-0f94d05bf3d2ee667" # mozart v4.25 - 240615
-    metrics   = "ami-0902a205be57749cb" # metrics v4.17 - 240615
-    grq       = "ami-03a9e6c0aaf31dcca" # grq v4.18 - 240615
-    factotum  = "ami-06acb14b7c2ece821" # factotum v4.16 - 240615
-    autoscale = "ami-00b3b41b7921d3591" # verdi v4.16 patchdate - 240615
+    # HySDS v5.0.1 - July 15, 2024 - R3
+    mozart    = "ami-024158daea696c58d" # mozart v4.25 - 240715
+    metrics   = "ami-0ec9395bcd3c9b44c" # metrics v4.17 - 240715
+    grq       = "ami-059583a64a2daab95" # grq v4.18 - 240715
+    factotum  = "ami-09a4f8d2ac5190255" # factotum v4.16 - 240715
+    autoscale = "ami-09f953f51f1d84913" # verdi v4.16 patchdate - 240717
   }
 }
 
@@ -335,7 +335,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
-      "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge", "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
+      "instance_type"     = ["c7i.xlarge", "c7i.2xlarge", "c7i.4xlarge", "c7i.8xlarge", "m7i.xlarge", "m7i.2xlarge", "m7i.4xlarge", "m7i.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -519,6 +519,26 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
     }
+    "opera-job_worker-pge_smoke_test_amd" = {
+      "name"              = "opera-job_worker-pge_smoke_test_amd"
+      "instance_type"     = ["r6a.xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
+    "opera-job_worker-pge_smoke_test_intel" = {
+      "name"              = "opera-job_worker-pge_smoke_test_intel"
+      "instance_type"     = ["r6i.xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
   }
 }
 
@@ -564,7 +584,7 @@ variable "pge_releases" {
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.0-rc.2.1"
     "disp_s1"  = "3.0.0-rc.2.2"
-    "dswx_ni"  = "4.0.0-er.1.0"
+    "dswx_ni"  = "4.0.0-er.2.0"
   }
 }
 

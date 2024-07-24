@@ -186,7 +186,7 @@ variable "es_bucket_role_arn" {
 ####### CNM Response job vars #######
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:483785460105:daac-proxy-for-opera-pst"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-throttled-provider-input-sns"
 }
 
 

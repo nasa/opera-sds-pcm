@@ -39,6 +39,10 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode == "historical":
             if self.args.frame_id is None:
                 raise AssertionError("Historical mode requires frame id to be specified.")
+            if self.args.start_date is None or self.args.end_date is None:
+                raise AssertionError("Historical mode requires start and end date to be specified.")
+            if self.args.native_id is not None:
+                raise AssertionError("Historical mode does not support native_id.")
 
         if self.proc_mode == "reprocessing":
             if self.args.native_id is None and self.args.start_date is None and self.args.end_date is None:
@@ -146,6 +150,10 @@ class CslcCmrQuery(CmrQuery):
         for granule in granules:
             by_download_batch_id[granule["download_batch_id"]][granule["unique_id"]] = granule
 
+        logger.info("Received the following cslc granules from CMR")
+        for batch_id, download_batch in by_download_batch_id.items():
+            logger.info(f"{batch_id=} {len(download_batch)=}")
+
         # Rule 3: If granules have been downloaded already but with less than 100% and we have new granules for that batch, download all granules for that batch
         # If the download_batch_id of the granules we received had already been submitted,
         # we need to submit them again with the new granules. We add both the new granules and the previously-submitted granules
@@ -165,11 +173,15 @@ class CslcCmrQuery(CmrQuery):
             if granule["unique_id"] not in download_batch:
                 download_batch[granule["unique_id"]] = granule
 
+        # Print them all here so it's nicely all in one place
+        logger.info("After merging unsubmitted granules with the new ones returned from CMR")
+        for batch_id, download_batch in by_download_batch_id.items():
+            logger.info(f"{batch_id=} {len(download_batch)=}")
+
         # Combine unsubmitted and new granules and determine which granules meet the criteria for download
         # Rule 1: If all granules for a given download_batch_id are present, download all granules for that batch
         # Rule 2: If it's been xxx hrs since last granule discovery (by OPERA) download all granules for that batch
         for batch_id, download_batch in by_download_batch_id.items():
-            logger.info(f"{batch_id=} {len(download_batch)=}")
             frame_id, acquisition_cycle = split_download_batch_id(batch_id)
             max_bursts = len(self.disp_burst_map_hist[frame_id].burst_ids)
             new_downloads = False

@@ -57,7 +57,7 @@ variable "profile" {
 
 variable "po_daac_delivery_proxy" {
   default = "arn:aws:sns:us-west-2:337765570207:daac-proxy-for-opera-int"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
+  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-throttled-provider-input-sns"
 }
 
 ####### Subnet ###########

@@ -44,6 +44,17 @@ RTC_BURST_IDS = ['T069-147170-IW1', 'T069-147170-IW3', 'T069-147171-IW1',
                  'T069-147172-IW2', 'T069-147172-IW3', 'T069-147173-IW1']
 """List of sample burst ID's to simulate RTC-S1 multi-product output"""
 
+CCSLC_BURST_IDS = [
+'T041-086865-IW1', 'T041-086865-IW2', 'T041-086865-IW3', 'T041-086866-IW1',
+'T041-086866-IW2', 'T041-086866-IW3', 'T041-086867-IW1', 'T041-086867-IW2',
+'T041-086867-IW3', 'T041-086868-IW1', 'T041-086868-IW2', 'T041-086868-IW3',
+'T041-086869-IW1', 'T041-086869-IW2', 'T041-086869-IW3', 'T041-086870-IW1',
+'T041-086870-IW2', 'T041-086870-IW3', 'T041-086871-IW1', 'T041-086871-IW2',
+'T041-086871-IW3', 'T041-086872-IW1', 'T041-086872-IW2', 'T041-086872-IW3',
+'T041-086873-IW1', 'T041-086873-IW2', 'T041-086873-IW3'
+]
+"""List of sample burst ID's to simulate multiple Compressed CSLC outputs"""
+
 DSWX_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
               'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
 """List of sample MGRS tile ID's to simulate DSWx-S1/NI multi-product output"""
@@ -551,10 +562,9 @@ def get_dswx_ni_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                # TODO: reenable once ancillary filename application is implemented
-                #sensor='LSAR',
-                #spacing='30',
-                #product_version='0.1'
+                sensor='LSAR',
+                spacing='30',
+                product_version='0.1'
             )
 
             ancillary_file_name = f'{base_name}.{extension}'
@@ -578,10 +588,10 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     if extension.endswith('nc') or extension.endswith('iso.xml'):
         base_name = base_name_template.format(
-            frame_id="F01234",
+            frame_id="F10859",
             pol="VV",
-            ref_datetime="20190101T232711",
-            sec_datetime="20190906T232711",
+            ref_datetime="20160705T000000",
+            sec_datetime="20160822T000000",
             product_version=dataset_match.groupdict()['product_version'],
             creation_ts=creation_time
         )
@@ -589,29 +599,31 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         output_filenames.append(f'{base_name}.{extension}')
     elif extension.endswith('png'):
         base_name = base_name_template.format(
-            frame_id="F01234",
+            frame_id="F10859",
             pol="VV",
-            ref_datetime="20190101T232711",
-            sec_datetime="20190906T232711",
+            ref_datetime="20160705T000000",
+            sec_datetime="20160822T000000",
             product_version=dataset_match.groupdict()['product_version'],
             creation_ts=creation_time
         )
 
         output_filenames.append(f'{base_name}_BROWSE.{extension}')
     elif extension.endswith('h5'):
-        base_name = compressed_cslc_template.format(
-            burst_id="T042-088905-IW1",
-            ts_start="20221119",
-            ts_end="20221213",
-            creation_ts=creation_time,
-            pol="VV",
-            product_version=dataset_match.groupdict()['product_version']
-        )
+        for burst_id in CCSLC_BURST_IDS:
+            base_name = compressed_cslc_template.format(
+                burst_id=burst_id,
+                ref_date="20160705",
+                first_date="20160822",
+                last_date="20160915",
+                creation_ts=creation_time,
+                pol="VV",
+                product_version=dataset_match.groupdict()['product_version']
+            )
 
-        output_filenames.append(f'{base_name}.{extension}')
+            output_filenames.append(f'{base_name}.{extension}')
     else:
         base_name = ancillary_name_template.format(
-            frame_id="F01234",
+            frame_id="F10859",
             product_version=dataset_match.groupdict()['product_version'],
             creation_ts=creation_time
         )
