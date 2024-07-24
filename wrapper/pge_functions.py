@@ -140,8 +140,11 @@ def disp_s1_lineage_metadata(context, work_dir):
 
     lineage_metadata = []
 
+    input_file_group = run_config["input_file_group"]
+    s3_input_filepaths = input_file_group["input_file_paths"] + input_file_group["compressed_cslc_paths"]
+
     # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
-    for s3_input_filepath in run_config["input_file_group"]["input_file_paths"]:
+    for s3_input_filepath in s3_input_filepaths:
         local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
 
         if os.path.isdir(local_input_filepath):
