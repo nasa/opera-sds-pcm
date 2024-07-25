@@ -1,28 +1,27 @@
 import copy
 import logging
 import os
-
-from os.path import basename
-from pathlib import PurePath, Path
 import urllib.parse
 from datetime import datetime, timezone
+from os.path import basename
+from pathlib import PurePath, Path
+
 import boto3
 
-from data_subscriber import ionosphere_download, es_conn_util
-from data_subscriber.cmr import Collection
-from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
-from data_subscriber.download import SessionWithHeaderRedirection
-from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle
+from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
+from data_subscriber.cmr import Collection
+from data_subscriber.cslc.cslc_catalog import CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
+                                        get_bounding_box_for_frame, parse_cslc_native_id, get_dependent_ccslc_index,
+                                        localize_frame_geo_json)
+from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle
+from data_subscriber.download import SessionWithHeaderRedirection
 from data_subscriber.url import cslc_unique_id
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
-
-from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
-                                        get_bounding_box_for_frame, parse_cslc_native_id, get_dependent_ccslc_index,
-                                        localize_frame_geo_json)
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +201,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             for burst_id in burst_id_set:
                 ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id) #looks like t034_071112_iw3_461
                 logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
-                ccslcs = es_conn.es.query(
+                ccslcs = es_conn.es_util.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
                     body={"query": {  "bool": {  "must": [
                                     {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
@@ -273,8 +272,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 }
             }
         }
-
-        #print(f"{product=}")
 
         proc_mode_suffix = ""
         if "proc_mode" in args and args.proc_mode == "historical":
