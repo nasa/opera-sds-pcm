@@ -162,8 +162,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                                                                              self.downloads_dir)
 
             logger.info(f"Uploading Ionosphere files to S3")
+            # TODO: since all ionosphere files now go to the same S3 location,
+            #  it should be possible to do a lookup before redownloading a file
             ionosphere_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
-                                                                           key_prefix=f"tmp/disp_s1/{batch_id}",
+                                                                           key_prefix=f"tmp/disp_s1/ionosphere",
                                                                            files=ionosphere_paths))
 
             # Delete the files from the file system after uploading to S3
@@ -190,6 +192,21 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         for ccslc in ccslcs:
             c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
+
+
+        # Now acquire the Ionosphere files for the reference dates of the Compressed CSLC products
+        logger.info(f"Downloading Ionosphere files for Compressed CSLCs")
+        ionosphere_paths = self.download_ionosphere_files_for_cslc_batch(c_cslc_s3paths,
+                                                                         self.downloads_dir)
+
+        logger.info(f"Uploading Ionosphere files for Compressed CSLCs to S3")
+        ionosphere_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
+                                                                       key_prefix=f"tmp/disp_s1/ionosphere",
+                                                                       files=ionosphere_paths))
+
+        # Remove potential duplicate ionosphere entries
+        # TODO: rework ionosphere download logic to check for files that have already been downloaded for a previous batch_id
+        ionosphere_s3paths = list(set(ionosphere_s3paths))
 
         # Look up bounding box for frame
         bounding_box = get_bounding_box_for_frame(int(frame_id), self.frame_geo_map)

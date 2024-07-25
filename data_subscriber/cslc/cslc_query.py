@@ -39,6 +39,10 @@ class CslcCmrQuery(CmrQuery):
         if self.proc_mode == "historical":
             if self.args.frame_id is None:
                 raise AssertionError("Historical mode requires frame id to be specified.")
+            if self.args.start_date is None or self.args.end_date is None:
+                raise AssertionError("Historical mode requires start and end date to be specified.")
+            if self.args.native_id is not None:
+                raise AssertionError("Historical mode does not support native_id.")
 
         if self.proc_mode == "reprocessing":
             if self.args.native_id is None and self.args.start_date is None and self.args.end_date is None:

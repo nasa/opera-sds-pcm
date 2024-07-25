@@ -18,6 +18,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     CNM_VERSION = "CNM_VERSION"
 
+    COMPRESSED_CSLC_PATHS = "compressed_cslc_paths"
+
     DATASET_TYPE = "dataset_type"
 
     DEM_FILE = "dem_file"
@@ -93,6 +95,8 @@ class OperaChimeraConstants(ChimeraConstants):
     MASK_FILE = "mask_file"
 
     L2_CSLC_S1 = "L2_CSLC_S1"
+
+    L2_CSLC_S1_COMPRESSED = "L2_CSLC_S1_COMPRESSED"
 
     L2_RTC_S1 = "L2_RTC_S1"
 
