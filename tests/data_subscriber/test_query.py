@@ -1,6 +1,5 @@
 import os
-#from data_subscriber import query
-from data_subscriber.geojson_utils import localize_include_exclude
+from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from data_subscriber import cslc_utils
 
 _jpl = {"granule_id": "JPL", "bounding_box": [
@@ -73,7 +72,7 @@ def test_all():
     granules = []
     granules.append(_jpl)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" in result_set
@@ -89,7 +88,7 @@ def test_north_america():
     granules.append(_vegas)
     granules.append(_paris)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" in result_set
@@ -106,7 +105,7 @@ def test_california():
     granules.append(_jpl)
     granules.append(_vegas)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" in result_set
@@ -122,7 +121,7 @@ def test_north_america_except_california():
     granules.append(_jpl)
     granules.append(_vegas)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" not in result_set
@@ -138,7 +137,7 @@ def test_all_except_nevada():
     granules.append(_jpl)
     granules.append(_vegas)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" in result_set
@@ -155,7 +154,7 @@ def test_nevada():
     granules.append(_vegas)
     granules.append(_paris)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" not in result_set
@@ -173,7 +172,7 @@ def test_10TFP():
     granules.append(_paris)
     granules.append(_S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" not in result_set
@@ -192,22 +191,10 @@ def test_cslc_s1_priority_framebased():
     granules.append(_paris)
     granules.append(_S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC)
 
-    filtered_granules = query.filter_granules_by_regions(granules, include_regions, exclude_regions)
+    filtered_granules = filter_granules_by_regions(granules, include_regions, exclude_regions)
     result_set = get_set(filtered_granules)
 
     assert "JPL" not in result_set
     assert "Vegas" not in result_set
     assert "Paris" not in result_set
     assert "S1A_IW_SLC__1SDV_20160728T225204_20160728T225231_012355_0133F4_8423_SLC" not in result_set
-
-def test_determine_acquisition_cycle():
-    """Test that the acquisition cycle is correctly determined"""
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle("T034-071111-IW1", "20240406T002953Z", "S1A")
-    assert acquisition_cycle == 160
-
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle("T034-071111-IW1", "20240401T002953Z","S1B")
-    assert acquisition_cycle == 159
-
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle("T034-071111-IW1", "20240406T002953Z",
-                                                               "S1A", cycle_days=6)
-    assert acquisition_cycle == 320

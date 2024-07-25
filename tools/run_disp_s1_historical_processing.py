@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timedelta
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 import argparse
 from util.conf_util import SettingsConf
 
@@ -180,11 +181,14 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
         do_submit = False
         finished = True
 
-    #Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
-    # this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
-    if cslc_utils.compressed_cslc_satisfied(frame_id,
-                                 disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based],
-                                 p.k, p.m, args, disp_burst_map, eu):
+    '''Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
+    this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
+    
+    NOTE! While args, token, cmr, and settings are necessary arguments for CSLCDependency, they will not be used in
+    historical processing because all CSLC dependency information is contained in the disp_burst_map'''
+    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None)
+    if cslc_dependency.compressed_cslc_satisfied(frame_id,
+                                 disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
         next_sensing_time_position = sensing_time_position_zero_based + p.k
     else:
         do_submit = False

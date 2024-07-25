@@ -12,7 +12,6 @@ from data_subscriber import ionosphere_download, es_conn_util
 from data_subscriber.cmr import Collection
 from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.download import SessionWithHeaderRedirection
-from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle, get_dependent_compressed_cslcs
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.url import cslc_unique_id
@@ -20,9 +19,9 @@ from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
-from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
-                                        get_bounding_box_for_frame, parse_cslc_native_id, get_dependent_ccslc_index,
-                                        localize_frame_geo_json)
+from data_subscriber.cslc_utils import (CSLCDependency, localize_disp_frame_burst_hist, split_download_batch_id,
+                                        get_bounding_box_for_frame, parse_cslc_native_id,
+                                        localize_frame_geo_json, parse_cslc_burst_id, build_cslc_static_native_ids)
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +185,9 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
 
-        ccslcs = get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, k, m, args, self.disp_burst_map, es_conn.es)
+        cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings)
+
+        ccslcs = cslc_dependency.get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, es_conn.es)
         if ccslcs is False:
             raise Exception(f"Failed to get compressed cslc for frame {frame_id} and day index {latest_acq_cycle_index}")
 
@@ -216,7 +217,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         logger.info(f"Submitting DISP-S1 SCIFLO job")
 
         save_compressed_cslc = False
-        if determine_k_cycle(None, latest_acq_cycle_index, frame_id, self.disp_burst_map, k, args, token, cmr, settings) == 0:
+        if cslc_dependency.determine_k_cycle(None, latest_acq_cycle_index, frame_id) == 0:
             save_compressed_cslc = True
         logger.info(f"{save_compressed_cslc=}")
 

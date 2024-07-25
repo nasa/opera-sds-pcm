@@ -19,7 +19,7 @@ from data_subscriber.geojson_utils import (localize_include_exclude,
                                            download_from_s3)
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
-from data_subscriber.cslc_utils import split_download_batch_id, compressed_cslc_satisfied, save_blocked_download_job
+from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, CSLCDependency
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
@@ -232,6 +232,8 @@ class CmrQuery:
         job_submission_tasks = []
         logger.info(f"{self.args.chunk_size=}")
 
+        cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token, self.cmr, self.settings)
+
         for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
             chunk_batch_ids = []
             chunk_urls = []
@@ -265,8 +267,7 @@ class CmrQuery:
                 # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
                 # and wait for the next query to come in. Any acquisition index will work because all batches
                 # require the same compressed cslcs
-                if not compressed_cslc_satisfied(frame_id, acq_indices[0], self.args.k, self.args.m, self.args,
-                                                 self.disp_burst_map_hist, self.es_conn.es):
+                if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es):
                     logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied")
                     save_blocked_download_job(self.es_conn.es, self.settings["RELEASE_VERSION"],
                                               product_type, params, self.args.job_queue, job_name,

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
                                         process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id,
-                                        get_k_granules_from_cmr, parse_cslc_file_name)
+                                        parse_cslc_file_name, CSLCDependency)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
@@ -267,8 +267,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
             logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {frame_id=}")
 
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-            _, granules_map = get_k_granules_from_cmr(query_timerange, frame_id, self.disp_burst_map_hist,
-                                                         args, self.token, self.cmr, self.settings, VV_only, silent=False)
+            cslc_dependency = CSLCDependency(args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, VV_only)
+            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, silent=False)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
@@ -284,7 +284,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
                 k_granules.extend(granules)
                 k_satified += 1
-                logger.info(f"{acq_day_index=} satifies. {k_satified=} {k_minus_one=}")
+                logger.info(f"{acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
                 if k_satified == k_minus_one:
                     break
 
