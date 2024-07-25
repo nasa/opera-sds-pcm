@@ -17,10 +17,7 @@ import argparse
 import io
 import json
 import logging.handlers
-import shutil
 import sys
-from contextlib import contextmanager
-from pathlib import Path
 from typing import Optional, Literal
 
 logging.basicConfig(level=logging.INFO)
@@ -77,19 +74,6 @@ def to_s3_keys(*, args):
     else:
         raise AssertionError()
     return s3_keys
-
-
-@contextmanager
-def scratch_dir():
-    p = Path("scratch").expanduser().resolve()
-    logger.info(f"creating scratch dir {p=}")
-
-    try:
-        p.mkdir(exist_ok=True)
-        yield p
-    finally:
-        shutil.rmtree(str(p))
-        logger.info(f"removed scratch dir {p=}")
 
 
 if __name__ == '__main__':
