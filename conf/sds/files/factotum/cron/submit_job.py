@@ -26,7 +26,7 @@ result = submit_mozart_job(
         product={},
         rule={
             "rule_name": f"trigger-submit_pending_jobs",
-            "queue": "factotum-job_worker-small", #"opera-job_worker-submit_pending_jobs"
+            "queue": "opera-job_worker-submit_pending_jobs",
             "priority": "0",
             "kwargs": "{}",
             "enable_dedup": True
