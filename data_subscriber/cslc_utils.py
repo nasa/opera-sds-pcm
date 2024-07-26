@@ -179,7 +179,7 @@ class CSLCDependency:
             query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
             acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number)
             all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
-            logger.info(f"All previous day indices: {all_prev_indices}")
+            logger.debug(f"All previous day indices: {all_prev_indices}")
             return all_prev_indices
     def get_k_granules_from_cmr(self, query_timerange, frame_number: int, silent = False):
         '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
@@ -281,7 +281,7 @@ class CSLCDependency:
 
         # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
         for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
-            for burst_id in self.disp_burst_map[frame_id].burst_ids:
+            for burst_id in self.frame_to_bursts[frame_id].burst_ids:
                 ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, self.k, burst_id)
                 ccslcs = eu.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,

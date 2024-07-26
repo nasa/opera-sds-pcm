@@ -2,6 +2,7 @@
 
 import sys
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 import tools.run_disp_s1_historical_processing
 from tools.run_disp_s1_historical_processing import generate_initial_frame_states, form_job_params, convert_datetime
 
@@ -106,8 +107,8 @@ def test_form_job_params_no_ccslc(monkeypatch):
     '''If compressed cslcs are not found, don't process this round and don't increment the position'''
 
     mock_ccslc = MagicMock(return_value=False)
-    monkeypatch.setattr(cslc_utils,
-                        cslc_utils.compressed_cslc_satisfied.__name__, mock_ccslc)
+    monkeypatch.setattr(CSLCDependency,
+                        CSLCDependency.compressed_cslc_satisfied.__name__, mock_ccslc)
 
     p = generate_p()
     p.frame_states = generate_initial_frame_states(p.frames)
