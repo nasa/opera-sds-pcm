@@ -42,9 +42,16 @@ def nisar_open_and_concat_netcdf_pairs(a2_a3_pairs: list[tuple[Path, Path]]):
         ds_xr_a3["longitude"] = ds_a3_longitude
 
         objs.extend([
-            ds_xr_a3.sortby("level").sortby("longitude"),
-            ds_xr_a3.sortby("level").sortby("longitude").isel(level=slice(1, None)),
+                xarray.merge([
+                    ds_xr_a2.sortby("level").sortby("longitude"),
+                    ds_xr_a3.sortby("level").sortby("longitude").isel(level=slice(1, None)),
+                ])
         ])
+
+        # objs.extend([
+        #     ds_xr_a2.sortby("level").sortby("longitude"),
+        #     ds_xr_a3.sortby("level").sortby("longitude").isel(level=slice(1, None)),
+        # ])
 
     return xarray.concat(objs, dim="level")
 
