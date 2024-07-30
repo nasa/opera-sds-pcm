@@ -107,12 +107,6 @@ def dswx_s1_lineage_metadata(context, work_dir):
     )
     lineage_metadata.append(local_algorithm_parameters_filepath)
 
-    # TODO: enable if shoreline files are needed by DSWx-S1 SAS
-    #shoreline_shape_filename = run_config["dynamic_ancillary_file_group"]["shoreline_shapefile"]
-    #shoreline_shape_basename = splitext(basename(shoreline_shape_filename))[0]
-    #local_shoreline_filepaths = glob.glob(os.path.join(work_dir, f"{shoreline_shape_basename}.*"))
-    #lineage_metadata.extend(local_shoreline_filepaths)
-
     return lineage_metadata
 
 def dswx_ni_lineage_metadata(context, work_dir):
