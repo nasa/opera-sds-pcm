@@ -21,8 +21,6 @@ runconfig:
     worldcover_file: __CHIMERA_VAL__
     reference_water_file: __CHIMERA_VAL__
     glad_classification_file: __CHIMERA_VAL__
-    # TODO: enable if shoreline files are needed by DSWx-S1 SAS
-    # shoreline_shapefile: __CHIMERA_VAL__
   static_ancillary_file_group:
     mgrs_database_file: __CHIMERA_VAL__
     mgrs_collection_database_file: __CHIMERA_VAL__
@@ -46,8 +44,6 @@ preconditions:
   - get_dswx_s1_num_workers
   - get_dswx_s1_algorithm_parameters
   - instantiate_algorithm_parameters_template
-  # TODO: enable if shoreline files are needed by DSWx-S1 SAS
-  #- get_shoreline_shapefiles
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -94,18 +90,6 @@ get_dswx_s1_dem:
   # The s3 location containing the global DEM(s) to download regions from
   s3_bucket: "opera-dem"
   s3_key: "v1.1"
-
-get_shoreline_shapefiles:
-  # The s3 bucket containing the Shoreline shapefile data set
-  s3_bucket: "opera-dist2coast"
-  # Key paths to the files that comprise the Shoreline shapefile data set
-  # Typically should be a set of 4 files, one of which MUST be the .shp which
-  # gets configured within the PGE RunConfig
-  s3_keys:
-    - "GSHHS_f_L1.dbf"
-    - "GSHHS_f_L1.prj"
-    - "GSHHS_f_L1.shp"
-    - "GSHHS_f_L1.shx"
 
 get_dswx_s1_algorithm_parameters:
   s3_bucket: "opera-ancillaries"
