@@ -96,6 +96,9 @@ def dswx_s1_lineage_metadata(context, work_dir):
     local_ref_water_filepaths = glob.glob(os.path.join(work_dir, "reference_water_file*.*"))
     lineage_metadata.extend(local_ref_water_filepaths)
 
+    local_glad_classification_filepaths = glob.glob(os.path.join(work_dir, "glad_classification_file*.*"))
+    lineage_metadata.extend(local_glad_classification_filepaths)
+
     local_db_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
     lineage_metadata.extend(local_db_filepaths)
 
