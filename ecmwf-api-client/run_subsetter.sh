@@ -19,6 +19,6 @@ ls -halt
 
 . $JOB_HOME/venv/bin/activate
 env
+echo 'EC2 INSTANCE TYPE:' $(wget -q -O - http://169.254.169.254/latest/meta-data/instance-type) || true
 pwd
-touch run_subsetter.log
 python $JOB_HOME/entrypoint_subsetter.py $* > run_subsetter.log 2>&1
