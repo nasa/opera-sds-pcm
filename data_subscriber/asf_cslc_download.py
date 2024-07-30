@@ -186,7 +186,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings)
 
-        ccslcs = cslc_dependency.get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, es_conn.es_util.es)
+        ccslcs = cslc_dependency.get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, es_conn.es_util)
         if ccslcs is False:
             raise Exception(f"Failed to get compressed cslc for frame {frame_id} and day index {latest_acq_cycle_index}")
 
