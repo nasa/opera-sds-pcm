@@ -23,7 +23,7 @@ date 2>&1
 
 echo "Working dir is ${WORKING_DIR}" 2>&1
 
-VERSION_TAG=$(docker images | grep ${PGE_NAME} -m 1 | xargs sh -c 'echo $1') 2>&1
+VERSION_TAG=$(docker images | grep opera_pge/${PGE_NAME} -m 1 | xargs sh -c 'echo $1') 2>&1
 STATUS=$?
 
 if [ $STATUS -ne 0 ]; then
