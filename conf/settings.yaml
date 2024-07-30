@@ -147,8 +147,6 @@ RTC_S1_STATIC:
     STDDEV_Y: 0.62
 
 DSWX_S1:
-  # Toggle application of ocean/shoreline masking during processing
-  APPLY_OCEAN_MASKING: !!bool false
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
 
