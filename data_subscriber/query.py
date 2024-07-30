@@ -268,9 +268,9 @@ class CmrQuery:
                 # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
                 # and wait for the next query to come in. Any acquisition index will work because all batches
                 # require the same compressed cslcs
-                if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util.es):
+                if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
                     logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied")
-                    save_blocked_download_job(self.es_conn.es_util.es, self.settings["RELEASE_VERSION"],
+                    save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
                                               product_type, params, self.args.job_queue, job_name,
                                               frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
                     continue
