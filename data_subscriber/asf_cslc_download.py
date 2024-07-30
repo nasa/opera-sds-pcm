@@ -1,19 +1,18 @@
 import copy
 import logging
 import os
-
-from os.path import basename
-from pathlib import PurePath, Path
 import urllib.parse
 from datetime import datetime, timezone
+from os.path import basename
+from pathlib import PurePath, Path
 import boto3
 
-from data_subscriber import ionosphere_download, es_conn_util
-from data_subscriber.cmr import Collection
-from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
-from data_subscriber.download import SessionWithHeaderRedirection
+from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
+from data_subscriber.cmr import Collection
+from data_subscriber.cslc.cslc_catalog import CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.download import SessionWithHeaderRedirection
 from data_subscriber.url import cslc_unique_id
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
@@ -194,7 +193,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         for ccslc in ccslcs:
             c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
 
-
         # Now acquire the Ionosphere files for the reference dates of the Compressed CSLC products
         logger.info(f"Downloading Ionosphere files for Compressed CSLCs")
         ionosphere_paths = self.download_ionosphere_files_for_cslc_batch(c_cslc_s3paths,
@@ -253,8 +251,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 }
             }
         }
-
-        #print(f"{product=}")
 
         proc_mode_suffix = ""
         if "proc_mode" in args and args.proc_mode == "historical":
