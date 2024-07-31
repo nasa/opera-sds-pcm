@@ -274,7 +274,13 @@ class CmrQuery:
                     save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
                                               product_type, params, self.args.job_queue, job_name,
                                               frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
-                    continue
+
+                    # While we technically do not have a download job here, we mark it as so in ES.
+                    # That's because this flag is used to determine if the granule has been triggered or not
+                    for batch_id, urls in batch_chunk:
+                        self.es_conn.mark_download_job_id(batch_id, "PENDING")
+
+                    continue # don't actually submit download job
 
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"

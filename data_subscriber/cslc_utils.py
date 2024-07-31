@@ -403,7 +403,6 @@ def download_batch_id_forward_reproc(granule):
     """For forward and re-processing modes, download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
     download_batch_id = "f"+str(granule["frame_id"]) + "_a" + str(granule["acquisition_cycle"])
-    download_batch_id = download_batch_id.replace("-", "_").replace(":", "_").lower()
 
     return download_batch_id
 

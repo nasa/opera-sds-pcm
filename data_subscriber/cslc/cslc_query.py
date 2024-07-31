@@ -184,8 +184,10 @@ class CslcCmrQuery(CmrQuery):
             new_downloads = False
 
             if len(download_batch) == max_bursts: # Rule 1
-                logger.info(f"Download all granules for {batch_id} because all granules are present")
+                logger.info(f"Download all granules for {batch_id} because all {max_bursts} granules are present")
                 new_downloads = True
+            else:
+                logger.info(f"Skipping download for {batch_id} because only {len(download_batch)} of {max_bursts} granules are present")
             '''As per email from Heresh at ADT on 7-25-2024, we will not use rule 2. We will always only process full-frames
             else:
                 # Rule 2
@@ -391,9 +393,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 raise Exception("Reprocessing mode requires 1) a native_id 2) frame range and date range or 3) a date range to be specified.")
 
         else:
-            all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
-            all_granules = self.eliminate_none_frames(all_granules)
-            self.extend_additional_records(all_granules)
+            if self.args.frame_id is not None:
+                all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
+            else:
+                all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
+                all_granules = self.eliminate_none_frames(all_granules)
+                self.extend_additional_records(all_granules)
 
         # Get rid of any granules that don't have the VV polarization
         # TODO: at some point we will change the code so that we can process HH polarization too
