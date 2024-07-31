@@ -8,11 +8,14 @@ import logging
 import sys
 
 from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
+from util.conf_util import SettingsConf
+from data_subscriber.cmr import get_cmr_token
 from data_subscriber.parser import create_parser
 from data_subscriber.query import submit_download_job
 from data_subscriber import es_conn_util
 from cslc_utils import get_pending_download_jobs, localize_disp_frame_burst_hist, mark_pending_download_job_submitted, CSLCDependency
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
+
 
 from util.exec_util import exec_wrapper
 
@@ -47,6 +50,9 @@ def run(argv: list[str]):
     es = es_conn_util.get_es_connection(logger)
     es_conn = CSLCProductCatalog(logging.getLogger(__name__))
 
+    settings = SettingsConf().cfg
+    cmr, token, username, password, edl = get_cmr_token(query_args.endpoint, settings)
+
     # Get unsubmitted jobs from Elasticsearch GRQ
     unsubmitted = get_pending_download_jobs(es)
     logger.info(f"Found {len(unsubmitted)=} Pending CSLC Download Jobs")
@@ -58,9 +64,7 @@ def run(argv: list[str]):
         frame_id = job['_source']['frame_id']
         acq_index = job['_source']['acq_index']
 
-        # While token, cmr, and settings are required parameters, they're not used for compressed_cslc_satisfied function
-        # those variables are used only to make cmr calls which we do not need to do here
-        cslc_dependency = CSLCDependency(k, m, disp_burst_map, query_args, None, None, None)
+        cslc_dependency = CSLCDependency(k, m, disp_burst_map, query_args, token, cmr, settings)
 
         # Check if the compressed cslc has been generated
         logger.info("Evaluating for frame_id: %s, acq_index: %s, k: %s, m: %s", frame_id, acq_index, k, m)
