@@ -225,7 +225,7 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     }
 
     # Set CMR param to ignore granule searches prior to a certain date
-    start_datetime = datetime.fromisoformat(start)
+    start_datetime = datetime.fromisoformat(start.replace("Z", "+00:00"))
     temporal_start_datetime = start_datetime - timedelta(days=window_length_days) # 30 days by default design - check with PCM team
     params['temporal'] = f"{temporal_start_datetime.isoformat()}"
 
@@ -530,7 +530,7 @@ if __name__ == '__main__':
 
         print()
         if len(validated_df) == 0:
-            print(f"✅ Validation successful: All DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
+            print(f"✅ Validation successful: All DSWx-S1 products ({df['MGRS Tiles Count'].sum()}) available at CMR for corresponding matched input RTC bursts within sensing time range.")
             print()
             if (args.verbose):
                 print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
@@ -539,13 +539,13 @@ if __name__ == '__main__':
         else:
             print(f"❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
             print()
-            print('Incomplete MGRS Set IDs:', len(validated_df))
+            print(f"Incomplete MGRS Set IDs ({len(validated_df)}) out of total MGRS Set IDs expected ({len(df)}) and expected DSWx-S1 products ({df['MGRS Tiles Count'].sum()})")
             if (args.verbose):
                 print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
             else:
                 print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
     else:
-        print('MGRS Set IDs covered:', len(df))
+        print(f"Expected DSWx-S1 products: {df['MGRS Tiles Count'].sum()}, MGRS Set IDs covered: {len(df)}")
         if (args.verbose):
             print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Covered RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
         else:
