@@ -233,7 +233,8 @@ class CmrQuery:
         job_submission_tasks = []
         logger.info(f"{self.args.chunk_size=}")
 
-        cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token, self.cmr, self.settings)
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
+            cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token, self.cmr, self.settings)
 
         for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
             chunk_batch_ids = []
