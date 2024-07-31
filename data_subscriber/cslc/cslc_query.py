@@ -186,6 +186,7 @@ class CslcCmrQuery(CmrQuery):
             if len(download_batch) == max_bursts: # Rule 1
                 logger.info(f"Download all granules for {batch_id} because all granules are present")
                 new_downloads = True
+            '''As per email from Heresh at ADT on 7-25-2024, we will not use rule 2. We will always only process full-frames
             else:
                 # Rule 2
                 min_creation_time = current_time
@@ -201,7 +202,7 @@ class CslcCmrQuery(CmrQuery):
                     logger.info(f"Download all granules for {batch_id} because it's been {mins_since_first_ingest} minutes \
 since the first CSLC file for the batch was ingested which is greater than the grace period of {self.grace_mins} minutes")
                     new_downloads = True
-                    #print(batch_id, download_batch)
+                    #print(batch_id, download_batch)'''
 
             if new_downloads:
 
