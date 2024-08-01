@@ -166,6 +166,7 @@ class CslcCmrQuery(CmrQuery):
                     download_granules.append(granule)
 
         for granule in unsubmitted:
+            logger.info(f"Merging in unsubmitted granule {granule['unique_id']}: {granule['granule_id']} for triggering consideration")
             download_batch = by_download_batch_id[granule["download_batch_id"]]
             if granule["unique_id"] not in download_batch:
                 download_batch[granule["unique_id"]] = granule

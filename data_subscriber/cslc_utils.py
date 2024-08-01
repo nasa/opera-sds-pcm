@@ -283,15 +283,17 @@ class CSLCDependency:
         for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
             for burst_id in self.frame_to_bursts[frame_id].burst_ids:
                 ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, self.k, burst_id)
-                ccslcs = eu.query(
+                ccslc = eu.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
                     body={"query": {"bool": {"must": [
                         {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
 
                 # Should have exactly one compressed cslc per acq cycle per burst
-                if len(ccslcs) != 1:
+                if len(ccslc) != 1:
                     logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
                     return False
+
+                ccslcs.extend(ccslc)
 
         logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
         return ccslcs

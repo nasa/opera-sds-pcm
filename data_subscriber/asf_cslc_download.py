@@ -101,6 +101,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                     try:
                         head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
+                        logger.info(f"Adding CSLC file: {p}")
                     except Exception as e:
                         logger.error("Failed when accessing the S3 object:" + p)
                         raise e
@@ -191,7 +192,9 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             raise Exception(f"Failed to get compressed cslc for frame {frame_id} and day index {latest_acq_cycle_index}")
 
         for ccslc in ccslcs:
-            c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
+            cslc_path = ccslc["_source"]["metadata"]["product_s3_paths"]
+            c_cslc_s3paths.extend(cslc_path)
+            logger.info(f"Adding {cslc_path} to c_cslc_s3paths")
 
         # Now acquire the Ionosphere files for the reference dates of the Compressed CSLC products
         logger.info(f"Downloading Ionosphere files for Compressed CSLCs")
