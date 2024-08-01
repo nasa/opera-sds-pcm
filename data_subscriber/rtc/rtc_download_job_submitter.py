@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from functools import partial
+from itertools import chain
 from typing import Optional
 
 from util.job_submitter import try_submit_mozart_job
@@ -34,7 +35,10 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, se
                     "batch_id": mgrs_set_id_acquisition_ts_cycle_index,
                     "mgrs_set_id": mgrs_set_id,
                     # for payload hash dedupe, include granule ID list (changes with improved coverage)
-                    "granule_ids": sorted(product["granule_id"] for product in batch_id_to_products_map[batch_id])
+                    "granule_ids": sorted({
+                        product["granule_id"]
+                        for product in chain.from_iterable(batch_id_to_products_map[batch_id].values())
+                    })
                 }
             }
         }
