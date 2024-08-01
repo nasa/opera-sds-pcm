@@ -10,6 +10,8 @@ from mypy_boto3_s3 import S3ServiceResource
 from opera.grib_to_netcdf_runner import run_grib_to_netcdf
 from opera.job_result_subsetter_pairs import JobResultSubsetterPairs
 
+import xarray
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,7 +73,13 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 subset_filepath = result_transferer.do_subset(merged_filepath, target=subset_filepath)
                 logger.info(f"Merged + subset input: {a2_a3_nc_filepath_pair=}")
 
+                logger.info("Compressing")
+                compressed_filepath = subset_filepath.expanduser().resolve().parent / (subset_filepath.name.removesuffix("".join(subset_filepath.suffixes)) + ".subset.zz.nc")
+                nc = xarray.open_dataset(str(subset_filepath.expanduser().resolve()), chunks="auto")
+                result_transferer.to_netcdf_compressed(nc, compressed_filepath)
+                logger.info("Compressed")
+
                 logging.info(f"Uploading results for {date=}")
                 result_transferer.subset_bucket_name = target_bucket_name
-                result_transferer.do_upload_subset(date, subset_filepath, raise_=True)
+                result_transferer.do_upload_subset(date, compressed_filepath, raise_=True)
                 logging.info(f"Uploaded results for {date=}")
