@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 import elasticsearch
+import backoff
 
 from data_subscriber import es_conn_util
 from data_subscriber.url import form_batch_id
@@ -133,6 +134,7 @@ class ProductCatalog(ABC):
     def granule_and_revision(self, es_id: str):
         pass
 
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=60, jitter=None)
     def mark_download_job_id(self, batch_id, job_id):
         """Stores the download_job_id in the catalog for all granules in this batch"""
 
