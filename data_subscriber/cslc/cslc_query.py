@@ -36,7 +36,7 @@ class CslcCmrQuery(CmrQuery):
 
         # This maps batch_id to list of batch_ids that should be used to trigger the DISP-S1 download job.
         # For example,
-        self.download_batch_ids = defaultdict(list)
+        self.download_batch_ids = defaultdict(set)
 
     def validate_args(self):
 
@@ -190,7 +190,7 @@ class CslcCmrQuery(CmrQuery):
 
             if len(download_batch) == max_bursts: # Rule 1
                 logger.info(f"Download all granules for {batch_id} because all {max_bursts} granules are present")
-                self.download_batch_ids[batch_id].append(batch_id) # This batch needs to be submitted as part of the download job for sure
+                self.download_batch_ids[batch_id].add(batch_id) # This batch needs to be submitted as part of the download job for sure
                 new_downloads = True
             else:
                 logger.info(f"Skipping download for {batch_id} because only {len(download_batch)} of {max_bursts} granules are present")
@@ -230,8 +230,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     download_granules.extend(k_granules)
 
                     # All the k batches need to be submitted as part of the download job for this batch
-                    # All k granules should have the same batch_id so just pick the first one
-                    self.download_batch_ids[k_granules[0]["download_batch_id"]].append(batch_id)
+                    # Mark for all k_granules to cover all k batch_ids
+                    for k_g in k_granules:
+                        self.download_batch_ids[k_g["download_batch_id"]].add(batch_id)
 
             if (len(download_batch) > max_bursts):
                 logger.error(f"{len(download_batch)=} {max_bursts=}")
