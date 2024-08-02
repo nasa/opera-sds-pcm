@@ -106,6 +106,8 @@ class CmrQuery:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args, settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         else:
+            #for g in download_granules:
+            #    print(g["download_batch_id"])
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
 
@@ -231,6 +233,7 @@ class CmrQuery:
 
     def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange):
         job_submission_tasks = []
+
         logger.info(f"{self.args.chunk_size=}")
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:

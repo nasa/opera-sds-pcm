@@ -150,7 +150,8 @@ class ProductCatalog(ABC):
                         ]
                     }
                 }
-            }
+            },
+            refresh=True # refresh every time so that we don't run into doc version conflicts
         )
 
         self.logger.info(f"Document updated: {result}")

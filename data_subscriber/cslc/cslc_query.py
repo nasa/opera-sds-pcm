@@ -34,6 +34,10 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.grace_mins = settings["DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES"]
 
+        # This maps batch_id to list of batch_ids that should be used to trigger the DISP-S1 download job.
+        # For example,
+        self.download_batch_ids = defaultdict(list)
+
     def validate_args(self):
 
         if self.proc_mode == "historical":
@@ -186,10 +190,12 @@ class CslcCmrQuery(CmrQuery):
 
             if len(download_batch) == max_bursts: # Rule 1
                 logger.info(f"Download all granules for {batch_id} because all {max_bursts} granules are present")
+                self.download_batch_ids[batch_id].append(batch_id) # This batch needs to be submitted as part of the download job for sure
                 new_downloads = True
             else:
                 logger.info(f"Skipping download for {batch_id} because only {len(download_batch)} of {max_bursts} granules are present")
             '''As per email from Heresh at ADT on 7-25-2024, we will not use rule 2. We will always only process full-frames
+            Keeping this code around in case we change our mind on that.
             else:
                 # Rule 2
                 min_creation_time = current_time
@@ -222,6 +228,10 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     logger.info(f"Length of K-granules: {len(k_granules)=}")
                     #print(f"{granules=}")
                     download_granules.extend(k_granules)
+
+                    # All the k batches need to be submitted as part of the download job for this batch
+                    # All k granules should have the same batch_id so just pick the first one
+                    self.download_batch_ids[k_granules[0]["download_batch_id"]].append(batch_id)
 
             if (len(download_batch) > max_bursts):
                 logger.error(f"{len(download_batch)=} {max_bursts=}")
@@ -441,15 +451,17 @@ since the first CSLC file for the batch was ingested which is greater than the g
         return new_granules
 
     def get_download_chunks(self, batch_id_to_urls_map):
-        '''For CSLC chunks we must group them by frame id'''
+        '''For CSLC chunks we must group them by the batch_id that were determined at the time of triggering'''
         chunk_map = defaultdict(list)
         for batch_chunk in batch_id_to_urls_map.items():
-            frame_id, _ = split_download_batch_id(batch_chunk[0])
-            chunk_map[frame_id].append(batch_chunk)
-            if (len(chunk_map[frame_id]) > self.args.k):
-                logger.error([chunk for chunk, data in chunk_map[frame_id]])
-                err_str = f"Number of download batches {len(chunk_map[frame_id])} for frame {frame_id} is greater than K {self.args.k}."
-                raise AssertionError(err_str)
+            indices = self.download_batch_ids[batch_chunk[0]]
+            for index in indices:
+                chunk_map[index].append(batch_chunk)
+                if (len(chunk_map[index]) > self.args.k):
+                    logger.error([chunk for chunk, data in chunk_map[index]])
+                    err_str = f"Number of download batches {len(chunk_map[index])} for frame {index} is greater than K {self.args.k}."
+                    raise AssertionError(err_str)
+
         return chunk_map.values()
 
     def refresh_index(self):
