@@ -25,15 +25,6 @@ To submit patches (if using Git), you'll want to ensure you have, at minimum:
 
 ### Communication Channels
 
-Before contributing changes to our project, it's a great idea to be familiar with our communication channels and to socialize your potential contributions to get feedback early. This will help give you context for your contributions, no matter their form.
-
-Our communication channels are:
-- [Issue tracking system]([INSERT LINK TO ISSUE TRACKING SYSTEM]) - a regularly monitored area to report issues with our software or propose changes
-- [Discussion board]([INSERT LINK TO DISCUSSION BOARD OR MAILING LIST]) - an permanently archived place to hold conversations related to our project, and to propose as well as show+tell topics to the contributor team. This resource can be searched for old discussions.
-- [INSERT ADDITIONAL COMMUNICATION CHANNELS FOR YOUR PROJECT, EX: SLACK, TWITTER, YOUTUBE, ETC.]
-
-### Communication Channels
-
 Before contributing to our project, please familiarize yourself with our communication channels, and socialize potential contributions early to get feedback. This will give you context for your contributions, and help ensure a smooth process for submission, review, and acceptance of your contributions.
 
 Our communication channels are:
