@@ -8,7 +8,7 @@ Before you begin contributing to our project, it'll be a good idea to ensure you
 
 ### License
 
-Our project has our licensing terms, including rules governing redistribution, documented in our [LICENSE](LICENSE) file. Please take a look at that file and ensure you understand the terms. This will impact how we, or others, use your contributions.
+Our project's licensing terms, including rules governing redistribution, are documented in our [LICENSE](LICENSE) file. Please take a look at that file and ensure you understand the terms. This will impact how we, or others, use your contributions.
 
 ### Code of Conduct
 
@@ -16,11 +16,11 @@ Our Code of Conduct helps facilitate a positive interaction environment for ever
 
 ### Developer Environment
 
-For patch contributions, see our [Developer Documentation]([INSERT YOUR DEVELOPMENT GUIDE LINK HERE]) for more details on how to set up your local environment, to best contribute to our project. 
+For patch contributions, see our [Developer Documentation]([INSERT YOUR DEVELOPMENT GUIDE LINK HERE]) for more details on how to set up your local environment to contribute to our project. 
 
-At a minimum however to submit patches (if using Git), you'll want to ensure you have:
-1. An account on the Version Control System our project uses (i.e. GitHub).
-2. The Version Control System client (i.e. Git) installed on your local machine.
+To submit patches (if using Git), you'll want to ensure you have, at minimum:
+1. An account on GitHub.
+2. An installation of `git` on your local machine.
 3. The ability to edit, build, and test our project on your local machine. Again, see our [README.md](README.md) or detailed developer guide for more details 
 
 ### Communication Channels
@@ -34,16 +34,16 @@ Our communication channels are:
 
 ### Communication Channels
 
-Before contributing changes to our project, it's a great idea to be familiar with our communication channels and to socialize your potential contributions to get feedback early. This will help give you context for your contributions, no matter their form.
+Before contributing to our project, please familiarize yourself with our communication channels, and socialize potential contributions early to get feedback. This will give you context for your contributions, and help ensure a smooth process for submission, review, and acceptance of your contributions.
 
 Our communication channels are:
 - [Issue tracking system]([INSERT LINK TO ISSUE TRACKING SYSTEM]) - a regularly monitored area to report issues with our software or propose changes
-- [Discussion board](INSERT LINK TO DISCUSSION BOARD OR MAILING LIST) - an permanently archived place to hold conversations related to our project, and to propose as well as show+tell topics to the contributor team. This resource can be searched for old discussions.
+- [Discussion board](INSERT LINK TO DISCUSSION BOARD OR MAILING LIST) - a permanently archived place to hold conversations related to our project, and to propose as well as show+tell topics to the contributor team. This resource can be searched for old discussions.
 - [INSERT ADDITIONAL COMMUNICATION CHANNELS FOR YOUR PROJECT, EX: SLACK, TWITTER, YOUTUBE, ETC.]
 
 ## Our Development Process
 
-Our project integrates contributions from many people, and so we'd like to outline a process you can use to visualize how your contributions may be integrated if you provide something. 
+This section outlines the process of submitting changes to the repository. The following diagram gives an overview of the process, with details on each step in the subsequent subsections.
 
 ```mermaid
 flowchart TD
@@ -54,7 +54,7 @@ flowchart TD
     pr-->|Changes Requested|repo_fork
 ```
 
-### Fork our Repository
+### Fork Our Repository
 
 Forking our repository, as opposed to directly committing to a branch is the preferred way to propose changes. 
 
@@ -70,7 +70,7 @@ Our project typically has the following branches available, make sure to fork ei
 - `main`[INSERT DEFAULT VCS BRANCH NAME HERE] - default branch
 - [INSERT ADDITIONAL TYPICAL VCS BRANCH NAMES HERE] - 
 
-### Make your Modifications
+### Make Your Changes
 
 Within your local development environment, this is the stage at which you'll propose your changes, and commit those changes back to version control. See the [README.md](README.md) or development guide for more specifics on what you'll need as prerequisites to setup your local development environment.
 
