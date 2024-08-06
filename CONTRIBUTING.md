@@ -229,7 +229,7 @@ Issue #248 - Show an example commit message title
 
 This makes sure that tickets are updated on GitHub with references to commits that are related to them.
 
-Commit should always be atomic. Keep solutions isolated whenever possible. Filler commits such as "clean up white space" or "fix typo" should be merged together before making a pull request, and significant sub-feature branches should be [rebased](https://www.youtube.com/results?search_query=git+rebase) to preserve commit history. Please ensure your commit history is clean and meaningful!
+Commits should always be atomic. Keep solutions isolated whenever possible. Filler commits such as "clean up white space" or "fix typo" should be merged together before making a pull request, and significant sub-feature branches should be [rebased](https://www.youtube.com/results?search_query=git+rebase) to preserve commit history. Please ensure your commit history is clean and meaningful!
 
 
 ### Python Styleguide
@@ -241,7 +241,7 @@ Commit should always be atomic. Keep solutions isolated whenever possible. Fille
 Documentation is the core way our users and contributors learn about the project. We place a high value on the quality, thoroughness, and readability of our documentation. Writing or editing documentation is an excellent way to contribute to our project without performing active coding. 
 
 Some guidelines for documentation best practices (summarized from Google's [excellent documentation guide](https://google.github.io/styleguide/docguide/best_practices.html)):
-- **Minimum viable docs** - don't do less documentation than your users / developers need, but also don't do more
+- **Minimum viable docs** - don't do less documentation than your users / developers need
 - **Changed code = changed docs** - if your code has changed, remember to update your documentation
 - **Delete old docs** - continually clean your documentation tree, and remove outdated docs regularly
 
