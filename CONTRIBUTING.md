@@ -36,6 +36,11 @@ We look forward to your help!
     - [Media](#media)
     - [Design](#design)
   - [Code Testing Guidelines](#code-testing-guidelines)
+    - [Documenting Tests](#documenting-tests)
+    - [Unit Tests](#unit-tests)
+    - [Function Tests and Feature Tests](#functional-tests-and-feature-tests)
+    - [Integration Tests](#integration-tests)
+    - [Manual Testing](#manual-testing)
 
 ## Prerequisites
 
@@ -330,10 +335,56 @@ Each of the above can be contributed directly to repository code, and you should
 
 
 ### Code Testing Guidelines
+<!-- If anyone knows of a good guide for testing, similar to the Google Style Guides, please add it here! -->
 
-(coming soon!)
+See [TESTING.md](#TESTING.md) for information on running the test suite.
 
-See [TESTING.md](#TESTING.md) for more information on testing.
+OPERA adheres to the following best practices regarding testing:
+1. **Independent Tests**.  Tests should not rely on the outcome or state of other tests to run successfully.
+2. **Test one thing at a time**.  Single path or piece of functionality, to easily identify what went wrong.    Keep tests small and focused.
+3. **Descriptive Test Names**.  Use a descriptive and consistent naming convention for tests.
+4. *Document Tests**.  Document what each test is supposed to check and any special considerations.  This helps others (and the dev.) understand the purpose and importance of each test.
+5. **Meaningful Code Coverage**.  High-quality, complete tests of a function.  All paths through the logic.  Variations on the inputs, including “bad” inputs if applicable.
+6. **High Code Coverage**.  Aim for 100% coverage with high-quality tests.  However, having high-quality tests with less coverage is preferable to low-quality tests with complete coverage.
 
+#### Documenting Tests
+
+Following the section on [Docstrings](#docstrings), test module docstrings are only required when there is additional useful/necessary information, such as unusual setups, external dependencies, etc.
+
+Docstrings for functions within the test modules are mandatory, unless the function is small and has obvious logic (based on the function name).  Follow the guidelines from the [Docstrings](#docstrings) section for how to write docstrings for test functions (including helper functions within the test module).
+
+In addition, the various kinds of tests may have additional documentation needs.  See the following sections for more information.
+
+#### Unit Tests
+
+Unit Tests focus on single functions / units of code.  The narrow focus allows much more exhaustive testing to be done.  Ideally, every function should have a set of high-quality unit tests.
+
+Incorporating unit testing early in development of a particular feature or new set of code can influence the code development itself.  Writing the functions & subfunctions to be easily testable will generally make the code itself more readable, and the easier testing will reduce overall development effort.
+
+Unit tests should be fast to run, and are generally executed regularly by the project's Continuous Integration systems.  Ideally, these tests are run after every commit.
+
+#### Functional Tests and Feature Tests
+
+Functional Tests or Feature Tests focus on a high-level capability or feature of the code.  It generally involves many “units”, even if a single function is used to initiate.  The Features or Functionality being tested are what’s generally used to describe the software & its capabilities to a user, customer, or other stakeholder.
+
+Examples:
+- Testing the trigger logic for a single product pipeline
+- Testing the generation of data accounting reports
+- Testing CMR queries for each mode of operation (e.g. CMR queries for FWD mode and for On-Demand mode might be different features, depending on SW architecture decisions)
+
+
+#### Integration Tests
+
+Integration Tests focus on multiple features working together.  For OPERA, Integration Tests are generally the largest scope of testing, and test the system's End-to-End functioning.  Ideally, there will be a set of Integration Tests that are automated and executed by a Continuous Integration system.  Though because these tests are often compute-intensive, they may be run at a lower cadence than the Unit Tests (e.g. nightly runs, or as part of Pull Request reviews, etc.)
+
+#### Manual Testing
+
+Some testing may not be automatable, or the automation might not be worth the effort for the project.  Typically these are Feature or Integration Tests that rely on external dependencies.  Due to the time-intensive nature of these tests, they might only run when preparing a release.
+
+Manual tests need rigorous documentation, which serves two main purposes:
+1. To effectively communicate what is being tested.
+2. To make sure that tests are easily reproducible.
+
+Documentation includes the test purpose, test setup, test steps, and test results.  The purpose, setup, and steps of each manual test should be captured within the repository as a Markdown document alongside the automated tests.  The OPERA Project typically uses TestRail to document manual testing, though other methods may be chosen by the software lead developer.
 
 
