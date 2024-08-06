@@ -25,7 +25,7 @@ We look forward to your help!
   - [Make Your Changes](#make-your-changes)
   - [Submit a Pull Request](#submit-a-pull-request)
   - [Reviewing Pull Requests](#reviewing-pull-requests)
-- [Development Guides](#development-guides)
+- [Development Guide](#development-guide)
   - [Git Commit Messages](#git-commit-messages)
   - [Python Styleguide](#python-styleguide)
   - [Code Documentation](#code-documentation)
