@@ -165,14 +165,17 @@ class CmrQuery:
     def determine_download_granules(self, granules):
         return granules
 
-    def catalog_granules(self, granules, query_dt):
+    def catalog_granules(self, granules, query_dt, force_es_conn = None):
+
+        es_conn = force_es_conn if force_es_conn else self.es_conn
+
         for granule in granules:
             granule_id = granule.get("granule_id")
 
             additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
 
             update_url_index(
-                self.es_conn,
+                es_conn,
                 granule.get("filtered_urls"),
                 granule,
                 self.job_id,
