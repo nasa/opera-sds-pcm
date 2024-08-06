@@ -31,7 +31,11 @@ We look forward to your help!
   - [Python Styleguide](#python-styleguide)
   - [Code Documentation](#code-documentation)
     - [Docstrings](#docstrings)
-    - [Inline Comments](#inline-comments)
+    - [Inline Code Documentation](#inline-code-documentation)
+    - [Documentation Organization](#documentation-organization)
+    - [Writing Style](#writing-style)
+    - [Media](#media)
+    - [Design](#design)
   - [Code Testing Guidelines](#code-testing-guidelines)
 
 ## Prerequisites
@@ -315,19 +319,7 @@ When including media into our version-control system, it is recommended to use f
 - Sounds: MP3 format
 <!-- ADD TO OR MODIFY ABOVE DEFAULT SUGGESTIONS -->
 
-
-
-
-
-
-
-### Code Testing Guidelines
-
-(coming soon!)
-
-See [TESTING.md](#TESTING.md) for more information on testing.
-
-### Design
+#### Design
 
 Design files can help to guide new features and new areas of expansion for our project. We welcome these kinds of contributions.
 
@@ -338,6 +330,12 @@ Here are just a few ways you can help provide design recommendations for our pro
 
 Each of the above can be contributed directly to repository code, and you should use our [development process](#our-development-process) to contribute your additions.
 
+
+### Code Testing Guidelines
+
+(coming soon!)
+
+See [TESTING.md](#TESTING.md) for more information on testing.
 
 
 
