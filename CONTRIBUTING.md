@@ -74,8 +74,8 @@ Our communication channels are:
 ## How to Contribute?
 
 ⚠️ It's **highly** advised that you take a look at our [issue tracking system]([INSERT LINK TO YOUR ISSUE TRACKING SYSTEM]) before considering any code contributions. Here's some guidelines:
-1. Check if any duplicate issues exist that cover your code contribution idea / task, and add comments to those tickets with your thoughts.
-2. If no duplicates exist, create a new issue ticket and get a conversation started before making code changes using our [communication channels](#communication-channels).
+1. Check if any duplicate issues exist that cover your contribution idea / task, and add comments to those tickets with your thoughts.
+2. If no duplicates exist, create a new issue ticket and get a conversation started before making changes using our [communication channels](#communication-channels).
 
 Once you have a solid issue ticket in hand and are ready to work on code, you'll want to:
 1. Ensure you have development [prerequisites](#prerequisites) cleared.
@@ -234,10 +234,6 @@ Commit should always be atomic. Keep solutions isolated whenever possible. Fille
 ### Code Documentation 
 
 Documentation is the core way our users and contributors learn about the project. We place a high value on the quality, thoroughness, and readability of our documentation. Writing or editing documentation is an excellent way to contribute to our project without performing active coding. 
-
-⚠️ It's **highly** advised that you take a look at our [issue-tracking system]([INSERT LINK TO YOUR ISSUE TRACKING SYSTEM]) before considering any documentation contributions. Here's some guidelines:
-1. Check if any duplicate issues exist that cover your documentation contribution idea / task, and add comments to those tickets with your thoughts.
-2. If no duplicates exist, create a new issue ticket and get a conversation started before making documentation changes.
 
 Some guidelines for documentation best practices (summarized from Google's [excellent documentation guide](https://google.github.io/styleguide/docguide/best_practices.html)):
 - **Minimum viable docs** - don't do less documentation than your users / developers need, but also don't do more
