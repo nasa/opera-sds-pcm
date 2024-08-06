@@ -242,7 +242,7 @@ Some guidelines for documentation best practices (summarized from Google's [exce
 
 #### Docstrings
 
-
+OPERA follows the docstring guidelines laid out in [Section 3.8 of the Google Python Style Guide](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).  Please review those guidelines and be prepared to follow them when working on OPERA code.
 
 #### Inline Code Documentation
 For language-specific guidance on code documentation, including style guides, see [Google's list of language style guides](https://google.github.io/styleguide/) for a variety of languages. 
