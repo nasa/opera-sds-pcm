@@ -17,14 +17,13 @@ We look forward to your help!
   - [Your First Code Contribution](#your-first-code-contribution)
     - [Developer Environment](#developer-environment)
     - [Good First Issues](#good-first-issues)
-    - [Submit a Pull Request](#submit-a-pull-requests)
 - [Our Development Process](#our-development-process)
   - [Issue Backlog](#issue-backlog)
   - [Forking and Branching](#forking-and-branching)
     - [Find or File an Issue](#find-or-file-an-issue)
     - [Choose the Right Branch to Fork](#choose-the-right-branch-to-fork)
   - [Make Your Changes](#make-your-changes)
-  - [Submit a Pull Requests](#submit-a-pull-requests)
+  - [Submit a Pull Request](#submit-a-pull-request)
   - [Reviewing Pull Requests](#reviewing-pull-requests)
 - [Development Guides](#development-guides)
   - [Git Commit Messages](#git-commit-messages)
@@ -143,14 +142,6 @@ Issue tickets can vary in complexity, and issues labeled with `good first issue`
 
 Take a look at our [issue tracking system]([INSERT LINK TO YOUR ISSUE TRACKING SYSTEM]), and filter by `good first issue` for issues that are low-complexity, and that will help you get familiar with our issue tracking and patch submission process.
 
-#### Submit a Pull Request
-
-Pull requests are the core way our project will receive your patch contributions. Navigate to your branch on your own fork within the version control system, and submit a pull request or submit the patch text to our project. 
-
-Please make sure to provide a meaningful text description to your pull requests, whenever submitted. Our pull-request template will be auto-generated for you when you create your pull-request. See the template [here]([INSERT LINK TO YOUR PULL REQUEST TEMPLATE, ex: .github/PULL_REQUEST_TEMPLATE.md]). 
-
-**Working on your first Pull Request?** See guide: [How to Contribute to an Open Source Project on GitHub](https://kcd.im/pull-request)
-
 
 ## Our Development Process
 
@@ -194,6 +185,14 @@ Our project typically has the following branches available, make sure to fork ei
 Within your local development environment, this is the stage at which you'll propose your changes, and commit those changes back to version control. See the [README.md](README.md) or [Development Guide](#development-guide) for more specifics on how to go about making the changes.
 
 ### Submit a Pull Request
+
+Pull requests are the core way our project will receive your patch contributions. Navigate to your branch on your own fork within the version control system, and submit a pull request or submit the patch text to our project. 
+
+Please make sure to provide a meaningful text description to your pull requests, whenever submitted. Our pull-request template will be auto-generated for you when you create your pull-request. See the template [here]([INSERT LINK TO YOUR PULL REQUEST TEMPLATE, ex: .github/PULL_REQUEST_TEMPLATE.md]). 
+
+**Working on your first Pull Request?** See guide: [How to Contribute to an Open Source Project on GitHub](https://kcd.im/pull-request)
+
+
 ### Reviewing Pull Requests
 
 Reviewing pull-requests, or any kinds of proposed patch changes, is an art. That being said, we follow the following best practices:
