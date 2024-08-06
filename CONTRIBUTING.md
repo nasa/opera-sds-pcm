@@ -216,7 +216,7 @@ Take a look at our [pull requests tracking system]([INSERT LINK FOR PULL REQUEST
 ## Development Guide
 
 ### Git Commit Messages
-Commit messages to version control should reference a ticket in their title / summary line:
+Commit messages to git should reference a ticket at the beginning of their title / summary line.  For example:
 
 ```
 Issue #248 - Show an example commit message title
