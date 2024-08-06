@@ -245,10 +245,13 @@ Some guidelines for documentation best practices (summarized from Google's [exce
 OPERA follows the docstring guidelines laid out in [Section 3.8 of the Google Python Style Guide](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).  Please review those guidelines and be prepared to follow them when working on OPERA code.
 
 #### Inline Code Documentation
-For language-specific guidance on code documentation, including style guides, see [Google's list of language style guides](https://google.github.io/styleguide/) for a variety of languages. 
+
+Inline comments are an important component of high-quality code documentation.  [Section 3.8.5 of the Google Python Style Guide](https://google.github.io/styleguide/pyguide.html#385-block-and-inline-comments) gives good advice on when and where to put inline comments.  In addition, consider adding them in the following places:
+- For any `else` statement that’s more than a few lines from the corresponding `if` statement, add an inline comment describing the conditions that lead to this section of code.
+- For any loops with non-obvious or multiple ways to end (e.g. a `break` statement), or conditions where an iteration is skipped (e.g. `continue` statement), add inline comments to capture the loop's behavior.
+- Any time you feel like you wrote “clever” code, put in ample inline comments to show off how clever you were!  Explain what the code is doing so that others will have a chance to understand the clever implementation.
 
 Additionally, take a look at Google's recommendations on [inline code documentation](https://google.github.io/styleguide/docguide/best_practices.html#documentation-is-the-story-of-your-code) for best practices. 
-
 
 #### Documentation Organization
 
