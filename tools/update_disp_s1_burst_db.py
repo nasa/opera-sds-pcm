@@ -52,7 +52,7 @@ for frame in j:
         acq_cycles[g["acquisition_cycle"]].add(g["burst_id"])
         acq_ts_map[g["acquisition_cycle"]].append(g["acquisition_ts"])
 
-    bursts_we_want = disp_burst_map[frame].burst_ids
+    bursts_we_want = disp_burst_map[int(frame)].burst_ids
 
     sorted_acq_cycles = sorted(acq_cycles.keys())
     for acq_cycle in sorted_acq_cycles:
