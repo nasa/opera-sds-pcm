@@ -389,3 +389,46 @@ resource "aws_instance" "factotum" {
     ]
   }
 }
+
+resource "null_resource" "setup_cron_factotum" {
+  depends_on = [aws_instance.factotum]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.factotum.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      source ~/.bash_profile
+      set -ex
+
+      pwd
+      mkdir -p cron
+      mkdir -p .local/bin/cron
+    EOT
+    ]
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/../../../conf/sds/files/factotum/cron/" # NOTE trailing slash to upload dir contents
+    destination = "cron"
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      source ~/.bash_profile
+      set -ex
+
+      chmod +x ~/cron/submit_job.py
+      mv ~/cron/submit_job.py ~/.local/bin/cron/
+
+      crontab ~/cron/hysdsops
+    EOT
+    ]
+  }
+}

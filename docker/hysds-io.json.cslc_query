@@ -57,16 +57,14 @@
       "from": "submitter",
       "placeholder": "e.g. --k=<k>",
       "type": "text",
-      "default": "--k=2",
-      "optional": true
+      "default": "--k=15"
     },
     {
       "name": "m",
       "from": "submitter",
       "placeholder": "e.g. --m=<m>",
       "type": "text",
-      "default": "--m=2",
-      "optional": true
+      "default": "--m=5"
     },
     {
       "name": "grace_mins",

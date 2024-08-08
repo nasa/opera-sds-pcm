@@ -161,7 +161,7 @@ def create_parser():
     grace_mins = {"positionals": ["--grace-mins"],
                         "kwargs": {"dest": "grace_mins",
                                    "type": int,
-                                   "help": "Used when querying for RTC and CSLC input files."}}
+                                   "help": "CURRENTLY NOT USED. Used when querying for CSLC input files."}}
 
     m = {"positionals": ["--m"],
          "kwargs": {"dest": "m",

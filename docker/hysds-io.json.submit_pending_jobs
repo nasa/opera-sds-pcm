@@ -1,0 +1,6 @@
+{
+  "label": "Evaluate and submit pending jobs",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": []
+}

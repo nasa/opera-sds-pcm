@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
                                         process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id,
-                                        get_k_granules_from_cmr, parse_cslc_file_name)
+                                        parse_cslc_file_name, CSLCDependency)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
@@ -116,9 +116,6 @@ class CslcCmrQuery(CmrQuery):
         which granules to download. And also retrieve k granules.
         In reprocessing, just retrieve the k granules."""
 
-        if len(granules) == 0:
-            return []
-
         if self.proc_mode == "reprocessing":
             if self.args.k > 1:
                 k_granules = self.retrieve_k_granules(granules, self.args, self.args.k - 1)
@@ -169,11 +166,12 @@ class CslcCmrQuery(CmrQuery):
                     download_granules.append(granule)
 
         for granule in unsubmitted:
+            logger.info(f"Merging in unsubmitted granule {granule['unique_id']}: {granule['granule_id']} for triggering consideration")
             download_batch = by_download_batch_id[granule["download_batch_id"]]
             if granule["unique_id"] not in download_batch:
                 download_batch[granule["unique_id"]] = granule
 
-        # Print them all here so it's nicely all in one place
+        # Print them all here so that it's nicely all in one place
         logger.info("After merging unsubmitted granules with the new ones returned from CMR")
         for batch_id, download_batch in by_download_batch_id.items():
             logger.info(f"{batch_id=} {len(download_batch)=}")
@@ -187,8 +185,11 @@ class CslcCmrQuery(CmrQuery):
             new_downloads = False
 
             if len(download_batch) == max_bursts: # Rule 1
-                logger.info(f"Download all granules for {batch_id} because all granules are present")
+                logger.info(f"Download all granules for {batch_id} because all {max_bursts} granules are present")
                 new_downloads = True
+            else:
+                logger.info(f"Skipping download for {batch_id} because only {len(download_batch)} of {max_bursts} granules are present")
+            '''As per email from Heresh at ADT on 7-25-2024, we will not use rule 2. We will always only process full-frames
             else:
                 # Rule 2
                 min_creation_time = current_time
@@ -204,7 +205,7 @@ class CslcCmrQuery(CmrQuery):
                     logger.info(f"Download all granules for {batch_id} because it's been {mins_since_first_ingest} minutes \
 since the first CSLC file for the batch was ingested which is greater than the grace period of {self.grace_mins} minutes")
                     new_downloads = True
-                    #print(batch_id, download_batch)
+                    #print(batch_id, download_batch)'''
 
             if new_downloads:
 
@@ -267,8 +268,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
             logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {frame_id=}")
 
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-            _, granules_map = get_k_granules_from_cmr(query_timerange, frame_id, self.disp_burst_map_hist,
-                                                         args, self.token, self.cmr, self.settings, VV_only, silent=False)
+            cslc_dependency = CSLCDependency(args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, VV_only)
+            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, silent=False)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
@@ -284,7 +285,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
                 k_granules.extend(granules)
                 k_satified += 1
-                logger.info(f"{acq_day_index=} satifies. {k_satified=} {k_minus_one=}")
+                logger.info(f"{acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
                 if k_satified == k_minus_one:
                     break
 
@@ -393,9 +394,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 raise Exception("Reprocessing mode requires 1) a native_id 2) frame range and date range or 3) a date range to be specified.")
 
         else:
-            all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
-            all_granules = self.eliminate_none_frames(all_granules)
-            self.extend_additional_records(all_granules)
+            if self.args.frame_id is not None:
+                all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
+            else:
+                all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
+                all_granules = self.eliminate_none_frames(all_granules)
+                self.extend_additional_records(all_granules)
 
         # Get rid of any granules that don't have the VV polarization
         # TODO: at some point we will change the code so that we can process HH polarization too

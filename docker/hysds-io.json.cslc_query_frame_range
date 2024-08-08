@@ -105,7 +105,28 @@
     {
       "name": "frame_id",
       "from": "submitter",
-      "placeholder": "e.g. --frame-id",
+      "placeholder": "e.g. --frame-id"
+    },
+    {
+      "name": "k",
+      "from": "submitter",
+      "placeholder": "e.g. --k=<k>",
+      "type": "text",
+      "default": "--k=15"
+    },
+    {
+      "name": "m",
+      "from": "submitter",
+      "placeholder": "e.g. --m=<m>",
+      "type": "text",
+      "default": "--m=5"
+    },
+    {
+      "name": "grace_mins",
+      "from": "submitter",
+      "placeholder": "e.g. --grace-mins=<grace_mins>",
+      "type": "text",
+      "default": "--grace-mins=120",
       "optional": true
     },
     {

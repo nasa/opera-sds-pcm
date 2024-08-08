@@ -5,7 +5,6 @@ import urllib.parse
 from datetime import datetime, timezone
 from os.path import basename
 from pathlib import PurePath, Path
-
 import boto3
 
 from data_subscriber import ionosphere_download
@@ -13,15 +12,15 @@ from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.cmr import Collection
 from data_subscriber.cslc.cslc_catalog import CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
-from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id, get_prev_day_indices,
-                                        get_bounding_box_for_frame, parse_cslc_native_id, get_dependent_ccslc_index,
-                                        localize_frame_geo_json)
-from data_subscriber.cslc_utils import parse_cslc_burst_id, build_cslc_static_native_ids, determine_k_cycle
 from data_subscriber.download import SessionWithHeaderRedirection
 from data_subscriber.url import cslc_unique_id
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
+
+from data_subscriber.cslc_utils import (CSLCDependency, localize_disp_frame_burst_hist, split_download_batch_id,
+                                        get_bounding_box_for_frame, parse_cslc_native_id,
+                                        localize_frame_geo_json, parse_cslc_burst_id, build_cslc_static_native_ids)
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +101,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                     try:
                         head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
+                        logger.info(f"Adding CSLC file: {p}")
                     except Exception as e:
                         logger.error("Failed when accessing the S3 object:" + p)
                         raise e
@@ -182,36 +182,19 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                     os.remove(iono_file)
 
         # Determine M Compressed CSLCs by querying compressed cslc GRQ ES   -------------->
-        # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
 
-        ''' Search for all previous M compressed CSLCs
-        prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of 
-                            the latest acq cycle index
-        '''
-        prev_day_indices = get_prev_day_indices(latest_acq_cycle_index, frame_id, self.disp_burst_map, args, token, cmr, settings)
+        cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings)
 
-        # special case for early sensing time series. Reduce m if there aren't enough sensing times in the database in the first place
-        # For example, if k was 4 and m was 3, but there are only 4 previous sensing times in the database, then m should be 2
-        if len(prev_day_indices) < k * (m - 1):
-            m = (len(prev_day_indices) // k) + 1
+        ccslcs = cslc_dependency.get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, es_conn.es_util)
+        if ccslcs is False:
+            raise Exception(f"Failed to get compressed cslc for frame {frame_id} and day index {latest_acq_cycle_index}")
 
-        for mm in range(0, m-1): # m parameter is inclusive of the current frame at hand
-            for burst_id in burst_id_set:
-                ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id) #looks like t034_071112_iw3_461
-                logger.info("Retrieving Compressed CSLCs for ccslc_m_index: %s", ccslc_m_index)
-                ccslcs = es_conn.es_util.query(
-                    index=_C_CSLC_ES_INDEX_PATTERNS,
-                    body={"query": {  "bool": {  "must": [
-                                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
-
-                # Should have exactly one compressed cslc per acq cycle per burst
-                if len(ccslcs) != 1:
-                    raise Exception(f"Expected 1 Compressed CSLC for {ccslc_m_index}, got {len(ccslcs)}")
-
-                for ccslc in ccslcs:
-                    c_cslc_s3paths.extend(ccslc["_source"]["metadata"]["product_s3_paths"])
+        for ccslc in ccslcs:
+            cslc_path = ccslc["_source"]["metadata"]["product_s3_paths"]
+            c_cslc_s3paths.extend(cslc_path)
+            logger.info(f"Adding {cslc_path} to c_cslc_s3paths")
 
         # Now acquire the Ionosphere files for the reference dates of the Compressed CSLC products
         logger.info(f"Downloading Ionosphere files for Compressed CSLCs")
@@ -222,7 +205,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         ionosphere_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                        key_prefix=f"tmp/disp_s1/ionosphere",
                                                                        files=ionosphere_paths))
-        # <------------------------- Compressed CSLC look up
 
         # Remove potential duplicate ionosphere entries
         # TODO: rework ionosphere download logic to check for files that have already been downloaded for a previous batch_id
@@ -236,7 +218,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         logger.info(f"Submitting DISP-S1 SCIFLO job")
 
         save_compressed_cslc = False
-        if determine_k_cycle(None, latest_acq_cycle_index, frame_id, self.disp_burst_map, k, args, token, cmr, settings) == 0:
+        if cslc_dependency.determine_k_cycle(None, latest_acq_cycle_index, frame_id) == 0:
             save_compressed_cslc = True
         logger.info(f"{save_compressed_cslc=}")
 
