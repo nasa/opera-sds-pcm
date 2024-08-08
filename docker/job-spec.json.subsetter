@@ -1,0 +1,29 @@
+{
+  "command": "/home/ops/verdi/ops/ecmwf-api-client/run_subsetter.sh",
+  "recommended-queues": [ "opera-job_worker-ecmwf-subsetter" ],
+  "params": [
+    {
+      "name": "bucket",
+      "destination": "positional"
+    },
+    {
+      "name": "target_bucket",
+      "destination": "positional"
+    },
+    {
+      "name": "s3_keys",
+      "destination": "positional"
+    },
+    {
+      "name": "s3_keys_file",
+      "destination": "positional"
+    },
+    {
+      "name": "context_a",
+      "destination": "context"
+    }
+  ],
+  "disk_usage": "600GB",
+  "soft_time_limit": 8400,
+  "time_limit": 8460
+}
