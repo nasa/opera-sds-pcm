@@ -1,3 +1,5 @@
+import sys
+import time
 from pathlib import Path
 
 import netCDF4
@@ -40,6 +42,11 @@ def subset_netcdf_file(in_: Path, out_: Path, bbox: tuple[int, int, int, int] = 
 
     # Create a new NetCDF file to store the subset
     subset_nc = netCDF4.Dataset(str(out_.expanduser().resolve()), 'w')
+    if hasattr(nc, "Conventions"):  # unconfirmed if this would be empty when coming from formal sources
+        setattr(subset_nc, "Conventions", getattr(nc, "Conventions"))
+    # if hasattr(nc, "history"):  # unconfirmed if this would be empty when coming from formal sources
+        # setattr(subset_nc, "history", getattr(nc, "history"))
+    subset_nc.history = f"{time.ctime(time.time())} by OPERA SDS PCM: {' '.join(sys.argv)}"
 
     # Create dimensions for latitude and longitude
     subset_nc.createDimension('longitude', len(subset_lons))
@@ -59,19 +66,23 @@ def subset_netcdf_file(in_: Path, out_: Path, bbox: tuple[int, int, int, int] = 
     subset_nc.variables['time'][:] = subset_time
     subset_nc.variables['level'][:] = subset_level
 
-    src_time_variable = nc.variables['time']
-    target_time_variable = subset_nc.variables['time']
-
-    target_time_variable.calendar = src_time_variable.calendar
-    target_time_variable.long_name = src_time_variable.long_name
-    target_time_variable.units = src_time_variable.units
-
     # Iterate through other variables and write subset data
     for var_name, var in nc.variables.items():
         if var_name not in ['longitude', 'latitude', 'level', 'time']:  # Skip latitude,longitude, time and level variables
             subset_data = var[:, :, lat_idx, lon_idx]  # Subset along latitude and longitude dimensions
             subset_nc.createVariable(var_name, var.dtype, ('time', 'level', 'latitude', 'longitude'))
             subset_nc.variables[var_name][:] = subset_data
+
+    # copy Variable attributes over
+    #  Copies common attributes like "long_name", "units", "standard_name", "calendar"
+    #  ignores protected attributes -- in effect, "_FillValue".
+    #  Notably, copy "units" (units="hours since 1900-01-01 00:00:0.0") for "time".
+    for var_ in ("time", "z", "t", "q", "lnsp", "longitude", "latitude", "level"):
+        src_variable = nc.variables[var_]
+        target_variable = subset_nc.variables[var_]
+        attrs_ = set(filter(lambda a: not a.startswith("_"), set(dir(src_variable)) - set(dir(target_variable))))
+        for attr_ in attrs_:
+            setattr(target_variable, attr_, getattr(src_variable, attr_))
 
     # Close both NetCDF files
     nc.close()
