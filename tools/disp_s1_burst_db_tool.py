@@ -156,7 +156,7 @@ elif args.subparser_name == "validate":
     query_timerange = DateTimeRange(start_date, end_date)
 
     # Query the CMR for the frame_id between the first and the last sensing datetime
-    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=4", "--m=2", "--use-temporal", "--processing-mode=forward"])
+    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
     subs_args.frame_id = frame_id
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
