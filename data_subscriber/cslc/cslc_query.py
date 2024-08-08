@@ -350,7 +350,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return granules
 
-    def query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange):
+    def query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange, silent=False):
 
         frame_id = int(self.args.frame_id)
         if frame_id not in self.disp_burst_map_hist:
@@ -363,7 +363,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
         if count == 0:
             return all_granules
         new_args.native_id = native_id
-        new_granules = asyncio.run(async_query_cmr(new_args, token, cmr, settings, timerange, now))
+        new_granules = asyncio.run(async_query_cmr(new_args, token, cmr, settings, timerange, now, silent))
         self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame_id)
         all_granules.extend(new_granules)
 
@@ -469,15 +469,18 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
     def get_download_chunks(self, batch_id_to_urls_map):
         '''For CSLC chunks we must group them by the batch_id that were determined at the time of triggering'''
+
         chunk_map = defaultdict(list)
         for batch_chunk in batch_id_to_urls_map.items():
-            indices = self.download_batch_ids[batch_chunk[0]]
+            chunk_map[batch_chunk[0]].append(batch_chunk) # We don't actually care about the URLs, we only care about the batch_id
+
+            '''indices = self.download_batch_ids[batch_chunk[0]]
             for index in indices:
                 chunk_map[index].append(batch_chunk)
                 if (len(chunk_map[index]) > self.args.k):
                     logger.error([chunk for chunk, data in chunk_map[index]])
                     err_str = f"Number of download batches {len(chunk_map[index])} for frame {index} is greater than K {self.args.k}."
-                    raise AssertionError(err_str)
+                    raise AssertionError(err_str)'''
 
         return chunk_map.values()
 
