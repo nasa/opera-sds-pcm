@@ -50,7 +50,7 @@ def subset_netcdf_file(in_: Path, out_: Path, bbox: tuple[int, int, int, int] = 
     # Create latitude and longitude variables
     subset_nc.createVariable('longitude', 'f4', ('longitude',))
     subset_nc.createVariable('latitude', 'f4', ('latitude',))
-    subset_nc.createVariable('time', 'f4', ('time',))
+    subset_nc.createVariable('time', 'i4', ('time',))
     subset_nc.createVariable('level', 'f4', ('level',))
 
     # Write latitude and longitude data
@@ -58,6 +58,13 @@ def subset_netcdf_file(in_: Path, out_: Path, bbox: tuple[int, int, int, int] = 
     subset_nc.variables['latitude'][:] = subset_lats
     subset_nc.variables['time'][:] = subset_time
     subset_nc.variables['level'][:] = subset_level
+
+    src_time_variable = nc.variables['time']
+    target_time_variable = subset_nc.variables['time']
+
+    target_time_variable.calendar = src_time_variable.calendar
+    target_time_variable.long_name = src_time_variable.long_name
+    target_time_variable.units = src_time_variable.units
 
     # Iterate through other variables and write subset data
     for var_name, var in nc.variables.items():

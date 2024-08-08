@@ -53,7 +53,7 @@ def nisar_open_and_concat_netcdf_pairs(a2_a3_pairs: list[tuple[Path, Path]]):
         #     ds_xr_a3.sortby("level").sortby("longitude").isel(level=slice(1, None)),
         # ])
 
-    return xarray.concat(objs, dim="level")
+    return xarray.concat(objs, dim="time")
 
 
 def load_and_concat_grib_pair(a2_path: Path, a3_path: Path):
