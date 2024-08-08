@@ -159,13 +159,11 @@ def test_get_dependent_ccslc_index():
     assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
     assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
 
-def test_frame_geo_map():
-    """Test that the frame geo simple map is correctly constructed"""
-    frame_geo_map = cslc_utils.process_frame_geo_json()
-    assert frame_geo_map[10859] == [[-101.239536, 20.325197], [-100.942045, 21.860135], [-98.526059, 21.55014], [-98.845633, 20.021978], [-101.239536, 20.325197]]
-
 def test_frame_bounds():
     """Test that the frame bounds is correctly computed and formatted"""
     frame_geo_map = cslc_utils.process_frame_geo_json()
     bounds = cslc_utils.get_bounding_box_for_frame(10859, frame_geo_map)
     assert bounds == [-101.239536, 20.021978, -98.526059, 21.860135]
+
+    bounds = cslc_utils.get_bounding_box_for_frame(21517, frame_geo_map)
+    assert bounds == [-179.171315, 49.613083, 176.926336, 51.639512]

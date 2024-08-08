@@ -125,7 +125,33 @@ def process_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
     frame_geo_map = {}
     j = json.load(open(file))
     for feature in j["features"]:
-        frame_geo_map[feature["id"]] = feature["geometry"]["coordinates"][0]
+        frame_id = feature["id"]
+        geom = feature["geometry"]
+        if geom["type"] == "Polygon":
+            xmin = min([x for x, y in geom["coordinates"][0]])
+            ymin = min([y for x, y in geom["coordinates"][0]])
+            xmax = max([x for x, y in geom["coordinates"][0]])
+            ymax = max([y for x, y in geom["coordinates"][0]])
+
+        elif geom["type"] == "MultiPolygon":
+            all_coords = []
+            for coords in geom["coordinates"]:
+                all_coords.extend(coords[0])
+
+            ymin = min([y for x, y in all_coords])
+            ymax = max([y for x, y in all_coords])
+
+            # MultiPolygon is only used for frames that cross the meridian line.
+            # Math looks funny but in the end we want the most-West x as min and most-East x as max
+            xmin = -180
+            xmax = 180
+            for x,y in all_coords:
+                if x < 0 and x > xmin:
+                    xmin = x
+                if x > 0 and x < xmax:
+                    xmax = x
+
+        frame_geo_map[frame_id] = [xmin, ymin, xmax, ymax]
 
     return frame_geo_map
 
@@ -417,11 +443,5 @@ def split_download_batch_id(download_batch_id):
 def get_bounding_box_for_frame(frame_id: int, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
-    coords = frame_geo_map[frame_id]
-    xmin = min([x for x, y in coords])
-    ymin = min([y for x, y in coords])
-    xmax = max([x for x, y in coords])
-    ymax = max([y for x, y in coords])
-
-    return [xmin, ymin, xmax, ymax]
+    return frame_geo_map[frame_id]
 
