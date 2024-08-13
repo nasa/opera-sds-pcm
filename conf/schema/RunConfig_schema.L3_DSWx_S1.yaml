@@ -75,6 +75,12 @@ RunConfig:
             # ESA WorldCover map description
             worldcover_file_description: str(required=False)
 
+            # GLAD classification map file
+            glad_classification_file: str(required=False)
+
+            # GLAD classification map file description
+            glad_classification_file_description: str(required=False)
+
             # NOAA GSHHS shapefile
             shoreline_shapefile: str(required=False)
 
