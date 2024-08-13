@@ -203,7 +203,7 @@ class CSLCDependency:
             days_delta = day_index - frame.sensing_datetime_days_index[-1]
             end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
             query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number)
+            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, silent = True)
             all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
             logger.debug(f"All previous day indices: {all_prev_indices}")
             return all_prev_indices
