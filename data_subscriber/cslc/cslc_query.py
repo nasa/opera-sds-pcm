@@ -396,10 +396,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
             if args.native_id is not None:
                 all_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, args.native_id)
 
-            # Query by frame range and date range. Both must exist.
-            elif self.args.frame_id is not None and args.start_date is not None and args.end_date is not None:
-                all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
-
             # Reprocessing by date range is a two-step process:
             # 1) Query CMR for all CSLC files in the date range specified and create list of granules with unique frame_ids
             # 2) Process each granule as if they were passed in as native_id
@@ -407,7 +403,10 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 all_granules = []
 
                 # First get all CSLC files in the range specified
-                granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
+                if self.args.frame_id is not None:
+                    granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
+                else:
+                    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
 
                 # Then create a unique set of frame_ids that we need to query for
                 frame_id_map = defaultdict(str)
@@ -419,9 +418,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     new_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, native_id)
                     all_granules.extend(new_granules)
             else:
-                raise Exception("Reprocessing mode requires 1) a native_id 2) frame range and date range or 3) a date range to be specified.")
+                raise Exception("Reprocessing mode requires either a native_id or a date range to be specified.")
 
-        else:
+        else: # Forward processing
             if self.args.frame_id is not None:
                 all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
             else:

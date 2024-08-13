@@ -146,6 +146,8 @@ def run_query(args, authorization):
                 start_date = date_range.split(",")[0].strip()
                 end_date = date_range.split(",")[1].strip()
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
+                if  "frame_id" in j:
+                    current_args.append(f"--frame-id={j['frame_id']}")
                 query_and_validate(current_args, date_range, validation_data)
 
     elif (proc_mode == "historical"):
