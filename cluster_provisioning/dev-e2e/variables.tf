@@ -388,7 +388,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
-    "dswx_s1"  = "3.0.0-rc.2.1"
+    "dswx_s1"  = "3.0.0"
     "disp_s1"  = "3.0.0-rc.2.2"
     "dswx_ni"  = "4.0.0-er.2.0"
   }
@@ -513,8 +513,8 @@ variable "amis" {
     mozart    = "ami-024158daea696c58d" # mozart v4.25 - 240715
     metrics   = "ami-0ec9395bcd3c9b44c" # metrics v4.17 - 240715
     grq       = "ami-059583a64a2daab95" # grq v4.18 - 240715
-    factotum  = "ami-09a4f8d2ac5190255" # factotum v4.16 - 240715 
-    autoscale = "ami-09f953f51f1d84913" # verdi v4.16 patchdate - 240717
+    factotum  = "ami-09a4f8d2ac5190255" # factotum v4.16 - 240715
+    autoscale = "ami-05d1383b9765b51db" # verdi v4.16 patchdate - 240715
   }
 }
 
