@@ -126,13 +126,18 @@ class CslcCmrQuery(CmrQuery):
         In reprocessing, just retrieve the k granules."""
 
         if self.proc_mode == "reprocessing":
+            if len(granules) == 0:
+                return granules
+
             if self.args.k > 1:
-                k_granules = self.retrieve_k_granules(granules, self.args, self.args.k - 1)
+                batch_id = granules[0]["download_batch_id"]
+                k_granules = self.retrieve_k_granules(granules, self.args, self.args.k - 1, True, silent=True)
                 self.catalog_granules(k_granules, datetime.now(), self.k_es_conn)
                 logger.info(f"Length of K-granules: {len(k_granules)=}")
                 for k_g in k_granules:
                     self.download_batch_ids[k_g["download_batch_id"]].add(batch_id)
-                    self.k_batch_ids.add(k_g["download_batch_id"])
+                    self.k_batch_ids[batch_id].add(k_g["download_batch_id"])
+                self.k_retrieved_granules.extend(k_granules)  # This is used for scenario testing
             return granules
 
         if self.proc_mode == "historical":
@@ -252,12 +257,15 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return download_granules
 
-    def retrieve_k_granules(self, downloads, args, k_minus_one, VV_only = True):
+    def retrieve_k_granules(self, downloads, args, k_minus_one, VV_only = True, silent=False):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the current frame
         Return all the granules that satisfy that'''
         k_granules = []
         k_satified = 0
         new_args = copy.deepcopy(args)
+
+        if len(downloads) == 0:
+            return k_granules
 
         '''All download granules should have the same frame_id
         All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
@@ -289,7 +297,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
             cslc_dependency = CSLCDependency(args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, VV_only)
-            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, silent=False)
+            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, silent=silent)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
