@@ -3,6 +3,7 @@
 from collections import defaultdict
 import logging
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 from datetime import datetime, timedelta
 import argparse
 from util.conf_util import SettingsConf
@@ -57,7 +58,8 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
-    k_cycle: int = cslc_utils.determine_k_cycle(acquisition_dts, None, frame_id, disp_burst_map, k, subs_args, token, cmr, settings, silent = not verbose)
+    cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings) # we don't care about m here
+    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, silent = not verbose)
 
     return k_cycle
 

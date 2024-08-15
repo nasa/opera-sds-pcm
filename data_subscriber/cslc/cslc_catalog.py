@@ -45,6 +45,10 @@ class CSLCProductCatalog(ProductCatalog):
             }
         )
 
+        # Convert acquisition_ts to time object for convenience
+        for download in downloads:
+            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S")
+
         return self.process_query_result(downloads)
 
     def get_submitted_granules(self, download_batch_id: str):

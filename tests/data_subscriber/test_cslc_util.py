@@ -4,6 +4,7 @@ import pytest
 import conftest
 
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 from data_subscriber.parser import create_parser
 import dateutil
 from datetime import datetime
@@ -104,17 +105,18 @@ def test_determine_k_cycle():
     cmr = None
     token = None
 
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831, disp_burst_map_hist, 10, args, token, cmr, settings)
+    cslc_dependency = CSLCDependency(10, 1, disp_burst_map_hist, args, token, cmr, settings) # m doesn't matter here
+
+    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831)
     assert k_cycle == 2
 
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
+    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832)
     assert k_cycle == 1
 
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20161229T230549"), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
+    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20161229T230549"), None, 832)
     assert k_cycle == 0
 
-    k_cycle = cslc_utils.determine_k_cycle(None, 192, 10859, disp_burst_map_hist,
-                                           10, args, token, cmr, settings)
+    k_cycle = cslc_dependency.determine_k_cycle(None, 192, 10859)
     assert k_cycle == 9
 
     # TODO: Figure out why this isn't working and then create unit test for acquisition date outside of the historical period
@@ -125,21 +127,18 @@ def test_determine_k_cycle():
 def test_get_prev_day_indices():
     args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--use-temporal"])
     settings = SettingsConf().cfg
-
-
     cmr = None
     token = None
 
+    cslc_dependency = CSLCDependency(10, 1, disp_burst_map_hist, args, token, cmr, settings) # k and m don't matter here
+
     # This falls within the historical database json so doesn't need CMR call
-    prev_day_indices = cslc_utils.get_prev_day_indices(192, 10859, disp_burst_map_hist,
-                                                       args, token, cmr, settings)
+    prev_day_indices = cslc_dependency.get_prev_day_indices(192, 10859)
     assert prev_day_indices == [0, 24, 48, 72, 96, 120, 144, 168]
 
     # TODO: Figure out why get_cmr_token doesn't work in this unit test context (works fine in production) and then enable this
-    '''
     # cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
-    prev_day_indices = cslc_utils.get_prev_day_indices(2688, 24733, disp_burst_map_hist,
-                                                       args, token, cmr, settings)
+    '''prev_day_indices = prev_day_indices.get_prev_day_indices(2688, 24733)
     assert prev_day_indices == [0, 12, 36, 60, 84, 132, 156, 180, 204, 228, 234, 252, 258, 282, 294, 366, 834, 858, 1122,
      1134, 1146, 1158, 1170, 1182, 1194, 1206, 1218, 1230, 1272, 1284, 1296, 1308, 1320, 1332, 1344, 1350, 1356, 1362, 
      1368, 1374, 1380, 1386, 1392, 1404, 1410, 1416, 1422, 1428, 1434, 1440, 1446, 1452, 1458, 1464, 1476, 1482, 1488, 

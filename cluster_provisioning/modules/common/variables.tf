@@ -491,6 +491,16 @@ variable "queues" {
         "total_jobs_metric" = true
         "use_private_vpc"   = false
     }
+    "opera-job_worker-submit_pending_jobs" = {
+      "name"              = "opera-job_worker-submit_pending_jobs"
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "c7i.large"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+    }
     "opera-job_worker-rtc_data_download" = {
       "name"              = "opera-job_worker-rtc_data_download"
       "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]

@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timedelta
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 import argparse
 from util.conf_util import SettingsConf
 
@@ -31,7 +32,8 @@ CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
-def proc_once(eu, procs, dryrun = False):
+def proc_once(eu, procs, args):
+    dryrun = args.dry_run
     job_success = True
 
     for proc in procs:
@@ -73,7 +75,7 @@ def proc_once(eu, procs, dryrun = False):
 
             # Compute job parameters, whether to process or not, and if we're finished
             do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
-                form_job_params(p, int(frame_id), last_frame_processed)
+                form_job_params(p, int(frame_id), last_frame_processed, args, eu)
 
             proc_finished = proc_finished & finished # All frames must be finished for this batch proc to be finished
 
@@ -121,7 +123,7 @@ def proc_once(eu, procs, dryrun = False):
 
     return job_success
 
-def form_job_params(p, frame_id, sensing_time_position_zero_based):
+def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
 
     data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
@@ -179,11 +181,14 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based):
         do_submit = False
         finished = True
 
-    #Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
-    # this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
-    if compressed_cslc_satisfied(frame_id,
-                                 disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based],
-                                 p.k, p.m):
+    '''Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
+    this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
+    
+    NOTE! While args, token, cmr, and settings are necessary arguments for CSLCDependency, they will not be used in
+    historical processing because all CSLC dependency information is contained in the disp_burst_map'''
+    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None)
+    if cslc_dependency.compressed_cslc_satisfied(frame_id,
+                                 disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
         next_sensing_time_position = sensing_time_position_zero_based + p.k
     else:
         do_submit = False
@@ -310,34 +315,6 @@ def generate_initial_frame_states(frames):
 
     return frame_states
 
-def compressed_cslc_satisfied(frame_id, day_index, k, m):
-    '''Look for the compressed cslc records needed to process this frame at day index in GRQ ES'''
-
-    #TODO: This code is mostly identical to asf_cslc_download.py lines circa 200. Refactor into one place
-    prev_day_indices = cslc_utils.get_prev_day_indices(day_index, frame_id, disp_burst_map, args, None, None,
-                                            None)
-
-    #special case for early sensing time series
-    if len(prev_day_indices) < k * (m-1):
-        m = (len(prev_day_indices) // k ) + 1
-
-    _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
-    for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
-        for burst_id in disp_burst_map[frame_id].burst_ids:
-            ccslc_m_index = cslc_utils.get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id)
-            ccslcs = eu.query(
-                index=_C_CSLC_ES_INDEX_PATTERNS,
-                body={"query": {"bool": {"must": [
-                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
-
-            # Should have exactly one compressed cslc per acq cycle per burst
-            if len(ccslcs) != 1:
-                logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
-                return False
-
-    logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
-    return True
-
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
     Converts from a datetime string to a datetime object or vice versa
@@ -377,5 +354,5 @@ if __name__ == "__main__":
 
     while (True):
         batch_procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
-        proc_once(eu, batch_procs, args.dry_run)
+        proc_once(eu, batch_procs, args)
         time.sleep(int(args.sleep_secs))
