@@ -30,10 +30,6 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
             logger.warning(f"The A2+A3 dirs for {date} were not found. Check S3 bucket {bucket_name}.")
             continue
 
-        if len(paired_paths[date]["A2"]) != 4 and len(paired_paths[date]["A3"]) != 4:
-            logger.warning(f"Incomplete pairs for {date}. Check A2 and A3 directories in S3 bucket {bucket_name}")
-            continue
-
         a2_files = sorted(paired_paths[date]["A2"])
         a3_files = sorted(paired_paths[date]["A3"])
 
