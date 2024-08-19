@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from datetime import datetime
 import argparse
+import backoff
 
 from util.conf_util import SettingsConf
 from data_subscriber.cmr import get_cmr_token
@@ -15,6 +16,10 @@ from data_subscriber import cslc_utils
 
 ''' Tool to update the DISP S1 burst database sensing_time_list with latest data from CMR. 
     Writes out the new file with .mod added to the end of the file name'''
+
+@backoff.on_exception(backoff.expo, Exception, max_tries=15)
+def query_cmr_by_frame_and_dates_backoff(cslc_query, subs_args, token, cmr, settings, now, timerange, silent):
+    return cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, now, timerange, silent)
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -41,7 +46,7 @@ for frame in j:
     new_sensing_time_list = []
     logger.info(f"Updating {frame=}")
     subs_args.frame_id = frame
-    all_granules = cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, now, timerange, silent=True)
+    all_granules = query_cmr_by_frame_and_dates_backoff(cslc_query, subs_args, token, cmr, settings, now, timerange, silent=True)
 
     # Group them by acquisition cycle
     acq_cycles = defaultdict(set)
