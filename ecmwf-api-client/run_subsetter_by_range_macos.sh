@@ -129,7 +129,7 @@ while [ "${IN_DATE}" != ${IN_END_DATE} ]; do
     exit 1
   fi
   IN_LIST=$(aws s3api list-objects-v2 --bucket opera-ecmwf --prefix raw/"${IN_DATE}"/ --query 'Contents[*].Key' --output text --no-paginate | xargs echo)
-  echo run_subsetter.sh --bucket=${bucket} --target-bucket=${target_bucket} --s3-keys "${IN_LIST}"
+  run_subsetter.sh --bucket=${bucket} --target-bucket=${target_bucket} --s3-keys "${IN_LIST}"
 
   # linux date increment
   IN_DATE=$(date -j -v +1d -f "%Y%m%d" ${IN_DATE} +%Y%m%d)
