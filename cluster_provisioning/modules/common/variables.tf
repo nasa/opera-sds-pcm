@@ -531,7 +531,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
-      "instance_type"     = ["r6a.xlarge"]
+      "instance_type"     = ["r6a.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 250
       "min_size"          = 0
@@ -541,7 +541,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_intel" = {
       "name"              = "opera-job_worker-pge_smoke_test_intel"
-      "instance_type"     = ["r6i.xlarge"]
+      "instance_type"     = ["r6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 250
       "min_size"          = 0
