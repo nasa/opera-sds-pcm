@@ -365,26 +365,40 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
         end=greatest_date_iso,
         endpoint=endpoint,
         provider='',  # leave blank
-        short_name='OPERA_L3_DSWX-S1_PROVISIONAL_V0',  # Use the specific product short name
+        short_name='OPERA_L3_DSWX-S1_V1',  # Use the specific product short name
         timestamp_type='temporal'  # Ensure this matches the query requirements
     )
 
     # Update the params dictionary directly to include any specific parameters needed
-    params['page_size'] = 1000  # Ensuring to fetch enough data in one go
+    params['page_size'] = 1000  # Set the page size to 1000
+    params['page_num'] = 1  # Start with the first page
 
-    # Construct the full URL for the request
-    full_url = f"{base_url}?{urlencode(params)}"
+    all_granules = []
 
-    # Make the HTTP request
     try:
-        response = requests.get(full_url)
-        response.raise_for_status()  # Raises a HTTPError for bad responses
-        granules = response.json()
+        while True:
+            # Construct the full URL for the request
+            full_url = f"{base_url}?{urlencode(params)}"
 
-        # Extract MGRS tiles from the response
+            # Make the HTTP request
+            response = requests.get(full_url)
+            response.raise_for_status()  # Raises a HTTPError for bad responses
+            granules = response.json()
+
+            # Append the current page's granules to the all_granules list
+            all_granules.extend(granules['items'])
+
+            # Check if we've retrieved all pages
+            if len(all_granules) >= granules['hits']:
+                break
+
+            # Increment the page number for the next iteration
+            params['page_num'] += 1
+
+        # Extract MGRS tiles from the combined results
         available_rtc_bursts = []
         pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1A_30_v\d+\.\d+)"
-        for item in granules['items']:
+        for item in all_granules:
             for path in item['umm']['InputGranules']:
                 # Extract the granule burst ID from the full path
                 match = re.search(pattern, path)
