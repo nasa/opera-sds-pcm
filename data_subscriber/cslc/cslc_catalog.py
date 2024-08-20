@@ -3,11 +3,10 @@ from datetime import datetime
 
 from data_subscriber.catalog import ProductCatalog
 
-
-class CSLCProductCatalog(ProductCatalog):
-    """Cataloging class for downloaded Coregistered Single Look Complex (CSLC) products."""
-    NAME = "cslc_catalog"
-    ES_INDEX_PATTERNS = "cslc_catalog*"
+class KCSLCProductCatalog(ProductCatalog):
+    """Cataloging class for downloaded Coregistered Single Look Complex (CSLC) products used for K-satiety purposes."""
+    NAME = "k_cslc_catalog"
+    ES_INDEX_PATTERNS = "k_cslc_catalog*"
 
     def process_query_result(self, query_result: list[dict]):
         return [result['_source'] for result in (query_result or [])]
@@ -26,6 +25,26 @@ class CSLCProductCatalog(ProductCatalog):
             "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
             "revision_date": revision_date_dt
         }
+
+    def get_download_granule_revision(self, granule_id: str):
+        downloads = self.es_util.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"download_batch_id": granule_id}}
+                        ]
+                    }
+                }
+            }
+        )
+
+        return self.process_query_result(downloads)
+class CSLCProductCatalog(KCSLCProductCatalog):
+    """Cataloging class for downloaded Coregistered Single Look Complex (CSLC) products."""
+    NAME = "cslc_catalog"
+    ES_INDEX_PATTERNS = "cslc_catalog*"
 
     def get_unsubmitted_granules(self, processing_mode="forward"):
         """Returns all unsubmitted granules, should be in forward processing mode only"""
@@ -61,22 +80,6 @@ class CSLCProductCatalog(ProductCatalog):
                         "must": [
                             {"term": {"download_batch_id": download_batch_id}},
                             {"exists": {"field": "download_job_id"}}
-                        ]
-                    }
-                }
-            }
-        )
-
-        return self.process_query_result(downloads)
-
-    def get_download_granule_revision(self, granule_id: str):
-        downloads = self.es_util.query(
-            index=self.ES_INDEX_PATTERNS,
-            body={
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"term": {"download_batch_id": granule_id}}
                         ]
                     }
                 }

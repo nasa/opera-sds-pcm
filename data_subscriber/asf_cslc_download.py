@@ -10,7 +10,7 @@ import boto3
 from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.cmr import Collection
-from data_subscriber.cslc.cslc_catalog import CSLCStaticProductCatalog
+from data_subscriber.cslc.cslc_catalog import CSLCStaticProductCatalog, KCSLCProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.download import SessionWithHeaderRedirection
 from data_subscriber.url import cslc_unique_id
@@ -276,11 +276,29 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         return submitted
 
     def get_downloads(self, args, es_conn):
-        # For CSLC download, the batch_ids are globally unique so there's no need to query for dates
+        '''Returns items to download based on the batch_ids
+        For CSLC download, the batch_ids are globally unique so there's no need to query for dates
+        Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
+        as the one with the greatest acq_cycle_index) is stored in cslc_catalog. The rest are stored in k_cslc_catalog.'''
+
+        k_es_conn = KCSLCProductCatalog(logging.getLogger(__name__))
+
+        # Sort the batch_ids by acq_cycle_index
+        batch_ids = sorted(args.batch_ids, key = lambda batch_id: split_download_batch_id(batch_id)[1])
+
         all_downloads = []
-        for batch_id in args.batch_ids:
-            downloads = es_conn.get_download_granule_revision(batch_id)
-            logger.info(f"Got {len(downloads)=} downloads for {batch_id=}")
+
+        # Download CSLC granules
+        downloads = es_conn.get_download_granule_revision(batch_ids[-1])
+        logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
+        assert len(downloads) > 0, f"No downloads found for batch_id={batch_ids[-1]}!"
+        all_downloads.extend(downloads)
+
+        # Download K-CSLC granules
+        for batch_id in batch_ids[:-1]:
+            downloads = k_es_conn.get_download_granule_revision(batch_id)
+            logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
+            assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
             all_downloads.extend(downloads)
 
         return all_downloads

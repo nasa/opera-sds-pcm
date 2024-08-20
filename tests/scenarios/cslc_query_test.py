@@ -146,6 +146,8 @@ def run_query(args, authorization):
                 start_date = date_range.split(",")[0].strip()
                 end_date = date_range.split(",")[1].strip()
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
+                if  "frame_id" in j:
+                    current_args.append(f"--frame-id={j['frame_id']}")
                 query_and_validate(current_args, date_range, validation_data)
 
     elif (proc_mode == "historical"):
@@ -166,7 +168,8 @@ def query_and_validate(current_args, test_range, validation_data=None):
     c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
                                       cslc_utils.DISP_FRAME_BURST_MAP_HIST)
     q_result = c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
-    q_result = q_result["download_granules"]
+    q_result = q_result["download_granules"] # Main granules
+    q_result.extend(c_query.k_retrieved_granules) # k granules
     print("+++++++++++++++++++++++++++++++++++++++++++++++")
     # for r in q_result:
     #    print(r["granule_id"])
