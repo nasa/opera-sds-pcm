@@ -38,7 +38,7 @@ runconfig:
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
-    debug_switch: False
+    debug_switch: True  # TODO: Currently enabled to bypass a faulty validation check in the PGE
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
