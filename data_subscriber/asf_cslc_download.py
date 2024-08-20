@@ -148,7 +148,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                 for cslc_static_granule in cslc_static_granules:
                     for url in cslc_static_granule["filtered_urls"]:
-                        if url.startswith("s3"):
+                        if url.startswith("s3") and url not in cslc_static_s3paths:
                             cslc_static_s3paths.append(url)
 
                 if len(cslc_static_s3paths) == 0:
