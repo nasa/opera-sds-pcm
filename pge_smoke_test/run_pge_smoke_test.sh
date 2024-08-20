@@ -14,6 +14,7 @@ source $HOME/verdi/bin/activate
 
 PGE_NAME=$1
 S3_BUCKET=$2
+PGE_REPO_BRANCH=$3
 PGE_REPO_URL="https://github.com/nasa/opera-sds-pge.git"
 PGE_HOME=/home/ops/verdi/ops/opera-sds-pge
 
@@ -41,6 +42,11 @@ if [ $STATUS -ne 0 ]; then
   echo "Failed to clone opera-sds-pge repository" 2>&1
   exit $STATUS
 fi
+
+echo "Checking out branch ${PGE_REPO_BRANCH}"
+pushd ${PGE_HOME} || exit
+git checkout ${PGE_REPO_BRANCH}
+popd || exit
 
 echo "Running integration smoke test for container ${PGE_NAME}-${VERSION_TAG}" 2>&1
 ${PGE_HOME}/.ci/scripts/${PGE_NAME}/test_int_${PGE_NAME}.sh --tag ${VERSION_TAG} --temp-root ${WORKING_DIR} --no-metrics --no-cleanup 2>&1
