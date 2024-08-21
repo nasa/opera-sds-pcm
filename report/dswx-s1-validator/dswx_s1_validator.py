@@ -374,6 +374,7 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
     params['page_num'] = 1  # Start with the first page
 
     all_granules = []
+    dswx_s1_mgrs_tiles_to_rtc_bursts = {}
 
     try:
         while True:
@@ -395,21 +396,46 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
             # Increment the page number for the next iteration
             params['page_num'] += 1
 
-        # Extract MGRS tiles from the combined results
+        # Extract MGRS tiles and create the mapping to InputGranules
         available_rtc_bursts = []
         pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1A_30_v\d+\.\d+)"
         for item in all_granules:
-            for path in item['umm']['InputGranules']:
-                # Extract the granule burst ID from the full path
+            input_granules = item['umm']['InputGranules']
+            # native_id = item['meta']['native-id']
+            mgrs_tile_id = None
+
+            # Extract the MGRS Tile ID
+            for attr in item['umm']['AdditionalAttributes']:
+                if attr['Name'] == 'MGRS_TILE_ID':
+                    mgrs_tile_id = attr['Values'][0]
+                    break
+
+            # Extract the granule burst ID from the full path
+            for path in input_granules:
                 match = re.search(pattern, path)
                 if match:
+                    if mgrs_tile_id:
+                        # Add the MGRS Tile ID and associated InputGranules to the dictionary
+                        if mgrs_tile_id in dswx_s1_mgrs_tiles_to_rtc_bursts:
+                            dswx_s1_mgrs_tiles_to_rtc_bursts[mgrs_tile_id].append(match.group(1))
+                        else:
+                            dswx_s1_mgrs_tiles_to_rtc_bursts[mgrs_tile_id] = [match.group(1)]
                     available_rtc_bursts.append(match.group(1))
 
-        unique_available_rtc_bursts = set(available_rtc_bursts)
+        #unique_available_rtc_bursts = set(available_rtc_bursts)
 
         # Function to identify missing bursts
         def filter_and_find_missing(row):
             rtc_bursts_in_df_row = set(row['Covered RTC Native IDs'].split(', '))
+            mgrs_tiles_in_df_row = set(row['MGRS Tiles'].split(', '))
+
+            unique_available_rtc_bursts = {
+                item
+                for key in mgrs_tiles_in_df_row
+                if f"T{key}" in dswx_s1_mgrs_tiles_to_rtc_bursts
+                for item in dswx_s1_mgrs_tiles_to_rtc_bursts[f"T{key}"]
+            }
+
             unprocessed_rtc_bursts = rtc_bursts_in_df_row - unique_available_rtc_bursts
             if unprocessed_rtc_bursts:
                 return ', '.join(unprocessed_rtc_bursts)
@@ -433,6 +459,7 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
         logging.error(f"Failed to fetch data from CMR: {e}")
         
     return False
+
 
 if __name__ == '__main__':
     # Create an argument parser
