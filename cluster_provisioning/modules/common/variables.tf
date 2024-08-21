@@ -512,7 +512,7 @@ variable "queues" {
       "use_private_vpc"   = false
     }
     "opera-job_worker-ecmwf-subsetter" = {
-      "instance_type"     = ["c7i.4xlarge", "c7i.8xlarge", "m7i.4xlarge", "m7i-flex.4xlarge", "c7a.4xlarge", "m7a.4xlarge", "m7i.8xlarge", "c6i.4xlarge"]
+      "instance_type"     = ["r7i.2xlarge", "r5a.2xlarge", "m7i-flex.4xlarge", "m7i.4xlarge", "r6a.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
       "max_size"          = 10
