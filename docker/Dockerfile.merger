@@ -1,0 +1,66 @@
+ARG PGE_BASE_VERSION
+FROM hysds/pge-base:${PGE_BASE_VERSION}
+
+ARG GIT_OAUTH_TOKEN
+ARG PCM_COMMONS_BRANCH
+ARG PRODUCT_DELIVERY_BRANCH
+
+# provision
+USER ops
+WORKDIR /home/ops/verdi/ops/ecmwf-api-client
+COPY --chown=ops:ops --chmod=766  ./ecmwf-api-client .
+
+RUN \
+<<-EOT
+  mkdir -p /home/ops/.dockerfile-cache/pip && sudo chown ops:ops /home/ops/.dockerfile-cache/pip
+  mkdir -p /home/ops/.dockerfile-cache/conda && sudo chown ops:ops /home/ops/.dockerfile-cache/conda
+  source /home/ops/.bash_profile
+  /opt/conda/bin/conda config --add pkgs_dirs /home/ops/.dockerfile-cache/conda
+  /opt/conda/bin/conda info
+EOT
+
+RUN \
+<<-EOT
+  sudo chmod -R 777 .
+  sudo chown -R ops:ops .
+EOT
+
+RUN --mount=type=cache,target=/home/ops/.dockerfile-cache/conda \
+<<-EOT
+  source /home/ops/.bash_profile
+  set -euxo pipefail
+  sudo /opt/conda/bin/conda info
+  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes python-eccodes
+EOT
+
+RUN --mount=type=cache,target=/home/ops/.dockerfile-cache/pip \
+<<-EOT
+  source /home/ops/.bash_profile
+  set -euxo pipefail
+  python -m venv venv
+  . venv/bin/activate
+  pip install --upgrade pip setuptools wheel
+EOT
+
+RUN --mount=type=cache,target=/home/ops/.dockerfile-cache/pip \
+    --mount=type=bind,source=./ecmwf-api-client/requirements-merger.txt,target=requirements.txt \
+<<-EOT
+  source /home/ops/.bash_profile
+  set -euxo pipefail
+  . venv/bin/activate
+  pip install -r requirements.txt
+EOT
+
+RUN --mount=type=cache,target=/home/ops/.dockerfile-cache/pip \
+<<-EOT
+  source /home/ops/.bash_profile
+  set -euxo pipefail
+  . venv/bin/activate
+  pip install -e .
+EOT
+
+# set entrypoint
+ENTRYPOINT ["/entrypoint-pge-with-stats.sh"]
+
+WORKDIR /home/ops
+CMD ["/bin/bash", "--login"]
