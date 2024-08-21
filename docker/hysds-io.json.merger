@@ -1,0 +1,44 @@
+{
+  "label": "ECMWF grib merger",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "bucket",
+      "from": "submitter",
+      "placeholder": "e.g. --bucket=<bucket_name>",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "target_bucket",
+      "from": "submitter",
+      "placeholder": "e.g. --target-bucket=<bucket_name>",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "s3_keys",
+      "from": "submitter",
+      "placeholder": "e.g. --s3-keys key1 key2 key3 ... keyN",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "s3_keys_file",
+      "from": "submitter",
+      "placeholder": "e.g. --s3-keys-file=input.json",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "context_a",
+      "from": "value",
+      "placeholder": "placeholder",
+      "type": "text",
+      "value": "value",
+      "default": "default",
+      "optional": true
+    }
+  ]
+}

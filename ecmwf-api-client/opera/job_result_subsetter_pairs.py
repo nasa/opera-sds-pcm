@@ -93,19 +93,19 @@ class JobResultSubsetterPairs():
     def try_nisar_open_and_concat_and_save_netcdf_pairs(self, a2_a3_pair_resolved_paths, target):
         return merge.nisar_open_and_concat_and_save_netcdf_pairs(a2_a3_pair_resolved_paths, target=target)
 
-    def do_upload_subset(self, req_dt_str: str, subset_filepath, raise_):
-        logger.info("UPLOADING SUBSET TO S3")
+    def do_upload(self, req_dt_str: str, filepath, raise_):
+        logger.info("UPLOADING TO S3")
         logger.info("This may take a few minutes...")
 
         try:
             if not self.enabled_upload_to_s3:
-                logger.warning("SKIPPING SUBSET S3 UPLOAD")
+                logger.warning("SKIPPING S3 UPLOAD")
             if self.enabled_upload_to_s3:
                 s3: S3ServiceResource = boto3.resource("s3")
                 bucket = s3.Bucket(self.subset_bucket_name)
                 yyyymmdd = str(isoparse(req_dt_str).strftime("%Y%m%d"))
-                key = f'ecmwf/{yyyymmdd}/{subset_filepath.name}'
-                bucket.upload_file(Filename=str(subset_filepath.expanduser().resolve()), Key=key)
+                key = f'ecmwf/{yyyymmdd}/{filepath.name}'
+                bucket.upload_file(Filename=str(filepath.expanduser().resolve()), Key=key)
                 uploaded_s3path = f"s3://{bucket.name}/{key}"
                 logger.info(f"{uploaded_s3path=}")
         except Exception as e:
@@ -113,9 +113,9 @@ class JobResultSubsetterPairs():
             if raise_:
                 raise e
 
-            logger.info(f"Deleting {subset_filepath}")
+            logger.info(f"Deleting {filepath}")
             if not self.is_dev_test:
-                subset_filepath.unlink(missing_ok=True)
+                filepath.unlink(missing_ok=True)
         finally:
         # TODO chrisjrd: fix file handling
         #     logger.info(f"Deleting {subset_filepath}")
@@ -123,7 +123,7 @@ class JobResultSubsetterPairs():
         #         subset_filepath.unlink(missing_ok=True)
             pass
 
-        logger.info("UPLOADED SUBSET TO S3")
+        logger.info("UPLOADED TO S3")
 
     def do_subset(self, src: Path, target: Optional[Path] = None):
         """

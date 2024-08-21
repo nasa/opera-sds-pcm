@@ -60,18 +60,15 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 # result_transferer = JobResultTransfererPairs(ecmwf_service=None, dao=None)
                 result_transferer = JobResultSubsetterPairs()
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
-                logger.info(f"Merge + subset input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merge input: {a2_a3_nc_filepath_pair=}")
 
                 merged_filepath = a2_grib_filepath.expanduser().resolve().parent / (a2_grib_filepath.stem.removeprefix("A2").removeprefix("A3") + ".merged.nc")
                 merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
-
-                subset_filepath = merged_filepath.expanduser().resolve().parent / (merged_filepath.name.removesuffix("".join(merged_filepath.suffixes)) + ".subset.nc")
-                subset_filepath = result_transferer.do_subset(merged_filepath, target=subset_filepath)
-                logger.info(f"Merged + subset input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
 
                 logger.info("Compressing")
-                compressed_filepath = subset_filepath.expanduser().resolve().parent / (subset_filepath.name.removesuffix("".join(subset_filepath.suffixes)) + ".subset.zz.nc")
-                nc = xarray.open_dataset(str(subset_filepath.expanduser().resolve()), chunks="auto")
+                compressed_filepath = merged_filepath.expanduser().resolve().parent / (merged_filepath.name.removesuffix("".join(merged_filepath.suffixes)) + ".zz.nc")
+                nc = xarray.open_dataset(str(merged_filepath.expanduser().resolve()), chunks="auto")
                 result_transferer.to_netcdf_compressed(nc, compressed_filepath)
                 logger.info("Compressed")
 
