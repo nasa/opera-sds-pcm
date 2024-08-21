@@ -531,7 +531,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
-      "instance_type"     = ["r6a.xlarge"]
+      "instance_type"     = ["r6a.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 250
       "min_size"          = 0
@@ -541,7 +541,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_intel" = {
       "name"              = "opera-job_worker-pge_smoke_test_intel"
-      "instance_type"     = ["r6i.xlarge"]
+      "instance_type"     = ["r6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 250
       "min_size"          = 0
@@ -593,7 +593,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.0"
-    "disp_s1"  = "3.0.0-rc.2.2"
+    "disp_s1"  = "3.0.0-rc.3.0"
     "dswx_ni"  = "4.0.0-er.2.0"
   }
 }

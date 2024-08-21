@@ -17,13 +17,12 @@ runconfig:
     input_file_paths: __CHIMERA_VAL__
     compressed_cslc_paths: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
-    #amplitude_dispersion_files: __CHIMERA_VAL__
-    #amplitude_mean_files: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
-    troposphere_files: __CHIMERA_VAL__
+    # TODO: to be supported in next release
+    #troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
     # TODO: unsure if we have this yet or if it even needs to be provided in production
@@ -39,9 +38,7 @@ runconfig:
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
-    # TODO: DebugSwitch is currently hardcoded to True to bypass ancillary input checks in DISP-S1 PGE
-    #       Reset to False once ancillaries are available
-    debug_switch: True
+    debug_switch: True  # TODO: Currently enabled to bypass a faulty validation check in the PGE
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -55,12 +52,11 @@ preconditions:
   - get_disp_s1_num_workers
   - get_s3_input_filepaths
   - get_static_ancillary_files
-  #- get_disp_s1_amplitude_dispersion_files
-  #- get_disp_s1_amplitude_mean_files
   - get_disp_s1_compressed_cslc_files
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
-  - get_disp_s1_troposphere_files
+  # TODO: to be supported in next release
+  #- get_disp_s1_troposphere_files
   - get_disp_s1_mask_file
   - get_disp_s1_dem
   - get_disp_s1_save_compressed_slc
@@ -70,10 +66,6 @@ preconditions:
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
-
-set_sample_product_metadata:
-  s3_bucket: "opera-dev-lts-fwd-collinss"
-  s3_key: "sample_disp_s1_product_metadata_small.json"
 
 get_product_version:
   version_key: "DISP_S1_PRODUCT_VERSION"
@@ -85,7 +77,7 @@ get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
   frame_to_burst_json:
     s3_bucket: "opera-ancillaries"
-    s3_key: "disp_frames/disp-s1/0.2.8/opera-s1-disp-frame-to-burst.json"
+    s3_key: "disp_frames/disp-s1/0.5.0/opera-s1-disp-0.5.0-frame-to-burst.json"
 
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
@@ -95,7 +87,7 @@ get_disp_s1_algorithm_parameters:
   # This S3 path only defines a location pattern of an algorithm parameters template file,
   # the processing mode (forward vs. historical) will be filled in by the function itself
   s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.2.8/algorithm_parameters_{processing_mode}.yaml.tmpl"
+  s3_key: "algorithm_parameters/disp_s1/0.4.1/algorithm_parameters_{processing_mode}.yaml.tmpl"
 
 instantiate_algorithm_parameters_template:
   template_mapping:

@@ -153,12 +153,11 @@ def disp_s1_lineage_metadata(context, work_dir):
         else:
             lineage_metadata.append(local_input_filepath)
 
-    # TODO reenable amplitude mean/dispersion here if needed
-    for dynamic_ancillary_key in (#"amplitude_dispersion_files", "amplitude_mean_files",
-                                  "static_layers_files", "ionosphere_files", "troposphere_files"):
-        for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
-            local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
-            lineage_metadata.append(local_input_filepath)
+    for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files", "troposphere_files"):
+        if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
+            for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
+                local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+                lineage_metadata.append(local_input_filepath)
 
     # Copy the pre-downloaded ancillaries for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
@@ -348,13 +347,12 @@ def update_disp_s1_runconfig(context, work_dir):
 
     dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
 
-    # TODO reenable amplitude mean/dispersion here if needed
-    for dynamic_ancillary_key in (#"amplitude_dispersion_files", "amplitude_mean_files",
-                                  "static_layers_files", "ionosphere_files", "troposphere_files"):
-        dynamic_ancillary_file_group[dynamic_ancillary_key] = [
-            os.path.join(container_home_prefix, basename(input_file_path))
-            for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
-        ]
+    for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files", "troposphere_files"):
+        if dynamic_ancillary_key in dynamic_ancillary_file_group:
+            dynamic_ancillary_file_group[dynamic_ancillary_key] = [
+                os.path.join(container_home_prefix, basename(input_file_path))
+                for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
+            ]
 
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 

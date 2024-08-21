@@ -49,14 +49,6 @@ RunConfig:
         # Path to file containing SAS algorithm parameters.
         algorithm_parameters_file: str(required=True)
 
-        # Paths to existing Amplitude Dispersion files (1 per burst) for PS update calculation.
-        # If none provided, computed using the input SLC stack.
-        amplitude_dispersion_files: list(str(), required=False, min=0)
-
-        # Paths to an existing Amplitude Mean files (1 per burst) for PS update calculation.
-        # If none provided, computed using the input SLC stack.
-        amplitude_mean_files: list(str(), required=False, min=0)
-
         # Paths to the CSLC static_layer files (1 per burst) with line-of-sight
         # unit vectors. If none provided, corrections using CSLC static_layer are skipped.
         static_layers_files: list(str(), required=False, min=0)
