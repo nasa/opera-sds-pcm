@@ -271,7 +271,7 @@ while [ "${IN_DATE}" != ${IN_END_DATE} ]; do
     exit 1
   fi
 
-  echo curl --location 'https://'"${MOZART_IP}"'/mozart/api/v0.1/job/submit?enable_dedup=false' \
+  curl --location 'https://'"${MOZART_IP}"'/mozart/api/v0.1/job/submit?enable_dedup=false' \
   --insecure \
   -u "${username}" \
   --form 'queue="'"${JOB_QUEUE}"'"' \
