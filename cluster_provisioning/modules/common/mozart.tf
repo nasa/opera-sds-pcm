@@ -112,7 +112,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       chmod 755 ~/download_artifact.sh
       chmod 400 ~/.ssh/${basename(var.private_key_file)}
@@ -348,7 +348,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       mv ~/.sds ~/.sds.bak
       rm -rf ~/mozart
@@ -449,7 +449,7 @@ resource "aws_instance" "mozart" {
   # sync bach-api and bach-ui code. start bach-ui
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
@@ -474,7 +474,7 @@ resource "aws_instance" "mozart" {
   # Copy down latest opera-sds-int and opera-sds-ops repos for convenience
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       cd ~/mozart/ops
       wget https://github.com/nasa/opera-sds-int/archive/refs/heads/main.zip -O opera-sds-int.zip
@@ -487,7 +487,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       cd ~/mozart/ops
       if [ "${var.grq_aws_es}" = true ]; then
@@ -533,7 +533,7 @@ resource "aws_instance" "mozart" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       source ~/.bash_profile
       if [ "${var.hysds_release}" = "develop" ]; then
@@ -636,7 +636,7 @@ resource "aws_instance" "mozart" {
   // Snapshot schedule is in UTC, 5 AM UTC is 9/10 PM PST, depending on daylight savingss
   provisioner "remote-exec" {
     inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       source ~/.bash_profile
       echo // grq
@@ -674,7 +674,7 @@ resource "null_resource" "install_pcm_and_pges" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       source ~/.bash_profile
 
@@ -713,7 +713,7 @@ resource "null_resource" "install_pcm_and_pges" {
 #
 #  provisioner "remote-exec" {
 #    inline = [<<-EOT
-#      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+#      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
 #      set -ex
 #      source ~/.bash_profile
 #
@@ -750,7 +750,7 @@ resource "null_resource" "setup_trigger_rules" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       source ~/.bash_profile
 
