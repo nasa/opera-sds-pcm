@@ -476,8 +476,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
     def get_download_chunks(self, batch_id_to_urls_map):
         '''For CSLC chunks we must group them by the batch_id that were determined at the time of triggering'''
 
-        frame_id, _ = split_download_batch_id(list(batch_id_to_urls_map)[0])
         chunk_map = defaultdict(list)
+        if len(list(batch_id_to_urls_map)) == 0:
+            return chunk_map.values()
+
+        frame_id, _ = split_download_batch_id(list(batch_id_to_urls_map)[0])
+
         for batch_chunk in batch_id_to_urls_map.items():
 
             # Chunking is done differently between historical and forward/reprocessing
