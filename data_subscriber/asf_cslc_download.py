@@ -288,18 +288,29 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         all_downloads = []
 
-        # Download CSLC granules
-        downloads = es_conn.get_download_granule_revision(batch_ids[-1])
-        logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
-        assert len(downloads) > 0, f"No downloads found for batch_id={batch_ids[-1]}!"
-        all_downloads.extend(downloads)
+        # Historical mode stores all granules in normal cslc_catalog
+        if "proc_mode" in args and args.proc_mode == "historical":
+            logger.info("Downloading cslc files for historical mode")
+            for batch_id in batch_ids:
+                downloads = es_conn.get_download_granule_revision(batch_id)
+                logger.info(f"Got {len(downloads)=} cslc downloads for {batch_id=}")
+                assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
+                all_downloads.extend(downloads)
 
-        # Download K-CSLC granules
-        for batch_id in batch_ids[:-1]:
-            downloads = k_es_conn.get_download_granule_revision(batch_id)
-            logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
-            assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
+        # Forward and reprocessing modes store all granules in k_cslc_catalog
+        else:
+            logger.info("Downloading cslc files for forward/reprocessing mode")
+            downloads = es_conn.get_download_granule_revision(batch_ids[-1])
+            logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
+            assert len(downloads) > 0, f"No downloads found for batch_id={batch_ids[-1]}!"
             all_downloads.extend(downloads)
+
+            # Download K-CSLC granules
+            for batch_id in batch_ids[:-1]:
+                downloads = k_es_conn.get_download_granule_revision(batch_id)
+                logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
+                assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
+                all_downloads.extend(downloads)
 
         return all_downloads
 
