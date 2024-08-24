@@ -346,7 +346,7 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
     
     return burst_ids, burst_dates
 
-def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
+def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
     """
     Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
     It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -620,7 +620,7 @@ if __name__ == '__main__':
             print()
             print(f"Expected DSWx-S1 product sensing time range: {smallest_date} to {greatest_date}")
 
-            validated_df = validate_mgrs_tiles(smallest_date, greatest_date, args.endpoint_dswx_s1, df)
+            validated_df = validate_dswx_s1(smallest_date, greatest_date, args.endpoint_dswx_s1, df)
 
             print()
             if len(validated_df) == 0:
@@ -658,10 +658,12 @@ if __name__ == '__main__':
 
         # print(burst_ids.keys())
 
+        # Generate a table that has frames, all bursts, and matching bursts listed
         df = map_bursts_to_frames(burst_ids=burst_ids.keys(),
                                       bursts_to_frames_file=args.disp_burst_to_frame_db,
                                       frames_to_bursts_file=args.disp_frame_to_burst_db)
 
+        # Filter to only those frames that have full coverage (i.e. all bursts == matching)
         df = df[df['All Possible Bursts Count'] == df['Matching Bursts Count']]
 
         if (args.verbose):
