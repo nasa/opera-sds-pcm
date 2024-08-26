@@ -47,6 +47,7 @@ RunConfig:
               {%- for input in data.input_file_group.input_file_paths %}
               - {{ input }}
               {%- endfor %}
+            input_mgrs_collection_id: {{ data.input_file_group.input_mgrs_collection_id }}
           dynamic_ancillary_file_group:
             {%- for type in data.dynamic_ancillary_file_group.keys() %}
             {%- if data.dynamic_ancillary_file_group[ type ] is not none %}

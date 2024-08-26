@@ -15,6 +15,7 @@
 runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
+    input_mgrs_collection_id: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file:  __CHIMERA_VAL__
     hand_file: __CHIMERA_VAL__
@@ -39,6 +40,7 @@ preconditions:
   - set_daac_product_type
   - get_s3_input_filepaths
   - get_static_ancillary_files
+  - get_dswx_s1_mgrs_collection_id
   - get_dswx_s1_dynamic_ancillary_maps
   - get_dswx_s1_dem
   - get_dswx_s1_num_workers

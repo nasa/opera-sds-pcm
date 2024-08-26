@@ -851,6 +851,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dswx_s1_mgrs_collection_id(self):
+        """
+        Inserts the MGRS collection ID from the job metadata into the RunConfig
+        for use with a DSWx-S1 job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        mgrs_set_id = metadata["mgrs_set_id"]
+
+        rc_params[oc_const.INPUT_MGRS_COLLECTION_ID] = mgrs_set_id
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_s1_num_workers(self):
         """
         Determines the number of workers/cores to assign to an DSWx-S1 job as a
