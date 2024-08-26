@@ -225,7 +225,7 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     }
 
     # Set CMR param to ignore granule searches prior to a certain date
-    start_datetime = datetime.fromisoformat(start)
+    start_datetime = datetime.fromisoformat(start.replace("Z", "+00:00"))
     temporal_start_datetime = start_datetime - timedelta(days=window_length_days) # 30 days by default design - check with PCM team
     params['temporal'] = f"{temporal_start_datetime.isoformat()}"
 
@@ -365,37 +365,77 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
         end=greatest_date_iso,
         endpoint=endpoint,
         provider='',  # leave blank
-        short_name='OPERA_L3_DSWX-S1_PROVISIONAL_V0',  # Use the specific product short name
+        short_name='OPERA_L3_DSWX-S1_V1',  # Use the specific product short name
         timestamp_type='temporal'  # Ensure this matches the query requirements
     )
 
     # Update the params dictionary directly to include any specific parameters needed
-    params['page_size'] = 1000  # Ensuring to fetch enough data in one go
+    params['page_size'] = 1000  # Set the page size to 1000
+    params['page_num'] = 1  # Start with the first page
 
-    # Construct the full URL for the request
-    full_url = f"{base_url}?{urlencode(params)}"
+    all_granules = []
+    dswx_s1_mgrs_tiles_to_rtc_bursts = {}
 
-    # Make the HTTP request
     try:
-        response = requests.get(full_url)
-        response.raise_for_status()  # Raises a HTTPError for bad responses
-        granules = response.json()
+        while True:
+            # Construct the full URL for the request
+            full_url = f"{base_url}?{urlencode(params)}"
 
-        # Extract MGRS tiles from the response
+            # Make the HTTP request
+            response = requests.get(full_url)
+            response.raise_for_status()  # Raises a HTTPError for bad responses
+            granules = response.json()
+
+            # Append the current page's granules to the all_granules list
+            all_granules.extend(granules['items'])
+
+            # Check if we've retrieved all pages
+            if len(all_granules) >= granules['hits']:
+                break
+
+            # Increment the page number for the next iteration
+            params['page_num'] += 1
+
+        # Extract MGRS tiles and create the mapping to InputGranules
         available_rtc_bursts = []
         pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1A_30_v\d+\.\d+)"
-        for item in granules['items']:
-            for path in item['umm']['InputGranules']:
-                # Extract the granule burst ID from the full path
+        for item in all_granules:
+            input_granules = item['umm']['InputGranules']
+            # native_id = item['meta']['native-id']
+            mgrs_tile_id = None
+
+            # Extract the MGRS Tile ID
+            for attr in item['umm']['AdditionalAttributes']:
+                if attr['Name'] == 'MGRS_TILE_ID':
+                    mgrs_tile_id = attr['Values'][0]
+                    break
+
+            # Extract the granule burst ID from the full path
+            for path in input_granules:
                 match = re.search(pattern, path)
                 if match:
+                    if mgrs_tile_id:
+                        # Add the MGRS Tile ID and associated InputGranules to the dictionary
+                        if mgrs_tile_id in dswx_s1_mgrs_tiles_to_rtc_bursts:
+                            dswx_s1_mgrs_tiles_to_rtc_bursts[mgrs_tile_id].append(match.group(1))
+                        else:
+                            dswx_s1_mgrs_tiles_to_rtc_bursts[mgrs_tile_id] = [match.group(1)]
                     available_rtc_bursts.append(match.group(1))
 
-        unique_available_rtc_bursts = set(available_rtc_bursts)
+        #unique_available_rtc_bursts = set(available_rtc_bursts)
 
         # Function to identify missing bursts
         def filter_and_find_missing(row):
             rtc_bursts_in_df_row = set(row['Covered RTC Native IDs'].split(', '))
+            mgrs_tiles_in_df_row = set(row['MGRS Tiles'].split(', '))
+
+            unique_available_rtc_bursts = {
+                item
+                for key in mgrs_tiles_in_df_row
+                if f"T{key}" in dswx_s1_mgrs_tiles_to_rtc_bursts
+                for item in dswx_s1_mgrs_tiles_to_rtc_bursts[f"T{key}"]
+            }
+
             unprocessed_rtc_bursts = rtc_bursts_in_df_row - unique_available_rtc_bursts
             if unprocessed_rtc_bursts:
                 return ', '.join(unprocessed_rtc_bursts)
@@ -419,6 +459,7 @@ def validate_mgrs_tiles(smallest_date, greatest_date, endpoint, df):
         logging.error(f"Failed to fetch data from CMR: {e}")
         
     return False
+
 
 if __name__ == '__main__':
     # Create an argument parser
@@ -530,7 +571,7 @@ if __name__ == '__main__':
 
         print()
         if len(validated_df) == 0:
-            print(f"✅ Validation successful: All DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
+            print(f"✅ Validation successful: All DSWx-S1 products ({df['MGRS Tiles Count'].sum()}) available at CMR for corresponding matched input RTC bursts within sensing time range.")
             print()
             if (args.verbose):
                 print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
@@ -539,13 +580,13 @@ if __name__ == '__main__':
         else:
             print(f"❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
             print()
-            print('Incomplete MGRS Set IDs:', len(validated_df))
+            print(f"Incomplete MGRS Set IDs ({len(validated_df)}) out of total MGRS Set IDs expected ({len(df)}) and expected DSWx-S1 products ({df['MGRS Tiles Count'].sum()})")
             if (args.verbose):
                 print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
             else:
                 print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
     else:
-        print('MGRS Set IDs covered:', len(df))
+        print(f"Expected DSWx-S1 products: {df['MGRS Tiles Count'].sum()}, MGRS Set IDs covered: {len(df)}")
         if (args.verbose):
             print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Covered RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
         else:
