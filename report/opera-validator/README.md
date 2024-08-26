@@ -1,16 +1,29 @@
-## OPERA Validator
+<!-- Header block for project -->
+<hr>
+<div align="center">
+<h1 align="center">OPERA Validator</h1>
+</div>
+<pre align="center">Validates OPERA production and delivery to DAACs via verifying inputs / outputs mapping strategies.</pre>
+<!-- Header block for project -->
 
-This repository contains a Python script for querying the CMR (Common Metadata Repository) to help validate OPERA products such as DSWx-S1 and DISP-S1. The script takes in specific temporal ranges to identify RTC bursts from CMR (or a granule file list) and generates a list of MGRS Tile Set IDs that represent the types of OPERA jobs that should have been run. It includes functionality for handling large datasets, implementing efficient data fetching with exponential backoff and jittering, and standard output tabular results.
+[![SLIM](https://img.shields.io/badge/Best%20Practices%20from-SLIM-blue)](https://nasa-ammos.github.io/slim/)
+<!-- ☝️ Add more badges via: https://shields.io ☝️ -->
+
+This repository contains a Python script for querying the CMR (Common Metadata Repository) to help validate OPERA products such as DSWx-S1 and DISP-S1. The script takes in specific temporal ranges to identify RTC/CSLC bursts from CMR (or a granule file list) and generates a list of expected input granules that can be compared against expected generated products' input file lists. By comparing and ensure all expected input products show up as dependencies in all expected output products, we can verify that the right products with the right dependencies were produced. It includes functionality for handling large datasets, implementing efficient data fetching with exponential backoff and jittering, and standard output tabular results.
 
 ## Features
 
-* Parallelized CMR querying with customizable temporal range to obtain a list of RTC bursts.
-* Optional file input that lists RTC granule IDs to extract burst information from.
+* Checks if all expected input products show up in output, generated products dependencies list (i.e. 'InputGranules' metadata)
+* Parallelized CMR querying with customizable temporal range to obtain a list of input granule bursts.
+* Optional file input for granule IDs to extract burst information from.
 * Exponential backoff and jittering for CMR data fetching.
-* Lookup of RTC burst IDs from a provided MGRS Tile Collection Database (SQLite).
 * Visual results display using Pandas and Tabulate.
-* Validation of OPERA products against input RTC bursts.
-* Support for DISP-S1 product validation with configurable burst-to-frame and frame-to-burst databases.
+* DSWx-S1 specific support:
+  * Validation of DSWx-S1 products against input RTC bursts by verifying all expected RTCs show up in all expected DSWx-S1 'InputGranules' metadata.
+  * Lookup of RTC burst IDs from a provided MGRS Tile Collection Database (SQLite).
+* DISP-S1 specific support:
+  * Validation of DISP-S1 products against input CSLC bursts by verifying all expected CSLCs show up in all expected DISP-S1 'InputGranules' metadata.
+  * Support for proper mappings between frames and bursts via burst-to-frame and frame-to-burst databases.
 
 ## Contents
 
