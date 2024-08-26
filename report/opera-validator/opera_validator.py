@@ -9,19 +9,20 @@ import sys
 import requests
 import json
 
-from cmr import GranuleQuery
-from requests import get, exceptions
+from requests import get
 import pandas as pd
 from tabulate import tabulate
 import tqdm
-from urllib.parse import urlparse, parse_qs, urlencode
+from urllib.parse import urlencode
 import logging
 from datetime import datetime, timedelta
 
 # Constants
+CMR_GRANULES_API_ENDPOINT="https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+CMR_UAT_GRANULES_API_ENDPOINT="https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
 BURST_AND_DATE_GRANULE_PATTERN = r'_T(\d+)-(\d+)-([A-Z]+\d+)_(\d+T\d+Z)_(\d+T\d+Z)'
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # NOTE: This should be contributed to https://github.com/nasa/python_cmr to be included as part of the library
 def get_custom(url, params):
@@ -76,7 +77,7 @@ def fetch_with_backoff(url, params):
             time.sleep(delay + jitter)
             print(f"Retrying page {params.get('page_num')} after delay of {delay + jitter} seconds due to error: {e}")
 
-def parallel_fetch(url, params, page_num, page_size, downloaded_batches, total_batches):
+def parallel_fetch(url, params, page_num, page_size, downloaded_batches):
     """
     Fetches granules in parallel using the provided API.
 
@@ -86,7 +87,6 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches, total_b
     :page_size (int): The number of granules to fetch per page.
     :downloaded_batches (multiprocessing.Value): A shared integer value representing
         the number of batches that have been successfully downloaded.
-    :total_batches (int): The total number of batches to be downloaded.
 
     :returns (list): A list of batch granules fetched from the API.
     """
@@ -106,7 +106,7 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches, total_b
             downloaded_batches.value += 1
         return batch_granules
 
-def get_burst_id(granule_id, shortname='OPERA_L2_RTC-S1_V1'):
+def get_burst_id(granule_id):
     """
     Extracts the burst ID from a given granule ID string.
 
@@ -115,7 +115,6 @@ def get_burst_id(granule_id, shortname='OPERA_L2_RTC-S1_V1'):
     """
     burst_id = ''
     if granule_id:
-      #match = re.search(r'_T(\d+)-(\d+)-([A-Z]+\d+)_\d+T\d+Z_\d+T\d+Z_S1[AB]_\d+_v\d+\.\d+', granule_id)
       match = re.search(BURST_AND_DATE_GRANULE_PATTERN, granule_id)
       if match:
           t_number = match.group(1)
@@ -134,7 +133,6 @@ def get_burst_sensing_datetime(granule_id):
     """
     burst_date = ''
     if granule_id:
-      #match = re.search(r'_T\d+-\d+-[A-Z]+\d+_(\d+T\d+Z)_\d+T\d+Z_S1[AB]_\d+_v\d+\.\d+', granule_id)
       match = re.search(BURST_AND_DATE_GRANULE_PATTERN, granule_id)
       if match:
           burst_date = match.group(4)
@@ -153,7 +151,6 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
     """
     params['page_size'] = 0
 
-    # url = construct_query_url(url, params)
     for attempt in range(retries):
         try:
             response = get_custom(url, params)
@@ -164,8 +161,6 @@ def get_total_granules(url, params, retries=5, backoff_factor=1):
                 time.sleep(sleep_time)
             else:
                 raise RuntimeError("Failed to get total granules after several attempts.")
-
-
 
 def get_burst_ids_from_file(filename):
     """
@@ -222,9 +217,9 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
         raise ValueError("Start and end times are required if no file input is provided.")
 
     # Base URL for granule searches
-    base_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+    base_url = CMR_GRANULES_API_ENDPOINT
     if endpoint == 'UAT':
-        base_url = "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
+        base_url = CMR_UAT_GRANULES_API_ENDPOINT
     params = {
         'provider': provider,
         'ShortName[]': short_name
@@ -248,6 +243,18 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     return base_url, params
 
 def get_granules_from_query(start, end, timestamp, endpoint, provider = 'ASF', shortname = 'OPERA_L2_RTC-S1_V1'):
+    """
+    Fetches granule metadata from the CMR API within a specified temporal range using parallel requests.
+
+    :start: Start time in ISO 8601 format.
+    :end: End time in ISO 8601 format.
+    :timestamp: Type of timestamp to filter granules (e.g., 'TEMPORAL', 'PRODUCTION').
+    :endpoint: CMR API endpoint ('OPS' or 'UAT').
+    :provider: Data provider ID (default 'ASF').
+    :shortname: Short name of the product (default 'OPERA_L2_RTC-S1_V1').
+    :return: List of granule metadata.
+    """
+
     granules = []
 
     base_url, params = generate_url_params(start=start, end=end, timestamp_type=timestamp, endpoint=endpoint, provider=provider, short_name=shortname)
@@ -264,7 +271,6 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider = 'ASF', s
 
     # Optimize page_size and number of workers based on total_granules
     page_size = min(1000, total_granules)
-    num_workers = min(5, (total_granules + page_size - 1) // page_size)
 
     # Initialize progress bar
     tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
@@ -276,10 +282,12 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider = 'ASF', s
         total_batches = (total_granules + page_size - 1) // page_size
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # NOTE: parallelized workers beyond 5 not working well, but here's some code to make it work in the future
+            # max_workers = min(5, (total_granules + page_size - 1) // page_size)
             # futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
             futures = []
             for page_num in range(1, total_batches + 1):
-                future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches)
+                future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches)
                 futures.append(future)
                 random_delay = random.uniform(0, 0.1)
                 time.sleep(random_delay) # Stagger the submission of function calls for CMR optimization
@@ -302,6 +310,13 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider = 'ASF', s
     return granules
 
 def get_granule_ids_from_granules(granules):
+    """
+    Extracts granule IDs from a list of granule metadata.
+
+    :granules: List of granule metadata dictionaries.
+    :return: List of granule IDs.
+    """
+
     granule_ids = []
 
     for granule in granules:
@@ -312,16 +327,15 @@ def get_granule_ids_from_granules(granules):
 
 def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, provider = 'ASF', shortname = 'OPERA_L2_RTC-S1_V1'):
     """
-    Queries the CMR (Common Metadata Repository) API to fetch granule information within a specified temporal range and 
-    checks if the burst IDs from those granules match the expected criteria. This function uses threading to parallelize 
-    requests for granule batches, handling potential large volumes of data efficiently.
+    Fetches burst IDs and their sensing times from the CMR API within a specified temporal range.
 
-    :param start: The starting date-time for the temporal range (ISO 8601 format).
-    :param end: The ending date-time for the temporal range (ISO 8601 format).
-    :param timestamp: Type of timestamp to be used for filtering the data ('temporal', 'production', 'revision', 'created').
-    :param endpoint: Specifies the API endpoint to be used ('OPS' for operational, 'UAT' for user acceptance testing).
-
-    :return: Two dictionaries containing the burst IDs and their corresponding dates, keying by the burst ID and linking to the granule ID and its sensing date respectively.
+    :start: Start time in ISO 8601 format.
+    :end: End time in ISO 8601 format.
+    :timestamp: Type of timestamp for filtering (e.g., 'TEMPORAL', 'PRODUCTION').
+    :endpoint: CMR API endpoint ('OPS' or 'UAT').
+    :provider: Data provider ID (default 'ASF').
+    :shortname: Product short name (default 'OPERA_L2_RTC-S1_V1').
+    :return: Two dictionaries - one mapping burst IDs to granule IDs, and another mapping burst IDs to sensing times.
     """
 
     granules = get_granules_from_query(start=start, end=end, timestamp=timestamp, endpoint=endpoint, provider=provider, shortname=shortname)
@@ -334,7 +348,7 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
     burst_ids = {}
     burst_dates = {}
 
-    # RegEx for extracting burst IDs from granule IDs
+    # Extract burst IDs, dates from granule IDs
     for granule_id in granule_ids:
         burst_id = get_burst_id(granule_id)
         burst_date = get_burst_sensing_datetime(granule_id)
@@ -350,7 +364,12 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
     """
     Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
     It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
-    The function then updates the DataFrame to include a count of unprocessed bursts based on the missing granules.
+    The function then updates the DataFrame to include a count of unprocessed bursts based on the missing granules. 
+    The logic can be summarized as:
+    1. Gather list of expected RTC granule IDs (provided dataframe)
+    2. Query CMR for list of actual RTC granule IDs used for DSWx-S1 production, aggregate these into a list
+    3. Compare list (1) with list (2) and return a new dataframe containing a column 'Unprocessed RTC Native IDs' with the
+       discrepancies
 
     :param smallest_date: datetime.datetime
         The earliest date in the range (ISO 8601 format).
@@ -369,7 +388,7 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
         requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
     """
 
-    # Convert Timestamps to strings in ISO 8601 format
+    # Convert timestamps to strings in ISO 8601 format
     smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
     greatest_date_iso = greatest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
@@ -412,7 +431,7 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
 
         # Extract MGRS tiles and create the mapping to InputGranules
         available_rtc_bursts = []
-        pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1A_30_v\d+\.\d+)"
+        pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1[AB]_30_v\d+\.\d+)"
         for item in all_granules:
             input_granules = item['umm']['InputGranules']
             # native_id = item['meta']['native-id']
@@ -474,7 +493,132 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
         
     return False
 
-def map_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts_file):
+def validate_disp_s1(smallest_date, greatest_date, endpoint, df):
+    """
+    Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
+    It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
+    The function then updates the DataFrame to include a count of unprocessed bursts based on the missing granules. 
+    The logic can be summarized as:
+    1. Gather list of expected CSLC granule IDs (provided dataframe)
+    2. Query CMR for list of actual CSLC granule IDs used for DSWx-S1 production, aggregate these into a list
+    3. Compare list (1) with list (2) and return a new dataframe containing a column 'Unprocessed CSLC Native IDs' with the
+       discrepancies
+
+    :param smallest_date: datetime.datetime
+        The earliest date in the range (ISO 8601 format).
+    :param greatest_date: datetime.datetime
+        The latest date in the range (ISO 8601 format).
+    :param endpoint: str
+        CMR environment ('UAT' or 'OPS') to specify the operational setting for the data query.
+    :param df: pandas.DataFrame
+        A DataFrame containing columns with granule identifiers which will be checked against the CMR query results.
+        
+    :return: pandas.DataFrame or bool
+        A modified DataFrame with additional columns 'Unprocessed RTC Native IDs' and 'Unprocessed RTC Native IDs Count' showing
+        granules not found in the CMR results and their count respectively. Returns False if the CMR query fails.
+    
+    Raises:
+        requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
+    """
+
+    # Convert timestamps to strings in ISO 8601 format
+    smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    greatest_date_iso = greatest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+
+    # Generate the base URL and parameters for the CMR query
+    base_url, params = generate_url_params(
+        start=smallest_date_iso,
+        end=greatest_date_iso,
+        endpoint=endpoint,
+        provider='',  # leave blank
+        short_name='OPERA_L2_CSLC-S1_V1',  # Use the specific product short name
+        timestamp_type='temporal'  # Ensure this matches the query requirements
+    )
+
+    # Update the params dictionary directly to include any specific parameters needed
+    params['page_size'] = 1000  # Set the page size to 1000
+    params['page_num'] = 1  # Start with the first page
+
+    all_granules = []
+
+    try:
+        while True:
+            # Construct the full URL for the request
+            full_url = f"{base_url}?{urlencode(params)}"
+
+            # Make the HTTP request
+            response = requests.get(full_url)
+            response.raise_for_status()  # Raises a HTTPError for bad responses
+            granules = response.json()
+
+            # Append the current page's granules to the all_granules list
+            all_granules.extend(granules['items'])
+
+            # Check if we've retrieved all pages
+            if len(all_granules) >= granules['hits']:
+                break
+
+            # Increment the page number for the next iteration
+            params['page_num'] += 1
+
+        # Extract MGRS tiles and create the mapping to InputGranules
+        available_cslc_bursts = []
+        for item in all_granules:
+            input_granules = item['umm']['InputGranules']
+
+            # Extract the granule burst ID from the full path
+            for path in input_granules:
+                match = re.search(BURST_AND_DATE_GRANULE_PATTERN, path)
+                if match:
+                    t_number = match.group(1)
+                    orbit_number = match.group(2)
+                    iw_number = match.group(3).lower()
+                    burst_id = f't{t_number}_{orbit_number}_{iw_number}'
+                    available_cslc_bursts.append(burst_id)
+
+        # Function to identify missing bursts
+        def filter_and_find_missing(row):
+            cslc_bursts_in_df_row = set(row['Covered CSLC Native IDs'].split(', '))
+
+            unprocessed_rtc_bursts = cslc_bursts_in_df_row - available_cslc_bursts
+            if unprocessed_rtc_bursts:
+                return ', '.join(unprocessed_rtc_bursts)
+            return None  # or pd.NA 
+
+        # Function to count missing bursts
+        def count_missing(row):
+            count = len(row['Unprocessed CSLC Native IDs'].split(', '))
+            return count
+
+        # Apply the function and create a new column 'Unprocessed CSLC Native IDs'
+        df['Unprocessed CSLC Native IDs'] = df.apply(filter_and_find_missing, axis=1)
+        df = df.dropna(subset=['Unprocessed CSLC Native IDs'])
+
+        # Using loc to safely modify the DataFrame without triggering SettingWithCopyWarning
+        df.loc[:, 'Unprocessed CSLC Native IDs Count'] = df.apply(count_missing, axis=1)
+
+        return df
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to fetch data from CMR: {e}")
+        
+    return False
+
+def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts_file):
+    """
+    Maps CSLC burst IDs to their corresponding frame IDs and identifies matching bursts within those frames.
+    The logic this function performs can be summarized as:
+    1. Take list of burst_ids and identify all associated frame IDs
+    2. Take frame IDs from (1) and find all possible burst IDs associated with those frame IDs
+    3. Take burst IDs from (2) and mark the ones available from burst IDs from (1)
+    4. Return a dataframe that lists all frame IDs, all possible burst IDs from (2), and matched burst IDs from (1)
+
+    :burst_ids: List of burst IDs to map.
+    :bursts_to_frames_file: Path to the JSON file that maps bursts to frames.
+    :frames_to_bursts_file: Path to the JSON file that maps frames to bursts.
+    :return: A DataFrame with columns for frame IDs, all possible bursts, their counts, matching bursts, and their counts.
+    """
+
     # Load bursts to frames data
     with open(bursts_to_frames_file, 'r') as f:
         bursts_to_frames_data = json.load(f)["data"]
@@ -517,17 +661,17 @@ if __name__ == '__main__':
     parser.add_argument("--timestamp", required=False, default='TEMPORAL', metavar="TEMPORAL|REVISION|PRODUCTION|CREATED",  help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
     parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
     parser.add_argument("--end", required=False, help="Temporal end time (ISO 8601 format)")
-    parser.add_argument("--db", required=True, help="Path to the SQLite database file")
+    parser.add_argument("--dswx_s1_mgrs_db", required=False, help="Path to the MGRS Tile Set SQLite database file")
     parser.add_argument("--file", required=False, help="Optional file path containing granule IDs")
     parser.add_argument("--threshold", required=False, help="Completion threshold minimum to filter results by (percentage format - leave out the % sign)")
     parser.add_argument("--matching_burst_count", required=False, help="Matching burst count to filter results by. Typically four or more is advised. Using this with the --threshold flag makes this flag inactive (only one of '--threshold' or '--matching_burst_count' may be used)")
     parser.add_argument("--verbose", action='store_true', help="Verbose and detailed output")
-    parser.add_argument("--endpoint_rtc", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for RTC granules')
-    parser.add_argument("--endpoint_dswx_s1", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for DSWx-S1 granules')
+    parser.add_argument("--endpoint_daac_input", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for RTC granules')
+    parser.add_argument("--endpoint_daac_output", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for DSWx-S1 granules')
     parser.add_argument("--validate", action='store_true', help="Validate if DSWx-S1 products have been delivered for given time range (use --timestamp TEMPORAL mode only)")
     parser.add_argument("--product", required=True, choices=['DSWx-S1', 'DISP-S1'], default='DSWx-S1', help="The product to validate")
-    parser.add_argument("--disp_burst_to_frame_db", required=False, help="Path to burst-to-frame JSON database file (for DISP-S1 only)")
-    parser.add_argument("--disp_frame_to_burst_db", required=False, help="Path to frame-to-burst JSON database file (for DISP-S1 only)")
+    parser.add_argument("--disp_s1_burst_to_frame_db", required=False, help="Path to burst-to-frame JSON database file (for DISP-S1 only)")
+    parser.add_argument("--disp_s1_frame_to_burst_db", required=False, help="Path to frame-to-burst JSON database file (for DISP-S1 only)")
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -541,10 +685,10 @@ if __name__ == '__main__':
         if args.file:
             burst_ids, burst_dates = get_burst_ids_from_file(filename=args.file)
         else:
-            burst_ids, burst_dates = get_burst_ids_and_sensing_times_from_query(args.start, args.end, args.timestamp, args.endpoint_rtc)
+            burst_ids, burst_dates = get_burst_ids_and_sensing_times_from_query(args.start, args.end, args.timestamp, args.endpoint_daac_input)
 
         # Connect to the MGRS Tile Set SQLITE database
-        conn = sqlite3.connect(args.db)
+        conn = sqlite3.connect(args.dswx_s1_mgrs_db)
         cursor = conn.cursor()
 
         # Query to retrieve all mgrs_set_id and their bursts
@@ -620,7 +764,7 @@ if __name__ == '__main__':
             print()
             print(f"Expected DSWx-S1 product sensing time range: {smallest_date} to {greatest_date}")
 
-            validated_df = validate_dswx_s1(smallest_date, greatest_date, args.endpoint_dswx_s1, df)
+            validated_df = validate_dswx_s1(smallest_date, greatest_date, args.endpoint_daac_output, df)
 
             print()
             if len(validated_df) == 0:
@@ -645,23 +789,14 @@ if __name__ == '__main__':
             else:
                 print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count']], headers='keys', tablefmt='plain', showindex=False))
 
-    elif (args.product == 'DISP-S1' and args.disp_burst_to_frame_db and args.disp_frame_to_burst_db):
-        # Implementation details for DISP S1
-
-        burst_ids = {}
-        burst_dates = {}
-
-        #granules = get_granules_from_query(args.start, args.end, args.timestamp, args.endpoint_rtc, shortname='OPERA_L2_CSLC-S1_V1')
-        #granule_ids = get_granule_ids_from_granules(granules)
+    elif (args.product == 'DISP-S1' and args.disp_s1_burst_to_frame_db and args.disp_s1_frame_to_burst_db):
+        # Gather list of bursts and dates for CSLC sening time range
         burst_ids, burst_dates  = get_burst_ids_and_sensing_times_from_query(start=args.start, end=args.end, endpoint='OPS',  timestamp=args.timestamp, shortname='OPERA_L2_CSLC-S1_V1')
-        #list_a = granule_ids
-
-        # print(burst_ids.keys())
-
+        
         # Generate a table that has frames, all bursts, and matching bursts listed
-        df = map_bursts_to_frames(burst_ids=burst_ids.keys(),
-                                      bursts_to_frames_file=args.disp_burst_to_frame_db,
-                                      frames_to_bursts_file=args.disp_frame_to_burst_db)
+        df = map_cslc_bursts_to_frames(burst_ids=burst_ids.keys(),
+                                      bursts_to_frames_file=args.disp_s1_burst_to_frame_db,
+                                      frames_to_bursts_file=args.disp_s1_frame_to_burst_db)
 
         # Filter to only those frames that have full coverage (i.e. all bursts == matching)
         df = df[df['All Possible Bursts Count'] == df['Matching Bursts Count']]
