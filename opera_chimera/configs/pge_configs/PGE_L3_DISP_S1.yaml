@@ -21,8 +21,7 @@ runconfig:
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
-    # TODO: to be supported in next release
-    #troposphere_files: __CHIMERA_VAL__
+    troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
     # TODO: unsure if we have this yet or if it even needs to be provided in production
@@ -55,8 +54,7 @@ preconditions:
   - get_disp_s1_compressed_cslc_files
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
-  # TODO: to be supported in next release
-  #- get_disp_s1_troposphere_files
+  - get_disp_s1_troposphere_files
   - get_disp_s1_mask_file
   - get_disp_s1_dem
   - get_disp_s1_save_compressed_slc
@@ -88,6 +86,13 @@ get_disp_s1_algorithm_parameters:
   # the processing mode (forward vs. historical) will be filled in by the function itself
   s3_bucket: "opera-ancillaries"
   s3_key: "algorithm_parameters/disp_s1/0.4.1/algorithm_parameters_{processing_mode}.yaml.tmpl"
+
+get_disp_s1_troposphere_files:
+  # This S3 path only defines the root location of ECMWF files. Full paths to
+  # the specific files needed for a DISP-S1 job will be determined by the
+  # precondition function itself.
+  s3_bucket: "opera-ancillaries"
+  s3_key: "ecmwf"
 
 instantiate_algorithm_parameters_template:
   template_mapping:
