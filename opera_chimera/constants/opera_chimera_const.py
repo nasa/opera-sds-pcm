@@ -44,6 +44,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DISP_S1_MASK_FILE = "get_disp_s1_mask_file"
 
+    GET_DISP_S1_TROPOSPHERE_FILES = "get_disp_s1_troposphere_files"
+
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"
 
     GET_DSWX_S1_ALGORITHM_PARAMETERS = "get_dswx_s1_algorithm_parameters"

@@ -21,6 +21,7 @@ from chimera.precondition_functions import PreConditionFunctions
 from commons.constants import product_metadata
 from commons.logger import LogLevels
 from commons.logger import logger
+from data_subscriber.cslc_utils import parse_cslc_file_name, parse_compressed_cslc_file_name
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
@@ -30,6 +31,7 @@ from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
 from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
+from util.ecmwf_util import check_s3_for_ecmwf, ecmwf_key_for_datetime
 from util.geo_util import bounding_box_from_slc_granule
 from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
@@ -502,15 +504,59 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_disp_s1_troposphere_files(self):
         """
-        Derives the S3 paths to the troposphere files to be used with a DISP-S1
-        job.
+        Derives the S3 paths to the Troposphere (ECMWF) files to be used with a
+        DISP-S1 job.
 
-        TODO: current a stub, implement once ECMWF files are available
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        pge_shortname = oc_const.L3_DISP_S1[3:].upper()
+
+        strict_mode = self._settings.get(pge_shortname).get("STRICT_ANCILLARY_USAGE")
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        cslc_paths = metadata["product_paths"].get(oc_const.L2_CSLC_S1, [])
+        compressed_cslc_paths = metadata["product_paths"].get(oc_const.L2_CSLC_S1_COMPRESSED, [])
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_TROPOSPHERE_FILES, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_TROPOSPHERE_FILES, {}).get(oc_const.S3_KEY)
+
+        acquisition_datetimes = set()
+
+        for cslc_path in cslc_paths + compressed_cslc_paths:
+            cslc_native_id = os.path.splitext(os.path.basename(cslc_path))[0]
+
+            if "compressed" in cslc_path.lower():
+                _, acquisition_date_str = parse_compressed_cslc_file_name(cslc_native_id)
+                acquisition_datetime_str = acquisition_date_str + "T000000Z"
+            else:
+                _, acquisition_datetime_str = parse_cslc_file_name(cslc_native_id)
+
+            acquisition_datetime = datetime.strptime(
+                acquisition_datetime_str, "%Y%m%dT%H%M%SZ"
+            )
+
+            acquisition_datetimes.add(acquisition_datetime)
+
+        troposphere_s3_paths = [f"s3://{s3_bucket}/{s3_key}/{ecmwf_key_for_datetime(acquisition_datetime)}"
+                                for acquisition_datetime in acquisition_datetimes]
+
+        troposphere_s3_paths = list(set(troposphere_s3_paths))  # Remove any potential duplicates
+
+        if not all(
+            check_s3_for_ecmwf(troposphere_s3_path) for troposphere_s3_path in troposphere_s3_paths
+        ):
+            if strict_mode:
+                raise RuntimeError(f"One or more expected ECMWF files is missing from {s3_bucket}/{s3_key}")
+            else:
+                logger.warning("One or more expected ECMWF files is missing from %s/%s", s3_bucket, s3_key)
+                logger.warning("No Tropospheres files will be included for this DISP-S1 job")
+
+                troposphere_s3_paths = list()
+
         rc_params = {
-            oc_const.TROPOSPHERE_FILES: list()
+            oc_const.TROPOSPHERE_FILES: troposphere_s3_paths
         }
 
         logger.info(f"rc_params : {rc_params}")

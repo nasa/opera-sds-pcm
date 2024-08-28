@@ -2,19 +2,20 @@
 
 import json
 import os
-import unittest
 import tempfile
+import unittest
 from os.path import exists, join
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from zipfile import ZipFile
 
-import boto3.s3.inject
 import boto3.resources.collection
+import boto3.s3.inject
+import botocore.client
+import botocore.exceptions
 
 import tools.stage_ancillary_map
 import tools.stage_dem
 import tools.stage_worldcover
-
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
@@ -892,6 +893,89 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             self.assertIn("algorithm_parameters_forward.yaml",
                           rc_params[oc_const.ALGORITHM_PARAMETERS])
             self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+
+    def test_get_disp_s1_troposphere_files(self):
+        """
+        Unit tests for the get_disp_s1_troposphere_files() precondition function.
+        """
+        context = {
+            "product_metadata": {
+                "metadata": {
+                    "product_paths": {
+                        "L2_CSLC_S1": [
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000703-IW2/OPERA_L2_CSLC-S1_T001-000703-IW2_20231006T183312Z_20231009T185701Z_S1A_VV_v1.0.h5",
+                            "s3://opera-dev-rs-fwd/disp_s1/88_145/T001-000703-IW2/OPERA_L2_CSLC-S1_T001-000703-IW2_20231018T043311Z_20231021T185701Z_S1A_VV_v1.0.h5"
+                        ],
+                        "L2_CSLC_S1_COMPRESSED": [
+                            "s3://opera-dev-lts-fwd/products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_T001-000703-IW2_20230805T000000Z_20230805T000000Z_20230917T000000Z_20240717T225540Z_VV_v1.0.h5"
+                        ]
+                    }
+                }
+            }
+        }
+
+        pge_config = {
+            oc_const.GET_DISP_S1_TROPOSPHERE_FILES: {
+                oc_const.S3_BUCKET: "opera-ancillaries",
+                oc_const.S3_KEY: "ecmwf"
+            }
+        }
+
+        settings = {
+            'DISP_S1': {'STRICT_ANCILLARY_USAGE': True}
+        }
+
+        # These are not used with get_disp_s1_troposphere_files()
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        # Test with valid result from s3_client.head_object()
+        mock_head_object = MagicMock()
+
+        with patch.object(botocore.client.BaseClient, "_make_api_call", mock_head_object):
+            rc_params = precondition_functions.get_disp_s1_troposphere_files()
+
+        expected_troposphere_s3_paths = ['s3://opera-ancillaries/ecmwf/20231018/D10180000101800001.subset.zz.nc',
+                                         's3://opera-ancillaries/ecmwf/20230805/D08050000080500001.subset.zz.nc',
+                                         's3://opera-ancillaries/ecmwf/20231006/D10061800100618001.subset.zz.nc']
+        self.assertIn(oc_const.TROPOSPHERE_FILES, rc_params)
+        self.assertIsInstance(rc_params[oc_const.TROPOSPHERE_FILES], list)
+        self.assertEqual(len(rc_params[oc_const.TROPOSPHERE_FILES]), 3)
+        self.assertTrue(all(expected_troposphere_s3_path in rc_params[oc_const.TROPOSPHERE_FILES]
+                            for expected_troposphere_s3_path in expected_troposphere_s3_paths))
+
+        # Test with 404 not found result from s3_client.head_object()
+        mock_head_object = MagicMock(
+            side_effect=botocore.exceptions.ClientError({"Error": {"Code": "404"}}, "head_object")
+        )
+
+        with patch.object(botocore.client.BaseClient, "_make_api_call", mock_head_object):
+            with self.assertRaises(RuntimeError) as err:
+                precondition_functions.get_disp_s1_troposphere_files()
+
+        self.assertIn("One or more expected ECMWF files is missing from opera-ancillaries/ecmwf", str(err.exception))
+
+        # Retry missing file test, but with strict mode disabled
+        settings = {
+            'DISP_S1': {'STRICT_ANCILLARY_USAGE': False}
+        }
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        with patch.object(botocore.client.BaseClient, "_make_api_call", mock_head_object):
+            with self.assertLogs("opera_pcm", level="WARNING") as logger:
+                rc_params = precondition_functions.get_disp_s1_troposphere_files()
+
+        self.assertIsInstance(rc_params[oc_const.TROPOSPHERE_FILES], list)
+        self.assertEqual(len(rc_params[oc_const.TROPOSPHERE_FILES]), 0)
+        self.assertIn("WARNING:opera_pcm:One or more expected ECMWF files is missing from opera-ancillaries/ecmwf", logger.output)
+        self.assertIn("WARNING:opera_pcm:No Tropospheres files will be included for this DISP-S1 job", logger.output)
+
 
     def test_instantiate_algorithm_parameters_template(self):
         """
