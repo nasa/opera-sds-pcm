@@ -167,6 +167,20 @@ def parse_cslc_file_name(native_id):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+
+def parse_compressed_cslc_file_name(native_id):
+    dataset_json = datasets_json_util.DatasetsJson()
+    ccslc_granule_regex = dataset_json.get("L2_CSLC_S1_COMPRESSED")["match_pattern"]
+    match_product_id = re.match(ccslc_granule_regex, native_id)
+
+    if not match_product_id:
+        raise ValueError(f"Compressed CSLC native ID {native_id} could not be parsed with regex from datasets.json")
+
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+    acquisition_dts = match_product_id.group("ref_date_time")  # e.g. 20210705
+    return burst_id, acquisition_dts
+
+
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
