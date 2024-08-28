@@ -154,6 +154,11 @@ DISP_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 50
 
+  # Set flag this to False to allow a DISP-S1 job to continue if certain
+  # ancillaries are not available (such as troposphere files). If True, any
+  # missing files will result in a RuntimeError, failing the job.
+  STRICT_ANCILLARY_USAGE: !!bool false
+
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
