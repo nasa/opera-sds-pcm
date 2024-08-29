@@ -18,7 +18,8 @@ runconfig:
     compressed_cslc_paths: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     static_layers_files: __CHIMERA_VAL__
-    mask_file: __CHIMERA_VAL__
+    # TODO reenable when water mask is corrected
+    #mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
     # TODO: to be supported in next release
@@ -57,7 +58,8 @@ preconditions:
   - get_disp_s1_ionosphere_files
   # TODO: to be supported in next release
   #- get_disp_s1_troposphere_files
-  - get_disp_s1_mask_file
+  # TODO reenable when water mask is corrected
+  #- get_disp_s1_mask_file
   - get_disp_s1_dem
   - get_disp_s1_save_compressed_slc
   - get_disp_s1_algorithm_parameters
