@@ -500,7 +500,7 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df):
     The function then updates the DataFrame to include a count of unprocessed bursts based on the missing granules. 
     The logic can be summarized as:
     1. Gather list of expected CSLC granule IDs (provided dataframe)
-    2. Query CMR for list of actual CSLC granule IDs used for DSWx-S1 production, aggregate these into a list
+    2. Query CMR for list of actual CSLC granule IDs used for DISP-S1 production, aggregate these into a list
     3. Compare list (1) with list (2) and return a new dataframe containing a column 'Unprocessed CSLC Native IDs' with the
        discrepancies
 
