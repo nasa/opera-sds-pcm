@@ -56,7 +56,7 @@ end_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 timerange = DateTimeRange(start_date, end_date)
 
 for frame in j:
-    if frame not in prog_args.only_frames:
+    if  prog_args.only_frames is not None and frame not in prog_args.only_frames:
         continue
     new_sensing_time_list = []
     logger.info(f"Updating {frame=}")
