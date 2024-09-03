@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.", required=False, default=False)
+parser.add_argument("--db-file", dest="db_file", help="Specify the DISP-S1 database json file \
+on the local file system instead of using the standard one in S3 ancillary", required=False)
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
 server_parser = subparsers.add_parser("list", help="List all frame numbers")
@@ -49,7 +51,11 @@ server_parser.add_argument("frame_id", help="The frame id to validate")
 
 args = parser.parse_args()
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+if args.db_file:
+    logger.info(f"Using local DISP-S1 database json file: {args.db_file}")
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(args.db_file)
+else:
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
 
 def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
@@ -183,15 +189,17 @@ elif args.subparser_name == "validate":
     missing_cycles = False
     unexpected_cycles = False
     bursts_expected = disp_burst_map[frame_id].burst_ids
-    for i in disp_burst_map[frame_id].sensing_datetime_days_index:
-        bursts_found = acq_cycles[i]
+    for i in range(len(disp_burst_map[frame_id].sensing_datetime_days_index)):
+        day_index = disp_burst_map[frame_id].sensing_datetime_days_index[i]
+        sensing_time = disp_burst_map[frame_id].sensing_datetimes[i]
+        bursts_found = acq_cycles[day_index]
         delta = bursts_expected - bursts_found
         if delta:
             missing_cycles = True
-            print(f"Acquisition cycle {i} is missing {len(delta)} bursts: ", delta)
-            print(f"Granules for acquisition cycle {i} found:", granules_map[i])
+            print(f"Acquisition cycle {day_index} is missing {len(delta)} bursts: ", delta)
+            print(f"Granules for acquisition cycle {day_index} found:", granules_map[day_index])
         else:
-            print(f"Acquisition cycle {i} is good")
+            print(f"Acquisition cycle {day_index} of sensing time {sensing_time} is good ")
 
     new_cycles = acq_cycles.keys() - disp_burst_map[frame_id].sensing_datetime_days_index
     for i in new_cycles:
