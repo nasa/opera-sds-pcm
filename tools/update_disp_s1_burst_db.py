@@ -3,7 +3,7 @@
 import logging
 import json
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import backoff
 
@@ -25,17 +25,30 @@ logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("file", help="The DISP S1 burst database file to update")
-
+parser.add_argument("--only-frames", help="Only update the sensing_time_list for these frames",
+                    nargs="+", type=str)
+parser.add_argument("--db-file", dest="db_file", help="Specify the DISP-S1 database json file \
+on the local file system instead of using the standard one in S3 ancillary", required=False)
 prog_args = parser.parse_args()
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(prog_args.file)
-j = json.load(open(prog_args.file))
+
+if prog_args.db_file:
+    logger.info(f"Using local DISP-S1 database json file: {prog_args.db_file}")
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(prog_args.db_file)
+    db_file_name = prog_args.db_file
+else:
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+    db_file_name=cslc_utils.DISP_FRAME_BURST_MAP_HIST
+j = json.load(open(db_file_name))
+
+if prog_args.only_frames:
+    logger.info("Only updating sensing_time_list for the following frames:")
+    logger.info(prog_args.only_frames)
 
 # Query the CMR for the frame_id between the first and the last sensing datetime
 subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
 settings = SettingsConf().cfg
 cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
-cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
+cslc_cmr_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
 
 now = datetime.now()
 start_date = "2016-07-01T00:00:00Z" # This is the start of DISP-S1 processing time for the OPERA program
@@ -43,10 +56,12 @@ end_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 timerange = DateTimeRange(start_date, end_date)
 
 for frame in j:
+    if frame not in prog_args.only_frames:
+        continue
     new_sensing_time_list = []
     logger.info(f"Updating {frame=}")
     subs_args.frame_id = frame
-    all_granules = query_cmr_by_frame_and_dates_backoff(cslc_query, subs_args, token, cmr, settings, now, timerange, silent=True)
+    all_granules = query_cmr_by_frame_and_dates_backoff(cslc_cmr_query, subs_args, token, cmr, settings, now, timerange, silent=True)
 
     # Group them by acquisition cycle
     acq_cycles = defaultdict(set)
@@ -72,7 +87,7 @@ for frame in j:
     print(f"{new_sensing_time_list}")
     j[frame]["sensing_time_list"] = new_sensing_time_list
 
-new_file = prog_args.file + ".mod"
+new_file = db_file_name + ".mod"
 with open(new_file, "w") as f:
     json.dump(j, f, indent=4)
     print(f"Truncated file written to {new_file}")
