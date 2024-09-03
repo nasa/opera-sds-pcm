@@ -6,14 +6,19 @@ import backoff
 
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.query import get_query_timerange, DateTimeRange
+from data_subscriber.cslc.cslc_query import CslcCmrQuery
+import cslc_utils
 
 _date_format_str = CMR_TIME_FORMAT
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
-@backoff.on_exception(backoff.expo, Exception, max_value=13, max_time=34)
-def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True):
-    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
+@backoff.on_exception(backoff.expo, Exception, max_value=13)
+def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, cslc_query = None, silent=True):
+    if cslc_query is not None:
+        result = cslc_query.query_cmr_by_frame_and_dates(args, token, cmr, settings, query_timerange, now, silent)
+    else:
+        result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
     return result
 
 
@@ -34,6 +39,12 @@ def run_survey(args, token, cmr, settings):
     all_granules = {}
     all_deltas = []
 
+    cslc_query = None
+    if args.frame_id is not None:
+        logging.info("Querying for DISP-S1 frame_id only: " + str(args.frame_id))
+        cslc_query = CslcCmrQuery(args, token, None, cmr, None, settings,
+                                          cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+
     while start_dt < end_dt:
 
         now = datetime.utcnow()
@@ -47,7 +58,7 @@ def run_survey(args, token, cmr, settings):
 
         query_timerange: DateTimeRange = get_query_timerange(args, now, silent=True)
 
-        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, silent=True)
+        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, cslc_query, silent=True)
 
         count = 0
         for granule in granules:
