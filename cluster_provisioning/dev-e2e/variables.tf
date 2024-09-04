@@ -505,6 +505,13 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
 }
 
+variable "earthdata_uat_user" {
+}
+
+variable "earthdata_uat_pass" {
+}
+
+
 # ami vars
 variable "amis" {
   type = map(string)

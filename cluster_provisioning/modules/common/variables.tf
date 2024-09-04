@@ -751,6 +751,14 @@ variable "earthdata_pass" {
   default = ""
 }
 
+variable "earthdata_uat_user" {
+  default = ""
+}
+
+variable "earthdata_uat_pass" {
+  default = ""
+}
+
 variable "clear_s3_aws_es" {
   type    = bool
   default = true

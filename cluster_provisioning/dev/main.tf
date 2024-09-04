@@ -99,6 +99,8 @@ module "common" {
   dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
+  earthdata_uat_user                      = var.earthdata_uat_user
+  earthdata_uat_pass                      = var.earthdata_uat_pass
 }
 
 locals {
