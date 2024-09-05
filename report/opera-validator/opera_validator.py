@@ -625,7 +625,7 @@ def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts
     
     # Load frames to bursts data
     with open(frames_to_bursts_file, 'r') as f:
-        frames_to_bursts_data = json.load(f)["data"]
+        frames_to_bursts_data = json.load(f)
     
     # Step 1: Map the burst IDs to their corresponding frame IDs
     frame_ids = set()
@@ -637,7 +637,7 @@ def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts
     data = []
     for frame_id in frame_ids:
         frame_id_str = str(frame_id)
-        associated_bursts = frames_to_bursts_data.get(frame_id_str, {}).get("burst_ids", [])
+        associated_bursts = frames_to_bursts_data.get(frame_id_str, {}).get("burst_id_list", [])
         
         # Find the intersection of associated bursts and the input burst_ids
         matching_bursts = [burst for burst in burst_ids if burst in associated_bursts]
