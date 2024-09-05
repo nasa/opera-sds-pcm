@@ -30,7 +30,7 @@ logger = logging.getLogger("DISP-S1-HISTORICAL")
 
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 def proc_once(eu, procs, args):
     dryrun = args.dry_run

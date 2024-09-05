@@ -55,7 +55,7 @@ if args.db_file:
     logger.info(f"Using local DISP-S1 database json file: {args.db_file}")
     disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(args.db_file)
 else:
-    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
