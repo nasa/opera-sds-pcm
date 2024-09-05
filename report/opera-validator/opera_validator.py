@@ -641,7 +641,9 @@ def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts
         
         # Find the intersection of associated bursts and the input burst_ids
         matching_bursts = [burst for burst in burst_ids if burst in associated_bursts]
-        
+        if (len(associated_bursts) == 0 and len(matching_bursts) == 0):
+            continue # Ignore matching burst counts that are zero in number
+
         # Append the result to the data list
         data.append({
             "Frame ID": frame_id,
