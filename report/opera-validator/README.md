@@ -100,7 +100,7 @@ If you're validating DISP-S1 products, you'll need to use the following addition
 - **`--disp_s1_frame_to_burst_db`**: Path to the frame-to-burst JSON database file.
 
   ```bash
-  python opera_validator.py --start "2024-07-18T21:49:22Z" --end "2024-07-18T23:51:00Z" --endpoint_daac_output UAT --timestamp TEMPORAL --validate --product DISP-S1 --disp_s1_burst_to_frame_db opera-s1-disp-burst-to-frame.json --disp_s1_frame_to_burst_db opera-s1-disp-0.5.0-frame-to-burst.json
+  python opera_validator.py --start "2024-07-18T21:49:22Z" --end "2024-07-18T23:51:00Z" --endpoint_daac_output UAT --timestamp TEMPORAL --validate --product DISP-S1 --disp_s1_burst_to_frame_db opera-s1-disp-burst-to-frame.json --disp_s1_frame_to_burst_db opera-disp-s1-consistent-burst-ids-with-datetimes.json
   ```
 
 ## Running Tests
