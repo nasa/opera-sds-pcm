@@ -411,7 +411,7 @@ def parse_cslc_burst_id(native_id):
     burst_id, _ = parse_cslc_file_name(native_id)
     return burst_id
 
-def build_cslc_native_ids(frame, disp_burst_map):
+def build_cslc_native_ids(frame: int, disp_burst_map):
     """Builds the native_id string for a given frame. The native_id string is used in the CMR query."""
 
     native_ids = list(disp_burst_map[frame].burst_ids)
