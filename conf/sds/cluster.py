@@ -268,66 +268,24 @@ def create_index_templates_grq():
     role, hysds_dir, _ = resolve_role()
 
     print(f"Creating index templates for {role}")
-    copy(
-        "~/.sds/files/elasticsearch/es_template_jobs_accountability_catalog.json",
-        f"{hysds_dir}/ops/grq2/config/es_template_jobs_accountability_catalog.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_index_template/jobs_accountability_catalog_template?pretty&create=true' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_template_jobs_accountability_catalog.json"
-    )
 
-    copy(
-        "~/.sds/files/elasticsearch/es_template_hls_catalog.json",
-        f"{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_index_template/hls_catalog_template?pretty&create=true' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_catalog.json"
-    )
-
-    copy(
-        "~/.sds/files/elasticsearch/es_template_hls_spatial_catalog.json",
-        f"{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_index_template/hls_spatial_catalog_template?pretty&create=true' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_template_hls_spatial_catalog.json"
-    )
-
-    copy(
-        "~/.sds/files/elasticsearch/es_template_slc_catalog.json",
-        f"{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_index_template/slc_catalog_template?pretty&create=true' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_catalog.json"
-    )
-
-    copy(
-        "~/.sds/files/elasticsearch/es_template_slc_spatial_catalog.json",
-        f"{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_index_template/slc_spatial_catalog_template?pretty&create=true' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_template_slc_spatial_catalog.json"
-    )
-
-    copy(
-        "~/.sds/files/elasticsearch/es_template_rtc_catalog.json",
-        f"{hysds_dir}/ops/grq2/config/es_template_rtc_catalog.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_index_template/rtc_catalog_template?pretty&create=true' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_template_rtc_catalog.json"
-    )
-
+    for file, template in [
+        ("es_template_jobs_accountability_catalog.json",    "jobs_accountability_catalog_template"),
+        ("es_template_hls_catalog.json",                    "hls_catalog_template"),
+        ("es_template_hls_spatial_catalog.json",            "hls_spatial_catalog_template"),
+        ("es_template_slc_catalog.json",                    "slc_catalog_template"),
+        ("es_template_slc_spatial_catalog.json",            "slc_spatial_catalog_template"),
+        ("es_template_rtc_catalog.json",                    "rtc_catalog_template")
+    ]:
+        copy(
+            f"~/.sds/files/elasticsearch/{file}",
+            f"{hysds_dir}/ops/grq2/config/{file}"
+        )
+        run(
+            f"curl --request PUT --url 'localhost:9200/_index_template/{template}?pretty&create=true' "
+            "--fail-with-body "
+            f"--json @{hysds_dir}/ops/grq2/config/{file}"
+        )
 
 @roles("metrics")
 def update_metrics_es():
