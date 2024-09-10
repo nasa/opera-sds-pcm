@@ -1,4 +1,4 @@
-#######################################################################
+opera-s1-disp-reference-date.json#######################################################################
 # PGE configuration for L3_DISP_S1.
 #######################################################################
 
@@ -25,8 +25,8 @@ runconfig:
     #troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
-    # TODO: unsure if we have this yet or if it even needs to be provided in production
-    #reference_date_database_json: __CHIMERA_VAL__
+    # TODO: unsure if we have this yet or if it even needs to be provided in production (Added on 3.0.0-rc.4.0)
+    reference_date_database_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
@@ -78,6 +78,11 @@ get_static_ancillary_files:
   frame_to_burst_json:
     s3_bucket: "opera-ancillaries"
     s3_key: "disp_frames/disp-s1/0.5.0/opera-s1-disp-0.5.0-frame-to-burst.json"
+
+  # JSON file containing list of reference date changes for each frame
+  reference_date_database_json:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "reference_date/opera-s1-disp-reference-date.json"
 
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
