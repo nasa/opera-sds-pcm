@@ -241,15 +241,19 @@ def update_grq_es():
 def create_ilm_policy_grq():
     _, hysds_dir, _ = resolve_role()
 
-    copy(
-        "~/.sds/files/elasticsearch/es_ilm_policy_grq.json",
-        f"{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_grq_ilm_policy?pretty' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_grq.json"
-    )
+    for file, policy in [
+        ("es_ilm_policy_grq.json", "opera_grq_ilm_policy"),
+        ("es_ilm_policy_grq_c_cslc.json", "opera_grq_c_cslc_ilm_policy")]:
+
+        copy(
+            f"~/.sds/files/elasticsearch/{file}",
+            f"{hysds_dir}/ops/grq2/config/{file}"
+        )
+        run(
+            f"curl --request PUT --url 'localhost:9200/_ilm/policy/{policy}?pretty' "
+            "--fail-with-body "
+            f"--json @{hysds_dir}/ops/grq2/config/{file}"
+        )
 
 
 @roles("grq")
@@ -275,10 +279,13 @@ def create_index_templates_grq():
         ("es_template_hls_spatial_catalog.json",            "hls_spatial_catalog_template"),
         ("es_template_slc_catalog.json",                    "slc_catalog_template"),
         ("es_template_slc_spatial_catalog.json",            "slc_spatial_catalog_template"),
-        ("es_template_rtc_catalog.json",                    "rtc_catalog_template")
+        ("es_template_rtc_catalog.json",                    "rtc_catalog_template"),
+        ("es_template_cslc_catalog.json",                   "cslc_catalog_template"),
+        ("es_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
+        ("es_template_cslc_compressed_product.json",        "cslc_compressed_product_template")
     ]:
         copy(
-            f"~/.sds/files/elasticsearch/{file}",
+            f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
             f"{hysds_dir}/ops/grq2/config/{file}"
         )
         run(
