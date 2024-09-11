@@ -64,7 +64,7 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
                 logger.info(f"Merge + subset input: {a2_a3_nc_filepath_pair=}")
 
-                merged_filepath = a2_grib_filepath.resolve().with_name(a2_grib_filepath.name.removeprefix("A2").removeprefix("A3"))
+                merged_filepath = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2").removeprefix("A3"))
                 merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
 
                 subset_filepath = with_inserted_suffix(merged_filepath, ".subset")

@@ -24,6 +24,6 @@
     }
   ],
   "disk_usage": "600GB",
-  "soft_time_limit": 11200,
-  "time_limit": 11260
+  "soft_time_limit": 42600,
+  "time_limit": 43200
 }
