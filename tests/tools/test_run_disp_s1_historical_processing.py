@@ -13,7 +13,7 @@ except ImportError:
 sys.modules["hysds.celery"] = umock.MagicMock()
 from mock import MagicMock
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 START_DATE = '2016-07-01T00:00:00Z'
 END_DATE = '2024-07-01T00:00:00Z'
@@ -61,12 +61,15 @@ def test_form_job_params_basic():
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
         form_job_params(p, 831, 0, None, None)
 
+    # The seconds can shift based on how the database file generator behaves so we will not skip checking seconds
     assert do_submit == True
-    assert job_name == "data-subscriber-query-timer-historical1_f831-2017-02-15T22:35:24-2017-03-23T23:35:24"
+    assert "data-subscriber-query-timer-historical1_f831" in job_name
+    assert "2017-02-15T22:35:" in job_name
+    assert "2017-03-23T23:35:" in job_name
     assert JOB_TYPE in job_spec
     assert job_tags == ['data-subscriber-query-timer', 'historical_processing']
-    assert job_params["start_datetime"] == f"--start-date=2017-02-15T22:35:24Z"
-    assert job_params["end_datetime"] == f"--end-date=2017-03-23T23:35:24Z"
+    assert "--start-date=2017-02-15T22:35:" in job_params["start_datetime"]
+    assert "--end-date=2017-03-23T23:35:" in job_params["end_datetime"]
     assert job_params["processing_mode"] == f'--processing-mode={PROCESSING_MODE}'
     assert job_params["use_temporal"] == f'--use-temporal'
     assert job_params["include_regions"] == f'--include-regions={INCLUDE_REGIONS}'

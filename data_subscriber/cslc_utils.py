@@ -4,6 +4,7 @@ from copy import deepcopy
 from collections import defaultdict
 import asyncio
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 import dateutil
 import boto3
 import logging
@@ -15,8 +16,8 @@ from util.conf_util import SettingsConf
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 
 
-DISP_FRAME_BURST_MAP_HIST = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
-FRAME_GEO_SIMPLE_JSON = 'frame-geometries-simple.geojson'
+DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
+DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
@@ -32,32 +33,35 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = [] # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = [] # Sensing time in days since the first sensing time, rounded to the nearest day
 
-def localize_anc_json(file):
+def localize_anc_json(settings_field):
+    '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
+
     settings = SettingsConf().cfg
-    bucket = settings["GEOJSON_BUCKET"]
-    try:
-        s3 = boto3.resource('s3')
-        s3.Object(bucket, file).download_file(file)
-    except Exception as e:
-        raise Exception("Exception while fetching CSLC ancillary file: %s. " % file + str(e))
+    burst_file_url = urlparse(settings[settings_field])
+    s3 = boto3.resource('s3')
+    path = burst_file_url.path.lstrip("/")
+    file = path.split("/")[-1]
+    s3.Object(burst_file_url.netloc, path).download_file(file)
 
     return file
 
 @cache
-def localize_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
+def localize_disp_frame_burst_hist():
     try:
-        localize_anc_json(file)
+        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
     except:
-        logger.warning(f"Could not download {file} from S3. Attempting to use local copy.")
+        logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
+        file = DEFAULT_DISP_FRAME_BURST_DB_NAME
 
     return process_disp_frame_burst_hist(file)
 
 @cache
-def localize_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
+def localize_frame_geo_json():
     try:
-        localize_anc_json(file)
+        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
     except:
-        logger.warning(f"Could not download {file} from S3. Attempting to use local copy.")
+        logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
+        file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
 
     return process_frame_geo_json(file)
 
@@ -85,7 +89,7 @@ def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_b
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
 @cache
-def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
+def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
 
     j = json.load(open(file))
@@ -119,7 +123,7 @@ def process_disp_frame_burst_hist(file = DISP_FRAME_BURST_MAP_HIST):
     return frame_to_bursts, burst_to_frames, datetime_to_frames
 
 @cache
-def process_frame_geo_json(file = FRAME_GEO_SIMPLE_JSON):
+def process_frame_geo_json(file):
     '''Process the frame-geometries-simple.geojson file as dictionary used for determining frame bounding box'''
 
     frame_geo_map = {}

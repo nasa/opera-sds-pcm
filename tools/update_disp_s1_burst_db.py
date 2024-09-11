@@ -36,8 +36,9 @@ if prog_args.db_file:
     disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(prog_args.db_file)
     db_file_name = prog_args.db_file
 else:
-    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
-    db_file_name=cslc_utils.DISP_FRAME_BURST_MAP_HIST
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+    db_file_name=cslc_utils.DEFAULT_DISP_FRAME_BURST_DB_NAME
+
 j = json.load(open(db_file_name))
 
 if prog_args.only_frames:

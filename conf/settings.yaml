@@ -65,6 +65,12 @@ DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES: 210
 # 8 * 12  = 96 days. We can tune this number to minimize CMR queries without adding undue load on CMR.
 DISP_S1_K_FETCH_MULTIPLE: 2
 
+# This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data
+DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-with-datetimes.json"
+
+# This file contains geo boundaries of all DISP-S1 frames
+DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple.geojson"
+
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:
