@@ -137,7 +137,7 @@ variable "amis" {
     metrics   = "ami-0a5832ef57758384a" # metrics v4.18 - 240812
     grq       = "ami-0eaffcbdc11298329" # grq v4.19 - 240812
     factotum  = "ami-01324dc701f947607" # factotum v4.17 - 240815
-    autoscale = "ami-00c52356588b35ac2" # verdi v4.17 patchdate - 240813
+    autoscale = "ami-0465ac38191989ed5" # verdi v4.17 patchdate - 240902
   }
 }
 
@@ -600,7 +600,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.0-rc.3.0"
+    "disp_s1"  = "3.0.0-rc.4.0"
     "dswx_ni"  = "4.0.0-er.2.0"
   }
 }
