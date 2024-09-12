@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-
+import argparse
 import asyncio
-import boto3
+import concurrent.futures
 import logging
-import netrc
+import os
 import re
 import sys
 import uuid
@@ -12,6 +12,7 @@ from itertools import chain
 from pathlib import Path
 from urllib.parse import urlparse
 
+import boto3
 from more_itertools import first
 from smart_open import open
 
@@ -19,17 +20,15 @@ from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
-from data_subscriber.aws_token import supply_token
+from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (ProductType,
-                                 Provider,
+                                 Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
-from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
+from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
-from data_subscriber.cslc.cslc_static_catalog import CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
-from data_subscriber.hls.hls_catalog_connection import get_hls_catalog_connection
 from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from data_subscriber.parser import create_parser, validate_args
@@ -37,7 +36,7 @@ from data_subscriber.query import update_url_index
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.rtc.rtc_query import RtcCmrQuery
-from data_subscriber.slc.slc_catalog_connection import get_slc_catalog_connection
+from data_subscriber.slc.slc_catalog import SLCProductCatalog
 from data_subscriber.slc.slc_query import SlcCmrQuery
 from data_subscriber.survey import run_survey
 from rtc_utils import rtc_product_file_revision_regex
@@ -54,7 +53,7 @@ logger = logging.getLogger(__name__)
 @exec_wrapper
 def main():
     configure_logger()
-    asyncio.run(run(sys.argv))
+    run(sys.argv)
 
 
 def configure_logger():
@@ -69,7 +68,7 @@ def configure_logger():
     logger.addFilter(NoLogUtilsFilter())
 
 
-async def run(argv: list[str]):
+def run(argv: list[str]):
     logger.info(f"{argv=}")
     parser = create_parser()
     args = parser.parse_args(argv[1:])
@@ -89,27 +88,23 @@ async def run(argv: list[str]):
     logger.info(f"{job_id=}")
 
     settings = SettingsConf().cfg
-    cmr = settings["DAAC_ENVIRONMENTS"][args.endpoint]["BASE_URL"]
-
-    edl = settings["DAAC_ENVIRONMENTS"][args.endpoint]["EARTHDATA_LOGIN"]
-    username, _, password = netrc.netrc().authenticators(edl)
-    token = supply_token(edl, username, password)
+    cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
 
     results = {}
 
     if args.subparser_name == "survey":
-        await run_survey(args, token, cmr, settings)
+        run_survey(args, token, cmr, settings)
 
     if args.subparser_name == "query" or args.subparser_name == "full":
-        results["query"] = await run_query(args, token, es_conn, cmr, job_id, settings)
+        results["query"] = run_query(args, token, es_conn, cmr, job_id, settings)
 
     if args.subparser_name == "download" or args.subparser_name == "full":
         netloc = urlparse(f"https://{edl}").netloc
 
         if args.provider == Provider.ASF_RTC:
-            results["download"] = await run_rtc_download(args, token, es_conn, netloc, username, password, job_id)
+            results["download"] = run_rtc_download(args, token, es_conn, netloc, username, password, cmr, job_id)
         else:
-            results["download"] = await run_download(args, token, es_conn, netloc, username, password, job_id)
+            results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
     logger.info(f"{len(results)=}")
     logger.debug(f"{results=}")
@@ -118,28 +113,30 @@ async def run(argv: list[str]):
     return results
 
 
-async def run_query(args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr, job_id, settings):
     product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
 
     if product_type == ProductType.HLS:
         cmr_query = HlsCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.SLC:
         cmr_query = SlcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif product_type == ProductType.RTC:
-        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC:
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
+
+    # RTC is a special case in that it needs to run asynchronously
+    elif product_type == ProductType.RTC:
+        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+        result = asyncio.run(cmr_query.run_query(args, token, es_conn, cmr, job_id, settings))
+        return result
+
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
-    result = await cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
+    return cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
 
-    return result
-
-
-async def run_download(args, token, es_conn, netloc, username, password, job_id):
+def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection") else args.provider)
 
@@ -156,10 +153,10 @@ async def run_download(args, token, es_conn, netloc, username, password, job_id)
     else:
         raise ValueError(f'Unknown product provider "{provider}"')
 
-    await downloader.run_download(args, token, es_conn, netloc, username, password, job_id)
+    downloader.run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
 
-async def run_rtc_download(args, token, es_conn, netloc, username, password, job_id):
+def run_rtc_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = args.provider  # "ASF-RTC"
     settings = SettingsConf().cfg
 
@@ -203,10 +200,11 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
             "netloc": netloc,
             "username": username,
             "password": password,
+            "cmr": cmr,
             "job_id": job_id
         }
 
-        product_to_product_filepaths_map: dict[str, set[Path]] = await downloader.run_download(
+        product_to_product_filepaths_map: dict[str, set[Path]] = downloader.run_download(
             args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False)
 
         logger.info(f"Uploading MGRS burst set files to S3")
@@ -247,7 +245,7 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
         else:
             logger.info(f"Submitting batches for DSWx-S1 job: {list(uploaded_batch_id_to_s3paths_map)}")
             job_submission_tasks = submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args_for_job_submitter, settings)
-            results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
+            results = multithread_gather(job_submission_tasks)
 
         suceeded_batch = [job_id for job_id in results if isinstance(job_id, str)]
         failed_batch = [e for e in results if isinstance(e, Exception)]
@@ -279,15 +277,32 @@ async def run_rtc_download(args, token, es_conn, netloc, username, password, job
     }
 
 
+def multithread_gather(job_submission_tasks):
+    """
+    Given a list of tasks, executes them concurrently and gathers the results.
+    Exceptions are returned as results rather than re-raised.
+    """
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
+        futures = [executor.submit(job_submission_task) for job_submission_task in job_submission_tasks]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = exc
+            results.append(result)
+    return results
+
+
 def supply_es_conn(args):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection")
                 else args.provider)
 
     if provider == Provider.LPCLOUD:
-        es_conn = get_hls_catalog_connection(logging.getLogger(__name__))
+        es_conn = HLSProductCatalog(logging.getLogger(__name__))
     elif provider in (Provider.ASF, Provider.ASF_SLC):
-        es_conn = get_slc_catalog_connection(logging.getLogger(__name__))
+        es_conn = SLCProductCatalog(logging.getLogger(__name__))
     elif provider == Provider.ASF_RTC:
         es_conn = RTCProductCatalog(logging.getLogger(__name__))
     elif provider == Provider.ASF_CSLC:

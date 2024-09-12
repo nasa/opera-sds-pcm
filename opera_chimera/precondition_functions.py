@@ -10,21 +10,24 @@ import json
 import os
 import re
 import traceback
-
 from datetime import datetime
 from pathlib import PurePath
 from typing import Dict, List
 from urllib.parse import urlparse
 
 import boto3
-from chimera.precondition_functions import PreConditionFunctions
 
+from chimera.precondition_functions import PreConditionFunctions
 from commons.constants import product_metadata
-from commons.logger import logger
 from commons.logger import LogLevels
+from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
+from tools.stage_ancillary_map import main as stage_ancillary_map
+from tools.stage_dem import main as stage_dem
+from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
+from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
 from util.geo_util import bounding_box_from_slc_granule
@@ -32,10 +35,6 @@ from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
                            get_input_hls_dataset_tile_code,
                            write_pge_metrics)
-from tools.stage_ancillary_map import main as stage_ancillary_map
-from tools.stage_dem import main as stage_dem
-from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
-from tools.stage_worldcover import main as stage_worldcover
 
 
 class OperaPreConditionFunctions(PreConditionFunctions):
@@ -200,6 +199,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             oc_const.AMPLITUDE_MEAN_FILES: list()
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_compressed_cslc_files(self):
+        """
+        Derives the list of S3 paths to the ionosphere files to be used with a
+        DISP-S1 job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        c_cslc_paths = metadata["product_paths"].get(oc_const.L2_CSLC_S1_COMPRESSED, [])
+
+        rc_params = {
+            oc_const.COMPRESSED_CSLC_PATHS: c_cslc_paths
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -437,6 +455,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             oc_const.PRODUCT_TYPE: (oc_const.DISP_S1_HISTORICAL
                                     if processing_mode == oc_const.PROCESSING_MODE_HISTORICAL
                                     else oc_const.DISP_S1_FORWARD)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_save_compressed_slc(self):
+        """
+        Assigns the save_compressed_slc flag based on the value passed to the
+        job from the CSLC download job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        save_compressed_cslc = metadata["save_compressed_cslc"]
+
+        rc_params = {
+            "save_compressed_slc": save_compressed_cslc
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -809,6 +846,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # Disable the inundated vegetation check if only a single polarization
         # channel is available
         rc_params[oc_const.INUNDATED_VEGETATION_ENABLED] = len(unique_polarizations) > 1
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_s1_mgrs_collection_id(self):
+        """
+        Inserts the MGRS collection ID from the job metadata into the RunConfig
+        for use with a DSWx-S1 job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {}
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        mgrs_set_id = metadata["mgrs_set_id"]
+
+        rc_params[oc_const.INPUT_MGRS_COLLECTION_ID] = mgrs_set_id
 
         logger.info(f"rc_params : {rc_params}")
 

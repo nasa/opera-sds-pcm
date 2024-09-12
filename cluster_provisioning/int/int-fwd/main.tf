@@ -34,4 +34,5 @@ module "int-main" {
   cnm_r_venue                             = var.cnm_r_venue
   trace                                   = var.trace
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
+  po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
 }

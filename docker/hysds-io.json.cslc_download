@@ -47,6 +47,12 @@
       "optional": true
     },
     {
+      "name": "proc_mode",
+      "from": "submitter",
+      "placeholder": "e.g. --processing-mode=forward",
+      "optional": true
+    },
+    {
       "name": "transfer_protocol",
       "from": "submitter",
       "placeholder": "e.g. --transfer-protocol=auto",

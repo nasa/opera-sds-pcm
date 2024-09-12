@@ -40,6 +40,10 @@
       "destination": "positional"
     },
     {
+      "name": "proc_mode",
+      "destination": "positional"
+    },
+    {
       "name": "transfer_protocol",
       "destination": "positional"
     }

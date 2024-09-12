@@ -76,7 +76,19 @@
       "destination": "positional"
     },
     {
-      "name": "frame_range",
+      "name": "frame_id",
+      "destination": "positional"
+    },
+    {
+      "name": "k",
+      "destination": "positional"
+    },
+    {
+      "name": "m",
+      "destination": "positional"
+    },
+    {
+      "name": "grace_mins",
       "destination": "positional"
     },
     {

@@ -83,6 +83,18 @@ echo '{
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
           },
           {
+            "file_path": "/data/work/jobs/**/run_cslc_download.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_cslc_download.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/data/work/jobs/**/run_submit_pending_jobs.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_submit_pending_jobs.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
             "file_path": "/data/work/jobs/**/run_pcm_int.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_pcm_int.log",
             "timezone": "Local",
@@ -228,6 +240,12 @@ echo '{
           {
             "file_path": "/home/ops/verdi/log/opera-job_worker-rcv_cnm_notify.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/opera-job_worker-rcv_cnm_notify.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/home/ops/verdi/log/opera-job_worker-pge_smoke_test.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/opera-job_worker-pge_smoke_test.log",
             "timezone": "Local",
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
           }

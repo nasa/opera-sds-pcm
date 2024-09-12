@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import asyncio
 import json
 import logging
 import netrc
@@ -14,6 +13,7 @@ from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc import cslc_query
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 from data_subscriber.parser import create_parser
+from data_subscriber.cslc_utils import  localize_disp_frame_burst_hist
 from util.conf_util import SettingsConf
 
 DT_FORMAT = CMR_TIME_FORMAT
@@ -45,8 +45,6 @@ job_queue = {
     "reprocessing": "opera-job_worker-cslc_data_download",
     "historical":   "opera-job_worker-cslc_data_download_hist"
 }
-
-disp_burst_map, burst_to_frame, metadata, version = cslc_utils.localize_disp_frame_burst_json()
 
 def group_by_download_batch_id(granules):
     """Group granules by download batch id"""
@@ -80,7 +78,7 @@ def do_delete_queue(args, authorization, job_queue):
         response = requests.delete(_rabbitmq_url+job_queue, auth=('hysdsops', password), verify=False)
         print(response.status_code)
 
-async def run_query(args, authorization):
+def run_query(args, authorization):
     """Run query several times over a date range specifying the start and stop dates"""
 
     # Open the scenario file and parse it. Get k from it and add as parameter.
@@ -111,7 +109,7 @@ async def run_query(args, authorization):
                                                   f"--start-date={start_date.isoformat()}Z",
                                                   f"--end-date={new_end_date.isoformat()}Z"]
 
-                await query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
+                query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
 
                 start_date = new_end_date
         else:
@@ -132,7 +130,7 @@ async def run_query(args, authorization):
                 current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
                                                   f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
 
-                await query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
+                query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
 
                 start_date = new_end_date # To the next query time range
 
@@ -141,34 +139,36 @@ async def run_query(args, authorization):
             # Run one native id at a time
             for native_id in validation_data.keys():
                 current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
-                await query_and_validate(current_args, native_id, validation_data)
+                query_and_validate(current_args, native_id, validation_data)
         elif j["param_type"] == "date_range":
             # Run one date range at a time
             for date_range in validation_data.keys():
                 start_date = date_range.split(",")[0].strip()
                 end_date = date_range.split(",")[1].strip()
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
-                await query_and_validate(current_args, date_range, validation_data)
+                if  "frame_id" in j:
+                    current_args.append(f"--frame-id={j['frame_id']}")
+                query_and_validate(current_args, date_range, validation_data)
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
-        data_start_date = j["data_start_date"]
-        data_end_date = (datetime.strptime(data_start_date, DT_FORMAT) + timedelta(days=cslc_k * 12)).isoformat() + "Z"
-        for frame_range in validation_data.keys():
-            current_args = query_arguments + [f"--frame-range={frame_range}", f"--job-queue={job_queue[proc_mode]}",
+        data_start_date = j["date_range"].split(",")[0].strip()
+        data_end_date = j["date_range"].split(",")[1].strip()
+        for frame_id in validation_data.keys():
+            current_args = query_arguments + [f"--frame-id={frame_id}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
-            await query_and_validate(current_args, frame_range, validation_data)
+            query_and_validate(current_args, frame_id, validation_data)
 
     do_delete_queue(args, authorization, job_queue[proc_mode])
 
-async def query_and_validate(current_args, test_range, validation_data=None):
+def query_and_validate(current_args, test_range, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
-    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,
-                                      cslc_utils.DISP_FRAME_BURST_MAP_JSON)
-    q_result = await c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
-    q_result = q_result["download_granules"]
+    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,None)
+    q_result = c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
+    q_result = q_result["download_granules"] # Main granules
+    q_result.extend(c_query.k_retrieved_granules) # k granules
     print("+++++++++++++++++++++++++++++++++++++++++++++++")
     # for r in q_result:
     #    print(r["granule_id"])
@@ -207,10 +207,10 @@ args = parser.parse_args()
 
 # Clear the elasticsearch index if clear argument is passed
 if args.clear:
-    for index in es_conn.es.es.indices.get_alias(index="*").keys():
+    for index in es_conn.es_util.es.indices.get_alias(index="*").keys():
         if "cslc_catalog" in index:
             logging.info("Deleting index: " + index)
-            es_conn.es.es.indices.delete(index=index, ignore=[400, 404])
+            es_conn.es_util.es.indices.delete(index=index, ignore=[400, 404])
 
 test_start_time = datetime.now()
 
@@ -226,7 +226,9 @@ with open('/export/home/hysdsops/.creds') as f:
             password = line.split()[2]
             break
 
-asyncio.run(run_query(args, ('hysdsops', password)))
+localize_disp_frame_burst_hist()
+
+run_query(args, ('hysdsops', password))
 
 logging.info("If no assertion errors were raised, then the test passed.")
 logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")

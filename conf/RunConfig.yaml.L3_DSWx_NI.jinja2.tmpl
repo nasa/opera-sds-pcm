@@ -28,8 +28,7 @@ RunConfig:
         ErrorCodeBase: 600000
         SchemaPath: /home/dswx_user/opera/pge/dswx_ni/schema/dswx_ni_sas_schema.yaml
         AlgorithmParametersSchemaPath: /home/dswx_user/opera/pge/dswx_ni/schema/algorithm_parameters_ni_schema.yaml
-        # TODO: add once available
-        IsoTemplatePath:
+        IsoTemplatePath: /home/dswx_user/opera/pge/dswx_ni/templates/OPERA_ISO_metadata_L3_DSWx_NI_template.xml.jinja2
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -66,8 +65,6 @@ RunConfig:
             worldcover_file_description: 'ESA WorldCover 10m 2020 v1.0'
             reference_water_file_description: 'JRC Global Surface Water - collection from 1984 to 2021'
             hand_file_description: 'ASF HAND GLO30'
-            # TODO: uncomment if shoreline shapefile usage is ever reenabled
-            #shoreline_shapefile_description: 'NOAA GSHHS Level 1 resolution f - GSHHS_f_L1'
           static_ancillary_file_group:
             static_ancillary_inputs_flag: True
             {%- for type in data.static_ancillary_file_group.keys() %}

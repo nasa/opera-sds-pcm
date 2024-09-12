@@ -19,13 +19,13 @@ from typing import Union, Tuple
 
 from more_itertools import one
 
-from commons.logger import logger
-from extractor import extract
 import product2dataset.iso_xml_reader as iso_xml_reader
+from commons.logger import logger
+from data_subscriber.cslc_utils import build_ccslc_m_index
+from extractor import extract
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
-from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc, build_ccslc_m_index
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -208,18 +208,30 @@ def convert(
                 dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["frame_id"] = product_metadata["frame_id"]
+            dataset_met_json["acquisition_cycle"] = product_metadata["acquisition_cycle"]
 
             # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
             # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
-            # There should only be one file in the dataset, so we can just grab the first one
             if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
-                ccslc_file = dataset_met_json["Files"][0]
+                decorate_compressed_cslc(dataset_met_json)
 
-                # last_date_time looks like this: "2024-04-18T00:00:00.000000Z"
-                acquisition_cycle = determine_acquisition_cycle_cslc(
-                    ccslc_file["burst_id"], ccslc_file["last_date_time"], dataset_met_json["id"])
-                dataset_met_json["acquisition_cycle"] = acquisition_cycle
-                dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(acquisition_cycle))
+                # Compressed CSLC files are published to the LTS bucket, so we need to overwrite the default publish URLs here
+                publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
+                publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
+                pge_shortname = "CSLC_S1_COMPRESSED"
+
+                dataset_met_json["product_urls"] = [
+                    f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
+                    f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
+                    for file in dataset_met_json["Files"]
+                ]
+                dataset_met_json["product_s3_paths"] = [
+                    f's3://{publish_bucket}'
+                    f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
+                    for file in dataset_met_json["Files"]
+                ]
+
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
@@ -400,6 +412,10 @@ def search_for_catalog_json_file(product_dir):
 def search_for_met_json_file(datasets_parent_dir):
     return glob.iglob(os.path.join(datasets_parent_dir, '**/*.met.json'), recursive=True)
 
+def decorate_compressed_cslc(dataset_met_json):
+    ccslc_file = dataset_met_json["Files"][0] # There should only be one file in the dataset, so we can just grab the first one
+    dataset_met_json["burst_id"] = ccslc_file["burst_id"]
+    dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(dataset_met_json["acquisition_cycle"]))
 
 def main():
     """

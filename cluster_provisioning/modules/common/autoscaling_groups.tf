@@ -59,6 +59,16 @@ resource "aws_cloudwatch_log_group" "run_cslc_query" {
   retention_in_days = var.lambda_log_retention_in_days
 }
 
+resource "aws_cloudwatch_log_group" "run_cslc_download" {
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_cslc_download.log"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_log_group" "run_submit_pending_jobs" {
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_submit_pending_jobs.log"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
 resource "aws_cloudwatch_log_group" "run_batch_query" {
   name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_batch_query.log"
   retention_in_days = var.lambda_log_retention_in_days
@@ -91,5 +101,10 @@ resource "aws_cloudwatch_log_group" "run_sciflo_L2_RTC_S1" {
 
 resource "aws_cloudwatch_log_group" "run_sciflo_L3_DSWx_S1" {
   name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_DSWx_S1.log"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "aws_cloudwatch_log_group" "run_sciflo_L3_DISP_S1" {
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_sciflo_L3_DISP_S1.log"
   retention_in_days = var.lambda_log_retention_in_days
 }

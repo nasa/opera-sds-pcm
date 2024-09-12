@@ -1,0 +1,16 @@
+{ "description": "This file specifies expected files to be downloaded in a DISP-S1 forward processing scenario",
+  "comment": "Reprocessing by date range",
+  "processing_mode": "reprocessing",
+  "param_type": "date_range",
+  "frame_id": 36540,
+  "k": 4,
+  "m": 1,
+  "validation_data": {
+    "2024-04-29T04:23:22Z, 2024-04-29T04:24:22Z": {
+      "f36540_a438": 27,
+      "f36540_a426": 27,
+      "f36540_a414": 27,
+      "f36540_a402": 27
+    }
+  }
+}

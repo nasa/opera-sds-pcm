@@ -18,6 +18,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     CNM_VERSION = "CNM_VERSION"
 
+    COMPRESSED_CSLC_PATHS = "compressed_cslc_paths"
+
     DATASET_TYPE = "dataset_type"
 
     DEM_FILE = "dem_file"
@@ -84,6 +86,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     INPUT_FILE_PATHS = "input_file_paths"
 
+    INPUT_MGRS_COLLECTION_ID = "input_mgrs_collection_id"
+
     INSTANTIATE_ALGORITHM_PARAMETERS_TEMPLATE = "instantiate_algorithm_parameters_template"
 
     INUNDATED_VEGETATION_ENABLED = "inundated_vegetation_enabled"
@@ -93,6 +97,8 @@ class OperaChimeraConstants(ChimeraConstants):
     MASK_FILE = "mask_file"
 
     L2_CSLC_S1 = "L2_CSLC_S1"
+
+    L2_CSLC_S1_COMPRESSED = "L2_CSLC_S1_COMPRESSED"
 
     L2_RTC_S1 = "L2_RTC_S1"
 

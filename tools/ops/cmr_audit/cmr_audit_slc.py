@@ -4,6 +4,7 @@ import concurrent.futures
 import datetime
 import functools
 import logging
+import logging.handlers
 import os
 import re
 import sys
@@ -26,7 +27,7 @@ logging.basicConfig(
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 config = {
     **dotenv_values("../../.env"),
@@ -48,7 +49,7 @@ def create_parser():
     )
     argparser.add_argument(
         "--output", "-o",
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'Output filepath.'
     )
     argparser.add_argument(
         "--format",
@@ -56,7 +57,25 @@ def create_parser():
         choices=["txt", "json"],
         help=f'Output file format. Defaults to "%(default)s".'
     )
+    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+
     return argparser
+
+
+def init_logging():
+    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
+    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
+    logging.basicConfig(level=log_level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
+    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1.setLevel(logging.INFO)
+    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh1)
+
+    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2.setLevel(logging.ERROR)
+    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh2)
 
 
 #######################################################################
@@ -76,25 +95,35 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_cslc(cslc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_CSLC_S1", collection_concept_id="C1257337155-ASF",
-                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
+    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_L2_CSLC-S1_V1", collection_concept_id="C1257337155-ASF",
+                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end, chunk_size=100)
 
 
 async def async_get_cmr_rtc(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_RTC_S1", collection_concept_id="C1257337044-ASF",
-                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L2_RTC-S1_V1", collection_concept_id="C1257337044-ASF",
+                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end, chunk_size=100)
 
 
 async def async_get_cmr(
         native_id_patterns: set,
         collection_short_name: Union[str, Iterable[str]],
         collection_concept_id: str,
-        temporal_date_start: str, temporal_date_end: str):
+        temporal_date_start: str, temporal_date_end: str,
+        chunk_size=1000):  # 1000 ~= 55,100 length
+    """
+    Issue CMR query requests.
+    :param native_id_patterns: the native ID patterns to use in the query. Corresponds to query param `&native-id[]`. Allows use of wildcards "*" and "?", but is descouraged.
+    :param collection_short_name: CMR collection short name. Typically found in PCM's settings.yaml
+    :param collection_concept_id: CMR collection concept ID for faster queries.
+    :param temporal_date_start: temporal start date. Corresponds to query param `&temporal[]=<start>,<end>`
+    :param temporal_date_end: temporal end date. Corresponds to query param `&temporal[]=<start>,<end>`
+    :param chunk_size: split queries across N native-id patterns per request. CMR request bodies have an implicit size limit of 55,100 length. Must be a value in the interval [1,1000].
+    """
     logger.debug(f"entry({len(native_id_patterns)=:,})")
 
     # batch granules-requests due to CMR limitation. 1000 native-id clauses seems to be near the limit.
     native_id_patterns = more_itertools.always_iterable(native_id_patterns)
-    native_id_pattern_batches = list(more_itertools.chunked(native_id_patterns, 1000))  # 1000 == 55,100 length
+    native_id_pattern_batches = list(more_itertools.chunked(native_id_patterns, chunk_size))
 
     request_url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
@@ -107,7 +136,6 @@ async def async_get_cmr(
             request_body = (
                 "provider=ASF"
                 f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
-                f"&collection_concept_id={collection_concept_id}"
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
                 "&bounding_box=-180,-60,180,90"
@@ -357,4 +385,8 @@ async def run(argv: list[str]):
 
 
 if __name__ == "__main__":
+    args = create_parser().parse_args(sys.argv[1:])
+    log_level = args.log_level
+    init_logging()
+
     asyncio.run(run(sys.argv))

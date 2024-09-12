@@ -1,5 +1,5 @@
 {
-  "label": "Query CSLC data with datetime and frame ranges",
+  "label": "Query CSLC data with datetime and frame_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [
@@ -103,9 +103,30 @@
       "optional": true
     },
     {
-      "name": "frame_range",
+      "name": "frame_id",
       "from": "submitter",
-      "placeholder": "e.g. --frame_range",
+      "placeholder": "e.g. --frame-id"
+    },
+    {
+      "name": "k",
+      "from": "submitter",
+      "placeholder": "e.g. --k=<k>",
+      "type": "text",
+      "default": "--k=15"
+    },
+    {
+      "name": "m",
+      "from": "submitter",
+      "placeholder": "e.g. --m=<m>",
+      "type": "text",
+      "default": "--m=5"
+    },
+    {
+      "name": "grace_mins",
+      "from": "submitter",
+      "placeholder": "e.g. --grace-mins=<grace_mins>",
+      "type": "text",
+      "default": "--grace-mins=120",
       "optional": true
     },
     {
