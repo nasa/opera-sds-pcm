@@ -46,7 +46,7 @@ class JobResultSubsetterPairs():
             if not target:
                 raise Exception("Missing target filepath for compressed netCDF4")
 
-        comp = dict(zlib=True, complevel=8)
+        comp = dict(zlib=True, complevel=6)
         encoding = {var: comp for var in nc.data_vars}
         nc.to_netcdf(path=target.resolve(), encoding=encoding)
         return target.resolve()
