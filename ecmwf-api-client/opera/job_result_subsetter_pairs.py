@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 
 import backoff
 import boto3
@@ -14,6 +14,8 @@ from opera import subset, merge
 from temp import with_inserted_suffix
 
 logger = logging.getLogger(__name__)
+
+COMPLEVEL = Literal[-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
 class JobResultSubsetterPairs():
@@ -32,12 +34,14 @@ class JobResultSubsetterPairs():
     is_dev_test = False
 
     @backoff.on_exception(backoff.constant, Exception, max_tries=2)
-    def to_netcdf_compressed(self, nc: Union[Path, xarray.Dataset], target: Optional[Path]):
+    def to_netcdf_compressed(self, nc: Union[Path, xarray.Dataset], target: Optional[Path],
+                             complevel: COMPLEVEL = 9):
         """
         Compress the given xarray Dataset, writing out to a file. A path can be provided instead, which will read the Dataset file into memory.
 
         :param nc: the Dataset to compress.
         :param target: the output filepath. Required if `nc` is a Dataset. Otherwise, defaults to the source Dataset filepath with an added ".zz" suffix.
+        :param complevel: compression level. 0-9. 0 yields no compression. 9 Yields highest compression. None == -1 == 6.
         """
         if type(nc) is Path:
             target = target or with_inserted_suffix(nc, ".zz")
@@ -46,7 +50,7 @@ class JobResultSubsetterPairs():
             if not target:
                 raise Exception("Missing target filepath for compressed netCDF4")
 
-        comp = dict(zlib=True, complevel=6)
+        comp = dict(zlib=True, complevel=complevel)
         encoding = {var: comp for var in nc.data_vars}
         nc.to_netcdf(path=target.resolve(), encoding=encoding)
         return target.resolve()

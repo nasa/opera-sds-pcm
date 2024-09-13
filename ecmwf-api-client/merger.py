@@ -71,7 +71,8 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 logger.info("Compressing")
                 compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
                 nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
-                result_transferer.to_netcdf_compressed(nc, compressed_filepath)
+                result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=6)
+                nc.close()
                 logger.info("Compressed")
 
                 logging.info(f"Uploading results for {date=}")
