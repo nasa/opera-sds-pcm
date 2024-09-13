@@ -132,12 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - July 15, 2024 - R3
-    mozart    = "ami-024158daea696c58d" # mozart v4.25 - 240715
-    metrics   = "ami-0ec9395bcd3c9b44c" # metrics v4.17 - 240715
-    grq       = "ami-059583a64a2daab95" # grq v4.18 - 240715
-    factotum  = "ami-09a4f8d2ac5190255" # factotum v4.16 - 240715
-    autoscale = "ami-09f953f51f1d84913" # verdi v4.16 patchdate - 240717
+    # HySDS v5.0.1 - August 12, 2024 - R3
+    mozart    = "ami-0bb72754b87feda92" # mozart v4.26 - 240809
+    metrics   = "ami-0a5832ef57758384a" # metrics v4.18 - 240812
+    grq       = "ami-0eaffcbdc11298329" # grq v4.19 - 240812
+    factotum  = "ami-01324dc701f947607" # factotum v4.17 - 240815
+    autoscale = "ami-0465ac38191989ed5" # verdi v4.17 patchdate - 240902
   }
 }
 
@@ -484,12 +484,22 @@ variable "queues" {
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
       "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
-        "root_dev_size"     = 50
-        "data_dev_size"     = 250
-        "min_size"          = 0
-        "max_size"          = 10
-        "total_jobs_metric" = true
-        "use_private_vpc"   = false
+      "root_dev_size"     = 50
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
+    }
+    "opera-job_worker-submit_pending_jobs" = {
+      "name"              = "opera-job_worker-submit_pending_jobs"
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "c7i.large"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
     }
     "opera-job_worker-rtc_data_download" = {
       "name"              = "opera-job_worker-rtc_data_download"
@@ -511,6 +521,13 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_private_vpc"   = false
     }
+    "opera-job_worker-ecmwf-subsetter" = {
+      "instance_type"     = ["r7i.2xlarge", "r5a.2xlarge", "m7i-flex.4xlarge", "m7i.4xlarge", "r6a.2xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 600
+      "max_size"          = 10
+      "total_jobs_metric" = true
+    }
     "opera-job_worker-timer" = {
       "name"              = "opera-job_worker-timer"
       "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
@@ -521,7 +538,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
-      "instance_type"     = ["r6a.xlarge"]
+      "instance_type"     = ["r6a.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 250
       "min_size"          = 0
@@ -531,7 +548,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_intel" = {
       "name"              = "opera-job_worker-pge_smoke_test_intel"
-      "instance_type"     = ["r6i.xlarge"]
+      "instance_type"     = ["r6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 250
       "min_size"          = 0
@@ -582,8 +599,8 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.2"
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
-    "dswx_s1"  = "3.0.0-rc.2.1"
-    "disp_s1"  = "3.0.0-rc.2.2"
+    "dswx_s1"  = "3.0.2"
+    "disp_s1"  = "3.0.0-rc.4.0"
     "dswx_ni"  = "4.0.0-er.2.0"
   }
 }

@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import json
 import logging
 from functools import partial
@@ -7,6 +8,8 @@ from typing import Optional
 from util.job_submitter import try_submit_mozart_job
 
 logger = logging.getLogger(__name__)
+
+flatten = itertools.chain.from_iterable
 
 
 async def example(batch_id_to_urls_map, args):
@@ -33,6 +36,11 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, se
                 "metadata": {
                     "batch_id": mgrs_set_id_acquisition_ts_cycle_index,
                     "mgrs_set_id": mgrs_set_id,
+                    # for payload hash dedupe, include granule ID list (changes with improved coverage)
+                    "granule_ids": sorted({
+                        product["granule_id"]
+                        for product in flatten(batch_id_to_products_map[batch_id].values())
+                    })
                 }
             }
         }

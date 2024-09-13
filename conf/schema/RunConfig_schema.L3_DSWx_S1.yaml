@@ -49,6 +49,9 @@ RunConfig:
             # REQUIRED - list of RTC products (directory or files)
             input_file_path: list(str(), min=1)
 
+            # Specify the MGRS tile collection ID
+            input_mgrs_collection_id: str(required=False)
+
           dynamic_ancillary_file_group:
             # Digital elevation model
             dem_file: str(required=True)
@@ -74,6 +77,12 @@ RunConfig:
 
             # ESA WorldCover map description
             worldcover_file_description: str(required=False)
+
+            # GLAD classification map file
+            glad_classification_file: str(required=False)
+
+            # GLAD classification map file description
+            glad_classification_file_description: str(required=False)
 
             # NOAA GSHHS shapefile
             shoreline_shapefile: str(required=False)

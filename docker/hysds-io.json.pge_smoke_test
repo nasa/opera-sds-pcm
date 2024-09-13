@@ -18,6 +18,13 @@
             "optional": false
         },
         {
+            "name": "pge_repo_branch",
+            "from": "submitter",
+            "default": "main",
+            "type": "text",
+            "optional": false
+        },
+        {
             "name": "_triage_additional_globs",
             "from": "value",
             "type": "object",

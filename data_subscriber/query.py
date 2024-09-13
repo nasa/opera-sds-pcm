@@ -1,25 +1,25 @@
 import asyncio
+import hashlib
 import logging
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
-from functools import partial
 from pathlib import Path
-import hashlib
 
 import dateutil.parser
 from more_itertools import chunked
 
+from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (async_query_cmr,
                                  ProductType, DateTimeRange,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
+from data_subscriber.cslc_utils import split_download_batch_id
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions,
                                            download_from_s3)
-from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
-from data_subscriber.cslc_utils import split_download_batch_id
+from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, CSLCDependency
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.conf_util import SettingsConf
@@ -41,7 +41,7 @@ class CmrQuery:
     def validate_args(self):
         pass
 
-    def run_query(self, args, token, es_conn: HLSProductCatalog, cmr, job_id, settings):
+    def run_query(self, args, token, es_conn: ProductCatalog, cmr, job_id, settings):
         query_dt = datetime.now()
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(args, now)
@@ -66,7 +66,8 @@ class CmrQuery:
             granules[:] = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
 
         # TODO: This function only applies to CSLC, merge w RTC at some point
-        # Given the new granules coming in and existing unsubmitted granules, determine which granules to download
+        # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
+        # triggering logic is applied to granules to determine which ones need to be downloaded
         download_granules = self.determine_download_granules(granules)
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
@@ -105,6 +106,8 @@ class CmrQuery:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), args, settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         else:
+            #for g in download_granules:
+            #    print(g["download_batch_id"])
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
 
@@ -162,14 +165,17 @@ class CmrQuery:
     def determine_download_granules(self, granules):
         return granules
 
-    def catalog_granules(self, granules, query_dt):
+    def catalog_granules(self, granules, query_dt, force_es_conn = None):
+
+        es_conn = force_es_conn if force_es_conn else self.es_conn
+
         for granule in granules:
             granule_id = granule.get("granule_id")
 
             additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
 
             update_url_index(
-                self.es_conn,
+                es_conn,
                 granule.get("filtered_urls"),
                 granule,
                 self.job_id,
@@ -230,7 +236,11 @@ class CmrQuery:
 
     def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange):
         job_submission_tasks = []
+
         logger.info(f"{self.args.chunk_size=}")
+
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
+            cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token, self.cmr, self.settings)
 
         for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
             chunk_batch_ids = []
@@ -254,17 +264,36 @@ class CmrQuery:
             logger.info(f"{payload_hash=}")
             logger.debug(f"{chunk_urls=}")
 
+            params = self.create_download_job_params(query_timerange, chunk_batch_ids)
+
             product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
             if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
                 frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
                 acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
                 job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
+
+                # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
+                # and wait for the next query to come in. Any acquisition index will work because all batches
+                # require the same compressed cslcs
+                if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
+                    logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied")
+                    save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
+                                              product_type, params, self.args.job_queue, job_name,
+                                              frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
+
+                    # While we technically do not have a download job here, we mark it as so in ES.
+                    # That's because this flag is used to determine if the granule has been triggered or not
+                    for batch_id, urls in batch_chunk:
+                        self.es_conn.mark_download_job_id(batch_id, "PENDING")
+
+                    continue # don't actually submit download job
+
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
                     product_type=product_type,
-                    params=self.create_download_job_params(query_timerange, chunk_batch_ids),
+                    params=params,
                     job_queue=self.args.job_queue,
                     job_name = job_name,
                     payload_hash = payload_hash
@@ -277,7 +306,6 @@ class CmrQuery:
             job_submission_tasks.append(download_job_id)
 
         return job_submission_tasks
-
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         args = self.args

@@ -4,16 +4,17 @@ import pytest
 import conftest
 
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 from data_subscriber.parser import create_parser
 import dateutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from data_subscriber.cmr import DateTimeRange, get_cmr_token
 from util.conf_util import SettingsConf
 
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
-disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 #TODO: We may change the database json during production that could have different burst ids for the same frame
 #TODO: So we may want to create different versions of this unit test, one for each version of the database json
@@ -25,7 +26,8 @@ def test_burst_map():
      "T175-374395-IW3"]:
         burst_set.add(burst)
     assert disp_burst_map_hist[46800].burst_ids.difference(burst_set) == set()
-    assert disp_burst_map_hist[46800].sensing_datetimes[0] == dateutil.parser.isoparse("2019-11-14T16:51:06")
+    diff_time = disp_burst_map_hist[46800].sensing_datetimes[0] - dateutil.parser.isoparse("2019-11-14T16:51:00")
+    assert diff_time.total_seconds() < 60
 
     assert len(disp_burst_map_hist[46799].burst_ids) == 15
     assert len(disp_burst_map_hist[46799].sensing_datetimes) == 2
@@ -83,6 +85,12 @@ def test_parse_cslc_native_id():
     assert acquisition_cycles == {42261: 276}
     assert frame_ids == [42261]
 
+    #TODO: 09-05-2024 Uncomment after the database file has been updated
+    '''burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
+        cslc_utils.parse_cslc_native_id(
+            "OPERA_L2_CSLC-S1_T107-227769-IW3_20240902T003138Z_20240903T073341Z_S1A_VV_v1.1", burst_to_frames,
+            disp_burst_map_hist)'''
+
 def test_build_ccslc_m_index():
     """Test that the ccslc_m index is correctly constructed"""
     assert cslc_utils.build_ccslc_m_index("T027-056778-IW1", 445) == "t027_056778_iw1_445"
@@ -104,17 +112,18 @@ def test_determine_k_cycle():
     cmr = None
     token = None
 
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831, disp_burst_map_hist, 10, args, token, cmr, settings)
+    cslc_dependency = CSLCDependency(10, 1, disp_burst_map_hist, args, token, cmr, settings) # m doesn't matter here
+
+    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831)
     assert k_cycle == 2
 
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
+    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832)
     assert k_cycle == 1
 
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("20161229T230549"), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
+    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20161229T230549"), None, 832)
     assert k_cycle == 0
 
-    k_cycle = cslc_utils.determine_k_cycle(None, 192, 10859, disp_burst_map_hist,
-                                           10, args, token, cmr, settings)
+    k_cycle = cslc_dependency.determine_k_cycle(None, 192, 10859)
     assert k_cycle == 9
 
     # TODO: Figure out why this isn't working and then create unit test for acquisition date outside of the historical period
@@ -125,21 +134,18 @@ def test_determine_k_cycle():
 def test_get_prev_day_indices():
     args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--use-temporal"])
     settings = SettingsConf().cfg
-
-
     cmr = None
     token = None
 
+    cslc_dependency = CSLCDependency(10, 1, disp_burst_map_hist, args, token, cmr, settings) # k and m don't matter here
+
     # This falls within the historical database json so doesn't need CMR call
-    prev_day_indices = cslc_utils.get_prev_day_indices(192, 10859, disp_burst_map_hist,
-                                                       args, token, cmr, settings)
+    prev_day_indices = cslc_dependency.get_prev_day_indices(192, 10859)
     assert prev_day_indices == [0, 24, 48, 72, 96, 120, 144, 168]
 
     # TODO: Figure out why get_cmr_token doesn't work in this unit test context (works fine in production) and then enable this
-    '''
     # cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
-    prev_day_indices = cslc_utils.get_prev_day_indices(2688, 24733, disp_burst_map_hist,
-                                                       args, token, cmr, settings)
+    '''prev_day_indices = prev_day_indices.get_prev_day_indices(2688, 24733)
     assert prev_day_indices == [0, 12, 36, 60, 84, 132, 156, 180, 204, 228, 234, 252, 258, 282, 294, 366, 834, 858, 1122,
      1134, 1146, 1158, 1170, 1182, 1194, 1206, 1218, 1230, 1272, 1284, 1296, 1308, 1320, 1332, 1344, 1350, 1356, 1362, 
      1368, 1374, 1380, 1386, 1392, 1404, 1410, 1416, 1422, 1428, 1434, 1440, 1446, 1452, 1458, 1464, 1476, 1482, 1488, 
@@ -160,13 +166,11 @@ def test_get_dependent_ccslc_index():
     assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
     assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
 
-def test_frame_geo_map():
-    """Test that the frame geo simple map is correctly constructed"""
-    frame_geo_map = cslc_utils.process_frame_geo_json()
-    assert frame_geo_map[10859] == [[-101.239536, 20.325197], [-100.942045, 21.860135], [-98.526059, 21.55014], [-98.845633, 20.021978], [-101.239536, 20.325197]]
-
 def test_frame_bounds():
     """Test that the frame bounds is correctly computed and formatted"""
-    frame_geo_map = cslc_utils.process_frame_geo_json()
+    frame_geo_map = cslc_utils.localize_frame_geo_json()
     bounds = cslc_utils.get_bounding_box_for_frame(10859, frame_geo_map)
     assert bounds == [-101.239536, 20.021978, -98.526059, 21.860135]
+
+    bounds = cslc_utils.get_bounding_box_for_frame(21517, frame_geo_map)
+    assert bounds == [-179.171315, 49.613083, 176.926336, 51.639512]

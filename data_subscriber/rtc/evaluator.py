@@ -14,10 +14,11 @@ import pandas as pd
 from more_itertools import first, flatten
 
 from data_subscriber import es_conn_util
-from data_subscriber.rtc import evaluator_core, rtc_catalog
+from data_subscriber.rtc import evaluator_core
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id, \
     burst_id_to_relative_orbit_numbers
+from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
 
@@ -53,7 +54,7 @@ def main(
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
             # this constraint seems redundant, but it results in more consistent results
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
-            tmp_es_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+            tmp_es_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
             # filter out any redundant results
             tmp_es_docs = [doc for doc in tmp_es_docs if doc["_source"]["mgrs_set_id_acquisition_ts_cycle_index"] in mgrs_set_id_acquisition_ts_cycle_indexes]
             es_docs.extend(tmp_es_docs)
@@ -62,14 +63,14 @@ def main(
         # query 1: query for unsubmitted docs
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
-        unsubmitted_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+        unsubmitted_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
         logger.info(f"Found {len(unsubmitted_docs)=}")
 
         # query 2: query for submitted but not 100%
         body = get_body(match_all=False)
         body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
-        submitted_but_incomplete_docs = grq_es.query(body=body, index=rtc_catalog.ES_INDEX_PATTERNS)
+        submitted_but_incomplete_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
         logger.info(f"Found {len(submitted_but_incomplete_docs)=}")
 
         es_docs = unsubmitted_docs + submitted_but_incomplete_docs

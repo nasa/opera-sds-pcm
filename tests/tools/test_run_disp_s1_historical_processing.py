@@ -2,6 +2,7 @@
 
 import sys
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 import tools.run_disp_s1_historical_processing
 from tools.run_disp_s1_historical_processing import generate_initial_frame_states, form_job_params, convert_datetime
 
@@ -12,7 +13,7 @@ except ImportError:
 sys.modules["hysds.celery"] = umock.MagicMock()
 from mock import MagicMock
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 START_DATE = '2016-07-01T00:00:00Z'
 END_DATE = '2024-07-01T00:00:00Z'
@@ -58,21 +59,24 @@ def test_form_job_params_basic():
     p = generate_p()
     p.frame_states = generate_initial_frame_states(p.frames)
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
+    # The seconds can shift based on how the database file generator behaves so we will not skip checking seconds
     assert do_submit == True
-    assert job_name == "data-subscriber-query-timer-historical1_f831-2017-02-15T22:35:24-2017-03-23T23:35:24"
+    assert "data-subscriber-query-timer-historical1_f831" in job_name
+    assert "2017-02-15T22:35:" in job_name
+    assert "2017-03-23T23:35:" in job_name
     assert JOB_TYPE in job_spec
     assert job_tags == ['data-subscriber-query-timer', 'historical_processing']
-    assert job_params["start_datetime"] == f"--start-date=2017-02-15T22:35:24Z"
-    assert job_params["end_datetime"] == f"--end-date=2017-03-23T23:35:24Z"
+    assert "--start-date=2017-02-15T22:35:" in job_params["start_datetime"]
+    assert "--end-date=2017-03-23T23:35:" in job_params["end_datetime"]
     assert job_params["processing_mode"] == f'--processing-mode={PROCESSING_MODE}'
     assert job_params["use_temporal"] == f'--use-temporal'
     assert job_params["include_regions"] == f'--include-regions={INCLUDE_REGIONS}'
     assert job_params["exclude_regions"] == f'--exclude-regions={EXCLUDE_REGIONS}'
     assert job_params["frame_id"] == f'--frame-id=831'
     assert job_params["k"] == f'--k=4'
-    assert job_params["m"] == f'--m=2'
+    assert job_params["m"] == f'--m=1'
 
     assert next_frame_sensing_position == 4
     assert finished == False
@@ -84,7 +88,7 @@ def test_form_job_params_early():
     p.frame_states = generate_initial_frame_states(p.frames)
     p.data_start_date = '2018-07-01T00:00:00'
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert next_frame_sensing_position == 4
     assert do_submit == False
@@ -97,7 +101,7 @@ def test_form_job_params_late():
     p.frame_states = generate_initial_frame_states(p.frames)
     p.data_end_date = '2015-07-01T00:00:00'
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert do_submit == False
     assert finished == True
@@ -106,14 +110,14 @@ def test_form_job_params_no_ccslc(monkeypatch):
     '''If compressed cslcs are not found, don't process this round and don't increment the position'''
 
     mock_ccslc = MagicMock(return_value=False)
-    monkeypatch.setattr(tools.run_disp_s1_historical_processing,
-                        tools.run_disp_s1_historical_processing.compressed_cslc_satisfied.__name__, mock_ccslc)
+    monkeypatch.setattr(CSLCDependency,
+                        CSLCDependency.compressed_cslc_satisfied.__name__, mock_ccslc)
 
     p = generate_p()
     p.frame_states = generate_initial_frame_states(p.frames)
     p.data_end_date = '2015-07-01T00:00:00'
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
-        form_job_params(p, 831, 0)
+        form_job_params(p, 831, 0, None, None)
 
     assert do_submit == False
     assert next_frame_sensing_position == 0

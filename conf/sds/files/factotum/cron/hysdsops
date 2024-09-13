@@ -1,0 +1,14 @@
+SHELL=/bin/bash
+
+
+#######################################################################
+# hysdsops user crontab
+#
+# log output to system log using `logger`. On Oracle Linux 8, logs are
+#  written to /var/log/messages (on other systems: /var/log/syslog).
+#  System logging configuration at /etc/rsyslog.conf.
+#
+#
+#######################################################################
+
+0 * * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_job.py 2>&1 | logger -i -p user.notice -t submit_pending_jobs-task

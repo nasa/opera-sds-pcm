@@ -3,6 +3,7 @@
 from collections import defaultdict
 import logging
 from data_subscriber import cslc_utils
+from data_subscriber.cslc_utils import CSLCDependency
 from datetime import datetime, timedelta
 import argparse
 from util.conf_util import SettingsConf
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.", required=False, default=False)
+parser.add_argument("--db-file", dest="db_file", help="Specify the DISP-S1 database json file \
+on the local file system instead of using the standard one in S3 ancillary", required=False)
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
 server_parser = subparsers.add_parser("list", help="List all frame numbers")
@@ -48,7 +51,11 @@ server_parser.add_argument("frame_id", help="The frame id to validate")
 
 args = parser.parse_args()
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist(cslc_utils.DISP_FRAME_BURST_MAP_HIST)
+if args.db_file:
+    logger.info(f"Using local DISP-S1 database json file: {args.db_file}")
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(args.db_file)
+else:
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
@@ -57,7 +64,8 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
-    k_cycle: int = cslc_utils.determine_k_cycle(acquisition_dts, None, frame_id, disp_burst_map, k, subs_args, token, cmr, settings, silent = not verbose)
+    cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings) # we don't care about m here
+    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, silent = not verbose)
 
     return k_cycle
 
@@ -156,7 +164,7 @@ elif args.subparser_name == "validate":
     query_timerange = DateTimeRange(start_date, end_date)
 
     # Query the CMR for the frame_id between the first and the last sensing datetime
-    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=4", "--m=2", "--use-temporal", "--processing-mode=forward"])
+    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
     subs_args.frame_id = frame_id
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
@@ -181,15 +189,17 @@ elif args.subparser_name == "validate":
     missing_cycles = False
     unexpected_cycles = False
     bursts_expected = disp_burst_map[frame_id].burst_ids
-    for i in disp_burst_map[frame_id].sensing_datetime_days_index:
-        bursts_found = acq_cycles[i]
+    for i in range(len(disp_burst_map[frame_id].sensing_datetime_days_index)):
+        day_index = disp_burst_map[frame_id].sensing_datetime_days_index[i]
+        sensing_time = disp_burst_map[frame_id].sensing_datetimes[i]
+        bursts_found = acq_cycles[day_index]
         delta = bursts_expected - bursts_found
         if delta:
             missing_cycles = True
-            print(f"Acquisition cycle {i} is missing {len(delta)} bursts: ", delta)
-            print(f"Granules for acquisition cycle {i} found:", granules_map[i])
+            print(f"Acquisition cycle {day_index} is missing {len(delta)} bursts: ", delta)
+            print(f"Granules for acquisition cycle {day_index} found:", granules_map[day_index])
         else:
-            print(f"Acquisition cycle {i} is good")
+            print(f"Acquisition cycle {day_index} of sensing time {sensing_time} is good ")
 
     new_cycles = acq_cycles.keys() - disp_burst_map[frame_id].sensing_datetime_days_index
     for i in new_cycles:

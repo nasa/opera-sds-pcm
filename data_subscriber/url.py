@@ -5,7 +5,7 @@ from typing import Any
 import dateutil
 from datetime import datetime, timedelta
 
-_EPOCH_S1A = "20190101T000000Z"
+_EPOCH_S1A = "20140101T000000Z"
 
 def form_batch_id(granule_id, revision_id):
     return granule_id+'-r'+str(revision_id)
