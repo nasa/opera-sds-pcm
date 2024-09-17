@@ -74,7 +74,7 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 logger.info("Compressing")
                 compressed_filepath = with_inserted_suffix(subset_filepath, ".zz")
                 nc = xarray.open_dataset(str(subset_filepath.resolve()), chunks="auto")
-                result_transferer.to_netcdf_compressed(nc, compressed_filepath)
+                result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
                 nc.close()
                 logger.info("Compressed")
 
