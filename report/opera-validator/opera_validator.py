@@ -357,6 +357,7 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
             burst_date = get_burst_sensing_datetime(granule_id)
         elif shortname == 'OPERA_L2_CSLC-S1_V1':
             burst_id, burst_date = parse_cslc_file_name(granule_id)
+            burst_id = burst_id.replace("-", "_").lower()
         if (burst_id and burst_date):
             burst_ids[burst_id] = granule_id
             burst_dates[burst_id] = burst_date
@@ -365,7 +366,7 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
     
     return burst_ids, burst_dates
 
-def retrieve_r3_products(endpoint, shortname):
+def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname):
 
     # Convert timestamps to strings in ISO 8601 format
     smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
@@ -438,7 +439,7 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
 
     dswx_s1_mgrs_tiles_to_rtc_bursts = {}
 
-    all_granules = retrieve_r3_products(endpoint, 'OPERA_L3_DSWX-S1_V1')
+    all_granules = retrieve_r3_products(smallest_date, greatest_date, endpoint, 'OPERA_L3_DSWX-S1_V1')
 
     try:
 
@@ -534,7 +535,7 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df):
         requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
     """
 
-    all_granules = retrieve_r3_products(endpoint, 'OPERA_L2_CSLC-S1_V1')
+    all_granules = retrieve_r3_products(smallest_date, greatest_date, endpoint, 'OPERA_L2_CSLC-S1_V1')
 
     try:
         # Extract MGRS tiles and create the mapping to InputGranules
@@ -619,6 +620,8 @@ def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts
         matching_bursts = [burst for burst in burst_ids if burst in associated_bursts]
         if (len(associated_bursts) == 0 and len(matching_bursts) == 0):
             continue # Ignore matching burst counts that are zero in number
+
+        print("Got here")
 
         # Append the result to the data list
         data.append({
@@ -776,6 +779,8 @@ if __name__ == '__main__':
         df = map_cslc_bursts_to_frames(burst_ids=burst_ids.keys(),
                                       bursts_to_frames_file=args.disp_s1_burst_to_frame_db,
                                       frames_to_bursts_file=args.disp_s1_frame_to_burst_db)
+
+        print(df)
 
         # Filter to only those frames that have full coverage (i.e. all bursts == matching)
         df = df[df['All Possible Bursts Count'] == df['Matching Bursts Count']]
