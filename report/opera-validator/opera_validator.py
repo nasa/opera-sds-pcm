@@ -17,6 +17,8 @@ from urllib.parse import urlencode
 import logging
 from datetime import datetime, timedelta
 
+from data_subscriber.cslc_utils import parse_cslc_file_name
+
 # Constants
 CMR_GRANULES_API_ENDPOINT="https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 CMR_UAT_GRANULES_API_ENDPOINT="https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
@@ -350,8 +352,11 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
 
     # Extract burst IDs, dates from granule IDs
     for granule_id in granule_ids:
-        burst_id = get_burst_id(granule_id)
-        burst_date = get_burst_sensing_datetime(granule_id)
+        if shortname == 'OPERA_L2_RTC-S1_V1':
+            burst_id = get_burst_id(granule_id)
+            burst_date = get_burst_sensing_datetime(granule_id)
+        elif shortname == 'OPERA_L2_CSLC-S1_V1':
+            burst_id, burst_date = parse_cslc_file_name(granule_id)
         if (burst_id and burst_date):
             burst_ids[burst_id] = granule_id
             burst_dates[burst_id] = burst_date
@@ -359,6 +364,49 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
             print(f"\nWarning: Could not extract burst ID from malformed granule ID {granule_id}.")
     
     return burst_ids, burst_dates
+
+def retrieve_r3_products(endpoint, shortname):
+
+    # Convert timestamps to strings in ISO 8601 format
+    smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    greatest_date_iso = greatest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+
+    # Generate the base URL and parameters for the CMR query
+    base_url, params = generate_url_params(
+        start=smallest_date_iso,
+        end=greatest_date_iso,
+        endpoint=endpoint,
+        provider='',  # leave blank
+        short_name=shortname,  # Use the specific product short name
+        timestamp_type='temporal'  # Ensure this matches the query requirements
+    )
+
+    # Update the params dictionary directly to include any specific parameters needed
+    params['page_size'] = 1000  # Set the page size to 1000
+    params['page_num'] = 1  # Start with the first page
+
+    all_granules = []
+
+    while True:
+        # Construct the full URL for the request
+        full_url = f"{base_url}?{urlencode(params)}"
+
+        # Make the HTTP request
+        response = requests.get(full_url)
+        response.raise_for_status()  # Raises a HTTPError for bad responses
+        granules = response.json()
+
+        # Append the current page's granules to the all_granules list
+        all_granules.extend(granules['items'])
+
+        # Check if we've retrieved all pages
+        if len(all_granules) >= granules['hits']:
+            break
+
+        # Increment the page number for the next iteration
+        params['page_num'] += 1
+
+    return all_granules
 
 def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
     """
@@ -388,46 +436,11 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
         requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
     """
 
-    # Convert timestamps to strings in ISO 8601 format
-    smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
-    greatest_date_iso = greatest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
-
-    # Generate the base URL and parameters for the CMR query
-    base_url, params = generate_url_params(
-        start=smallest_date_iso,
-        end=greatest_date_iso,
-        endpoint=endpoint,
-        provider='',  # leave blank
-        short_name='OPERA_L3_DSWX-S1_V1',  # Use the specific product short name
-        timestamp_type='temporal'  # Ensure this matches the query requirements
-    )
-
-    # Update the params dictionary directly to include any specific parameters needed
-    params['page_size'] = 1000  # Set the page size to 1000
-    params['page_num'] = 1  # Start with the first page
-
-    all_granules = []
     dswx_s1_mgrs_tiles_to_rtc_bursts = {}
 
+    all_granules = retrieve_r3_products(endpoint, 'OPERA_L3_DSWX-S1_V1')
+
     try:
-        while True:
-            # Construct the full URL for the request
-            full_url = f"{base_url}?{urlencode(params)}"
-
-            # Make the HTTP request
-            response = requests.get(full_url)
-            response.raise_for_status()  # Raises a HTTPError for bad responses
-            granules = response.json()
-
-            # Append the current page's granules to the all_granules list
-            all_granules.extend(granules['items'])
-
-            # Check if we've retrieved all pages
-            if len(all_granules) >= granules['hits']:
-                break
-
-            # Increment the page number for the next iteration
-            params['page_num'] += 1
 
         # Extract MGRS tiles and create the mapping to InputGranules
         available_rtc_bursts = []
@@ -521,46 +534,9 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df):
         requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
     """
 
-    # Convert timestamps to strings in ISO 8601 format
-    smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
-    greatest_date_iso = greatest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
-
-    # Generate the base URL and parameters for the CMR query
-    base_url, params = generate_url_params(
-        start=smallest_date_iso,
-        end=greatest_date_iso,
-        endpoint=endpoint,
-        provider='',  # leave blank
-        short_name='OPERA_L2_CSLC-S1_V1',  # Use the specific product short name
-        timestamp_type='temporal'  # Ensure this matches the query requirements
-    )
-
-    # Update the params dictionary directly to include any specific parameters needed
-    params['page_size'] = 1000  # Set the page size to 1000
-    params['page_num'] = 1  # Start with the first page
-
-    all_granules = []
+    all_granules = retrieve_r3_products(endpoint, 'OPERA_L2_CSLC-S1_V1')
 
     try:
-        while True:
-            # Construct the full URL for the request
-            full_url = f"{base_url}?{urlencode(params)}"
-
-            # Make the HTTP request
-            response = requests.get(full_url)
-            response.raise_for_status()  # Raises a HTTPError for bad responses
-            granules = response.json()
-
-            # Append the current page's granules to the all_granules list
-            all_granules.extend(granules['items'])
-
-            # Check if we've retrieved all pages
-            if len(all_granules) >= granules['hits']:
-                break
-
-            # Increment the page number for the next iteration
-            params['page_num'] += 1
-
         # Extract MGRS tiles and create the mapping to InputGranules
         available_cslc_bursts = []
         for item in all_granules:
@@ -770,31 +746,32 @@ if __name__ == '__main__':
 
             print()
             if len(validated_df) == 0:
-                print(f"✅ Validation successful: All DSWx-S1 products ({df['MGRS Tiles Count'].sum()}) available at CMR for corresponding matched input RTC bursts within sensing time range.")
-                print()
                 if (args.verbose):
                     print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
                 else:
                     print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
-            else:
-                print(f"❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
                 print()
+                print(f"✅ Validation successful: All DSWx-S1 products ({df['MGRS Tiles Count'].sum()}) available at CMR for corresponding matched input RTC bursts within sensing time range.")
+
+            else:
                 print(f"Incomplete MGRS Set IDs ({len(validated_df)}) out of total MGRS Set IDs expected ({len(df)}) and expected DSWx-S1 products ({df['MGRS Tiles Count'].sum()})")
                 if (args.verbose):
                     print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count', 'Covered RTC Native IDs', 'Unprocessed RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
                 else:
                     print(tabulate(validated_df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Unprocessed RTC Native IDs Count']], headers='keys', tablefmt='plain', showindex=False))
+                print()
+                print(f"❌ Validation failed: Mismatch in DSWx-S1 products available at CMR for corresponding matched input RTC bursts within sensing time range.")
+
         else:
-            print(f"Expected DSWx-S1 products: {df['MGRS Tiles Count'].sum()}, MGRS Set IDs covered: {len(df)}")
             if (args.verbose):
                 print(tabulate(df[['MGRS Set ID','Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count', 'Covered RTC Native IDs', 'MGRS Tiles']], headers='keys', tablefmt='plain', showindex=False))
             else:
                 print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count']], headers='keys', tablefmt='plain', showindex=False))
-
+            print(f"Expected DSWx-S1 products: {df['MGRS Tiles Count'].sum()}, MGRS Set IDs covered: {len(df)}")
     elif (args.product == 'DISP-S1' and args.disp_s1_burst_to_frame_db and args.disp_s1_frame_to_burst_db):
         # Gather list of bursts and dates for CSLC sening time range
         burst_ids, burst_dates  = get_burst_ids_and_sensing_times_from_query(start=args.start, end=args.end, endpoint='OPS',  timestamp=args.timestamp, shortname='OPERA_L2_CSLC-S1_V1')
-        
+
         # Generate a table that has frames, all bursts, and matching bursts listed
         df = map_cslc_bursts_to_frames(burst_ids=burst_ids.keys(),
                                       bursts_to_frames_file=args.disp_s1_burst_to_frame_db,
