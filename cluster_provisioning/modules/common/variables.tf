@@ -522,14 +522,14 @@ variable "queues" {
       "use_private_vpc"   = false
     }
     "opera-job_worker-ecmwf-merger" = {
-      "instance_type"     = ["r7i.2xlarge", "r6i.2xlarge", "m7i-flex.4xlarge", "m7i.4xlarge", "r7a.2xlarge", "r6a.2xlarge", "r5a.2xlarge"]
+      "instance_type"     = ["r5a.4xlarge", "r6a.4xlarge", "r7a.4xlarge", "r5.4xlarge", "r6i.4xlarge", "r7i.4xlarge", "m5a.8xlarge", "m6a.8xlarge", "m7a.8xlarge", "m5.8xlarge", "m6i.8xlarge", "m7i.8xlarge", "m7i-flex.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
     }
     "opera-job_worker-ecmwf-subsetter" = {
-      "instance_type"     = ["r7i.2xlarge", "r6i.2xlarge", "m7i-flex.4xlarge", "m7i.4xlarge", "r7a.2xlarge", "r6a.2xlarge", "r5a.2xlarge"]
+      "instance_type"     = ["r5a.4xlarge", "r6a.4xlarge", "r7a.4xlarge", "r5.4xlarge", "r6i.4xlarge", "r7i.4xlarge", "m5a.8xlarge", "m6a.8xlarge", "m7a.8xlarge", "m5.8xlarge", "m6i.8xlarge", "m7i.8xlarge", "m7i-flex.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
       "max_size"          = 10
