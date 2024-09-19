@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #######################################################################
-# This script will submit subsetter jobs. Recommended to be run from
+# This script will submit merger jobs. Recommended to be run from
 # Mozart.
 #######################################################################
 set -e
@@ -33,10 +33,10 @@ Options:
       --target-bucket Target bucket name. Defaults to "opera-ancillaries".
       --mozart-ip     REQUIRED. Local IP address for Mozart. Optional if ran on Mozart.
       --release       Release version of the job Docker image. Defaults to "develop".
-      --job-type      Job type. Defaults to "job-subsetter".
-      --job-queue     Job queue. Defaults to opera-job_worker-ecmwf-subsetter.
-      --job-name      Custom job name. Defaults to "subsetter".
-      --job-tag       Custom job tag. Defaults to "subsetter".
+      --job-type      Job type. Defaults to "job-merger".
+      --job-queue     Job queue. Defaults to opera-job_worker-ecmwf-merger.
+      --job-name      Custom job name. Defaults to "merger".
+      --job-tag       Custom job tag. Defaults to "merger".
 USAGE
 }
 
@@ -79,11 +79,11 @@ fi
 
 # default values
 RELEASE='develop'
-JOB_TYPE='job-subsetter'
-JOB_QUEUE='opera-job_worker-ecmwf-subsetter'
+JOB_TYPE='job-merger'
+JOB_QUEUE='opera-job_worker-ecmwf-merger'
 
-JOB_NAME='subsetter'
-JOB_TAGS='subsetter'
+JOB_NAME='merger'
+JOB_TAGS='merger'
 
 # override base script param defaults
 for i in "$@"; do

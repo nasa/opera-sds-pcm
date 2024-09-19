@@ -16,8 +16,8 @@ def run_grib_to_netcdf(src: Path, target: Path):
         [
             "grib_to_netcdf",
             "-D", "NC_FLOAT",
-            "-o", str(target.expanduser().resolve()),
-            str(src.expanduser())
+            "-o", str(target.resolve()),
+            str(src)
         ],
         shell=False,
         check=False,

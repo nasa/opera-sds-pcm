@@ -62,23 +62,20 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 # result_transferer = JobResultTransfererPairs(ecmwf_service=None, dao=None)
                 result_transferer = JobResultSubsetterPairs()
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
-                logger.info(f"Merge + subset input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merge input: {a2_a3_nc_filepath_pair=}")
 
                 merged_filepath = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2").removeprefix("A3"))
                 merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
-
-                subset_filepath = with_inserted_suffix(merged_filepath, ".subset")
-                subset_filepath = result_transferer.do_subset(merged_filepath, target=subset_filepath)
-                logger.info(f"Merged + subset input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
 
                 logger.info("Compressing")
-                compressed_filepath = with_inserted_suffix(subset_filepath, ".zz")
-                nc = xarray.open_dataset(str(subset_filepath.resolve()), chunks="auto")
+                compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
+                nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
                 result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
                 nc.close()
                 logger.info("Compressed")
 
                 logging.info(f"Uploading results for {date=}")
                 result_transferer.ancillaries_bucket_name = target_bucket_name
-                result_transferer.do_upload_subset(date, compressed_filepath, raise_=True)
+                result_transferer.do_upload(date, compressed_filepath, raise_=True)
                 logging.info(f"Uploaded results for {date=}")

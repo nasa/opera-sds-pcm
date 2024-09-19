@@ -1,6 +1,6 @@
 {
-  "command": "/home/ops/verdi/ops/ecmwf-api-client/run_subsetter.sh",
-  "recommended-queues": [ "opera-job_worker-ecmwf-subsetter" ],
+  "command": "/home/ops/verdi/ops/ecmwf-api-client/run_merger.sh",
+  "recommended-queues": [ "opera-job_worker-ecmwf-merger" ],
   "params": [
     {
       "name": "bucket",
