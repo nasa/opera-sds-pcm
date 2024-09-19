@@ -21,6 +21,7 @@ runconfig:
     hand_file: __CHIMERA_VAL__
     worldcover_file: __CHIMERA_VAL__
     reference_water_file: __CHIMERA_VAL__
+    glad_classification_file: __CHIMERA_VAL__
   static_ancillary_file_group:
     mgrs_database_file: __CHIMERA_VAL__
     mgrs_collection_database_file: __CHIMERA_VAL__
