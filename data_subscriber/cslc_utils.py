@@ -88,6 +88,16 @@ def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_b
     frame = frame_to_bursts[frame_number]
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
+def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
+    '''Return the nearest sensing datetime in the frame sensing datetime list that is not greater than the sensing time.
+    It's a linear search in a sorted list but no big deal because there will only ever be a few hundred elements'''
+
+    for i, dt in enumerate(frame_sensing_datetimes):
+        if dt > sensing_time:
+            return frame_sensing_datetimes[i-1]
+
+    return frame_sensing_datetimes[-1]
+
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''

@@ -8,7 +8,6 @@ from data_subscriber.cslc_utils import CSLCDependency
 from data_subscriber.parser import create_parser
 import dateutil
 from datetime import datetime, timedelta
-from data_subscriber.cmr import DateTimeRange, get_cmr_token
 from util.conf_util import SettingsConf
 
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
@@ -52,6 +51,15 @@ def test_burst_to_frame_map():
     assert burst_to_frames["T004-006648-IW3"][0] == 831
     assert burst_to_frames["T004-006649-IW3"][0] == 831
     assert burst_to_frames["T004-006649-IW3"][1] == 832
+
+def test_nearest_sensing_datetime():
+    nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
+                                                           dateutil.parser.isoparse("2016-11-02T00:26:48"))
+    assert nearest_time == dateutil.parser.isoparse("2016-11-02T00:26:47")
+
+    nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
+                                                           dateutil.parser.isoparse("2027-11-02T00:26:48"))
+    assert nearest_time == dateutil.parser.isoparse("2024-08-04T00:27:24")
 
 #TODO: We may change the database json during production that could have different burst ids for the same frame
 #TODO: So we may want to create different versions of this unit test, one for each version of the database json

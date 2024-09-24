@@ -156,29 +156,40 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
         s_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
         logger.info(f"{frame_id=} reached end of historical processing. No reprocessing needed")
 
-    # If we are outside of the database sensing time range, we are done with this frame
-    # Submit reprocessing job for any remainder within this incomplete k-cycle
-    try:
-        e_date = frame_sensing_datetimes[sensing_time_position_zero_based + p.k - 1] + timedelta(minutes=30)
-    except IndexError:
+    # If we are outside of the database sensing time range, we are at the very last run for this frame. We have two choices:
+    # 1. If the number of sensing time is >= k/2, submit one more historical processing job with k = number of sensing times
+    # 2. If not, Submit reprocessing jobs for all remainder sensing times
+    end_sensing_date_index = sensing_time_position_zero_based + p.k - 1
+    if end_sensing_date_index < len(frame_sensing_datetimes)\
+            and frame_sensing_datetimes[end_sensing_date_index] + timedelta(minutes=30) < data_end_date:
+        e_date = frame_sensing_datetimes[end_sensing_date_index] + timedelta(minutes=30)
+        job_param_k = f"--k={p.k}"
+    else:
+        logger.info(f"This is the last run for frame {frame_id}")
         finished = True
-        do_submit = False
-        e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
-        logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
+        remaining_sensing_time_count = len(frame_sensing_datetimes) - sensing_time_position_zero_based
 
-        # Print out all the reprocessing job commands. This is temporary until it can be automated
-        # TODO: submit reprocessing jobs instead of just printing them
-        for i in range(sensing_time_position_zero_based, len(frame_sensing_datetimes)):
-            s_date = frame_sensing_datetimes[i] - timedelta(minutes=30)
-            e_date = frame_sensing_datetimes[i] + timedelta(minutes=30)
-            logger.info(f"python ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py query -c {CSLC_COLLECTION} \
---chunk-size=1 --k={p.k} --m={p.m} --job-queue={p.download_job_queue} --processing-mode=reprocessing --grace-mins=0 \
---start-date={convert_datetime(s_date)} --end-date={convert_datetime(e_date)} --frame-id={frame_id} ")
+        if remaining_sensing_time_count >= p.k/2:
+            do_submit = True
+            e_date = frame_sensing_datetimes[-1] + timedelta(minutes=30)
+            job_param_k = f"--k={remaining_sensing_time_count}"
+        else:
+            do_submit = False
+            e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
+            logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
+
+            # Print out all the reprocessing job commands. This is temporary until it can be automated
+            # TODO: submit reprocessing jobs instead of just printing them
+            for i in range(sensing_time_position_zero_based, len(frame_sensing_datetimes)):
+                s_date = frame_sensing_datetimes[i] - timedelta(minutes=30)
+                e_date = frame_sensing_datetimes[i] + timedelta(minutes=30)
+                logger.info(f"python ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py query -c {CSLC_COLLECTION} \
+    --chunk-size=1 --k={p.k} --m={p.m} --job-queue={p.download_job_queue} --processing-mode=reprocessing --grace-mins=0 \
+    --start-date={convert_datetime(s_date)} --end-date={convert_datetime(e_date)} --frame-id={frame_id} ")
 
     if s_date < data_start_date:
         do_submit = False
     if e_date > data_end_date:
-        do_submit = False
         finished = True
 
     '''Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
@@ -224,7 +235,7 @@ Skipping now but will be retried in the future." % (frame_id, sensing_time_posit
     if len(excludes.strip()) > 0:
         job_params["exclude_regions"] = f'--exclude-regions={excludes}'
 
-    job_params["k"] = f"--k={p.k}"
+    job_params["k"] = job_param_k
 
     # We need to adjust the m parameter early in the sensing time series
     # For example, if this is the very first k-set, there won't be compressed cslc and therefore m should be 1
