@@ -11,6 +11,6 @@ resource "aws_cloudwatch_log_group" "autoscaling-log-groups-job-worker" {
 
 resource "aws_cloudwatch_log_group" "autoscaling-log-groups-job-worker-run" {
   for_each          = var.queues
-  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_${split("-", lower(each.key))[2]}.log"
+  name              = length(split("-", lower(each.key))) == 4 ? "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_${split("-", lower(each.key))[3]}.log" : "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_${split("-", lower(each.key))[2]}.log"
   retention_in_days = var.lambda_log_retention_in_days
 }

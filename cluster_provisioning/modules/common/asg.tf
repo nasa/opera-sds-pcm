@@ -21,7 +21,8 @@ resource "aws_launch_template" "launch_template" {
     var_venue = var.venue
     local_counter = local.counter
     var_environment = var.environment
-    run_log_group = split("-", lower(each_key))[2]
+    run_log_group = length(split("-", lower(each.key))) == 4 ? split("-", lower(each.key))[3] : split("-", lower(each.key))[2]
+    run_job = "run_job"
   }))
   vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
