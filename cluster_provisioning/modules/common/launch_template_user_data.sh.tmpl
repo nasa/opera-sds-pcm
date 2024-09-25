@@ -9,20 +9,6 @@ echo "PASS" >> /tmp/user_data_test.txt
 mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
 touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 
-# For SCIFLO jobs the log file names are determined in the chimera code base which we can't change.
-# So we will have to reflect its logic here
-if [[ ${each_key} == *"sciflo-l3_dswx_hls"* ]]; then
-  run_job = "run_sciflo_L3_DSWx_HLS"
-elif [[ ${each_key} == *"sciflo-l2_rtc_s1"* ]]; then
-  run_job = "run_sciflo_L2_RTC_S1"
-elif [[ ${each_key} == *"sciflo-l2_cslc_s1"* ]];  then
-  run_job = "run_sciflo_L2_CSLC_S1"
-elif [[ ${each_key} == *"sciflo-l3_dswx_s1"* ]]; then
-  run_job = "run_sciflo_L3_DSWx_S1"
-elif [[ ${each_key} == *"sciflo-l3_disp_s1"* ]]; then
-  run_job = "run_sciflo_L3_DISP_S1"
-fi
-
 echo '{
   "agent": {
     "metrics_collection_interval": 10,
@@ -38,7 +24,7 @@ echo '{
             "timezone": "UTC"
           },
           {
-            "file_path": "/data/work/jobs/**/${run_job}.log",
+            "file_path": "/data/work/jobs/**/${log_file_name}.log",
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_${run_log_group}.log",
             "timezone": "Local",
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"

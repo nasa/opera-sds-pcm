@@ -294,6 +294,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1"
+      "log_file_name"     = "run_sciflo_L2_CSLC_S1"
       "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "c6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 300
@@ -302,6 +303,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_cslc_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1_hist"
+      "log_file_name"     = "run_sciflo_L2_CSLC_S1"
       "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "c6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 300
@@ -310,6 +312,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
       "name"              = "opera-job_worker-sciflo-l2_rtc_s1"
+      "log_file_name"     = "run_sciflo_L2_RTC_S1"
       "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "c6i.2xlarge", "c6a.4xlarge", "c6i.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -318,6 +321,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l2_rtc_s1_static" = {
       "name"              = "opera-job_worker-sciflo-l2_rtc_s1_static"
+      "log_file_name"     = "run_sciflo_L2_RTC_S1"
       "instance_type"     = ["r6a.2xlarge", "r6i.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -326,6 +330,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_hls" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_hls"
+      "log_file_name"     = "run_sciflo_L3_DSWx_HLS"
       "instance_type"     = ["c7a.large", "c6a.large", "c6i.large"]
       "root_dev_size"     = 50
       "data_dev_size"     = 50
@@ -335,6 +340,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_s1"
+      "log_file_name"     = "run_sciflo_L3_DSWx_S1"
       "instance_type"     = ["c7i.xlarge", "c7i.2xlarge", "c7i.4xlarge", "c7i.8xlarge", "m7i.xlarge", "m7i.2xlarge", "m7i.4xlarge", "m7i.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -344,6 +350,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_disp_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1"
+      "log_file_name"     = "run_sciflo_L3_DISP_S1"
       "instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
@@ -352,6 +359,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
+      "log_file_name"     = "run_sciflo_L3_DISP_S1"
       "instance_type"     = ["r7i.4xlarge", "r6a.4xlarge", "r6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
@@ -360,6 +368,7 @@ variable "queues" {
     }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
+      "log_file_name"     = "run_sciflo_L3_DSWx_NI"
       "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge", "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 100
