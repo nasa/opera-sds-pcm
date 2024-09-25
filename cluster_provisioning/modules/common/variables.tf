@@ -343,6 +343,7 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_disp_s1" = {
+      "name"              = "opera-job_worker-sciflo-l3_disp_s1"
       "instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
@@ -350,6 +351,7 @@ variable "queues" {
       "total_jobs_metric" = true
     }
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
+      "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
       "instance_type"     = ["r7i.4xlarge", "r6a.4xlarge", "r6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600

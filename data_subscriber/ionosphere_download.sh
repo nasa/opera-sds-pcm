@@ -18,7 +18,7 @@ echo "##########################################"
 echo "Running job to download SLC ionosphere data"
 date
 
-python $OPERA_HOME/data_subscriber/ionosphere_download.py $* > run_ionosphere_download.log 2>&1
+python $OPERA_HOME/data_subscriber/ionosphere_download.py $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

@@ -21,7 +21,7 @@ date
 
 # Forward processing use case; download all undownloaded files from ES index
 echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p LPCLOUD"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p LPCLOUD $* > run_hls_download.log 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download -p LPCLOUD $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
