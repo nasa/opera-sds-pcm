@@ -319,11 +319,11 @@ class CSLCDependency:
                         {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
 
                 # Should have exactly one compressed cslc per acq cycle per burst
-                if len(ccslc) != 1:
+                if len(ccslc) == 0:
                     logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
                     return False
 
-                ccslcs.extend(ccslc)
+                ccslcs.append(ccslc[0]) # There can be up to two and those are identical and interchangeable so just pick the first one
 
         logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
         return ccslcs
