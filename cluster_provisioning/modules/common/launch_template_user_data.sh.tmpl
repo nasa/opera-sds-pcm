@@ -34,6 +34,11 @@ echo '{
             "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/${each_key}.log",
             "timezone": "Local",
             "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/data/work/jobs/**/run_on_demand.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_on_demand.log",
+            "timezone": "Local"
           }
         ]
       }

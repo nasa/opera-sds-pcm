@@ -9,8 +9,15 @@ resource "aws_cloudwatch_log_group" "autoscaling-log-groups-job-worker" {
   retention_in_days = var.lambda_log_retention_in_days
 }
 
+# SCIFLO queue names have 4 tokens when split by '-', the rest have 3.
 resource "aws_cloudwatch_log_group" "autoscaling-log-groups-job-worker-run" {
   for_each          = var.queues
   name              = length(split("-", lower(each.key))) == 4 ? "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_${split("-", lower(each.key))[3]}.log" : "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_${split("-", lower(each.key))[2]}.log"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# This log groups doesn't have corresponding OPERA-defined queues.
+resource "aws_cloudwatch_log_group" "run_on_demand" {
+  name              = "/opera/sds/${var.project}-${var.venue}-${local.counter}/run_on_demand.log"
   retention_in_days = var.lambda_log_retention_in_days
 }
