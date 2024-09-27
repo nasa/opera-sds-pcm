@@ -26,8 +26,8 @@
           }
         },
         {
-          "container_image_name": "opera_pge/dswx_ni:4.0.0-er.2.0",
-          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_ni-4.0.0-er.2.0.tar.gz",
+          "container_image_name": "opera_pge/dswx_ni:4.0.0-er.3.0",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_ni-4.0.0-er.3.0.tar.gz",
           "container_mappings": {
             "$HOME/.netrc": ["/root/.netrc"],
             "$HOME/.aws": ["/root/.aws", "ro"]

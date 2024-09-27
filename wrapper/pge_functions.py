@@ -116,13 +116,13 @@ def dswx_ni_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'RTC')
+    rtc_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
 
     lineage_metadata.extend(
         [os.path.join(rtc_data_dir, rtc_file) for rtc_file in os.listdir(rtc_data_dir)]
     )
 
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'ancillary_data')
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'ancillary_data')
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
@@ -302,7 +302,7 @@ def update_dswx_ni_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'RTC')
+    rtc_data_prefix = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(rtc_data_prefix, container_home_prefix), input_file_paths))
@@ -314,6 +314,7 @@ def update_dswx_ni_runconfig(context, work_dir):
     run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.tif'
     run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.tif'
     run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.tif'
+    run_config["dynamic_ancillary_file_group"]["glad_classification_file"] = f'{container_home_prefix}/glad_classification.tif'
 
     run_config["static_ancillary_file_group"]["mgrs_database_file"] = f'{container_home_prefix}/MGRS_tile.sqlite'
     run_config["static_ancillary_file_group"]["mgrs_collection_database_file"] = f'{container_home_prefix}/MGRS_collection_db_DSWx-NI_v0.1.sqlite'
