@@ -232,9 +232,17 @@ def update_ilm_policy_mozart():
 
 @roles("grq")
 def update_grq_es():
-    create_ilm_policy_grq()
-    override_grq_default_index_template()
-    create_index_templates_grq()
+    context = get_context()
+    metrics_es_engine = context.get("METRICS_ES_ENGINE", "elasticsearch")
+    if metrics_es_engine == "opensearch":
+        # TODO chrisjrd: implement ISM policy changes here
+        # TODO chrisjrd: implement default index template overrides here
+        # TODO chrisjrd: implement index template changes here
+        pass
+    elif metrics_es_engine == "elasticsearch":
+        create_ilm_policy_grq()
+        override_grq_default_index_template()
+        create_index_templates_grq()
 
 
 @roles("grq")
@@ -302,8 +310,14 @@ def update_metrics_es():
     context = get_context()
     mkdir(f"{hysds_dir}/ops/metrics/config", context['OPS_USER'], context['OPS_USER'])
 
-    create_ilm_policy_metrics()
-    create_index_templates_metrics()
+    metrics_es_engine = context.get("METRICS_ES_ENGINE", "elasticsearch")
+    if metrics_es_engine == "opensearch":
+        # TODO chrisjrd: implement ISM policy changes here
+        # TODO chrisjrd: implement index template changes here
+        pass
+    elif metrics_es_engine == "elasticsearch":
+        create_ilm_policy_metrics()
+        create_index_templates_metrics()
 
 
 @roles("metrics")
