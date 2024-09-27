@@ -125,10 +125,7 @@
       "settings": {
         "number_of_shards": 5,
         "index": {
-          "refresh_interval": "5s",
-          "lifecycle": {
-            "name": "ilm_policy_mozart"
-          }
+          "refresh_interval": "5s"
         },
         "analysis": {
           "analyzer": {

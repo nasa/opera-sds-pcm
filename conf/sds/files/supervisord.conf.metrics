@@ -35,6 +35,7 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
 
+{%- if METRICS_ES_ENGINE != 'opensearch' %}
 [program:kibana]
 directory={{ OPS_HOME }}/kibana
 command={{ OPS_HOME }}/kibana/bin/kibana
@@ -47,6 +48,7 @@ stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
+{% endif %}
 
 [program:logstash_indexer]
 directory={{ OPS_HOME }}/logstash/bin
