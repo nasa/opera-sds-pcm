@@ -71,9 +71,6 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
     return k_cycle
 
-if args.k:
-    k = int(args.k)
-
 if args.subparser_name == "list":
     l = list(disp_burst_map.keys())
     print("Frame numbers (%d): \n" % len(l), l)
@@ -108,6 +105,7 @@ elif args.subparser_name == "native_id":
         exit(-1)
 
     if args.k:
+        k = int(args.k)
         k_cycle = get_k_cycle(acquisition_dts, frame_ids[0], disp_burst_map, k, args.verbose)
         if (k_cycle >= 0):
             print(f"K-cycle: {k_cycle} out of {k}")
@@ -126,6 +124,7 @@ elif args.subparser_name == "frame":
     len_sensing_times = len(disp_burst_map[frame_number].sensing_datetimes)
     print("Sensing datetimes (%d): " % len_sensing_times)
     if args.k:
+        k = int(args.k)
         for i in range(0, len_sensing_times, k):
             end = i+k if i+k < len_sensing_times else len_sensing_times - 1
             print(f"K-cycle {math.ceil(i/k)}", [t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes[i:end]])
@@ -134,6 +133,7 @@ elif args.subparser_name == "frame":
 
     print("Day indices:")
     if args.k:
+        k = int(args.k)
         for i in range(0, len_sensing_times, k):
             end = i+k if i+k < len_sensing_times else len_sensing_times - 1
             print(f"K-cycle {math.ceil(i/k)}", disp_burst_map[frame_number].sensing_datetime_days_index[i:end])
@@ -187,7 +187,9 @@ elif args.subparser_name == "validate":
     cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
     all_granules = cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, datetime.now(), query_timerange)
 
-    print(len(all_granules), " granules found in the CMR")
+    all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]] # We only want to process VV polarization data
+
+    print(len(all_granules), " granules found in the CMR without HH polarization")
 
     # Group them by acquisition cycle
     acq_cycles = defaultdict(set)
