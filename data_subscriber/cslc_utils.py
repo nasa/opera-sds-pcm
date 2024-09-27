@@ -88,6 +88,35 @@ def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_b
     frame = frame_to_bursts[frame_number]
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
+def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
+    '''Return the nearest sensing datetime in the frame sensing datetime list that is not greater than the sensing time and
+    the number of sensing datetimes until that datetime.
+    It's a linear search in a sorted list but no big deal because there will only ever be a few hundred elements'''
+
+    for i, dt in enumerate(frame_sensing_datetimes):
+        if dt > sensing_time:
+            return i, frame_sensing_datetimes[i-1]
+
+    return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
+
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts):
+    '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
+
+    total_possible_sensingdates = 0
+    total_processed_sensingdates = 0
+    frame_completion = {}
+    last_processed_datetimes = {}
+    for frame, state in frame_states.items():
+        frame = int(frame)
+        num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
+        total_possible_sensingdates += num_sensing_times
+        total_processed_sensingdates += state
+        frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
+        last_processed_datetimes[str(frame)] = frame_to_bursts[frame].sensing_datetimes[state-1] if state > 0 else None
+
+    progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100)
+    return progress_percentage, frame_completion, last_processed_datetimes
+
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''

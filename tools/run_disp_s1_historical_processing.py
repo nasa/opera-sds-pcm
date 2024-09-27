@@ -101,6 +101,17 @@ def proc_once(eu, procs, args):
                            body={"doc_as_upsert": True,
                                  "doc": { "frame_states": p.frame_states, }},
                            index=ES_INDEX)
+
+                    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+                    progress_percentage, frame_completion, last_processed_datetimes \
+                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map)
+                    eu.update_document(id=doc_id,
+                                       body={"doc_as_upsert": True,
+                                             "doc": {"progress_percentage": progress_percentage,
+                                                     "frame_completion_percentages": frame_completion,
+                                                     "last_processed_datetimes": last_processed_datetimes, }},
+                                       index=ES_INDEX)
+
                 else:
                     logger.error("Job submission failed for %s" % job_name)
 
