@@ -11,9 +11,8 @@ from shapely.geometry import box
 
 from commons.logger import logger
 from commons.logger import LogLevels
-from util.geo_util import (check_dateline,
-                           polygon_from_mgrs_tile)
-from util.pge_util import check_aws_connection
+from util.geo_util import (polygon_from_mgrs_tile)
+from tools.stage_ancillary_map import check_aws_connection, check_dateline
 
 # Enable exceptions
 gdal.UseExceptions()

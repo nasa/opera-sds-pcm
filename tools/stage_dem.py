@@ -14,12 +14,10 @@ from shapely.geometry import Polygon
 
 from commons.logger import logger
 from commons.logger import LogLevels
-from util.geo_util import (check_dateline,
-                           epsg_from_polygon,
-                           polygon_from_bounding_box,
+from util.geo_util import (epsg_from_polygon,
                            polygon_from_mgrs_tile,
                            transform_polygon_coords_to_epsg)
-from util.pge_util import check_aws_connection
+from tools.stage_ancillary_map import check_aws_connection, check_dateline, polygon_from_bounding_box
 
 # Enable exceptions
 gdal.UseExceptions()

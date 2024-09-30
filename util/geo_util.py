@@ -7,29 +7,15 @@ from lxml import etree as ET
 
 import mgrs
 import numpy as np
-import shapely.ops
-import shapely.wkt
 
 from osgeo import osr
-from shapely.geometry import box, LinearRing, Point, Polygon
+from shapely.geometry import box, Point, Polygon
 
+from tools.stage_ancillary_map import margin_km_to_deg
 
 EARTH_APPROX_CIRCUMFERENCE = 40075017.
 EARTH_RADIUS = EARTH_APPROX_CIRCUMFERENCE / (2 * np.pi)
 
-def margin_km_to_deg(margin_in_km):
-    """Converts a margin value from kilometers to degrees"""
-    km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUMFERENCE / 360.)
-    margin_in_deg = margin_in_km * km_to_deg_at_equator
-
-    return margin_in_deg
-
-def margin_km_to_longitude_deg(margin_in_km, lat=0):
-    """Converts a margin value from kilometers to degrees as a function of latitude"""
-    delta_lon = (180 * 1000 * margin_in_km /
-                 (np.pi * EARTH_RADIUS * np.cos(np.pi * lat / 180)))
-
-    return delta_lon
 
 def bounding_box_from_slc_granule(safe_file_path):
     """Extracts the bounding box footprint from the given SLC SAFE archive"""
@@ -71,47 +57,6 @@ def bounding_box_from_slc_granule(safe_file_path):
 
     return bbox
 
-def polygon_from_bounding_box(bounding_box, margin_in_km):
-    """
-    Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
-    a provided bounding box.
-
-    Parameters
-    -----------
-    bounding_box : list
-        Bounding box with lat/lon coordinates (decimal degrees) in the form of
-        [West, South, East, North].
-    margin_in_km : float
-        Margin in kilometers to be added to the resultant polygon.
-
-    Returns
-    -------
-    poly: shapely.Geometry.Polygon
-        Bounding polygon corresponding to the provided bounding box with
-        margin applied.
-
-    """
-    lon_min = bounding_box[0]
-    lat_min = bounding_box[1]
-    lon_max = bounding_box[2]
-    lat_max = bounding_box[3]
-
-    # note we can also use the center lat here
-    lat_worst_case = max([lat_min, lat_max])
-
-    # convert margin to degree
-    lat_margin = margin_km_to_deg(margin_in_km)
-    lon_margin = margin_km_to_longitude_deg(margin_in_km, lat=lat_worst_case)
-
-    # Check if the bbox crosses the antimeridian and apply the margin accordingly
-    # so that any resultant DEM is split properly by check_dateline
-    if lon_max - lon_min > 180:
-        lon_min, lon_max = lon_max, lon_min
-
-    poly = box(lon_min - lon_margin, max([lat_min - lat_margin, -90]),
-               lon_max + lon_margin, min([lat_max + lat_margin, 90]))
-
-    return poly
 
 def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
                            flag_use_m_to_deg_conversion_at_equator=True):
@@ -260,58 +205,6 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
     poly = box(*coords)
 
     return poly
-
-
-def check_dateline(poly):
-    """
-    Split `poly` if it crosses the dateline.
-
-    Parameters
-    ----------
-    poly : shapely.geometry.Polygon
-        Input polygon.
-
-    Returns
-    -------
-    polys : list of shapely.geometry.Polygon
-        A list containing: the input polygon if it didn't cross the dateline, or
-        two polygons otherwise (one on either side of the dateline).
-
-    """
-    x_min, _, x_max, _ = poly.bounds
-
-    # Check dateline crossing
-    if ((x_max - x_min > 180.0) or (x_min <= 180.0 <= x_max)):
-        dateline = shapely.wkt.loads('LINESTRING( 180.0 -90.0, 180.0 90.0)')
-
-        # build new polygon with all longitudes between 0 and 360
-        x, y = poly.exterior.coords.xy
-        new_x = (k + (k <= 0.) * 360 for k in x)
-        new_ring = LinearRing(zip(new_x, y))
-
-        # Split input polygon
-        # (https://gis.stackexchange.com/questions/232771/splitting-polygon-by-linestring-in-geodjango_)
-        merged_lines = shapely.ops.linemerge([dateline, new_ring])
-        border_lines = shapely.ops.unary_union(merged_lines)
-        decomp = shapely.ops.polygonize(border_lines)
-
-        polys = list(decomp)
-
-        for polygon_count in range(len(polys)):
-            x, y = polys[polygon_count].exterior.coords.xy
-            # if there are no longitude values above 180, continue
-            if not any([k > 180 for k in x]):
-                continue
-
-            # otherwise, wrap longitude values down by 360 degrees
-            x_wrapped_minus_360 = np.asarray(x) - 360
-            polys[polygon_count] = Polygon(zip(x_wrapped_minus_360, y))
-
-    else:
-        # If dateline is not crossed, treat input poly as list
-        polys = [poly]
-
-    return polys
 
 
 def point2epsg(lon, lat):

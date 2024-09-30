@@ -6,17 +6,161 @@ import argparse
 import os
 
 import backoff
-
+import boto3
+import numpy as np
+import shapely.ops
+import shapely.wkt
 from osgeo import gdal
+from shapely.geometry import LinearRing, Polygon, box
 
-from commons.logger import logger
-from commons.logger import LogLevels
-from util.geo_util import (check_dateline,
-                           polygon_from_bounding_box)
-from util.pge_util import check_aws_connection
+EARTH_APPROX_CIRCUMFERENCE = 40075017.
+EARTH_RADIUS = EARTH_APPROX_CIRCUMFERENCE / (2 * np.pi)
 
 # Enable exceptions
 gdal.UseExceptions()
+
+
+def check_aws_connection(bucket, key):
+    """
+    Check connection to the provided S3 bucket by performing a test read
+    on the provided bucket/key location.
+
+    Parameters
+    ----------
+    bucket : str
+        Name of the S3 bucket to use with the connection test.
+    key : str, optional
+        S3 key path to append to the bucket name.
+
+    Raises
+    ------
+    RuntimeError
+        If not connection can be established.
+
+    """
+    s3 = boto3.resource('s3')
+    obj = s3.Object(bucket, key)
+
+    try:
+        print(f'Attempting test read of s3://{obj.bucket_name}/{obj.key}')
+        obj.get()['Body'].read()
+        print('Connection test successful.')
+    except Exception:
+        errmsg = (f'No access to the {bucket} S3 bucket. '
+                  f'Check your AWS credentials and re-run the code.')
+        raise RuntimeError(errmsg)
+
+
+def margin_km_to_deg(margin_in_km):
+    """Converts a margin value from kilometers to degrees"""
+    km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUMFERENCE / 360.)
+    margin_in_deg = margin_in_km * km_to_deg_at_equator
+
+    return margin_in_deg
+
+
+def margin_km_to_longitude_deg(margin_in_km, lat=0):
+    """Converts a margin value from kilometers to degrees as a function of latitude"""
+    delta_lon = (180 * 1000 * margin_in_km /
+                 (np.pi * EARTH_RADIUS * np.cos(np.pi * lat / 180)))
+
+    return delta_lon
+
+
+def check_dateline(poly):
+    """
+    Split `poly` if it crosses the dateline.
+
+    Parameters
+    ----------
+    poly : shapely.geometry.Polygon
+        Input polygon.
+
+    Returns
+    -------
+    polys : list of shapely.geometry.Polygon
+        A list containing: the input polygon if it didn't cross the dateline, or
+        two polygons otherwise (one on either side of the dateline).
+
+    """
+    x_min, _, x_max, _ = poly.bounds
+
+    # Check dateline crossing
+    if ((x_max - x_min > 180.0) or (x_min <= 180.0 <= x_max)):
+        dateline = shapely.wkt.loads('LINESTRING( 180.0 -90.0, 180.0 90.0)')
+
+        # build new polygon with all longitudes between 0 and 360
+        x, y = poly.exterior.coords.xy
+        new_x = (k + (k <= 0.) * 360 for k in x)
+        new_ring = LinearRing(zip(new_x, y))
+
+        # Split input polygon
+        # (https://gis.stackexchange.com/questions/232771/splitting-polygon-by-linestring-in-geodjango_)
+        merged_lines = shapely.ops.linemerge([dateline, new_ring])
+        border_lines = shapely.ops.unary_union(merged_lines)
+        decomp = shapely.ops.polygonize(border_lines)
+
+        polys = list(decomp)
+
+        for polygon_count in range(len(polys)):
+            x, y = polys[polygon_count].exterior.coords.xy
+            # if there are no longitude values above 180, continue
+            if not any([k > 180 for k in x]):
+                continue
+
+            # otherwise, wrap longitude values down by 360 degrees
+            x_wrapped_minus_360 = np.asarray(x) - 360
+            polys[polygon_count] = Polygon(zip(x_wrapped_minus_360, y))
+
+    else:
+        # If dateline is not crossed, treat input poly as list
+        polys = [poly]
+
+    return polys
+
+
+def polygon_from_bounding_box(bounding_box, margin_in_km):
+    """
+    Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
+    a provided bounding box.
+
+    Parameters
+    -----------
+    bounding_box : list
+        Bounding box with lat/lon coordinates (decimal degrees) in the form of
+        [West, South, East, North].
+    margin_in_km : float
+        Margin in kilometers to be added to the resultant polygon.
+
+    Returns
+    -------
+    poly: shapely.Geometry.Polygon
+        Bounding polygon corresponding to the provided bounding box with
+        margin applied.
+
+    """
+    lon_min = bounding_box[0]
+    lat_min = bounding_box[1]
+    lon_max = bounding_box[2]
+    lat_max = bounding_box[3]
+
+    # note we can also use the center lat here
+    lat_worst_case = max([lat_min, lat_max])
+
+    # convert margin to degree
+    lat_margin = margin_km_to_deg(margin_in_km)
+    lon_margin = margin_km_to_longitude_deg(margin_in_km, lat=lat_worst_case)
+
+    # Check if the bbox crosses the antimeridian and apply the margin accordingly
+    # so that any resultant DEM is split properly by check_dateline
+    if lon_max - lon_min > 180:
+        lon_min, lon_max = lon_max, lon_min
+
+    poly = box(lon_min - lon_margin, max([lat_min - lat_margin, -90]),
+               lon_max + lon_margin, min([lat_max + lat_margin, 90]))
+
+    return poly
+
 
 def get_parser():
     """Returns the command line parser for stage_ancillary_map.py"""
@@ -46,11 +190,6 @@ def get_parser():
     parser.add_argument('-m', '--margin', type=int, action='store',
                         default=5, help='Margin, in km, to apply to the sub-region '
                                         'denoted by the provided bounding box.')
-    parser.add_argument("--log-level",
-                        type=lambda log_level: LogLevels[log_level].value,
-                        choices=LogLevels.list(),
-                        default=LogLevels.INFO.value,
-                        help="Specify a logging verbosity level.")
 
     return parser
 
@@ -85,7 +224,7 @@ def download_map(polys, map_bucket, map_vrt_key, outfile):
 
         x_min, y_min, x_max, y_max = poly.bounds
 
-        logger.info(
+        print(
             f"Translating map for projection window "
             f"{str([x_min, y_max, x_max, y_min])} to {output_path}"
         )
@@ -110,31 +249,27 @@ def main(args):
         Arguments parsed from the command-line.
 
     """
-    # Set the logging level
-    if args.log_level:
-        LogLevels.set_level(args.log_level)
-
     # Make sure that output file has VRT extension
     if not args.outfile.lower().endswith('.vrt'):
         err_msg = "Output filename extension is not .vrt"
         raise ValueError(err_msg)
 
     # Derive the region polygon from the provided bounding box
-    logger.info('Determining polygon from bounding box')
+    print('Determining polygon from bounding box')
     poly = polygon_from_bounding_box(args.bbox, args.margin)
 
     # Check dateline crossing
     polys = check_dateline(poly)
 
     # Check connection to the S3 bucket
-    logger.info(f'Checking connection to AWS S3 {args.s3_bucket} bucket.')
+    print(f'Checking connection to AWS S3 {args.s3_bucket} bucket.')
     check_aws_connection(bucket=args.s3_bucket, key=args.s3_key)
 
     # Download the map for each polygon region and assemble them into a
     # single output VRT file
     download_map(polys, args.s3_bucket, args.s3_key, args.outfile)
 
-    logger.info(f'Done, ancillary map stored locally to {args.outfile}')
+    print(f'Done, ancillary map stored locally to {args.outfile}')
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 from geo.geo_util import does_bbox_intersect_north_america, does_bbox_intersect_california, Coordinate
-from util.geo_util import polygon_from_bounding_box, polygon_from_mgrs_tile
+from util.geo_util import polygon_from_mgrs_tile
+from tools.stage_ancillary_map import polygon_from_bounding_box
 
 from shapely.geometry import Polygon
 
