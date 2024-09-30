@@ -17,6 +17,7 @@ from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 
 
 DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
+DEFAULT_DISP_BLACKOUT_DATE_NAME = 'opera-disp-s1-blackout-dates.json'
 DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
@@ -64,6 +65,16 @@ def localize_frame_geo_json():
         file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
 
     return process_frame_geo_json(file)
+
+@cache
+def localize_disp_blackout_dates():
+    try:
+        file = localize_anc_json("DISP_S1_BLACKOUT_DATES_S3PATH")
+    except:
+        logger.warning(f"Could not download DISP-S1 blackout dates file from settings.yaml field DISP_S1_BLACKOUT_DATES_S3PATH from S3. Attempting to use local copy named {DEFAULT_DISP_BLACKOUT_DATE_NAME}.")
+        file = DEFAULT_DISP_BLACKOUT_DATE_NAME
+
+    return process_disp_blackout_dates(file)
 
 def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
@@ -121,6 +132,30 @@ def process_disp_frame_burst_hist(file):
             datetime_to_frames[sensing_time].append(int(frame))
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
+
+@cache
+def process_disp_blackout_dates(file):
+    '''Process the disp blackout dates json file and return a dictionary'''
+
+    j = json.load(open(file))
+
+    '''Parse json file that looks like this
+    1. black_dates is a list of tuples
+    2. Dates should be parsed into python datetime objects
+    {
+        "831": {}
+        "832":  {"blackout_dates": [ {"start": "2024-12-30T23:05:24", "end": "2025-03-15T23:05:24"}. ...]},
+        ...
+        "46543": {"blackout_dates": [ {"start": "2024-11-15T23:05:24", "end": "2025-04-30T23:05:24"}. ...]}
+    }
+    '''
+
+    frame_blackout_dates = {}
+    for frame in j:
+        if "blackout_dates" in j[frame]:
+            frame_blackout_dates[int(frame)] = [(dateutil.parser.isoparse(d["start"]), dateutil.parser.isoparse(d["end"])) for d in j[frame]["blackout_dates"]]
+
+    return frame_blackout_dates
 
 @cache
 def process_frame_geo_json(file):

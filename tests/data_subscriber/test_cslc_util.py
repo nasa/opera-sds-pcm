@@ -2,7 +2,7 @@
 
 import pytest
 import conftest
-
+from pathlib import Path
 from data_subscriber import cslc_utils
 from data_subscriber.cslc_utils import CSLCDependency
 from data_subscriber.parser import create_parser
@@ -157,6 +157,17 @@ def test_get_prev_day_indices():
      2112, 2124, 2136, 2148, 2160, 2172, 2184, 2196, 2208, 2220, 2232, 2244, 2256, 2268, 2292, 2304, 2316, 2328, 2340, 
      2376, 2388, 2412, 2424, 2436, 2448, 2460, 2472, 2484, 2496, 2508, 2520, 2532, 2544, 2556, 2568, 2580, 2592, 2604, 
      2616, 2628, 2640, 2652, 2664, 2676, 2736, 2724, 2712, 2700]'''
+
+def test_process_disp_blackout_dates():
+    """Test that the blackout dates are correctly processed"""
+
+    p = Path(__file__).parent / "sample_disp_s1_blackout.json"
+    blackout_dates = cslc_utils.process_disp_blackout_dates(p)
+    assert len(blackout_dates[831]) == 1
+    assert blackout_dates[832][0] == (dateutil.parser.isoparse("2017-01-24T23:00:00"), dateutil.parser.isoparse("2017-08-24T23:00:00"))
+    assert blackout_dates[832][1] == (dateutil.parser.isoparse("2022-01-24T23:00:00"), dateutil.parser.isoparse("2022-08-24T23:00:00"))
+    assert 46543 not in blackout_dates
+    assert 833 not in blackout_dates
 
 def test_get_dependent_ccslc_index():
     prev_day_indices = [0, 24, 48, 72]
