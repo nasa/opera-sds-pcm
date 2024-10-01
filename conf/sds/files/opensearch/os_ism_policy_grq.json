@@ -46,7 +46,8 @@
         "rtc_catalog", "rtc_catalog-*",
         "slc_catalog", "slc_catalog-*",
         "slc_spatial_catalog", "slc_spatial_catalog-*"
-      ]
+      ],
+      "priority": 1
     }
   }
 }
