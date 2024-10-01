@@ -172,6 +172,25 @@ def test_process_disp_blackout_dates_comparison():
 
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
     blackout_dates = cslc_utils.process_disp_blackout_dates(p)
+    blackout_dates_obj = cslc_utils.DispS1BlackoutDates(blackout_dates, disp_burst_map_hist)
+
+    burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
+        cslc_utils.parse_cslc_native_id(
+            "OPERA_L2_CSLC-S1_T042-088913-IW1_20200227T140752Z_20240430T103028Z_S1A_VV_v1.1", burst_to_frames,
+            disp_burst_map_hist)
+
+    is_black_out, dates = blackout_dates_obj.is_in_blackout(frame_ids[0], acquisition_dts)
+    assert is_black_out == False
+
+    burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
+        cslc_utils.parse_cslc_native_id(
+            "OPERA_L2_CSLC-S1_T042-088921-IW3_20200221T140735Z_20240430T094255Z_S1B_VV_v1.1", burst_to_frames,
+            disp_burst_map_hist)
+
+    is_black_out, dates = blackout_dates_obj.is_in_blackout(frame_ids[0], acquisition_dts)
+    assert is_black_out == True
+    assert dates == (dateutil.parser.isoparse("2019-11-29T14:06:51"), dateutil.parser.isoparse("2020-02-27T14:07:30"))
+
 
 def test_get_dependent_ccslc_index():
     prev_day_indices = [0, 24, 48, 72]
