@@ -10,7 +10,7 @@
           {
             "state_name": "warm",
             "conditions": {
-              "min_index_age": "90d"
+              "min_index_age": "2d"
             }
           }
         ]
@@ -22,7 +22,7 @@
           {
             "state_name": "delete",
             "conditions": {
-              "min_index_age": "104d"
+              "min_index_age": "32d"
             }
           }
         ]

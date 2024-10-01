@@ -1,0 +1,22 @@
+{
+  "index_patterns": ["jobs_accountability_catalog-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "index": {
+        "refresh_interval": "5s"
+      },
+      "analysis": {
+        "analyzer": {
+          "default": {
+            "filter": ["lowercase", "word_delimiter"],
+            "tokenizer": "keyword"
+          }
+        }
+      }
+    },
+    "aliases": {
+      "jobs_accountability_catalog": {}
+    }
+  }
+}
