@@ -251,14 +251,14 @@ def create_ism_policy_grq():
     _, hysds_dir, _ = resolve_role()
 
     send_template(
-        "ism_policy_grq.json",
-        f"{hysds_dir}/ops/grq2/config/ism_policy_grq.json",
+        "os_ism_policy_grq.json",
+        f"{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json",
         tmpl_dir="~/.sds/files/opensearch/"
     )
     run(
         f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_grq_ism_policy?pretty' "
         "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/ism_policy_grq.json")
+        f"--json @{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json")
 
 
 @roles("grq")
