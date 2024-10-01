@@ -339,14 +339,14 @@ def create_ism_policy_metrics():
     _, hysds_dir, _ = resolve_role()
 
     send_template(
-        "ism_policy_metrics.json",
-        f"{hysds_dir}/ops/metrics/config/ism_policy_metrics.json",
+        "os_ism_policy_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json",
         tmpl_dir="~/.sds/files/opensearch/"
     )
     run(
         f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_metrics_ism_policy?pretty' "
         "--fail-with-body "
-        f"--json @{hysds_dir}/ops/metrics/config/ism_policy_metrics.json")
+        f"--json @{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json")
 
 @roles("metrics")
 def create_os_index_templates_metrics():
