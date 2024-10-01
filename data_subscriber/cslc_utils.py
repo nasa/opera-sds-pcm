@@ -140,15 +140,10 @@ def process_disp_blackout_dates(file):
     j = json.load(open(file))
 
     '''Parse json file that looks like this
-    1. black_dates is a list of tuples
-    2. Dates should be parsed into python datetime objects
-    {
-        "831": {}
+    {   "831": {}
         "832":  {"blackout_dates": [ {"start": "2024-12-30T23:05:24", "end": "2025-03-15T23:05:24"}. ...]},
         ...
-        "46543": {"blackout_dates": [ {"start": "2024-11-15T23:05:24", "end": "2025-04-30T23:05:24"}. ...]}
-    }
-    '''
+        "46543": {"blackout_dates": [ {"start": "2024-11-15T23:05:24", "end": "2025-04-30T23:05:24"}. ...]}}'''
 
     frame_blackout_dates = {}
     for frame in j:
@@ -156,6 +151,40 @@ def process_disp_blackout_dates(file):
             frame_blackout_dates[int(frame)] = [(dateutil.parser.isoparse(d["start"]), dateutil.parser.isoparse(d["end"])) for d in j[frame]["blackout_dates"]]
 
     return frame_blackout_dates
+
+class DispS1BlackoutDates:
+
+    def __init__(self, frame_blackout_dates, frame_to_burst):
+        self.frame_blackout_dates = frame_blackout_dates
+        self.frame_to_burst = frame_to_burst
+        self.frame_blackout_acq_indices = defaultdict(dict)
+
+    def get_blackout_dates(self, frame_id):
+        return self.frame_blackout_dates.get(frame_id, [])
+
+    def is_in_blackout(self, frame_id, sensing_time):
+        '''The sensing time of the frame is in blackout if any of its upto 27 bursts are in the blackout date range'''
+
+        if frame_id not in self.frame_blackout_dates:
+            return False, None
+
+        # First, check to see if the frame_id and acq_index is already in the cache
+        acq_index = sensing_time_day_index(sensing_time, frame_id, self.frame_to_burst)
+        if acq_index in self.frame_blackout_acq_indices[frame_id]:
+            return True, self.frame_blackout_acq_indices[frame_id][acq_index]
+
+        # Second, see if the sensing_time is within the blackout date range
+        #sensing_time = datetime.strptime(sensing_time_ts, CMR_TIME_FORMAT)
+        for start, end in self.frame_blackout_dates[frame_id]:
+            if start <= sensing_time <= end:
+                self.frame_blackout_acq_indices[frame_id][acq_index] = (start, end)
+                return True, (start, end)
+
+        # Ask team if this would be an issue
+        # TODO: We're not quite done yet. We need to check if any of the bursts in this frame-sensing_time are in black out.
+        # So even if this particular burst is outside of the black out date range, if at least one of the burst is, then this burst is also blacked out
+
+        return False, None
 
 @cache
 def process_frame_geo_json(file):

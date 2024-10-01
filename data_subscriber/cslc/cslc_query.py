@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
                                         process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id,
-                                        parse_cslc_file_name, CSLCDependency)
+                                        parse_cslc_file_name, CSLCDependency,
+                                        localize_disp_blackout_dates, process_disp_blackout_dates, DispS1BlackoutDates)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 from data_subscriber.cslc.cslc_catalog import KCSLCProductCatalog
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class CslcCmrQuery(CmrQuery):
 
-    def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_hist_file = None):
+    def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_hist_file = None, blackout_dates_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
         if disp_frame_burst_hist_file is None:
@@ -29,6 +30,12 @@ class CslcCmrQuery(CmrQuery):
         else:
             self.disp_burst_map_hist, self.burst_to_frames, self.datetime_to_frames = \
                 process_disp_frame_burst_hist(disp_frame_burst_hist_file)
+
+        if blackout_dates_file is None:
+            self.frame_blackout_dates = localize_disp_blackout_dates()
+        else:
+            self.frame_blackout_dates = process_disp_blackout_dates(blackout_dates_file)
+        self.blackout_dates_obj = DispS1BlackoutDates(self.frame_blackout_dates, self.disp_burst_map_hist)
 
         if args.grace_mins:
             self.grace_mins = args.grace_mins
@@ -432,7 +439,19 @@ since the first CSLC file for the batch was ingested which is greater than the g
         # TODO: at some point we will change the code so that we can process HH polarization too
         all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]]
 
-        return all_granules
+        non_blackout_granules = []
+        for granule in all_granules:
+            frame_id = granule["frame_id"]
+            is_black_out, dates = self.blackout_dates_obj.is_in_blackout(frame_id, granule["acquisition_ts"])
+            if is_black_out:
+                blackout_start = dates[0].strftime(CMR_TIME_FORMAT)
+                blackout_end = dates[1].strftime(CMR_TIME_FORMAT)
+                logger.info(f"Skipping granule {granule['granule_id']} because {frame_id=} falls on a blackout date {blackout_start=} {blackout_end=}")
+            else:
+                logger.info(f"Adding granule {granule['granule_id']} to the list of granules to download")
+                non_blackout_granules.append(granule)
+
+        return non_blackout_granules
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         '''Same as base class except inject batch_ids for k granules'''

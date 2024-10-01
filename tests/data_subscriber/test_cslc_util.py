@@ -78,8 +78,6 @@ def test_parse_cslc_native_id():
     burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
         cslc_utils.parse_cslc_native_id("OPERA_L2_CSLC-S1_T158-338083-IW1_20170403T130213Z_20240428T010605Z_S1A_VV_v1.1", burst_to_frames, disp_burst_map_hist)
 
-    print(burst_id, acquisition_dts, acquisition_cycles, frame_ids)
-
     assert burst_id == "T158-338083-IW1"
     assert acquisition_dts == dateutil.parser.isoparse("20170403T130213")
     assert acquisition_cycles == {42261: 276}
@@ -158,7 +156,7 @@ def test_get_prev_day_indices():
      2376, 2388, 2412, 2424, 2436, 2448, 2460, 2472, 2484, 2496, 2508, 2520, 2532, 2544, 2556, 2568, 2580, 2592, 2604, 
      2616, 2628, 2640, 2652, 2664, 2676, 2736, 2724, 2712, 2700]'''
 
-def test_process_disp_blackout_dates():
+def test_process_disp_blackout_dates_parsing():
     """Test that the blackout dates are correctly processed"""
 
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
@@ -168,6 +166,12 @@ def test_process_disp_blackout_dates():
     assert blackout_dates[832][1] == (dateutil.parser.isoparse("2022-01-24T23:00:00"), dateutil.parser.isoparse("2022-08-24T23:00:00"))
     assert 46543 not in blackout_dates
     assert 833 not in blackout_dates
+
+def test_process_disp_blackout_dates_comparison():
+    """Test that the blackout dates are correctly compared"""
+
+    p = Path(__file__).parent / "sample_disp_s1_blackout.json"
+    blackout_dates = cslc_utils.process_disp_blackout_dates(p)
 
 def test_get_dependent_ccslc_index():
     prev_day_indices = [0, 24, 48, 72]
