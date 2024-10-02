@@ -466,7 +466,13 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         # Get rid of any granules that don't have the VV polarization
         # TODO: at some point we will change the code so that we can process HH polarization too
-        all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]]
+        temp_all_graules = copy.deepcopy(all_granules)
+        all_granules = []
+        for granule in temp_all_graules:
+            if "_VV_" not in granule["granule_id"]:
+                logger.info(f"Skipping granule {granule['granule_id']} because it's not in VV polarization")
+            else:
+                all_granules.append(granule)
 
         non_blackout_granules = []
         for granule in all_granules:
