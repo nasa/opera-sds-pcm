@@ -191,6 +191,10 @@ def test_process_disp_blackout_dates_comparison():
     assert is_black_out == True
     assert dates == (dateutil.parser.isoparse("2019-11-29T14:06:51"), dateutil.parser.isoparse("2020-02-27T14:07:30"))
 
+    is_black_out, dates = blackout_dates_obj.is_in_blackout(832, dateutil.parser.isoparse("2022-01-25T14:07:30"))
+    assert is_black_out == True
+    assert dates == (dateutil.parser.isoparse("2022-01-24T23:00:00"), dateutil.parser.isoparse("2022-08-24T23:00:00"))
+
 
 def test_get_dependent_ccslc_index():
     prev_day_indices = [0, 24, 48, 72]

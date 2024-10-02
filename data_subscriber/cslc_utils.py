@@ -155,34 +155,27 @@ def process_disp_blackout_dates(file):
 class DispS1BlackoutDates:
 
     def __init__(self, frame_blackout_dates, frame_to_burst):
-        self.frame_blackout_dates = frame_blackout_dates
         self.frame_to_burst = frame_to_burst
-        self.frame_blackout_acq_indices = defaultdict(dict)
+        self.frame_blackout_acq_indices = defaultdict(list)
 
-    def get_blackout_dates(self, frame_id):
-        return self.frame_blackout_dates.get(frame_id, [])
+        # Populate for the beginning and end of the time range
+        for frame_id, blackout_dates in frame_blackout_dates.items():
+            for start_date, end_date in blackout_dates:
+                acq_index_start = sensing_time_day_index(start_date, frame_id, self.frame_to_burst)
+                acq_index_end = sensing_time_day_index(end_date, frame_id, self.frame_to_burst)
+                self.frame_blackout_acq_indices[frame_id].append((acq_index_start, acq_index_end, start_date, end_date))
 
     def is_in_blackout(self, frame_id, sensing_time):
         '''The sensing time of the frame is in blackout if any of its upto 27 bursts are in the blackout date range'''
 
-        if frame_id not in self.frame_blackout_dates:
+        if frame_id not in self.frame_blackout_acq_indices:
             return False, None
 
-        # First, check to see if the frame_id and acq_index is already in the cache
+        # If the sensing_time is within the blackout date acquisition date index range, it's blacked out
         acq_index = sensing_time_day_index(sensing_time, frame_id, self.frame_to_burst)
-        if acq_index in self.frame_blackout_acq_indices[frame_id]:
-            return True, self.frame_blackout_acq_indices[frame_id][acq_index]
-
-        # Second, see if the sensing_time is within the blackout date range
-        #sensing_time = datetime.strptime(sensing_time_ts, CMR_TIME_FORMAT)
-        for start, end in self.frame_blackout_dates[frame_id]:
-            if start <= sensing_time <= end:
-                self.frame_blackout_acq_indices[frame_id][acq_index] = (start, end)
-                return True, (start, end)
-
-        # Ask team if this would be an issue
-        # TODO: We're not quite done yet. We need to check if any of the bursts in this frame-sensing_time are in black out.
-        # So even if this particular burst is outside of the black out date range, if at least one of the burst is, then this burst is also blacked out
+        for acq_index_start, acq_index_end, start_date, end_date in self.frame_blackout_acq_indices[frame_id]:
+            if acq_index_start <= acq_index <= acq_index_end:
+                return True, (start_date, end_date)
 
         return False, None
 

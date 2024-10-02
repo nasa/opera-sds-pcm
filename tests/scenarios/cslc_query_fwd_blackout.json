@@ -1,0 +1,22 @@
+{ "description": "This file specifies expected files to be downloaded in a DISP-S1 forward processing scenario",
+  "comment": "This tests blackout dates",
+  "comment2": "These expected results were hand-verified circa 3.1.0-rc.7.0",
+  "processing_mode": "reprocessing",
+  "param_type": "date_range",
+  "use_temporal": true,
+  "k": 2,
+  "m": 1,
+  "validation_data": {
+    "2019-11-29T14:06:51Z, 2019-11-29T15:06:51Z": {
+      "f11117_a1242": 27,
+      "f11114_a1206": 27,
+      "f11117_a1230": 27,
+      "f11114_a1194": 27
+    },
+    "2019-12-05T14:08:19Z, 2019-12-05T14:20:19Z": {},
+    "2019-12-11T14:07:37Z, 2019-12-11T14:20:37Z": {},
+    "2019-12-17T14:08:18Z, 2019-12-17T14:20:18Z": {},
+    "2020-02-27T14:08:16Z, 2020-02-27T14:28:16Z": {},
+    "2020-03-04T14:07:10Z, 2020-03-04T14:20:10Z": {}
+  }
+}

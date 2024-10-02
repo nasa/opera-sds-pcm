@@ -95,7 +95,14 @@ def run_query(args, authorization):
     if "sleep_seconds" in j:
         sleep_map = j["sleep_seconds"]
 
+    # Blackout dates is optional
+    blackout_dates = None
+    if "blackout_dates" in j:
+        blackout_dates = j["blackout_dates"]
+
     query_arguments.extend([f"--k={cslc_k}", f"--m={cslc_m}", f"--processing-mode={proc_mode}"])
+    if "use_temporal" in j and j["use_temporal"] == True:
+        query_arguments.append("--use-temporal")
 
     if (proc_mode == "forward"):
         if validation_data == "load_test":
@@ -104,12 +111,11 @@ def run_query(args, authorization):
 
             while start_date < end_date:
                 new_end_date = start_date + timedelta(hours=1)
-                current_args = query_arguments + [f"--grace-mins={j['grace_mins']}",
-                                                  f"--job-queue={job_queue[proc_mode]}", \
+                current_args = query_arguments + [f"--job-queue={job_queue[proc_mode]}", \
                                                   f"--start-date={start_date.isoformat()}Z",
                                                   f"--end-date={new_end_date.isoformat()}Z"]
 
-                query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
+                query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, None)
 
                 start_date = new_end_date
         else:
@@ -127,10 +133,11 @@ def run_query(args, authorization):
                     sleep(sleep_seconds)
 
                 new_end_date = start_date + timedelta(hours=1)
-                current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
-                                                  f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+                current_args = query_arguments + [f"--job-queue={job_queue[proc_mode]}",
+                                                  f"--start-date={start_date.isoformat()}Z",
+                                                  f"--end-date={new_end_date.isoformat()}Z"]
 
-                query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
+                query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, validation_data)
 
                 start_date = new_end_date # To the next query time range
 
@@ -139,7 +146,7 @@ def run_query(args, authorization):
             # Run one native id at a time
             for native_id in validation_data.keys():
                 current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
-                query_and_validate(current_args, native_id, validation_data)
+                query_and_validate(current_args, native_id, blackout_dates, validation_data)
         elif j["param_type"] == "date_range":
             # Run one date range at a time
             for date_range in validation_data.keys():
@@ -148,7 +155,7 @@ def run_query(args, authorization):
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
                 if  "frame_id" in j:
                     current_args.append(f"--frame-id={j['frame_id']}")
-                query_and_validate(current_args, date_range, validation_data)
+                query_and_validate(current_args, date_range, blackout_dates, validation_data)
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
@@ -158,14 +165,14 @@ def run_query(args, authorization):
             current_args = query_arguments + [f"--frame-id={frame_id}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
-            query_and_validate(current_args, frame_id, validation_data)
+            query_and_validate(current_args, frame_id, blackout_dates, validation_data)
 
     do_delete_queue(args, authorization, job_queue[proc_mode])
 
-def query_and_validate(current_args, test_range, validation_data=None):
+def query_and_validate(current_args, test_range, blackout_dates, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
-    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,None)
+    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,None, blackout_dates)
     q_result = c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
     q_result = q_result["download_granules"] # Main granules
     q_result.extend(c_query.k_retrieved_granules) # k granules

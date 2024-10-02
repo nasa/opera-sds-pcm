@@ -4,7 +4,6 @@
   "processing_mode": "forward",
   "k": 2,
   "m": 1,
-  "grace_mins": 5000,
   "validation_data": {
     "2023-12-01T06:00:00Z": {},
     "2023-12-01T07:00:00Z": {},
