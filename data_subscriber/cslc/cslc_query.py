@@ -452,7 +452,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     for granule in new_granules:
                         unique_granules[granule["granule_id"]] = granule
 
-                all_granules = unique_granules.values()
+                all_granules = list(unique_granules.values())
             else:
                 raise Exception("Reprocessing mode requires either a native_id or a date range to be specified.")
 
@@ -483,7 +483,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 blackout_end = dates[1].strftime(CMR_TIME_FORMAT)
                 logger.info(f"Skipping granule {granule['granule_id']} because {frame_id=} falls on a blackout date {blackout_start=} {blackout_end=}")
             else:
-                logger.info(f"Adding granule {granule['granule_id']} to the list of granules to download")
+                #logger.info(f"Adding granule {granule['granule_id']} to the list of granules to download")
                 non_blackout_granules.append(granule)
 
         return non_blackout_granules
