@@ -132,23 +132,45 @@ class CslcCmrQuery(CmrQuery):
         which granules to download. And also retrieve k granules.
         In reprocessing, just retrieve the k granules."""
 
+        # In historical what we received from query was exactly what we needed.
+        # This was all computed by run_disp_s1_historical_processing.py upstream
+        if self.proc_mode == "historical":
+            return granules
+
+        # In reprocessing, get rid of any batch ids that don't have full burst set and then retrieve k-granules
         if self.proc_mode == "reprocessing":
             if len(granules) == 0:
                 return granules
 
+            reproc_granules = []
+            # Group all granules by download_batch_id
+            by_download_batch_id = defaultdict(lambda: defaultdict(dict))
+            for granule in granules:
+                by_download_batch_id[granule["download_batch_id"]][granule["unique_id"]] = granule
+
+            for batch_id, download_batch in by_download_batch_id.items():
+                frame_id, _ = split_download_batch_id(batch_id)
+                max_bursts = len(self.disp_burst_map_hist[frame_id].burst_ids)
+                if len(download_batch) == max_bursts:
+                    reproc_granules.extend(list(download_batch.values()))
+                else:
+                    logger.info(f"Skipping download for {batch_id} because only {len(download_batch)} of {max_bursts} granules are present")
+
+            if len(reproc_granules) == 0:
+                return reproc_granules
+
             if self.args.k > 1:
-                batch_id = granules[0]["download_batch_id"]
-                k_granules = self.retrieve_k_granules(granules, self.args, self.args.k - 1, True, silent=True)
+                batch_id = reproc_granules[0]["download_batch_id"]
+                k_granules = self.retrieve_k_granules(reproc_granules, self.args, self.args.k - 1, True, silent=True)
                 self.catalog_granules(k_granules, datetime.now(), self.k_es_conn)
                 logger.info(f"Length of K-granules: {len(k_granules)=}")
                 for k_g in k_granules:
                     self.download_batch_ids[k_g["download_batch_id"]].add(batch_id)
                     self.k_batch_ids[batch_id].add(k_g["download_batch_id"])
                 self.k_retrieved_granules.extend(k_granules)  # This is used for scenario testing
-            return granules
+            return reproc_granules
 
-        if self.proc_mode == "historical":
-            return granules
+        # From this point on is forward processing which is the most complex
 
         current_time = datetime.now()
 
@@ -308,6 +330,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
+            print("+++++++++++++++++++++++", acq_day_indices)
             for acq_day_index in acq_day_indices:
 
                 ''' This step is a bit tricky.
@@ -407,23 +430,29 @@ since the first CSLC file for the batch was ingested which is greater than the g
             # 1) Query CMR for all CSLC files in the date range specified and create list of granules with unique frame_ids
             # 2) Process each granule as if they were passed in as native_id
             elif args.start_date is not None and args.end_date is not None:
-                all_granules = []
+                unique_granules = {}
+                frame_id_map = defaultdict(str)
 
-                # First get all CSLC files in the range specified
+                # First get all CSLC files in the range specified and create a unique set of frame_ids that we need to query for.
                 if self.args.frame_id is not None:
                     granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
+                    if len(granules) == 0:
+                        return []
+                    frame_id_map[self.args.frame_id] = granules[0]["granule_id"]
                 else:
                     granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
+                    for granule in granules:
+                        _, _, _, frame_ids = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
+                        for frame_id in frame_ids:
+                            frame_id_map[frame_id] = granule["granule_id"]
 
-                # Then create a unique set of frame_ids that we need to query for
-                frame_id_map = defaultdict(str)
-                for granule in granules:
-                    _, _, _, frame_ids = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
-                    for frame_id in frame_ids:
-                        frame_id_map[frame_id] = granule["granule_id"]
+                # We could perform two queries so create a unique set of granules.
                 for frame_id, native_id in frame_id_map.items():
                     new_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, native_id)
-                    all_granules.extend(new_granules)
+                    for granule in new_granules:
+                        unique_granules[granule["granule_id"]] = granule
+
+                all_granules = unique_granules.values()
             else:
                 raise Exception("Reprocessing mode requires either a native_id or a date range to be specified.")
 
