@@ -2,6 +2,7 @@
   "comment": "MAKE SURE to set ASG max of download jobs to be 0. Otherwise you'll get tons and tons of download jobs.",
   "comment2": "We ignore validation data and just run query through a large range of dates to perform load test on query",
   "processing_mode": "forward",
+  "use_temporal": true,
   "k": 2,
   "m": 1,
   "grace_mins": 100,
