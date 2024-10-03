@@ -15,7 +15,7 @@ from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 from data_subscriber.cslc.cslc_catalog import KCSLCProductCatalog
 
-K_MULT_FACTOR = 3 #TODO: This should be a setting in probably settings.yaml.
+K_MULT_FACTOR = 2 #TODO: This should be a setting in probably settings.yaml.
 EARLIEST_POSSIBLE_CSLC_DATE = "2016-01-01T00:00:00Z"
 
 logger = logging.getLogger(__name__)
@@ -311,8 +311,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         counter = 1
         while k_satified < k_minus_one:
-            start_date_shift = timedelta(days=6 + counter * shift_day_grouping)
-            end_date_shift = timedelta(days= 6 + (counter-1) * shift_day_grouping)
+            start_date_shift = timedelta(days= counter * shift_day_grouping, hours=1)
+            end_date_shift = timedelta(days= (counter-1) * shift_day_grouping, hours=1)
             start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
             end_date_object = (acquisition_time - end_date_shift)
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
