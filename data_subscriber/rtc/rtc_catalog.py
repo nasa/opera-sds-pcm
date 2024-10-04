@@ -7,8 +7,8 @@ import elasticsearch.helpers
 from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
+from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from util.grq_client import get_body
-from . import mgrs_bursts_collection_db_client
 
 
 class RTCProductCatalog(ProductCatalog):
