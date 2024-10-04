@@ -231,7 +231,12 @@ def test_slc_spatial_product_catalog():
     assert isinstance(slc_spatial_product_catalog.generate_es_index_name(), str)
     assert slc_spatial_product_catalog.generate_es_index_name().startswith("slc_spatial_catalog-")
 
-def test_rtc_product_catalog():
+
+@patch("data_subscriber.rtc.rtc_catalog.mgrs_bursts_collection_db_client")
+def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
+    from tests.unit.conftest import mock_load_mgrs_burst_db_raw
+    patch_mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db = mock_load_mgrs_burst_db_raw
+
     """Tests for functionality specific to the RTCProductCatalog class"""
     rtc_product_catalog = RTCProductCatalog()
 

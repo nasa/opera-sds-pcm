@@ -75,10 +75,6 @@ mock_commons_es_connection = types.ModuleType('commons.es_connection')
 sys.modules['commons.es_connection'] = mock_commons_es_connection
 mock_commons_es_connection.get_grq_es = lambda *args, **kwargs: None
 
-mock_mgrs_bursts_collection_db_client = types.ModuleType('data_subscriber.rtc.mgrs_bursts_collection_db_client')
-sys.modules['data_subscriber.rtc.mgrs_bursts_collection_db_client'] = mock_mgrs_bursts_collection_db_client
-mock_mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db = mock_load_mgrs_burst_db_raw
-
 
 @pytest.fixture(autouse=True)
 def deny_network_requests(monkeypatch):
