@@ -79,7 +79,9 @@ startsecs=10
 
 [program:watch_systemd_services]
 directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/mozart/bin/watch_systemd_services.py --host mozart -s elasticsearch redis rabbitmq-server httpd
+command={{ OPS_HOME }}/mozart/bin/watch_systemd_services.py -s {{ MOZART_ES_ENGINE }} redis rabbitmq-server httpd
+        --host mozart
+        --es_host {{ MOZART_ES_PVT_IP[0] if MOZART_ES_PVT_IP is iterable and MOZART_ES_PVT_IP is not string else MOZART_ES_PVT_IP }}
 process_name=%(program_name)s
 priority=999
 numprocs=1

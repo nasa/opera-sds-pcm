@@ -111,7 +111,9 @@ startsecs=10
 
 [program:watch_systemd_services]
 directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py --host metrics -s elasticsearch redis
+command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py -s {{ METRICS_ES_ENGINE }} redis
+        --host metrics
+        --es_host {{ METRICS_ES_PVT_IP[0] if METRICS_ES_PVT_IP is iterable and METRICS_ES_PVT_IP is not string else METRICS_ES_PVT_IP }}
 process_name=%(program_name)s
 priority=999
 numprocs=1
