@@ -240,7 +240,9 @@ class CmrQuery:
         logger.info(f"{self.args.chunk_size=}")
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
-            cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token, self.cmr, self.settings)
+            # Note that self.disp_burst_map_hist and self.blackout_dates_obj are created in the child class
+            cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token,
+                                             self.cmr, self.settings, self.blackout_dates_obj)
 
         for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
             chunk_batch_ids = []

@@ -2,7 +2,7 @@
 
 import pytest
 import conftest
-
+from pathlib import Path
 from data_subscriber import cslc_utils
 from data_subscriber.parser import create_parser
 from data_subscriber.cslc import cslc_query
@@ -12,17 +12,20 @@ from data_subscriber.cmr import DateTimeRange
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",\
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60", "--k=4", "--m=4"]
 
+frame_to_bursts, burst_to_frames, datetime_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+
 def test_extend_additional_records():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
-    forward_args = create_parser().parse_args(forward_arguments)
-    c_query = cslc_query.CslcCmrQuery(forward_args, None, None, None, None, None,
-                                    None)
+
+    p = Path(__file__).parent / "empty_disp_s1_blackout.json"
+    frame_blackout_dates = cslc_utils.process_disp_blackout_dates(file = p)
+    blackout_obj = cslc_utils.DispS1BlackoutDates(frame_blackout_dates, frame_to_bursts, burst_to_frames)
 
     granules = []
     granules.append({"granule_id": "OPERA_L2_CSLC-S1_T042-088921-IW1_20160705T140755Z_20240425T204418Z_S1A_VV_v1.1"}) # frame 11115, 11116
     granules.append({"granule_id": "OPERA_L2_CSLC-S1_T042-088919-IW1_20160705T140750Z_20240425T204418Z_S1A_VV_v1.1"}) # frames 11115
 
-    c_query.extend_additional_records(granules)
+    blackout_obj.extend_additional_records(granules, proc_mode = "forward")
 
     assert len(granules) == 3
 

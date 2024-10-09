@@ -3,13 +3,12 @@
 import copy
 import logging
 from collections import defaultdict
-import asyncio
 from datetime import datetime, timedelta
 
-from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
+from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
                                         process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id,
-                                        parse_cslc_file_name, CSLCDependency,
+                                        parse_cslc_file_name, CSLCDependency, query_cmr_cslc_blackout_polarization,
                                         localize_disp_blackout_dates, process_disp_blackout_dates, DispS1BlackoutDates)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
@@ -35,7 +34,7 @@ class CslcCmrQuery(CmrQuery):
             self.frame_blackout_dates = localize_disp_blackout_dates()
         else:
             self.frame_blackout_dates = process_disp_blackout_dates(blackout_dates_file)
-        self.blackout_dates_obj = DispS1BlackoutDates(self.frame_blackout_dates, self.disp_burst_map_hist)
+        self.blackout_dates_obj = DispS1BlackoutDates(self.frame_blackout_dates, self.disp_burst_map_hist, self.burst_to_frames)
 
         if args.grace_mins:
             self.grace_mins = args.grace_mins
@@ -73,40 +72,6 @@ class CslcCmrQuery(CmrQuery):
             raise AssertionError("m parameter must be specified.")
         if self.args.m < 1:
             raise AssertionError("m parameter must be greater than 0.")
-
-    def extend_additional_records(self, granules, no_duplicate=False, force_frame_id = None):
-        """Add frame_id, burst_id, and acquisition_cycle to all granules.
-        In forward  and re-processing modes, extend the granules with potentially additional records
-        if a burst belongs to two frames."""
-
-        extended_granules = []
-        for granule in granules:
-            granule_id = granule["granule_id"]
-
-            burst_id, acquisition_dts, acquisition_cycles, frame_ids = (
-                parse_cslc_native_id(granule_id, self.burst_to_frames, self.disp_burst_map_hist))
-
-            granule["acquisition_ts"] = acquisition_dts
-
-            granule["burst_id"] = burst_id
-            granule["frame_id"] = frame_ids[0] if force_frame_id is None else force_frame_id
-            granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
-            granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
-            granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
-
-            if self.proc_mode not in ["forward"] or no_duplicate:
-                continue
-
-            # If this burst belongs to two frames, make a deep copy of the granule and append to the list
-            if len(frame_ids) == 2:
-                new_granule = copy.deepcopy(granule)
-                new_granule["frame_id"] = self.burst_to_frames[burst_id][1]
-                granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
-                new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
-                new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
-                extended_granules.append(new_granule)
-
-        granules.extend(extended_granules)
 
     def prepare_additional_fields(self, granule, args, granule_id):
         """For CSLC this is used to determine download_batch_id and attaching it the granule.
@@ -325,12 +290,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
             logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {frame_id=}")
 
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-            cslc_dependency = CSLCDependency(args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, VV_only)
+            cslc_dependency = CSLCDependency(
+                args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, self.blackout_dates_obj, VV_only)
             _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, silent=silent)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
-            print("+++++++++++++++++++++++", acq_day_indices)
             for acq_day_index in acq_day_indices:
 
                 ''' This step is a bit tricky.
@@ -338,9 +303,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 2. We already know what frame these new granules belong to because that's what we queried for. 
                     We need to force using that because 1/9 times one burst will belong to two frames.'''
                 granules = granules_map[acq_day_index]
-                self.extend_additional_records(granules ,no_duplicate=True, force_frame_id=frame_id)
-                granules = self.eliminate_duplicate_granules(granules)
-
                 k_granules.extend(granules)
                 k_satified += 1
                 logger.info(f"{acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
@@ -371,24 +333,15 @@ since the first CSLC file for the batch was ingested which is greater than the g
         start_date = (acquisition_time - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         end_date = (acquisition_time + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
-        logger.info(
-            f"Querying CMR for all CSLC files that belong to the frame {frame_id}, derived from the native_id {native_id}")
+        logger.info(f"Querying CMR for all CSLC files that belong to the frame {frame_id}, derived from the native_id {native_id}")
 
         l, native_id_pattern = build_cslc_native_ids(frame_id, self.disp_burst_map_hist)
         local_args.native_id = native_id_pattern  # native_id is overwritten here. It's local deepcopy so doesn't matter.
-        granules = asyncio.run(async_query_cmr(local_args, token, cmr, settings, timerange, now))
-
-        # Remove granules that don't belong to the frame
-        for g in granules:
-            _, _, _, f_ids_local = parse_cslc_native_id(g["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
-            if frame_id not in f_ids_local:
-                granules.remove(g)
-
-        self.extend_additional_records(granules, no_duplicate=True, force_frame_id=frame_id)
+        granules = query_cmr_cslc_blackout_polarization(local_args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, True, frame_id)
 
         return granules
 
-    def query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange, silent=False):
+    def  query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange, silent=False):
 
         frame_id = int(self.args.frame_id)
         if frame_id not in self.disp_burst_map_hist:
@@ -396,16 +349,13 @@ since the first CSLC file for the batch was ingested which is greater than the g
         OPERA does not process this frame for DISP-S1.")
 
         new_args = copy.deepcopy(args)
-        all_granules = []
         count, native_id = build_cslc_native_ids(frame_id, self.disp_burst_map_hist)
         if count == 0:
-            return all_granules
+            return []
         new_args.native_id = native_id
-        new_granules = asyncio.run(async_query_cmr(new_args, token, cmr, settings, timerange, now, silent))
-        self.extend_additional_records(new_granules, no_duplicate=True, force_frame_id=frame_id)
-        all_granules.extend(new_granules)
+        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, silent, self.blackout_dates_obj, no_duplicate=True, force_frame_id=frame_id)
 
-        return all_granules
+        return new_granules
 
     def query_cmr(self, args, token, cmr, settings, timerange, now):
 
@@ -440,7 +390,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                         return []
                     frame_id_map[self.args.frame_id] = granules[0]["granule_id"]
                 else:
-                    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
+                    granules = query_cmr_cslc_blackout_polarization(args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, False, None)
                     for granule in granules:
                         _, _, _, frame_ids = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
                         for frame_id in frame_ids:
@@ -460,33 +410,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
             if self.args.frame_id is not None:
                 all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
             else:
-                all_granules = asyncio.run(async_query_cmr(args, token, cmr, settings, timerange, now))
-                all_granules = self.eliminate_none_frames(all_granules)
-                self.extend_additional_records(all_granules)
+                all_granules = query_cmr_cslc_blackout_polarization(args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, False, None)
 
-        # Get rid of any granules that don't have the VV polarization
-        # TODO: at some point we will change the code so that we can process HH polarization too
-        temp_all_graules = copy.deepcopy(all_granules)
-        all_granules = []
-        for granule in temp_all_graules:
-            if "_VV_" not in granule["granule_id"]:
-                logger.info(f"Skipping granule {granule['granule_id']} because it's not in VV polarization")
-            else:
-                all_granules.append(granule)
-
-        non_blackout_granules = []
-        for granule in all_granules:
-            frame_id = granule["frame_id"]
-            is_black_out, dates = self.blackout_dates_obj.is_in_blackout(frame_id, granule["acquisition_ts"])
-            if is_black_out:
-                blackout_start = dates[0].strftime(CMR_TIME_FORMAT)
-                blackout_end = dates[1].strftime(CMR_TIME_FORMAT)
-                logger.info(f"Skipping granule {granule['granule_id']} because {frame_id=} falls on a blackout date {blackout_start=} {blackout_end=}")
-            else:
-                #logger.info(f"Adding granule {granule['granule_id']} to the list of granules to download")
-                non_blackout_granules.append(granule)
-
-        return non_blackout_granules
+        return all_granules
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         '''Same as base class except inject batch_ids for k granules'''
@@ -515,17 +441,6 @@ since the first CSLC file for the batch was ingested which is greater than the g
         granules = list(granule_dict.values())
 
         return granules
-
-    def eliminate_none_frames(self, granules):
-        '''Get rid of frames that don't show up in the historical database json.'''
-
-        new_granules = []
-        for granule in granules:
-            burst_id, _ = parse_cslc_file_name(granule["granule_id"])
-            if burst_id in self.burst_to_frames:
-                new_granules.append(granule)
-
-        return new_granules
 
     def get_download_chunks(self, batch_id_to_urls_map):
         '''For CSLC chunks we must group them by the batch_id that were determined at the time of triggering'''

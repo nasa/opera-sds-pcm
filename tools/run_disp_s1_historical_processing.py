@@ -31,6 +31,8 @@ logger = logging.getLogger("DISP-S1-HISTORICAL")
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+blackout_dates = cslc_utils.localize_disp_blackout_dates()
+blackout_dates_obj = cslc_utils.DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
 
 def proc_once(eu, procs, args):
     dryrun = args.dry_run
@@ -186,7 +188,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     
     NOTE! While args, token, cmr, and settings are necessary arguments for CSLCDependency, they will not be used in
     historical processing because all CSLC dependency information is contained in the disp_burst_map'''
-    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None)
+    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
     if cslc_dependency.compressed_cslc_satisfied(frame_id,
                                  disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
         next_sensing_time_position = sensing_time_position_zero_based + p.k

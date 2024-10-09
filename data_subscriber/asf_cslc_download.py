@@ -19,7 +19,7 @@ from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cslc_utils import (CSLCDependency, localize_disp_frame_burst_hist, split_download_batch_id,
-                                        get_bounding_box_for_frame, parse_cslc_native_id,
+                                        get_bounding_box_for_frame, parse_cslc_native_id, DispS1BlackoutDates, localize_disp_blackout_dates,
                                         localize_frame_geo_json, parse_cslc_burst_id, build_cslc_static_native_ids)
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         self.disp_burst_map, self.burst_to_frames, self.datetime_to_frames = localize_disp_frame_burst_hist()
         self.frame_geo_map = localize_frame_geo_json()
         self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
+        self.blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), self.disp_burst_map, self.burst_to_frames)
 
     def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
 
@@ -185,7 +186,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         logger.info(f"{k=}, {m=}")
 
-        cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings)
+        cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings, self.blackout_dates_obj)
 
         ccslcs = cslc_dependency.get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, es_conn.es_util)
         if ccslcs is False:

@@ -13,6 +13,7 @@ import elasticsearch
 
 from util import datasets_json_util
 from util.conf_util import SettingsConf
+from data_subscriber.url import cslc_unique_id
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
 
 
@@ -140,22 +141,26 @@ def process_disp_blackout_dates(file):
     j = json.load(open(file))
 
     '''Parse json file that looks like this
-    {   "831": {}
-        "832":  {"blackout_dates": [ {"start": "2024-12-30T23:05:24", "end": "2025-03-15T23:05:24"}. ...]},
+    "blackout_dates": {
+       "831": []
+        "832":  [ ["2024-12-30T23:05:24", "2025-03-15T23:05:24"], ...],
         ...
-        "46543": {"blackout_dates": [ {"start": "2024-11-15T23:05:24", "end": "2025-04-30T23:05:24"}. ...]}}'''
+        "46543": [ ["2024-11-15T23:05:24", "2025-04-30T23:05:24"], ...]
+        }
+    }'''
 
-    frame_blackout_dates = {}
-    for frame in j:
-        if "blackout_dates" in j[frame]:
-            frame_blackout_dates[int(frame)] = [(dateutil.parser.isoparse(d["start"]), dateutil.parser.isoparse(d["end"])) for d in j[frame]["blackout_dates"]]
+    frame_blackout_dates = defaultdict(list)
+    for frame in j["blackout_dates"]:
+        for dates in j["blackout_dates"][frame]:
+            frame_blackout_dates[int(frame)].append((dateutil.parser.isoparse(dates[0]), dateutil.parser.isoparse(dates[1])))
 
     return frame_blackout_dates
 
 class DispS1BlackoutDates:
 
-    def __init__(self, frame_blackout_dates, frame_to_burst):
+    def __init__(self, frame_blackout_dates, frame_to_burst, burst_to_frames):
         self.frame_to_burst = frame_to_burst
+        self.burst_to_frames = burst_to_frames
         self.frame_blackout_acq_indices = defaultdict(list)
 
         # Populate for the beginning and end of the time range
@@ -178,6 +183,82 @@ class DispS1BlackoutDates:
                 return True, (start_date, end_date)
 
         return False, None
+
+    def extend_additional_records(self, granules, proc_mode, no_duplicate=False, force_frame_id = None):
+        """Add frame_id, burst_id, and acquisition_cycle to all granules.
+        In forward  and re-processing modes, extend the granules with potentially additional records
+        if a burst belongs to two frames."""
+
+        extended_granules = []
+        for granule in granules:
+            granule_id = granule["granule_id"]
+
+            burst_id, acquisition_dts, acquisition_cycles, frame_ids = (
+                parse_cslc_native_id(granule_id, self.burst_to_frames, self.frame_to_burst))
+
+            granule["acquisition_ts"] = acquisition_dts
+
+            granule["burst_id"] = burst_id
+            granule["frame_id"] = frame_ids[0] if force_frame_id is None else force_frame_id
+            granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
+            granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
+            granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
+
+            if proc_mode not in ["forward"] or no_duplicate:
+                continue
+
+            # If this burst belongs to two frames, make a deep copy of the granule and append to the list
+            if len(frame_ids) == 2:
+                new_granule = deepcopy(granule)
+                new_granule["frame_id"] = self.burst_to_frames[burst_id][1]
+                granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
+                new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
+                new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
+                extended_granules.append(new_granule)
+
+        granules.extend(extended_granules)
+
+def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only = True):
+    '''Filter for CSLC granules and filter for blackout dates and polarization'''
+
+    filtered_granules = []
+
+    # Get rid of any bursts that aren't in the disp-s1 consistent database. Need to do this before the extending records
+    relevant_granules = []
+    for granule in granules:
+        burst_id, acquisition_dts = parse_cslc_file_name(granule['granule_id'])
+        if burst_id not in blackout_dates_obj.burst_to_frames.keys() or len(blackout_dates_obj.burst_to_frames[burst_id]) == 0:
+            logger.info(f"Skipping granule {granule['granule_id']} because {burst_id=} not in the historical database")
+        else:
+            relevant_granules.append(granule)
+
+    blackout_dates_obj.extend_additional_records(relevant_granules, proc_mode, no_duplicate, force_frame_id)
+
+    for granule in relevant_granules:
+
+        if vv_only and "_VV_" not in granule["granule_id"]:
+            logger.info(f"Skipping granule {granule['granule_id']} because it doesn't have VV polarization")
+            continue
+
+        frame_id = granule["frame_id"]
+
+        is_black_out, dates = blackout_dates_obj.is_in_blackout(frame_id, granule["acquisition_ts"])
+        if is_black_out:
+            blackout_start = dates[0].strftime(CMR_TIME_FORMAT)
+            blackout_end = dates[1].strftime(CMR_TIME_FORMAT)
+            logger.info(f"Skipping granule {granule['granule_id']} because {frame_id=} falls on a blackout date {blackout_start=} {blackout_end=}")
+            continue
+
+        filtered_granules.append(granule)
+
+    return filtered_granules
+
+def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, silent, blackout_dates_obj,
+                                         no_duplicate, force_frame_id, vv_only = True):
+    '''Query CMR for CSLC granules and filter for blackout dates and polarization'''
+
+    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
+    return _filter_cslc_blackout_polarization(granules, args.proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only)
 
 @cache
 def process_frame_geo_json(file):
@@ -228,13 +309,29 @@ def parse_cslc_file_name(native_id):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
+                                      production_datetime: datetime, polarization):
+    '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!
+    Burst number is integer between 0 and 26 which designates the burst number in the frame. In cases of frames not having all 27 bursts,
+    it will simply wrap over'''
+
+    frame = disp_burst_map_hist[frame_id]
+    burst_number = burst_number % len(frame.burst_ids)
+    burst_id = sorted(list(frame.burst_ids))[burst_number] # Sort for the order to be deterministic
+
+    # Convert datetime objects into strings
+    acquisition_datetime = acquisition_datetime.strftime("%Y%m%dT%H%M%SZ")
+    production_datetime = production_datetime.strftime("%Y%m%dT%H%M%SZ")
+
+    return f"OPERA_L2_CSLC-S1_{burst_id}_{acquisition_datetime}_{production_datetime}_S1A_{polarization}_v1.1"
+
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
 
 class CSLCDependency:
-    def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, VV_only = True):
+    def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, blackout_dates_obj, VV_only = True):
         self.k = k
         self.m = m
         self.frame_to_bursts = frame_to_bursts
@@ -242,6 +339,7 @@ class CSLCDependency:
         self.token = token
         self.cmr = cmr
         self.settings = settings
+        self.blackout_dates_obj = blackout_dates_obj
         self.VV_only = VV_only
 
     def get_prev_day_indices(self, day_index: int, frame_number: int):
@@ -284,12 +382,10 @@ class CSLCDependency:
 
         frame = self.frame_to_bursts[frame_number]
 
-        granules = asyncio.run(async_query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), silent))
+        granules = query_cmr_cslc_blackout_polarization(
+            args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), silent, self.blackout_dates_obj, True, frame_number, self.VV_only)
 
         for granule in granules:
-            if self.VV_only and "_VV_" not in granule["granule_id"]:
-                logger.info(f"Skipping granule {granule['granule_id']} because it doesn't have VV polarization")
-                continue
             burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
             acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
             g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, self.frame_to_bursts)
