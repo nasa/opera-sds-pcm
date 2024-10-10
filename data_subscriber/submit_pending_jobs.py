@@ -13,8 +13,9 @@ from data_subscriber.cmr import get_cmr_token
 from data_subscriber.parser import create_parser
 from data_subscriber.query import submit_download_job
 from data_subscriber import es_conn_util
-from cslc_utils import (get_pending_download_jobs, localize_disp_frame_burst_hist, mark_pending_download_job_submitted,
-                        CSLCDependency, DispS1BlackoutDates, localize_disp_blackout_dates)
+from cslc_utils import (get_pending_download_jobs, localize_disp_frame_burst_hist, mark_pending_download_job_submitted)
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 
 

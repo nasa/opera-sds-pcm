@@ -3,7 +3,8 @@
 from collections import defaultdict
 import logging
 from data_subscriber import cslc_utils
-from data_subscriber.cslc_utils import CSLCDependency
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, localize_disp_blackout_dates
 from datetime import datetime, timedelta
 import argparse
 from util.conf_util import SettingsConf
@@ -61,9 +62,9 @@ else:
 
 if args.blackout_file:
     logger.info(f"Using local DISP-S1 blackout dates json file: {args.blackout_file}")
-    blackout_dates_obj = cslc_utils.DispS1BlackoutDates(cslc_utils.process_disp_blackout_dates(args.blackout_file), disp_burst_map, burst_to_frames)
+    blackout_dates_obj = DispS1BlackoutDates(process_disp_blackout_dates(args.blackout_file), disp_burst_map, burst_to_frames)
 else:
-    blackout_dates_obj = cslc_utils.DispS1BlackoutDates(cslc_utils.localize_disp_blackout_dates(), disp_burst_map, burst_to_frames)
+    blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), disp_burst_map, burst_to_frames)
 
 def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 

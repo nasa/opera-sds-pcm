@@ -18,9 +18,11 @@ from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
 
-from data_subscriber.cslc_utils import (CSLCDependency, localize_disp_frame_burst_hist, split_download_batch_id,
-                                        get_bounding_box_for_frame, parse_cslc_native_id, DispS1BlackoutDates, localize_disp_blackout_dates,
+from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id,
+                                        get_bounding_box_for_frame, parse_cslc_native_id,
                                         localize_frame_geo_json, parse_cslc_burst_id, build_cslc_static_native_ids)
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 
 logger = logging.getLogger(__name__)
 

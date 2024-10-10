@@ -2,7 +2,7 @@
 
 import sys
 from data_subscriber import cslc_utils
-from data_subscriber.cslc_utils import CSLCDependency
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
 import tools.run_disp_s1_historical_processing
 from tools.run_disp_s1_historical_processing import generate_initial_frame_states, form_job_params, convert_datetime
 

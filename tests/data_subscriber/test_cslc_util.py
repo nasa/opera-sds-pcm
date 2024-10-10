@@ -4,11 +4,10 @@ import pytest
 import conftest
 from pathlib import Path
 from data_subscriber import cslc_utils
-from data_subscriber.cslc_utils import CSLCDependency, DispS1BlackoutDates, process_disp_blackout_dates
+from data_subscriber.cslc.cslc_dependency import CSLCDependency, get_dependent_ccslc_index
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, _filter_cslc_blackout_polarization
 from data_subscriber.parser import create_parser
 import dateutil
-from datetime import datetime, timedelta
-from data_subscriber.cmr import DateTimeRange, get_cmr_token
 from util.conf_util import SettingsConf
 
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
@@ -171,7 +170,7 @@ def test_process_disp_blackout_dates_parsing():
     """Test that the blackout dates are correctly processed"""
 
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
-    blackout_dates = cslc_utils.process_disp_blackout_dates(p)
+    blackout_dates = process_disp_blackout_dates(p)
     assert len(blackout_dates[831]) == 1
     assert blackout_dates[832][0] == (dateutil.parser.isoparse("2017-01-24T23:00:00"), dateutil.parser.isoparse("2017-08-24T23:00:00"))
     assert blackout_dates[832][1] == (dateutil.parser.isoparse("2022-01-24T23:00:00"), dateutil.parser.isoparse("2022-08-24T23:00:00"))
@@ -182,8 +181,8 @@ def test_process_disp_blackout_dates_comparison():
     """Test that the blackout dates are correctly compared"""
 
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
-    blackout_dates = cslc_utils.process_disp_blackout_dates(p)
-    blackout_dates_obj = cslc_utils.DispS1BlackoutDates(blackout_dates, disp_burst_map_hist, burst_to_frames)
+    blackout_dates = process_disp_blackout_dates(p)
+    blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map_hist, burst_to_frames)
 
     burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
         cslc_utils.parse_cslc_native_id(
@@ -208,8 +207,8 @@ def test_process_disp_blackout_dates_comparison():
 
 def test_filter_cslc_blackout_polarizations():
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
-    blackout_dates = cslc_utils.process_disp_blackout_dates(p)
-    blackout_dates_obj = cslc_utils.DispS1BlackoutDates(blackout_dates, disp_burst_map_hist, burst_to_frames)
+    blackout_dates = process_disp_blackout_dates(p)
+    blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map_hist, burst_to_frames)
 
     granules = []
     for b in range(27):
@@ -224,21 +223,21 @@ def test_filter_cslc_blackout_polarizations():
                                                                  production_datetime, "VV")
         granules.append({"granule_id": native_id})
 
-    granules = cslc_utils._filter_cslc_blackout_polarization(granules, "forward", blackout_dates_obj, no_duplicate=False, force_frame_id=None)
+    granules = _filter_cslc_blackout_polarization(granules, "forward", blackout_dates_obj, no_duplicate=False, force_frame_id=None)
 
     assert len(granules) == 33
 
     granules = [{"granule_id": "OPERA_L2_CSLC-S1_T042-088939-IW1_20191129T140825Z_20240501T103901Z_S1B_VV_v1.1"}]
-    filtered = cslc_utils._filter_cslc_blackout_polarization(granules, "forward", blackout_dates_obj, no_duplicate=True, force_frame_id=None)
+    filtered = _filter_cslc_blackout_polarization(granules, "forward", blackout_dates_obj, no_duplicate=True, force_frame_id=None)
     assert len(filtered) == 0
 
 def test_get_dependent_ccslc_index():
     prev_day_indices = [0, 24, 48, 72]
-    assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
-    assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
+    assert "t041_086868_iw1_72" == get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
+    assert "t041_086868_iw1_24" == get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
     prev_day_indices = [0, 24, 48, 72, 96]
-    assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
-    assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
+    assert "t041_086868_iw1_72" == get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
+    assert "t041_086868_iw1_24" == get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
 
 def test_frame_bounds():
     """Test that the frame bounds is correctly computed and formatted"""

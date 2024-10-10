@@ -1,9 +1,7 @@
 import json
 import re
-from copy import deepcopy
 from collections import defaultdict
-import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import urlparse
 import dateutil
 import boto3
@@ -13,17 +11,12 @@ import elasticsearch
 
 from util import datasets_json_util
 from util.conf_util import SettingsConf
-from data_subscriber.url import cslc_unique_id
-from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
-
 
 DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
-DEFAULT_DISP_BLACKOUT_DATE_NAME = 'opera-disp-s1-blackout-dates.json'
 DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
-
 
 logger = logging.getLogger(__name__)
 
@@ -66,16 +59,6 @@ def localize_frame_geo_json():
         file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
 
     return process_frame_geo_json(file)
-
-@cache
-def localize_disp_blackout_dates():
-    try:
-        file = localize_anc_json("DISP_S1_BLACKOUT_DATES_S3PATH")
-    except:
-        logger.warning(f"Could not download DISP-S1 blackout dates file from settings.yaml field DISP_S1_BLACKOUT_DATES_S3PATH from S3. Attempting to use local copy named {DEFAULT_DISP_BLACKOUT_DATE_NAME}.")
-        file = DEFAULT_DISP_BLACKOUT_DATE_NAME
-
-    return process_disp_blackout_dates(file)
 
 def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time: datetime):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
@@ -133,132 +116,6 @@ def process_disp_frame_burst_hist(file):
             datetime_to_frames[sensing_time].append(int(frame))
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
-
-@cache
-def process_disp_blackout_dates(file):
-    '''Process the disp blackout dates json file and return a dictionary'''
-
-    j = json.load(open(file))
-
-    '''Parse json file that looks like this
-    "blackout_dates": {
-       "831": []
-        "832":  [ ["2024-12-30T23:05:24", "2025-03-15T23:05:24"], ...],
-        ...
-        "46543": [ ["2024-11-15T23:05:24", "2025-04-30T23:05:24"], ...]
-        }
-    }'''
-
-    frame_blackout_dates = defaultdict(list)
-    for frame in j["blackout_dates"]:
-        for dates in j["blackout_dates"][frame]:
-            frame_blackout_dates[int(frame)].append((dateutil.parser.isoparse(dates[0]), dateutil.parser.isoparse(dates[1])))
-
-    return frame_blackout_dates
-
-class DispS1BlackoutDates:
-
-    def __init__(self, frame_blackout_dates, frame_to_burst, burst_to_frames):
-        self.frame_to_burst = frame_to_burst
-        self.burst_to_frames = burst_to_frames
-        self.frame_blackout_acq_indices = defaultdict(list)
-
-        # Populate for the beginning and end of the time range
-        for frame_id, blackout_dates in frame_blackout_dates.items():
-            for start_date, end_date in blackout_dates:
-                acq_index_start = sensing_time_day_index(start_date, frame_id, self.frame_to_burst)
-                acq_index_end = sensing_time_day_index(end_date, frame_id, self.frame_to_burst)
-                self.frame_blackout_acq_indices[frame_id].append((acq_index_start, acq_index_end, start_date, end_date))
-
-    def is_in_blackout(self, frame_id, sensing_time):
-        '''The sensing time of the frame is in blackout if any of its upto 27 bursts are in the blackout date range'''
-
-        if frame_id not in self.frame_blackout_acq_indices:
-            return False, None
-
-        # If the sensing_time is within the blackout date acquisition date index range, it's blacked out
-        acq_index = sensing_time_day_index(sensing_time, frame_id, self.frame_to_burst)
-        for acq_index_start, acq_index_end, start_date, end_date in self.frame_blackout_acq_indices[frame_id]:
-            if acq_index_start <= acq_index <= acq_index_end:
-                return True, (start_date, end_date)
-
-        return False, None
-
-    def extend_additional_records(self, granules, proc_mode, no_duplicate=False, force_frame_id = None):
-        """Add frame_id, burst_id, and acquisition_cycle to all granules.
-        In forward  and re-processing modes, extend the granules with potentially additional records
-        if a burst belongs to two frames."""
-
-        extended_granules = []
-        for granule in granules:
-            granule_id = granule["granule_id"]
-
-            burst_id, acquisition_dts, acquisition_cycles, frame_ids = (
-                parse_cslc_native_id(granule_id, self.burst_to_frames, self.frame_to_burst))
-
-            granule["acquisition_ts"] = acquisition_dts
-
-            granule["burst_id"] = burst_id
-            granule["frame_id"] = frame_ids[0] if force_frame_id is None else force_frame_id
-            granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
-            granule["download_batch_id"] = download_batch_id_forward_reproc(granule)
-            granule["unique_id"] = cslc_unique_id(granule["download_batch_id"], granule["burst_id"])
-
-            if proc_mode not in ["forward"] or no_duplicate:
-                continue
-
-            # If this burst belongs to two frames, make a deep copy of the granule and append to the list
-            if len(frame_ids) == 2:
-                new_granule = deepcopy(granule)
-                new_granule["frame_id"] = self.burst_to_frames[burst_id][1]
-                granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
-                new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
-                new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
-                extended_granules.append(new_granule)
-
-        granules.extend(extended_granules)
-
-def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only = True):
-    '''Filter for CSLC granules and filter for blackout dates and polarization'''
-
-    filtered_granules = []
-
-    # Get rid of any bursts that aren't in the disp-s1 consistent database. Need to do this before the extending records
-    relevant_granules = []
-    for granule in granules:
-        burst_id, acquisition_dts = parse_cslc_file_name(granule['granule_id'])
-        if burst_id not in blackout_dates_obj.burst_to_frames.keys() or len(blackout_dates_obj.burst_to_frames[burst_id]) == 0:
-            logger.info(f"Skipping granule {granule['granule_id']} because {burst_id=} not in the historical database")
-        else:
-            relevant_granules.append(granule)
-
-    blackout_dates_obj.extend_additional_records(relevant_granules, proc_mode, no_duplicate, force_frame_id)
-
-    for granule in relevant_granules:
-
-        if vv_only and "_VV_" not in granule["granule_id"]:
-            logger.info(f"Skipping granule {granule['granule_id']} because it doesn't have VV polarization")
-            continue
-
-        frame_id = granule["frame_id"]
-
-        is_black_out, dates = blackout_dates_obj.is_in_blackout(frame_id, granule["acquisition_ts"])
-        if is_black_out:
-            blackout_start = dates[0].strftime(CMR_TIME_FORMAT)
-            blackout_end = dates[1].strftime(CMR_TIME_FORMAT)
-            logger.info(f"Skipping granule {granule['granule_id']} because {frame_id=} falls on a blackout date {blackout_start=} {blackout_end=}")
-            continue
-
-        filtered_granules.append(granule)
-
-    return filtered_granules
-
-def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, silent, blackout_dates_obj,
-                                         no_duplicate, force_frame_id, vv_only = True):
-    '''Query CMR for CSLC granules and filter for blackout dates and polarization'''
-
-    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
-    return _filter_cslc_blackout_polarization(granules, args.proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only)
 
 @cache
 def process_frame_geo_json(file):
@@ -329,168 +186,6 @@ def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: in
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
-
-class CSLCDependency:
-    def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, blackout_dates_obj, VV_only = True):
-        self.k = k
-        self.m = m
-        self.frame_to_bursts = frame_to_bursts
-        self.args = args
-        self.token = token
-        self.cmr = cmr
-        self.settings = settings
-        self.blackout_dates_obj = blackout_dates_obj
-        self.VV_only = VV_only
-
-    def get_prev_day_indices(self, day_index: int, frame_number: int):
-        '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
-
-        if frame_number not in self.frame_to_bursts:
-            raise Exception(f"Frame number {frame_number} not found in the historical database. \
-    OPERA does not process this frame for DISP-S1.")
-
-        frame = self.frame_to_bursts[frame_number]
-
-        if day_index <= frame.sensing_datetime_days_index[-1]:
-            # If the day index is within the historical database, simply return from the database
-            # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
-            list_index = frame.sensing_datetime_days_index.index(day_index)
-            return frame.sensing_datetime_days_index[:list_index]
-        else:
-            # If not, we must query CMR and then append that to the database values
-            start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30)
-            days_delta = day_index - frame.sensing_datetime_days_index[-1]
-            end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
-            query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, silent = True)
-            all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
-            logger.debug(f"All previous day indices: {all_prev_indices}")
-            return all_prev_indices
-    def get_k_granules_from_cmr(self, query_timerange, frame_number: int, silent = False):
-        '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
-        1. acq_index_to_bursts: day index to set of burst ids
-        2. acq_index_to_granules: day index to list of granules that match the burst
-        '''
-        acq_index_to_bursts = defaultdict(set)
-        acq_index_to_granules = defaultdict(list)
-
-        # Add native-id condition in args. This query is always by temporal time.
-        l, native_id = build_cslc_native_ids(frame_number, self.frame_to_bursts)
-        args = deepcopy(self.args)
-        args.native_id = native_id
-        args.use_temporal = True
-
-        frame = self.frame_to_bursts[frame_number]
-
-        granules = query_cmr_cslc_blackout_polarization(
-            args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), silent, self.blackout_dates_obj, True, frame_number, self.VV_only)
-
-        for granule in granules:
-            burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
-            acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
-            g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, self.frame_to_bursts)
-            acq_index_to_bursts[g_day_index].add(burst_id)
-            acq_index_to_granules[g_day_index].append(granule)
-
-        # Get rid of the day indices that don't match the burst pattern
-        for g_day_index in list(acq_index_to_bursts.keys()):
-            if not acq_index_to_bursts[g_day_index].issuperset(frame.burst_ids):
-                logger.info(
-                    f"Removing day index {g_day_index} from k-cycle determination because it doesn't suffice the burst pattern")
-                logger.info(f"{acq_index_to_bursts[g_day_index]}")
-                del acq_index_to_bursts[g_day_index]
-                del acq_index_to_granules[g_day_index]
-
-        return acq_index_to_bursts, acq_index_to_granules
-
-    def determine_k_cycle(self, acquisition_dts: datetime, day_index: int, frame_number: int, silent = False):
-        '''Return where in the k-cycle this acquisition falls for the frame_number
-        Must specify either acquisition_dts or day_index.
-        Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle
-
-        Assumption: This current frame satisfies the burst pattern already; we don't need to check for that here'''
-
-        if day_index is None:
-            day_index = determine_acquisition_cycle_cslc(acquisition_dts, frame_number, self.frame_to_bursts)
-
-        # If the day index is within the historical database it's much simpler
-        # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
-        # Clearly if we somehow end up with like 1000
-        try:
-            # array.index returns 0-based index so add 1
-            frame = self.frame_to_bursts[frame_number]
-            index_number = frame.sensing_datetime_days_index.index(day_index) + 1 # note "index" is overloaded term here
-            return index_number % self.k
-        except ValueError:
-            # If not, we have to query CMR for all records after the historical database, filter out ones that don't match the burst pattern,
-            # and then determine the k-cycle index
-            start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30) # Make sure we are not counting this last sensing time cycle
-
-            if acquisition_dts is None:
-                days_delta = day_index - frame.sensing_datetime_days_index[-1]
-                end_date = start_date + timedelta(days=days_delta)
-            else:
-                end_date = acquisition_dts
-
-            query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, silent)
-
-            # The k-index is then the complete index number (historical + post historical) mod k
-            logger.info(f"{len(acq_index_to_bursts.keys())} day indices since historical that match the burst pattern: {acq_index_to_bursts.keys()}")
-            logger.info(f"{len(frame.sensing_datetime_days_index)} day indices already in historical database.")
-            index_number = len(frame.sensing_datetime_days_index) + len(acq_index_to_bursts.keys()) + 1
-            return index_number % self.k
-
-    def compressed_cslc_satisfied(self, frame_id, day_index, eu):
-
-        if self.get_dependent_compressed_cslcs(frame_id, day_index, eu) == False:
-            return False
-        return True
-
-    def get_dependent_compressed_cslcs(self, frame_id, day_index, eu):
-        ''' Search for all previous M compressed CSLCs
-            prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of
-                                the latest acq cycle index
-        '''
-
-        prev_day_indices = self.get_prev_day_indices(day_index, frame_id)
-
-        ccslcs = []
-
-        #special case for early sensing time series
-        m = self.m
-        if len(prev_day_indices) < self.k * (self.m-1):
-            m = (len(prev_day_indices) // self.k ) + 1
-
-        # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
-        for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
-            for burst_id in self.frame_to_bursts[frame_id].burst_ids:
-                ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, self.k, burst_id)
-                ccslc = eu.query(
-                    index=_C_CSLC_ES_INDEX_PATTERNS,
-                    body={"query": {"bool": {"must": [
-                        {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
-
-                # Should have exactly one compressed cslc per acq cycle per burst
-                if len(ccslc) == 0:
-                    logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
-                    return False
-
-                ccslcs.append(ccslc[0]) # There can be up to two and those are identical and interchangeable so just pick the first one
-
-        logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
-        return ccslcs
-def get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id):
-    '''last_m_index: The index of the last M compressed CSLC, index into prev_day_indices
-       acq_cycle_index: The index of the acq cycle, index into disp_burst_map'''
-    num_prev_indices = len(prev_day_indices)
-    last_m_index = num_prev_indices // k
-    last_m_index *= k
-
-    acq_cycle_index = prev_day_indices[last_m_index - 1 - (mm * k)]  # jump by k
-    ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index)  # looks like t034_071112_iw3_461
-
-    return ccslc_m_index
 
 def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 

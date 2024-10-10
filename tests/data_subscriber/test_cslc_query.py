@@ -4,6 +4,7 @@ import pytest
 import conftest
 from pathlib import Path
 from data_subscriber import cslc_utils
+from data_subscriber.cslc.cslc_blackout import process_disp_blackout_dates, DispS1BlackoutDates
 from data_subscriber.parser import create_parser
 from data_subscriber.cslc import cslc_query
 from datetime import datetime
@@ -18,8 +19,8 @@ def test_extend_additional_records():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
 
     p = Path(__file__).parent / "empty_disp_s1_blackout.json"
-    frame_blackout_dates = cslc_utils.process_disp_blackout_dates(file = p)
-    blackout_obj = cslc_utils.DispS1BlackoutDates(frame_blackout_dates, frame_to_bursts, burst_to_frames)
+    frame_blackout_dates = process_disp_blackout_dates(file = p)
+    blackout_obj = DispS1BlackoutDates(frame_blackout_dates, frame_to_bursts, burst_to_frames)
 
     granules = []
     granules.append({"granule_id": "OPERA_L2_CSLC-S1_T042-088921-IW1_20160705T140755Z_20240425T204418Z_S1A_VV_v1.1"}) # frame 11115, 11116

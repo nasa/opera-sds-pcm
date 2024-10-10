@@ -9,7 +9,8 @@ import time
 from datetime import datetime, timedelta
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 from data_subscriber import cslc_utils
-from data_subscriber.cslc_utils import CSLCDependency
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 import argparse
 from util.conf_util import SettingsConf
 
@@ -31,8 +32,8 @@ logger = logging.getLogger("DISP-S1-HISTORICAL")
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
 disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
-blackout_dates = cslc_utils.localize_disp_blackout_dates()
-blackout_dates_obj = cslc_utils.DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
+blackout_dates = localize_disp_blackout_dates()
+blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
 
 def proc_once(eu, procs, args):
     dryrun = args.dry_run

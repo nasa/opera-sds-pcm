@@ -8,8 +8,9 @@ from datetime import datetime, timedelta
 from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,  build_cslc_native_ids,  parse_cslc_native_id,
                                         process_disp_frame_burst_hist, download_batch_id_forward_reproc, split_download_batch_id,
-                                        parse_cslc_file_name, CSLCDependency, query_cmr_cslc_blackout_polarization,
-                                        localize_disp_blackout_dates, process_disp_blackout_dates, DispS1BlackoutDates)
+                                        parse_cslc_file_name)
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, localize_disp_blackout_dates, query_cmr_cslc_blackout_polarization
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 from data_subscriber.cslc.cslc_catalog import KCSLCProductCatalog
