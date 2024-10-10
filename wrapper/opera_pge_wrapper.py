@@ -82,7 +82,8 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
 
     :return:
     """
-    logger.info(f"Starting OPERA PGE wrapper with job_context={to_json(job_json_dict)}")
+    logger.info(f"Starting OPERA PGE wrapper")
+    logger.debug(f"job_context={to_json(job_json_dict)}")
 
     logger.info(f"Preparing Working Directory: {work_dir}")
     logger.debug(f"{list(Path(work_dir).iterdir())=}")
@@ -115,14 +116,13 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
         run_config = runconfig_update_functions[pge_name](job_json_dict, work_dir)
 
     # create RunConfig.yaml
-    logger.info(f"Run config to transform to YAML is: {to_json(run_config)}")
-    logger.info(f"PGE Config: {to_json(pge_config)}")
+    logger.info(f"RunConfig to transform to YAML is: {to_json(run_config)}")
 
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
     rc.dump(rc_file)
 
-    logger.info("Copying run config to run config input directory.")
+    logger.info(f"Copying RunConfig to directory {runconfig_dir}")
     shutil.copy(rc_file, runconfig_dir)
 
     # Run the PGE
