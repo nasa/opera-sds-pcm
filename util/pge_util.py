@@ -8,17 +8,17 @@ Contains utility functions for executing a PGE, including simulation mode.
 
 """
 
-from datetime import datetime
-import os
 import json
+import os
 import re
 import subprocess
+from datetime import datetime
 from typing import Dict, List
 
 import boto3
+from boto3.s3.transfer import TransferConfig, MB
 
 from commons.logger import logger
-
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
 DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
@@ -59,6 +59,10 @@ DSWX_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
               'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
 """List of sample MGRS tile ID's to simulate DSWx-S1/NI multi-product output"""
 
+S3_CONFIG = TransferConfig(multipart_chunksize=128*MB)
+"""Transfer configuration for S3 downloads used to override multipart chunksize to 128MB """
+
+s3 = boto3.resource('s3')
 
 def get_disk_usage(path, follow_symlinks=True):
     """
@@ -96,9 +100,7 @@ def get_product_metadata(job_json_dict: Dict) -> Dict:
                 # TODO: kludge to support reading canned metadata from a file stored on S3,
                 #       remove when appropriate
                 if metadata.startswith("s3://"):
-                    import boto3
                     bucket, key = metadata.split('/', 2)[-1].split('/', 1)
-                    s3 = boto3.resource('s3')
                     obj = s3.Object(bucket, key)
                     metadata = json.loads(obj.get()['Body'].read())['metadata']
                 else:
@@ -143,7 +145,6 @@ def check_aws_connection(bucket, key):
         If not connection can be established.
 
     """
-    s3 = boto3.resource('s3')
     obj = s3.Object(bucket, key)
 
     try:
@@ -166,15 +167,11 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
             f"section of the PGE config."
         )
 
-    s3 = boto3.resource('s3')
-
-    pge_metrics = {"download": [], "upload": []}
-
     loc_t1 = datetime.utcnow()
 
     try:
         logger.info(f'Downloading {filetype} file s3://{s3_bucket}/{s3_key} to {output_filepath}')
-        s3.Object(s3_bucket, s3_key).download_file(output_filepath)
+        s3.Object(s3_bucket, s3_key).download_file(output_filepath, Config=S3_CONFIG)
     except Exception as err:
         errmsg = f'Failed to download {filetype} file from S3, reason: {str(err)}'
         raise RuntimeError(errmsg)
@@ -183,18 +180,24 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
     loc_dur = (loc_t2 - loc_t1).total_seconds()
     path_disk_usage = get_disk_usage(output_filepath)
 
-    pge_metrics["download"].append(
-        {
-            "url": output_filepath,
-            "path": output_filepath,
-            "disk_usage": path_disk_usage,
-            "time_start": loc_t1.isoformat() + "Z",
-            "time_end": loc_t2.isoformat() + "Z",
-            "duration": loc_dur,
-            "transfer_rate": path_disk_usage / loc_dur,
-        }
-    )
-    logger.info(json.dumps(pge_metrics, indent=2))
+    pge_metrics = {
+        "download" : [
+            {
+                "url": output_filepath,
+                "path": output_filepath,
+                "disk_usage": path_disk_usage,
+                "time_start": loc_t1.isoformat() + "Z",
+                "time_end": loc_t2.isoformat() + "Z",
+                "duration": loc_dur,
+                "transfer_rate": path_disk_usage / loc_dur,
+            }
+        ],
+        "upload": []
+    }
+
+    return pge_metrics
+
+
 
     return pge_metrics
 
