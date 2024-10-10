@@ -18,7 +18,7 @@ echo "##########################################"
 echo "Running job to submit pending jobs that are ready to be run"
 date
 
-python $OPERA_HOME/data_subscriber/submit_pending_jobs.py $* > run_submit_pending_jobs.log 2>&1
+python $OPERA_HOME/data_subscriber/submit_pending_jobs.py $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

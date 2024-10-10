@@ -19,7 +19,7 @@ echo "##########################################"
 echo "Running job to query ASFDAAC RTC data"
 date
 
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=OPERA_L2_RTC-S1_V1 $* > run_rtc_query.log 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=OPERA_L2_RTC-S1_V1 $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
