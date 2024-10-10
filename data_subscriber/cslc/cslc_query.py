@@ -117,22 +117,20 @@ class CslcCmrQuery(CmrQuery):
                 frame_id, _ = split_download_batch_id(batch_id)
                 max_bursts = len(self.disp_burst_map_hist[frame_id].burst_ids)
                 if len(download_batch) == max_bursts:
-                    reproc_granules.extend(list(download_batch.values()))
+                    ready_granules = list(download_batch.values())
+                    reproc_granules.extend(ready_granules)
+
+                    if self.args.k > 1:
+                        k_granules = self.retrieve_k_granules(ready_granules, self.args, self.args.k - 1, True, silent=True)
+                        self.catalog_granules(k_granules, datetime.now(), self.k_es_conn)
+                        logger.info(f"Length of K-granules: {len(k_granules)=}")
+                        for k_g in k_granules:
+                            self.download_batch_ids[k_g["download_batch_id"]].add(batch_id)
+                            self.k_batch_ids[batch_id].add(k_g["download_batch_id"])
+                        self.k_retrieved_granules.extend(k_granules)  # This is used for scenario testing
                 else:
                     logger.info(f"Skipping download for {batch_id} because only {len(download_batch)} of {max_bursts} granules are present")
 
-            if len(reproc_granules) == 0:
-                return reproc_granules
-
-            if self.args.k > 1:
-                batch_id = reproc_granules[0]["download_batch_id"]
-                k_granules = self.retrieve_k_granules(reproc_granules, self.args, self.args.k - 1, True, silent=True)
-                self.catalog_granules(k_granules, datetime.now(), self.k_es_conn)
-                logger.info(f"Length of K-granules: {len(k_granules)=}")
-                for k_g in k_granules:
-                    self.download_batch_ids[k_g["download_batch_id"]].add(batch_id)
-                    self.k_batch_ids[batch_id].add(k_g["download_batch_id"])
-                self.k_retrieved_granules.extend(k_granules)  # This is used for scenario testing
             return reproc_granules
 
         # From this point on is forward processing which is the most complex
@@ -313,7 +311,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return k_granules
 
-    def query_cmr_by_native_id (self, args, token, cmr, settings, now, native_id):
+    def query_cmr_by_native_id (self, args, token, cmr, settings, now: datetime, native_id: str):
 
         local_args = copy.deepcopy(args)
 
@@ -335,15 +333,27 @@ since the first CSLC file for the batch was ingested which is greater than the g
         timerange = DateTimeRange(start_date, end_date)
         logger.info(f"Querying CMR for all CSLC files that belong to the frame {frame_id}, derived from the native_id {native_id}")
 
-        l, native_id_pattern = build_cslc_native_ids(frame_id, self.disp_burst_map_hist)
-        local_args.native_id = native_id_pattern  # native_id is overwritten here. It's local deepcopy so doesn't matter.
-        granules = query_cmr_cslc_blackout_polarization(local_args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, True, frame_id)
+        return self.query_cmr_by_frame_and_dates(frame_id, local_args, token, cmr, settings, now, timerange, False)
 
-        return granules
+    def query_cmr_by_frame_and_acq_cycle(self, frame_id: int, acq_cycle: int, args, token, cmr, settings, now: datetime, silent=False):
+        '''Query CMR for specific date range for a specific frame_id and acquisition cycle. Need to always use temporal queries'''
 
-    def  query_cmr_by_frame_and_dates(self, args, token, cmr, settings, now, timerange, silent=False):
+        logger.info(f"Querying CMR for all CSLC files that belong to the frame {frame_id} and acquisition cycle {acq_cycle}")
 
-        frame_id = int(self.args.frame_id)
+        new_args = copy.deepcopy(args)
+        new_args.use_temporal = True
+
+        # Figure out query date range for this acquisition cycle
+        sensing_datetime = self.disp_burst_map_hist[frame_id].sensing_datetimes[0] + timedelta(days = acq_cycle)
+        start_date = (sensing_datetime - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        end_date = (sensing_datetime + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        timerange = DateTimeRange(start_date, end_date)
+
+        return self.query_cmr_by_frame_and_dates(frame_id, new_args, token, cmr, settings, now, timerange, silent)
+
+    def  query_cmr_by_frame_and_dates(self, frame_id: int, args, token, cmr, settings, now: datetime, timerange: DateTimeRange, silent=False):
+        '''Query CMR for specific date range for a specific frame_id'''
+
         if frame_id not in self.disp_burst_map_hist:
             raise Exception(f"Frame number {frame_id} not found in the historical database. \
         OPERA does not process this frame for DISP-S1.")
@@ -357,11 +367,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return new_granules
 
-    def query_cmr(self, args, token, cmr, settings, timerange, now):
+    def query_cmr(self, args, token, cmr, settings, timerange: DateTimeRange, now: datetime):
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
-            all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
+            frame_id = int(self.args.frame_id)
+            all_granules = self.query_cmr_by_frame_and_dates(frame_id, args, token, cmr, settings, now, timerange)
 
             # Get rid of any granules that aren't in the historical database sensing_datetime_days_index
             frame_id = int(self.args.frame_id)
@@ -377,38 +388,44 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 all_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, args.native_id)
 
             # Reprocessing by date range is a two-step process:
-            # 1) Query CMR for all CSLC files in the date range specified and create list of granules with unique frame_ids
-            # 2) Process each granule as if they were passed in as native_id
+            # 1) Query CMR for all CSLC files in the date range specified
+            # and create list of granules with unique frame_id-acquisition_cycle pairs
+            # 2) Process each granule as if they were passed in as frame_ids and date ranges
             elif args.start_date is not None and args.end_date is not None:
-                unique_granules = {}
-                frame_id_map = defaultdict(str)
+                unique_frames_dates = set()
 
                 # First get all CSLC files in the range specified and create a unique set of frame_ids that we need to query for.
+                # Note the subtle difference between when the frame_id is specified and when it's not.
                 if self.args.frame_id is not None:
-                    granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
-                    if len(granules) == 0:
-                        return []
-                    frame_id_map[self.args.frame_id] = granules[0]["granule_id"]
+                    frame_id = int(self.args.frame_id)
+                    granules = self.query_cmr_by_frame_and_dates(frame_id, args, token, cmr, settings, now, timerange)
+                    for granule in granules:
+                        _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
+                        for _, acq_cycle in acquisition_cycles.items():
+                            unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
+
                 else:
                     granules = query_cmr_cslc_blackout_polarization(args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, False, None)
                     for granule in granules:
-                        _, _, _, frame_ids = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
-                        for frame_id in frame_ids:
-                            frame_id_map[frame_id] = granule["granule_id"]
+                        _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
+                        for frame_id, acq_cycle in acquisition_cycles.items():
+                            unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
+                    logger.info(f"Added the follwing frame_id-acq_cycle pairs reprocessing mode: {list(unique_frames_dates)}")
 
+                all_granules = []
                 # We could perform two queries so create a unique set of granules.
-                for frame_id, native_id in frame_id_map.items():
-                    new_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, native_id)
-                    for granule in new_granules:
-                        unique_granules[granule["granule_id"]] = granule
+                for frame_id_acq in unique_frames_dates:
+                    frame_id, acquisition_cycle = frame_id_acq.split("-")
+                    new_granules = self.query_cmr_by_frame_and_acq_cycle(int(frame_id), int(acquisition_cycle), args, token, cmr, settings, now)
+                    all_granules.extend(new_granules)
 
-                all_granules = list(unique_granules.values())
             else:
                 raise Exception("Reprocessing mode requires either a native_id or a date range to be specified.")
 
         else: # Forward processing
             if self.args.frame_id is not None:
-                all_granules = self.query_cmr_by_frame_and_dates(args, token, cmr, settings, now, timerange)
+                frame_id = int(self.args.frame_id)
+                all_granules = self.query_cmr_by_frame_and_dates(frame_id, args, token, cmr, settings, now, timerange)
             else:
                 all_granules = query_cmr_cslc_blackout_polarization(args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, False, None)
 

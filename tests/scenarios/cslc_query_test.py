@@ -7,6 +7,7 @@ import requests
 from time import sleep
 from datetime import datetime, timedelta
 import argparse
+from pathlib import Path
 from data_subscriber import cslc_utils
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -20,6 +21,7 @@ DT_FORMAT = CMR_TIME_FORMAT
 
 _rabbitmq_url = "https://localhost:15673/api/queues/%2F/"
 _jobs_processed_queue = "jobs_processed"
+EMPTY_BLACKOUT_DATES = Path(__file__).parent / "empty_disp_s1_blackout.json"
 
 """This test runs cslc query several times in succession and verifies download jobs submitted
 This test is run as a regular python script as opposed to pytest
@@ -95,10 +97,11 @@ def run_query(args, authorization):
     if "sleep_seconds" in j:
         sleep_map = j["sleep_seconds"]
 
-    # Blackout dates is optional
-    blackout_dates = None
+    # Use empty blackout dates file by default
+    blackout_dates = EMPTY_BLACKOUT_DATES
     if "blackout_dates" in j:
         blackout_dates = j["blackout_dates"]
+        print("Using blackout dates file: " + str(blackout_dates))
 
     query_arguments.extend([f"--k={cslc_k}", f"--m={cslc_m}", f"--processing-mode={proc_mode}"])
     if "use_temporal" in j and j["use_temporal"] == True:

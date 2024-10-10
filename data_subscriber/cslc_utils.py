@@ -77,7 +77,7 @@ def localize_disp_blackout_dates():
 
     return process_disp_blackout_dates(file)
 
-def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time):
+def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time: datetime):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
 
     delta = sensing_time - first_frame_time

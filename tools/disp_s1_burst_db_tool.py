@@ -177,7 +177,8 @@ elif args.subparser_name == "validate":
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
     cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings, disp_burst_map, blackout_dates_obj)
-    all_granules = cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, datetime.now(), query_timerange)
+    frame_id = int(subs_args.frame_id)
+    all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(), query_timerange)
 
     print(len(all_granules), " granules found in the CMR")
 
