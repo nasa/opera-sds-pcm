@@ -63,9 +63,7 @@ def convert(
     products = process_outputs(product_dir, pge_config["Outputs"])
 
     extra_met.update({"tags": ["PGE"]})
-    logger.info(f"{extra_met=}")
-    logger.info(f"{type(extra_met)=}")
-    logger.info(f"{extra_met.keys()=}")
+    logger.debug(f"{extra_met=}")
 
     settings = SettingsConf(settings_conf_file).cfg
 
@@ -93,7 +91,7 @@ def convert(
             created_datasets.add(dataset_dir)
 
     for dataset_dir in created_datasets:
-        logger.info(f"{dataset_dir=}")
+        logger.debug(f"{dataset_dir=}")
 
         dataset_id = PurePath(dataset_dir).name
 
@@ -142,8 +140,6 @@ def convert(
         publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
         publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
-
-        logger.info(f"{pge_shortname=}")
 
         dataset_met_json["product_urls"] = [
             f'https:'

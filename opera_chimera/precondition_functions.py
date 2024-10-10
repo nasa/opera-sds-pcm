@@ -1006,7 +1006,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 "transfer_rate": path_disk_usage / loc_dur,
             }
         )
-        logger.info(json.dumps(pge_metrics, indent=2))
 
         return pge_metrics
 
