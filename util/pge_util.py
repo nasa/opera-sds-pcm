@@ -15,9 +15,11 @@ import subprocess
 from datetime import datetime
 from typing import Dict, List
 
+import backoff
 import boto3
 from boto3.s3.transfer import TransferConfig, MB
 
+import hysds.utils
 from commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
@@ -198,6 +200,32 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
     return pge_metrics
 
 
+@backoff.on_exception(backoff.expo, exception=Exception, max_tries=10)
+def download_file_with_hysds(url, path, cache=False):
+    """Helper function to download a file via the Hysds download utility (osaka)"""
+    logger.info(f'Downloading file {url} to {path} via Hysds')
+
+    loc_t1 = datetime.utcnow()
+    hysds.utils.download_file(url, path, cache)
+    loc_t2 = datetime.utcnow()
+
+    loc_dur = (loc_t2 - loc_t1).total_seconds()
+    path_disk_usage = get_disk_usage(path)
+
+    pge_metrics = {
+        "download": [
+            {
+                "url": url,
+                "path": path,
+                "disk_usage": path_disk_usage,
+                "time_start": loc_t1.isoformat() + "Z",
+                "time_end": loc_t2.isoformat() + "Z",
+                "duration": loc_dur,
+                "transfer_rate": path_disk_usage / loc_dur,
+            }
+        ],
+        "upload": []
+    }
 
     return pge_metrics
 
