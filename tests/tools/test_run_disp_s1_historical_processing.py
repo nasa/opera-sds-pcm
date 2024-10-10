@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+from pathlib import Path
 from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 import tools.run_disp_s1_historical_processing
@@ -12,8 +13,6 @@ except ImportError:
     import mock as umock
 sys.modules["hysds.celery"] = umock.MagicMock()
 from mock import MagicMock
-
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 START_DATE = '2016-07-01T00:00:00Z'
 END_DATE = '2024-07-01T00:00:00Z'

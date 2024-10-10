@@ -51,8 +51,6 @@ class CSLCDependency:
         1. acq_index_to_bursts: day index to set of burst ids
         2. acq_index_to_granules: day index to list of granules that match the burst
         '''
-        acq_index_to_bursts = defaultdict(set)
-        acq_index_to_granules = defaultdict(list)
 
         # Add native-id condition in args. This query is always by temporal time.
         l, native_id = build_cslc_native_ids(frame_number, self.frame_to_bursts)
@@ -60,12 +58,30 @@ class CSLCDependency:
         args.native_id = native_id
         args.use_temporal = True
 
-        frame = self.frame_to_bursts[frame_number]
-
         granules = query_cmr_cslc_blackout_polarization(
             args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), silent, self.blackout_dates_obj, True, frame_number, self.VV_only)
 
+        return self.k_granules_grouping(frame_number, granules)
+
+    def k_granules_grouping(self, frame_number, granules: list):
+
+        acq_index_to_bursts = defaultdict(set)
+        acq_index_to_granules = defaultdict(list)
+        frame = self.frame_to_bursts[frame_number]
+
+        # Often we get duplicate CSLC granules which have the same burst id and acquisition date. In such case, use the latest production one
+        latest_burstid_acqdate = {}
         for granule in granules:
+            burstid_acqdate = granule["granule_id"].split("Z")[0]
+            if burstid_acqdate in latest_burstid_acqdate:
+                if granule["granule_id"] > latest_burstid_acqdate[burstid_acqdate]["granule_id"]:
+                    latest_burstid_acqdate[burstid_acqdate] = granule
+            else:
+                latest_burstid_acqdate[burstid_acqdate] = granule
+
+        unique_granules = latest_burstid_acqdate.values()
+
+        for granule in unique_granules:
             burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
             acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
             g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, self.frame_to_bursts)

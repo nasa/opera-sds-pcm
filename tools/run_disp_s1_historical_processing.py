@@ -31,10 +31,6 @@ logger = logging.getLogger("DISP-S1-HISTORICAL")
 
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
-blackout_dates = localize_disp_blackout_dates()
-blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
-
 def proc_once(eu, procs, args):
     dryrun = args.dry_run
     job_success = True
@@ -328,6 +324,10 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
 
 if __name__ == "__main__":
 
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+    blackout_dates = localize_disp_blackout_dates()
+    blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", dest="verbose", required=False, default=False,
                         help="If true, print out verbose information, mainly INFO logs from elasticsearch module... it's a lot!")
@@ -359,3 +359,9 @@ if __name__ == "__main__":
         batch_procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
         proc_once(eu, batch_procs, args)
         time.sleep(int(args.sleep_secs))
+
+else:
+    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2016-07-01_to_2024-09-04_2024-09-28.json"
+    disp_burst_map, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
+    blackout_dates = localize_disp_blackout_dates()
+    blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)

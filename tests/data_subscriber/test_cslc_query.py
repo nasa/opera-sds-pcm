@@ -13,7 +13,8 @@ from data_subscriber.cmr import DateTimeRange
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",\
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60", "--k=4", "--m=4"]
 
-frame_to_bursts, burst_to_frames, datetime_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2016-07-01_to_2024-09-04_2024-09-28.json"
+frame_to_bursts, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
 
 def test_extend_additional_records():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
@@ -37,7 +38,7 @@ def test_reprocessing_by_native_id(caplog):
                               "--native-id=OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0", "--no-schedule-download"]
     reproc_args = create_parser().parse_args(reprocessing_arguments)
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
-                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},None)
+                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
     c_query.query_cmr(reproc_args, None, None, None, None, datetime.utcnow())
     assert ("native_id='OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0' is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
             in caplog.text)
@@ -50,7 +51,7 @@ def test_historical_query(caplog):
     args = create_parser().parse_args(hist_arguments)
     query_timerange = DateTimeRange(args.start_date, args.end_date)
     c_query = cslc_query.CslcCmrQuery(args, None, None, None, None,
-                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60}, None)
+                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60}, BURST_MAP)
 
     # TODO: figure out how to test the query_cmr method
     #await c_query.query_cmr(args, None, None, None, query_timerange, datetime.utcnow())å
@@ -66,7 +67,7 @@ def test_reprocessing_by_dates():
     reproc_args = create_parser().parse_args(reprocessing_arguments)
     query_timerange = DateTimeRange(reproc_args.start_date, reproc_args.end_date)
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
-                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},None)
+                                      {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
     cr = c_query.query_cmr(reproc_args, None, None, None, query_timerange, datetime.utcnow())
     args = cr.cr_frame.f_locals["args"]
     assert args.collection == 'OPERA_L2_CSLC-S1_V1'

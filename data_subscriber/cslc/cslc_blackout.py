@@ -60,9 +60,6 @@ class DispS1BlackoutDates:
                 acq_index_end = sensing_time_day_index(end_date, frame_id, self.frame_to_burst)
                 self.frame_blackout_acq_indices[frame_id].append((acq_index_start, acq_index_end, start_date, end_date))
 
-        # Now take out any black out dates from frame_to_burst data structures
-
-
     def is_in_blackout(self, frame_id, sensing_time):
         '''The sensing time of the frame is in blackout if any of its upto 27 bursts are in the blackout date range'''
 

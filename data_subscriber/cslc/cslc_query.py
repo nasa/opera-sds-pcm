@@ -304,7 +304,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 granules = granules_map[acq_day_index]
                 k_granules.extend(granules)
                 k_satified += 1
-                logger.info(f"{acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
+                logger.info(f" {frame_id=} {acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
                 if k_satified == k_minus_one:
                     break
 

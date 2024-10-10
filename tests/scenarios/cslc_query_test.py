@@ -86,6 +86,8 @@ def run_query(args, authorization):
     # Open the scenario file and parse it. Get k from it and add as parameter.
     # Start and end dates are the min and max dates in the file.
 
+    success = True
+
     j = json.load(open(args.validation_json))
     cslc_k = j["k"]
     cslc_m = j["m"]
@@ -118,7 +120,9 @@ def run_query(args, authorization):
                                                   f"--start-date={start_date.isoformat()}Z",
                                                   f"--end-date={new_end_date.isoformat()}Z"]
 
-                query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, None)
+                if not query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, None):
+                    success = False
+                    break
 
                 start_date = new_end_date
         else:
@@ -140,7 +144,9 @@ def run_query(args, authorization):
                                                   f"--start-date={start_date.isoformat()}Z",
                                                   f"--end-date={new_end_date.isoformat()}Z"]
 
-                query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, validation_data)
+                if not query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, validation_data):
+                    success = False
+                    break
 
                 start_date = new_end_date # To the next query time range
 
@@ -149,7 +155,9 @@ def run_query(args, authorization):
             # Run one native id at a time
             for native_id in validation_data.keys():
                 current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
-                query_and_validate(current_args, native_id, blackout_dates, validation_data)
+                if not query_and_validate(current_args, native_id, blackout_dates, validation_data):
+                    success = False
+                    break
         elif j["param_type"] == "date_range":
             # Run one date range at a time
             for date_range in validation_data.keys():
@@ -158,7 +166,9 @@ def run_query(args, authorization):
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
                 if  "frame_id" in j:
                     current_args.append(f"--frame-id={j['frame_id']}")
-                query_and_validate(current_args, date_range, blackout_dates, validation_data)
+                if not query_and_validate(current_args, date_range, blackout_dates, validation_data):
+                    success = False
+                    break
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
@@ -168,9 +178,13 @@ def run_query(args, authorization):
             current_args = query_arguments + [f"--frame-id={frame_id}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
-            query_and_validate(current_args, frame_id, blackout_dates, validation_data)
+            if not query_and_validate(current_args, frame_id, blackout_dates, validation_data):
+                success = False
+                break
 
     do_delete_queue(args, authorization, job_queue[proc_mode])
+
+    return success
 
 def query_and_validate(current_args, test_range, blackout_dates, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
@@ -194,7 +208,13 @@ def query_and_validate(current_args, test_range, blackout_dates, validation_data
 
     # Validation
     if validation_data:
-        validate_hour(q_result_dict, test_range, validation_data)
+        try:
+            validate_hour(q_result_dict, test_range, validation_data)
+        except AssertionError as e:
+            logging.error(f"TEST FAIL: Validation failed for {test_range}")
+            return False
+
+    return True
 
 def validate_hour(q_result_dict, test_range, validation_data):
     """Validate the number of files to be downloaded for a given hour"""
@@ -238,7 +258,10 @@ with open('/export/home/hysdsops/.creds') as f:
 
 localize_disp_frame_burst_hist()
 
-run_query(args, ('hysdsops', password))
+success = run_query(args, ('hysdsops', password))
 
-logging.info("If no assertion errors were raised, then the test passed.")
 logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
+if success:
+    logging.info("TEST SUCCESS")
+else:
+    logging.error("TEST FAILED")
