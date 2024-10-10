@@ -5,6 +5,7 @@ that are part of the OPERA PCM pipeline.
 """
 
 import argparse
+import glob
 import inspect
 import json
 import os
@@ -993,7 +994,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         loc_t2 = datetime.utcnow()
         loc_dur = (loc_t2 - loc_t1).total_seconds()
-        path_disk_usage = get_disk_usage(output_filepath)
+        path_disk_usage = 0
+
+        # Use a wildcard pattern to ensure we get transfer size of all ancillary map
+        # files, not just the .vrt file referenced in output_filepath
+        output_dir = os.path.dirname(output_filepath)
+        output_files_pattern = os.path.splitext(os.path.basename(output_filepath))[0] + "*"
+
+        for filename in glob.iglob(os.path.join(output_dir, output_files_pattern)):
+            path_disk_usage += get_disk_usage(os.path.join(output_dir, filename))
 
         pge_metrics["download"].append(
             {
