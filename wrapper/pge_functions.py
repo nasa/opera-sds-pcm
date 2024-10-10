@@ -153,7 +153,7 @@ def disp_s1_lineage_metadata(context, work_dir):
         else:
             lineage_metadata.append(local_input_filepath)
 
-    for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files", "troposphere_files"):
+    for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files"):
         if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
             for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
                 local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
@@ -176,11 +176,15 @@ def disp_s1_lineage_metadata(context, work_dir):
     )
     lineage_metadata.append(local_frame_database_filepath)
 
-    # TODO enable if/when provided the file
-    #local_reference_date_database = os.path.join(
-    #    work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
+    local_reference_date_database = os.path.join(
+        work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
+    )
+    lineage_metadata.append(local_reference_date_database)
+
+    #local_algorithm_parameters_overrides_filepath = os.path.join(
+    #    work_dir, basename(run_config["static_ancillary_file_group"]["algorithm_parameters_overrides"])
     #)
-    #lineage_metadata.append(local_reference_date_database)
+    #lineage_metadata.append(local_algorithm_parameters_overrides_filepath)
 
     return lineage_metadata
 
@@ -357,8 +361,8 @@ def update_disp_s1_runconfig(context, work_dir):
 
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
-    # TODO add "reference_date_database_json" if/when file becomes available
-    for static_ancillary_key in ("frame_to_burst_json",):
+    # TODO add "algorithm_parameters_overrides" when file becomes part of runconfig schema for DISP-S1
+    for static_ancillary_key in ("frame_to_burst_json", "reference_date_database_json"):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
         )
