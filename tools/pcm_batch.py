@@ -58,7 +58,12 @@ def view_proc(id):
     doc_id = hit['_id']
     print("Batch Proc ID", doc_id)
     for k, v in proc.items():
-        print(k, ' ' * (30 - len(k)), v)
+        if k == "progress_percentage":
+            print(k, ' ' * (30 - len(k)), f"{v}%")
+        elif k == "frame_completion_percentages":
+            print(k, ' ' * (30 - len(k)), [f"{f}: {p}%" for f, p in v.items()])
+        else:
+            print(k, ' ' * (30 - len(k)), v)
 
 
 def _validate_proc(proc):

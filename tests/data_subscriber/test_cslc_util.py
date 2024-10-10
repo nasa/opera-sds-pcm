@@ -8,7 +8,6 @@ from data_subscriber.cslc_utils import CSLCDependency
 from data_subscriber.parser import create_parser
 import dateutil
 from datetime import datetime, timedelta
-from data_subscriber.cmr import DateTimeRange, get_cmr_token
 from util.conf_util import SettingsConf
 
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
@@ -165,6 +164,30 @@ def test_get_dependent_ccslc_index():
     prev_day_indices = [0, 24, 48, 72, 96]
     assert "t041_086868_iw1_72" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 0, 2, "t041_086868_iw1")
     assert "t041_086868_iw1_24" == cslc_utils.get_dependent_ccslc_index(prev_day_indices, 1, 2, "t041_086868_iw1")
+
+def test_nearest_sensing_datetime():
+    count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
+                                                           dateutil.parser.isoparse("2016-11-02T00:26:48"))
+    assert count == 4
+    assert nearest_time == dateutil.parser.isoparse("2016-11-02T00:26:47")
+
+    count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
+                                                           dateutil.parser.isoparse("2027-11-02T00:26:48"))
+    assert nearest_time == dateutil.parser.isoparse("2024-08-04T00:27:24")
+
+def test_calculate_historical_progress():
+    end_date = dateutil.parser.isoparse("2018-07-01T00:00:00")
+    frame_states = {'46288': 30, '46289': 30, '26690': 45, '26691': 45, '38500': 0}
+
+    progress, frame_completion, last_processed_datetimes \
+        = cslc_utils.calculate_historical_progress(frame_states, end_date, disp_burst_map_hist)
+    assert progress == 66
+    assert frame_completion == {'46288': 71, '46289': 71, '26690': 100, '26691': 100, '38500': 0}
+    assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 38),
+                                        '46289': datetime(2018, 1, 29, 13, 44),
+                                        '26690': datetime(2018, 6, 17, 13, 36, 9),
+                                        '26691': datetime(2018, 6, 17, 13, 36, 31),
+                                        '38500': None}
 
 def test_frame_bounds():
     """Test that the frame bounds is correctly computed and formatted"""
