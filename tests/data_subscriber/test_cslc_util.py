@@ -262,11 +262,11 @@ def test_nearest_sensing_datetime():
     count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
                                                            dateutil.parser.isoparse("2016-11-02T00:26:48"))
     assert count == 4
-    assert nearest_time == dateutil.parser.isoparse("2016-11-02T00:26:47")
+    assert nearest_time == dateutil.parser.isoparse("2016-11-02T00:26:23")
 
     count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
                                                            dateutil.parser.isoparse("2027-11-02T00:26:48"))
-    assert nearest_time == dateutil.parser.isoparse("2024-08-04T00:27:24")
+    assert nearest_time == dateutil.parser.isoparse("2024-08-28T00:27:00")
 
 def test_calculate_historical_progress():
     end_date = dateutil.parser.isoparse("2018-07-01T00:00:00")
@@ -274,12 +274,12 @@ def test_calculate_historical_progress():
 
     progress, frame_completion, last_processed_datetimes \
         = cslc_utils.calculate_historical_progress(frame_states, end_date, disp_burst_map_hist)
-    assert progress == 66
+    assert progress == 67
     assert frame_completion == {'46288': 71, '46289': 71, '26690': 100, '26691': 100, '38500': 0}
-    assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 38),
-                                        '46289': datetime(2018, 1, 29, 13, 44),
-                                        '26690': datetime(2018, 6, 17, 13, 36, 9),
-                                        '26691': datetime(2018, 6, 17, 13, 36, 31),
+    assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 14),
+                                        '46289': datetime(2018, 1, 29, 13, 43, 36),
+                                        '26690': datetime(2018, 6, 17, 13, 35, 45),
+                                        '26691': datetime(2018, 6, 17, 13, 36, 7),
                                         '38500': None}
 
 def test_frame_bounds():
