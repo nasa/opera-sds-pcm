@@ -165,16 +165,18 @@ class CSLCDependency:
                 ccslc = eu.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
                     body={"query": {"bool": {"must": [
-                        {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
+                        {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}},
+                        {"term": {"metadata.frame_id": frame_id}}
+                    ]}}})
 
-                # Should have exactly one compressed cslc per acq cycle per burst
                 if len(ccslc) == 0:
                     logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
                     return False
 
-                ccslcs.append(ccslc[0]) # There can be up to two and those are identical and interchangeable so just pick the first one
+                ccslcs.append(ccslc[0]) # There should only be one
 
         logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
+        logger.info(ccslcs)
         return ccslcs
 def get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id):
     '''last_m_index: The index of the last M compressed CSLC, index into prev_day_indices
