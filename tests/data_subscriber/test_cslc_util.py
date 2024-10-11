@@ -13,7 +13,7 @@ from util.conf_util import SettingsConf
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
-BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2016-07-01_to_2024-09-04_2024-09-28.json"
+BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2024-10-11-2016-07-01_to_2024-09-04.json"
 disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
 
 frame_blackout_dates = process_disp_blackout_dates(Path(__file__).parent / "sample_disp_s1_blackout.json")
@@ -24,16 +24,14 @@ blackout_dates_obj = DispS1BlackoutDates(frame_blackout_dates, disp_burst_map_hi
 def test_burst_map():
     assert len(disp_burst_map_hist.keys()) == 1434
     burst_set = set()
-    for burst in ["T175-374393-IW1", "T175-374393-IW2", "T175-374393-IW3", "T175-374394-IW1", \
-     "T175-374394-IW2", "T175-374394-IW3", "T175-374395-IW1", "T175-374395-IW2", \
-     "T175-374395-IW3"]:
+    for burst in ['T042-088905-IW2', 'T042-088907-IW3', 'T042-088907-IW2', 'T042-088910-IW1', 'T042-088910-IW3', 'T042-088913-IW1', 'T042-088906-IW1', 'T042-088911-IW1', 'T042-088912-IW2', 'T042-088913-IW2', 'T042-088907-IW1', 'T042-088913-IW3', 'T042-088909-IW3', 'T042-088912-IW3', 'T042-088909-IW1', 'T042-088909-IW2', 'T042-088908-IW2', 'T042-088910-IW2', 'T042-088906-IW3', 'T042-088911-IW2', 'T042-088908-IW1', 'T042-088912-IW1', 'T042-088911-IW3', 'T042-088905-IW1', 'T042-088905-IW3', 'T042-088906-IW2', 'T042-088908-IW3']:
         burst_set.add(burst)
-    assert disp_burst_map_hist[46800].burst_ids.difference(burst_set) == set()
-    diff_time = disp_burst_map_hist[46800].sensing_datetimes[0] - dateutil.parser.isoparse("2019-11-14T16:51:00")
+    assert disp_burst_map_hist[11114].burst_ids.difference(burst_set) == set()
+    diff_time = disp_burst_map_hist[11114].sensing_datetimes[0] - dateutil.parser.isoparse("2016-08-10T14:07:13")
     assert diff_time.total_seconds() < 60
 
     assert len(disp_burst_map_hist[46799].burst_ids) == 15
-    assert len(disp_burst_map_hist[46799].sensing_datetimes) == 2
+    assert len(disp_burst_map_hist[46799].sensing_datetimes) == 1
 
     assert len(disp_burst_map_hist[28498].burst_ids) == 23
 

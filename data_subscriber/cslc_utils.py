@@ -87,7 +87,12 @@ def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_b
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
 
-    j = json.load(open(file))
+    try:
+        j = json.load(open(file))["data"]
+    except:
+        logger.warning("No 'data' key found in the json file. Attempting to load the json file as an older format.")
+        j = json.load(open(file))
+
     frame_to_bursts = defaultdict(_HistBursts)
     burst_to_frames = defaultdict(list)         # List of frame numbers
     datetime_to_frames = defaultdict(list)      # List of frame numbers
