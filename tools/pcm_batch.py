@@ -15,6 +15,8 @@ from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 from util.conf_util import SettingsConf
 
+from data_subscriber.cslc_utils import localize_disp_frame_burst_hist
+
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
@@ -34,6 +36,8 @@ LOGGER.info("Connected to %s" % str(eu.es_url))
 
 FILE_OPTION = '--file'
 
+# Process the default disp s1 burst hist file
+frames_to_bursts, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist()
 
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
@@ -67,8 +71,22 @@ def view_proc(id):
 
 
 def _validate_proc(proc):
-    return True
+    # If this is for DISP-S1 processing, make sure all the frames exist
+    if proc["job_type"] == "cslc_query_hist":
+        all_frames = set()
+        for f in list(frames_to_bursts.keys()):
+            all_frames.add(f)
 
+        for f in proc["frames"]:
+            if type(f) == list:
+                for frame in range(f[0], f[1]):
+                    if frame not in all_frames:
+                        return f"Frame {frame} not found in DISP-S1 Burst ID Database JSON"
+            else:
+                if f not in all_frames:
+                    return f"Frame {f} not found in DISP-S1 Burst ID Database JSON"
+
+    return True
 
 def batch_proc_once():
     parser = create_parser()
@@ -121,6 +139,12 @@ def batch_proc_once():
             with open(args.file) as f:
                 proc = json.load(f)
                 print(proc)
+                potential_error_str = _validate_proc(proc)
+                if potential_error_str is not True:
+                    print("Creation FAILED: Invalid batch proc", potential_error_str)
+                    return
+                else:
+                    print("This batch_proc seems valid")
 
                 print(eu.index_document(body=proc, index=ES_INDEX))
         else:
