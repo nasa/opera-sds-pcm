@@ -69,6 +69,13 @@ def view_proc(id):
         else:
             print(k, ' ' * (30 - len(k)), v)
 
+    if proc["job_type"] == "cslc_query_hist":
+        print("\n -- Legend -- ")
+        print("frame_states: The number of sensing datetimes that'd been submitted thus far (An internal house keeping construct.)")
+        print("frame_completion_percentages: The percentage of sensing datetimes that have been submitted thus far.")
+        print("last_processed_datetimes: The last sensing datetime that was submitted.")
+        print("progress_percentage: The percentage of the entire job that has been submitted thus far.\n")
+
 
 def _validate_proc(proc):
     # If this is for DISP-S1 processing, make sure all the frames exist
