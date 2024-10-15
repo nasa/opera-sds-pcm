@@ -49,7 +49,7 @@ server_parser.add_argument("burst", help="The Burst ID T175-374393-IW1")
 server_parser.add_argument("date_time", help="The Acquisition Datetime looks like 2023-10-01T00:00:00")
 
 server_parser = subparsers.add_parser("validate", help="Validates the burst database file against the CMR")
-server_parser.add_argument("frame_id", help="The frame id to validate")
+server_parser.add_argument("frame_id", help="The frame id to validate. It be a single number, a comma separated list of numbers (use quotes if there are spaces), or 'all' to validate all frame ids")
 
 args = parser.parse_args()
 
@@ -70,6 +70,75 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, silent = not verbose)
 
     return k_cycle
+
+def validate_frame(frame_id):
+    if frame_id not in disp_burst_map.keys():
+        print("Frame id: ", frame_id, "does not exist")
+        exit(-1)
+
+    start_date = (disp_burst_map[frame_id].sensing_datetimes[0]-timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_date = (disp_burst_map[frame_id].sensing_datetimes[-1]+timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    query_timerange = DateTimeRange(start_date, end_date)
+
+    # Query the CMR for the frame_id between the first and the last sensing datetime
+    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
+    subs_args.frame_id = frame_id
+    settings = SettingsConf().cfg
+    cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
+    cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
+    all_granules = cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, datetime.now(), query_timerange)
+
+    all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]] # We only want to process VV polarization data
+
+    print(len(all_granules), " granules found in the CMR without HH polarization")
+
+    # Group them by acquisition cycle
+    acq_cycles = defaultdict(set)
+    granules_map = defaultdict(list)
+    for g in all_granules:
+        acq_cycles[g["acquisition_cycle"]].add(g["burst_id"])
+        granules_map[g["acquisition_cycle"]].append(g["granule_id"])
+
+    '''
+    Validation fails if the following conditions are true. Otherwise, it succeeds
+    1. If we did not find any complete acquisition cycle that is in the expected list
+    2. If we found any complete acquisition cycle that is not in the expected list
+        Complete acq cycle is the one that has all the bursts according to the burst pattern 
+    '''
+    missing_cycles = False
+    unexpected_cycles = False
+    bursts_expected = disp_burst_map[frame_id].burst_ids
+    for i in range(len(disp_burst_map[frame_id].sensing_datetime_days_index)):
+        day_index = disp_burst_map[frame_id].sensing_datetime_days_index[i]
+        sensing_time = disp_burst_map[frame_id].sensing_datetimes[i]
+        bursts_found = acq_cycles[day_index]
+        delta = bursts_expected - bursts_found
+        if delta:
+            missing_cycles = True
+            print(f"Acquisition cycle {day_index} is missing {len(delta)} bursts: ", delta)
+            print(f"Granules for acquisition cycle {day_index} found:", granules_map[day_index])
+        else:
+            print(f"Acquisition cycle {day_index} of sensing time {sensing_time} is good ")
+
+    new_cycles = acq_cycles.keys() - disp_burst_map[frame_id].sensing_datetime_days_index
+    for i in new_cycles:
+        if acq_cycles[i].issuperset(bursts_expected):
+            if ("HH" in granules_map[i][0]): # We don't process HH polarization so it's not in the database on purpose
+                pass
+            else:
+                unexpected_cycles = True
+                print(f"Complete acquisition cycle {i} was found in CMR but was not in the database json")
+                print(f"Granules for acquisition cycle {i} found:", granules_map[i])
+
+    if not missing_cycles:
+        print("All acquisition cycles in the database json are complete in CMR")
+    if not unexpected_cycles:
+        print("Did not find any complete acquisition cycles in CMR that is not in the database json")
+
+    if missing_cycles or unexpected_cycles:
+        return False, f"frame_id {frame_id} validation failed"
+    else:
+        return True, f"frame_id {frame_id} validation succeeded!"
 
 if args.subparser_name == "list":
     l = list(disp_burst_map.keys())
@@ -170,72 +239,31 @@ elif args.subparser_name == "unique_id":
     print("This feature is not implemented yet")
 
 elif args.subparser_name == "validate":
-    frame_id = int(args.frame_id)
-    if frame_id not in disp_burst_map.keys():
-        print("Frame id: ", frame_id, "does not exist")
-        exit(-1)
 
-    start_date = (disp_burst_map[frame_id].sensing_datetimes[0]-timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    end_date = (disp_burst_map[frame_id].sensing_datetimes[-1]+timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    query_timerange = DateTimeRange(start_date, end_date)
+    success_strings = []
+    failed_strings = []
+    success = True
 
-    # Query the CMR for the frame_id between the first and the last sensing datetime
-    subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
-    subs_args.frame_id = frame_id
-    settings = SettingsConf().cfg
-    cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
-    cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
-    all_granules = cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, datetime.now(), query_timerange)
-
-    all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]] # We only want to process VV polarization data
-
-    print(len(all_granules), " granules found in the CMR without HH polarization")
-
-    # Group them by acquisition cycle
-    acq_cycles = defaultdict(set)
-    granules_map = defaultdict(list)
-    for g in all_granules:
-        acq_cycles[g["acquisition_cycle"]].add(g["burst_id"])
-        granules_map[g["acquisition_cycle"]].append(g["granule_id"])
-
-    '''
-    Validation fails if the following conditions are true. Otherwise, it succeeds
-    1. If we did not find any complete acquisition cycle that is in the expected list
-    2. If we found any complete acquisition cycle that is not in the expected list
-        Complete acq cycle is the one that has all the bursts according to the burst pattern 
-    '''
-    missing_cycles = False
-    unexpected_cycles = False
-    bursts_expected = disp_burst_map[frame_id].burst_ids
-    for i in range(len(disp_burst_map[frame_id].sensing_datetime_days_index)):
-        day_index = disp_burst_map[frame_id].sensing_datetime_days_index[i]
-        sensing_time = disp_burst_map[frame_id].sensing_datetimes[i]
-        bursts_found = acq_cycles[day_index]
-        delta = bursts_expected - bursts_found
-        if delta:
-            missing_cycles = True
-            print(f"Acquisition cycle {day_index} is missing {len(delta)} bursts: ", delta)
-            print(f"Granules for acquisition cycle {day_index} found:", granules_map[day_index])
-        else:
-            print(f"Acquisition cycle {day_index} of sensing time {sensing_time} is good ")
-
-    new_cycles = acq_cycles.keys() - disp_burst_map[frame_id].sensing_datetime_days_index
-    for i in new_cycles:
-        if acq_cycles[i].issuperset(bursts_expected):
-            if ("HH" in granules_map[i][0]): # We don't process HH polarization so it's not in the database on purpose
-                pass
-            else:
-                unexpected_cycles = True
-                print(f"Complete acquisition cycle {i} was found in CMR but was not in the database json")
-                print(f"Granules for acquisition cycle {i} found:", granules_map[i])
-
-    if not missing_cycles:
-        print("All acquisition cycles in the database json are complete in CMR")
-    if not unexpected_cycles:
-        print("Did not find any complete acquisition cycles in CMR that is not in the database json")
-
-    if missing_cycles or unexpected_cycles:
-        print(f"FAIL: frame_id {frame_id} validation failed")
+    if args.frame_id == "all" or args.frame_id == "ALL":
+        frames = list(disp_burst_map.keys())
     else:
-        print(f"SUCCESS: frame_id {frame_id} validation succeeded!")
+        frames = args.frame_id.split(",")
+
+    for frame in frames:
+        result, string = validate_frame(int(frame))
+
+        if result == False:
+            success = False
+            failed_strings.append(string)
+        else:
+            success_strings.append(string)
+
+    for string in success_strings:
+        print(string)
+    for string in failed_strings:
+        print(string)
+    if success:
+        print("SUCCESS: Validation succeeded!")
+    else:
+        print("FAIL: Validation failed!")
 
