@@ -50,6 +50,7 @@ server_parser.add_argument("date_time", help="The Acquisition Datetime looks lik
 
 server_parser = subparsers.add_parser("validate", help="Validates the burst database file against the CMR")
 server_parser.add_argument("frame_id", help="The frame id to validate. It be a single number, a comma separated list of numbers (use quotes if there are spaces), or 'all' to validate all frame ids")
+server_parser.add_argument("--detect-unexpected-cycles", dest="detect_unexpected_cycles", help="If true, detect unexpected cycles in the CMR", required=False, default=False)
 
 args = parser.parse_args()
 
@@ -71,7 +72,7 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
     return k_cycle
 
-def validate_frame(frame_id):
+def validate_frame(frame_id, detect_unexpected_cycles = False):
     if frame_id not in disp_burst_map.keys():
         print("Frame id: ", frame_id, "does not exist")
         exit(-1)
@@ -126,13 +127,16 @@ def validate_frame(frame_id):
             if ("HH" in granules_map[i][0]): # We don't process HH polarization so it's not in the database on purpose
                 pass
             else:
-                unexpected_cycles = True
-                print(f"Complete acquisition cycle {i} was found in CMR but was not in the database json")
-                print(f"Granules for acquisition cycle {i} found:", granules_map[i])
+                if detect_unexpected_cycles:
+                    unexpected_cycles = True
+                    print(f"Complete acquisition cycle {i} was found in CMR but was not in the database json")
+                    print(f"Granules for acquisition cycle {i} found:", granules_map[i])
+                else:
+                    print("Found unexpected cycles but not checking for them. This is generally due to blackout dates.")
 
     if not missing_cycles:
         print("All acquisition cycles in the database json are complete in CMR")
-    if not unexpected_cycles:
+    if detect_unexpected_cycles and not unexpected_cycles:
         print("Did not find any complete acquisition cycles in CMR that is not in the database json")
 
     if missing_cycles or unexpected_cycles:
@@ -250,7 +254,7 @@ elif args.subparser_name == "validate":
         frames = args.frame_id.split(",")
 
     for frame in frames:
-        result, string = validate_frame(int(frame))
+        result, string = validate_frame(int(frame), args.detect_unexpected_cycles)
 
         if result == False:
             success = False
