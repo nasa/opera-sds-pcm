@@ -13,7 +13,7 @@ from data_subscriber.cmr import DateTimeRange
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",\
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60", "--k=4", "--m=4"]
 
-BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2024-10-11-2016-07-01_to_2024-09-04.json"
+BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
 frame_to_bursts, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
 
 def test_extend_additional_records():

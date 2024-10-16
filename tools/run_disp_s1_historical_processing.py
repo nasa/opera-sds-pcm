@@ -372,7 +372,7 @@ if __name__ == "__main__":
         time.sleep(int(args.sleep_secs))
 
 else:
-    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2024-10-11-2016-07-01_to_2024-09-04.json"
+    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
     disp_burst_map, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
     blackout_dates = localize_disp_blackout_dates()
     blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
