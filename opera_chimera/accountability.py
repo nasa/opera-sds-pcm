@@ -5,10 +5,10 @@ from datetime import datetime
 from typing import Dict
 
 import backoff
-from chimera.commons.accountability import Accountability
-from chimera.logger import logger
 
 import job_accountability.catalog
+from chimera.commons.accountability import Accountability
+from chimera.logger import logger
 from data_subscriber.es_conn_util import get_es_connection
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
@@ -142,7 +142,7 @@ class OperaAccountability(Accountability):
                 acc_obj = {}
             else:
                 acc_obj = entry["_source"]["metadata"]["accountability"]
-            logger.info("entry accountability object: {}".format(acc_obj))
+            logger.debug("entry accountability object: {}".format(acc_obj))
             for pge in acc_obj:
                 if pge in acc:
                     if "id" in acc_obj[pge]:
@@ -198,7 +198,7 @@ class OperaAccountability(Accountability):
                     if acc_obj[pge].get("metadata"):
                         acc[pge]["metadata"] = acc_obj[pge]["metadata"]
 
-        logger.info("accountability obj: {}".format(acc))
+        logger.debug("accountability obj: {}".format(acc))
         return acc
 
     def update_product_met_json(self, job_result):
@@ -228,7 +228,7 @@ class OperaAccountability(Accountability):
                 met_json["accountability"] = new_accountability
 
             with open(output_met_json_filepath, "w") as f:
-                logger.info(f"to write: {met_json}")
+                logger.debug(f"{met_json=}")
                 json.dump(met_json, f)
 
     def set_products(self, job_results):
