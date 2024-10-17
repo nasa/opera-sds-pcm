@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from tabulate import tabulate
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
@@ -49,6 +50,29 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
 
 
 def view_proc(id):
+
+    # If id is all or ALL then get all batch procs that are currently enabled
+    if id.lower() == "all":
+        query = {"query": {"term": {"enabled": True}}}
+        procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
+        rows = []
+        for hit in procs['hits']['hits']:
+            proc = hit['_source']
+            try:
+                pp = f"{proc['progress_percentage']}%"
+            except:
+                pp = "UNKNOWN"
+            try:
+                fcp = [f"{f}: {p}%" for f, p in proc["frame_completion_percentages"].items()]
+            except:
+                fcp = "UNKNOWN"
+            rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp])
+
+        print(" --- Showing Summary of Enabled Batch Procs --- ")
+        print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60]))
+
+        return
+
     query = {"query": {"term": {"_id": id}}}
     procs = eu.es.search(body=query, index=ES_INDEX, size=1)
 
@@ -104,11 +128,14 @@ def batch_proc_once():
 
         print("%d Batch Procs Found" % len(procs))
 
+        print_list = []
         for proc in procs:
             doc_id = proc['_id']
             proc = proc['_source']
             p = SimpleNamespace(**proc)
-            print(doc_id, p.label, p.enabled)
+            print_list.append([doc_id, p.label, p.enabled])
+
+        print(tabulate(print_list, headers=["ID", "Label", "Enabled"], tablefmt="pretty"))
 
     elif args.subparser_name == "view":
         print("")
@@ -148,7 +175,7 @@ def batch_proc_once():
                 print(proc)
                 potential_error_str = _validate_proc(proc)
                 if potential_error_str is not True:
-                    print("Creation FAILED: Invalid batch proc", potential_error_str)
+                    print("\n FAIL! Creation FAILED: Invalid batch proc", potential_error_str)
                     return
                 else:
                     print("This batch_proc seems valid")
