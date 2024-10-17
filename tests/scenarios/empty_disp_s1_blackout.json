@@ -1,0 +1,4 @@
+{
+  "comment": "This is just a sample blackout file. DO NOT use this in production or system testing",
+  "blackout_dates": {}
+}

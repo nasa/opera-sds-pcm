@@ -19,7 +19,8 @@ from data_subscriber import cslc_utils
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=15)
 def query_cmr_by_frame_and_dates_backoff(cslc_query, subs_args, token, cmr, settings, now, timerange, silent):
-    return cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, now, timerange, silent)
+    frame_id = int(subs_args.frame_id)
+    return cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, now, timerange, silent)
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
