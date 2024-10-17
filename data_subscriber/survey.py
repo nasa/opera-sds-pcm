@@ -6,7 +6,7 @@ import backoff
 
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.query import get_query_timerange, DateTimeRange
-import cslc_utils
+from data_subscriber import cslc_utils
 
 _date_format_str = CMR_TIME_FORMAT
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"

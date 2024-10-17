@@ -7,6 +7,7 @@ import requests
 from time import sleep
 from datetime import datetime, timedelta
 import argparse
+from pathlib import Path
 from data_subscriber import cslc_utils
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -20,6 +21,7 @@ DT_FORMAT = CMR_TIME_FORMAT
 
 _rabbitmq_url = "https://localhost:15673/api/queues/%2F/"
 _jobs_processed_queue = "jobs_processed"
+EMPTY_BLACKOUT_DATES = Path(__file__).parent / "empty_disp_s1_blackout.json"
 
 """This test runs cslc query several times in succession and verifies download jobs submitted
 This test is run as a regular python script as opposed to pytest
@@ -84,6 +86,8 @@ def run_query(args, authorization):
     # Open the scenario file and parse it. Get k from it and add as parameter.
     # Start and end dates are the min and max dates in the file.
 
+    success = True
+
     j = json.load(open(args.validation_json))
     cslc_k = j["k"]
     cslc_m = j["m"]
@@ -95,7 +99,15 @@ def run_query(args, authorization):
     if "sleep_seconds" in j:
         sleep_map = j["sleep_seconds"]
 
+    # Use empty blackout dates file by default
+    blackout_dates = EMPTY_BLACKOUT_DATES
+    if "blackout_dates" in j:
+        blackout_dates = j["blackout_dates"]
+        print("Using blackout dates file: " + str(blackout_dates))
+
     query_arguments.extend([f"--k={cslc_k}", f"--m={cslc_m}", f"--processing-mode={proc_mode}"])
+    if "use_temporal" in j and j["use_temporal"] == True:
+        query_arguments.append("--use-temporal")
 
     if (proc_mode == "forward"):
         if validation_data == "load_test":
@@ -104,12 +116,13 @@ def run_query(args, authorization):
 
             while start_date < end_date:
                 new_end_date = start_date + timedelta(hours=1)
-                current_args = query_arguments + [f"--grace-mins={j['grace_mins']}",
-                                                  f"--job-queue={job_queue[proc_mode]}", \
+                current_args = query_arguments + [f"--job-queue={job_queue[proc_mode]}", \
                                                   f"--start-date={start_date.isoformat()}Z",
                                                   f"--end-date={new_end_date.isoformat()}Z"]
 
-                query_and_validate(current_args, start_date.strftime(DT_FORMAT), None)
+                if not query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, None):
+                    success = False
+                    break
 
                 start_date = new_end_date
         else:
@@ -127,10 +140,13 @@ def run_query(args, authorization):
                     sleep(sleep_seconds)
 
                 new_end_date = start_date + timedelta(hours=1)
-                current_args = query_arguments + [f"--grace-mins={j['grace_mins']}", f"--job-queue={job_queue[proc_mode]}", \
-                                                  f"--start-date={start_date.isoformat()}Z", f"--end-date={new_end_date.isoformat()}Z"]
+                current_args = query_arguments + [f"--job-queue={job_queue[proc_mode]}",
+                                                  f"--start-date={start_date.isoformat()}Z",
+                                                  f"--end-date={new_end_date.isoformat()}Z"]
 
-                query_and_validate(current_args, start_date.strftime(DT_FORMAT), validation_data)
+                if not query_and_validate(current_args, start_date.strftime(DT_FORMAT), blackout_dates, validation_data):
+                    success = False
+                    break
 
                 start_date = new_end_date # To the next query time range
 
@@ -139,7 +155,9 @@ def run_query(args, authorization):
             # Run one native id at a time
             for native_id in validation_data.keys():
                 current_args = query_arguments + [f"--native-id={native_id}", f"--job-queue={job_queue[proc_mode]}"]
-                query_and_validate(current_args, native_id, validation_data)
+                if not query_and_validate(current_args, native_id, blackout_dates, validation_data):
+                    success = False
+                    break
         elif j["param_type"] == "date_range":
             # Run one date range at a time
             for date_range in validation_data.keys():
@@ -148,7 +166,9 @@ def run_query(args, authorization):
                 current_args = query_arguments + [f"--start-date={start_date}", f"--end-date={end_date}",  f"--job-queue={job_queue[proc_mode]}"]
                 if  "frame_id" in j:
                     current_args.append(f"--frame-id={j['frame_id']}")
-                query_and_validate(current_args, date_range, validation_data)
+                if not query_and_validate(current_args, date_range, blackout_dates, validation_data):
+                    success = False
+                    break
 
     elif (proc_mode == "historical"):
         # Run one frame range at a time over the data date range
@@ -158,14 +178,18 @@ def run_query(args, authorization):
             current_args = query_arguments + [f"--frame-id={frame_id}", f"--job-queue={job_queue[proc_mode]}",
                                               f"--start-date={data_start_date}", f"--end-date={data_end_date}",
                                               "--use-temporal"]
-            query_and_validate(current_args, frame_id, validation_data)
+            if not query_and_validate(current_args, frame_id, blackout_dates, validation_data):
+                success = False
+                break
 
     do_delete_queue(args, authorization, job_queue[proc_mode])
 
-def query_and_validate(current_args, test_range, validation_data=None):
+    return success
+
+def query_and_validate(current_args, test_range, blackout_dates, validation_data=None):
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
-    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,None)
+    c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,None, blackout_dates)
     q_result = c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
     q_result = q_result["download_granules"] # Main granules
     q_result.extend(c_query.k_retrieved_granules) # k granules
@@ -184,7 +208,13 @@ def query_and_validate(current_args, test_range, validation_data=None):
 
     # Validation
     if validation_data:
-        validate_hour(q_result_dict, test_range, validation_data)
+        try:
+            validate_hour(q_result_dict, test_range, validation_data)
+        except AssertionError as e:
+            logging.error(f"TEST FAIL: Validation failed for {test_range}")
+            return False
+
+    return True
 
 def validate_hour(q_result_dict, test_range, validation_data):
     """Validate the number of files to be downloaded for a given hour"""
@@ -228,7 +258,10 @@ with open('/export/home/hysdsops/.creds') as f:
 
 localize_disp_frame_burst_hist()
 
-run_query(args, ('hysdsops', password))
+success = run_query(args, ('hysdsops', password))
 
-logging.info("If no assertion errors were raised, then the test passed.")
 logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
+if success:
+    logging.info("TEST SUCCESS")
+else:
+    logging.error("TEST FAILED")

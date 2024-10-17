@@ -13,7 +13,9 @@ from data_subscriber.cmr import get_cmr_token
 from data_subscriber.parser import create_parser
 from data_subscriber.query import submit_download_job
 from data_subscriber import es_conn_util
-from cslc_utils import get_pending_download_jobs, localize_disp_frame_burst_hist, mark_pending_download_job_submitted, CSLCDependency
+from cslc_utils import (get_pending_download_jobs, localize_disp_frame_burst_hist, mark_pending_download_job_submitted)
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 
 
@@ -45,6 +47,8 @@ def run(argv: list[str]):
 
     job_submission_tasks = []
     disp_burst_map, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist()
+    blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), disp_burst_map, burst_to_frames)
+
     query_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
 
     es = es_conn_util.get_es_connection(logger)
@@ -64,7 +68,7 @@ def run(argv: list[str]):
         frame_id = job['_source']['frame_id']
         acq_index = job['_source']['acq_index']
 
-        cslc_dependency = CSLCDependency(k, m, disp_burst_map, query_args, token, cmr, settings)
+        cslc_dependency = CSLCDependency(k, m, disp_burst_map, query_args, token, cmr, settings, blackout_dates_obj)
 
         # Check if the compressed cslc has been generated
         logger.info("Evaluating for frame_id: %s, acq_index: %s, k: %s, m: %s", frame_id, acq_index, k, m)

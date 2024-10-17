@@ -5,7 +5,9 @@ import math
 import logging
 import pickle
 from data_subscriber import cslc_utils
-from data_subscriber.cslc_utils import CSLCDependency, parse_cslc_native_id
+from data_subscriber.cslc_utils import parse_cslc_native_id
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, localize_disp_blackout_dates
 from datetime import datetime, timedelta
 import argparse
 import csv
@@ -25,6 +27,8 @@ logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.", required=False, default=False)
 parser.add_argument("--db-file", dest="db_file", help="Specify the DISP-S1 database json file \
+on the local file system instead of using the standard one in S3 ancillary", required=False)
+parser.add_argument("--blackout-file", dest="blackout_file", help="Specify the DISP-S1 blackout dates json file \
 on the local file system instead of using the standard one in S3 ancillary", required=False)
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
@@ -63,8 +67,18 @@ args = parser.parse_args()
 if args.db_file:
     logger.info(f"Using local DISP-S1 database json file: {args.db_file}")
     disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(args.db_file)
+    disp_burst_map_file = args.db_file
 else:
     disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+    disp_burst_map_file = None
+
+if args.blackout_file:
+    logger.info(f"Using local DISP-S1 blackout dates json file: {args.blackout_file}")
+    blackout_dates_obj = DispS1BlackoutDates(process_disp_blackout_dates(args.blackout_file), disp_burst_map, burst_to_frames)
+    blackout_dates_file = args.blackout_file
+else:
+    blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), disp_burst_map, burst_to_frames)
+    blackout_dates_file = None
 
 def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
@@ -73,7 +87,7 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
-    cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings) # we don't care about m here
+    cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings, blackout_dates_obj) # we don't care about m here
     k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, silent = not verbose)
 
     return k_cycle
@@ -94,8 +108,8 @@ def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = Fal
         settings = SettingsConf().cfg
         cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
-        cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
-        all_granules = cslc_query.query_cmr_by_frame_and_dates(subs_args, token, cmr, settings, datetime.now(), query_timerange)
+        cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings, disp_burst_map_file, blackout_dates_file)
+        all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(), query_timerange)
         all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]] # We only want to process VV polarization data
         print(len(all_granules), " granules found in the CMR without HH polarization")
 
