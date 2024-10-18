@@ -76,6 +76,10 @@ RunConfig:
         # JSON file containing list of reference date changes for each frame
         reference_date_database_json: str(required=False)
 
+        # JSON file containing frame-specific algorithm parameters to override the
+        # defaults passed in the `algorithm_parameters.yaml`.
+        algorithm_parameters_overrides_json: str(required=False)
+
       primary_executable:
         # Product type of the PGE.
         product_type: enum('DISP_S1_FORWARD', 'DISP_S1_HISTORICAL')
@@ -96,6 +100,9 @@ RunConfig:
         # Whether the SAS should output and save the Compressed SLCs in addition to
         # the standard product output.
         save_compressed_slc: bool(required=True)
+
+        # Location of the static layers product associated with this product
+        static_layers_data_access: str(required=False)
 
       worker_settings:
         # Whether to use GPU for processing (if available).
