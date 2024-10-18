@@ -88,6 +88,16 @@ https://opera-ancillaries.s3.us-west-2.amazonaws.com/opera-disp-s1-consistent-bu
     python tools/disp_s1_burst_db_tool.py time_range 2016-05-01T00:00:00 2016-07-01T00:00:00 | grep Sensing | wc -l
     1669
 
+    # Validate frame 832 in the database file against real-time CMR query data
+    python tools/disp_s1_burst_db_tool.py validate 832 --print-each-result=true
+
+    # Validate all frames in the database file using a cmr survey csv file. This then creates a pickle file of that csv file in the working directory.
+    python tools/disp_s1_burst_db_tool.py validate all --cmr-survey-csv cmr_survey.csv.raw.2016-07-01_to_2024-09-04.csv
+
+    # Validate using existing CMR survey csv pickle file. This is the fastest way to validate many bursts at once.
+    # all or ALL means validate all frames
+    python tools/disp_s1_burst_db_tool.py validate all --all-granules-pickle cmr_survey.csv.raw.2016-07-01_to_2024-09-04.csv.pickle 
+
 ## run_disp_s1_historical_processing.py
 
 This is a stand-alone CLI application that runs the DISP S1 historical processing.

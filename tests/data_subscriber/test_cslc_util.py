@@ -87,6 +87,11 @@ def test_parse_cslc_native_id():
     assert acquisition_cycles == {42261: 276}
     assert frame_ids == [42261]
 
+    burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
+        cslc_utils.parse_cslc_native_id("OPERA_L2_CSLC-S1_T050-105601-IW3_20160823T025448Z_20240614T120433Z_S1A_VV_v1.1", burst_to_frames, disp_burst_map_hist)
+    assert frame_ids == [13200, 13201]
+    assert disp_burst_map_hist[13200].sensing_datetimes[0] == dateutil.parser.isoparse("2016-08-23T02:54:48")
+
     #TODO: 09-05-2024 Uncomment after the database file has been updated
     '''burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
         cslc_utils.parse_cslc_native_id(

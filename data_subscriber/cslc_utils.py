@@ -127,6 +127,11 @@ def process_disp_frame_burst_hist(file):
     datetime_to_frames = defaultdict(list)      # List of frame numbers
 
     for frame in j:
+
+        # If sensing time list is empty, skip this frame
+        if len(j[frame]["sensing_time_list"]) == 0:
+            continue
+
         frame_to_bursts[int(frame)].frame_number = int(frame)
 
         b = frame_to_bursts[int(frame)].burst_ids

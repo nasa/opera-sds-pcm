@@ -10,10 +10,13 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from tabulate import tabulate
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 from util.conf_util import SettingsConf
+
+from data_subscriber.cslc_utils import localize_disp_frame_burst_hist
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
@@ -34,6 +37,8 @@ LOGGER.info("Connected to %s" % str(eu.es_url))
 
 FILE_OPTION = '--file'
 
+# Process the default disp s1 burst hist file
+frames_to_bursts, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist()
 
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
@@ -45,6 +50,29 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
 
 
 def view_proc(id):
+
+    # If id is all or ALL then get all batch procs that are currently enabled
+    if id.lower() == "all":
+        query = {"query": {"term": {"enabled": True}}}
+        procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
+        rows = []
+        for hit in procs['hits']['hits']:
+            proc = hit['_source']
+            try:
+                pp = f"{proc['progress_percentage']}%"
+            except:
+                pp = "UNKNOWN"
+            try:
+                fcp = [f"{f}: {p}%" for f, p in proc["frame_completion_percentages"].items()]
+            except:
+                fcp = "UNKNOWN"
+            rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp])
+
+        print(" --- Showing Summary of Enabled Batch Procs --- ")
+        print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60]))
+
+        return
+
     query = {"query": {"term": {"_id": id}}}
     procs = eu.es.search(body=query, index=ES_INDEX, size=1)
 
@@ -65,10 +93,31 @@ def view_proc(id):
         else:
             print(k, ' ' * (30 - len(k)), v)
 
+    if proc["job_type"] == "cslc_query_hist":
+        print("\n -- Legend -- ")
+        print("frame_states: The number of sensing datetimes that'd been submitted thus far (An internal house keeping construct.)")
+        print("frame_completion_percentages: The percentage of sensing datetimes that have been submitted thus far.")
+        print("last_processed_datetimes: The last sensing datetime that was submitted.")
+        print("progress_percentage: The percentage of the entire job that has been submitted thus far.\n")
+
 
 def _validate_proc(proc):
-    return True
+    # If this is for DISP-S1 processing, make sure all the frames exist
+    if proc["job_type"] == "cslc_query_hist":
+        all_frames = set()
+        for f in list(frames_to_bursts.keys()):
+            all_frames.add(f)
 
+        for f in proc["frames"]:
+            if type(f) == list:
+                for frame in range(f[0], f[1]):
+                    if frame not in all_frames:
+                        return f"Frame {frame} not found in DISP-S1 Burst ID Database JSON"
+            else:
+                if f not in all_frames:
+                    return f"Frame {f} not found in DISP-S1 Burst ID Database JSON"
+
+    return True
 
 def batch_proc_once():
     parser = create_parser()
@@ -79,11 +128,14 @@ def batch_proc_once():
 
         print("%d Batch Procs Found" % len(procs))
 
+        print_list = []
         for proc in procs:
             doc_id = proc['_id']
             proc = proc['_source']
             p = SimpleNamespace(**proc)
-            print(doc_id, p.label, p.enabled)
+            print_list.append([doc_id, p.label, p.enabled])
+
+        print(tabulate(print_list, headers=["ID", "Label", "Enabled"], tablefmt="pretty"))
 
     elif args.subparser_name == "view":
         print("")
@@ -121,6 +173,12 @@ def batch_proc_once():
             with open(args.file) as f:
                 proc = json.load(f)
                 print(proc)
+                potential_error_str = _validate_proc(proc)
+                if potential_error_str is not True:
+                    print("\n FAIL! Creation FAILED: Invalid batch proc", potential_error_str)
+                    return
+                else:
+                    print("This batch_proc seems valid")
 
                 print(eu.index_document(body=proc, index=ES_INDEX))
         else:
