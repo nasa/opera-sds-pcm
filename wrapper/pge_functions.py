@@ -181,10 +181,10 @@ def disp_s1_lineage_metadata(context, work_dir):
     )
     lineage_metadata.append(local_reference_date_database)
 
-    #local_algorithm_parameters_overrides_filepath = os.path.join(
-    #    work_dir, basename(run_config["static_ancillary_file_group"]["algorithm_parameters_overrides"])
-    #)
-    #lineage_metadata.append(local_algorithm_parameters_overrides_filepath)
+    local_algorithm_parameters_overrides_filepath = os.path.join(
+        work_dir, basename(run_config["static_ancillary_file_group"]["algorithm_parameters_overrides_json"])
+    )
+    lineage_metadata.append(local_algorithm_parameters_overrides_filepath)
 
     return lineage_metadata
 
@@ -361,8 +361,8 @@ def update_disp_s1_runconfig(context, work_dir):
 
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
-    # TODO add "algorithm_parameters_overrides" when file becomes part of runconfig schema for DISP-S1
-    for static_ancillary_key in ("frame_to_burst_json", "reference_date_database_json"):
+    for static_ancillary_key in ("frame_to_burst_json", "reference_date_database_json",
+                                 "algorithm_parameters_overrides_json"):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
         )
