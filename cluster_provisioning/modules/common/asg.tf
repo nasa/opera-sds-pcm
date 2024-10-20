@@ -109,7 +109,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
       spot_allocation_strategy                 = "price-capacity-optimized"
       spot_instance_pools                      = 0
       on_demand_base_capacity                  = 0
-      on_demand_percentage_above_base_capacity = 0
+      on_demand_percentage_above_base_capacity = lookup(each.value, "use_on_demand", true) ? 100 : 0
     }
 
     launch_template {
