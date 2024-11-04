@@ -29,6 +29,8 @@ from data_subscriber.cmr import (ProductType,
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.gcov.gcov_catalog import NisarGcovProductCatalog
+from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
@@ -135,7 +137,8 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
         cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
         result = asyncio.run(cmr_query.run_query())
         return result
-
+    elif product_type == ProductType.NISAR_GCOV:
+        cmr_query = NisarGcovCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
@@ -305,15 +308,17 @@ def supply_es_conn(args):
                 else args.provider)
 
     if provider == Provider.LPCLOUD:
-        es_conn = HLSProductCatalog(logging.getLogger(__name__))
+        es_conn = HLSProductCatalog(logger)
     elif provider in (Provider.ASF, Provider.ASF_SLC):
-        es_conn = SLCProductCatalog(logging.getLogger(__name__))
+        es_conn = SLCProductCatalog(logger)
     elif provider == Provider.ASF_RTC:
-        es_conn = RTCProductCatalog(logging.getLogger(__name__))
+        es_conn = RTCProductCatalog(logger)
     elif provider == Provider.ASF_CSLC:
-        es_conn = CSLCProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCProductCatalog(logger)
     elif provider == Provider.ASF_CSLC_STATIC:
-        es_conn = CSLCStaticProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCStaticProductCatalog(logger)
+    elif provider == Provider.ASF_NISAR_GCOV:
+        es_conn = NisarGcovProductCatalog(logger)
     else:
         raise ValueError(f'Unsupported provider "{provider}"')
 
