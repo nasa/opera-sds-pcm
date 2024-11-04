@@ -15,7 +15,7 @@ from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 from data_subscriber.cslc.cslc_catalog import KCSLCProductCatalog
 
-K_MULT_FACTOR = 2 #TODO: This should be a setting in probably settings.yaml.
+K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
 EARLIEST_POSSIBLE_CSLC_DATE = "2016-01-01T00:00:00Z"
 
 logger = logging.getLogger(__name__)
@@ -368,12 +368,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return new_granules
 
-    def query_cmr(self, args, token, cmr, settings, timerange: DateTimeRange, now: datetime):
+    def query_cmr(self, timerange: DateTimeRange, now: datetime):
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
             frame_id = int(self.args.frame_id)
-            all_granules = self.query_cmr_by_frame_and_dates(frame_id, args, token, cmr, settings, now, timerange)
+            all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
 
             # Get rid of any granules that aren't in the historical database sensing_datetime_days_index
             frame_id = int(self.args.frame_id)
@@ -385,28 +385,28 @@ since the first CSLC file for the batch was ingested which is greater than the g
         # native_id search takes precedence over date range if both are specified
         elif self.proc_mode == "reprocessing":
 
-            if args.native_id is not None:
-                all_granules = self.query_cmr_by_native_id(args, token, cmr, settings, now, args.native_id)
+            if self.args.native_id is not None:
+                all_granules = self.query_cmr_by_native_id(self.args, self.token, self.cmr, self.settings, now, self.args.native_id)
 
             # Reprocessing by date range is a two-step process:
             # 1) Query CMR for all CSLC files in the date range specified
             # and create list of granules with unique frame_id-acquisition_cycle pairs
             # 2) Process each granule as if they were passed in as frame_ids and date ranges
-            elif args.start_date is not None and args.end_date is not None:
+            elif self.args.start_date is not None and self.args.end_date is not None:
                 unique_frames_dates = set()
 
                 # First get all CSLC files in the range specified and create a unique set of frame_ids that we need to query for.
                 # Note the subtle difference between when the frame_id is specified and when it's not.
                 if self.args.frame_id is not None:
                     frame_id = int(self.args.frame_id)
-                    granules = self.query_cmr_by_frame_and_dates(frame_id, args, token, cmr, settings, now, timerange)
+                    granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
                     for granule in granules:
                         _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
                         for _, acq_cycle in acquisition_cycles.items():
                             unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
 
                 else:
-                    granules = query_cmr_cslc_blackout_polarization(args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, False, None)
+                    granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, False, self.blackout_dates_obj, False, None)
                     for granule in granules:
                         _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
                         for frame_id, acq_cycle in acquisition_cycles.items():
@@ -417,7 +417,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 # We could perform two queries so create a unique set of granules.
                 for frame_id_acq in unique_frames_dates:
                     frame_id, acquisition_cycle = frame_id_acq.split("-")
-                    new_granules = self.query_cmr_by_frame_and_acq_cycle(int(frame_id), int(acquisition_cycle), args, token, cmr, settings, now)
+                    new_granules = self.query_cmr_by_frame_and_acq_cycle(int(frame_id), int(acquisition_cycle), self.args, self.token, self.cmr, self.settings, now)
                     all_granules.extend(new_granules)
 
             else:
@@ -426,9 +426,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
         else: # Forward processing
             if self.args.frame_id is not None:
                 frame_id = int(self.args.frame_id)
-                all_granules = self.query_cmr_by_frame_and_dates(frame_id, args, token, cmr, settings, now, timerange)
+                all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
             else:
-                all_granules = query_cmr_cslc_blackout_polarization(args, token, cmr, settings, timerange, now, False, self.blackout_dates_obj, False, None)
+                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, False, self.blackout_dates_obj, False, None)
 
         return all_granules
 

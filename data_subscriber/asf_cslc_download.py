@@ -341,7 +341,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         cmr_query = CslcStaticCmrQuery(cslc_query_args, token, es_conn, cmr, job_id, settings)
 
-        result = cmr_query.run_query(cslc_query_args, token, es_conn, cmr, job_id, settings)
+        result = cmr_query.run_query()
 
         return result["download_granules"]
 

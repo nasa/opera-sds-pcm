@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import argparse
 import asyncio
 import concurrent.futures
@@ -124,17 +125,16 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
-
     # RTC is a special case in that it needs to run asynchronously
     elif product_type == ProductType.RTC:
         cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-        result = asyncio.run(cmr_query.run_query(args, token, es_conn, cmr, job_id, settings))
+        result = asyncio.run(cmr_query.run_query())
         return result
 
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
-    return cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
+    return cmr_query.run_query()
 
 def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
