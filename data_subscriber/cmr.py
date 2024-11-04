@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
 import logging
+import netrc
 import re
+from collections import namedtuple
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Iterable
-from collections import namedtuple
-import netrc
 
 import dateutil.parser
-from more_itertools import first_true
-
 from data_subscriber.aws_token import supply_token
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
+from more_itertools import first_true
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
 from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
@@ -30,6 +29,7 @@ class Collection(str, Enum):
     RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
+    NISAR_GCOV_BETA_V1 = "NISAR_L2_GCOV_BETA_V1"
 
 class Endpoint(str, Enum):
     OPS = "OPS"
@@ -42,6 +42,7 @@ class Provider(str, Enum):
     ASF_RTC = "ASF-RTC"
     ASF_CSLC = "ASF-CSLC"
     ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
+    ASF_NISAR_GCOV = "ASF-NISAR-GCOV"
 
 class ProductType(str, Enum):
     HLS = "HLS"
@@ -49,6 +50,7 @@ class ProductType(str, Enum):
     RTC = "RTC"
     CSLC = "CSLC"
     CSLC_STATIC = "CSLC_STATIC"
+    NISAR_GCOV = "NISAR_GCOV"
 
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -59,7 +61,8 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.S1B_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_V1: Provider.ASF.value,
-    Collection.CSLC_S1_STATIC_V1: Provider.ASF.value
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
+    Collection.NISAR_GCOV_BETA_V1: Provider.ASF.value
 }
 
 COLLECTION_TO_PROVIDER_TYPE_MAP = {
@@ -69,7 +72,8 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.S1B_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF_RTC.value,
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
-    Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value
+    Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
+    Collection.NISAR_GCOV_BETA_V1: Provider.ASF_NISAR_GCOV.value
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
@@ -79,7 +83,8 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.S1B_SLC: ProductType.SLC.value,
     Collection.RTC_S1_V1: ProductType.RTC.value,
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
-    Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value
+    Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
+    Collection.NISAR_GCOV_BETA_V1: ProductType.NISAR_GCOV.value
 }
 
 COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
@@ -90,6 +95,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.RTC_S1_V1: ["tif", "h5"],
     Collection.CSLC_S1_V1: ["h5"],
     Collection.CSLC_S1_STATIC_V1: ["h5"],
+    Collection.NISAR_GCOV_BETA_V1: ["h5"],
     "DEFAULT": ["tif", "h5"]
 }
 
