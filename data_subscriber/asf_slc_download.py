@@ -1,7 +1,5 @@
 import json
-import logging
 import netrc
-import os
 from datetime import datetime, timedelta
 from pathlib import PurePath, Path
 
@@ -15,12 +13,10 @@ from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
                                     T_ORBIT,
                                     ORBIT_PAD)
 
-logger = logging.getLogger(__name__)
-
 
 class AsfDaacSlcDownload(DaacDownloadAsf):
     def download_orbit_file(self, dataset_dir, product_filepath, additional_metadata):
-        logger.info("Downloading associated orbit file")
+        self.logger.info("Downloading associated orbit file")
 
         # Get the PCM username/password for authentication to Copernicus Dataspace
         username, _, password = netrc.netrc().authenticators('dataspace.copernicus.eu')
@@ -33,7 +29,7 @@ class AsfDaacSlcDownload(DaacDownloadAsf):
         sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)
 
         try:
-            logger.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
+            self.logger.info(f"Querying for Precise Ephemeris Orbit (POEORB) file")
 
             stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
                 [
@@ -49,7 +45,7 @@ class AsfDaacSlcDownload(DaacDownloadAsf):
             stage_orbit_file.main(stage_orbit_file_args)
         except (NoQueryResultsException, NoSuitableOrbitFileException):
             try:
-                logger.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
+                self.logger.warning("POEORB file could not be found, querying for Restituted Orbit (ROEORB) file")
                 stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
                     [
                         f"--output-directory={str(dataset_dir)}",
@@ -63,9 +59,9 @@ class AsfDaacSlcDownload(DaacDownloadAsf):
                 )
                 stage_orbit_file.main(stage_orbit_file_args)
             except (NoQueryResultsException, NoSuitableOrbitFileException):
-                logger.warning("Single RESORB file could not be found, querying for consecutive RESORB files")
+                self.logger.warning("Single RESORB file could not be found, querying for consecutive RESORB files")
 
-                logger.info("Querying for RESORB with range [sensing_start - 1 min, sensing_end + 1 min]")
+                self.logger.info("Querying for RESORB with range [sensing_start - 1 min, sensing_end + 1 min]")
                 sensing_start_range = safe_start_datetime - timedelta(seconds=ORBIT_PAD)
                 sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)
 
@@ -82,7 +78,7 @@ class AsfDaacSlcDownload(DaacDownloadAsf):
                 )
                 stage_orbit_file.main(stage_orbit_file_args)
 
-                logger.info("Querying for RESORB with range [sensing_start – T_orb – 1 min, sensing_start – T_orb + 1 min]")
+                self.logger.info("Querying for RESORB with range [sensing_start – T_orb – 1 min, sensing_start – T_orb + 1 min]")
                 sensing_start_range = safe_start_datetime - timedelta(seconds=T_ORBIT + ORBIT_PAD)
                 sensing_stop_range = safe_start_datetime - timedelta(seconds=T_ORBIT - ORBIT_PAD)
 
@@ -103,7 +99,7 @@ class AsfDaacSlcDownload(DaacDownloadAsf):
             del username
             del password
 
-        logger.info("Added orbit file(s) to dataset")
+        self.logger.info("Added orbit file(s) to dataset")
 
     def download_ionosphere_file(self, dataset_dir, product_filepath):
         try:
@@ -121,11 +117,11 @@ class AsfDaacSlcDownload(DaacDownloadAsf):
             )
             self.update_pending_dataset_metadata_with_ionosphere_metadata(dataset_dir, ionosphere_metadata)
         except IonosphereFileNotFoundException:
-            logger.warning("Ionosphere file not found remotely. Allowing job to continue.")
+            self.logger.warning("Ionosphere file not found remotely. Allowing job to continue.")
             pass
 
     def update_pending_dataset_metadata_with_ionosphere_metadata(self, dataset_dir: PurePath, ionosphere_metadata: dict):
-        logger.info("Updating dataset's met.json with ionosphere metadata")
+        self.logger.info("Updating dataset's met.json with ionosphere metadata")
 
         with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("r") as fp:
             met_json: dict = json.load(fp)

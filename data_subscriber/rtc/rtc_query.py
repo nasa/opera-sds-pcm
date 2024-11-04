@@ -1,7 +1,6 @@
 
 import asyncio
 import itertools
-import logging
 import re
 from collections import namedtuple, defaultdict
 from datetime import datetime, timedelta
@@ -14,14 +13,12 @@ from more_itertools import first, last
 
 from data_subscriber.cmr import async_query_cmr, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
-from data_subscriber.query import CmrQuery
+from data_subscriber.query import CmrQuery, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import determine_acquisition_cycle
 from geo.geo_util import does_bbox_intersect_region
 from rtc_utils import rtc_granule_regex
-
-logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -44,23 +41,23 @@ class RtcCmrQuery(CmrQuery):
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        logger.info("CMR query STARTED")
+        self.logger.info("CMR query STARTED")
         granules = await async_query_cmr(self.args, self.token, self.cmr, self.settings, query_timerange, now)
-        logger.info("CMR query FINISHED")
+        self.logger.info("CMR query FINISHED")
 
-        # If processing mode is historical, apply include/exclude-region filtering
+        # If processing mode is historical, apply the include/exclude-region filtering
         if self.args.proc_mode == "historical":
-            logger.info(f"Processing mode is historical so applying include and exclude regions...")
+            self.logger.info(f"Processing mode is historical so applying include and exclude regions...")
 
             # Fetch all necessary geojson files from S3
             localize_include_exclude(self.args)
             granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
 
-        logger.info("catalogue-ing STARTED")
+        self.logger.info("catalogue-ing STARTED")
 
         affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
-        granules[:] = filter_granules_rtc(granules, self.args)
-        logger.info(f"Filtered to {len(granules)} granules")
+        granules[:] = self.filter_granules_rtc(granules)
+        self.logger.info(f"Filtered to {len(granules)} granules")
 
         mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
         if self.args.native_id:
@@ -71,7 +68,7 @@ class RtcCmrQuery(CmrQuery):
 
         num_granules = len(granules)
         for i, granule in enumerate(granules):
-            logger.debug(f"Processing granule {i+1} of {num_granules}")
+            self.logger.debug(f"Processing granule {i+1} of {num_granules}")
 
             granule_id = granule.get("granule_id")
             revision_id = granule.get("revision_id")
@@ -109,18 +106,18 @@ class RtcCmrQuery(CmrQuery):
                 **additional_fields
             )
 
-        logger.info("catalogue-ing FINISHED")
+        self.logger.info("catalogue-ing FINISHED")
 
         succeeded = []
         failed = []
-        logger.info("performing index refresh")
+        self.logger.info("performing index refresh")
         self.es_conn.refresh()
-        logger.info("performed index refresh")
+        self.logger.info("performed index refresh")
 
-        logger.info("evaluating available burst sets")
-        logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
+        self.logger.info("evaluating available burst sets")
+        self.logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
         if self.args.native_id:  # limit query to the 1 or 2 affected sets in backlog
-            logger.info("Supplied native-id. Limiting evaluation")
+            self.logger.info("Supplied native-id. Limiting evaluation")
             min_num_bursts = self.args.coverage_target_num
             if not min_num_bursts:
                 min_num_bursts = self.settings["DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED"]
@@ -137,7 +134,7 @@ class RtcCmrQuery(CmrQuery):
                 min_num_bursts=min_num_bursts
             )
         else:  # evaluate ALL sets in backlog
-            logger.info("Performing full evaluation")
+            self.logger.info("Performing full evaluation")
             min_num_bursts = self.args.coverage_target_num
             if not min_num_bursts:
                 min_num_bursts = self.settings["DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED"]
@@ -173,24 +170,24 @@ class RtcCmrQuery(CmrQuery):
                         if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
                             batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
         if self.args.smoke_run:
-            logger.info(f"{self.args.smoke_run=}. Filtering to single batch")
+            self.logger.info(f"{self.args.smoke_run=}. Filtering to single batch")
             batch_id_to_products_map = dict(sorted(batch_id_to_products_map.items())[:1])
-        logger.info(f"num_batches={len(batch_id_to_products_map)}")
+        self.logger.info(f"num_batches={len(batch_id_to_products_map)}")
 
         if self.args.subparser_name == "full":
-            logger.info(f"{self.args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
+            self.logger.info(f"{self.args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
             self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
             self.args.batch_ids = affected_mgrs_set_id_acquisition_ts_cycle_indexes
             return
         if self.args.no_schedule_download:
-            logger.info(f"{self.args.no_schedule_download=}. Forcefully skipping download job submission.")
+            self.logger.info(f"{self.args.no_schedule_download=}. Forcefully skipping download job submission.")
             return
         if not self.args.chunk_size:
-            logger.info(f"{self.args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
+            self.logger.info(f"{self.args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
             return
 
         results = []
-        logger.info(f"Submitting batches for RTC download job: {list(batch_id_to_products_map)}")
+        self.logger.info(f"Submitting batches for RTC download job: {list(batch_id_to_products_map)}")
         for batch_id, products_map in batch_id_to_products_map.items():
             job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, self.args, self.settings)
             results_batch = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
@@ -205,7 +202,7 @@ class RtcCmrQuery(CmrQuery):
                         product["download_job_ids"] = first(suceeded_batch)
 
                 if self.args.dry_run:
-                    logger.info(f"{self.args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
+                    self.logger.info(f"{self.args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
                     pass
                 else:
                     self.es_conn.mark_products_as_download_job_submitted({batch_id: batch_id_to_products_map[batch_id]})
@@ -213,18 +210,39 @@ class RtcCmrQuery(CmrQuery):
             succeeded.extend(suceeded_batch)
             failed.extend(failed_batch)
 
-        logger.info(f"{len(results)=}")
-        logger.info(f"{results=}")
+        self.logger.info(f"{len(results)=}")
+        self.logger.info(f"{results=}")
 
-        logger.info(f"{len(succeeded)=}")
-        logger.info(f"{succeeded=}")
-        logger.info(f"{len(failed)=}")
-        logger.info(f"{failed=}")
+        self.logger.info(f"{len(succeeded)=}")
+        self.logger.info(f"{succeeded=}")
+        self.logger.info(f"{len(failed)=}")
+        self.logger.info(f"{failed=}")
 
         return {
             "success": succeeded,
             "fail": failed
         }
+
+    def filter_granules_rtc(self, granules):
+        self.logger.info("Applying land/water filter on CMR granules")
+
+        filtered_granules = []
+        for granule in granules:
+            granule_id = granule.get("granule_id")
+
+            match_product_id = re.match(rtc_granule_regex, granule_id)
+            burst_id = match_product_id.group("burst_id")
+
+            mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+            mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs,
+                                                            mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
+            if not mgrs_sets:
+                self.logger.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
+                continue
+
+            filtered_granules.append(granule)
+
+        return filtered_granules
 
 def update_affected_mgrs_set_ids(acquisition_cycle, affected_mgrs_set_id_acquisition_ts_cycle_indexes, mgrs_burst_set_ids):
     # construct filters for evaluation
@@ -251,18 +269,6 @@ def update_additional_fields_mgrs_set_id_acquisition_ts_cycle_indexes(acquisitio
         mgrs_set_id_acquisition_ts_cycle_indexes = [current_ati_a, current_ati_b]
 
     return mgrs_set_id_acquisition_ts_cycle_indexes
-
-
-def get_query_timerange(args, now: datetime, silent=False):
-    now_minus_minutes_dt = (now - timedelta(minutes=args.minutes)) if not args.native_id else dateutil.parser.isoparse("1900-01-01T00:00:00Z")
-
-    start_date = args.start_date if args.start_date else now_minus_minutes_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    end_date = args.end_date if args.end_date else now.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    query_timerange = DateTimeRange(start_date, end_date)
-    if not silent:
-        logger.info(f"{query_timerange=}")
-    return query_timerange
 
 
 def update_url_index(
@@ -298,23 +304,3 @@ def does_granule_intersect_regions(granule, intersect_regions):
             return True, region
 
     return False, None
-
-
-def filter_granules_rtc(granules, args):
-    logger.info("Applying land/water filter on CMR granules")
-
-    filtered_granules = []
-    for granule in granules:
-        granule_id = granule.get("granule_id")
-
-        match_product_id = re.match(rtc_granule_regex, granule_id)
-        burst_id = match_product_id.group("burst_id")
-
-        mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
-        mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
-        if not mgrs_sets:
-            logger.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
-            continue
-
-        filtered_granules.append(granule)
-    return filtered_granules

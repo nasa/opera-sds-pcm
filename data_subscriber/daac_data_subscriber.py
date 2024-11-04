@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import concurrent.futures
-import logging
 import os
 import re
 import sys
@@ -13,11 +12,10 @@ from itertools import chain
 from pathlib import Path
 from urllib.parse import urlparse
 
-import boto3
 from more_itertools import first
 from smart_open import open
 
-from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
+from commons.logger import configure_library_loggers, get_logger
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
@@ -49,30 +47,10 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level="INFO")
 
 @exec_wrapper
 def main():
     run(sys.argv)
-
-
-def configure_logger(verbose=False):
-    global logger
-
-    log_level = "DEBUG" if verbose else "INFO"
-    logger.setLevel(log_level)
-    logger.info("Log level set to %s", log_level)
-
-    logger_hysds_commons = logging.getLogger("hysds_commons")
-    logger_hysds_commons.addFilter(NoJobUtilsFilter())
-
-    logger_elasticsearch = logging.getLogger("elasticsearch")
-    logger_elasticsearch.addFilter(NoBaseFilter())
-
-    boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
-
-    logger.addFilter(NoLogUtilsFilter())
 
 
 def run(argv: list[str]):
@@ -81,7 +59,8 @@ def run(argv: list[str]):
 
     validate_args(args)
 
-    configure_logger(args.verbose)
+    logger = get_logger(args.verbose)
+    configure_library_loggers()
 
     es_conn = supply_es_conn(args)
 
@@ -165,6 +144,7 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
 
 
 def run_rtc_download(args, token, es_conn, netloc, username, password, cmr, job_id):
+    logger = get_logger()
     provider = args.provider  # "ASF-RTC"
     settings = SettingsConf().cfg
 
@@ -303,6 +283,7 @@ def multithread_gather(job_submission_tasks):
 
 
 def supply_es_conn(args):
+    logger = get_logger()
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection")
                 else args.provider)

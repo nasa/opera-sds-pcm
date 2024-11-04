@@ -1,5 +1,4 @@
 import copy
-import logging
 import os
 import urllib.parse
 from datetime import datetime, timezone
@@ -24,7 +23,6 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_do
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 
-logger = logging.getLogger(__name__)
 
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
@@ -41,7 +39,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         settings = SettingsConf().cfg
         product_id = "_".join([batch_id for batch_id in args.batch_ids])
-        logger.info(f"{product_id=}")
+        self.logger.info(f"{product_id=}")
         cslc_s3paths = []
         c_cslc_s3paths = []
         cslc_static_s3paths = []
@@ -61,7 +59,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         new_args = copy.deepcopy(args)
 
         for batch_id in args.batch_ids:
-            logger.info(f"Downloading CSLC files for batch {batch_id}")
+            self.logger.info(f"Downloading CSLC files for batch {batch_id}")
 
             # Determine the highest acquisition cycle index here for later use in retrieving m compressed CSLCs
             _, acq_cycle_index = split_download_batch_id(batch_id)
@@ -75,7 +73,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 cslc_products_to_filepaths: dict[str, set[Path]] = super().run_download(
                     new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
                 )
-                logger.info(f"Uploading CSLC input files to S3")
+                self.logger.info(f"Uploading CSLC input files to S3")
                 cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
                 cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                          key_prefix=f"tmp/disp_s1/{batch_id}",
@@ -88,7 +86,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
-                logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
+                self.logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
                 downloads = self.get_downloads(args, es_conn)
                 cslc_s3paths = [download["s3_url"] for download in downloads]
                 if len(cslc_s3paths) == 0:
@@ -104,9 +102,9 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                     try:
                         head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
-                        logger.info(f"Adding CSLC file: {p}")
+                        self.logger.info(f"Adding CSLC file: {p}")
                     except Exception as e:
-                        logger.error("Failed when accessing the S3 object:" + p)
+                        self.logger.error("Failed when accessing the S3 object:" + p)
                         raise e
                     file_size = int(head_object["ContentLength"])
 
@@ -125,27 +123,27 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 to_mark_downloaded.append((unique_id, file_size))
                 burst_id_set.add(burst_id)
 
-            logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
+            self.logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
             cslc_static_granules = self.query_cslc_static_files_for_cslc_batch(
                 cslc_files_to_upload, args, token, job_id, settings
             )
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
-                logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
+                self.logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
                 cslc_static_products_to_filepaths: dict[str, set[Path]] = self.download_cslc_static_files_for_cslc_batch(
                     cslc_static_granules, args, token, netloc,
                     username, password, job_id
                 )
 
-                logger.info("Uploading CSLC Static input files to S3")
+                self.logger.info("Uploading CSLC Static input files to S3")
                 cslc_static_files_to_upload = [fp for fp_set in cslc_static_products_to_filepaths.values() for fp in fp_set]
                 cslc_static_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                                 key_prefix=f"tmp/disp_s1/{batch_id}",
                                                                                 files=cslc_static_files_to_upload))
             # For s3 we can use the files directly so simply copy over the paths
             else:  # s3 or auto
-                logger.info("Skipping download CSLC static files and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
+                self.logger.info("Skipping download CSLC static files and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
 
                 cslc_static_products_to_filepaths = {} # Dummy when trying to delete files later in this function
 
@@ -159,11 +157,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # Download all Ionosphere files corresponding to the dates covered by the input CSLC set
             # We always download ionosphere files, there is no direct S3 ingestion option
-            logger.info(f"Downloading Ionosphere files for {batch_id}")
+            self.logger.info(f"Downloading Ionosphere files for {batch_id}")
             ionosphere_paths = self.download_ionosphere_files_for_cslc_batch(cslc_files_to_upload,
                                                                              self.downloads_dir)
 
-            logger.info(f"Uploading Ionosphere files to S3")
+            self.logger.info(f"Uploading Ionosphere files to S3")
             # TODO: since all ionosphere files now go to the same S3 location,
             #  it should be possible to do a lookup before redownloading a file
             ionosphere_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
@@ -172,7 +170,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # Delete the files from the file system after uploading to S3
             if rm_downloads_dir:
-                logger.info("Removing downloaded files from local filesystem")
+                self.logger.info("Removing downloaded files from local filesystem")
                 for fp_set in cslc_products_to_filepaths.values():
                     for fp in fp_set:
                         os.remove(fp)
@@ -186,7 +184,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         # Determine M Compressed CSLCs by querying compressed cslc GRQ ES   -------------->
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
-        logger.info(f"{k=}, {m=}")
+        self.logger.info(f"{k=}, {m=}")
 
         cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings, self.blackout_dates_obj)
 
@@ -197,14 +195,14 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         for ccslc in ccslcs:
             cslc_path = ccslc["_source"]["metadata"]["product_s3_paths"]
             c_cslc_s3paths.extend(cslc_path)
-            logger.info(f"Adding {cslc_path} to c_cslc_s3paths")
+            self.logger.info(f"Adding {cslc_path} to c_cslc_s3paths")
 
         # Now acquire the Ionosphere files for the reference dates of the Compressed CSLC products
-        logger.info(f"Downloading Ionosphere files for Compressed CSLCs")
+        self.logger.info(f"Downloading Ionosphere files for Compressed CSLCs")
         ionosphere_paths = self.download_ionosphere_files_for_cslc_batch(c_cslc_s3paths,
                                                                          self.downloads_dir)
 
-        logger.info(f"Uploading Ionosphere files for Compressed CSLCs to S3")
+        self.logger.info(f"Uploading Ionosphere files for Compressed CSLCs to S3")
         ionosphere_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
                                                                        key_prefix=f"tmp/disp_s1/ionosphere",
                                                                        files=ionosphere_paths))
@@ -218,12 +216,12 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         print(f'{bounding_box=}')
 
         # Now submit DISP-S1 SCIFLO job
-        logger.info(f"Submitting DISP-S1 SCIFLO job")
+        self.logger.info(f"Submitting DISP-S1 SCIFLO job")
 
         save_compressed_cslc = False
         if cslc_dependency.determine_k_cycle(None, latest_acq_cycle_index, frame_id) == 0:
             save_compressed_cslc = True
-        logger.info(f"{save_compressed_cslc=}")
+        self.logger.info(f"{save_compressed_cslc=}")
 
         product = {
             "_id": product_id,
@@ -284,7 +282,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
         as the one with the greatest acq_cycle_index) is stored in cslc_catalog. The rest are stored in k_cslc_catalog.'''
 
-        k_es_conn = KCSLCProductCatalog(logging.getLogger(__name__))
+        k_es_conn = KCSLCProductCatalog(self.logger)
 
         # Sort the batch_ids by acq_cycle_index
         batch_ids = sorted(args.batch_ids, key = lambda batch_id: split_download_batch_id(batch_id)[1])
@@ -293,25 +291,25 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         # Historical mode stores all granules in normal cslc_catalog
         if "proc_mode" in args and args.proc_mode == "historical":
-            logger.info("Downloading cslc files for historical mode")
+            self.logger.info("Downloading cslc files for historical mode")
             for batch_id in batch_ids:
                 downloads = es_conn.get_download_granule_revision(batch_id)
-                logger.info(f"Got {len(downloads)=} cslc downloads for {batch_id=}")
+                self.logger.info(f"Got {len(downloads)=} cslc downloads for {batch_id=}")
                 assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
                 all_downloads.extend(downloads)
 
         # Forward and reprocessing modes store all granules in k_cslc_catalog
         else:
-            logger.info("Downloading cslc files for forward/reprocessing mode")
+            self.logger.info("Downloading cslc files for forward/reprocessing mode")
             downloads = es_conn.get_download_granule_revision(batch_ids[-1])
-            logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
+            self.logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
             assert len(downloads) > 0, f"No downloads found for batch_id={batch_ids[-1]}!"
             all_downloads.extend(downloads)
 
             # Download K-CSLC granules
             for batch_id in batch_ids[:-1]:
                 downloads = k_es_conn.get_download_granule_revision(batch_id)
-                logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
+                self.logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
                 assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
                 all_downloads.extend(downloads)
 
@@ -337,7 +335,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         cslc_query_args.max_revision = 1000
         cslc_query_args.proc_mode = "forward"  # CSLC static query does not care about
                                                # this, but a value must be provided
-        es_conn = CSLCStaticProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCStaticProductCatalog(self.logger)
 
         cmr_query = CslcStaticCmrQuery(cslc_query_args, token, es_conn, cmr, job_id, settings)
 
@@ -351,7 +349,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         session = SessionWithHeaderRedirection(username, password, netloc)
 
         downloads = []
-        es_conn = CSLCStaticProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCStaticProductCatalog(self.logger)
 
         for cslc_static_granule in cslc_static_granules:
             download_dict = {
@@ -384,13 +382,13 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         downloaded_ionosphere_files = set()
 
         for cslc_file in cslc_files:
-            logger.info(f'Downloading Ionosphere file for CSLC granule {cslc_file}')
+            self.logger.info(f'Downloading Ionosphere file for CSLC granule {cslc_file}')
 
             cslc_file_tokens = cslc_file.split('_')
             acq_datetime = cslc_file_tokens[4]
             acq_date = acq_datetime.split('T')[0]
 
-            logger.debug(f'{acq_date=}')
+            self.logger.debug(f'{acq_date=}')
 
             if acq_date not in downloaded_ionosphere_dates:
                 ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(
@@ -400,7 +398,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 downloaded_ionosphere_dates.add(acq_date)
                 downloaded_ionosphere_files.add(ionosphere_filepath)
             else:
-                logger.info(f'Already downloaded Ionosphere file for date {acq_date}, skipping...')
+                self.logger.info(f'Already downloaded Ionosphere file for date {acq_date}, skipping...')
 
         return downloaded_ionosphere_files
 

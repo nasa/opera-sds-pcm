@@ -4,8 +4,6 @@ import os
 from datetime import datetime
 from pathlib import PurePath, Path
 
-import backoff
-import requests
 import requests.utils
 
 from data_subscriber.download import DaacDownload

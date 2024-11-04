@@ -1,16 +1,13 @@
 import concurrent.futures
-import logging
 import os
 from collections import defaultdict
 from pathlib import PurePath, Path
 
 import requests.utils
 
-from data_subscriber.download import DaacDownload
 from data_subscriber.catalog import ProductCatalog
+from data_subscriber.download import DaacDownload
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
-
-logger = logging.getLogger(__name__)
 
 
 class AsfDaacRtcDownload(DaacDownload):
@@ -19,19 +16,12 @@ class AsfDaacRtcDownload(DaacDownload):
         super().__init__(provider)
         self.daac_s3_cred_settings_key = "RTC_DOWNLOAD"
 
-    def perform_download(
-        self,
-        session: requests.Session,
-        es_conn: ProductCatalog,
-        downloads: list[dict],
-        args,
-        token,
-        job_id
-    ):
-        logger.info(f"downloading {len(downloads)} documents")
+    def perform_download(self, session: requests.Session, es_conn: ProductCatalog,
+                         downloads: list[dict], args, token, job_id):
+        self.logger.info(f"downloading {len(downloads)} documents")
 
         if args.dry_run:
-            logger.info(f"{args.dry_run=}. Skipping download.")
+            self.logger.info(f"{args.dry_run=}. Skipping download.")
             downloads = []
 
         product_to_product_filepaths_map = defaultdict(set)
@@ -51,14 +41,14 @@ class AsfDaacRtcDownload(DaacDownload):
                     download_id_to_downloads_map[download_id]["filesize"] += filesize
 
         for download in downloads:
-            logger.info(f"Marking as downloaded. {download['id']=}")
+            self.logger.info(f"Marking as downloaded. {download['id']=}")
             es_conn.mark_product_as_downloaded(download['id'], job_id, download_id_to_downloads_map[download["id"]]["filesize"])
 
-        logger.info(f"downloaded {len(product_to_product_filepaths_map)} products")
+        self.logger.info(f"downloaded {len(product_to_product_filepaths_map)} products")
         return product_to_product_filepaths_map
 
     def perform_download_single(self, download, token, args, download_counter, num_downloads):
-        logger.info(f"Downloading {download_counter} of {num_downloads} downloads")
+        self.logger.info(f"Downloading {download_counter} of {num_downloads} downloads")
 
         if args.transfer_protocol == "https":
             product_urls = _to_https_urls(download)
@@ -73,7 +63,7 @@ class AsfDaacRtcDownload(DaacDownload):
             product_urls = [product_urls]
 
         for product_url in product_urls:
-            logger.info(f"Processing {product_url=}")
+            self.logger.info(f"Processing {product_url=}")
             product_id = _rtc_url_to_chunk_id(product_url, str(download['revision_id']))
             product_download_dir = self.downloads_dir / product_id
             product_download_dir.mkdir(exist_ok=True)
@@ -88,13 +78,13 @@ class AsfDaacRtcDownload(DaacDownload):
                 product_filepath = self.download_asf_product(
                     product_url, token, product_download_dir
                 )
-            logger.info(f"{product_filepath=}")
+            self.logger.info(f"{product_filepath=}")
 
             list_product_id_product_filepath.append((product_id, product_filepath, download["id"], os.path.getsize(product_filepath)))
         return list_product_id_product_filepath
 
     def download_asf_product(self, product_url, token: str, target_dirpath: Path):
-        logger.info(f"Requesting from {product_url}")
+        self.logger.info(f"Requesting from {product_url}")
 
         asf_response = self._handle_url_redirect(product_url, token)
         asf_response.raise_for_status()

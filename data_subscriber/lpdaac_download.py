@@ -1,19 +1,18 @@
 import itertools
-import logging
 import json
-import extractor.extract
-from pathlib import PurePath, Path
-from collections import defaultdict
+import logging
 import shutil
-import requests
-import requests.utils
+from collections import defaultdict
 from datetime import datetime
-from product2dataset import product2dataset
-from data_subscriber.url import _to_batch_id, _to_orbit_number, _has_url, _to_urls, _to_https_urls, form_batch_id
+from pathlib import PurePath, Path
 
+import requests.utils
+
+import extractor.extract
 from data_subscriber.download import DaacDownload
+from data_subscriber.url import _to_urls, _to_https_urls, form_batch_id
+from product2dataset import product2dataset
 
-logger = logging.getLogger(__name__)
 
 class HLSDownload:
     def __init__(self):
@@ -56,7 +55,7 @@ class DaacDownloadLpdaac(DaacDownload):
 
         # One HLSDownload object contains multiple es_id and url pairs
         for key, downloads in download_map.items():
-            logger.info(f"Processing {key=}")
+            self.logger.info(f"Processing {key=}")
 
             granule_download_dir = self.downloads_dir / key
             granule_download_dir.mkdir(exist_ok=True)
@@ -67,7 +66,7 @@ class DaacDownloadLpdaac(DaacDownload):
             for download in downloads.es_ids_urls:
                 product_url = download[1]
                 if args.dry_run:
-                    logger.info(f"{args.dry_run=}. Skipping download.")
+                    self.logger.info(f"{args.dry_run=}. Skipping download.")
                     break
                 product_filepath = self.download_product(product_url, session, token, args, granule_download_dir)
                 products.append(product_filepath)
@@ -76,14 +75,14 @@ class DaacDownloadLpdaac(DaacDownload):
                 # Mark as downloaded
                 es_id = download[0]
                 es_conn.mark_product_as_downloaded(es_id, job_id)
-            logger.info(f"{products=}")
 
+            self.logger.info(f"{products=}")
 
-            logger.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
+            self.logger.info(f"{len(product_urls_downloaded)=}, {product_urls_downloaded=}")
 
             self.extract_many_to_one(products, key, self.cfg)
 
-            logger.info(f"Removing directory {granule_download_dir}")
+            self.logger.info(f"Removing directory {granule_download_dir}")
             shutil.rmtree(granule_download_dir)
 
 
@@ -139,7 +138,7 @@ class DaacDownloadLpdaac(DaacDownload):
             self.extract_one_to_one(product, settings_cfg, working_dir=product_extracts_dir)
             for product in products
         ]
-        logger.info(f"{dataset_dirs=}")
+        self.logger.info(f"{dataset_dirs=}")
 
         # generate merge metadata from single-product datasets
         shared_met_entries_dict = {}  # this is updated, when merging, with metadata common to multiple input files
@@ -148,32 +147,32 @@ class DaacDownloadLpdaac(DaacDownload):
                 str(product_extracts_dir.resolve()),
                 extra_met=shared_met_entries_dict  # copy some common metadata from each product.
             )
-        logger.debug(f"{merged_met_dict=}")
+        self.logger.debug(f"{merged_met_dict=}")
 
-        logger.info("Creating target dataset directory")
+        self.logger.info("Creating target dataset directory")
         target_dataset_dir = Path(group_dataset_id)
         target_dataset_dir.mkdir(exist_ok=True)
         for product in products:
             shutil.copy(product, target_dataset_dir.resolve())
-        logger.info("Copied input products to dataset directory")
+        self.logger.info("Copied input products to dataset directory")
 
         # group_dataset_id coming in is the ES _id which contains the revision-id from CMR as
         # the last .# So we split that out
         #TODO: Make this a function in url
         granule_id = group_dataset_id.split('-')[0]
 
-        logger.info("update merged *.met.json with additional, top-level metadata")
+        self.logger.info("update merged *.met.json with additional, top-level metadata")
         merged_met_dict.update(shared_met_entries_dict)
         merged_met_dict["FileSize"] = total_product_file_sizes
         merged_met_dict["FileName"] = granule_id
         merged_met_dict["id"] = granule_id
-        logger.debug(f"{merged_met_dict=}")
+        self.logger.debug(f"{merged_met_dict=}")
 
         # write out merged *.met.json
         merged_met_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.met.json"
         with open(merged_met_json_filepath, mode="w") as output_file:
             json.dump(merged_met_dict, output_file)
-        logger.info(f"Wrote {merged_met_json_filepath=!s}")
+        self.logger.info(f"Wrote {merged_met_json_filepath=!s}")
 
         # write out basic *.dataset.json file (version + created_timestamp)
         dataset_json_dict = extractor.extract.create_dataset_json(
@@ -193,7 +192,7 @@ class DaacDownloadLpdaac(DaacDownload):
         granule_dataset_json_filepath = target_dataset_dir.resolve() / f"{group_dataset_id}.dataset.json"
         with open(granule_dataset_json_filepath, mode="w") as output_file:
             json.dump(dataset_json_dict, output_file)
-        logger.info(f"Wrote {granule_dataset_json_filepath=!s}")
+        self.logger.info(f"Wrote {granule_dataset_json_filepath=!s}")
 
         shutil.rmtree(extracts_dir)
 

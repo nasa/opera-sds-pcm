@@ -1,25 +1,30 @@
-import json
-from copy import deepcopy
-from collections import defaultdict
-import dateutil
-import logging
-from functools import cache
-import asyncio
 
+import asyncio
+import json
+from collections import defaultdict
+from copy import deepcopy
+from functools import cache
+
+import dateutil
+
+from commons.logger import get_logger
+from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
+from data_subscriber.cslc_utils import localize_anc_json, sensing_time_day_index, parse_cslc_native_id, \
+    parse_cslc_file_name, download_batch_id_forward_reproc
 from data_subscriber.url import cslc_unique_id
-from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
-from data_subscriber.cslc_utils import localize_anc_json, sensing_time_day_index, parse_cslc_native_id, parse_cslc_file_name, download_batch_id_forward_reproc
 
 DEFAULT_DISP_BLACKOUT_DATE_NAME = 'opera-disp-s1-blackout-dates.json'
 
-logger = logging.getLogger(__name__)
 
 @cache
 def localize_disp_blackout_dates():
+    logger = get_logger()
+
     try:
         file = localize_anc_json("DISP_S1_BLACKOUT_DATES_S3PATH")
     except:
-        logger.warning(f"Could not download DISP-S1 blackout dates file from settings.yaml field DISP_S1_BLACKOUT_DATES_S3PATH from S3. Attempting to use local copy named {DEFAULT_DISP_BLACKOUT_DATE_NAME}.")
+        logger.warning(f"Could not download DISP-S1 blackout dates file from settings.yaml field DISP_S1_BLACKOUT_DATES_S3PATH from S3. "
+                       f"Attempting to use local copy named {DEFAULT_DISP_BLACKOUT_DATE_NAME}.")
         file = DEFAULT_DISP_BLACKOUT_DATE_NAME
 
     return process_disp_blackout_dates(file)
@@ -110,7 +115,7 @@ class DispS1BlackoutDates:
 
 def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only = True):
     '''Filter for CSLC granules and filter for blackout dates and polarization'''
-
+    logger = get_logger()
     filtered_granules = []
 
     # Get rid of any bursts that aren't in the disp-s1 consistent database. Need to do this before the extending records

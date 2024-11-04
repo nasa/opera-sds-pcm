@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Iterable
 
 import dateutil.parser
+from commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from more_itertools import first_true
@@ -16,8 +17,8 @@ from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
 from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
 
-logger = logging.getLogger(__name__)
-MAX_CHARS_PER_LINE = 250000 #This is the maximum number of characters per line you can display in cloudwatch logs
+MAX_CHARS_PER_LINE = 250000
+"""The maximum number of characters per line you can display in cloudwatch logs"""
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -109,6 +110,7 @@ def get_cmr_token(endpoint, settings):
     return cmr, token, username, password, edl
 
 async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
+    logger = get_logger()
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
 
