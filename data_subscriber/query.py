@@ -1,3 +1,5 @@
+
+import argparse
 import asyncio
 import hashlib
 import logging
@@ -422,27 +424,18 @@ def update_url_index(
     for filename, filename_urls in filename_to_urls_map.items():
         es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
-def get_query_timerange(args, now: datetime, silent=False):
+def get_query_timerange(args: argparse.Namespace, now: datetime):
     now_minus_minutes_dt = (
-                now - timedelta(minutes=args.minutes)) if not args.native_id else dateutil.parser.isoparse(
-        "1900-01-01T00:00:00Z")
+        now - timedelta(minutes=args.minutes)
+        if not args.native_id
+        else dateutil.parser.isoparse("1900-01-01T00:00:00Z")
+    )
 
     start_date = args.start_date if args.start_date else now_minus_minutes_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     end_date = args.end_date if args.end_date else now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     query_timerange = DateTimeRange(start_date, end_date)
-    if not silent:
-        logger.info(f"{query_timerange=}")
+
+    logger.debug(f"{query_timerange=}")
+
     return query_timerange
-
-def process_frame_burst_db():
-    settings = SettingsConf().cfg
-    bucket = settings["GEOJSON_BUCKET"]
-
-    try:
-        for geojson in geojsons:
-            key = geojson.strip() + ".geojson"
-            # output_filepath = os.path.join(working_dir, key)
-            download_from_s3(bucket, key, key)
-    except Exception as e:
-        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))

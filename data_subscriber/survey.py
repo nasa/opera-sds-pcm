@@ -59,7 +59,7 @@ def run_survey(args, token, cmr, settings):
         args.start_date = start_str
         args.end_date = end_str
 
-        query_timerange: DateTimeRange = get_query_timerange(args, now, silent=True)
+        query_timerange: DateTimeRange = get_query_timerange(args, now)
 
         granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map, silent=True)
 
