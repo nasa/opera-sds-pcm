@@ -47,17 +47,21 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
 
-logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
-
+logging.basicConfig(level="INFO")
 
 @exec_wrapper
 def main():
-    configure_logger()
     run(sys.argv)
 
 
-def configure_logger():
+def configure_logger(verbose=False):
+    global logger
+
+    log_level = "DEBUG" if verbose else "INFO"
+    logger.setLevel(log_level)
+    logger.info("Log level set to %s", log_level)
+
     logger_hysds_commons = logging.getLogger("hysds_commons")
     logger_hysds_commons.addFilter(NoJobUtilsFilter())
 
@@ -70,11 +74,12 @@ def configure_logger():
 
 
 def run(argv: list[str]):
-    logger.info(f"{argv=}")
     parser = create_parser()
     args = parser.parse_args(argv[1:])
 
     validate_args(args)
+
+    configure_logger(args.verbose)
 
     es_conn = supply_es_conn(args)
 
@@ -83,10 +88,10 @@ def run(argv: list[str]):
             update_url_index(es_conn, f.readlines(), None, None, None)
         exit(0)
 
-    logger.info(f"{args=}")
+    logger.debug(f"daac_data_subscriber.py invoked with {args=}")
 
     job_id = supply_job_id()
-    logger.info(f"{job_id=}")
+    logger.debug(f"Using {job_id=}")
 
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
@@ -107,7 +112,7 @@ def run(argv: list[str]):
         else:
             results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
-    logger.info(f"{len(results)=}")
+    logger.debug(f"{len(results)=}")
     logger.debug(f"{results=}")
     logger.info("END")
 
