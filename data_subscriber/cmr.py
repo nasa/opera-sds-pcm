@@ -15,7 +15,7 @@ from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from more_itertools import first_true
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
-from tools.ops.cmr_audit.cmr_client import cmr_requests_get, async_cmr_posts
+from tools.ops.cmr_audit.cmr_client import async_cmr_posts
 
 MAX_CHARS_PER_LINE = 250000
 """The maximum number of characters per line you can display in cloudwatch logs"""
@@ -251,11 +251,6 @@ def _get_temporal_range(start: str, end: str, now: str):
 
 async def _async_request_search_cmr_granules(args, request_url, paramss: Iterable[dict]):
     response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss))
-    return response_jsons_to_cmr_granules(args, response_jsons)
-
-
-def _request_search_cmr_granules(args, request_url, params):
-    response_jsons = cmr_requests_get(args, request_url, params)
     return response_jsons_to_cmr_granules(args, response_jsons)
 
 
