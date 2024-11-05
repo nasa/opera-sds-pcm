@@ -121,7 +121,7 @@ class CslcCmrQuery(CmrQuery):
                     reproc_granules.extend(ready_granules)
 
                     if self.args.k > 1:
-                        k_granules = self.retrieve_k_granules(ready_granules, self.args, self.args.k - 1, True, silent=True)
+                        k_granules = self.retrieve_k_granules(ready_granules, self.args, self.args.k - 1, True)
                         self.catalog_granules(k_granules, datetime.now(), self.k_es_conn)
                         self.logger.info(f"Length of K-granules: {len(k_granules)=}")
                         for k_g in k_granules:
@@ -249,7 +249,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return download_granules
 
-    def retrieve_k_granules(self, downloads, args, k_minus_one, VV_only = True, silent=False):
+    def retrieve_k_granules(self, downloads, args, k_minus_one, VV_only = True):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the current frame
         Return all the granules that satisfy that'''
         k_granules = []
@@ -290,7 +290,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
             cslc_dependency = CSLCDependency(
                 args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, self.blackout_dates_obj, VV_only)
-            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, silent=silent)
+            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
@@ -333,9 +333,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
         timerange = DateTimeRange(start_date, end_date)
         self.logger.info(f"Querying CMR for all CSLC files that belong to the frame {frame_id}, derived from the native_id {native_id}")
 
-        return self.query_cmr_by_frame_and_dates(frame_id, local_args, token, cmr, settings, now, timerange, False)
+        return self.query_cmr_by_frame_and_dates(frame_id, local_args, token, cmr, settings, now, timerange)
 
-    def query_cmr_by_frame_and_acq_cycle(self, frame_id: int, acq_cycle: int, args, token, cmr, settings, now: datetime, silent=False):
+    def query_cmr_by_frame_and_acq_cycle(self, frame_id: int, acq_cycle: int, args, token, cmr, settings, now: datetime):
         '''Query CMR for specific date range for a specific frame_id and acquisition cycle. Need to always use temporal queries'''
 
         self.logger.info(f"Querying CMR for all CSLC files that belong to the frame {frame_id} and acquisition cycle {acq_cycle}")
@@ -349,9 +349,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
         end_date = (sensing_datetime + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
 
-        return self.query_cmr_by_frame_and_dates(frame_id, new_args, token, cmr, settings, now, timerange, silent)
+        return self.query_cmr_by_frame_and_dates(frame_id, new_args, token, cmr, settings, now, timerange)
 
-    def  query_cmr_by_frame_and_dates(self, frame_id: int, args, token, cmr, settings, now: datetime, timerange: DateTimeRange, silent=False):
+    def  query_cmr_by_frame_and_dates(self, frame_id: int, args, token, cmr, settings, now: datetime, timerange: DateTimeRange):
         '''Query CMR for specific date range for a specific frame_id'''
 
         if frame_id not in self.disp_burst_map_hist:
@@ -363,7 +363,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
         if count == 0:
             return []
         new_args.native_id = native_id
-        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, silent, self.blackout_dates_obj, no_duplicate=True, force_frame_id=frame_id)
+        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, self.blackout_dates_obj, no_duplicate=True, force_frame_id=frame_id)
 
         return new_granules
 
@@ -427,7 +427,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
                 frame_id = int(self.args.frame_id)
                 all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
             else:
-                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, False, self.blackout_dates_obj, False, None)
+                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, self.blackout_dates_obj, False, None)
 
         return all_granules
 

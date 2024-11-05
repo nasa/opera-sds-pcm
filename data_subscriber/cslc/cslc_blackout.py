@@ -148,9 +148,9 @@ def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, 
 
     return filtered_granules
 
-def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, silent, blackout_dates_obj,
+def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, blackout_dates_obj,
                                          no_duplicate, force_frame_id, vv_only = True):
     '''Query CMR for CSLC granules and filter for blackout dates and polarization'''
 
-    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
+    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now))
     return _filter_cslc_blackout_polarization(granules, args.proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only)

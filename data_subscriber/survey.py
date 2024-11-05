@@ -13,7 +13,7 @@ _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
 @backoff.on_exception(backoff.expo, Exception, max_value=13)
-def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map = None, silent=True):
+def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map = None):
 
     # If disp_burst_map is not None, that means we are only querying for a specific frame_id
     # Restrict CMR query by the burst pattern that make up the DISP-S1 frame
@@ -22,7 +22,7 @@ def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_bu
         args.native_id = native_id
         print(args.native_id)
 
-    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
+    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now))
     return result
 
 
@@ -61,7 +61,7 @@ def run_survey(args, token, cmr, settings):
 
         query_timerange: DateTimeRange = get_query_timerange(args, now)
 
-        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map, silent=True)
+        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map)
 
         count = 0
         for granule in granules:

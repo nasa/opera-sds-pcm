@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import netrc
 import re
 from collections import namedtuple
@@ -109,7 +108,7 @@ def get_cmr_token(endpoint, settings):
 
     return cmr, token, username, password, edl
 
-async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, silent=False) -> list:
+async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime) -> list:
     logger = get_logger()
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
@@ -168,8 +167,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
             force_temporal = True
 
-    if not silent:
-        logger.info(f"Time Range: {temporal_range}  use_temporal: {args.use_temporal}")
+    logger.debug("Time Range: %s, use_temporal: %s", temporal_range, args.use_temporal)
 
     if args.use_temporal or force_temporal is True:
         params["temporal"] = temporal_range
@@ -178,29 +176,39 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
-            if not silent:
-                logger.info(f"{args.temporal_start_date=}")
+            logger.debug("Using args.temporal_start_date=%s", args.temporal_start_date)
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
-    if not silent:
-        logger.info(f"Querying CMR. {request_url=} {params=}")
+    logger.info(f"Querying CMR.")
+    logger.debug("request_url=%s", request_url)
+    logger.debug("params=%s", params)
 
     product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
     search_results_count = len(product_granules)
 
-    if not silent:
-        logger.info(f"QUERY RESULTS: Found {search_results_count} granules")
-        products_per_line = 1000 # Default but this would never be used because we calculate dynamically below. Just here incase code moves around and we want a reasonable default
-        if search_results_count > 0:
-            # Print out all the query results but limit the number of characters per line
-            one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
-            chars_per_line = len(one_logout) + 6 # 6 is a fudge factor
-            products_per_line = MAX_CHARS_PER_LINE // chars_per_line
-            for i in range(0, search_results_count, products_per_line):
-                end_range = i + products_per_line
-                if end_range > search_results_count:
-                    end_range = search_results_count
-                logger.info(f'QUERY RESULTS {i+1} to {end_range} of {search_results_count}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
+    logger.info(f"CMR Query Complete. Found %d granule(s)", search_results_count)
+
+    # Default but this would never be used because we calculate dynamically below.
+    # Just here incase code moves around and we want a reasonable default
+    products_per_line = 1000
+
+    if search_results_count > 0:
+        # Print out all the query results but limit the number of characters per line
+        one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
+        chars_per_line = len(one_logout) + 6  # 6 is a fudge factor
+        products_per_line = MAX_CHARS_PER_LINE // chars_per_line
+
+        for i in range(0, search_results_count, products_per_line):
+            end_range = i + products_per_line
+            if end_range > search_results_count:
+                end_range = search_results_count
+
+            logger.info('QUERY RESULTS %d to %d of %d: ', i + 1, end_range, search_results_count)
+
+            for granule in product_granules[i:end_range]:
+                logger.info(
+                    f'{(granule["granule_id"], "revision " + str(granule["revision_id"]))}'
+                )
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
@@ -218,19 +226,25 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     product_granules = least_revised_granules
     if len(product_granules) != search_results_count:
-        logger.info(f"Filtered to {len(product_granules)} granules after least revision check")
+        logger.info("Filtered to %d granules after least revision check", len(product_granules))
 
     if args.collection in settings["SHORTNAME_FILTERS"]:
         product_granules = [granule for granule in product_granules
                             if _match_identifier(settings, args, granule)]
 
     if len(product_granules) != search_results_count:
-        logger.info(f"Filtered to {len(product_granules)} total granules after shortname filter check")
+        logger.info(f"Filtered to %d total granules after shortname filter check", len(product_granules))
         for i in range(0, len(product_granules), products_per_line):
             end_range = i + products_per_line
             if end_range > len(product_granules):
                 end_range = len(product_granules)
-            logger.info(f'FILTERED RESULTS {i+1} to {end_range} of {len(product_granules)}: {[(granule["granule_id"], "revision " + str(granule["revision_id"])) for granule in product_granules[i:end_range]]}')
+
+            logger.info(f'FILTERED RESULTS %d to %d of %d: ', i + 1, end_range, len(product_granules))
+
+            for granule in product_granules[i:end_range]:
+                logger.info(
+                    f'{(granule["granule_id"], "revision " + str(granule["revision_id"]))}'
+                )
 
     for granule in product_granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
@@ -242,7 +256,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     return product_granules
 
 
-def _get_temporal_range(start: str, end: str, now: str):
+def _get_temporal_range(start: str, end: str, now: str) -> str:
     start = start if start is not False else "1900-01-01T00:00:00Z"
     end = end if end is not False else now
 
