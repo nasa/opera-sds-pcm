@@ -59,7 +59,7 @@ def run(argv: list[str]):
 
     validate_args(args)
 
-    logger = get_logger(args.verbose)
+    logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
     es_conn = supply_es_conn(args)

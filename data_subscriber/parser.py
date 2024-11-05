@@ -15,7 +15,13 @@ def create_parser():
     verbose = {"positionals": ["-v", "--verbose"],
                "kwargs": {"dest": "verbose",
                           "action": "store_true",
-                          "help": "Verbose mode."}}
+                          "help": "Verbose mode, enables debug level logging. If provided, "
+                                  "takes precedence over the --quiet option."}}
+
+    quiet ={"positionals": ["-q", "--quiet"],
+            "kwargs": {"dest": "quiet",
+                       "action": "store_true",
+                       "help": "Quiet mode, only warning and error level messages will be logged."}}
 
     file = {"positionals": ["-f", "--file"],
             "kwargs": {"dest": "file",
@@ -211,12 +217,12 @@ def create_parser():
                           "help": "The protocol used for retrieving data, "
                                   "HTTPS or S3 or AUTO."}}
 
-    parser_arg_list = [verbose, file]
+    parser_arg_list = [verbose, quiet, file]
     _add_arguments(parser, parser_arg_list)
 
     survey_parser = subparsers.add_parser("survey",
                                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    survey_parser_arg_list = [verbose, endpoint, provider, collection,
+    survey_parser_arg_list = [verbose, quiet, endpoint, provider, collection,
                               start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, frame_id, use_temporal,
                               temporal_start_date, step_hours, out_csv]
@@ -224,7 +230,7 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full",
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    full_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
+    full_parser_arg_list = [verbose, quiet, endpoint, collection, start_date, end_date,
                             bbox, minutes, k, m, grace_mins,
                             dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
@@ -236,7 +242,7 @@ def create_parser():
 
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    query_parser_arg_list = [verbose, endpoint, collection, start_date, end_date,
+    query_parser_arg_list = [verbose, quiet, endpoint, collection, start_date, end_date,
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
@@ -248,7 +254,7 @@ def create_parser():
 
     download_parser = subparsers.add_parser("download",
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    download_parser_arg_list = [verbose, file, endpoint, dry_run, smoke_run, provider,
+    download_parser_arg_list = [verbose, quiet, file, endpoint, dry_run, smoke_run, provider,
                                 batch_ids, start_date, end_date, use_temporal, proc_mode,
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
