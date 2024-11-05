@@ -45,9 +45,11 @@ class CmrQuery:
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info("CMR query STARTED")
+        self.logger.info("CMR Query STARTED")
+
         granules = self.query_cmr(query_timerange, now)
-        self.logger.info("CMR query FINISHED")
+
+        self.logger.info("CMR Query FINISHED")
 
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
         granules = self.eliminate_duplicate_granules(granules)
@@ -72,17 +74,17 @@ class CmrQuery:
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
 
-        self.logger.info("catalogue-ing STARTED")
-        self.catalog_granules(granules, query_dt)
-        self.logger.info("catalogue-ing FINISHED")
+        self.logger.info("Granule Cataloguing STARTED")
 
-        #TODO: This function only applies to RTC, merge w CSLC at some point
+        self.catalog_granules(granules, query_dt)
+
+        self.logger.info("Granule Cataloguing FINISHED")
+
+        # TODO: This function only applies to RTC, merge w CSLC at some point
         batch_id_to_products_map = self.refresh_index()
 
         if self.args.subparser_name == "full":
-            self.logger.info(
-                f"{self.args.subparser_name=}. Skipping download job submission. Download will be performed directly."
-            )
+            self.logger.info("Skipping download job submission. Download will be performed directly.")
 
             if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC:
                 self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
@@ -95,12 +97,12 @@ class CmrQuery:
             return {"download_granules": download_granules}
 
         if self.args.no_schedule_download:
-            self.logger.info(f"{self.args.no_schedule_download=}. Forcefully skipping download job submission.")
+            self.logger.info("Forcefully skipping download job submission.")
             return {"download_granules": download_granules}
 
         if not self.args.chunk_size:
-            self.logger.info(f"{self.args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
-            return
+            self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
+            return {"download_granules": download_granules}
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
@@ -109,14 +111,13 @@ class CmrQuery:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
 
-        self.logger.info(f"{len(results)=}")
-        self.logger.debug(f"{results=}")
-
         succeeded = [job_id for job_id in results if isinstance(job_id, str)]
         failed = [e for e in results if isinstance(e, Exception)]
 
-        self.logger.info(f"{succeeded=}")
-        self.logger.info(f"{failed=}")
+        self.logger.debug(f"{results=}")
+        self.logger.debug(f"{succeeded=}")
+        self.logger.debug(f"{failed=}")
+        self.logger.debug(f"{download_granules=}")
 
         return {
             "success": succeeded,
@@ -233,12 +234,12 @@ class CmrQuery:
     def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange):
         job_submission_tasks = []
 
-        self.logger.info(f"{self.args.chunk_size=}")
-
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
             # Note that self.disp_burst_map_hist and self.blackout_dates_obj are created in the child class
-            cslc_dependency = CSLCDependency(self.args.k, self.args.m, self.disp_burst_map_hist, self.args, self.token,
-                                             self.cmr, self.settings, self.blackout_dates_obj)
+            cslc_dependency = CSLCDependency(
+                self.args.k, self.args.m, self.disp_burst_map_hist, self.args,
+                self.token, self.cmr, self.settings, self.blackout_dates_obj
+            )
 
         for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
             chunk_batch_ids = []
@@ -258,8 +259,8 @@ class CmrQuery:
 
                 payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
 
-            self.logger.info(f"{chunk_batch_ids=}")
-            self.logger.info(f"{payload_hash=}")
+            self.logger.debug(f"{chunk_batch_ids=}")
+            self.logger.debug(f"{payload_hash=}")
             self.logger.debug(f"{chunk_urls=}")
 
             params = self.create_download_job_params(query_timerange, chunk_batch_ids)
@@ -274,7 +275,7 @@ class CmrQuery:
                 # and wait for the next query to come in. Any acquisition index will work because all batches
                 # require the same compressed cslcs
                 if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
-                    self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied")
+                    self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
                     save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
                                               product_type, params, self.args.job_queue, job_name,
                                               frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
@@ -359,7 +360,7 @@ class CmrQuery:
                 "from": "value"
             }
         ]
-        self.logger.info(f"{download_job_params=}")
+        self.logger.debug(f"{download_job_params=}")
         return download_job_params
 
 
@@ -381,7 +382,6 @@ def submit_download_job(*, release_version=None, product_type: str, params: list
 
 
 def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: str, job_name = None, payload_hash = None) -> str:
-
     if not job_name:
         job_name = f"job-WF-{provider_str}_download"
 
