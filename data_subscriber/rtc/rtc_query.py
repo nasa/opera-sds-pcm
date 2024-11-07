@@ -36,28 +36,30 @@ class RtcCmrQuery(CmrQuery):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
     async def run_query(self):
-
         query_dt = datetime.now()
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info("CMR query STARTED")
+        self.logger.info("CMR Query STARTED")
+
         granules = await async_query_cmr(self.args, self.token, self.cmr, self.settings, query_timerange, now)
-        self.logger.info("CMR query FINISHED")
+
+        self.logger.info("CMR Query FINISHED")
 
         # If processing mode is historical, apply the include/exclude-region filtering
         if self.args.proc_mode == "historical":
-            self.logger.info(f"Processing mode is historical so applying include and exclude regions...")
+            self.logger.info("Processing mode is historical, so applying include and exclude regions...")
 
             # Fetch all necessary geojson files from S3
             localize_include_exclude(self.args)
             granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
 
-        self.logger.info("catalogue-ing STARTED")
+        self.logger.info("Granule Cataloguing STARTED")
 
         affected_mgrs_set_id_acquisition_ts_cycle_indexes = set()
         granules[:] = self.filter_granules_rtc(granules)
-        self.logger.info(f"Filtered to {len(granules)} granules")
+
+        self.logger.info("Filtered to %d granules", len(granules))
 
         mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
         if self.args.native_id:
@@ -68,7 +70,7 @@ class RtcCmrQuery(CmrQuery):
 
         num_granules = len(granules)
         for i, granule in enumerate(granules):
-            self.logger.debug(f"Processing granule {i+1} of {num_granules}")
+            self.logger.debug("Processing granule %d of %d", i + 1, num_granules)
 
             granule_id = granule.get("granule_id")
             revision_id = granule.get("revision_id")
@@ -80,8 +82,8 @@ class RtcCmrQuery(CmrQuery):
             additional_fields["instrument"] = "S1A" if "S1A" in granule_id else "S1B"
 
             match_product_id = re.match(rtc_granule_regex, granule_id)
-            acquisition_dts = match_product_id.group("acquisition_ts") #e.g. 20210705T183117Z
-            burst_id = match_product_id.group("burst_id") # e.g. T074-157286-IW3
+            acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
+            burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
 
             # Returns up to two mgrs_set_ids. e.g. MS_74_76
             mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
@@ -106,18 +108,23 @@ class RtcCmrQuery(CmrQuery):
                 **additional_fields
             )
 
-        self.logger.info("catalogue-ing FINISHED")
+        self.logger.info("Granule Cataloguing FINISHED")
 
         succeeded = []
         failed = []
-        self.logger.info("performing index refresh")
-        self.es_conn.refresh()
-        self.logger.info("performed index refresh")
 
-        self.logger.info("evaluating available burst sets")
-        self.logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
+        self.logger.info("Performing index refresh")
+
+        self.es_conn.refresh()
+
+        self.logger.info("Performed index refresh")
+
+        self.logger.info("Evaluating available burst sets")
+        self.logger.debug("affected_mgrs_set_id_acquisition_ts_cycle_indexes=%s", str(affected_mgrs_set_id_acquisition_ts_cycle_indexes))
+
         if self.args.native_id:  # limit query to the 1 or 2 affected sets in backlog
-            self.logger.info("Supplied native-id. Limiting evaluation")
+            self.logger.info("Supplied native-id, limiting evaluation")
+
             min_num_bursts = self.args.coverage_target_num
             if not min_num_bursts:
                 min_num_bursts = self.settings["DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED"]
@@ -135,6 +142,7 @@ class RtcCmrQuery(CmrQuery):
             )
         else:  # evaluate ALL sets in backlog
             self.logger.info("Performing full evaluation")
+
             min_num_bursts = self.args.coverage_target_num
             if not min_num_bursts:
                 min_num_bursts = self.settings["DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED"]
@@ -169,25 +177,30 @@ class RtcCmrQuery(CmrQuery):
                         # doc needs to be associated with the batch. so filter the other doc that isn't part of this batch
                         if product_doc["mgrs_set_id_acquisition_ts_cycle_index"] == batch_id:
                             batch_id_to_products_map[batch_id][product_doc["id"]].append(product_doc)
+
         if self.args.smoke_run:
             self.logger.info(f"{self.args.smoke_run=}. Filtering to single batch")
             batch_id_to_products_map = dict(sorted(batch_id_to_products_map.items())[:1])
-        self.logger.info(f"num_batches={len(batch_id_to_products_map)}")
+
+        self.logger.debug(f"num_batches=%d", len(batch_id_to_products_map))
 
         if self.args.subparser_name == "full":
-            self.logger.info(f"{self.args.subparser_name=}. Skipping download job submission. Download will be performed directly.")
+            self.logger.info("Skipping download job submission. Download will be performed directly.")
             self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
             self.args.batch_ids = affected_mgrs_set_id_acquisition_ts_cycle_indexes
-            return
+            return {"success": succeeded, "fail": failed}
+
         if self.args.no_schedule_download:
-            self.logger.info(f"{self.args.no_schedule_download=}. Forcefully skipping download job submission.")
-            return
+            self.logger.info("Forcefully skipping download job submission.")
+            return {"success": succeeded, "fail": failed}
+
         if not self.args.chunk_size:
-            self.logger.info(f"{self.args.chunk_size=}. Insufficient chunk size. Skipping download job submission.")
-            return
+            self.logger.info(f"Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
+            return {"success": succeeded, "fail": failed}
 
         results = []
         self.logger.info(f"Submitting batches for RTC download job: {list(batch_id_to_products_map)}")
+
         for batch_id, products_map in batch_id_to_products_map.items():
             job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, self.args, self.settings)
             results_batch = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
@@ -195,6 +208,7 @@ class RtcCmrQuery(CmrQuery):
 
             suceeded_batch = [job_id for _, job_id in results_batch if isinstance(job_id, str)]
             failed_batch = [e for _, e in results_batch if isinstance(e, Exception)]
+
             if suceeded_batch:
                 for product_id, products in batch_id_to_products_map[batch_id].items():
                     for product in products:
@@ -202,7 +216,7 @@ class RtcCmrQuery(CmrQuery):
                         product["download_job_ids"] = first(suceeded_batch)
 
                 if self.args.dry_run:
-                    self.logger.info(f"{self.args.dry_run=}. Skipping marking jobs as downloaded. Producing mock job ID")
+                    self.logger.info("dry_run=%s, Skipping marking jobs as downloaded. Producing mock job ID.", str(self.args.dry_run))
                     pass
                 else:
                     self.es_conn.mark_products_as_download_job_submitted({batch_id: batch_id_to_products_map[batch_id]})
@@ -210,13 +224,9 @@ class RtcCmrQuery(CmrQuery):
             succeeded.extend(suceeded_batch)
             failed.extend(failed_batch)
 
-        self.logger.info(f"{len(results)=}")
-        self.logger.info(f"{results=}")
-
-        self.logger.info(f"{len(succeeded)=}")
-        self.logger.info(f"{succeeded=}")
-        self.logger.info(f"{len(failed)=}")
-        self.logger.info(f"{failed=}")
+        self.logger.debug(f"{results=}")
+        self.logger.debug(f"{succeeded=}")
+        self.logger.debug(f"{failed=}")
 
         return {
             "success": succeeded,
@@ -237,7 +247,7 @@ class RtcCmrQuery(CmrQuery):
             mgrs_sets = mbc_client.burst_id_to_mgrs_set_ids(mgrs,
                                                             mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
             if not mgrs_sets:
-                self.logger.debug(f"{burst_id=} not associated with land or land/water data. skipping.")
+                self.logger.debug("burst_id=%s not associated with land or land/water data. Skipping.", burst_id)
                 continue
 
             filtered_granules.append(granule)

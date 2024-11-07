@@ -34,14 +34,15 @@ def dicts(t):
 def cached_load_mgrs_burst_db(filter_land=True):
     """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db`"""
     logger = get_logger()
-    logger.info(f"Cache loading MGRS burst database. {filter_land=}")
+    logger.info(f"Cache loading MGRS burst database.")
+    logger.debug(f"{filter_land=}")
     return load_mgrs_burst_db(filter_land)
 
 
 def load_mgrs_burst_db(filter_land=True):
     """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db_raw`"""
     logger = get_logger()
-    logger.info(f"Loading MGRS burst database. {filter_land=}")
+    logger.info(f"Initial load of MGRS burst database from disk.")
 
     vector_gdf = load_mgrs_burst_db_raw(filter_land)
 
@@ -70,12 +71,14 @@ def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
         mtc_download_filepath = Path(Path(mgrs_tile_collection_db_s3path).name)
         s3_client.download_file(Bucket=match_s3path.group("bucket_name"), Key=match_s3path.group("object_key"), Filename=str(mtc_download_filepath))
         vector_gdf = gpd.read_file(mtc_download_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global
+
     # na_gdf = gpd.read_file(Path("geo/north_america_opera.geojson"), crs="EPSG:4326")
     # vector_gdf = vector_gdf.overlay(na_gdf, how="intersection")
-    logger.info(f"{len(vector_gdf)=}")
+    logger.debug(f"pre water/land filter: {len(vector_gdf)=}")
+
     if filter_land:
         vector_gdf = vector_gdf[vector_gdf["land_ocean_flag"].isin(["water/land", "land"])]  # filter out water (water == no relevant data)
-        logger.info(f"{len(vector_gdf)=}")
+        logger.debug(f"post water/land filter: {len(vector_gdf)=}")
 
     return vector_gdf
 
