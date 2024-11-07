@@ -141,10 +141,8 @@ class CSLCDependency:
             return index_number % self.k
 
     def compressed_cslc_satisfied(self, frame_id, day_index, eu):
+        return self.get_dependent_compressed_cslcs(frame_id, day_index, eu)
 
-        if self.get_dependent_compressed_cslcs(frame_id, day_index, eu) == False:
-            return False
-        return True
 
     def get_dependent_compressed_cslcs(self, frame_id, day_index, eu):
         ''' Search for all previous M compressed CSLCs
@@ -156,7 +154,7 @@ class CSLCDependency:
 
         ccslcs = []
 
-        #special case for early sensing time series
+        # special case for early sensing time series
         m = self.m
         if len(prev_day_indices) < self.k * (self.m-1):
             m = (len(prev_day_indices) // self.k ) + 1
