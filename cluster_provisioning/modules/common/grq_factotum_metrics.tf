@@ -124,6 +124,45 @@ resource "aws_instance" "metrics" {
     EOT
     ]
   }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
+
+      cd ~/metrics/ops
+      if [ "${var.use_artifactory}" = true ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz"
+        tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
+        ln -s ~/metrics/ops/${var.project}-sds-pcm-${var.pcm_branch} ~/metrics/ops/${var.project}-pcm
+        rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm
+      fi
+    EOT
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      source ~/.bash_profile
+      set -ex
+
+      echo INSTALLING DSWX-S1 VALIDATOR
+
+      cd ~/metrics/ops/opera-pcm
+      cd report/dswx-s1-validator
+      pip install pandas tabulate tqdm requests python-cmr
+
+      # For DSWx-S1 validator tool
+      mkdir ~/Downloads/
+      aws s3 cp s3://opera-ancillaries/mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite ~/Downloads/
+
+      echo INSTALLED DSWX-S1 VALIDATOR
+    EOT
+    ]
+  }
 }
 
 resource "null_resource" "setup_cron" {
