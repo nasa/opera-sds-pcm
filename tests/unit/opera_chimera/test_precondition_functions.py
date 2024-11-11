@@ -32,6 +32,7 @@ class MockGdal:
     def UseExceptions(*args):
         pass
 
+
     @staticmethod
     def Translate(destName, srcDS, **kwargs):
         with open(destName, 'w') as outfile:
@@ -56,11 +57,32 @@ class MockGdal:
 
             return MockRasterBand()
 
+        def GetProjection(self):
+            pass
+
     @staticmethod
     def Open(filename, filemode=None):
         """Mock implementation for gdal.Open. Returns an instance of the mock Dataset."""
         return MockGdal.MockGdalDataset()
 
+
+class MockOsr:
+    """Mock class for the osgeo.osr module."""
+
+    class MockSpatialReference:
+        """Mock class for the osgeo.osr module"""
+
+        def __init__(self, *args, **kwargs):
+            self.zone = 1
+            self.hemi = 'N'
+
+        def GetAttrValue(self, *args):
+            return '4326'
+
+    @staticmethod
+    def SpatialReference(*args, **kwargs):
+        """Mock implementation for osgeo.osr.SpatialReference"""
+        return MockOsr.MockSpatialReference(*args, **kwargs)
 
 def _check_aws_connection_patch(bucket, key):
     """
