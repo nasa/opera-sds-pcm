@@ -37,11 +37,6 @@ def get_parser():
     parser.add_argument('-o', '--output', type=str, action='store',
                         default='dem.vrt', dest='outfile',
                         help='Output DEM filepath (VRT format).')
-    parser.add_argument('-f', '--filepath', type=str, action='store',
-                        help='Filepath to user DEM. If provided, will be used '
-                             'to determine overlap between provided DEM, and '
-                             'DEM to be downloaded based on the MGRS tile code '
-                             'or bounding box.')
     parser.add_argument('-s', '--s3-bucket', type=str, action='store',
                         default=S3_DEM_BUCKET, dest='s3_bucket',
                         help='Name of the S3 bucket containing the global DEM '
@@ -220,47 +215,6 @@ def download_dem(polys, epsgs, dem_location, outfile):
     gdal.BuildVRT(outfile, dem_list)
 
 
-def check_dem_overlap(dem_filepath, polys):
-    """
-    Evaluate overlap between a user-provided DEM and DEM that stage_dem.py would
-    download based on MGRS tile code or bbox provided information.
-
-    Parameters
-    ----------
-    dem_filepath: str
-        Filepath to the user-provided DEM.
-    polys: list of shapely.geometry.Polygon
-        List of polygons computed from MGRS code or bbox.
-
-    Returns
-    -------
-    perc_area: float
-        Area (in percentage) covered by the intersection between the
-        user-provided DEM and the DEM downloadable by stage_dem.py
-
-    """
-    from isce3.io import Raster  # pylint: disable=import-error
-
-    # Get local DEM edge coordinates
-    DEM = Raster(dem_filepath)
-    ulx, xres, xskew, uly, yskew, yres = DEM.get_geotransform()
-    lrx = ulx + (DEM.width * xres)
-    lry = uly + (DEM.length * yres)
-    poly_dem = Polygon([(ulx, uly), (ulx, lry), (lrx, lry), (lrx, uly)])
-
-    # Initialize epsg
-    epsg = [DEM.get_epsg()] * len(polys)
-
-    if DEM.get_epsg() != 4326:
-        polys = transform_polygon_coords_to_epsg(polys, epsg)
-
-    perc_area = 0
-    for poly in polys:
-        perc_area += (poly.intersection(poly_dem).area / poly.area) * 100
-
-    return perc_area
-
-
 def main(opts):
     """
     Main script to execute DEM staging.
@@ -296,20 +250,6 @@ def main(opts):
 
     # Check dateline crossing. Returns list of polygons
     polys = check_dateline(poly)
-
-    if opts.filepath and os.path.isfile(opts.filepath):
-        logger.info('Checking overlap with user-provided DEM')
-
-        try:
-            overlap = check_dem_overlap(opts.filepath, polys)
-
-            logger.info(f'DEM coverage is {overlap} %')
-
-            if overlap < 75.:
-                logger.warning('WARNING: Insufficient DEM coverage (< 75%). Errors might occur')
-        except ImportError:
-            logger.warning('Unable to import from isce3 package, cannot determine '
-                           'DEM overlap.')
 
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')
