@@ -26,6 +26,7 @@ RunConfig:
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
+        IsoMeasuredParameterDescriptions: str(required=False)
         DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:
@@ -75,10 +76,6 @@ RunConfig:
 
         # JSON file containing list of reference date changes for each frame
         reference_date_database_json: str(required=False)
-
-        # JSON file containing frame-specific algorithm parameters to override the
-        # defaults passed in the `algorithm_parameters.yaml`.
-        algorithm_parameters_overrides_json: str(required=False)
 
       primary_executable:
         # Product type of the PGE.
