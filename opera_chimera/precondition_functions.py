@@ -1518,6 +1518,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        working_dir = get_working_dir()
+
         rc_params = {}
 
         static_ancillary_products = self._pge_config.get(oc_const.GET_STATIC_ANCILLARY_FILES, {})
@@ -1525,8 +1527,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         for static_ancillary_product in static_ancillary_products.keys():
             s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
             s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+            download = static_ancillary_products.get(static_ancillary_product, {}).get("download", False)
 
-            rc_params[static_ancillary_product] = f"s3://{s3_bucket}/{s3_key}"
+            if download:
+                output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+                pge_metrics = download_object_from_s3(s3_bucket, s3_key, output_filepath)
+                write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+                rc_params[static_ancillary_product] = output_filepath
+            else:
+                rc_params[static_ancillary_product] = f"s3://{s3_bucket}/{s3_key}"
 
         logger.info(f"rc_params : {rc_params}")
 
