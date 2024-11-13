@@ -19,9 +19,9 @@ from util.conf_util import SettingsConf
     Writes out the new file with .mod added to the end of the file name'''
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=15)
-def query_cmr_by_frame_and_dates_backoff(cslc_query, subs_args, token, cmr, settings, now, timerange):
+def query_cmr_by_frame_and_dates_backoff(cslc_query, subs_args, token, cmr, settings, now, timerange, verbose=True):
     frame_id = int(subs_args.frame_id)
-    return cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, now, timerange)
+    return cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, now, timerange, verbose)
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ for frame in j:
     new_sensing_time_list = []
     logger.info(f"Updating {frame=}")
     subs_args.frame_id = frame
-    all_granules = query_cmr_by_frame_and_dates_backoff(cslc_cmr_query, subs_args, token, cmr, settings, now, timerange)
+    all_granules = query_cmr_by_frame_and_dates_backoff(cslc_cmr_query, subs_args, token, cmr, settings, now, timerange, verbose=False)
 
     # Group them by acquisition cycle
     acq_cycles = defaultdict(set)

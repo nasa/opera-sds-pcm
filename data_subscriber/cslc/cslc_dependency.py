@@ -44,12 +44,12 @@ class CSLCDependency:
             days_delta = day_index - frame.sensing_datetime_days_index[-1]
             end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
             query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number)
+            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, verbose = False)
             all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
             self.logger.debug(f"All previous day indices: {all_prev_indices}")
             return all_prev_indices
 
-    def get_k_granules_from_cmr(self, query_timerange, frame_number: int):
+    def get_k_granules_from_cmr(self, query_timerange, frame_number: int, verbose = True):
         '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
         1. acq_index_to_bursts: day index to set of burst ids
         2. acq_index_to_granules: day index to list of granules that match the burst
@@ -62,7 +62,7 @@ class CSLCDependency:
         args.use_temporal = True
 
         granules = query_cmr_cslc_blackout_polarization(
-            args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), self.blackout_dates_obj, True, frame_number, self.VV_only)
+            args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), verbose, self.blackout_dates_obj, True, frame_number, self.VV_only)
 
         return self.k_granules_grouping(frame_number, granules)
 
@@ -102,7 +102,7 @@ class CSLCDependency:
 
         return acq_index_to_bursts, acq_index_to_granules
 
-    def determine_k_cycle(self, acquisition_dts: datetime, day_index: int, frame_number: int):
+    def determine_k_cycle(self, acquisition_dts: datetime, day_index: int, frame_number: int, verbose = True):
         '''Return where in the k-cycle this acquisition falls for the frame_number
         Must specify either acquisition_dts or day_index.
         Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle
@@ -132,7 +132,7 @@ class CSLCDependency:
                 end_date = acquisition_dts
 
             query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number)
+            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, verbose)
 
             # The k-index is then the complete index number (historical + post historical) mod k
             self.logger.info(f"{len(acq_index_to_bursts.keys())} day indices since historical that match the burst pattern: {acq_index_to_bursts.keys()}")

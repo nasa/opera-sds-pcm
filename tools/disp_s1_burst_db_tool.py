@@ -80,7 +80,7 @@ else:
     blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), disp_burst_map, burst_to_frames)
     blackout_dates_file = None
 
-def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k):
+def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
     subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
 
@@ -88,7 +88,7 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k):
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
     cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings, blackout_dates_obj) # we don't care about m here
-    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id)
+    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, verbose)
 
     return k_cycle
 
@@ -207,7 +207,7 @@ elif args.subparser_name == "native_id":
 
     if args.k:
         k = int(args.k)
-        k_cycle = get_k_cycle(acquisition_dts, frame_ids[0], disp_burst_map, k)
+        k_cycle = get_k_cycle(acquisition_dts, frame_ids[0], disp_burst_map, k, args.verbose)
         if (k_cycle >= 0):
             print(f"K-cycle: {k_cycle} out of {k}")
         else:

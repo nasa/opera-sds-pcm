@@ -108,7 +108,7 @@ def get_cmr_token(endpoint, settings):
 
     return cmr, token, username, password, edl
 
-async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime) -> list:
+async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, verbose=True) -> list:
     logger = get_logger()
     request_url = f"https://{cmr}/search/granules.umm_json"
     bounding_box = args.bbox
@@ -192,23 +192,24 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime) 
     # Just here incase code moves around and we want a reasonable default
     products_per_line = 1000
 
-    if search_results_count > 0:
-        # Print out all the query results but limit the number of characters per line
-        one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
-        chars_per_line = len(one_logout) + 6  # 6 is a fudge factor
-        products_per_line = MAX_CHARS_PER_LINE // chars_per_line
+    if verbose:
+        if search_results_count > 0:
+            # Print out all the query results but limit the number of characters per line
+            one_logout = f'{(product_granules[0]["granule_id"], "revision " + str(product_granules[0]["revision_id"]))}'
+            chars_per_line = len(one_logout) + 6  # 6 is a fudge factor
+            products_per_line = MAX_CHARS_PER_LINE // chars_per_line
 
-        for i in range(0, search_results_count, products_per_line):
-            end_range = i + products_per_line
-            if end_range > search_results_count:
-                end_range = search_results_count
+            for i in range(0, search_results_count, products_per_line):
+                end_range = i + products_per_line
+                if end_range > search_results_count:
+                    end_range = search_results_count
 
-            logger.info('QUERY RESULTS %d to %d of %d: ', i + 1, end_range, search_results_count)
+                logger.info('QUERY RESULTS %d to %d of %d: ', i + 1, end_range, search_results_count)
 
-            for granule in product_granules[i:end_range]:
-                logger.info(
-                    f'{(granule["granule_id"], "revision " + str(granule["revision_id"]))}'
-                )
+                for granule in product_granules[i:end_range]:
+                    logger.info(
+                        f'{(granule["granule_id"], "revision " + str(granule["revision_id"]))}'
+                    )
 
     # Filter out granules with revision-id greater than max allowed
     least_revised_granules = []
