@@ -141,7 +141,9 @@ class CSLCDependency:
             return index_number % self.k
 
     def compressed_cslc_satisfied(self, frame_id, day_index, eu):
-        return self.get_dependent_compressed_cslcs(frame_id, day_index, eu)
+        if self.get_dependent_compressed_cslcs(frame_id, day_index, eu) == False:
+            return False
+        return True
 
 
     def get_dependent_compressed_cslcs(self, frame_id, day_index, eu):
