@@ -12,16 +12,11 @@ Script to query and download the Sentinel-1 files from ESA's Dataspace system.
 import argparse
 import json
 import os
-import re
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from getpass import getpass, getuser
-from pathlib import Path
-from time import sleep
+from getpass import getuser
 
 import backoff
-import pandas as pd
 import requests
 
 from commons.logger import logger, LogLevels
@@ -41,7 +36,7 @@ DEFAULT_SESSION_ENDPOINT = 'https://identity.dataspace.copernicus.eu/auth/realms
 ISO_TIME = '%Y-%m-%dT%H:%M:%SZ'
 """Temporal format required by ODATA API: yyyy-mm-ddTHH:MM:SSZ"""
 
-QUERY_PAGE_SIZE = 25
+QUERY_PAGE_SIZE = 1000
 """Max number of files returned per query"""
 
 
@@ -81,7 +76,7 @@ class DataspaceSession:
 
         response = requests.post(DEFAULT_AUTH_ENDPOINT, data=data)
 
-        print(f'Get token for {username}: {response.status_code}')
+        logger.info(f'Get Dataspace token for {username}: {response.status_code}')
 
         response.raise_for_status()
 
@@ -93,7 +88,7 @@ class DataspaceSession:
                 f'Failed to parse expected field "{str(e)}" from authentication response.'
             )
 
-        print(f'Created session {session_id}')
+        logger.info(f'Created Dataspace session {session_id}')
 
         return access_token, session_id
 
@@ -105,7 +100,7 @@ class DataspaceSession:
 
         response = requests.delete(url=url, headers=headers)
 
-        print(f'Delete request {response.url}: {response.status_code}')
+        logger.info(f'Delete request {response.url}: {response.status_code}')
         response.raise_for_status()
 
     def check(self):
@@ -199,7 +194,7 @@ def build_query_filter(platform, *args):
 def _do_query(url, **kwargs):
     response = requests.get(url, **kwargs)
 
-    print(f'GET {response.url}: {response.status_code}')
+    logger.debug(f'GET {response.url}: {response.status_code}')
     response.raise_for_status()
     return response.json()
 
@@ -220,8 +215,6 @@ def query(params):
 
 
 def main(args):
-    print(args)
-
     query_filters = []
 
     if args.substring is not None:
@@ -251,7 +244,7 @@ def main(args):
                 session.headers.update(headers)
 
                 response = session.get(url, headers=headers, stream=True)
-                print(f'Download request {response.url}: {response.status_code}')
+                logger.info(f'Download request {response.url}: {response.status_code}')
 
                 response.raise_for_status()
 
@@ -264,7 +257,7 @@ def main(args):
                             size += len(chunk)
                             fp.write(chunk)
 
-                print(f'Completed download for {gid} to {out_path} ({size:,} bytes in {datetime.now() - start_t})')
+                logger.info(f'Completed download for {gid} to {out_path} ({size:,} bytes in {datetime.now() - start_t})')
 
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = []
@@ -274,8 +267,6 @@ def main(args):
 
                 for f in as_completed(futures):
                     f.result()
-
-
 
 
 if __name__ == '__main__':
@@ -290,6 +281,9 @@ if __name__ == '__main__':
     if args.start_date is not None and args.end_date is not None:
         if args.start_date > args.end_date:
             raise ValueError('--start-date must be before --end-date')
+
+    if not args.url_only and all([a is None for a in [args.start_date, args.end_date, args.substring]]):
+        raise ValueError('At least one filtering option must be set if --url-only is unset')
 
     main(args)
 
