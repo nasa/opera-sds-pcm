@@ -24,7 +24,6 @@ runconfig:
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
     reference_date_database_json: __CHIMERA_VAL__
-    algorithm_parameters_overrides_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
@@ -33,10 +32,11 @@ runconfig:
   processing:
     frame_id: __CHIMERA_VAL__
     algorithm_parameters: __CHIMERA_VAL__
+    algorithm_parameters_overrides_json: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
-    debug_switch: True  # TODO: Currently enabled to bypass a faulty validation check in the PGE
+    debug_switch: False
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -79,7 +79,8 @@ get_static_ancillary_files:
     s3_key: "disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-minimal-2024-09-19.json"
   algorithm_parameters_overrides_json:
     s3_bucket: "opera-ancillaries"
-    s3_key: "algorithm_parameters/disp_s1/0.4.6/opera-disp-s1-algorithm-parameters-overrides-2024-10-14.json"
+    s3_key: "algorithm_parameters/disp_s1/0.5.1/opera-disp-s1-algorithm-parameters-overrides-2024-10-14.json"
+    download: true
 
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
@@ -89,7 +90,7 @@ get_disp_s1_algorithm_parameters:
   # This S3 path only defines a location pattern of an algorithm parameters template file,
   # the processing mode (forward vs. historical) will be filled in by the function itself
   s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.4.6/algorithm_parameters_{processing_mode}.yaml.tmpl"
+  s3_key: "algorithm_parameters/disp_s1/0.5.1/algorithm_parameters_{processing_mode}.yaml.tmpl"
 
 instantiate_algorithm_parameters_template:
   template_mapping:
