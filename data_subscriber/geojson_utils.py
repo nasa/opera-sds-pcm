@@ -85,3 +85,16 @@ def download_from_s3(bucket, file, path):
         s3.Object(bucket, file).download_file(path)
     except Exception as e:
         raise Exception("Exception while fetching file: %s from S3 bucket %s." % (file, bucket) + str(e))
+
+
+def process_frame_burst_db(geojsons : list[str]):
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+
+    try:
+        for geojson in geojsons:
+            key = geojson.strip() + ".geojson"
+            # output_filepath = os.path.join(working_dir, key)
+            download_from_s3(bucket, key, key)
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))
