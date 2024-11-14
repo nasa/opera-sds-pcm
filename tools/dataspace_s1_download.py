@@ -103,14 +103,6 @@ class DataspaceSession:
         logger.info(f'Delete request {response.url}: {response.status_code}')
         response.raise_for_status()
 
-    def check(self):
-        try:
-            with self:
-                ...
-            return True
-        except:
-            return False
-
     def __enter__(self):
         return self.__session, self.__token
 
@@ -159,12 +151,14 @@ def get_parser():
     filtering.add_argument(
         '-p', '--platform',
         required=True,
-        choices=['S1A', 'S1B', 'S1C2'],
+        choices=['S1A', 'S1B', 'S1C', 'S1D'],
         help='Sentinel-1 platform to query'
     )
 
     filtering.add_argument(
-        '-s', '--substring',
+        '-s', '--substring', '--substrings',
+        nargs='+',
+        dest='substring',
         help='Substring to search for in filenames'
     )
 
@@ -214,11 +208,15 @@ def query(params):
     return results
 
 
-def main(args):
+def main():
+    parser = get_parser()
+    args = parser.parse_args()
+    validate_args(parser, args)
+
     query_filters = []
 
     if args.substring is not None:
-        query_filters.append(f"contains(Name,'{args.substring}')")
+        query_filters.extend([f"contains(Name,'{substring}')" for substring in args.substring])
 
     if args.start_date is not None:
         query_filters.append(f'ContentDate/Start gt {datetime.strftime(args.start_date, ISO_TIME)}')
@@ -227,6 +225,9 @@ def main(args):
         query_filters.append(f'ContentDate/Start lt {datetime.strftime(args.end_date, ISO_TIME)}')
 
     query_results = query(build_query_filter(args.platform, *query_filters))
+
+    if len(query_results) == 0:
+        raise NoQueryResultsException()
 
     if args.url_only:
         urls = {r['Name']: f'{DEFAULT_DOWNLOAD_ENDPOINT}({r["Id"]})/$value' for r in query_results}
@@ -269,10 +270,7 @@ def main(args):
                     f.result()
 
 
-if __name__ == '__main__':
-    parser = get_parser()
-    args = parser.parse_args()
-
+def validate_args(parser, args):
     if args.password is None and not args.url_only:
         print('Either password must be provided or --url-only flag must be set')
         parser.print_help()
@@ -285,7 +283,6 @@ if __name__ == '__main__':
     if not args.url_only and all([a is None for a in [args.start_date, args.end_date, args.substring]]):
         raise ValueError('At least one filtering option must be set if --url-only is unset')
 
-    main(args)
 
-
-
+if __name__ == '__main__':
+    main()
