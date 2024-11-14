@@ -261,10 +261,9 @@ resource "null_resource" "smoke_test" {
   provisioner "remote-exec" {
     inline = [<<-EOT
       if [ "${var.run_smoke_test}" = true ]; then
-        cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+        chmod +x ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_opera_smoke_tests.sh
 
-        chmod +x ./cluster_provisioning/run_opera_smoke_tests.sh
-        ./cluster_provisioning/run_opera_smoke_tests.sh \
+        ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_opera_smoke_tests.sh \
         --mozart-ip=${module.common.mozart.private_ip} \
         --grq-host="grq:9200" \
         --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
