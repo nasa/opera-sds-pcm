@@ -13,9 +13,11 @@ import argparse
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timedelta
 from getpass import getuser
 from pathlib import Path
+from threading import Lock
+from typing import Tuple
 
 import backoff
 import requests
@@ -46,7 +48,7 @@ def fatal_code(err: requests.exceptions.RequestException) -> bool:
     return err.response.status_code not in [418, 429, 500, 502, 503, 504]
 
 
-def to_datetime(value):
+def to_datetime(value) -> datetime:
     """Helper function to covert command-line arg to datetime object"""
     return datetime.strptime(value, ISO_TIME)
 
@@ -63,11 +65,53 @@ class DataspaceSession:
     """
 
     def __init__(self, username, password):
-        self.__token, self.__session = self._get_token(username, password)
+        self.__lock = Lock()
+        self.__token, self.__session, self.__refresh_token, self.__expires = self._get_token(username, password)
+
+    @property
+    def token(self) -> str:
+        """Get the current access token for the Dataspace session. If it is expired, it will attempt to refresh"""
+
+        with self.__lock:
+            if datetime.now() > self.__expires:
+                self.__token, self.__session, self.__refresh_token, self.__expires = self._refresh()
+
+            return self.__token
 
     @backoff.on_exception(backoff.constant, requests.exceptions.RequestException, max_time=300, giveup=fatal_code,
                           interval=15)
-    def _get_token(self, username, password):
+    def _refresh(self) -> Tuple[str, str, str, datetime]:
+        data = {
+            'client_id': 'cdse-public',
+            'refresh_token': self.__refresh_token,
+            'grant_type': 'refresh_token',
+        }
+
+        response = requests.post(DEFAULT_AUTH_ENDPOINT, data=data)
+
+        logger.info(f'Refresh Dataspace token request: {response.status_code}')
+
+        response.raise_for_status()
+
+        try:
+            response_json = response.json()
+
+            access_token = response_json['access_token']
+            session_id = response_json['session_state']
+            refresh_token = response_json['refresh_token']
+            expires_in = response_json['expires_in']
+        except KeyError as e:
+            raise RuntimeError(
+                f'Failed to parse expected field "{str(e)}" from authentication response.'
+            )
+
+        logger.info(f'Refreshed Dataspace token for session {self.__session}')
+
+        return access_token, session_id, refresh_token, datetime.now() + timedelta(seconds=expires_in)
+
+    @backoff.on_exception(backoff.constant, requests.exceptions.RequestException, max_time=300, giveup=fatal_code,
+                          interval=15)
+    def _get_token(self, username: str, password: str) -> Tuple[str, str, str, datetime]:
         data = {
             'client_id': 'cdse-public',
             'username': username,
@@ -82,8 +126,12 @@ class DataspaceSession:
         response.raise_for_status()
 
         try:
-            access_token = response.json()['access_token']
-            session_id = response.json()['session_state']
+            response_json = response.json()
+
+            access_token = response_json['access_token']
+            session_id = response_json['session_state']
+            refresh_token = response_json['refresh_token']
+            expires_in = response_json['expires_in']
         except KeyError as e:
             raise RuntimeError(
                 f'Failed to parse expected field "{str(e)}" from authentication response.'
@@ -91,7 +139,7 @@ class DataspaceSession:
 
         logger.info(f'Created Dataspace session {session_id}')
 
-        return access_token, session_id
+        return access_token, session_id, refresh_token, datetime.now() + timedelta(seconds=expires_in)
 
     @backoff.on_exception(backoff.constant, requests.exceptions.RequestException, max_time=300, giveup=fatal_code,
                           interval=15)
@@ -105,7 +153,7 @@ class DataspaceSession:
         response.raise_for_status()
 
     def __enter__(self):
-        return self.__session, self.__token
+        return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self._delete_token()
@@ -237,19 +285,22 @@ def main():
         urls = {r['Name']: f'{DEFAULT_DOWNLOAD_ENDPOINT}({r["Id"]})/$value' for r in query_results}
         print(json.dumps(urls, indent=4))
     else:
-        with DataspaceSession(args.username, args.password) as (session, token):
+        with DataspaceSession(args.username, args.password) as dss:
             @backoff.on_exception(backoff.constant, requests.exceptions.RequestException, max_time=300,
                                   giveup=fatal_code, interval=15)
             def do_download(gid, filename):
                 start_t = datetime.now()
 
                 url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$value'
-                headers = {"Authorization": f"Bearer {token}"}
+                headers = {"Authorization": f"Bearer {dss.token}"}
+                logger.debug(headers)
                 session = requests.Session()
-                session.headers.update(headers)
 
                 response = session.get(url, headers=headers, stream=True)
                 logger.info(f'Download request {response.url}: {response.status_code}')
+
+                if response.status_code >= 400:
+                    logger.debug(response.text)
 
                 response.raise_for_status()
 
