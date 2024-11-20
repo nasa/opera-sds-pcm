@@ -15,6 +15,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from getpass import getuser
+from pathlib import Path
 
 import backoff
 import requests
@@ -212,6 +213,9 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
     validate_args(parser, args)
+
+    # Create the output directory if it does not exist
+    Path(args.output_directory).mkdir(exist_ok=True, parents=True)
 
     query_filters = []
 
