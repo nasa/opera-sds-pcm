@@ -116,13 +116,13 @@ def dswx_ni_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'RTC')
+    rtc_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
 
     lineage_metadata.extend(
         [os.path.join(rtc_data_dir, rtc_file) for rtc_file in os.listdir(rtc_data_dir)]
     )
 
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'ancillary_data')
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'ancillary_data')
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
@@ -153,7 +153,7 @@ def disp_s1_lineage_metadata(context, work_dir):
         else:
             lineage_metadata.append(local_input_filepath)
 
-    for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files", "troposphere_files"):
+    for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files"):
         if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
             for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
                 local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
@@ -171,16 +171,19 @@ def disp_s1_lineage_metadata(context, work_dir):
     )
     lineage_metadata.append(local_algorithm_parameters_filepath)
 
+    # Algorithm parameters overrides has already been downloaded to local disk
+    local_algorithm_parameters_overrides_filepath = run_config["processing"]["algorithm_parameters_overrides_json"]
+    lineage_metadata.append(local_algorithm_parameters_overrides_filepath)
+
     local_frame_database_filepath = os.path.join(
         work_dir, basename(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
     )
     lineage_metadata.append(local_frame_database_filepath)
 
-    # TODO enable if/when provided the file
-    #local_reference_date_database = os.path.join(
-    #    work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
-    #)
-    #lineage_metadata.append(local_reference_date_database)
+    local_reference_date_database = os.path.join(
+        work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
+    )
+    lineage_metadata.append(local_reference_date_database)
 
     return lineage_metadata
 
@@ -302,7 +305,7 @@ def update_dswx_ni_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'RTC')
+    rtc_data_prefix = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(rtc_data_prefix, container_home_prefix), input_file_paths))
@@ -314,6 +317,7 @@ def update_dswx_ni_runconfig(context, work_dir):
     run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.tif'
     run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.tif'
     run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.tif'
+    run_config["dynamic_ancillary_file_group"]["glad_classification_file"] = f'{container_home_prefix}/glad_classification.tif'
 
     run_config["static_ancillary_file_group"]["mgrs_database_file"] = f'{container_home_prefix}/MGRS_tile.sqlite'
     run_config["static_ancillary_file_group"]["mgrs_collection_database_file"] = f'{container_home_prefix}/MGRS_collection_db_DSWx-NI_v0.1.sqlite'
@@ -356,8 +360,7 @@ def update_disp_s1_runconfig(context, work_dir):
 
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
-    # TODO add "reference_date_database_json" if/when file becomes available
-    for static_ancillary_key in ("frame_to_burst_json",):
+    for static_ancillary_key in ("frame_to_burst_json", "reference_date_database_json"):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
         )

@@ -79,6 +79,12 @@ RunConfig:
             # ESA WorldCover map description
             worldcover_file_description: str(required=False)
 
+            # GLAD classification map file
+            glad_classification_file: str(required=False)
+
+            # GLAD classification map file description
+            glad_classification_file_description: str(required=False)
+
             # NOAA GSHHS shapefile
             shoreline_shapefile: str(required=False)
 
@@ -88,7 +94,7 @@ RunConfig:
             # algorithm parameter
             algorithm_parameters: str(required=True)
 
-            # placeholder for inundated vegettion
+            # placeholder for inundated vegetation
             mean_backscattering: str(required=False)
             standard_deviation_backscattering: str(required=False)
 

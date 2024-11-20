@@ -19,7 +19,7 @@ echo "##########################################"
 echo "Running job to download ASFDAAC RTC data"
 date
 
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download --provider=ASF-RTC $* > run_rtc_download.log 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download --provider=ASF-RTC $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

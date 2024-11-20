@@ -257,6 +257,13 @@ if [[ -z $username ]]; then
   exit 1
 fi
 
+echo "Enter password:"
+read -r -s password
+if [[ -z $password ]]; then
+  echo Missing password. Exiting.
+  exit 1
+fi
+
 # PARSE RANGE
 
 # parse dates
@@ -271,9 +278,9 @@ while [ "${IN_DATE}" != ${IN_END_DATE} ]; do
     exit 1
   fi
 
-  curl --location 'https://'"${MOZART_IP}"'/mozart/api/v0.1/job/submit?enable_dedup=false' \
+  echo curl --location 'https://'"${MOZART_IP}"'/mozart/api/v0.1/job/submit?enable_dedup=false' \
   --insecure \
-  -u "${username}" \
+  -u "${username}:${password}" \
   --form 'queue="'"${JOB_QUEUE}"'"' \
   --form 'priority="0"' \
   --form 'tags="[\"'"${JOB_TAGS}"'\"]"' \
@@ -281,9 +288,5 @@ while [ "${IN_DATE}" != ${IN_END_DATE} ]; do
   --form 'params="{\"bucket\":\"--bucket='"${PARAM_SRC_BUCKET}"'\",\"target_bucket\":\"--target-bucket='"${PARAM_TARGET_BUCKET}"'\",\"s3_keys\":\"--s3-keys '"${PARAM_S3_KEYS}"'\"}"' \
   --form 'name="'"${JOB_NAME}"'"'
 
-  # linux date increment
-  #IN_DATE=$(date -j -v +1d -f "%Y%m%d" ${IN_DATE} +%Y%m%d)
-
-  # macOS date increment
-  IN_DATE=$(date -j -v +1d -f "%Y%m%d" ${IN_DATE} +%Y%m%d)
+    IN_DATE=$(date -d "${IN_DATE} + 1 day"  +%Y%m%d)
 done

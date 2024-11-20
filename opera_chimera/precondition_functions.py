@@ -5,6 +5,7 @@ that are part of the OPERA PCM pipeline.
 """
 
 import argparse
+import glob
 import inspect
 import json
 import os
@@ -633,7 +634,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         working_dir = get_working_dir()
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "dswx_ni/dswx_ni_interface_0.1_expected_input.zip"
+        s3_key = "dswx_ni/dswx_ni_beta_0.2_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -648,8 +649,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        rtc_data_dir = os.path.join(working_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'RTC')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_interface_0.1_expected_input', 'input_dir', 'ancillary_data')
+        rtc_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
+        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'ancillary_data')
 
         rtc_files = os.listdir(rtc_data_dir)
 
@@ -661,6 +662,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
             'worldcover_file': os.path.join(ancillary_data_dir, 'worldcover.tif'),
             'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
+            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad_classification.tif'),
             'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_ni.yaml'),
             'mgrs_database_file': os.path.join(ancillary_data_dir, 'MGRS_tile.sqlite'),
             'mgrs_collection_database_file': os.path.join(ancillary_data_dir, 'MGRS_collection_db_DSWx-NI_v0.1.sqlite'),
@@ -992,7 +994,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         loc_t2 = datetime.utcnow()
         loc_dur = (loc_t2 - loc_t1).total_seconds()
-        path_disk_usage = get_disk_usage(output_filepath)
+        path_disk_usage = 0
+
+        # Use a wildcard pattern to ensure we get transfer size of all ancillary map
+        # files, not just the .vrt file referenced in output_filepath
+        output_dir = os.path.dirname(output_filepath)
+        output_files_pattern = os.path.splitext(os.path.basename(output_filepath))[0] + "*"
+
+        for filename in glob.iglob(os.path.join(output_dir, output_files_pattern)):
+            path_disk_usage += get_disk_usage(os.path.join(output_dir, filename))
 
         pge_metrics["download"].append(
             {
@@ -1005,7 +1015,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 "transfer_rate": path_disk_usage / loc_dur,
             }
         )
-        logger.info(json.dumps(pge_metrics, indent=2))
 
         return pge_metrics
 
@@ -1509,6 +1518,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        working_dir = get_working_dir()
+
         rc_params = {}
 
         static_ancillary_products = self._pge_config.get(oc_const.GET_STATIC_ANCILLARY_FILES, {})
@@ -1516,8 +1527,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         for static_ancillary_product in static_ancillary_products.keys():
             s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
             s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+            download = static_ancillary_products.get(static_ancillary_product, {}).get("download", False)
 
-            rc_params[static_ancillary_product] = f"s3://{s3_bucket}/{s3_key}"
+            if download:
+                output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+                pge_metrics = download_object_from_s3(s3_bucket, s3_key, output_filepath)
+                write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+                rc_params[static_ancillary_product] = output_filepath
+            else:
+                rc_params[static_ancillary_product] = f"s3://{s3_bucket}/{s3_key}"
 
         logger.info(f"rc_params : {rc_params}")
 

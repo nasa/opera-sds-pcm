@@ -4,21 +4,17 @@
 
 import argparse
 import os
+
 import backoff
-
 import numpy as np
-import shapely.wkt
+from osgeo import gdal, osr
 
-from osgeo import gdal
-from shapely.geometry import Polygon
-
-from commons.logger import logger
 from commons.logger import LogLevels
+from commons.logger import logger
 from util.geo_util import (check_dateline,
                            epsg_from_polygon,
                            polygon_from_bounding_box,
-                           polygon_from_mgrs_tile,
-                           transform_polygon_coords_to_epsg)
+                           polygon_from_mgrs_tile)
 from util.pge_util import check_aws_connection
 
 # Enable exceptions
@@ -37,11 +33,6 @@ def get_parser():
     parser.add_argument('-o', '--output', type=str, action='store',
                         default='dem.vrt', dest='outfile',
                         help='Output DEM filepath (VRT format).')
-    parser.add_argument('-f', '--filepath', type=str, action='store',
-                        help='Filepath to user DEM. If provided, will be used '
-                             'to determine overlap between provided DEM, and '
-                             'DEM to be downloaded based on the MGRS tile code '
-                             'or bounding box.')
     parser.add_argument('-s', '--s3-bucket', type=str, action='store',
                         default=S3_DEM_BUCKET, dest='s3_bucket',
                         help='Name of the S3 bucket containing the global DEM '
@@ -181,9 +172,26 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
             gdal.Translate(
                 output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
             )
-            return
+        else:
+            raise
 
-        raise
+    # stage_dem.py takes a bbox as an input. The longitude coordinates
+    # of this bbox are unwrapped i.e., range in [0, 360] deg. If the
+    # bbox crosses the anti-meridian, the script divides it in two
+    # bboxes neighboring the anti-meridian. Here, x_min and x_max
+    # represent the min and max longitude coordinates of one of these
+    # bboxes. We Add 360 deg if the min longitude of the downloaded DEM
+    # tile is < 180 deg i.e., there is a dateline crossing.
+    # This ensures that the mosaicked DEM VRT will span a min
+    # range of longitudes rather than the full [-180, 180] deg
+    sr = osr.SpatialReference(ds.GetProjection())
+    epsg_str = sr.GetAttrValue("AUTHORITY", 1)
+
+    if x_min <= -180.0 and epsg_str == '4326':
+        ds = gdal.Open(output_path, gdal.GA_Update)
+        geotransform = list(ds.GetGeoTransform())
+        geotransform[0] += 360.0
+        ds.SetGeoTransform(tuple(geotransform))
 
 
 def download_dem(polys, epsgs, dem_location, outfile):
@@ -218,47 +226,6 @@ def download_dem(polys, epsgs, dem_location, outfile):
 
     # Build vrt with downloaded DEMs
     gdal.BuildVRT(outfile, dem_list)
-
-
-def check_dem_overlap(dem_filepath, polys):
-    """
-    Evaluate overlap between a user-provided DEM and DEM that stage_dem.py would
-    download based on MGRS tile code or bbox provided information.
-
-    Parameters
-    ----------
-    dem_filepath: str
-        Filepath to the user-provided DEM.
-    polys: list of shapely.geometry.Polygon
-        List of polygons computed from MGRS code or bbox.
-
-    Returns
-    -------
-    perc_area: float
-        Area (in percentage) covered by the intersection between the
-        user-provided DEM and the DEM downloadable by stage_dem.py
-
-    """
-    from isce3.io import Raster  # pylint: disable=import-error
-
-    # Get local DEM edge coordinates
-    DEM = Raster(dem_filepath)
-    ulx, xres, xskew, uly, yskew, yres = DEM.get_geotransform()
-    lrx = ulx + (DEM.width * xres)
-    lry = uly + (DEM.length * yres)
-    poly_dem = Polygon([(ulx, uly), (ulx, lry), (lrx, lry), (lrx, uly)])
-
-    # Initialize epsg
-    epsg = [DEM.get_epsg()] * len(polys)
-
-    if DEM.get_epsg() != 4326:
-        polys = transform_polygon_coords_to_epsg(polys, epsg)
-
-    perc_area = 0
-    for poly in polys:
-        perc_area += (poly.intersection(poly_dem).area / poly.area) * 100
-
-    return perc_area
 
 
 def main(opts):
@@ -296,20 +263,6 @@ def main(opts):
 
     # Check dateline crossing. Returns list of polygons
     polys = check_dateline(poly)
-
-    if opts.filepath and os.path.isfile(opts.filepath):
-        logger.info('Checking overlap with user-provided DEM')
-
-        try:
-            overlap = check_dem_overlap(opts.filepath, polys)
-
-            logger.info(f'DEM coverage is {overlap} %')
-
-            if overlap < 75.:
-                logger.warning('WARNING: Insufficient DEM coverage (< 75%). Errors might occur')
-        except ImportError:
-            logger.warning('Unable to import from isce3 package, cannot determine '
-                           'DEM overlap.')
 
     # Check connection to the S3 bucket
     logger.info(f'Checking connection to AWS S3 {opts.s3_bucket} bucket.')

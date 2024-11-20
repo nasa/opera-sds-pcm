@@ -1,9 +1,7 @@
 import json
 import re
-from copy import deepcopy
 from collections import defaultdict
-import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import urlparse
 import dateutil
 import boto3
@@ -13,15 +11,12 @@ import elasticsearch
 
 from util import datasets_json_util
 from util.conf_util import SettingsConf
-from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
-
 
 DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
-
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +60,7 @@ def localize_frame_geo_json():
 
     return process_frame_geo_json(file)
 
-def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time):
+def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time: datetime):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame'''
 
     delta = sensing_time - first_frame_time
@@ -88,16 +83,55 @@ def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_b
     frame = frame_to_bursts[frame_number]
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
+def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
+    '''Return the nearest sensing datetime in the frame sensing datetime list that is not greater than the sensing time and
+    the number of sensing datetimes until that datetime.
+    It's a linear search in a sorted list but no big deal because there will only ever be a few hundred elements'''
+
+    for i, dt in enumerate(frame_sensing_datetimes):
+        if dt > sensing_time:
+            return i, frame_sensing_datetimes[i-1]
+
+    return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
+
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts):
+    '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
+
+    total_possible_sensingdates = 0
+    total_processed_sensingdates = 0
+    frame_completion = {}
+    last_processed_datetimes = {}
+    for frame, state in frame_states.items():
+        frame = int(frame)
+        num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
+        total_possible_sensingdates += num_sensing_times
+        total_processed_sensingdates += state
+        frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
+        last_processed_datetimes[str(frame)] = frame_to_bursts[frame].sensing_datetimes[state-1] if state > 0 else None
+
+    progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100)
+    return progress_percentage, frame_completion, last_processed_datetimes
+
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
 
-    j = json.load(open(file))
+    try:
+        j = json.load(open(file))["data"]
+    except:
+        logger.warning("No 'data' key found in the json file. Attempting to load the json file as an older format.")
+        j = json.load(open(file))
+
     frame_to_bursts = defaultdict(_HistBursts)
     burst_to_frames = defaultdict(list)         # List of frame numbers
     datetime_to_frames = defaultdict(list)      # List of frame numbers
 
     for frame in j:
+
+        # If sensing time list is empty, skip this frame
+        if len(j[frame]["sensing_time_list"]) == 0:
+            continue
+
         frame_to_bursts[int(frame)].frame_number = int(frame)
 
         b = frame_to_bursts[int(frame)].burst_ids
@@ -171,173 +205,26 @@ def parse_cslc_file_name(native_id):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
+                                      production_datetime: datetime, polarization):
+    '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!
+    Burst number is integer between 0 and 26 which designates the burst number in the frame. In cases of frames not having all 27 bursts,
+    it will simply wrap over'''
+
+    frame = disp_burst_map_hist[frame_id]
+    burst_number = burst_number % len(frame.burst_ids)
+    burst_id = sorted(list(frame.burst_ids))[burst_number] # Sort for the order to be deterministic
+
+    # Convert datetime objects into strings
+    acquisition_datetime = acquisition_datetime.strftime("%Y%m%dT%H%M%SZ")
+    production_datetime = production_datetime.strftime("%Y%m%dT%H%M%SZ")
+
+    return f"OPERA_L2_CSLC-S1_{burst_id}_{acquisition_datetime}_{production_datetime}_S1A_{polarization}_v1.1"
+
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
-
-class CSLCDependency:
-    def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, VV_only = True):
-        self.k = k
-        self.m = m
-        self.frame_to_bursts = frame_to_bursts
-        self.args = args
-        self.token = token
-        self.cmr = cmr
-        self.settings = settings
-        self.VV_only = VV_only
-
-    def get_prev_day_indices(self, day_index: int, frame_number: int):
-        '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
-
-        if frame_number not in self.frame_to_bursts:
-            raise Exception(f"Frame number {frame_number} not found in the historical database. \
-    OPERA does not process this frame for DISP-S1.")
-
-        frame = self.frame_to_bursts[frame_number]
-
-        if day_index <= frame.sensing_datetime_days_index[-1]:
-            # If the day index is within the historical database, simply return from the database
-            # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
-            list_index = frame.sensing_datetime_days_index.index(day_index)
-            return frame.sensing_datetime_days_index[:list_index]
-        else:
-            # If not, we must query CMR and then append that to the database values
-            start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30)
-            days_delta = day_index - frame.sensing_datetime_days_index[-1]
-            end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
-            query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, silent = True)
-            all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
-            logger.debug(f"All previous day indices: {all_prev_indices}")
-            return all_prev_indices
-    def get_k_granules_from_cmr(self, query_timerange, frame_number: int, silent = False):
-        '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
-        1. acq_index_to_bursts: day index to set of burst ids
-        2. acq_index_to_granules: day index to list of granules that match the burst
-        '''
-        acq_index_to_bursts = defaultdict(set)
-        acq_index_to_granules = defaultdict(list)
-
-        # Add native-id condition in args. This query is always by temporal time.
-        l, native_id = build_cslc_native_ids(frame_number, self.frame_to_bursts)
-        args = deepcopy(self.args)
-        args.native_id = native_id
-        args.use_temporal = True
-
-        frame = self.frame_to_bursts[frame_number]
-
-        granules = asyncio.run(async_query_cmr(args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), silent))
-
-        for granule in granules:
-            if self.VV_only and "_VV_" not in granule["granule_id"]:
-                logger.info(f"Skipping granule {granule['granule_id']} because it doesn't have VV polarization")
-                continue
-            burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
-            acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
-            g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, self.frame_to_bursts)
-            acq_index_to_bursts[g_day_index].add(burst_id)
-            acq_index_to_granules[g_day_index].append(granule)
-
-        # Get rid of the day indices that don't match the burst pattern
-        for g_day_index in list(acq_index_to_bursts.keys()):
-            if not acq_index_to_bursts[g_day_index].issuperset(frame.burst_ids):
-                logger.info(
-                    f"Removing day index {g_day_index} from k-cycle determination because it doesn't suffice the burst pattern")
-                logger.info(f"{acq_index_to_bursts[g_day_index]}")
-                del acq_index_to_bursts[g_day_index]
-                del acq_index_to_granules[g_day_index]
-
-        return acq_index_to_bursts, acq_index_to_granules
-
-    def determine_k_cycle(self, acquisition_dts: datetime, day_index: int, frame_number: int, silent = False):
-        '''Return where in the k-cycle this acquisition falls for the frame_number
-        Must specify either acquisition_dts or day_index.
-        Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle
-
-        Assumption: This current frame satisfies the burst pattern already; we don't need to check for that here'''
-
-        if day_index is None:
-            day_index = determine_acquisition_cycle_cslc(acquisition_dts, frame_number, self.frame_to_bursts)
-
-        # If the day index is within the historical database it's much simpler
-        # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
-        # Clearly if we somehow end up with like 1000
-        try:
-            # array.index returns 0-based index so add 1
-            frame = self.frame_to_bursts[frame_number]
-            index_number = frame.sensing_datetime_days_index.index(day_index) + 1 # note "index" is overloaded term here
-            return index_number % self.k
-        except ValueError:
-            # If not, we have to query CMR for all records after the historical database, filter out ones that don't match the burst pattern,
-            # and then determine the k-cycle index
-            start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30) # Make sure we are not counting this last sensing time cycle
-
-            if acquisition_dts is None:
-                days_delta = day_index - frame.sensing_datetime_days_index[-1]
-                end_date = start_date + timedelta(days=days_delta)
-            else:
-                end_date = acquisition_dts
-
-            query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
-            acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, silent)
-
-            # The k-index is then the complete index number (historical + post historical) mod k
-            logger.info(f"{len(acq_index_to_bursts.keys())} day indices since historical that match the burst pattern: {acq_index_to_bursts.keys()}")
-            logger.info(f"{len(frame.sensing_datetime_days_index)} day indices already in historical database.")
-            index_number = len(frame.sensing_datetime_days_index) + len(acq_index_to_bursts.keys()) + 1
-            return index_number % self.k
-
-    def compressed_cslc_satisfied(self, frame_id, day_index, eu):
-
-        if self.get_dependent_compressed_cslcs(frame_id, day_index, eu) == False:
-            return False
-        return True
-
-    def get_dependent_compressed_cslcs(self, frame_id, day_index, eu):
-        ''' Search for all previous M compressed CSLCs
-            prev_day_indices: The acquisition cycle indices of all collects that show up in disp_burst_map previous of
-                                the latest acq cycle index
-        '''
-
-        prev_day_indices = self.get_prev_day_indices(day_index, frame_id)
-
-        ccslcs = []
-
-        #special case for early sensing time series
-        m = self.m
-        if len(prev_day_indices) < self.k * (self.m-1):
-            m = (len(prev_day_indices) // self.k ) + 1
-
-        # Uses ccslc_m_index field which looks like T100-213459-IW3_417 (burst_id_acquisition-cycle-index)
-        for mm in range(0, m - 1):  # m parameter is inclusive of the current frame at hand
-            for burst_id in self.frame_to_bursts[frame_id].burst_ids:
-                ccslc_m_index = get_dependent_ccslc_index(prev_day_indices, mm, self.k, burst_id)
-                ccslc = eu.query(
-                    index=_C_CSLC_ES_INDEX_PATTERNS,
-                    body={"query": {"bool": {"must": [
-                        {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}]}}})
-
-                # Should have exactly one compressed cslc per acq cycle per burst
-                if len(ccslc) != 1:
-                    logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
-                    return False
-
-                ccslcs.extend(ccslc)
-
-        logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
-        return ccslcs
-def get_dependent_ccslc_index(prev_day_indices, mm, k, burst_id):
-    '''last_m_index: The index of the last M compressed CSLC, index into prev_day_indices
-       acq_cycle_index: The index of the acq cycle, index into disp_burst_map'''
-    num_prev_indices = len(prev_day_indices)
-    last_m_index = num_prev_indices // k
-    last_m_index *= k
-
-    acq_cycle_index = prev_day_indices[last_m_index - 1 - (mm * k)]  # jump by k
-    ccslc_m_index = build_ccslc_m_index(burst_id, acq_cycle_index)  # looks like t034_071112_iw3_461
-
-    return ccslc_m_index
 
 def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 

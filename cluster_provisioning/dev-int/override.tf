@@ -137,19 +137,6 @@ variable "artifactory_repo" {
   default = "general-develop"
 }
 
-######### ami vars #######
-variable "amis" {
-  type = map(string)
-  default = {
-	# HySDS v5.0.1 - Dec 2, 2023 - R3
-    mozart    = "ami-0ea2ef3aba96651b5" # mozart v4.25 - 231202
-    metrics   = "ami-09fee089c0b2716e6" # metrics v4.17 - 231202
-    grq       = "ami-0c702e214b6e7bec9" # grq v4.18 - 231202
-    factotum  = "ami-03f76131067be5e52" # factotum v4.16 - 231204
-    autoscale = "ami-08564e7f541e12f7b" # verdi v4.16 patchdate - 231202
-  }
-}
-
 ####### CNM Response job vars #######
 variable "po_daac_delivery_proxy" {
   #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
@@ -176,8 +163,8 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.0-rc.4.0"
-    "dswx_ni"  = "4.0.0-er.2.0"
+    "disp_s1"  = "3.0.0"
+    "dswx_ni"  = "4.0.0-er.3.0"
   }
 }
 

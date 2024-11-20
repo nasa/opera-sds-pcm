@@ -16,8 +16,6 @@ from more_itertools import first, flatten
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
-from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id, \
-    burst_id_to_relative_orbit_numbers
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
@@ -227,10 +225,10 @@ def load_cmr_df(rtc_product_ids, gdf):
         acquisition_dts = match_product_id.group("acquisition_ts")
         burst_id = match_product_id.group("burst_id")
 
-        burst_id_normalized = product_burst_id_to_mapping_burst_id(burst_id)
+        burst_id_normalized = mbc_client.product_burst_id_to_mapping_burst_id(burst_id)
         match_burst_id = re.match(rtc_relative_orbit_number_regex, burst_id_normalized)
         relative_orbit_number = int(match_burst_id.group("relative_orbit_number"))
-        relative_orbit_numbers = burst_id_to_relative_orbit_numbers(gdf, burst_id_normalized)
+        relative_orbit_numbers = mbc_client.burst_id_to_relative_orbit_numbers(gdf, burst_id_normalized)
 
         cmr_df_record = {
             "product_id": product_id,

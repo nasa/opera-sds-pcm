@@ -12,6 +12,8 @@ from opera.job_result_subsetter_pairs import JobResultSubsetterPairs
 
 import xarray
 
+from temp import with_inserted_suffix
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,7 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
         a2_a3_s3_path_pairs = zip(a2_files, a3_files)
 
         for s3_a2, s3_a3 in a2_a3_s3_path_pairs:
-            with TemporaryDirectory(dir=Path(".").expanduser().resolve()) as tmpdirname:
+            with TemporaryDirectory(dir=Path(".").resolve()) as tmpdirname:
                 logger.info(f"Downloading from {s3_a2=} to {tmpdirname=}")
                 a2_object = s3.Object(bucket_name, key=s3_a2)
                 a2_grib_filepath = Path(tmpdirname, a2_object.key.rsplit("/", maxsplit=1)[1])
@@ -62,20 +64,21 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
                 logger.info(f"Merge + subset input: {a2_a3_nc_filepath_pair=}")
 
-                merged_filepath = a2_grib_filepath.expanduser().resolve().parent / (a2_grib_filepath.stem.removeprefix("A2").removeprefix("A3") + ".merged.nc")
+                merged_filepath = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2").removeprefix("A3"))
                 merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
 
-                subset_filepath = merged_filepath.expanduser().resolve().parent / (merged_filepath.name.removesuffix("".join(merged_filepath.suffixes)) + ".subset.nc")
+                subset_filepath = with_inserted_suffix(merged_filepath, ".subset")
                 subset_filepath = result_transferer.do_subset(merged_filepath, target=subset_filepath)
                 logger.info(f"Merged + subset input: {a2_a3_nc_filepath_pair=}")
 
                 logger.info("Compressing")
-                compressed_filepath = subset_filepath.expanduser().resolve().parent / (subset_filepath.name.removesuffix("".join(subset_filepath.suffixes)) + ".subset.zz.nc")
-                nc = xarray.open_dataset(str(subset_filepath.expanduser().resolve()), chunks="auto")
-                result_transferer.to_netcdf_compressed(nc, compressed_filepath)
+                compressed_filepath = with_inserted_suffix(subset_filepath, ".zz")
+                nc = xarray.open_dataset(str(subset_filepath.resolve()), chunks="auto")
+                result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
+                nc.close()
                 logger.info("Compressed")
 
                 logging.info(f"Uploading results for {date=}")
-                result_transferer.subset_bucket_name = target_bucket_name
+                result_transferer.ancillaries_bucket_name = target_bucket_name
                 result_transferer.do_upload_subset(date, compressed_filepath, raise_=True)
                 logging.info(f"Uploaded results for {date=}")

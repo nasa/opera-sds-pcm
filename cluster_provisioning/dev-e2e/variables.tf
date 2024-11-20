@@ -389,8 +389,8 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.0-rc.4.0"
-    "dswx_ni"  = "4.0.0-er.2.0"
+    "disp_s1"  = "3.0.0"
+    "dswx_ni"  = "4.0.0-er.3.0"
   }
 }
 
@@ -509,12 +509,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - August 12, 2024 - R3
-    mozart    = "ami-0bb72754b87feda92" # mozart v4.26 - 240809
-    metrics   = "ami-0a5832ef57758384a" # metrics v4.18 - 240812
-    grq       = "ami-0eaffcbdc11298329" # grq v4.19 - 240812
-    factotum  = "ami-01324dc701f947607" # factotum v4.17 - 240815
-    autoscale = "ami-0465ac38191989ed5" # verdi v4.17 patchdate - 240902
+    # HySDS v5.0.1 - November 11, 2024 - R3.1
+    mozart    = "ami-00256bf4b8203308f" # mozart v4.26 - 241111
+    metrics   = "ami-014c93ef86800a2ea" # metrics v4.18 - 241111
+    grq       = "ami-024e7fdfacf9502ef" # grq v4.19 - 241111
+    factotum  = "ami-06a9085a0dc301a9c" # factotum v4.17 - 241111
+    autoscale = "ami-07afabed58d16a0e1" # verdi v4.17 patchdate - 241111
   }
 }
 

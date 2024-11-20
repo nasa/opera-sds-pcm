@@ -9,7 +9,8 @@ import time
 from datetime import datetime, timedelta
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 from data_subscriber import cslc_utils
-from data_subscriber.cslc_utils import CSLCDependency
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 import argparse
 from util.conf_util import SettingsConf
 
@@ -29,8 +30,6 @@ logging.basicConfig(level="INFO",
 logger = logging.getLogger("DISP-S1-HISTORICAL")
 
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
-
-disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
 
 def proc_once(eu, procs, args):
     dryrun = args.dry_run
@@ -101,6 +100,17 @@ def proc_once(eu, procs, args):
                            body={"doc_as_upsert": True,
                                  "doc": { "frame_states": p.frame_states, }},
                            index=ES_INDEX)
+
+                    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+                    progress_percentage, frame_completion, last_processed_datetimes \
+                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map)
+                    eu.update_document(id=doc_id,
+                                       body={"doc_as_upsert": True,
+                                             "doc": {"progress_percentage": progress_percentage,
+                                                     "frame_completion_percentages": frame_completion,
+                                                     "last_processed_datetimes": last_processed_datetimes, }},
+                                       index=ES_INDEX)
+
                 else:
                     logger.error("Job submission failed for %s" % job_name)
 
@@ -186,7 +196,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     
     NOTE! While args, token, cmr, and settings are necessary arguments for CSLCDependency, they will not be used in
     historical processing because all CSLC dependency information is contained in the disp_burst_map'''
-    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None)
+    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
     if cslc_dependency.compressed_cslc_satisfied(frame_id,
                                  disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
         next_sensing_time_position = sensing_time_position_zero_based + p.k
@@ -325,6 +335,10 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
 
 if __name__ == "__main__":
 
+    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+    blackout_dates = localize_disp_blackout_dates()
+    blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", dest="verbose", required=False, default=False,
                         help="If true, print out verbose information, mainly INFO logs from elasticsearch module... it's a lot!")
@@ -356,3 +370,9 @@ if __name__ == "__main__":
         batch_procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs
         proc_once(eu, batch_procs, args)
         time.sleep(int(args.sleep_secs))
+
+else:
+    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
+    disp_burst_map, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
+    blackout_dates = localize_disp_blackout_dates()
+    blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)

@@ -7,7 +7,7 @@ import os
 
 import backoff
 
-from osgeo import gdal
+from osgeo import gdal, osr
 
 from commons.logger import logger
 from commons.logger import LogLevels
@@ -95,6 +95,24 @@ def download_map(polys, map_bucket, map_vrt_key, outfile):
         gdal.Translate(
             output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
         )
+
+        # stage_ancillary_map.py takes a bbox as an input. The longitude coordinates
+        # of this bbox are unwrapped i.e., range in [0, 360] deg. If the
+        # bbox crosses the anti-meridian, the script divides it in two
+        # bboxes neighboring the anti-meridian. Here, x_min and x_max
+        # represent the min and max longitude coordinates of one of these
+        # bboxes. We Add 360 deg if the min longitude of the downloaded DEM
+        # tile is < 180 deg i.e., there is a dateline crossing.
+        # This ensures that the mosaicked DEM VRT will span a min
+        # range of longitudes rather than the full [-180, 180] deg
+        sr = osr.SpatialReference(ds.GetProjection())
+        epsg_str = sr.GetAttrValue("AUTHORITY", 1)
+
+        if x_min <= -180.0 and epsg_str == '4326':
+            ds = gdal.Open(output_path, gdal.GA_Update)
+            geotransform = list(ds.GetGeoTransform())
+            geotransform[0] += 360.0
+            ds.SetGeoTransform(tuple(geotransform))
 
     # Build VRT with downloaded sub-regions
     gdal.BuildVRT(outfile, region_list)

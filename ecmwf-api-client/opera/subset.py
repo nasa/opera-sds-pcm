@@ -27,7 +27,7 @@ def subset_netcdf_file(in_: Path, out_: Path, bbox: tuple[int, int, int, int] = 
         west += 180
         east += 180
 
-    nc = netCDF4.Dataset(str(in_.expanduser().resolve()), 'r')
+    nc = netCDF4.Dataset(str(in_.resolve()), 'r')
     lons = nc['longitude'][:]
     lats = nc['latitude'][:]
 
@@ -41,7 +41,7 @@ def subset_netcdf_file(in_: Path, out_: Path, bbox: tuple[int, int, int, int] = 
     subset_level = nc['level'][:]
 
     # Create a new NetCDF file to store the subset
-    subset_nc = netCDF4.Dataset(str(out_.expanduser().resolve()), 'w')
+    subset_nc = netCDF4.Dataset(str(out_.resolve()), 'w')
     if hasattr(nc, "Conventions"):  # unconfirmed if this would be empty when coming from formal sources
         setattr(subset_nc, "Conventions", getattr(nc, "Conventions"))
     # if hasattr(nc, "history"):  # unconfirmed if this would be empty when coming from formal sources
