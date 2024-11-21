@@ -145,7 +145,7 @@ class DataspaceSession:
                           interval=15)
     def _delete_token(self):
         url = f'{DEFAULT_SESSION_ENDPOINT}/{self.__session}'
-        headers = {'Authorization': f'Bearer {self.__token}', 'Content-Type': 'application/json'}
+        headers = {'Authorization': f'Bearer {self.token}', 'Content-Type': 'application/json'}
 
         response = requests.delete(url=url, headers=headers)
 
