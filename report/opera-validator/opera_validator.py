@@ -17,7 +17,7 @@ from urllib.parse import urlencode
 import logging
 from datetime import datetime, timedelta
 
-from data_subscriber.cslc_utils import parse_cslc_file_name
+from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame_burst_hist
 
 # Constants
 CMR_GRANULES_API_ENDPOINT="https://cmr.earthdata.nasa.gov/search/granules.umm_json"
@@ -357,7 +357,6 @@ def get_burst_ids_and_sensing_times_from_query(start, end, timestamp, endpoint, 
             burst_date = get_burst_sensing_datetime(granule_id)
         elif shortname == 'OPERA_L2_CSLC-S1_V1':
             burst_id, burst_date = parse_cslc_file_name(granule_id)
-            burst_id = burst_id.replace("-", "_").lower()
         if (burst_id and burst_date):
             burst_ids[burst_id] = granule_id
             burst_dates[burst_id] = burst_date
@@ -541,6 +540,7 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df):
         # Extract MGRS tiles and create the mapping to InputGranules
         available_cslc_bursts = []
         for item in all_granules:
+            print(item)
             input_granules = item['umm']['InputGranules']
 
             # Extract the granule burst ID from the full path
@@ -581,7 +581,7 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df):
         
     return False
 
-def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts_file):
+def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames, frames_to_bursts):
     """
     Maps CSLC burst IDs to their corresponding frame IDs and identifies matching bursts within those frames.
     The logic this function performs can be summarized as:
@@ -591,30 +591,24 @@ def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames_file, frames_to_bursts
     4. Return a dataframe that lists all frame IDs, all possible burst IDs from (2), and matched burst IDs from (1)
 
     :burst_ids: List of burst IDs to map.
-    :bursts_to_frames_file: Path to the JSON file that maps bursts to frames.
-    :frames_to_bursts_file: Path to the JSON file that maps frames to bursts.
+    :bursts_to_frames: Dict that maps bursts to frames.
+    :frames_to_bursts: Dict that maps frames to bursts.
     :return: A DataFrame with columns for frame IDs, all possible bursts, their counts, matching bursts, and their counts.
     """
 
-    # Load bursts to frames data
-    with open(bursts_to_frames_file, 'r') as f:
-        bursts_to_frames_data = json.load(f)["data"]
-    
-    # Load frames to bursts data
-    with open(frames_to_bursts_file, 'r') as f:
-        frames_to_bursts_data = json.load(f)
-    
+    print(burst_ids)
+
     # Step 1: Map the burst IDs to their corresponding frame IDs
     frame_ids = set()
     for burst_id in burst_ids:
-        frames = bursts_to_frames_data.get(burst_id, {}).get("frame_ids", [])
+        frames = bursts_to_frames[burst_id]
         frame_ids.update(frames)
     
     # Step 2: For each frame ID, get all associated burst IDs from the frames_to_bursts mapping
     data = []
     for frame_id in frame_ids:
         frame_id_str = str(frame_id)
-        associated_bursts = frames_to_bursts_data.get(frame_id_str, {}).get("burst_id_list", [])
+        associated_bursts = frames_to_bursts[int(frame_id_str)].burst_ids
         
         # Find the intersection of associated bursts and the input burst_ids
         matching_bursts = [burst for burst in burst_ids if burst in associated_bursts]
@@ -651,9 +645,6 @@ if __name__ == '__main__':
     parser.add_argument("--endpoint_daac_output", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for DSWx-S1 granules')
     parser.add_argument("--validate", action='store_true', help="Validate if DSWx-S1 products have been delivered for given time range (use --timestamp TEMPORAL mode only)")
     parser.add_argument("--product", required=True, choices=['DSWx-S1', 'DISP-S1'], default='DSWx-S1', help="The product to validate")
-    parser.add_argument("--disp_s1_burst_to_frame_db", required=False, help="Path to burst-to-frame JSON database file (for DISP-S1 only)")
-    parser.add_argument("--disp_s1_frame_to_burst_db", required=False, help="Path to frame-to-burst JSON database file (for DISP-S1 only)")
-
     # Parse the command-line arguments
     args = parser.parse_args()
 
@@ -771,16 +762,23 @@ if __name__ == '__main__':
             else:
                 print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count']], headers='keys', tablefmt='plain', showindex=False))
             print(f"Expected DSWx-S1 products: {df['MGRS Tiles Count'].sum()}, MGRS Set IDs covered: {len(df)}")
-    elif (args.product == 'DISP-S1' and args.disp_s1_burst_to_frame_db and args.disp_s1_frame_to_burst_db):
+    elif (args.product == 'DISP-S1'):
         # Gather list of bursts and dates for CSLC sening time range
         burst_ids, burst_dates  = get_burst_ids_and_sensing_times_from_query(start=args.start, end=args.end, endpoint='OPS',  timestamp=args.timestamp, shortname='OPERA_L2_CSLC-S1_V1')
 
+        # Process the disp s1 consistent database file
+        frames_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
+
         # Generate a table that has frames, all bursts, and matching bursts listed
-        df = map_cslc_bursts_to_frames(burst_ids=burst_ids.keys(),
-                                      bursts_to_frames_file=args.disp_s1_burst_to_frame_db,
-                                      frames_to_bursts_file=args.disp_s1_frame_to_burst_db)
+        df = map_cslc_bursts_to_frames(burst_ids=burst_ids.keys(), bursts_to_frames = burst_to_frames, frames_to_bursts=frames_to_bursts)
 
         print(df)
+
+        print(burst_dates)
+        smallest_date = None
+        greatest_date = None
+
+        validate_disp_s1(smallest_date, greatest_date, args.endpoint_daac_output, df)
 
         # Filter to only those frames that have full coverage (i.e. all bursts == matching)
         df = df[df['All Possible Bursts Count'] == df['Matching Bursts Count']]
