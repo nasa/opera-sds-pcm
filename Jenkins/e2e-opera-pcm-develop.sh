@@ -56,7 +56,7 @@ cnm_r_event_trigger=sqs
 pcm_commons_branch=develop
 
 # clean buckets
-for i in rs triage lts osl isl; do
+for i in rs triage lts osl; do
   aws s3 rm --recursive s3://opera-dev-${i}-fwd-${venue}/
 done
 
