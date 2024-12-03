@@ -105,7 +105,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r6i.4xlarge"
+    instance_type = "r6i.8xlarge"
     root_dev_size = 200
     private_ip    = "100.104.82.30"
     public_ip     = ""
