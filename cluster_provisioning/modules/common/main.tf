@@ -4,8 +4,6 @@ locals {
   dataset_bucket                 = var.dataset_bucket != "" ? var.dataset_bucket : local.default_dataset_bucket
   default_code_bucket            = "${var.project}-${var.environment}-cc-fwd-${var.venue}"
   code_bucket                    = var.code_bucket != "" ? var.code_bucket : local.default_code_bucket
-  default_isl_bucket             = "${var.project}-${var.environment}-isl-fwd-${var.venue}"
-  isl_bucket                     = var.isl_bucket != "" ? var.isl_bucket : local.default_isl_bucket
   default_osl_bucket             = "${var.project}-${var.environment}-osl-fwd-${var.venue}"
   osl_bucket                     = var.osl_bucket != "" ? var.osl_bucket : local.default_osl_bucket
   default_triage_bucket          = "${var.project}-${var.environment}-triage-fwd-${var.venue}"
@@ -67,20 +65,13 @@ locals {
 }
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
-    #curl -H "X-JFrog-Art-Api:${var.artifactory_fn_api_key}" -O https://artifactory-fn.jpl.nasa.gov/artifactory/general-develop/gov/nasa/jpl/opera/sds/pcm/lambda/develop/lambda-cnm-r-handler-develop.zip
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_harikiri_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
-    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_isl_handler_package_name}-${var.lambda_package_release}.zip"
-  }
-  provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_e-misfire_handler_package_name}-${var.lambda_package_release}.zip"
-  }
-  provisioner "local-exec" {
-    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_timer_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_report_handler_package_name}-${var.lambda_package_release}.zip"
@@ -255,72 +246,6 @@ resource "aws_sqs_queue_policy" "cnm_response" {
   policy    = data.aws_iam_policy_document.cnm_response.json
 }
 
-resource "aws_sqs_queue" "isl_queue" {
-  name                      = "${var.project}-${var.venue}-${local.counter}-isl-queue"
-  delay_seconds             = 0
-  max_message_size          = 2048
-  message_retention_seconds = 86400
-  receive_wait_time_seconds = 10
-  #sqs_managed_sse_enabled    = true
-  visibility_timeout_seconds = 60
-  redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.isl_dead_letter_queue.arn
-    maxReceiveCount     = 2
-  })
-}
-resource "aws_sqs_queue_policy" "isl_queue_policy" {
-  queue_url = aws_sqs_queue.isl_queue.id
-
-  policy = <<POLICY
-{
-  "Version": "2012-10-17",
-  "Id": "islsqspolicy",
-  "Statement": [
-    {
-      "Sid": "First",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "s3.amazonaws.com"
-      },
-      "Action": "SQS:SendMessage",
-      "Resource": "${aws_sqs_queue.isl_queue.arn}",
-      "Condition": {
-        "ArnLike": { "aws:SourceArn": "arn:aws:s3:*:*:${local.isl_bucket}" }
-      }
-    }
-  ]
-}
-POLICY
-}
-
-# resource "aws_s3_bucket_object" "folder" {
-#  bucket = local.isl_bucket
-#  acl    = "private"
-#  key    = "met_required/"
-#  source = "/dev/null"
-#}
-
-# resource "aws_s3_bucket_notification" "sqs_isl_notification" {
-#  bucket = local.isl_bucket
-#
-#  queue {
-#    id        = "sqs_event"
-#    queue_arn = aws_sqs_queue.isl_queue.arn
-#    events    = ["s3:ObjectCreated:*"]
-#  }
-
-#}
-
-resource "aws_sqs_queue" "isl_dead_letter_queue" {
-  name                      = "${var.project}-${var.venue}-${local.counter}-isl-dead-letter-queue"
-  delay_seconds             = 0
-  max_message_size          = 2048
-  message_retention_seconds = 86400
-  receive_wait_time_seconds = 0
-  #sqs_managed_sse_enabled    = true
-  visibility_timeout_seconds = 500
-}
-
 ######################
 # lambda
 ######################
@@ -350,45 +275,6 @@ resource "aws_lambda_event_source_mapping" "harikiri_queue_event_source_mapping"
 
 data "aws_subnet_ids" "lambda_vpc" {
   vpc_id = var.lambda_vpc
-}
-
-resource "aws_lambda_function" "isl_lambda" {
-  depends_on    = [null_resource.download_lambdas, aws_sns_topic.operator_notify]
-  filename      = "${var.lambda_isl_handler_package_name}-${var.lambda_package_release}.zip"
-  description   = "Lambda function to process data from ISL bucket"
-  function_name = "${var.project}-${var.venue}-${local.counter}-isl-lambda"
-  handler       = "lambda_function.lambda_handler"
-  role          = var.lambda_role_arn
-  runtime       = "python3.8"
-  timeout       = 60
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  environment {
-    variables = {
-      "JOB_TYPE"            = var.lambda_job_type
-      "JOB_RELEASE"         = var.pcm_branch
-      "JOB_QUEUE"           = var.lambda_job_queue
-      "MOZART_URL"          = "https://${aws_instance.mozart.private_ip}/mozart"
-      "DATASET_S3_ENDPOINT" = "s3-us-west-2.amazonaws.com"
-      "SIGNAL_FILE_SUFFIX"  = "{\"met_required\":{\"ext\":\".signal\"}}"
-      "ISL_SNS_TOPIC"       = aws_sns_topic.operator_notify.arn
-      "MET_REQUIRED"        = "met_required"
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "isl_lambda" {
-  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-isl-lambda"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-resource "aws_lambda_event_source_mapping" "isl_queue_event_source_mapping" {
-  batch_size       = 10
-  enabled          = true
-  event_source_arn = aws_sqs_queue.isl_queue.arn
-  function_name    = aws_lambda_function.isl_lambda.arn
 }
 
 #####################################
@@ -621,56 +507,4 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
     name   = "tag:Logstash"
     values = ["7.9.3"]
   }
-}
-
-resource "aws_lambda_function" "event-misfire_lambda" {
-  depends_on    = [null_resource.download_lambdas]
-  filename      = "${var.lambda_e-misfire_handler_package_name}-${var.lambda_package_release}.zip"
-  description   = "Lambda function to process data from EVENT-MISFIRE bucket"
-  function_name = "${var.project}-${var.venue}-${local.counter}-event-misfire-lambda"
-  handler       = "lambda_function.lambda_handler"
-  role          = var.lambda_role_arn
-  runtime       = "python3.8"
-  timeout       = 500
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
-  }
-  environment {
-    variables = {
-      "JOB_TYPE"                    = var.lambda_job_type
-      "JOB_RELEASE"                 = var.pcm_branch
-      "JOB_QUEUE"                   = var.lambda_job_queue
-      "MOZART_ES_URL"               = "http://${aws_instance.mozart.private_ip}:9200"
-      "DATASET_S3_ENDPOINT"         = "s3-us-west-2.amazonaws.com"
-      "SIGNAL_FILE_BUCKET"          = local.isl_bucket
-      "DELAY_THRESHOLD"             = var.event_misfire_delay_threshold_seconds
-      "E_MISFIRE_METRIC_ALARM_NAME" = local.e_misfire_metric_alarm_name
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "event-misfire_lambda" {
-  name              = "/aws/lambda/${var.project}-${var.venue}-${local.counter}-event-misfire-lambda"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-
-resource "aws_cloudwatch_event_rule" "event-misfire_lambda" {
-  name                = "${aws_lambda_function.event-misfire_lambda.function_name}-Trigger"
-  description         = "Cloudwatch event to trigger event misfire monitoring lambda"
-  schedule_expression = var.event_misfire_trigger_frequency
-}
-
-resource "aws_cloudwatch_event_target" "event-misfire_lambda" {
-  rule      = aws_cloudwatch_event_rule.event-misfire_lambda.name
-  target_id = "Lambda"
-  arn       = aws_lambda_function.event-misfire_lambda.arn
-}
-
-resource "aws_lambda_permission" "event-misfire_lambda" {
-  statement_id  = aws_cloudwatch_event_rule.event-misfire_lambda.name
-  action        = "lambda:InvokeFunction"
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.event-misfire_lambda.arn
-  function_name = aws_lambda_function.event-misfire_lambda.function_name
 }

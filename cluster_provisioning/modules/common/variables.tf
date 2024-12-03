@@ -178,12 +178,6 @@ variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
 }
 
-variable "lambda_job_type" {
-}
-
-variable "lambda_job_queue" {
-}
-
 variable "cnm_r_handler_job_type" {
 }
 
@@ -247,14 +241,6 @@ variable "lambda_harikiri_handler_package_name" {
   default = "lambda-harikiri-handler"
 }
 
-variable "lambda_isl_handler_package_name" {
-  default = "lambda-isl-handler"
-}
-
-variable "lambda_timer_handler_package_name" {
-  default = "lambda-timer-handler"
-}
-
 variable "lambda_data-subscriber-download_handler_package_name" {
   default = "lambda-data-subscriber-download-handler"
 }
@@ -284,16 +270,6 @@ variable "lambda_package_release" {
 
 variable "queues" {
   default = {
-    "opera-job_worker-hls_data_ingest" = {
-      "name"              = "opera-job_worker-hls_data_ingest"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "min_size"          = 0
-      "max_size"          = 1
-      "total_jobs_metric" = true
-      "use_on_demand"     = false
-    }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1"
       "log_file_name"     = "run_sciflo_L2_CSLC_S1"
@@ -573,15 +549,6 @@ variable "queues" {
       "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = false
-    }
-    "opera-job_worker-timer" = {
-      "name"              = "opera-job_worker-timer"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 100
-      "max_size"          = 10
-      "total_jobs_metric" = false
       "use_on_demand"     = false
     }
     "opera-job_worker-pge_smoke_test_amd" = {

@@ -52,12 +52,6 @@ cd ~/.sds/files
 # ingest Sacramento AOI to test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
 
-# submit test hello world job to CPU queue/ASG
-#python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job.py ${pcm_branch}
-
-# submit test hello world job to GPU queue/ASG to exercise GPU-capability
-#python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job-gpu.py ${pcm_branch}
-
 # import trigger rules for mozart and grq
 #cd ~/.sds/files/test
 #curl -XDELETE http://${mozart_private_ip}:9200/user_rules-grq
