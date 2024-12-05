@@ -73,6 +73,8 @@ def convert(
 
     for output_type in output_types:
         for product in products[output_type].keys():
+            if pge_name == "L3_DISP_S1" and product[-3:] != ".nc": # DISP-S1 generates huge amount of data. We only care for the .nc files
+                continue
             logger.info(f"Converting {product} to a dataset")
 
             dataset_dir = extract.extract(
