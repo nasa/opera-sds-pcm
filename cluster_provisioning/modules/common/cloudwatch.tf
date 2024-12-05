@@ -340,38 +340,3 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
     QueueName = aws_sqs_queue.cnm_response_dead_letter_queue.name
   }
 }
-
-resource "aws_cloudwatch_metric_alarm" "sqs_dead_letter_alarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart ISL dead letter queue"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
-  metric_name               = "ApproximateNumberOfMessagesVisible"
-  namespace                 = "AWS/SQS"
-  period                    = "300"
-  statistic                 = "Average"
-  threshold                 = "5"
-  alarm_description         = "This metric monitors size of isl dead letter queue"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    QueueName = aws_sqs_queue.isl_dead_letter_queue.name
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "sqs_event_misfire_alarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "NumberOfMissedFiles"
-  namespace                 = "AWS/Lambda"
-  period                    = "60"
-  statistic                 = "Average"
-  threshold                 = "1"
-  alarm_description         = "This metric monitors size of input files in ${local.isl_bucket} missed for firing events"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    LAMBDA_NAME                 = "event-misfire_lambda"
-    E_MISFIRE_METRIC_ALARM_NAME = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  }
-}
