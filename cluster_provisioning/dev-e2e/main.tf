@@ -85,7 +85,6 @@ module "common" {
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
   triage_bucket                           = var.triage_bucket
-  isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
   clear_s3_aws_es                         = var.clear_s3_aws_es
   docker_registry_bucket                  = var.docker_registry_bucket
@@ -157,7 +156,6 @@ resource "null_resource" "mozart" {
                 ${var.product_delivery_repo} \
                 ${var.product_delivery_branch} \
                 ${module.common.mozart.private_ip} \
-                ${module.common.isl_bucket} \
                 ${local.source_event_arn} \
                 ${var.po_daac_delivery_proxy} \
                 ${var.use_daac_cnm_r} \
@@ -267,7 +265,6 @@ resource "null_resource" "smoke_test" {
         --grq-host="grq:9200" \
         --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
         --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
-        --isl-bucket="${module.common.isl_bucket}" \
         --rs-bucket="${module.common.dataset_bucket}" \
         --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
         --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
