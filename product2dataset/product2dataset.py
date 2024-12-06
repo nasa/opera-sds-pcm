@@ -73,8 +73,6 @@ def convert(
 
     for output_type in output_types:
         for product in products[output_type].keys():
-            if pge_name == "L3_DISP_S1" and product[-3:] != ".nc": # DISP-S1 generates huge amount of data. We only care for the .nc files
-                continue
             logger.info(f"Converting {product} to a dataset")
 
             dataset_dir = extract.extract(
@@ -230,13 +228,6 @@ def convert(
                     for file in dataset_met_json["Files"]
                 ]
 
-            # Get rid of bunch of data that we don't care about but it taking up a lot of space
-            '''dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
-            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating
-            for file in dataset_met_json["Files"]:
-                file["runconfig"] = None # Runconfig for the entire product is already at metadata level so no point in duplicating for each file'''
-            logger.info(dataset_met_json.keys())
-
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
@@ -270,6 +261,18 @@ def convert(
 
         dataset_met_json.update(extra_met)
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
+
+        if pge_name == "L3_DISP_S1":
+            # Get rid of bunch of data that we don't care about but takes up a lot of space
+            '''dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
+            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating'''
+            logger.info("Removing superfluous data from DISP-S1 metadata")
+            logger.info(dataset_met_json.keys())
+            for file in dataset_met_json["Files"]:
+                logger.info(file.keys())
+                logger.info("Removing runconfig and lineage from each file")
+                file["runconfig"] = None  # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
+                file["lineage"] = None  # Lineage for the entire product is already at metadata level so no point in duplicating for each file
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
