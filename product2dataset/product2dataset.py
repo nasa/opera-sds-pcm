@@ -230,6 +230,12 @@ def convert(
                     for file in dataset_met_json["Files"]
                 ]
 
+            # Get rid of bunch of data that we don't care about but it taking up a lot of space
+            dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
+            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating
+            for file in dataset_met_json["Files"]:
+                file["runconfig"] = None # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
+
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
