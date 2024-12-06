@@ -171,17 +171,6 @@ resource "null_resource" "mozart" {
               set -ex
               source ~/.bash_profile
               if [ "${var.run_smoke_test}" = true ]; then
-                ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888
-              fi
-    EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              if [ "${var.run_smoke_test}" = true ]; then
                 pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:
               fi
     EOF
