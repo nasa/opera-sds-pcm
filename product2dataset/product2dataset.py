@@ -264,8 +264,8 @@ def convert(
 
         if pge_name == "L3_DISP_S1":
             # Get rid of bunch of data that we don't care about but takes up a lot of space
-            '''dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
-            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating'''
+            dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
+            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating
             logger.info("Removing superfluous data from DISP-S1 metadata")
             logger.info(dataset_met_json.keys())
             for file in dataset_met_json["Files"]:
