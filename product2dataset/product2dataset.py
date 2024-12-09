@@ -265,16 +265,18 @@ def convert(
         # Remove tons of repeated and superfluous data from DISP-S1 metadata. We will reduce the GRQ footprint by 80%+ here
         if pge_name == "L3_DISP_S1":
             logger.info("Removing superfluous data from DISP-S1 metadata")
-            logger.info(dataset_met_json.keys())
+            logger.info("dataset_met_json.keys() = " + str(dataset_met_json.keys()))
             _DELETED_TEXT = "DELETED to save space"
 
             # Get rid of bunch of data that we don't care about but takes up a lot of space
             dataset_met_json["runconfig"]["localize"] = _DELETED_TEXT # This list is the same as lineage so no point in duplicatingq
             dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = _DELETED_TEXT # This list is the same as lineage so no point in duplicating
-            dataset_met_json["accountability"]["L3_DISP_S1"]["inputs"] = _DELETED_TEXT # We don't consume this at all
+
+            # "accountability" is added elsewhere in the code so we can't delete it here
+            # dataset_met_json["accountability"]["L3_DISP_S1"]["inputs"] = _DELETED_TEXT # We don't consume this at all
 
             for file in dataset_met_json["Files"]:
-                logger.info(file.keys())
+                logger.info("Files keys: "+ str(file.keys()))
                 logger.info("Removing runconfig and lineage from each file")
                 file["runconfig"] = _DELETED_TEXT  # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
                 file["lineage"] = _DELETED_TEXT  # Lineage for the entire product is already at metadata level so no point in duplicating for each file
