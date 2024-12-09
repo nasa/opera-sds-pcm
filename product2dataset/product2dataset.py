@@ -278,8 +278,9 @@ def convert(
             for file in dataset_met_json["Files"]:
                 logger.info("Files keys: "+ str(file.keys()))
                 logger.info("Removing runconfig and lineage from each file")
-                file["runconfig"] = _DELETED_TEXT  # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
                 file["lineage"] = _DELETED_TEXT  # Lineage for the entire product is already at metadata level so no point in duplicating for each file
+                file["runconfig"]["localize"] = _DELETED_TEXT  # this is superfulous
+                file["runconfig"]["input_file_group"]["input_file_paths"] = _DELETED_TEXT  # this is superfulous
 
             logger.info("Reducing lineage string size by truncating basepath of lineage entries")
             if len(dataset_met_json["lineage"]) > 0:
