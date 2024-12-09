@@ -266,7 +266,7 @@ def convert(
         if pge_name == "L3_DISP_S1":
             logger.info("Removing superfluous data from DISP-S1 metadata")
             logger.info("dataset_met_json.keys() = " + str(dataset_met_json.keys()))
-            _DELETED_TEXT = "DELETED to save space"
+            _DELETED_TEXT = None
 
             # Get rid of bunch of data that we don't care about but takes up a lot of space
             dataset_met_json["runconfig"]["localize"] = _DELETED_TEXT # This list is the same as lineage so no point in duplicatingq
