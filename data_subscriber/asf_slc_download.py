@@ -8,10 +8,9 @@ from data_subscriber.asf_download import DaacDownloadAsf
 from tools import stage_orbit_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
-                                    NoQueryResultsException,
-                                    NoSuitableOrbitFileException,
                                     T_ORBIT,
                                     ORBIT_PAD)
+from util.dataspace_util import NoQueryResultsException, NoSuitableOrbitFileException
 
 
 class AsfDaacSlcDownload(DaacDownloadAsf):

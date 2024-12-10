@@ -11,8 +11,8 @@ from requests import Response, Session
 
 import tools.stage_orbit_file
 from tools.stage_orbit_file import (ORBIT_TYPE_POE,
-                                    ORBIT_TYPE_RES,
-                                    NoSuitableOrbitFileException)
+                                    ORBIT_TYPE_RES)
+from util.dataspace_util import NoSuitableOrbitFileException
 
 
 class TestStageOrbitFile(unittest.TestCase):
