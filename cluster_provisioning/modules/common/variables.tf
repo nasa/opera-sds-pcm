@@ -345,7 +345,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["r7i.4xlarge", "r6a.4xlarge", "r6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
+      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
       "max_size"          = 10
