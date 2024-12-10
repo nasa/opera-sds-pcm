@@ -264,10 +264,14 @@ def convert(
 
         # Remove tons of repeated and superfluous data from DISP-S1 metadata. We will reduce the GRQ footprint by 80%+ here
         if pge_name == "L3_DISP_S1":
+
+            logger.info(dataset_met_json)
+
             logger.info("Removing superfluous data from DISP-S1 metadata")
             logger.info("dataset_met_json.keys() = " + str(dataset_met_json.keys()))
 
             # Get rid of bunch of data that we don't care about but takes up a lot of space
+            logger.info("dataset_met_json[run_config].keys() = " + str(dataset_met_json["runconfig"].keys()))
             dataset_met_json["runconfig"].pop("localize")# This list is the same as lineage so no point in duplicatingq
             dataset_met_json["runconfig"]["input_file_group"].pop("input_file_paths") # This list is the same as lineage so no point in duplicating
 
