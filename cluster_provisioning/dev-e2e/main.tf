@@ -249,6 +249,8 @@ resource "null_resource" "smoke_test" {
         set -ex
         source ~/.bash_profile
 
+        cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
+
         ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_opera_smoke_tests.sh \
         --mozart-ip=${module.common.mozart.private_ip} \
         --grq-host="grq:9200" \
