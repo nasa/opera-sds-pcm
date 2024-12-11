@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/home/ops/.dockerfile-cache/conda \
   source /home/ops/.bash_profile
   set -euxo pipefail
   sudo /opt/conda/bin/conda info
-  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.29.0 python-eccodes==1.6.0
+  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.28.0 python-eccodes==1.5.2
 EOT
 
 RUN --mount=type=cache,target=/home/ops/.dockerfile-cache/pip \
