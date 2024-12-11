@@ -2,13 +2,14 @@ import json
 import re
 from collections import defaultdict
 from datetime import datetime
-from urllib.parse import urlparse
-import dateutil
-import boto3
-import logging
 from functools import cache
+from urllib.parse import urlparse
+
+import boto3
+import dateutil
 import elasticsearch
 
+from commons.logger import get_logger
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -18,15 +19,14 @@ PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
-logger = logging.getLogger(__name__)
 
 class _HistBursts(object):
     def __init__(self):
         self.frame_number = None
-        self.burst_ids = set()                  # Burst ids as strings in a set
-        self.sensing_datetimes = []           # Sensing datetimes as datetime object, sorted
-        self.sensing_seconds_since_first = [] # Sensing time in seconds since the first sensing time
-        self.sensing_datetime_days_index = [] # Sensing time in days since the first sensing time, rounded to the nearest day
+        self.burst_ids = set()                 # Burst ids as strings in a set
+        self.sensing_datetimes = []            # Sensing datetimes as datetime object, sorted
+        self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
+        self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
 def localize_anc_json(settings_field):
     '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
@@ -42,20 +42,26 @@ def localize_anc_json(settings_field):
 
 @cache
 def localize_disp_frame_burst_hist():
+    logger = get_logger()
+
     try:
         file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
     except:
-        logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
+        logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. "
+                       f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
         file = DEFAULT_DISP_FRAME_BURST_DB_NAME
 
     return process_disp_frame_burst_hist(file)
 
 @cache
 def localize_frame_geo_json():
+    logger = get_logger()
+
     try:
         file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
     except:
-        logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
+        logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. "
+                       f"Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
         file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
 
     return process_frame_geo_json(file)
@@ -115,6 +121,7 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts)
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
+    logger = get_logger()
 
     try:
         j = json.load(open(file))["data"]

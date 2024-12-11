@@ -1,12 +1,11 @@
+
 import json
-import logging
 from functools import cache
-from pathlib import Path
 from typing import TypedDict
 
 from osgeo import ogr
 
-logger = logging.getLogger(__name__)
+from commons.logger import get_logger
 
 
 _NORTH_AMERICA = "north_america_opera"
@@ -48,10 +47,11 @@ def does_bbox_intersect_region(bbox: list[Coordinate], region) -> bool:
 
     :param bbox: a list of coordinate dicts. `bbox["lat"]` refers to the latitude component of the coordinate.
                  `bbox["lon"]` refers to the longitudinal component of the coordinate.
-           region: string name of the geojson file without the extension
-    :return: True if the given coordinates intersect with North America (OPERA). Otherwise False.
+    :param region: string name of the geojson file without the extension
+    :return: True if the given coordinates intersect with North America (OPERA). Otherwise, False.
     """
-    logger.info(f"{bbox=}")
+    logger = get_logger()
+    logger.debug(f"{bbox=}")
 
     bbox_ring = ogr.Geometry(ogr.wkbLinearRing)
     for coordinate in bbox:
@@ -62,19 +62,20 @@ def does_bbox_intersect_region(bbox: list[Coordinate], region) -> bool:
     na_geom = _load_region_opera_geometry_collection(region)
 
     is_bbox_in_region = na_geom.Intersects(bbox_poly)
-    logger.info(f"{is_bbox_in_region=}")
+    logger.debug(f"{is_bbox_in_region=}")
     return is_bbox_in_region
 
 
 @cache
 def _load_region_opera_geometry_collection(region) -> ogr.Geometry:
+    logger = get_logger()
     region_opera_geojson = _cached_load_region_opera_geojson(region)
 
     na_geoms = ogr.Geometry(ogr.wkbGeometryCollection)
     for feature in region_opera_geojson["features"]:
         na_geoms.AddGeometry(ogr.CreateGeometryFromJson(json.dumps(feature["geometry"])))
 
-    logger.info("Loaded geojson as osgeo GeometryCollection")
+    logger.info("Loaded region %s.geojson as osgeo GeometryCollection", region)
     return na_geoms
 
 
@@ -82,8 +83,8 @@ def _load_region_opera_geometry_collection(region) -> ogr.Geometry:
 def _cached_load_region_opera_geojson(region) -> dict:
     """Loads a RFC7946 GeoJSON file."""
     geojson = region + '.geojson'
-    fp = open(geojson)
-    geojson_obj: dict = json.load(fp)
 
-    logger.info("Loaded " + geojson)
+    with open(geojson, 'r') as fp:
+        geojson_obj: dict = json.load(fp)
+
     return geojson_obj

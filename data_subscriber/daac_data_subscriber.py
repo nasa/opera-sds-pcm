@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
+
 import argparse
 import asyncio
 import concurrent.futures
-import logging
 import os
 import re
 import sys
@@ -12,11 +12,10 @@ from itertools import chain
 from pathlib import Path
 from urllib.parse import urlparse
 
-import boto3
 from more_itertools import first
 from smart_open import open
 
-from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
+from commons.logger import configure_library_loggers, get_logger
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
@@ -28,6 +27,8 @@ from data_subscriber.cmr import (ProductType,
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.gcov.gcov_catalog import NisarGcovProductCatalog
+from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
@@ -46,34 +47,20 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
 
-logging.basicConfig(level="INFO")
-logger = logging.getLogger(__name__)
-
 
 @exec_wrapper
 def main():
-    configure_logger()
     run(sys.argv)
 
 
-def configure_logger():
-    logger_hysds_commons = logging.getLogger("hysds_commons")
-    logger_hysds_commons.addFilter(NoJobUtilsFilter())
-
-    logger_elasticsearch = logging.getLogger("elasticsearch")
-    logger_elasticsearch.addFilter(NoBaseFilter())
-
-    boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
-
-    logger.addFilter(NoLogUtilsFilter())
-
-
 def run(argv: list[str]):
-    logger.info(f"{argv=}")
     parser = create_parser()
     args = parser.parse_args(argv[1:])
 
     validate_args(args)
+
+    logger = get_logger(args.verbose, args.quiet)
+    configure_library_loggers()
 
     es_conn = supply_es_conn(args)
 
@@ -82,10 +69,10 @@ def run(argv: list[str]):
             update_url_index(es_conn, f.readlines(), None, None, None)
         exit(0)
 
-    logger.info(f"{args=}")
+    logger.debug(f"daac_data_subscriber.py invoked with {args=}")
 
     job_id = supply_job_id()
-    logger.info(f"{job_id=}")
+    logger.debug(f"Using {job_id=}")
 
     settings = SettingsConf().cfg
     cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
@@ -106,7 +93,7 @@ def run(argv: list[str]):
         else:
             results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
-    logger.info(f"{len(results)=}")
+    logger.debug(f"{len(results)=}")
     logger.debug(f"{results=}")
     logger.info("END")
 
@@ -124,17 +111,17 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
-
     # RTC is a special case in that it needs to run asynchronously
     elif product_type == ProductType.RTC:
         cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
-        result = asyncio.run(cmr_query.run_query(args, token, es_conn, cmr, job_id, settings))
+        result = asyncio.run(cmr_query.run_query())
         return result
-
+    elif product_type == ProductType.NISAR_GCOV:
+        cmr_query = NisarGcovCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
-    return cmr_query.run_query(args, token, es_conn, cmr, job_id, settings)
+    return cmr_query.run_query()
 
 def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
@@ -157,6 +144,7 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
 
 
 def run_rtc_download(args, token, es_conn, netloc, username, password, cmr, job_id):
+    logger = get_logger()
     provider = args.provider  # "ASF-RTC"
     settings = SettingsConf().cfg
 
@@ -295,20 +283,23 @@ def multithread_gather(job_submission_tasks):
 
 
 def supply_es_conn(args):
+    logger = get_logger()
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection")
                 else args.provider)
 
     if provider == Provider.LPCLOUD:
-        es_conn = HLSProductCatalog(logging.getLogger(__name__))
+        es_conn = HLSProductCatalog(logger)
     elif provider in (Provider.ASF, Provider.ASF_SLC):
-        es_conn = SLCProductCatalog(logging.getLogger(__name__))
+        es_conn = SLCProductCatalog(logger)
     elif provider == Provider.ASF_RTC:
-        es_conn = RTCProductCatalog(logging.getLogger(__name__))
+        es_conn = RTCProductCatalog(logger)
     elif provider == Provider.ASF_CSLC:
-        es_conn = CSLCProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCProductCatalog(logger)
     elif provider == Provider.ASF_CSLC_STATIC:
-        es_conn = CSLCStaticProductCatalog(logging.getLogger(__name__))
+        es_conn = CSLCStaticProductCatalog(logger)
+    elif provider == Provider.ASF_NISAR_GCOV:
+        es_conn = NisarGcovProductCatalog(logger)
     else:
         raise ValueError(f'Unsupported provider "{provider}"')
 

@@ -88,7 +88,7 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
     cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings, blackout_dates_obj) # we don't care about m here
-    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, silent = not verbose)
+    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, verbose)
 
     return k_cycle
 

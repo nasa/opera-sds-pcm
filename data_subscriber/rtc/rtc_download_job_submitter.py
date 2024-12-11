@@ -1,19 +1,18 @@
 import asyncio
 import itertools
 import json
-import logging
 from functools import partial
 from typing import Optional
 
+from commons.logger import get_logger
 from util.job_submitter import try_submit_mozart_job
-
-logger = logging.getLogger(__name__)
 
 flatten = itertools.chain.from_iterable
 
 
 async def example(batch_id_to_urls_map, args):
     """Sample usage function."""
+    logger = get_logger()
     job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_urls_map, args)
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
     logger.info(f"{len(results)=}")

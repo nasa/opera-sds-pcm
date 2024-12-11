@@ -190,7 +190,7 @@ def query_and_validate(current_args, test_range, blackout_dates, validation_data
     print("Querying with args: " + " ".join(current_args))
     args = create_parser().parse_args(current_args)
     c_query = cslc_query.CslcCmrQuery(args, token, es_conn, cmr, "job_id", settings,None, blackout_dates)
-    q_result = c_query.run_query(args, token, es_conn, cmr, "job_id", settings)
+    q_result = c_query.run_query()
     q_result = q_result["download_granules"] # Main granules
     q_result.extend(c_query.k_retrieved_granules) # k granules
     print("+++++++++++++++++++++++++++++++++++++++++++++++")
