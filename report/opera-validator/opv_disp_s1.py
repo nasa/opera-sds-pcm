@@ -1,0 +1,144 @@
+import logging
+import requests
+import re
+import pandas as pd
+
+from opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN
+from data_subscriber import es_conn_util
+
+_DISP_S1_INDEX_PATTERNS = "grq_v*_l3_disp_s1*"
+
+def validate_disp_s1(smallest_date, greatest_date, endpoint, df, logger):
+    """
+    Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
+    It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
+    The function then updates the DataFrame to include a count of unprocessed bursts based on the missing granules. 
+    The logic can be summarized as:
+    1. Gather list of expected CSLC granule IDs (provided dataframe)
+    2. Query CMR for list of actual CSLC granule IDs used for DISP-S1 production, aggregate these into a list
+    3. Compare list (1) with list (2) and return a new dataframe containing a column 'Unprocessed CSLC Native IDs' with the
+       discrepancies
+
+    :param smallest_date: datetime.datetime
+        The earliest date in the range (ISO 8601 format).
+    :param greatest_date: datetime.datetime
+        The latest date in the range (ISO 8601 format).
+    :param endpoint: str
+        CMR environment ('UAT' or 'OPS') to specify the operational setting for the data query.
+    :param df: pandas.DataFrame
+        A DataFrame containing columns with granule identifiers which will be checked against the CMR query results.
+
+    :return: pandas.DataFrame or bool
+        A modified DataFrame with additional columns 'Unprocessed RTC Native IDs' and 'Unprocessed RTC Native IDs Count' showing
+        granules not found in the CMR results and their count respectively. Returns False if the CMR query fails.
+
+    Raises:
+        requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
+    """
+
+    all_granules = retrieve_r3_products(smallest_date, greatest_date, endpoint, 'OPERA_L2_CSLC-S1_V1')
+
+    es_util = es_conn_util.get_es_connection(logger)
+
+    try:
+        # Extract MGRS tiles and create the mapping to InputGranules
+        available_cslc_bursts = []
+        for item in all_granules:
+            print(item)
+
+            ccslc = es_util.query(
+                index=_DISP_S1_INDEX_PATTERNS,
+                body={"query": {"bool": {"must": [
+                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}},
+                    {"term": {"metadata.frame_id": frame_id}}
+                ]}}})
+
+            #input_granules = item['umm']['InputGranules']
+
+            # Extract the granule burst ID from the full path
+            for path in input_granules:
+                match = re.search(BURST_AND_DATE_GRANULE_PATTERN, path)
+                if match:
+                    t_number = match.group(1)
+                    orbit_number = match.group(2)
+                    iw_number = match.group(3).lower()
+                    burst_id = f't{t_number}_{orbit_number}_{iw_number}'
+                    available_cslc_bursts.append(burst_id)
+
+        # Function to identify missing bursts
+        def filter_and_find_missing(row):
+            cslc_bursts_in_df_row = set(row['Covered CSLC Native IDs'].split(', '))
+
+            unprocessed_rtc_bursts = cslc_bursts_in_df_row - available_cslc_bursts
+            if unprocessed_rtc_bursts:
+                return ', '.join(unprocessed_rtc_bursts)
+            return None  # or pd.NA 
+
+        # Function to count missing bursts
+        def count_missing(row):
+            count = len(row['Unprocessed CSLC Native IDs'].split(', '))
+            return count
+
+        # Apply the function and create a new column 'Unprocessed CSLC Native IDs'
+        df['Unprocessed CSLC Native IDs'] = df.apply(filter_and_find_missing, axis=1)
+        df = df.dropna(subset=['Unprocessed CSLC Native IDs'])
+
+        # Using loc to safely modify the DataFrame without triggering SettingWithCopyWarning
+        df.loc[:, 'Unprocessed CSLC Native IDs Count'] = df.apply(count_missing, axis=1)
+
+        return df
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to fetch data from CMR: {e}")
+
+    return False
+
+
+def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames, frames_to_bursts):
+    """
+    Maps CSLC burst IDs to their corresponding frame IDs and identifies matching bursts within those frames.
+    The logic this function performs can be summarized as:
+    1. Take list of burst_ids and identify all associated frame IDs
+    2. Take frame IDs from (1) and find all possible burst IDs associated with those frame IDs
+    3. Take burst IDs from (2) and mark the ones available from burst IDs from (1)
+    4. Return a dataframe that lists all frame IDs, all possible burst IDs from (2), and matched burst IDs from (1)
+
+    :burst_ids: List of burst IDs to map.
+    :bursts_to_frames: Dict that maps bursts to frames.
+    :frames_to_bursts: Dict that maps frames to bursts.
+    :return: A DataFrame with columns for frame IDs, all possible bursts, their counts, matching bursts, and their counts.
+    """
+
+    print(burst_ids)
+
+    # Step 1: Map the burst IDs to their corresponding frame IDs
+    frame_ids = set()
+    for burst_id in burst_ids:
+        frames = bursts_to_frames[burst_id]
+        frame_ids.update(frames)
+
+    # Step 2: For each frame ID, get all associated burst IDs from the frames_to_bursts mapping
+    data = []
+    for frame_id in frame_ids:
+        frame_id_str = str(frame_id)
+        associated_bursts = frames_to_bursts[int(frame_id_str)].burst_ids
+
+        # Find the intersection of associated bursts and the input burst_ids
+        matching_bursts = [burst for burst in burst_ids if burst in associated_bursts]
+        if (len(associated_bursts) == 0 and len(matching_bursts) == 0):
+            continue  # Ignore matching burst counts that are zero in number
+
+        print("Got here")
+
+        # Append the result to the data list
+        data.append({
+            "Frame ID": frame_id,
+            "All Possible Bursts": associated_bursts,
+            'All Possible Bursts Count': len(associated_bursts),
+            "Matching Bursts": matching_bursts,
+            'Matching Bursts Count': len(matching_bursts)
+        })
+
+    # Create a DataFrame from the data
+    df = pd.DataFrame(data)
+    return df
