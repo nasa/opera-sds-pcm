@@ -263,7 +263,7 @@ def convert(
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
 
         # Remove tons of repeated and superfluous data from DISP-S1 metadata. We will reduce the GRQ footprint by 80%+ here
-        if pge_name == "L3_DISP_S1" and "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
+        if pge_name == "L3_DISP_S1" and "OPERA_L2_COMPRESSED-CSLC-S1" not in dataset_met_json["id"]:
 
             logger.info(dataset_met_json)
 
