@@ -361,7 +361,7 @@ async def run(argv: list[str]):
         output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc_cslc))
+            fp.write('\n'.join(missing_cmr_granules_slc_rtc))
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
     elif args.format == "json":
