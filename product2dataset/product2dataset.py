@@ -264,15 +264,24 @@ def convert(
 
         if pge_name == "L3_DISP_S1":
             # Get rid of bunch of data that we don't care about but takes up a lot of space
+            logger.info("Removing superfluous data from DISP-S1 metadata")
             dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
             dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating
-            logger.info("Removing superfluous data from DISP-S1 metadata")
-            logger.info(dataset_met_json.keys())
+
             for file in dataset_met_json["Files"]:
                 logger.info(file.keys())
                 logger.info("Removing runconfig and lineage from each file")
                 file["runconfig"] = None  # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
                 file["lineage"] = None  # Lineage for the entire product is already at metadata level so no point in duplicating for each file
+
+            logger.info("Reducing lineage string size by truncating basepath of lineage entries")
+            logger.info("dataset_met_json keys: " + str(dataset_met_json.keys()))
+            if len(dataset_met_json["lineage"]) > 0:
+                dataset_met_json["lienage_base_path"] = '/'.join(dataset_met_json["lineage"][0].split('/')[:-1])
+                lineage_arr = []
+                for l in dataset_met_json["lineage"]:
+                    lineage_arr.append(l.split('/')[-1])
+                dataset_met_json["lineage"] = lineage_arr
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
