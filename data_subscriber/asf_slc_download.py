@@ -1,9 +1,11 @@
 
+import glob
 import json
 import netrc
 import os
 from datetime import datetime, timedelta
 from pathlib import PurePath, Path
+from os.path import abspath, getsize, join
 
 import requests
 
@@ -88,6 +90,12 @@ class AsfDaacSlcDownload(DaacDownload):
             os.rename(str(dataset_dir), str(new_dataset_dir))
 
             self.download_orbit_file(new_dataset_dir, product_filepath)
+
+            # We've observed cases where the orbit file download seems to complete
+            # successfully, but the resulting files are empty, causing the PGE/SAS to crash.
+            # Check for any empty files now, so we can fail during this download job
+            # rather than during the SCIFLO job.
+            self.check_for_empty_orbit_files(new_dataset_dir)
 
             if additional_metadata['processing_mode'] in ("historical", "reprocessing"):
                 self.logger.info(
@@ -223,6 +231,20 @@ class AsfDaacSlcDownload(DaacDownload):
 
         self.logger.info("Added orbit file(s) to dataset")
 
+    def check_for_empty_orbit_files(self, dataset_dir):
+        self.logger.info("Checking for empty orbit file downloads within %s", dataset_dir)
+
+        orbit_file_pattern = join(abspath(dataset_dir), "*.EOF")
+
+        for orbit_file_path in glob.iglob(orbit_file_pattern):
+            if getsize(orbit_file_path) == 0:
+                raise RuntimeError(
+                    f"Orbit file {orbit_file_path} was downloaded but empty.\n"
+                    f"This download job will need to be retried once a valid orbit "
+                    f"file is available."
+                )
+        else:
+            self.logger.info("All downloaded orbit files are non-empty")
     def download_ionosphere_file(self, dataset_dir, product_filepath):
         try:
             output_ionosphere_filepath = ionosphere_download.download_ionosphere_correction_file(
