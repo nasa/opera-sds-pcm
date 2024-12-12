@@ -9,13 +9,13 @@ logger = logging.getLogger(__file__)
 def merge_netcdf_pairs(a2_a3_pair_paths: list[tuple[Path, Path]],
                        target: Path):
     # combined = load_and_concat_grib_pair(a2_path, a3_path)
-    combined = nisar_merge_netcdf_pairs(a2_a3_pair_paths)
+    combined = opera_merge_netcdf_pairs(a2_a3_pair_paths)
     combined.to_netcdf(target.resolve(), format="NETCDF4")
     combined.close()
     return target
 
 
-def nisar_merge_netcdf_pairs(a2_a3_pairs: list[tuple[Path, Path]]):
+def opera_merge_netcdf_pairs(a2_a3_pairs: list[tuple[Path, Path]]):
     """
     Concatenate A2 and A3
     :param a2: A2

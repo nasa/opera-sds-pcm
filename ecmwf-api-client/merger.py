@@ -64,9 +64,14 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
                 logger.info(f"Merge input: {a2_a3_nc_filepath_pair=}")
 
-                merged_filepath = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2").removeprefix("A3"))
+
+                #D06130000061300001.nc
+                merged_filepath_tmp = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2D").removeprefix("A3D"))
+                analysis_hour=merged_filepath_tmp[4:8]
+                merged_filepath = f"ECMWF_A2A3_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
                 merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
                 logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merged output: {merged_filepath=}")
 
                 logger.info("Compressing")
                 compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
