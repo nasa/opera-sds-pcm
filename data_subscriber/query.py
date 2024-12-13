@@ -115,8 +115,8 @@ class CmrQuery:
         failed = [e for e in results if isinstance(e, Exception)]
 
         self.logger.debug(f"{results=}")
-        self.logger.debug(f"{succeeded=}")
-        self.logger.debug(f"{failed=}")
+        self.logger.info(f"{succeeded=}")
+        self.logger.info(f"{failed=}")
         self.logger.debug(f"{download_granules=}")
 
         return {

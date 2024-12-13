@@ -93,7 +93,7 @@ def run(argv: list[str]):
         else:
             results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
-    logger.debug(f"{len(results)=}")
+    logger.info(f"{len(results)=}")
     logger.debug(f"{results=}")
     logger.info("END")
 
