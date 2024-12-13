@@ -277,7 +277,7 @@ def convert(
             logger.info("Reducing lineage string size by truncating basepath of lineage entries")
             logger.info("dataset_met_json keys: " + str(dataset_met_json.keys()))
             if len(dataset_met_json["lineage"]) > 0:
-                dataset_met_json["lienage_base_path"] = '/'.join(dataset_met_json["lineage"][0].split('/')[:-1])
+                dataset_met_json["lineage_basepath"] = '/'.join(dataset_met_json["lineage"][0].split('/')[:-1])
                 lineage_arr = []
                 for l in dataset_met_json["lineage"]:
                     lineage_arr.append(l.split('/')[-1])
