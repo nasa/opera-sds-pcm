@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import functools
 import logging
+import logging.handlers
 import os
 import re
 import sys
@@ -20,7 +21,7 @@ logging.basicConfig(
     # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.DEBUG)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 config = {
     **dotenv_values("../../.env"),
@@ -42,7 +43,7 @@ def create_parser():
     )
     argparser.add_argument(
         "--output", "-o",
-        help=f'ISO formatted datetime string. Must be compatible with CMR.'
+        help=f'Output filepath.'
     )
     argparser.add_argument(
         "--format",
@@ -50,7 +51,25 @@ def create_parser():
         choices=["txt", "json"],
         help=f'Output file format. Defaults to "%(default)s".'
     )
+    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+
     return argparser
+
+
+def init_logging(log_level=logging.INFO):
+    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
+    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
+    logging.basicConfig(level=log_level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
+    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_hls.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1.setLevel(logging.INFO)
+    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh1)
+
+    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit_hls-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2.setLevel(logging.ERROR)
+    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh2)
 
 
 #######################################################################
@@ -259,4 +278,8 @@ async def run(argv: list[str]):
 
 
 if __name__ == "__main__":
+    args = create_parser().parse_args(sys.argv[1:])
+    log_level = args.log_level
+    init_logging()
+
     asyncio.run(run(sys.argv))
