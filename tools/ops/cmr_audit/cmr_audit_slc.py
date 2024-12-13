@@ -62,17 +62,17 @@ def create_parser():
     return argparser
 
 
-def init_logging():
+def init_logging(log_level=logging.INFO):
     log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
     log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
     logging.basicConfig(level=log_level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
 
-    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_slc.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
     rfh1.setLevel(logging.INFO)
     rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
     logging.getLogger().addHandler(rfh1)
 
-    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit_slc-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
     rfh2.setLevel(logging.ERROR)
     rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
     logging.getLogger().addHandler(rfh2)
