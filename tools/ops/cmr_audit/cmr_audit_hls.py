@@ -120,7 +120,7 @@ async def async_get_cmr(
             request_body = (
                 "provider=POCLOUD"
                 f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
-                "&options[native-id][pattern]=true"
+                # "&options[native-id][pattern]=true"
                 # f"{native_id_patterns_query_params}"
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
@@ -237,7 +237,7 @@ async def run(argv: list[str]):
     )
 
     logger.info("Querying CMR for list of expected DSWx granules")
-    cmr_dswx_products = await async_get_cmr_dswx(dswx_native_id_patterns)
+    cmr_dswx_products = await async_get_cmr_dswx(dswx_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
     cmr_dswx_prefix_expected = {prefix[:-1] for prefix in dswx_native_id_patterns}
     cmr_dswx_prefix_actual = dswx_native_ids_to_prefixes(cmr_dswx_products)
