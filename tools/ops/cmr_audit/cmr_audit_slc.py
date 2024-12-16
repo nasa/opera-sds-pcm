@@ -321,16 +321,10 @@ async def run(argv: list[str]):
     # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
     missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
-    if not missing_cmr_granules_slc_cslc:
-        missing_cmr_granules_slc_cslc = set()
-    else:
-        missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc))
+    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
 
     missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
-    if not missing_cmr_granules_slc_rtc:
-        missing_cmr_granules_slc_rtc = set()
-    else:
-        missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc))
+    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
 
     # logger.debug(f"{pstr(missing_slc)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")

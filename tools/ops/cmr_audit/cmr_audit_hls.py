@@ -93,7 +93,7 @@ async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_dswx(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L3_DSWX-HLS_PROVISIONAL_V1",
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L3_DSWX-HLS_V1",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
 
 
@@ -248,7 +248,8 @@ async def run(argv: list[str]):
     #######################################################################
     # logger.debug(f"{pstr(missing_cmr_dswx_granules_prefixes)=!s}")
 
-    missing_cmr_granules_hls = set(functools.reduce(set.union, [output_dswx_to_inputs_hls_map[prefix] for prefix in missing_cmr_dswx_granules_prefixes]))
+    missing_cmr_granules_hls = [output_dswx_to_inputs_hls_map[prefix] for prefix in missing_cmr_dswx_granules_prefixes]
+    missing_cmr_granules_hls = set(functools.reduce(set.union, missing_cmr_granules_hls)) if missing_cmr_granules_hls else set()
 
     # logger.debug(f"{pstr(missing_cmr_granules)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_hls)=:,}")
