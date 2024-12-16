@@ -1,14 +1,108 @@
+from collections import defaultdict
 import logging
 import requests
 import re
+import sys
 import pandas as pd
 
-from opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN
+from opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
 from data_subscriber import es_conn_util
+from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist
 
 _DISP_S1_INDEX_PATTERNS = "grq_v*_l3_disp_s1*"
 
-def validate_disp_s1(smallest_date, greatest_date, endpoint, df, logger):
+def get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts):
+    """
+    Looks something like:
+    {8889:
+      {0: ['S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1', 'S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1'] },
+      {12: ['S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1', 'S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1'] }},
+    8890:
+      {0: ['S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1', 'S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1'] },
+      {24: ['S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1', 'S1B_IW_SLC__1SDV_20210701T235959_20210702T000026_027000_033D7D_1'] }}
+    }
+    """
+
+    # Create a map of frame IDs to acquisition day index to the granule ID
+    frame_to_dayindex_to_granule = defaultdict(lambda: defaultdict(set))
+    for granule_id in granule_ids:
+        burst_id, acquisition_dts, acquisition_cycles, frame_ids = parse_cslc_native_id(granule_id, burst_to_frames,
+                                                                                        frame_to_bursts)
+        for frame_id in frame_ids:
+
+            # 1. If the frame does not show up in the database file, skip it
+            if frame_id not in frames_to_validate:
+                logging.debug(f"Frame ID {frame_id} is not in the list of frames to validate. Skipping.")
+                continue
+
+            # 2. If the acquisition cycle is not in the database file, skip it
+            acq_cycle = acquisition_cycles[frame_id]
+            if acq_cycle < 0 or \
+                    acq_cycle < frame_to_bursts[frame_id].sensing_datetime_days_index[-1] and acq_cycle not in frame_to_bursts[frame_id].sensing_datetime_days_index:
+                logging.debug(f"Frame ID {frame_id} has no acquisition cycle {acq_cycle} in the database file. Skipping.")
+                continue
+
+            frame_to_dayindex_to_granule[frame_id][acq_cycle].add(granule_id)
+
+    return frame_to_dayindex_to_granule
+
+def filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burst_to_frames):
+    '''
+    Given a dictionary of frame IDs to day indices to granule IDs, filter for the frame that should trigger the DISP-S1 job.
+    The frame at given day index is triggered if its granule burst ids is a subset of the corresponding list in the database.
+    This is a purely deductive function. Remove any day indices that do not meet the criteria.
+    WARNING! The input dictionary is modified in place. It's also being returned for convenience.
+    '''
+
+    for frame_id in frame_to_dayindex_to_granule:
+        for day_index in list(frame_to_dayindex_to_granule[frame_id].keys()):
+            granule_ids = frame_to_dayindex_to_granule[frame_id][day_index]
+            burst_set = set()
+            for granule_id in granule_ids:
+                burst_id, _, _, _ = parse_cslc_native_id(granule_id, burst_to_frames, frame_to_bursts)
+                burst_set.add(burst_id)
+            if burst_set.issuperset(frame_to_bursts[frame_id].burst_ids):
+                continue
+            else:
+                frame_to_dayindex_to_granule[frame_id].pop(day_index)
+
+    # If the frame has no day indices left, remove it completely
+    for frame_id in list(frame_to_dayindex_to_granule.keys()):
+        if len(frame_to_dayindex_to_granule[frame_id].keys()) == 0:
+            frame_to_dayindex_to_granule.pop(frame_id)
+
+    return frame_to_dayindex_to_granule
+def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, shortname='OPERA_L2_CSLC-S1_V1'):
+
+    # Process the disp s1 consistent database file
+    frame_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
+
+    # If no frame list is provided, we will validate for all frames DISP-S1 is supposed to process.
+    if disp_s1_frames_only is not None:
+        frames_to_validate = set([int(f) for f in disp_s1_frames_only.split(',')])
+    else:
+        frames_to_validate = set(frame_to_bursts.keys())
+
+    granules = get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint, provider="ASF",
+                                       shortname=shortname)
+    if (granules):
+        granule_ids = [granule.get("umm").get("GranuleUR") for granule in granules]
+    else:
+        logging.error("Problem querying for granules. Unable to proceed.")
+        sys.exit(1)
+
+    print(granule_ids)
+    frame_to_dayindex_to_granule = get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts)
+
+
+    for frame_id in frame_to_dayindex_to_granule:
+        print(frame_id)
+        print(frame_to_dayindex_to_granule[frame_id])
+
+    # Determine which frame-dayindex pairs were supposed to have been processed. Remove any one that weren't supposed to have been processed.
+
+
+def validate_disp_s1_with_products(smallest_date, greatest_date, endpoint, df, logger):
     """
     Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
     It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -38,7 +132,7 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df, logger):
 
     all_granules = retrieve_r3_products(smallest_date, greatest_date, endpoint, 'OPERA_L2_CSLC-S1_V1')
 
-    es_util = es_conn_util.get_es_connection(logger)
+    #es_util = es_conn_util.get_es_connection(logger)
 
     try:
         # Extract MGRS tiles and create the mapping to InputGranules
@@ -46,14 +140,14 @@ def validate_disp_s1(smallest_date, greatest_date, endpoint, df, logger):
         for item in all_granules:
             print(item)
 
-            ccslc = es_util.query(
+            '''ccslc = es_util.query(
                 index=_DISP_S1_INDEX_PATTERNS,
                 body={"query": {"bool": {"must": [
                     {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}},
                     {"term": {"metadata.frame_id": frame_id}}
-                ]}}})
+                ]}}})'''
 
-            #input_granules = item['umm']['InputGranules']
+            input_granules = item['umm']['InputGranules']
 
             # Extract the granule burst ID from the full path
             for path in input_granules:

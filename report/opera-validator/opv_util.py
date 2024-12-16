@@ -1,5 +1,10 @@
 import time
 import random
+import sys
+import re
+import concurrent.futures
+import multiprocessing
+import tqdm
 import requests
 import logging
 from datetime import datetime, timedelta
@@ -270,3 +275,73 @@ def get_burst_ids_from_file(filename):
                 print(f"\nWarning: Could not extract burst information from malformed granule ID {granule_id}.")
 
     return burst_ids, burst_dates
+
+
+def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', shortname='OPERA_L2_RTC-S1_V1'):
+    """
+    Fetches granule metadata from the CMR API within a specified temporal range using parallel requests.
+
+    :start: Start time in ISO 8601 format.
+    :end: End time in ISO 8601 format.
+    :timestamp: Type of timestamp to filter granules (e.g., 'TEMPORAL', 'PRODUCTION').
+    :endpoint: CMR API endpoint ('OPS' or 'UAT').
+    :provider: Data provider ID (default 'ASF').
+    :shortname: Short name of the product (default 'OPERA_L2_RTC-S1_V1').
+    :return: List of granule metadata.
+    """
+
+    granules = []
+
+    base_url, params = generate_url_params(start=start, end=end, timestamp_type=timestamp, endpoint=endpoint,
+                                           provider=provider, short_name=shortname)
+
+    # Construct the URL for the total granules query
+    total_granules = get_total_granules(base_url, params)
+    print(f"Total granules: {total_granules}")
+    print(f"Querying CMR for time range {start} to {end}.")
+
+    # Exit with error code if no granules to process
+    if (total_granules == 0):
+        print(f"Error: no granules to process.")
+        sys.exit(1)
+
+    # Optimize page_size and number of workers based on total_granules
+    page_size = min(1000, total_granules)
+
+    # Initialize progress bar
+    tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
+    print()
+
+    # Main loop to fetch granules, update progress bar, and extract burst_ids
+    with tqdm.tqdm(total=total_granules, desc="Fetching granules", position=0) as pbar_global:
+        downloaded_batches = multiprocessing.Value('i', 0)  # For counting downloaded batches
+        total_batches = (total_granules + page_size - 1) // page_size
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # NOTE: parallelized workers beyond 5 not working well, but here's some code to make it work in the future
+            # max_workers = min(5, (total_granules + page_size - 1) // page_size)
+            # futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
+            futures = []
+            for page_num in range(1, total_batches + 1):
+                future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches)
+                futures.append(future)
+                random_delay = random.uniform(0, 0.1)
+                time.sleep(random_delay)  # Stagger the submission of function calls for CMR optimization
+                logging.debug(f"Scheduled granule fetch for batch {page_num}")
+
+            for future in concurrent.futures.as_completed(futures):
+                granules_result = future.result()
+                pbar_global.update(len(granules_result))
+
+                granules.extend(granules_result)
+
+    print("\nGranule fetching complete.")
+
+    # Integrity check for total granules
+    total_downloaded = sum(len(future.result()) for future in futures)
+    if total_downloaded != total_granules:
+        print(
+            f"\nError: Expected {total_granules} granules, but downloaded {total_downloaded}. Try running again after some delay.")
+        sys.exit(1)
+
+    return granules

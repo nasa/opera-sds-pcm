@@ -1,6 +1,4 @@
 import argparse
-import concurrent.futures
-import multiprocessing
 import random
 import re
 import sqlite3
@@ -13,80 +11,12 @@ from tabulate import tabulate
 import tqdm
 import logging
 
-from opv_util import (generate_url_params, parallel_fetch, retrieve_r3_products, get_total_granules, get_burst_id,
-                      get_burst_sensing_datetime, get_burst_ids_from_file)
+from opv_util import (get_granules_from_query, retrieve_r3_products, get_burst_id, get_burst_sensing_datetime, get_burst_ids_from_file)
 from opv_disp_s1 import validate_disp_s1, map_cslc_bursts_to_frames
 
 from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame_burst_hist
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def get_granules_from_query(start, end, timestamp, endpoint, provider = 'ASF', shortname = 'OPERA_L2_RTC-S1_V1'):
-    """
-    Fetches granule metadata from the CMR API within a specified temporal range using parallel requests.
-
-    :start: Start time in ISO 8601 format.
-    :end: End time in ISO 8601 format.
-    :timestamp: Type of timestamp to filter granules (e.g., 'TEMPORAL', 'PRODUCTION').
-    :endpoint: CMR API endpoint ('OPS' or 'UAT').
-    :provider: Data provider ID (default 'ASF').
-    :shortname: Short name of the product (default 'OPERA_L2_RTC-S1_V1').
-    :return: List of granule metadata.
-    """
-
-    granules = []
-
-    base_url, params = generate_url_params(start=start, end=end, timestamp_type=timestamp, endpoint=endpoint, provider=provider, short_name=shortname)
-
-    # Construct the URL for the total granules query
-    total_granules = get_total_granules(base_url, params)
-    print(f"Total granules: {total_granules}")
-    print(f"Querying CMR for time range {start} to {end}.")
-
-    # Exit with error code if no granules to process
-    if (total_granules == 0):
-        print(f"Error: no granules to process.")
-        sys.exit(1)
-
-    # Optimize page_size and number of workers based on total_granules
-    page_size = min(1000, total_granules)
-
-    # Initialize progress bar
-    tqdm.tqdm._instances.clear()  # Clear any existing tqdm instances
-    print()
-
-    # Main loop to fetch granules, update progress bar, and extract burst_ids
-    with tqdm.tqdm(total=total_granules, desc="Fetching granules", position=0) as pbar_global:
-        downloaded_batches = multiprocessing.Value('i', 0)  # For counting downloaded batches
-        total_batches = (total_granules + page_size - 1) // page_size
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            # NOTE: parallelized workers beyond 5 not working well, but here's some code to make it work in the future
-            # max_workers = min(5, (total_granules + page_size - 1) // page_size)
-            # futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
-            futures = []
-            for page_num in range(1, total_batches + 1):
-                future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches)
-                futures.append(future)
-                random_delay = random.uniform(0, 0.1)
-                time.sleep(random_delay) # Stagger the submission of function calls for CMR optimization
-                logging.debug(f"Scheduled granule fetch for batch {page_num}")
-
-            for future in concurrent.futures.as_completed(futures):
-                granules_result = future.result()
-                pbar_global.update(len(granules_result))
-
-                granules.extend(granules_result)
-
-    print("\nGranule fetching complete.")
-
-    # Integrity check for total granules
-    total_downloaded = sum(len(future.result()) for future in futures)
-    if total_downloaded != total_granules:
-        print(f"\nError: Expected {total_granules} granules, but downloaded {total_downloaded}. Try running again after some delay.")
-        sys.exit(1)
-    
-    return granules
 
 def get_granule_ids_from_granules(granules):
     """
@@ -257,6 +187,7 @@ if __name__ == '__main__':
     parser.add_argument("--endpoint_daac_output", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for DSWx-S1 granules')
     parser.add_argument("--validate", action='store_true', help="Validate if DSWx-S1 products have been delivered for given time range (use --timestamp TEMPORAL mode only)")
     parser.add_argument("--product", required=True, choices=['DSWx-S1', 'DISP-S1'], default='DSWx-S1', help="The product to validate")
+    parser.add_argument("--disp_s1_frames_only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
     # Parse the command-line arguments
     args = parser.parse_args()
 
@@ -375,30 +306,15 @@ if __name__ == '__main__':
                 print(tabulate(df[['MGRS Set ID', 'Coverage Percentage', 'Total RTC Burst IDs Count', 'Covered RTC Burst ID Count']], headers='keys', tablefmt='plain', showindex=False))
             print(f"Expected DSWx-S1 products: {df['MGRS Tiles Count'].sum()}, MGRS Set IDs covered: {len(df)}")
     elif (args.product == 'DISP-S1'):
-        # Gather list of bursts and dates for CSLC sening time range
-        burst_ids, burst_dates  = get_burst_ids_and_sensing_times_from_query(start=args.start, end=args.end, endpoint='OPS',  timestamp=args.timestamp, shortname='OPERA_L2_CSLC-S1_V1')
 
-        # Process the disp s1 consistent database file
-        frames_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
-
-        # Generate a table that has frames, all bursts, and matching bursts listed
-        df = map_cslc_bursts_to_frames(burst_ids=burst_ids.keys(), bursts_to_frames = burst_to_frames, frames_to_bursts=frames_to_bursts)
-
-        print(df)
-
-        print(burst_dates)
-        smallest_date = None
-        greatest_date = None
-
-        validate_disp_s1(smallest_date, greatest_date, args.endpoint_daac_output, df)
-
-        # Filter to only those frames that have full coverage (i.e. all bursts == matching)
-        df = df[df['All Possible Bursts Count'] == df['Matching Bursts Count']]
+        # Perform all validation work in this function
+        result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.disp_s1_frames_only)
+        print(result_df)
 
         if (args.verbose):
-            print(tabulate(df[['Frame ID','All Possible Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Frame ID','All Possible Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
         else:
-            print(tabulate(df[['Frame ID','All Possible Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Frame ID','All Possible Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
     else:
         logging.error(f"Arguments for for --product '{args.product}' missing or not invalid.")
