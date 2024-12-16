@@ -93,7 +93,7 @@ async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_dswx(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L3_DSWX-HLS_PROVISIONAL_V1",
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L3_DSWX-HLS_V1",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
 
 
