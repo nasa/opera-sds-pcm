@@ -95,26 +95,24 @@ async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date
 
 
 async def async_get_cmr_cslc(cslc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_L2_CSLC-S1_V1", collection_concept_id="C1257337155-ASF",
+    return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_L2_CSLC-S1_V1",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end, chunk_size=100)
 
 
 async def async_get_cmr_rtc(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
-    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L2_RTC-S1_V1", collection_concept_id="C1257337044-ASF",
+    return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L2_RTC-S1_V1",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end, chunk_size=100)
 
 
 async def async_get_cmr(
         native_id_patterns: set,
         collection_short_name: Union[str, Iterable[str]],
-        collection_concept_id: str,
         temporal_date_start: str, temporal_date_end: str,
         chunk_size=1000):  # 1000 ~= 55,100 length
     """
     Issue CMR query requests.
     :param native_id_patterns: the native ID patterns to use in the query. Corresponds to query param `&native-id[]`. Allows use of wildcards "*" and "?", but is descouraged.
     :param collection_short_name: CMR collection short name. Typically found in PCM's settings.yaml
-    :param collection_concept_id: CMR collection concept ID for faster queries.
     :param temporal_date_start: temporal start date. Corresponds to query param `&temporal[]=<start>,<end>`
     :param temporal_date_end: temporal end date. Corresponds to query param `&temporal[]=<start>,<end>`
     :param chunk_size: split queries across N native-id patterns per request. CMR request bodies have an implicit size limit of 55,100 length. Must be a value in the interval [1,1000].
@@ -130,8 +128,8 @@ async def async_get_cmr(
     sem = asyncio.Semaphore(15)
     async with aiohttp.ClientSession() as session:
         post_cmr_tasks = []
-        for i, rtc_native_id_pattern_batch in enumerate(native_id_pattern_batches, start=1):
-            native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(rtc_native_id_pattern_batch)
+        for i, native_id_pattern_batch in enumerate(native_id_pattern_batches, start=1):
+            # native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(native_id_pattern_batch)
 
             request_body = (
                 "provider=ASF"
@@ -139,12 +137,13 @@ async def async_get_cmr(
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
                 "&bounding_box=-180,-60,180,90"
-                "&options[native-id][pattern]=true"
-                f"{native_id_patterns_query_params}"
+                # "&options[native-id][pattern]=true"
+                # f"{native_id_patterns_query_params}"
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
             logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
             post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
+            break
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
@@ -184,7 +183,7 @@ def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_
         cslc_acquisition_dt_str = m.group("start_ts")
 
         #                         OPERA_L2_CSLC-S1_*_20231124T124529Z_*_S1*
-        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1_*_{cslc_acquisition_dt_str}Z_*_S1*'
+        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1_*_{cslc_acquisition_dt_str}Z_*_S1*v1.1'
         rtc_native_id_patterns.add(rtc_native_id_pattern)
 
         # bi-directional mapping of HLS-DSWx inputs and outputs
@@ -322,16 +321,10 @@ async def run(argv: list[str]):
     # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
     missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
-    if not missing_cmr_granules_slc_cslc:
-        missing_cmr_granules_slc_cslc = set()
-    else:
-        missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc))
+    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
 
     missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
-    if not missing_cmr_granules_slc_rtc:
-        missing_cmr_granules_slc_rtc = set()
-    else:
-        missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc))
+    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
 
     # logger.debug(f"{pstr(missing_slc)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
