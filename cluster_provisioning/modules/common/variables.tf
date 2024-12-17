@@ -560,7 +560,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-pge_smoke_test_intel" = {
       "name"              = "opera-job_worker-pge_smoke_test_intel"
@@ -571,7 +571,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
   }
 }
