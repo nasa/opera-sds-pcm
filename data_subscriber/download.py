@@ -1,4 +1,4 @@
-import logging
+
 import shutil
 from datetime import datetime
 from pathlib import PurePath, Path
@@ -17,36 +17,11 @@ from commons.logger import get_logger
 from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
-from tools.stage_orbit_file import fatal_code
+from util.backoff_util import fatal_code
 from util.conf_util import SettingsConf
-
-logger = logging.getLogger(__name__)
+from util.edl_util import SessionWithHeaderRedirection
 
 AWS_REGION = "us-west-2"
-
-class SessionWithHeaderRedirection(requests.Session):
-    """
-    Borrowed from https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
-    """
-
-    def __init__(self, username, password, auth_host):
-        super().__init__()
-        self.auth = (username, password)
-        self.auth_host = auth_host
-
-    # Overrides from the library to keep headers when redirected to or from
-    # the NASA auth host.
-    def rebuild_auth(self, prepared_request, response):
-        headers = prepared_request.headers
-        url = prepared_request.url
-
-        if "Authorization" in headers:
-            original_parsed = requests.utils.urlparse(response.request.url)
-            redirect_parsed = requests.utils.urlparse(url)
-            if (original_parsed.hostname != redirect_parsed.hostname) and \
-                    redirect_parsed.hostname != self.auth_host and \
-                    original_parsed.hostname != self.auth_host:
-                del headers["Authorization"]
 
 
 class DaacDownload:

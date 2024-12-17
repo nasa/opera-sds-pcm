@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import smart_open
+import util.edl_util
 
 try:
     import unittest.mock as umock
@@ -64,7 +65,7 @@ async def test_full(monkeypatch):
 
     monkeypatch.setattr(
         download,
-        download.SessionWithHeaderRedirection.__name__,
+        util.edl_util.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -197,7 +198,7 @@ async def test_download(monkeypatch):
 
     monkeypatch.setattr(
         download,
-        download.SessionWithHeaderRedirection.__name__,
+        util.edl_util.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -325,7 +326,7 @@ async def test_download_https(monkeypatch):
     mock_create_merged_files(monkeypatch)
     monkeypatch.setattr(
         download,
-        download.SessionWithHeaderRedirection.__name__,
+        util.edl_util.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
