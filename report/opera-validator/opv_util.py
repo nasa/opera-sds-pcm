@@ -277,7 +277,7 @@ def get_burst_ids_from_file(filename):
     return burst_ids, burst_dates
 
 
-def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', shortname='OPERA_L2_RTC-S1_V1'):
+def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', shortname='OPERA_L2_RTC-S1_V1', extra_params=None):
     """
     Fetches granule metadata from the CMR API within a specified temporal range using parallel requests.
 
@@ -294,6 +294,10 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', sho
 
     base_url, params = generate_url_params(start=start, end=end, timestamp_type=timestamp, endpoint=endpoint,
                                            provider=provider, short_name=shortname)
+
+    # Add any extra parameters to the query
+    if extra_params:
+        params.update(extra_params)
 
     # Construct the URL for the total granules query
     total_granules = get_total_granules(base_url, params)

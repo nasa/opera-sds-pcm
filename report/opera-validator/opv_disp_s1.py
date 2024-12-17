@@ -3,13 +3,15 @@ import logging
 import requests
 import re
 import sys
+import datetime
 import pandas as pd
 
 from opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
 from data_subscriber import es_conn_util
-from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist
+from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids
 
 _DISP_S1_INDEX_PATTERNS = "grq_v*_l3_disp_s1*"
+_DISP_S1_PRODUCT_TYPE = "OPERA_L3_DISP-S1_V1"
 
 def get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts):
     """
@@ -80,11 +82,18 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # If no frame list is provided, we will validate for all frames DISP-S1 is supposed to process.
     if disp_s1_frames_only is not None:
         frames_to_validate = set([int(f) for f in disp_s1_frames_only.split(',')])
+        granules = []
+        for f in frames_to_validate:
+            for burst_id in frame_to_bursts[f].burst_ids:
+                #TODO: Make the opv_utils function work so that they can use more than one native-id[] parameter. Currently this is slow and a bit ugly
+                extra_params = {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"} # build_cslc_native_ids returns a tuple
+                granules.extend(get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint,
+                                                   provider="ASF", shortname=shortname, extra_params=extra_params))
     else:
         frames_to_validate = set(frame_to_bursts.keys())
-
-    granules = get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint, provider="ASF",
+        granules = get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint, provider="ASF",
                                        shortname=shortname)
+
     if (granules):
         granule_ids = [granule.get("umm").get("GranuleUR") for granule in granules]
     else:
@@ -92,15 +101,45 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         sys.exit(1)
 
     print(granule_ids)
-    frame_to_dayindex_to_granule = get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts)
-
-
-    for frame_id in frame_to_dayindex_to_granule:
-        print(frame_id)
-        print(frame_to_dayindex_to_granule[frame_id])
 
     # Determine which frame-dayindex pairs were supposed to have been processed. Remove any one that weren't supposed to have been processed.
+    frame_to_dayindex_to_granule = get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts)
+    granules_should_trigger = filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burst_to_frames)
 
+    # Initialize smallest and greatest time to be something very large and very small
+    smallest_date = datetime.datetime.strptime("2099-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ")
+    greatest_date = datetime.datetime.strptime("1999-01-01T00:00:00.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    logging.info("Should have generated the following DISP-S1 products:")
+    total_triggered = 0
+    for frame_id in granules_should_trigger:
+        for day_index in granules_should_trigger[frame_id]:
+            total_triggered += 1
+            logging.info("Frame ID: %s, Day Index: %s, Num CSLCs: %d, CSLCs: %s", frame_id, day_index, len(granules_should_trigger[frame_id][day_index]), granules_should_trigger[frame_id][day_index])
+            for granule_id in granules_should_trigger[frame_id][day_index]:
+                _, acquisition_dts, _, _ = parse_cslc_native_id(granule_id, burst_to_frames, frame_to_bursts)
+                smallest_date = min(acquisition_dts, smallest_date)
+                greatest_date = max(acquisition_dts, greatest_date)
+
+    logging.info(f"Total number of DISP-S1 products that should have been generated: {total_triggered}")
+
+    logging.info(f"Earliest acquisition date: {smallest_date}, Latest acquisition date: {greatest_date}")
+
+    # Retrieve all DISP-S1 products from CMR within the acquisition time range
+    all_disp_s1 = retrieve_r3_products(smallest_date, greatest_date, output_endpoint, _DISP_S1_PRODUCT_TYPE)
+    filtered_disp_s1 = []
+    for disp_s1 in all_disp_s1:
+
+        # Getting to the frame_id is a bit of a pain
+        for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
+            if attrib["Name"] == "FRAME_NUMBER":
+                if int(attrib["Values"][0]) in frames_to_validate: # Should only ever belong to one frame
+                    filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+
+    logging.info("Found {len(filtered_disp_s1)} DISP-S1 products:")
+    logging.info(filtered_disp_s1)
+
+    return None # TODO
 
 def validate_disp_s1_with_products(smallest_date, greatest_date, endpoint, df, logger):
     """
