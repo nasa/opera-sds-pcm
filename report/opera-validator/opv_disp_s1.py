@@ -132,11 +132,14 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
         # Getting to the frame_id is a bit of a pain
         for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
-            if attrib["Name"] == "FRAME_NUMBER":
-                if int(attrib["Values"][0]) in frames_to_validate: # Should only ever belong to one frame
+            if attrib["Name"] == "FRAME_NUMBER" and int(attrib["Values"][0]) in frames_to_validate: # Should only ever belong to one frame
+
+                # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
+                actual_temporal_time = datetime.datetime.strptime(disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
+                if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
                     filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
 
-    logging.info("Found {len(filtered_disp_s1)} DISP-S1 products:")
+    logging.info(f"Found {len(filtered_disp_s1)} DISP-S1 products:")
     logging.info(filtered_disp_s1)
 
     return None # TODO
