@@ -12,7 +12,7 @@ import tqdm
 import logging
 
 from opv_util import (get_granules_from_query, retrieve_r3_products, get_burst_id, get_burst_sensing_datetime, get_burst_ids_from_file)
-from opv_disp_s1 import validate_disp_s1, map_cslc_bursts_to_frames
+from opv_disp_s1 import validate_disp_s1
 
 from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame_burst_hist
 
@@ -312,9 +312,9 @@ if __name__ == '__main__':
         print(tabulate(should_df[['Frame ID', 'Acq Day Index', 'All Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
         if (args.verbose):
-            print(tabulate(result_df[['Product ID', 'Frame ID','Acq Day Index', 'All Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Acq Day Indices', 'All Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
         else:
-            print(tabulate(result_df[['Product ID', 'Frame ID','Acq Day Index', 'All Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Acq Day Indices', 'All Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
     else:
         logging.error(f"Arguments for for --product '{args.product}' missing or not invalid.")

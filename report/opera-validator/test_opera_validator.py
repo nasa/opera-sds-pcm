@@ -1,17 +1,17 @@
 import pytest
 import requests
 import json
+import pickle
 import pandas as pd
 from datetime import datetime, timedelta
 from opv_util import generate_url_params
 from opera_validator import (
     get_burst_id, 
     get_burst_sensing_datetime, 
-    map_cslc_bursts_to_frames,
     validate_dswx_s1
 )
 from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist
-from opv_disp_s1 import get_frame_to_dayindex_to_granule, filter_for_trigger_frame
+from opv_disp_s1 import get_frame_to_dayindex_to_granule, filter_for_trigger_frame, match_up_disp_s1
 
 def test_get_burst_id():
     assert get_burst_id("OPERA_L2_RTC-S1_T020-041121-IW1_20231101T013115Z_20231104T041913Z_S1A_30_v1.0") == "t020_041121_iw1"
@@ -56,6 +56,17 @@ def test_generate_url_params():
     assert base_url == "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json"
     assert params['provider'] == provider
     assert params['ShortName[]'] == short_name
+
+def test_disp_s1_match():
+    # Unpickle these two files
+    with open("should_trigger.pkl", 'rb') as f:
+        data_should_trigger = pickle.load(f)
+    with open("data.pkl", 'rb') as f:
+        data = pickle.load(f)
+
+    matched_up_data = match_up_disp_s1(data_should_trigger, data)
+    for item in matched_up_data:
+        assert item["All Bursts Count"] == item["Matching Bursts Count"]
 
 def test_frame_to_dayindex_to_granule():
     frame_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
