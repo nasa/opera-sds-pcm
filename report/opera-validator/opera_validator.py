@@ -308,13 +308,13 @@ if __name__ == '__main__':
     elif (args.product == 'DISP-S1'):
 
         # Perform all validation work in this function
-        result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.disp_s1_frames_only)
-        print(result_df)
+        should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.disp_s1_frames_only)
+        print(tabulate(should_df[['Frame ID', 'Acq Day Index', 'All Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
         if (args.verbose):
-            print(tabulate(result_df[['Frame ID','All Possible Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Product ID', 'Frame ID','Acq Day Index', 'All Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
         else:
-            print(tabulate(result_df[['Frame ID','All Possible Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Product ID', 'Frame ID','Acq Day Index', 'All Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
     else:
         logging.error(f"Arguments for for --product '{args.product}' missing or not invalid.")

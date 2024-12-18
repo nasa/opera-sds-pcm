@@ -105,6 +105,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # Determine which frame-dayindex pairs were supposed to have been processed. Remove any one that weren't supposed to have been processed.
     frame_to_dayindex_to_granule = get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts)
     granules_should_trigger = filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burst_to_frames)
+    data_should_trigger = []
 
     # Initialize smallest and greatest time to be something very large and very small
     smallest_date = datetime.datetime.strptime("2099-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -116,10 +117,17 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         for day_index in granules_should_trigger[frame_id]:
             total_triggered += 1
             logging.info("Frame ID: %s, Day Index: %s, Num CSLCs: %d, CSLCs: %s", frame_id, day_index, len(granules_should_trigger[frame_id][day_index]), granules_should_trigger[frame_id][day_index])
+            data_should_trigger.append({
+                'Frame ID': frame_id,
+                'Acq Day Index': day_index,
+                "All Bursts": granules_should_trigger[frame_id][day_index],
+                'All Bursts Count': len(granules_should_trigger[frame_id][day_index])
+            })
             for granule_id in granules_should_trigger[frame_id][day_index]:
                 _, acquisition_dts, _, _ = parse_cslc_native_id(granule_id, burst_to_frames, frame_to_bursts)
                 smallest_date = min(acquisition_dts, smallest_date)
                 greatest_date = max(acquisition_dts, greatest_date)
+    should_df = pd.DataFrame(data_should_trigger)
 
     logging.info(f"Total number of DISP-S1 products that should have been generated: {total_triggered}")
 
@@ -142,7 +150,37 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     logging.info(f"Found {len(filtered_disp_s1)} DISP-S1 products:")
     logging.info(filtered_disp_s1)
 
-    return None # TODO
+    # Now query GRQ ES DISP-S1 product table to get more metadata and the input file lists for each DISP-S1 product
+    # And then create a DataFrame out of it
+    data = []
+    es_util = es_conn_util.get_es_connection(None)
+    for granule_id in filtered_disp_s1:
+        disp_s1s = es_util.query(
+            index=_DISP_S1_INDEX_PATTERNS,
+            body={"query": {"bool": {"must": [
+                {"match": {"id.keyword": granule_id}}
+            ]}}})
+        if len(disp_s1s) == 0:
+            logging.error(f"Expected DISP-S1 product with ID {granule_id} in GRQ ES but not found.")
+            continue
+        assert len(disp_s1s) <= 1, "Expected at most one DISP-S1 product match by ID in GRQ ES. Delete the duplicate(s) and re-run"
+        disp_s1 = disp_s1s[0]
+
+        metadata = disp_s1["_source"]["metadata"]
+        all_bursts = [s for s in metadata["lineage"] if "CSLC" in s and not "STATIC" in s] # Only use the CSLC input files
+        data.append({
+            'Product ID': granule_id,
+            'Frame ID': metadata["frame_id"],
+            'Acq Day Index': metadata["acquisition_cycle"],
+            "All Bursts": all_bursts,
+            'All Bursts Count': len(all_bursts),
+            "Matching Bursts": None,
+            'Matching Bursts Count': 0
+        })
+
+    # Create a DataFrame from the data
+    df = pd.DataFrame(data)
+    return should_df, df
 
 def validate_disp_s1_with_products(smallest_date, greatest_date, endpoint, df, logger):
     """
@@ -181,13 +219,6 @@ def validate_disp_s1_with_products(smallest_date, greatest_date, endpoint, df, l
         available_cslc_bursts = []
         for item in all_granules:
             print(item)
-
-            '''ccslc = es_util.query(
-                index=_DISP_S1_INDEX_PATTERNS,
-                body={"query": {"bool": {"must": [
-                    {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}},
-                    {"term": {"metadata.frame_id": frame_id}}
-                ]}}})'''
 
             input_granules = item['umm']['InputGranules']
 
@@ -263,18 +294,3 @@ def map_cslc_bursts_to_frames(burst_ids, bursts_to_frames, frames_to_bursts):
         matching_bursts = [burst for burst in burst_ids if burst in associated_bursts]
         if (len(associated_bursts) == 0 and len(matching_bursts) == 0):
             continue  # Ignore matching burst counts that are zero in number
-
-        print("Got here")
-
-        # Append the result to the data list
-        data.append({
-            "Frame ID": frame_id,
-            "All Possible Bursts": associated_bursts,
-            'All Possible Bursts Count': len(associated_bursts),
-            "Matching Bursts": matching_bursts,
-            'Matching Bursts Count': len(matching_bursts)
-        })
-
-    # Create a DataFrame from the data
-    df = pd.DataFrame(data)
-    return df
