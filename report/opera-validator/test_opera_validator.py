@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from opv_util import generate_url_params
 from opera_validator import (
     get_burst_id, 
-    get_burst_sensing_datetime, 
+    get_burst_sensing_datetime,
     validate_dswx_s1
 )
 from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist

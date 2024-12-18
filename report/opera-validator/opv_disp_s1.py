@@ -83,6 +83,15 @@ def match_up_disp_s1(data_should_trigger, data):
     for item in data_should_trigger:
         frame_to_dayindex_to_granule[item['Frame ID']][item['Acq Day Index']] = item['All Bursts']
 
+    # Remove any bursts that have COMPRESSED string in them
+    ''' for disp_s1 in data:
+        disp_s1['All Bursts'] = [b for b in disp_s1['All Bursts'] if 'COMPRESSED' not in b]
+        disp_s1['All Bursts Count'] = len(disp_s1['All Bursts'])
+    # pickle it out
+    with open('data2.pkl', 'wb') as f:
+        pickle.dump(data, f)
+    '''
+
     for disp_s1 in data:
         matching_count = 0
         matching_bursts = []
@@ -98,6 +107,9 @@ def match_up_disp_s1(data_should_trigger, data):
 
         disp_s1['Matching Bursts'] = matching_bursts
         disp_s1['Matching Bursts Count'] = matching_count
+
+        disp_s1['Unmatching Bursts'] = list(all_bursts_set)
+        disp_s1['Unmatching Bursts Count'] = len(all_bursts_set)
 
     return data
 
@@ -218,7 +230,10 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         disp_s1 = disp_s1s[0]
 
         metadata = disp_s1["_source"]["metadata"]
-        all_bursts = [s.split("/")[-1] for s in metadata["lineage"] if "CSLC" in s and not "STATIC" in s] # Only use the CSLC input files
+
+        # Only use the CSLC input files
+        all_bursts = [s.split("/")[-1] \
+                      for s in metadata["lineage"] if "CSLC" in s and not "STATIC" in s and not "COMPRESSED" in s]
 
         #from "f8889_a168_f8889_a156_f8889_a144 to [168, 156, 144]
         all_acq_day_indices =  [int(s.split("_")[0]) for s in metadata["input_granule_id"].split("_a")[1:]]
@@ -231,7 +246,9 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
             "All Bursts": all_bursts,
             'All Bursts Count': len(all_bursts),
             'Matching Bursts': [],
-            'Matching Bursts Count': 0
+            'Matching Bursts Count': 0,
+            'Unmatching Bursts': [],
+            'Unmatching Bursts Count': 0
         })
 
     # Pickle out the data dictionary for later use
