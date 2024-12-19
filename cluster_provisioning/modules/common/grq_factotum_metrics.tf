@@ -152,7 +152,7 @@ resource "aws_instance" "metrics" {
       echo INSTALLING DSWX-S1 VALIDATOR
 
       cd ~/metrics/ops/opera-pcm
-      cd report/dswx-s1-validator
+      cd report/opera-validator
       pip install pandas tabulate tqdm requests python-cmr
 
       # For DSWx-S1 validator tool
