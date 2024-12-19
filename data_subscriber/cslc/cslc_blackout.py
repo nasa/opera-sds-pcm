@@ -1,25 +1,34 @@
-import json
-from copy import deepcopy
-from collections import defaultdict
-import dateutil
-import logging
-from functools import cache
-import asyncio
 
+import asyncio
+import json
+from collections import defaultdict
+from copy import deepcopy
+from functools import cache
+
+import dateutil
+
+from commons.logger import get_logger
+from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
+from data_subscriber.cslc_utils import (localize_anc_json,
+                                        sensing_time_day_index,
+                                        parse_cslc_native_id,
+                                        parse_cslc_file_name,
+                                        download_batch_id_forward_reproc)
 from data_subscriber.url import cslc_unique_id
-from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT, DateTimeRange
-from data_subscriber.cslc_utils import localize_anc_json, sensing_time_day_index, parse_cslc_native_id, parse_cslc_file_name, download_batch_id_forward_reproc
 
 DEFAULT_DISP_BLACKOUT_DATE_NAME = 'opera-disp-s1-blackout-dates.json'
 
-logger = logging.getLogger(__name__)
 
 @cache
 def localize_disp_blackout_dates():
+    logger = get_logger()
+
     try:
         file = localize_anc_json("DISP_S1_BLACKOUT_DATES_S3PATH")
     except:
-        logger.warning(f"Could not download DISP-S1 blackout dates file from settings.yaml field DISP_S1_BLACKOUT_DATES_S3PATH from S3. Attempting to use local copy named {DEFAULT_DISP_BLACKOUT_DATE_NAME}.")
+        logger.warning("Could not download DISP-S1 blackout dates file from settings.yaml "
+                       "field DISP_S1_BLACKOUT_DATES_S3PATH from S3. "
+                       "Attempting to use local copy named %s.", DEFAULT_DISP_BLACKOUT_DATE_NAME)
         file = DEFAULT_DISP_BLACKOUT_DATE_NAME
 
     return process_disp_blackout_dates(file)
@@ -110,7 +119,7 @@ class DispS1BlackoutDates:
 
 def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only = True):
     '''Filter for CSLC granules and filter for blackout dates and polarization'''
-
+    logger = get_logger()
     filtered_granules = []
 
     # Get rid of any bursts that aren't in the disp-s1 consistent database. Need to do this before the extending records
@@ -118,7 +127,8 @@ def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, 
     for granule in granules:
         burst_id, acquisition_dts = parse_cslc_file_name(granule['granule_id'])
         if burst_id not in blackout_dates_obj.burst_to_frames.keys() or len(blackout_dates_obj.burst_to_frames[burst_id]) == 0:
-            logger.info(f"Skipping granule {granule['granule_id']} because {burst_id=} not in the historical database")
+            logger.info("Skipping granule %s because burst_id=%s not in the historical database",
+                        granule['granule_id'], burst_id)
         else:
             relevant_granules.append(granule)
 
@@ -127,7 +137,7 @@ def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, 
     for granule in relevant_granules:
 
         if vv_only and "_VV_" not in granule["granule_id"]:
-            logger.info(f"Skipping granule {granule['granule_id']} because it doesn't have VV polarization")
+            logger.info(f"Skipping granule %s because it doesn't have VV polarization", granule['granule_id'])
             continue
 
         frame_id = granule["frame_id"]
@@ -136,16 +146,17 @@ def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, 
         if is_black_out:
             blackout_start = dates[0].strftime(CMR_TIME_FORMAT)
             blackout_end = dates[1].strftime(CMR_TIME_FORMAT)
-            logger.info(f"Skipping granule {granule['granule_id']} because {frame_id=} falls on a blackout date {blackout_start=} {blackout_end=}")
+            logger.info(f"Skipping granule %s because frame_id=%s falls on a blackout date blackout_start=%s blackout_end=%s",
+                        granule['granule_id'], frame_id, blackout_start, blackout_end)
             continue
 
         filtered_granules.append(granule)
 
     return filtered_granules
 
-def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, silent, blackout_dates_obj,
+def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, verbose, blackout_dates_obj,
                                          no_duplicate, force_frame_id, vv_only = True):
     '''Query CMR for CSLC granules and filter for blackout dates and polarization'''
 
-    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, silent))
+    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, verbose))
     return _filter_cslc_blackout_polarization(granules, args.proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only)

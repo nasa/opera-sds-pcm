@@ -1,12 +1,9 @@
 
-import logging
-
 from data_subscriber.geojson_utils import localize_geojsons
 from data_subscriber.query import CmrQuery
 from data_subscriber.slc.slc_catalog import SLCSpatialProductCatalog
 from geo.geo_util import _NORTH_AMERICA, does_bbox_intersect_north_america
 
-logger = logging.getLogger(__name__)
 
 class SlcCmrQuery(CmrQuery):
 
@@ -17,7 +14,7 @@ class SlcCmrQuery(CmrQuery):
         localize_geojsons([_NORTH_AMERICA])
 
     def update_granule_index(self, granule):
-        spatial_catalog_conn = SLCSpatialProductCatalog(logger)
+        spatial_catalog_conn = SLCSpatialProductCatalog(self.logger)
         spatial_catalog_conn.process_granule(granule)
 
     def prepare_additional_fields(self, granule, args, granule_id):

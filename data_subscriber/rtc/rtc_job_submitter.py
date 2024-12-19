@@ -1,19 +1,19 @@
+
 import asyncio
-from datetime import datetime, timezone
-import logging
 import os
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import PurePath
 from typing import Optional
 
+from commons.logger import get_logger
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from util.job_submitter import try_submit_mozart_job
-
-logger = logging.getLogger(__name__)
 
 
 async def example(batch_id_to_urls_map, args):
     """Sample usage function."""
+    logger = get_logger()
     job_submission_tasks = submit_dswx_s1_job_submissions_tasks(batch_id_to_urls_map, args)
     results = await asyncio.gather(*job_submission_tasks, return_exceptions=True)
     logger.info(f"{len(results)=}")

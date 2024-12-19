@@ -27,7 +27,6 @@ Options:
       --grq-host                                       The hostname and port of GRQ.
       --cnm-r-topic-arn                                The CNM-R SNS topic ARN.
       --cnm-r-queue-url                                The CNM-R SQS queue URL.
-      --isl-bucket                                     The ISL S3 bucket name.
       --rs-bucket                                      The RS S3 bucket name.
       --L30-data-subscriber-query-lambda               The name of the AWS Lambda function that submits L30 query jobs.
       --S30-data-subscriber-query-lambda               The name of the AWS Lambda function that submits S30 query jobs.
@@ -74,10 +73,6 @@ for i in "$@"; do
       ;;
     --cnm-r-queue-url=*)
       cnm_r_queue_url="${i#*=}"
-      shift
-      ;;
-    --isl-bucket=*)
-      isl_bucket="${i#*=}"
       shift
       ;;
     --rs-bucket=*)
@@ -132,7 +127,6 @@ export GRQ_HOST=${grq_host}
 export GRQ_BASE_URL="https://${mozart_ip}/grq/api/v0.1"
 export CNMR_TOPIC=${cnm_r_topic_arn}
 export CNMR_QUEUE=${cnm_r_queue_url}
-export ISL_BUCKET=${isl_bucket}
 export RS_BUCKET=${rs_bucket}
 export L30_DATA_SUBSCRIBER_QUERY_LAMBDA=${L30_data_subscriber_query_lambda}
 export S30_DATA_SUBSCRIBER_QUERY_LAMBDA=${S30_data_subscriber_query_lambda}

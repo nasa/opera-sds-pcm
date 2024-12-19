@@ -1,19 +1,19 @@
 """Collection of AWS-related utilities"""
+
 import concurrent.futures
 import contextlib
-import logging
-import threading
 import os
+import threading
 from pathlib import Path
 from typing import Collection
 
 import backoff
 import boto3
 from boto3.exceptions import Boto3Error
-from more_itertools import chunked
 from mypy_boto3_s3 import S3Client
 
-logger = logging.getLogger(__name__)
+from commons.logger import logger
+from util.backoff_util import giveup_s3_client_upload_file
 
 
 def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Collection[Path]):
@@ -36,19 +36,6 @@ def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Co
         s3paths = [s3path := future.result() for future in concurrent.futures.as_completed(futures)]
 
         return s3paths
-
-
-def giveup_s3_client_upload_file(e):
-    """
-    giveup function for use with @backoff decorator. This only checks for a local-testing condition of running into
-    an expired AWS CLI/SDK session token.
-    """
-    if isinstance(e, boto3.exceptions.Boto3Error):
-        if isinstance(e, boto3.exceptions.S3UploadFailedError):
-            if "ExpiredToken" in e.args[0]:
-                logger.error("Local testing error. Give up immediately.")
-                return True
-    return False
 
 
 @backoff.on_exception(backoff.expo, exception=Boto3Error, max_tries=3, jitter=None, giveup=giveup_s3_client_upload_file)

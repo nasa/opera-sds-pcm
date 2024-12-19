@@ -1,10 +1,9 @@
-import logging
 from datetime import datetime
 
 import requests
 from requests.auth import HTTPBasicAuth
 
-logger = logging.getLogger(__name__)
+from commons.logger import get_logger
 
 
 def supply_token(edl: str, username: str, password: str) -> str:
@@ -61,7 +60,10 @@ def _create_token(edl: str, username: str, password: str) -> str:
 
 
 def _delete_token(edl: str, username: str, password: str, token: str) -> None:
+    logger = get_logger()
+
     url = f"https://{edl}/api/users/revoke_token"
+
     try:
         resp = requests.post(url, auth=HTTPBasicAuth(username, password),
                              params={"token": token})

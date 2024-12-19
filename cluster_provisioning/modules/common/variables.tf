@@ -132,12 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - November 11, 2024 - R3.1
-    mozart    = "ami-00256bf4b8203308f" # mozart v4.26 - 241111
-    metrics   = "ami-014c93ef86800a2ea" # metrics v4.18 - 241111
-    grq       = "ami-024e7fdfacf9502ef" # grq v4.19 - 241111
-    factotum  = "ami-06a9085a0dc301a9c" # factotum v4.17 - 241111
-    autoscale = "ami-07afabed58d16a0e1" # verdi v4.17 patchdate - 241111
+    # HySDS v5.0.1 - December 16, 2024 - R3.1
+    mozart    = "ami-017e3329599acd62f" # mozart v4.26 - 241216
+    metrics   = "ami-0d0a7be874df2e50e" # metrics v4.18 - 241216
+    grq       = "ami-091fbec87ae67f22b" # grq v4.19 - 241216
+    factotum  = "ami-0b7a1d2a38c2ee273" # factotum v4.17 - 241216
+    autoscale = "ami-0f71b5eb05a08d42c" # verdi v4.17 patchdate - 241216
 #    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
   }
 }
@@ -176,12 +176,6 @@ variable "es_bucket_role_arn" {
 
 variable "es_snapshot_bucket" {
   default = "opera-dev-es-bucket"
-}
-
-variable "lambda_job_type" {
-}
-
-variable "lambda_job_queue" {
 }
 
 variable "cnm_r_handler_job_type" {
@@ -247,14 +241,6 @@ variable "lambda_harikiri_handler_package_name" {
   default = "lambda-harikiri-handler"
 }
 
-variable "lambda_isl_handler_package_name" {
-  default = "lambda-isl-handler"
-}
-
-variable "lambda_timer_handler_package_name" {
-  default = "lambda-timer-handler"
-}
-
 variable "lambda_data-subscriber-download_handler_package_name" {
   default = "lambda-data-subscriber-download-handler"
 }
@@ -284,16 +270,6 @@ variable "lambda_package_release" {
 
 variable "queues" {
   default = {
-    "opera-job_worker-hls_data_ingest" = {
-      "name"              = "opera-job_worker-hls_data_ingest"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "min_size"          = 0
-      "max_size"          = 1
-      "total_jobs_metric" = true
-      "use_on_demand"     = false
-    }
     "opera-job_worker-sciflo-l2_cslc_s1" = {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1"
       "log_file_name"     = "run_sciflo_L2_CSLC_S1"
@@ -369,7 +345,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["r7i.4xlarge", "r6a.4xlarge", "r6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
+      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
       "root_dev_size"     = 50
       "data_dev_size"     = 600
       "max_size"          = 10
@@ -575,15 +551,6 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
-    "opera-job_worker-timer" = {
-      "name"              = "opera-job_worker-timer"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
-      "root_dev_size"     = 50
-      "data_dev_size"     = 100
-      "max_size"          = 10
-      "total_jobs_metric" = false
-      "use_on_demand"     = false
-    }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
       "instance_type"     = ["r6a.2xlarge"]
@@ -593,7 +560,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-pge_smoke_test_intel" = {
       "name"              = "opera-job_worker-pge_smoke_test_intel"
@@ -604,7 +571,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
   }
 }
@@ -650,7 +617,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.0"
+    "disp_s1"  = "3.0.1"
     "dswx_ni"  = "4.0.0-er.3.0"
   }
 }

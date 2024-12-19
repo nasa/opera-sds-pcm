@@ -70,6 +70,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   health_check_grace_period = 300
   health_check_type         = "EC2"
   protect_from_scale_in     = false
+  suspended_processes       = ["AZRebalance"]
   vpc_zone_identifier       = lookup(each.value, "use_private_vpc", true) ? data.aws_subnet_ids.private_asg_vpc.ids : data.aws_subnet_ids.public_asg_vpc.ids
   metrics_granularity       = "1Minute"
   enabled_metrics = [

@@ -16,14 +16,11 @@ if [ "$#" -eq 19 ]; then
   product_delivery_repo=${11}
   product_delivery_branch=${12}
   mozart_private_ip=${13}
-  isl_bucket=${14}
-  source_event_arn=${15}
-  daac_delivery_proxy=${16}
-  use_daac_cnm=${17}
-  crid=${18}
-  cluster_type=${19}
-#  data_query_timer_trigger_frequency=${20}
-#  data_download_timer_trigger_frequency=${21}
+  source_event_arn=${14}
+  daac_delivery_proxy=${15}
+  use_daac_cnm=${16}
+  crid=${17}
+  cluster_type=${18}
 else
   echo "Invalid number or arguments ($#) $*" 1>&2
   exit 1
@@ -51,12 +48,6 @@ cd ~/.sds/files
 
 # ingest Sacramento AOI to test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
-
-# submit test hello world job to CPU queue/ASG
-#python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job.py ${pcm_branch}
-
-# submit test hello world job to GPU queue/ASG to exercise GPU-capability
-#python ~/mozart/ops/opera-pcm/conf/sds/files/test/submit_hello_world_job-gpu.py ${pcm_branch}
 
 # import trigger rules for mozart and grq
 #cd ~/.sds/files/test

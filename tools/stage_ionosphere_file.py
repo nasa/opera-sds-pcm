@@ -17,19 +17,15 @@ import os
 import re
 import subprocess
 import sys
-
 from os.path import abspath, join
 
 import requests
-
-from commons.logger import logger
 from commons.logger import LogLevels
+from commons.logger import logger
+from util.edl_util import DEFAULT_EDL_ENDPOINT, SessionWithHeaderRedirection
 
 DEFAULT_DOWNLOAD_ENDPOINT = "https://cddis.nasa.gov/archive/gnss/products/ionex"
 """Default URL endpoint for Ionosphere download requests"""
-
-DEFAULT_EDL_ENDPOINT = "urs.earthdata.nasa.gov"
-"""Default endpoint for authenticating with EarthData Login"""
 
 IONOSPHERE_TYPE_JPLG = "jplg"
 IONOSPHERE_TYPE_JPRG = "jprg"
@@ -88,40 +84,6 @@ def get_parser():
                              "path to the file.")
 
     return parser
-
-# TODO: this should land in a "login" utility module at some point
-class SessionWithHeaderRedirection(requests.Session):
-    """
-    Class with an override of the requests.Session.rebuild_auth to maintain
-    headers when redirected by EarthData Login.
-
-    This code was adapted from the examples available here:
-    https://urs.earthdata.nasa.gov/documentation/for_users/data_access/python
-
-    """
-    AUTH_HOST = DEFAULT_EDL_ENDPOINT
-
-    def __init__(self, username, password):
-        super().__init__()
-        self.auth = (username, password)
-
-    # Overrides from the library to keep headers when redirected to or from
-    # the NASA auth host.
-    def rebuild_auth(self, prepared_request, response):
-        headers = prepared_request.headers
-        url = prepared_request.url
-
-        if 'Authorization' in headers:
-            original_parsed = requests.utils.urlparse(response.request.url)
-            redirect_parsed = requests.utils.urlparse(url)
-
-            if (original_parsed.hostname != redirect_parsed.hostname) and \
-                    redirect_parsed.hostname != self.AUTH_HOST and \
-                    original_parsed.hostname != self.AUTH_HOST:
-                del headers['Authorization']
-
-        return
-
 
 def parse_start_date_from_safe(input_safe_file):
     """

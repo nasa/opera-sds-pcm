@@ -3,22 +3,21 @@
 '''Goes through the list of pending jobs and submits them to the job queue
 after checking if they are ready to be submitted'''
 
-import boto3
 import logging
 import sys
 
-from commons.logger import NoJobUtilsFilter, NoBaseFilter, NoLogUtilsFilter
-from util.conf_util import SettingsConf
-from data_subscriber.cmr import get_cmr_token
-from data_subscriber.parser import create_parser
-from data_subscriber.query import submit_download_job
+from cslc_utils import (get_pending_download_jobs,
+                        localize_disp_frame_burst_hist,
+                        mark_pending_download_job_submitted)
+from commons.logger import configure_library_loggers
 from data_subscriber import es_conn_util
-from cslc_utils import (get_pending_download_jobs, localize_disp_frame_burst_hist, mark_pending_download_job_submitted)
-from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.cmr import get_cmr_token
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
-
-
+from data_subscriber.cslc.cslc_dependency import CSLCDependency
+from data_subscriber.parser import create_parser
+from data_subscriber.query import submit_download_job
+from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 
 logging.basicConfig(level="INFO")
@@ -27,19 +26,8 @@ logger = logging.getLogger(__name__)
 
 @exec_wrapper
 def main():
-    configure_logger()
+    configure_library_loggers()
     run(sys.argv)
-
-def configure_logger():
-    logger_hysds_commons = logging.getLogger("hysds_commons")
-    logger_hysds_commons.addFilter(NoJobUtilsFilter())
-
-    logger_elasticsearch = logging.getLogger("elasticsearch")
-    logger_elasticsearch.addFilter(NoBaseFilter())
-
-    boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
-
-    logger.addFilter(NoLogUtilsFilter())
 
 
 def run(argv: list[str]):

@@ -12,11 +12,11 @@ import backoff
 import boto3
 import dateutil.parser
 import dateutil.parser
-from hysds_commons.job_utils import submit_mozart_job
 from more_itertools import chunked, partition
 from mypy_boto3_s3 import S3Client
 
-from commons.logger import NoJobUtilsFilter, NoBaseFilter
+from commons.logger import configure_library_loggers
+from hysds_commons.job_utils import submit_mozart_job
 from tools import stage_ionosphere_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from util import grq_client as grq_client, job_util
@@ -29,12 +29,7 @@ logger = logging.getLogger(__name__)
 
 @exec_wrapper
 def main():
-    logger_hysds_commons = logging.getLogger("hysds_commons")
-    logger_hysds_commons.addFilter(NoJobUtilsFilter())
-
-    logger_elasticsearch = logging.getLogger("elasticsearch")
-    logger_elasticsearch.addFilter(NoBaseFilter())
-
+    configure_library_loggers()
     asyncio.run(run(sys.argv))
 
 

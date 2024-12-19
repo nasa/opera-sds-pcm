@@ -258,14 +258,6 @@ variable "lambda_role_arn" {
   default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
 }
 
-variable "lambda_job_type" {
-  default = "INGEST_STAGED"
-}
-
-variable "lambda_job_queue" {
-  default = "opera-job_worker-hls_data_ingest"
-}
-
 # CNM Response job vars
 
 variable "cnm_r_handler_job_type" {
@@ -390,7 +382,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.0"
+    "disp_s1"  = "3.0.1"
     "dswx_ni"  = "4.0.0-er.3.0"
   }
 }

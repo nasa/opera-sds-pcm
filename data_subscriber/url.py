@@ -1,9 +1,11 @@
-import logging
 import re
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
+
 import dateutil
-from datetime import datetime, timedelta
+
+from commons.logger import get_logger
 
 _EPOCH_S1A = "20140101T000000Z"
 
@@ -56,28 +58,31 @@ def _to_tile_id(dl_doc: dict[str, Any]):
 
 
 def _has_url(dl_dict: dict[str, Any]):
+    logger = get_logger()
     result = _has_s3_url(dl_dict) or _has_https_url(dl_dict)
 
     if not result:
-        logging.error(f"Couldn't find any URL in {dl_dict=}")
+        logger.error(f"Couldn't find any URL in {dl_dict=}")
 
     return result
 
 
 def _has_https_url(dl_dict: dict[str, Any]):
+    logger = get_logger()
     result = dl_dict.get("https_url")
 
     if not result:
-        logging.warning(f"Couldn't find any HTTPS URL in {dl_dict=}")
+        logger.warning(f"Couldn't find any HTTPS URL in {dl_dict=}")
 
     return result
 
 
 def _has_s3_url(dl_dict: dict[str, Any]):
+    logger = get_logger()
     result = dl_dict.get("s3_url")
 
     if not result:
-        logging.warning(f"Couldn't find any S3 URL in {dl_dict=}")
+        logger.warning(f"Couldn't find any S3 URL in {dl_dict=}")
 
     return result
 
@@ -116,7 +121,6 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
                                     burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))
                         ) / ACQUISITION_CYCLE_DURATION_SECS
 
-    #print(acquisition_index)
 
     acquisition_cycle = round(acquisition_index)
     assert acquisition_cycle >= 0, f"Acquisition cycle is negative: {acquisition_cycle=}"
