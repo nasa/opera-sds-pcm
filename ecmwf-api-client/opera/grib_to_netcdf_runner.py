@@ -4,7 +4,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def run_grib_to_netcdf(src: Path, target: Path):
+def run_grib_to_netcdf(grib_file: Path, nc_file: Path):
     """Convert a grib file to netcdf. If the file is already a netcdf file, ignore."""
     logger.info(f"{src=!s}, {target=!s}")
     if src.suffix == ".nc":
@@ -16,8 +16,8 @@ def run_grib_to_netcdf(src: Path, target: Path):
         [
             "grib_to_netcdf",
             "-D", "NC_FLOAT",
-            "-o", str(target.resolve()),
-            str(src)
+            "-o", str(nc_file.resolve()),
+            str(grib_file)
         ],
         shell=False,
         check=False,
