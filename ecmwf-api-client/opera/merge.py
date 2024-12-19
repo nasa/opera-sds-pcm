@@ -51,7 +51,7 @@ def opera_merge_netcdf_pairs(a2_a3_pairs: list[tuple[Path, Path]],
             dim="level",
         )
         
-        ds_merge.to_netcdf(target.resolve(), format="NETCDF4"))
+        ds_merge.to_netcdf(target.resolve(), format="NETCDF4")
 
 
 
