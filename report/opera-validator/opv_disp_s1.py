@@ -113,7 +113,46 @@ def match_up_disp_s1(data_should_trigger, data):
 
     return data
 
-def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, shortname='OPERA_L2_CSLC-S1_V1'):
+def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate):
+    # Retrieve all DISP-S1 products from CMR within the acquisition time range as a list of granuleIDs
+    all_disp_s1 = retrieve_r3_products(smallest_date, greatest_date, output_endpoint, _DISP_S1_PRODUCT_TYPE)
+    filtered_disp_s1 = []
+    for disp_s1 in all_disp_s1:
+
+        # Getting to the frame_id is a bit of a pain
+        for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
+            if attrib["Name"] == "FRAME_NUMBER" and int(
+                    attrib["Values"][0]) in frames_to_validate:  # Should only ever belong to one frame
+
+                # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
+                actual_temporal_time = datetime.datetime.strptime(
+                    disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
+                if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
+                    filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+
+    return filtered_disp_s1
+
+def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
+    # Retrieve all DISP-S1 products from GRQ ES within the acquisition time range as a list of granuleIDs
+
+    # There is currently no way to query by acquistion time so we will have to retrieve everything first and then filter
+    # in code by acquisition time
+    es_util = es_conn_util.get_es_connection(None)
+    disp_s1s = es_util.query(
+        index=_DISP_S1_INDEX_PATTERNS,
+        body={"query": {"bool": {"must": [
+            {"terms": {"metadata.frame_id": [str(f) for f in frames_to_validate]}}
+        ]}}})
+
+    filtered_disp_s1 = []
+    for disp_s1 in disp_s1s:
+        actual_temporal_time = datetime.datetime.strptime(
+            disp_s1["_source"]["metadata"]["Files"][0]["sec_datetime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
+            filtered_disp_s1.append(disp_s1["_source"]["id"])
+    return filtered_disp_s1
+
+def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, disp_s1_validate_with_grq, shortname='OPERA_L2_CSLC-S1_V1'):
     """
         Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
         It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -193,25 +232,15 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         pickle.dump(data_should_trigger, f)'''
 
     logging.info(f"Total number of DISP-S1 products that should have been generated: {total_triggered}")
-
     logging.info(f"Earliest acquisition date: {smallest_date}, Latest acquisition date: {greatest_date}")
 
-    # Retrieve all DISP-S1 products from CMR within the acquisition time range
-    all_disp_s1 = retrieve_r3_products(smallest_date, greatest_date, output_endpoint, _DISP_S1_PRODUCT_TYPE)
-    filtered_disp_s1 = []
-    for disp_s1 in all_disp_s1:
-
-        # Getting to the frame_id is a bit of a pain
-        for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
-            if attrib["Name"] == "FRAME_NUMBER" and int(attrib["Values"][0]) in frames_to_validate: # Should only ever belong to one frame
-
-                # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
-                actual_temporal_time = datetime.datetime.strptime(disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
-                if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
-                    filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+    if disp_s1_validate_with_grq:
+        filtered_disp_s1 = retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate)
+    else:
+        filtered_disp_s1 = retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate)
 
     logging.info(f"Found {len(filtered_disp_s1)} DISP-S1 products:")
-    logging.info(filtered_disp_s1)
+    logging.debug(filtered_disp_s1)
 
     # Now query GRQ ES DISP-S1 product table to get more metadata and the input file lists for each DISP-S1 product
     # And then create a DataFrame out of it
@@ -260,4 +289,5 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     # Create a DataFrame from the data
     df = pd.DataFrame(data)
+    df.sort_values(["Frame ID", "Last Acq Day Index"], inplace=True)
     return should_df, df
