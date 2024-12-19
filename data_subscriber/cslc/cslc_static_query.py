@@ -1,10 +1,5 @@
-#!/usr/bin/env python3
-
-import logging
 
 from data_subscriber.query import CmrQuery
-
-logger = logging.getLogger(__name__)
 
 class CslcStaticCmrQuery(CmrQuery):
 

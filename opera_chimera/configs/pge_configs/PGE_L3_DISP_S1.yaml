@@ -21,12 +21,9 @@ runconfig:
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     ionosphere_files: __CHIMERA_VAL__
-    # TODO: to be supported in next release
-    #troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
-    # TODO: unsure if we have this yet or if it even needs to be provided in production 
-    #reference_date_database_json: __CHIMERA_VAL__
+    reference_date_database_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/mamba/output_dir
@@ -35,10 +32,11 @@ runconfig:
   processing:
     frame_id: __CHIMERA_VAL__
     algorithm_parameters: __CHIMERA_VAL__
+    algorithm_parameters_overrides_json: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
-    debug_switch: True  # TODO: Currently enabled to bypass a faulty validation check in the PGE
+    debug_switch: False
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -55,8 +53,6 @@ preconditions:
   - get_disp_s1_compressed_cslc_files
   - get_disp_s1_static_layers_files
   - get_disp_s1_ionosphere_files
-  # TODO: to be supported in next release
-  #- get_disp_s1_troposphere_files
   - get_disp_s1_mask_file
   - get_disp_s1_dem
   - get_disp_s1_save_compressed_slc
@@ -78,11 +74,13 @@ get_static_ancillary_files:
   frame_to_burst_json:
     s3_bucket: "opera-ancillaries"
     s3_key: "disp_frames/disp-s1/0.5.0/opera-s1-disp-0.5.0-frame-to-burst.json"
-
-  # JSON file containing list of reference date changes for each frame
-  #reference_date_database_json:
-  #  s3_bucket: "opera-ancillaries"
-  #  s3_key: "reference_date/opera-s1-disp-reference-date.json"
+  reference_date_database_json:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-minimal-2024-09-19.json"
+  algorithm_parameters_overrides_json:
+    s3_bucket: "opera-ancillaries"
+    s3_key: "algorithm_parameters/disp_s1/0.5.2/opera-disp-s1-algorithm-parameters-overrides-2024-11-26.json"
+    download: true
 
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
@@ -92,7 +90,7 @@ get_disp_s1_algorithm_parameters:
   # This S3 path only defines a location pattern of an algorithm parameters template file,
   # the processing mode (forward vs. historical) will be filled in by the function itself
   s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.4.1/algorithm_parameters_{processing_mode}.yaml.tmpl"
+  s3_key: "algorithm_parameters/disp_s1/0.5.2/algorithm_parameters_{processing_mode}.yaml.tmpl"
 
 instantiate_algorithm_parameters_template:
   template_mapping:

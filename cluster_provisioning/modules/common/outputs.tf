@@ -10,10 +10,6 @@ output "code_bucket" {
   value = local.code_bucket
 }
 
-output "isl_bucket" {
-  value = local.isl_bucket
-}
-
 output "triage_bucket" {
   value = local.triage_bucket
 }

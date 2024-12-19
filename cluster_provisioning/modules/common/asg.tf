@@ -21,6 +21,8 @@ resource "aws_launch_template" "launch_template" {
     var_venue = var.venue
     local_counter = local.counter
     var_environment = var.environment
+    run_log_group = length(split("-", lower(each.key))) == 4 ? split("-", lower(each.key))[3] : split("-", lower(each.key))[2]
+    log_file_name = lookup(each.value, "log_file_name", "run_job")
   }))
   vpc_security_group_ids = [lookup(each.value, "use_private_vpc", true) ? var.private_verdi_security_group_id : var.public_verdi_security_group_id]
 
@@ -68,6 +70,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   health_check_grace_period = 300
   health_check_type         = "EC2"
   protect_from_scale_in     = false
+  suspended_processes       = ["AZRebalance"]
   vpc_zone_identifier       = lookup(each.value, "use_private_vpc", true) ? data.aws_subnet_ids.private_asg_vpc.ids : data.aws_subnet_ids.public_asg_vpc.ids
   metrics_granularity       = "1Minute"
   enabled_metrics = [
@@ -107,7 +110,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
       spot_allocation_strategy                 = "price-capacity-optimized"
       spot_instance_pools                      = 0
       on_demand_base_capacity                  = 0
-      on_demand_percentage_above_base_capacity = 0
+      on_demand_percentage_above_base_capacity = lookup(each.value, "use_on_demand", true) ? 100 : 0
     }
 
     launch_template {

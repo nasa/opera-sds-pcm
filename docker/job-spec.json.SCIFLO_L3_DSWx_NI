@@ -1,5 +1,5 @@
 {
-  "command": "/home/ops/verdi/ops/chimera/chimera/run_sciflo.sh",
+  "command": "/home/ops/verdi/ops/opera-pcm/opera_chimera/run_sciflo.sh",
   "disk_usage":"100GB",
   "soft_time_limit": 14200,
   "time_limit": 14260,
@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/dswx_ni:4.0.0-er.2.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_ni-4.0.0-er.2.0.tar.gz",
+      "container_image_name": "opera_pge/dswx_ni:4.0.0-er.3.0",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_ni-4.0.0-er.3.0.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]

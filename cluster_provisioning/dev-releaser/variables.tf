@@ -257,14 +257,6 @@ variable "lambda_role_arn" {
   default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
 }
 
-variable "lambda_job_type" {
-  default = "INGEST_STAGED"
-}
-
-variable "lambda_job_queue" {
-  default = "opera-job_worker-hls_data_ingest"
-}
-
 # CNM Response job vars
 
 variable "cnm_r_handler_job_type" {

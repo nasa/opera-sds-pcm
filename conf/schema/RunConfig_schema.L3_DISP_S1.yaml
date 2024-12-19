@@ -26,6 +26,7 @@ RunConfig:
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
+        IsoMeasuredParameterDescriptions: str(required=False)
         DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:
@@ -96,6 +97,9 @@ RunConfig:
         # Whether the SAS should output and save the Compressed SLCs in addition to
         # the standard product output.
         save_compressed_slc: bool(required=True)
+
+        # Location of the static layers product associated with this product
+        static_layers_data_access: str(required=False)
 
       worker_settings:
         # Whether to use GPU for processing (if available).

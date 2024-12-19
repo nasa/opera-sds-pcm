@@ -1,9 +1,11 @@
-import boto3
-import logging
 import os
 
+import boto3
+
+from commons.logger import get_logger
 from geo.geo_util import does_bbox_intersect_region
 from util.conf_util import SettingsConf
+
 
 def localize_include_exclude(args):
 
@@ -17,6 +19,7 @@ def localize_include_exclude(args):
     localize_geojsons(geojsons)
 
 def localize_geojsons(geojsons):
+    logger = get_logger()
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
 
@@ -27,8 +30,9 @@ def localize_geojsons(geojsons):
         try:
             download_from_s3(bucket, key, key)
         except Exception as e:
-            logging.warning("Exception while fetching geojson files: %s from S3 bucket %s. \
-Will try to fetch the same file from current working directory - this should only be done in testing scenarios. " % (key, bucket) + str(e))
+            logger.warning("Exception while fetching geojson files: %s from S3 bucket %s. "
+                           "Will try to fetch the same file from current working directory - "
+                           "this should only be done in testing scenarios." % (key, bucket) + str(e))
 
         # See if the file exists in the current working directory
         if not os.path.exists(key):
@@ -45,6 +49,7 @@ def does_granule_intersect_regions(granule, intersect_regions):
 
 def filter_granules_by_regions(granules, include_regions, exclude_regions):
     '''Filters granules based on include and exclude regions lists'''
+    logger = get_logger()
     filtered = []
 
     for granule in granules:
@@ -53,17 +58,20 @@ def filter_granules_by_regions(granules, include_regions, exclude_regions):
         if include_regions is not None:
             (result, region) = does_granule_intersect_regions(granule, include_regions)
             if result is False:
-                logging.info(
-                    f"The following granule does not intersect with any include regions. Skipping processing %s"
-                    % granule.get("granule_id"))
+                logger.info(
+                    "The following granule does not intersect with any include regions. "
+                    "Skipping processing %s" % granule.get("granule_id")
+                )
                 continue
 
         # Skip this granule if it's in the exclude list
         if exclude_regions is not None:
             (result, region) = does_granule_intersect_regions(granule, exclude_regions)
             if result is True:
-                logging.info(f"The following granule intersects with the exclude region %s. Skipping processing %s"
-                             % (region, granule.get("granule_id")))
+                logger.info(
+                    "The following granule intersects with the exclude region %s. "
+                    "Skipping processing %s" % (region, granule.get("granule_id"))
+                )
                 continue
 
         # If both filters don't apply, add this granule to the list
@@ -76,4 +84,17 @@ def download_from_s3(bucket, file, path):
     try:
         s3.Object(bucket, file).download_file(path)
     except Exception as e:
-        raise Exception("Exception while fetching file: %s from S3 bucket %s. " % (file, bucket) + str(e))
+        raise Exception("Exception while fetching file: %s from S3 bucket %s." % (file, bucket) + str(e))
+
+
+def process_frame_burst_db(geojsons : list[str]):
+    settings = SettingsConf().cfg
+    bucket = settings["GEOJSON_BUCKET"]
+
+    try:
+        for geojson in geojsons:
+            key = geojson.strip() + ".geojson"
+            # output_filepath = os.path.join(working_dir, key)
+            download_from_s3(bucket, key, key)
+    except Exception as e:
+        raise Exception("Exception while fetching geojson file: %s. " % key + str(e))

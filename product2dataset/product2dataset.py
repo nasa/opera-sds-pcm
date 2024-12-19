@@ -63,9 +63,7 @@ def convert(
     products = process_outputs(product_dir, pge_config["Outputs"])
 
     extra_met.update({"tags": ["PGE"]})
-    logger.info(f"{extra_met=}")
-    logger.info(f"{type(extra_met)=}")
-    logger.info(f"{extra_met.keys()=}")
+    logger.debug(f"{extra_met=}")
 
     settings = SettingsConf(settings_conf_file).cfg
 
@@ -93,7 +91,7 @@ def convert(
             created_datasets.add(dataset_dir)
 
     for dataset_dir in created_datasets:
-        logger.info(f"{dataset_dir=}")
+        logger.debug(f"{dataset_dir=}")
 
         dataset_id = PurePath(dataset_dir).name
 
@@ -142,8 +140,6 @@ def convert(
         publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
         publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
-
-        logger.info(f"{pge_shortname=}")
 
         dataset_met_json["product_urls"] = [
             f'https:'
@@ -265,6 +261,27 @@ def convert(
 
         dataset_met_json.update(extra_met)
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
+
+        if pge_name == "L3_DISP_S1":
+            # Get rid of bunch of data that we don't care about but takes up a lot of space
+            logger.info("Removing superfluous data from DISP-S1 metadata")
+            dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
+            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating
+
+            for file in dataset_met_json["Files"]:
+                logger.info(file.keys())
+                logger.info("Removing runconfig and lineage from each file")
+                file["runconfig"] = None  # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
+                file["lineage"] = None  # Lineage for the entire product is already at metadata level so no point in duplicating for each file
+
+            logger.info("Reducing lineage string size by truncating basepath of lineage entries")
+            logger.info("dataset_met_json keys: " + str(dataset_met_json.keys()))
+            if len(dataset_met_json["lineage"]) > 0:
+                dataset_met_json["lineage_basepath"] = '/'.join(dataset_met_json["lineage"][0].split('/')[:-1])
+                lineage_arr = []
+                for l in dataset_met_json["lineage"]:
+                    lineage_arr.append(l.split('/')[-1])
+                dataset_met_json["lineage"] = lineage_arr
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:

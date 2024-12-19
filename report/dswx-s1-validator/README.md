@@ -49,7 +49,7 @@ This guide provides a quick way to get started with the script.
 ### Setup Instructions
 
 1. Clone the repository to your local machine.
-2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests python_cmr`.
+2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests python-cmr`.
 3. Ensure you have internet access to the CMR API
    
 ### Run Instructions

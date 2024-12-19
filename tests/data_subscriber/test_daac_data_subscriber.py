@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import smart_open
+import util.edl_util
 
 try:
     import unittest.mock as umock
@@ -64,7 +65,7 @@ async def test_full(monkeypatch):
 
     monkeypatch.setattr(
         download,
-        download.SessionWithHeaderRedirection.__name__,
+        util.edl_util.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -197,7 +198,7 @@ async def test_download(monkeypatch):
 
     monkeypatch.setattr(
         download,
-        download.SessionWithHeaderRedirection.__name__,
+        util.edl_util.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -325,7 +326,7 @@ async def test_download_https(monkeypatch):
     mock_create_merged_files(monkeypatch)
     monkeypatch.setattr(
         download,
-        download.SessionWithHeaderRedirection.__name__,
+        util.edl_util.SessionWithHeaderRedirection.__name__,
         MagicMock()
     )
 
@@ -593,65 +594,6 @@ def patch_subscriber(monkeypatch):
         daac_data_subscriber,
         daac_data_subscriber.supply_token.__name__,
         mock_token
-    )
-    monkeypatch.setattr(
-        cmr,
-        cmr._request_search_cmr_granules.__name__,
-        MagicMock(return_value=(
-            [
-                {
-                    "granule_id": "dummy_granule_id",
-                    "filtered_urls": [
-                        "https://example.com/T00000.B02.tif",
-                    ],
-                    "related_urls": [
-                        "https://example.com/T00000.B02.tif",
-                    ],
-                    "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
-                    "revision_date": datetime.now().isoformat(),
-                },
-                {
-                    "granule_id": "dummy_granule_id_2",
-                    "filtered_urls": [
-                        "https://example.com/T00001.B02.tif",
-                        "https://example.com/T00001.B03.tif",
-                    ],
-                    "related_urls": [
-                        "https://example.com/T00001.B02.tif",
-                        "https://example.com/T00001.B03.tif",
-                    ],
-                    "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
-                    "revision_date": datetime.now().isoformat(),
-                },
-                {
-                    "granule_id": "dummy_granule_id_3",
-                    "filtered_urls": [
-                        "https://example.com/T00002.B02.tif",
-                    ],
-                    "related_urls": [
-                        "https://example.com/T00002.B02.tif",
-                    ],
-                    "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
-                    "revision_date": datetime.now().isoformat(),
-                },
-                {
-                    "granule_id": "dummy_granule_id_4",
-                    "filtered_urls": [
-                        "https://example.com/T00003.B01.tif",
-                    ],
-                    "related_urls": [
-                        "https://example.com/T00003.B01.tif",
-                    ],
-                    "identifier": "S2A_dummy",
-                    "temporal_extent_beginning_datetime": datetime.now().isoformat(),
-                    "revision_date": datetime.now().isoformat(),
-                }
-            ],
-            False  # search_after
-        ))
     )
     monkeypatch.setattr(
         daac_data_subscriber,

@@ -46,8 +46,6 @@ module "common" {
   autoscale                               = var.autoscale
   lambda_vpc                              = var.lambda_vpc
   lambda_role_arn                         = var.lambda_role_arn
-  lambda_job_type                         = var.lambda_job_type
-  lambda_job_queue                        = var.lambda_job_queue
   cnm_r_handler_job_type                  = var.cnm_r_handler_job_type
   cnm_r_job_queue                         = var.cnm_r_job_queue
   po_daac_cnm_r_event_trigger             = var.po_daac_cnm_r_event_trigger

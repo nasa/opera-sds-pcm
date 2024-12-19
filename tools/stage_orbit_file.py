@@ -13,27 +13,22 @@ range covered by an input SLC SAFE archive.
 import argparse
 import os
 import re
-import requests
-
 from datetime import datetime, timedelta
 from os.path import abspath
 
 import backoff
+import requests
 
-from commons.logger import logger
 from commons.logger import LogLevels
-
-DEFAULT_QUERY_ENDPOINT = 'https://catalogue.dataspace.copernicus.eu/odata/v1/Products'
-"""Default URL endpoint for the Copernicus Data Space Ecosystem (CDSE) query REST service"""
-
-DEFAULT_AUTH_ENDPOINT = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'
-"""Default URL endpoint for performing user authentication with CDSE"""
-
-DEFAULT_DOWNLOAD_ENDPOINT = 'https://zipper.dataspace.copernicus.eu/odata/v1/Products'
-"""Default URL endpoint for CDSE download REST service"""
-
-DEFAULT_SESSION_ENDPOINT = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/account/sessions'
-"""Default URL endpoint to manage authentication sessions with CDSE"""
+from commons.logger import logger
+from util.backoff_util import fatal_code, backoff_logger
+from util.dataspace_util import (DEFAULT_QUERY_ENDPOINT,
+                                 DEFAULT_AUTH_ENDPOINT,
+                                 DEFAULT_DOWNLOAD_ENDPOINT,
+                                 DEFAULT_SESSION_ENDPOINT,
+                                 NoQueryResultsException,
+                                 NoSuitableOrbitFileException,
+                                 DataspaceSession)
 
 ORBIT_TYPE_POE = 'POEORB'
 """Orbit type identifier for Precise Orbit Ephemeris"""
@@ -64,19 +59,6 @@ DEFAULT_SENSING_STOP_MARGIN = timedelta(seconds=ORBIT_PAD)
 Temporal margin to apply to the stop time of a frame to make sure that the 
 ascending node crossing is included when choosing the orbit file
 """
-
-class NoQueryResultsException(Exception):
-    """Custom exception to identify empty results from a query"""
-    pass
-
-
-class NoSuitableOrbitFileException(Exception):
-    """Custom exception to identify no orbit files meeting overlap criteria"""
-
-
-def to_datetime(value):
-    """Helper function to covert command-line arg to datetime object"""
-    return datetime.strptime(value, "%Y%m%dT%H%M%S")
 
 
 def get_parser():
@@ -265,17 +247,6 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
 
     return query
 
-def fatal_code(err: requests.exceptions.RequestException) -> bool:
-    """Only retry for common transient errors"""
-    return err.response.status_code not in [401, 429, 500, 502, 503, 504]
-
-def backoff_logger(details):
-    """Log details about the current backoff/retry"""
-    logger.warning(
-        f"Backing off {details['target']} function for {details['wait']:0.1f} "
-        f"seconds after {details['tries']} tries."
-    )
-    logger.warning(f"Total time elapsed: {details['elapsed']:0.1f} seconds.")
 
 @backoff.on_exception(backoff.constant,
                       requests.exceptions.RequestException,
@@ -434,100 +405,6 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
             "No suitable orbit file could be found within the results of the query"
         )
 
-@backoff.on_exception(backoff.constant,
-                      requests.exceptions.RequestException,
-                      max_time=600,
-                      giveup=fatal_code,
-                      on_backoff=backoff_logger,
-                      interval=15)
-def get_access_token(endpoint_url, username, password):
-    """
-    Acquires an access token from the CDSE authentication endpoint using the
-    credentials provided by the user.
-
-    Parameters
-    ----------
-    endpoint_url : str
-        URL to the authentication endpoint to provide credentials to.
-    username : str
-        Username of the account to authenticate with.
-    password : str
-        Password of the account to authenticate with.
-
-    Returns
-    -------
-    access_token : str
-        The access token parsed from a successful authentication request.
-        This token must be included with download requests for them to be valid.
-    session_id : str
-        The ID associated with the authenticated session. Should be used to
-        request deletion of the session once the desired orbit file(s) is downloaded.
-
-    Raises
-    ------
-    RuntimeError
-        If the authentication request fails, or an invalid response is returned
-        from the service.
-
-    """
-    # Set up the payload to the authentication service
-    data = {
-        "client_id": "cdse-public",
-        "username": username,
-        "password": password,
-        "grant_type": "password",
-    }
-
-    response = requests.post(endpoint_url, data=data,)
-    response.raise_for_status()
-
-    # Parse the access token from the response
-    try:
-        access_token = response.json()["access_token"]
-        session_id = response.json()["session_state"]
-    except KeyError as err:
-        raise RuntimeError(
-            f'Failed to parsed expected field "{str(err)}" from authentication response.'
-        )
-
-    return access_token, session_id
-
-@backoff.on_exception(backoff.constant,
-                      requests.exceptions.RequestException,
-                      max_time=300,
-                      giveup=fatal_code,
-                      on_backoff=backoff_logger,
-                      interval=15)
-def delete_access_token(endpoint_url, access_token, session_id):
-    """
-    Submits a delete request on the provided endpoint URL for the provided
-    session ID. This function should always be called after successful authentication
-    to ensure we don't leave too many active session open (and hit the limit of
-    the service provider).
-
-    Parameters
-    ----------
-    endpoint_url : str
-        URL to the session deletion endpoint to request to.
-    access_token : str
-        Bearer token acquired from a previous successful authentication. Must
-        be provided to authenticate the session deletion request.
-    session_id : str
-        Identifier for the authenticated session corresponding to the provided
-        access token. Should have been provided in the same response as the
-        access token when the valid authentication request was granted by the
-        service provider.
-
-    """
-    request_url = f'{endpoint_url}/{session_id}'
-    headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
-
-    response = requests.delete(url=request_url, headers=headers)
-
-    logger.debug(f'response.url: {response.url}')
-    logger.debug(f'response.status_code: {response.status_code}')
-
-    response.raise_for_status()
 
 @backoff.on_exception(backoff.constant,
                       requests.exceptions.RequestException,
@@ -642,25 +519,18 @@ def main(args):
     # query result to the directory specified by the user
     else:
         # Obtain an access token for use with the download request from the provided
-        # credentials
-        logger.info("Authenticating to orbit file service provider")
-        access_token, session_id = get_access_token(args.auth_endpoint, args.username, args.password)
-
-        try:
+        # credentials. This session will automatically delete itself after exiting
+        # this context.
+        with DataspaceSession(args.username, args.password) as dss:
             logger.info(
                 f"Downloading Orbit file {orbit_file_name} from service endpoint "
                 f"{args.download_endpoint}"
             )
             output_orbit_file_path = download_orbit_file(
-                download_url, args.output_directory, orbit_file_name, access_token
+                download_url, args.output_directory, orbit_file_name, dss.token
             )
 
             logger.info(f"Orbit file downloaded to {output_orbit_file_path}")
-        finally:
-            # Make sure we delete the current authentication session to avoid
-            # hitting the limit of active concurrent sessions
-            logger.info("Requesting deletion of open authentication session")
-            delete_access_token(args.session_endpoint, access_token, session_id)
 
 
 if __name__ == '__main__':

@@ -237,7 +237,6 @@ resource "aws_instance" "mozart" {
       echo DATASET_S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config
       echo DATASET_S3_WEBSITE_ENDPOINT: s3-website-us-west-2.amazonaws.com >> ~/.sds/config
       echo DATASET_BUCKET: ${local.dataset_bucket} >> ~/.sds/config
-      echo ISL_BUCKET: ${local.isl_bucket} >> ~/.sds/config
       echo OSL_BUCKET: ${local.osl_bucket} >> ~/.sds/config
       echo TRIAGE_BUCKET: ${local.triage_bucket} >> ~/.sds/config
       echo LTS_BUCKET: ${local.lts_bucket} >> ~/.sds/config
@@ -266,9 +265,7 @@ resource "aws_instance" "mozart" {
       echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config
       echo '  LAMBDA_VPC: ${var.lambda_vpc}' >> ~/.sds/config
       echo '  LAMBDA_ROLE: "${var.lambda_role_arn}"' >> ~/.sds/config
-      echo '  JOB_TYPE: ${var.lambda_job_type}' >> ~/.sds/config
       echo '  JOB_RELEASE: ${var.pcm_branch}' >> ~/.sds/config
-      echo '  JOB_QUEUE: ${var.lambda_job_queue}' >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo CNM_RESPONSE_HANDLER: >> ~/.sds/config
@@ -548,7 +545,7 @@ resource "aws_instance" "mozart" {
         sds -d update factotum -f -c
       fi
       cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
-      echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket} ${local.isl_bucket}
+      echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket}
 
       sed -i "s/RELEASE_VERSION: '{{ RELEASE_VERSION }}'/RELEASE_VERSION: '${var.pcm_branch}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
@@ -584,7 +581,7 @@ resource "aws_instance" "mozart" {
       pip install '.[subscriber]'
       pip install '.[audit]'
 
-      # comment out on 5-15-24 due to deployment failure 
+      # comment out on 5-15-24 due to deployment failure
       #pip install '.[cmr_audit]'
       pip install --progress-bar off -e .
 

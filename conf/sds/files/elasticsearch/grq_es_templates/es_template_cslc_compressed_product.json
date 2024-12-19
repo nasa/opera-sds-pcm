@@ -1,0 +1,9 @@
+{
+  "index_patterns": ["grq_1_l2_cslc_s1_compressed", "grq_1_l2_cslc_s1_compressed-*"],
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "opera_grq_ilm_c_cslc_policy",
+      "number_of_shards": 8
+    }
+  }
+}

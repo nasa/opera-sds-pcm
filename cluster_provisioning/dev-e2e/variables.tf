@@ -257,14 +257,6 @@ variable "lambda_role_arn" {
   default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
 }
 
-variable "lambda_job_type" {
-  default = "INGEST_STAGED"
-}
-
-variable "lambda_job_queue" {
-  default = "opera-job_worker-hls_data_ingest"
-}
-
 # CNM Response job vars
 
 variable "cnm_r_handler_job_type" {
@@ -389,8 +381,8 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.0-rc.4.0"
-    "dswx_ni"  = "4.0.0-er.2.0"
+    "disp_s1"  = "3.0.1"
+    "dswx_ni"  = "4.0.0-er.3.0"
   }
 }
 
@@ -509,12 +501,12 @@ variable "earthdata_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - August 12, 2024 - R3
-    mozart    = "ami-0bb72754b87feda92" # mozart v4.26 - 240809
-    metrics   = "ami-0a5832ef57758384a" # metrics v4.18 - 240812
-    grq       = "ami-0eaffcbdc11298329" # grq v4.19 - 240812
-    factotum  = "ami-01324dc701f947607" # factotum v4.17 - 240815
-    autoscale = "ami-0465ac38191989ed5" # verdi v4.17 patchdate - 240902
+    # HySDS v5.0.1 - December 16, 2024 - R3.1
+    mozart    = "ami-017e3329599acd62f" # mozart v4.26 - 241216
+    metrics   = "ami-0d0a7be874df2e50e" # metrics v4.18 - 241216
+    grq       = "ami-091fbec87ae67f22b" # grq v4.19 - 241216
+    factotum  = "ami-0b7a1d2a38c2ee273" # factotum v4.17 - 241216
+    autoscale = "ami-0f71b5eb05a08d42c" # verdi v4.17 patchdate - 241216
   }
 }
 

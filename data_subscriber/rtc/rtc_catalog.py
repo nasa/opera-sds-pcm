@@ -7,8 +7,8 @@ import elasticsearch.helpers
 from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
+from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from util.grq_client import get_body
-from . import mgrs_bursts_collection_db_client
 
 
 class RTCProductCatalog(ProductCatalog):
@@ -55,7 +55,7 @@ class RTCProductCatalog(ProductCatalog):
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
 
         es_docs = self.es_util.query(body=body, index=self.ES_INDEX_PATTERNS)
-        self.logger.info(f"Found {len(es_docs)=}")
+        self.logger.debug("Found %d", len(es_docs))
         return self.process_query_result(es_docs)
 
     def mark_products_as_download_job_submitted(self, batch_id_to_products_map: dict):
@@ -95,7 +95,7 @@ class RTCProductCatalog(ProductCatalog):
         self.logger.info(f"Marking {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
         elasticsearch.helpers.bulk(self.es_util.es, operations)
 
-        self.logger.info("Performing index refresh")
+        self.logger.debug("Performing index refresh")
         self.refresh()
 
     def raw_create_doc_id_to_index_cache(self, docs):
@@ -152,7 +152,7 @@ class RTCProductCatalog(ProductCatalog):
         self.logger.info(f"Marking {set(batch_id_to_products_map.keys())} products as job-submitted, in bulk")
         elasticsearch.helpers.bulk(self.es_util.es, operations)
 
-        self.logger.info("Performing index refresh")
+        self.logger.debug("Performing index refresh")
         self.refresh()
 
     def create_doc_id_to_index_cache(self, docs):

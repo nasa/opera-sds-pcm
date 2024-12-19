@@ -46,8 +46,6 @@ module "common" {
   autoscale                               = var.autoscale
   lambda_vpc                              = var.lambda_vpc
   lambda_role_arn                         = var.lambda_role_arn
-  lambda_job_type                         = var.lambda_job_type
-  lambda_job_queue                        = var.lambda_job_queue
   cnm_r_handler_job_type                  = var.cnm_r_handler_job_type
   cnm_r_job_queue                         = var.cnm_r_job_queue
   po_daac_cnm_r_event_trigger             = var.po_daac_cnm_r_event_trigger
@@ -87,7 +85,6 @@ module "common" {
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
   triage_bucket                           = var.triage_bucket
-  isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
   clear_s3_aws_es                         = var.clear_s3_aws_es
   docker_registry_bucket                  = var.docker_registry_bucket
@@ -159,23 +156,11 @@ resource "null_resource" "mozart" {
                 ${var.product_delivery_repo} \
                 ${var.product_delivery_branch} \
                 ${module.common.mozart.private_ip} \
-                ${module.common.isl_bucket} \
                 ${local.source_event_arn} \
                 ${var.po_daac_delivery_proxy} \
                 ${var.use_daac_cnm_r} \
                 ${local.crid} \
                 ${var.cluster_type} || :
-              fi
-    EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              if [ "${var.run_smoke_test}" = true ]; then
-                ~/mozart/ops/${var.project}-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888
               fi
     EOF
     ]
@@ -261,15 +246,16 @@ resource "null_resource" "smoke_test" {
   provisioner "remote-exec" {
     inline = [<<-EOT
       if [ "${var.run_smoke_test}" = true ]; then
+        set -ex
+        source ~/.bash_profile
+
         cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
 
-        chmod +x ./cluster_provisioning/run_opera_smoke_tests.sh
-        ./cluster_provisioning/run_opera_smoke_tests.sh \
+        ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_opera_smoke_tests.sh \
         --mozart-ip=${module.common.mozart.private_ip} \
         --grq-host="grq:9200" \
         --cnm-r-topic-arn="${module.common.cnm_response_topic_arn}" \
         --cnm-r-queue-url="${module.common.cnm_response_queue_url}" \
-        --isl-bucket="${module.common.isl_bucket}" \
         --rs-bucket="${module.common.dataset_bucket}" \
         --L30-data-subscriber-query-lambda=${module.common.hlsl30_query_timer.function_name} \
         --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \

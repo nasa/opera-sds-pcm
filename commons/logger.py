@@ -2,6 +2,8 @@ import logging
 
 from enum import Enum
 
+import boto3
+
 # set logger and custom filter to handle being run from sciflo
 log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
@@ -43,10 +45,37 @@ class LogFilter(logging.Filter):
             record.id = "--"
         return True
 
-
 logger = logging.getLogger("opera_pcm")
-logger.setLevel(logging.INFO)
 logger.addFilter(LogFilter())
+
+
+logger_initialized = False
+def get_logger(verbose=False, quiet=False):
+    global logger_initialized
+
+    if not logger_initialized:
+
+        if verbose:
+            log_level = LogLevels.DEBUG.value
+        elif quiet:
+            log_level = LogLevels.WARNING.value
+        else:
+            log_level = LogLevels.INFO.value
+
+        if verbose:
+            log_format = '[%(asctime)s: %(levelname)s/%(module)s:%(funcName)s:%(lineno)d] %(message)s'
+        else:
+            log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
+
+        logging.basicConfig(level=log_level, format=log_format, force=True)
+
+        logger.addFilter(NoLogUtilsFilter())
+
+        logger_initialized = True
+        logger.info("Initial logging configuration complete")
+        logger.info("Log level set to %s", log_level)
+
+    return logger
 
 
 class NoLogUtilsFilter(logging.Filter):
@@ -91,3 +120,13 @@ class NoBaseFilter(logging.Filter):
             and "/containers/_doc/" not in record.getMessage() \
             and "/_search?" not in record.getMessage() \
             and "/_update" not in record.getMessage()
+
+
+def configure_library_loggers():
+    logger_hysds_commons = logging.getLogger("hysds_commons")
+    logger_hysds_commons.addFilter(NoJobUtilsFilter())
+
+    logger_elasticsearch = logging.getLogger("elasticsearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+
+    boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
