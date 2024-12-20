@@ -12,7 +12,7 @@ def merge_netcdf_pairs(a2_a3_pair_paths: list[tuple[Path, Path]],
     combined = opera_merge_netcdf_pairs_with_target(a2_a3_pair_paths, target)
     #combined = opera_merge_netcdf_pairs(a2_a3_pair_paths)
     #ombined.to_netcdf(target.resolve(), format="NETCDF4")
-    combined.close()
+    #combined.close()
     return target
 
 
