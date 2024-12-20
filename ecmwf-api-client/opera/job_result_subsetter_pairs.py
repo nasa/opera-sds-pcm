@@ -66,7 +66,7 @@ class JobResultSubsetterPairs():
             )
         else:
             subprocess.run(
-                ["nccopy", "-d", "5", "-s", "-m", "500000000", nc_file, compressed_nc_file],
+                ["nccopy", "-d", "5", "-s", "-m", "500000000", str(nc_file), str(compressed_nc_file)],
                 shell=False,
                 check=False,
             )
