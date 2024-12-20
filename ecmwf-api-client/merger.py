@@ -80,17 +80,17 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
                 logger.info(f"Merged output: {tmp_merged_filepath=}")
 
-                logger.info("Compressing merged A2/A3 NetCDF file: %", tmp_merged_filepath)
+                logger.info("Compressing merged A2/A3 NetCDF file: %", str(tmp_merged_filepath))
                 #compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
                 compressed_filepath = merged_filepath.parent/new_filename
 
 
                 result_transferer.compress_netcdf(tmp_merged_filepath, compressed_filepath)
-                
+
                 #nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
                 #result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
                 #nc.close()
-                logger.info("Compressed")
+                logger.info("Finished compressing merged A2/A3 NetCDF file.")
 
                 logging.info(f"Uploading results for {date=}")
                 result_transferer.ancillaries_bucket_name = target_bucket_name
