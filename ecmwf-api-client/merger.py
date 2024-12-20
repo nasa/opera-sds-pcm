@@ -80,7 +80,7 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
                 logger.info(f"Merged output: {tmp_merged_filepath=}")
 
-                logger.info("Compressing merged A2/A3 NetCDF file: %", str(tmp_merged_filepath))
+                logger.info("Compressing merged A2/A3 NetCDF file")
                 #compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
                 compressed_filepath = merged_filepath.parent/new_filename
 
