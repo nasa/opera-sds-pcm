@@ -76,7 +76,7 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 new_filename = f"ECMWF_A2A3_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
 
                 tmp_merged_filepath = merged_filepath.parent/tmp_new_filename
-                tmp_merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
+                tmp_merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=tmp_merged_filepath)
                 logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
                 logger.info(f"Merged output: {tmp_merged_filepath=}")
 
