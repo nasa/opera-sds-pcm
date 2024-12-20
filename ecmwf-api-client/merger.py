@@ -67,8 +67,13 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
 
                 #D06130000061300001.nc
                 merged_filepath_tmp = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2D").removeprefix("A3D"))
-                analysis_hour=merged_filepath_tmp[4:8]
-                merged_filepath = f"ECMWF_A2A3_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
+
+                merged_filepath = merged_filepath_tmp.parent
+                merged_filename = merged_filepath_tmp.name
+                analysis_hour=str(merged_filename)[4:8]
+
+                new_filename = f"ECMWF_A2A3_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
+                merged_filepath = merged_filepath.parent/new_filename
                 merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
                 logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
                 logger.info(f"Merged output: {merged_filepath=}")
