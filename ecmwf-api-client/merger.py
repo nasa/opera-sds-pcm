@@ -72,17 +72,24 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 merged_filename = merged_filepath_tmp.name
                 analysis_hour=str(merged_filename)[4:8]
 
+                tmp_new_filename = f"tmp_ECMWF_A2A3_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
                 new_filename = f"ECMWF_A2A3_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
-                merged_filepath = merged_filepath.parent/new_filename
-                merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
-                logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
-                logger.info(f"Merged output: {merged_filepath=}")
 
-                logger.info("Compressing")
-                compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
-                nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
-                result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
-                nc.close()
+                tmp_merged_filepath = merged_filepath.parent/tmp_new_filename
+                tmp_merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
+                logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merged output: {tmp_merged_filepath=}")
+
+                logger.info("Compressing merged A2/A3 NetCDF file: %", tmp_merged_filepath)
+                #compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
+                compressed_filepath = merged_filepath.parent/new_filename
+
+
+                result_transferer.compress_netcdf(tmp_merged_filepath, compressed_filepath)
+                
+                #nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
+                #result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
+                #nc.close()
                 logger.info("Compressed")
 
                 logging.info(f"Uploading results for {date=}")
