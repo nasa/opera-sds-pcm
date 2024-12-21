@@ -187,8 +187,9 @@ if __name__ == '__main__':
     parser.add_argument("--endpoint_daac_output", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue for DSWx-S1 granules')
     parser.add_argument("--validate", action='store_true', help="Validate if DSWx-S1 products have been delivered for given time range (use --timestamp TEMPORAL mode only)")
     parser.add_argument("--product", required=True, choices=['DSWx-S1', 'DISP-S1'], default='DSWx-S1', help="The product to validate")
-    parser.add_argument("--disp_s1_frames_only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
-    parser.add_argument("--disp_s1_validate_with_grq", action='store_true', help="For DISP-S1 only. Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
+    parser.add_argument("--frames_only", required=False, help="DISP-S1 only. Restrict validation to these frame numbers only. Comma-separated list of frames")
+    parser.add_argument("--validate_with_grq", action='store_true', help="DISP-S1 only. Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
+    parser.add_argument("--processing_mode", required=False, choices=['forward', 'reprocessing', 'historical'], help="DISP-S1 only. Processing mode to use for DISP-S1 validation")
     # Parse the command-line arguments
     args = parser.parse_args()
 
@@ -309,7 +310,12 @@ if __name__ == '__main__':
     elif (args.product == 'DISP-S1'):
 
         # Perform all validation work in this function
-        should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.disp_s1_frames_only, args.disp_s1_validate_with_grq)
+        if args.processing_mode is None:
+            logging.error("Processing mode must be specified for DISP-S1 validation.")
+            sys.exit(1)
+        else:
+            processing_mode = args.processing_mode
+        should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.frames_only, args.validate_with_grq, processing_mode)
         print(tabulate(should_df[['Frame ID', 'Acq Day Index', 'All Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
         if (args.verbose):

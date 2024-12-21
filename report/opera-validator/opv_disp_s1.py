@@ -1,7 +1,6 @@
 from collections import defaultdict
 import logging
-import requests
-import re
+import copy
 import sys
 import datetime
 import pandas as pd
@@ -95,7 +94,7 @@ def match_up_disp_s1(data_should_trigger, data):
     for disp_s1 in data:
         matching_count = 0
         matching_bursts = []
-        all_bursts_set = set([b.split("/")[-1][:-3] for b in disp_s1['All Bursts']]) # Get rid of the full file path and .h5 extension
+        all_bursts_set = set([b.split("/")[-1] for b in disp_s1['All Bursts']])
         for acq_index in disp_s1['All Acq Day Indices']:
             if acq_index in frame_to_dayindex_to_granule[disp_s1['Frame ID']]:
                 frame_data = frame_to_dayindex_to_granule[disp_s1['Frame ID']]
@@ -152,7 +151,7 @@ def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
             filtered_disp_s1.append(disp_s1["_source"]["id"])
     return filtered_disp_s1
 
-def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, disp_s1_validate_with_grq, shortname='OPERA_L2_CSLC-S1_V1'):
+def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, disp_s1_validate_with_grq, processing_mode, shortname='OPERA_L2_CSLC-S1_V1'):
     """
         Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
         It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -261,11 +260,25 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         metadata = disp_s1["_source"]["metadata"]
 
         # Only use the CSLC input files
-        all_bursts = [s.split("/")[-1] \
+        # Get rid of the full file path and .h5 extension
+        all_bursts = [s.split("/")[-1][:-3] \
                       for s in metadata["lineage"] if "CSLC" in s and not "STATIC" in s and not "COMPRESSED" in s]
 
         #from "f8889_a168_f8889_a156_f8889_a144 to [168, 156, 144]
         all_acq_day_indices =  [int(s.split("_")[0]) for s in metadata["input_granule_id"].split("_a")[1:]]
+
+        # If the processing mode is not historical, use the latest acquisition day index to filter out all_bursts
+        if processing_mode != "historical":
+            latest_acq_day_index = max(all_acq_day_indices)
+            all_acq_day_indices = [latest_acq_day_index]
+            historical_all_bursts = copy.deepcopy(all_bursts)
+            for g in historical_all_bursts:
+                _, _, acquisition_cycles, _ = parse_cslc_native_id(g, burst_to_frames, frame_to_bursts)
+                #print(g, acquisition_cycles, latest_acq_day_index)
+                if latest_acq_day_index not in list(acquisition_cycles.values()):
+                    #print("Removing", g)
+                    all_bursts.remove(g)
+
 
         data.append({
             'Product ID': granule_id,
