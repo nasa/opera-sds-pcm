@@ -64,7 +64,6 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
                 logger.info(f"Merge input: {a2_a3_nc_filepath_pair=}")
 
-
                 #D06130000061300001.nc
                 merged_filepath_tmp = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2D").removeprefix("A3D"))
 
@@ -81,9 +80,7 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 logger.info(f"Merged output: {tmp_merged_filepath=}")
 
                 logger.info("Compressing merged A2/A3 NetCDF file")
-                #compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
                 compressed_filepath = merged_filepath.parent/new_filename
-
 
                 result_transferer.compress_netcdf(tmp_merged_filepath, compressed_filepath)
 

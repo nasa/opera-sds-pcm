@@ -57,7 +57,11 @@ class JobResultSubsetterPairs():
 
         return target.resolve()
 
-    def compress_netcdf(nc_file, compressed_nc_file, use_bzip2=False):
+
+    def compress_netcdf(self, nc_file, compressed_nc_file, use_bzip2=False):
+
+        logger.info(f"{nc_file=}")
+        logger.info(f"{compressed_nc_file=}")
         if use_bzip2:
             subprocess.run(
                 ["bzip2", nc_file],
