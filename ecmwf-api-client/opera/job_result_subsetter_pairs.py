@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Union, Literal
 import subprocess
+import os
 
 import backoff
 import boto3
