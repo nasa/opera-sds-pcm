@@ -43,6 +43,7 @@ This guide provides a quick way to get started with the script.
 * Python 3.6 or higher with special library dependencies (see `pip` command below)
 * Access to the CMR API (i.e., network access to the internet)
 * Availability of database files for DSWx-S1 or DISP-S1
+* For DISP-S1, the disp_s1 product ES index must be available in GRQ.
 
 ### Setup Instructions
 
@@ -67,8 +68,6 @@ This guide provides a quick way to get started with the script.
    - **`--endpoint_daac_output`**: Specifies the CMR endpoint venue for DSWx-S1 granules. Accepted values are `OPS` or `UAT`. Default is `OPS`.
    - **`--validate`**: Validates if DSWx-S1 products have been delivered for the specified time range. Only applicable when using `--timestamp` in `TEMPORAL` mode.
    - **`--product`**: Specifies the product to validate. Accepted values are `DSWx-S1` or `DISP-S1`. Default is `DSWx-S1`.
-   - **`--disp_s1_burst_to_frame_db`**: Path to a burst-to-frame JSON database file (required for `DISP-S1` only).
-   - **`--disp_s1_frame_to_burst_db`**: Path to a frame-to-burst JSON database file (required for `DISP-S1` only).
 
 ### Usage Examples
 
@@ -96,12 +95,29 @@ This guide provides a quick way to get started with the script.
 
 If you're validating DISP-S1 products, you'll need to use the following additional arguments:
 
-- **`--disp_s1_burst_to_frame_db`**: Path to the burst-to-frame JSON database file.
-- **`--disp_s1_frame_to_burst_db`**: Path to the frame-to-burst JSON database file.
+- **`--processing_mode`**: Must be provided. "forward", "reprocessing", or "historical".
+- **`--frame`**: Highly recommended for historical processing mode. The frame number to validate. If this is not specified this tool will query for all CSLC bursts in CMR over the time period which can potentially take hours.
+- **`--validate_with_grq`**: Optional. Retrieve DISP-S1 products also from GRQ instead of CMR. This is useful when you've run a test without delivering DISP-S1 products to DAAC.
 
-  ```bash
-  python opera_validator.py --start "2024-07-18T21:49:22Z" --end "2024-07-18T23:51:00Z" --endpoint_daac_output UAT --timestamp TEMPORAL --validate --product DISP-S1 --disp_s1_burst_to_frame_db opera-s1-disp-burst-to-frame.json --disp_s1_frame_to_burst_db opera-disp-s1-consistent-burst-ids-with-datetimes.json
+* **Validate DISP-S1 forward processing by revision time.**
+  ```bash 
+  python opera_validator.py --product DISP-S1 --timestamp REVISION --start 2024-12-15T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=forward 
   ```
+  
+* **Validate DISP-S1 forward processing by revision time but compare entirely against GRQ instead of CMR.**
+  ```bash 
+  python opera_validator.py --product DISP-S1 --timestamp REVISION --start 2024-12-15T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=forward --validate_with_grq
+  ```
+  
+* **Validate DISP-S1 historical processing by temporal time.**
+  ```bash 
+  python opera_validator.py --product DISP-S1 --timestamp TEMPORAL --start 2016-12-01T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=historical --frame=11116
+  ```
+
+* **Validate DISP-S1 historical processing by temporal time but compare entirely against GRQ instead of CMR.**
+  ```bash 
+  python opera_validator.py --product DISP-S1 --timestamp TEMPORAL --start 2016-12-01T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=historical --frame=11116 --validate_with_grq 
+  ```  
 
 ## Running Tests
 
