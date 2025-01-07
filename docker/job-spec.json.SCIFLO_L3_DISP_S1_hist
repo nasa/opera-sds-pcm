@@ -1,6 +1,6 @@
 {
   "command": "/home/ops/verdi/ops/opera-pcm/opera_chimera/run_sciflo.sh",
-  "disk_usage":"600GB",
+  "disk_usage":"400GB",
   "soft_time_limit": 129600,
   "time_limit": 129660,
   "imported_worker_files": {

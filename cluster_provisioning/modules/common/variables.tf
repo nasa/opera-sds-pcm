@@ -337,8 +337,8 @@ variable "queues" {
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
       "instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c5.4xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 600
-      "max_size"          = 10
+      "data_dev_size"     = 500
+      "max_size"          = 50
       "total_jobs_metric" = true
       "use_on_demand"     = true
     }
@@ -347,8 +347,8 @@ variable "queues" {
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
       "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
       "root_dev_size"     = 50
-      "data_dev_size"     = 600
-      "max_size"          = 10
+      "data_dev_size"     = 500
+      "max_size"          = 100
       "total_jobs_metric" = true
       "use_on_demand"     = true
     }
