@@ -32,6 +32,9 @@ DISP_S1_PRODUCT_VERSION: "0.9"
 DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
 DSWX_NI_PRODUCT_VERSION: "0.1"
 
+DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
+DIST_S1_PRODUCT_VERSION: "0.1"
+
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
 DAAC_S3_CRED_URLS:
@@ -165,6 +168,10 @@ DISP_S1:
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
+  ANCILLARY_MARGIN: 50
+
+DIST_S1:
+  # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
 
 # End PGE Configuration section
@@ -424,6 +431,32 @@ PRODUCT_TYPES:
       # * "OPERA_L3_DSWx-NI_T11SLS_20110226T061749Z_20240329T181033Z_LSAR_30_v0.1_B01_WTR.tif"
       # * "OPERA_L3_DSWx-NI_T11SLT_20110226T061749Z_20240329T181033Z_LSAR_30_v0.1_BROWSE.png"
       Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>NI)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>LSAR)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        # For example, "20210211T163901":
+        #   year: 2021
+        #   month: 02 (February)
+        #   day of month: 11 (the 11th)
+        #   hour (24hr): 16
+        #   minute: 39
+        #   second: 01
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
+    L3_DIST_S1:
+      # Pattern for parsing output image filenames, such as:
+      # * "OPERA_L3_DIST-S1_T15SXR_20210205T163901Z_20220101T140222Z_S1A_30_v0.1_DIST-GEN-STATUS.tif"
+      # * "OPERA_L3_DIST-S1_T15SXR_20210205T163901Z_20220101T140222Z_S1A_30_v0.1_BROWSE.png"
+#      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DIST)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[AC])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<layer_name>DIST-GEN-STATUS|DIST-GEN-STATUS-ACQ|GEN-METRIC|DATE-FIRST|DATE-LATEST|N-DIST|N-OBS))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DIST)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[AC])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+[.]\d+))((_(?P<layer_name>DIST-GEN-STATUS|DIST-GEN-STATUS-ACQ|GEN-METRIC|DATE-FIRST|DATE-LATEST|N-DIST|N-OBS))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
