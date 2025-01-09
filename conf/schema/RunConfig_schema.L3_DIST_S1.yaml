@@ -1,0 +1,66 @@
+RunConfig:
+  Name: str()
+
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: str(required=True)
+
+      InputFilesGroup:
+        InputFilePaths: list(str(), min=1, required=True)
+
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: map(key=str(), min=0)
+
+      ProductPathGroup:
+        OutputProductPath: str(required=True)
+        ScratchPath: str(required=True)
+
+      PrimaryExecutable:
+        ProductIdentifier: str(required=False)
+        ProductVersion: any(str(), num(), required=False)
+        CompositeReleaseID: str(required=False)
+        ProgramPath: str(required=True)
+        ProgramOptions: list(str(), min=0, required=False)
+        ErrorCodeBase: int(required=True)
+        SchemaPath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
+        IsoTemplatePath: str(required=False)  # TODO: Why is this not required if all the PGEs fail if it doesn't exist/is undefined?
+        IsoMeasuredParameterDescriptions: str(required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
+
+      QAExecutable:
+        Enabled: bool(required=True)
+        ProgramPath: str(required=False)
+        ProgramOptions: list(str(), min=0, required=False)
+
+      DebugLevelGroup:
+        DebugSwitch: bool(required=False)
+        ExecuteViaShell: bool(required=False)
+
+    SAS:
+      run_config:
+
+        # PLACEHOLDER FOR pre_rtc_copol PARAMETER DESCRIPTION
+        pre_rtc_copol: list(str(), required=True)
+
+        # PLACEHOLDER FOR pre_rtc_crosspol PARAMETER DESCRIPTION
+        pre_rtc_crosspol: list(str(), required=True)
+
+        # PLACEHOLDER FOR post_rtc_copol PARAMETER DESCRIPTION
+        post_rtc_copol: list(str(), required=True)
+
+        # PLACEHOLDER FOR post_rtc_crosspol PARAMETER DESCRIPTION
+        post_rtc_crosspol: list(str(), required=True)
+
+        # PLACEHOLDER FOR mgrs_tile_id PARAMETER DESCRIPTION
+        mgrs_tile_id: str(required=True)
+
+        # PLACEHOLDER FOR dist_s1_alert_db_dir PARAMETER DESCRIPTION
+        dist_s1_alert_db_dir: str(required=False)
+
+        # PLACEHOLDER FOR dst_dir PARAMETER DESCRIPTION
+        dst_dir: str(required=False)
+
+        # PLACEHOLDER FOR water_mask PARAMETER DESCRIPTION
+        water_mask: str(required=False)
