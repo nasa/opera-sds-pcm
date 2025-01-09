@@ -363,6 +363,17 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
+    "opera-job_worker-sciflo-l3_dist_s1" = {
+      "name"              = "opera-job_worker-sciflo-l3_dist_s1"
+      "log_file_name"     = "run_sciflo_L3_DIST_S1"
+      "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge", "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
     "opera-job_worker-send_cnm_notify" = {
       "name"              = "opera-job_worker-send_cnm_notify"
       "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
@@ -619,6 +630,7 @@ variable "pge_releases" {
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.1"
     "dswx_ni"  = "4.0.0-er.3.0"
+    "dist_s1"  = "6.0.0-er.1.0"
   }
 }
 
