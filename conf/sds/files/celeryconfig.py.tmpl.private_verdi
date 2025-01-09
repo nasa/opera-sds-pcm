@@ -5,7 +5,7 @@ task_serializer = "msgpack"
 result_serializer = "msgpack"
 accept_content = ["msgpack", "json"]
 
-task_acks_late = True
+task_acks_late = False
 result_expires = 86400
 worker_prefetch_multiplier = 1
 
