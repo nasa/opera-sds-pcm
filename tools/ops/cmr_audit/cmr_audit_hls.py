@@ -272,6 +272,9 @@ async def run(argv: list[str]):
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_hls))
+        if missing_cmr_granules_hls:
+            with open(output_file_missing_cmr_granules, mode='a') as fp:
+                fp.write('\n')
     elif args.format == "json":
         output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
