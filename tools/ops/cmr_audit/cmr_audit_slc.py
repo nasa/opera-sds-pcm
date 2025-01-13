@@ -57,6 +57,18 @@ def create_parser():
         choices=["txt", "json"],
         help=f'Output file format. Defaults to "%(default)s".'
     )
+    argparser.add_argument(
+        "--do_cslc",
+        type=bool,
+        default=True,
+        help=f'Flag to execute CSLC accountability. Defaults to "%(default)s".'
+    )
+    argparser.add_argument(
+        "--do_rtc",
+        type=bool,
+        default=True,
+        help=f'Flag to execute RTC accountability. Defaults to "%(default)s".'
+    )
     argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
 
     return argparser
@@ -253,6 +265,22 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
         missing_product_native_id_patterns = functools.reduce(set.union, missing_product_native_id_patterns)
     return missing_product_native_id_patterns
 
+def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product):
+
+    now = datetime.datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    start_dt_str = cmr_start_dt_str.replace("-", "")
+    start_dt_str = start_dt_str.replace("T", "-")
+    start_dt_str = start_dt_str.replace(":", "")
+    start_dt_str = start_dt_str.replace("Z", "")
+
+    end_dt_str = cmr_end_dt_str.replace("-", "")
+    end_dt_str = end_dt_str.replace("T", "-")
+    end_dt_str = end_dt_str.replace(":", "")
+    end_dt_str = end_dt_str.replace("Z", "")
+    out_filename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
+
+    return f"missing_granules_SLC-{product}_{out_filename}"
 
 #######################################################################
 # CMR AUDIT
@@ -345,6 +373,7 @@ async def run(argv: list[str]):
     outfilename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
 
     if args.format == "txt":
+        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
         output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
@@ -354,7 +383,8 @@ async def run(argv: list[str]):
                 fp.write('\n')
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
+        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "RTC")
+        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_slc_rtc))
@@ -364,7 +394,8 @@ async def run(argv: list[str]):
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
+        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
+        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
@@ -372,7 +403,8 @@ async def run(argv: list[str]):
             fp.write(json_str)
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.json"
+        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "RTC")
+        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
