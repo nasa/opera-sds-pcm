@@ -5,7 +5,7 @@ task_serializer = "msgpack"
 result_serializer = "msgpack"
 accept_content = ["msgpack", "json"]
 
-task_acks_late = True
+task_acks_late = False
 result_expires = 86400
 worker_prefetch_multiplier = 1
 
@@ -18,11 +18,14 @@ task_queue_max_priority = 10
 
 task_reject_on_worker_lost = True
 
-broker_heartbeat = 120
+broker_heartbeat = 30
 broker_heartbeat_checkrate = 2
 
 broker_pool_limit = None
 broker_transport_options = { "confirm_publish": True }
+
+redis_socket_keepalive = True
+redis_backend_healh_check_interval = 30
 
 imports = [
     "hysds.task_worker",
@@ -74,14 +77,16 @@ TOSCA_URL = "https://{{ GRQ_PVT_IP }}/search/"
 GRQ_URL = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}"
 GRQ_REST_URL = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1"
 GRQ_UPDATE_URL = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1/grq/dataset/index"
+GRQ_UPDATE_URL_BULK = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.2/grq/dataset/index"
 
 
 GRQ_AWS_ES = {{ GRQ_AWS_ES or False }}
-GRQ_ES_HOST = "{{ GRQ_ES_PVT_IP_VERDI }}"
+GRQ_ES_HOST = "{{ GRQ_ES_PVT_IP }}"
 GRQ_ES_PORT = {{ GRQ_ES_PORT or 9200 }}
 GRQ_ES_PROTOCOL = "{{ GRQ_ES_PROTOCOL or 'http' }}"
 GRQ_ES_URL = '%s://%s:%d' % (GRQ_ES_PROTOCOL, GRQ_ES_HOST, GRQ_ES_PORT)
 
+CONTAINER_ENGINE = "{{ CONTAINER_ENGINE or 'docker' }}"
 
 DATASET_PROCESSED_QUEUE = "dataset_processed"
 USER_RULES_DATASET_QUEUE = "user_rules_dataset"
@@ -125,3 +130,5 @@ WORKER_MOUNT_BLACKLIST = [
 CONTAINER_REGISTRY = "{{ CONTAINER_REGISTRY }}"
 
 AWS_REGION = "{{ AWS_REGION }}"
+
+ES_CLUSTER_MODE = {{ ES_CLUSTER_MODE or False }}
