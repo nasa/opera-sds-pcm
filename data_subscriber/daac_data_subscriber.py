@@ -33,7 +33,6 @@ from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from data_subscriber.parser import create_parser, validate_args
-from data_subscriber.query import update_url_index
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.rtc.rtc_query import RtcCmrQuery
@@ -63,11 +62,6 @@ def run(argv: list[str]):
     configure_library_loggers()
 
     es_conn = supply_es_conn(args)
-
-    if args.file:
-        with open(args.file, "r") as f:
-            update_url_index(es_conn, f.readlines(), None, None, None)
-        exit(0)
 
     logger.debug(f"daac_data_subscriber.py invoked with {args=}")
 
