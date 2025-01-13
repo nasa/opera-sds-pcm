@@ -35,7 +35,12 @@ class RtcCmrQuery(CmrQuery):
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
-    async def run_query(self):
+    def run_query(self):
+        # RTC is a special case in that it needs to run asynchronously
+        result = asyncio.run(self.run_query_async())
+        return result
+
+    async def run_query_async(self):
         query_dt = datetime.now()
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
