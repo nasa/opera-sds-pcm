@@ -16,7 +16,6 @@ import aiohttp
 import more_itertools
 from dotenv import dotenv_values
 from more_itertools import always_iterable
-from compact_json import Formatter
 
 from geo.geo_util import does_bbox_intersect_north_america
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
@@ -59,18 +58,6 @@ def create_parser():
         help=f'Output file format. Defaults to "%(default)s".'
     )
     argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
-    argparser.add_argument(
-        "--do_cslc",
-        type=bool,
-        default=True,
-        help=f'Change to False to disable CSLC auditing'
-    )
-    argparser.add_argument(
-        "--do_rtc",
-        type=bool,
-        default=True,
-        help=f'Change to False to disable RTC auditing'
-    )
 
     return argparser
 
@@ -266,43 +253,6 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
         missing_product_native_id_patterns = functools.reduce(set.union, missing_product_native_id_patterns)
     return missing_product_native_id_patterns
 
-def get_output_filename(cmr_start_dt_str, cmr_end_dt_str, product):
-
-    now = datetime.datetime.now()
-    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
-    start_dt_str = cmr_start_dt_str.replace("-","")
-    start_dt_str = start_dt_str.replace("T", "-")
-    start_dt_str = start_dt_str.replace(":", "")
-
-    end_dt_str = cmr_end_dt_str.replace("-", "")
-    end_dt_str = end_dt_str.replace("T", "-")
-    end_dt_str = end_dt_str.replace(":", "")
-    out_filename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
-
-    return f"missing_granules_SLC-{product}_{out_filename}"
-
-def write_out_results(missing_cmr_granules_slc_cslc_or_rtc, out_filename, extension):
-
-    if extension == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.txt"
-        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc_cslc_or_rtc))
-        if missing_cmr_granules_slc_cslc_or_rtc:
-            with open(output_file_missing_cmr_granules, mode='a') as fp:
-                fp.write('\n')
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
-
-    elif extension == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.json"
-        formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            json_str = formatter.serialize(list(missing_cmr_granules_slc_cslc_or_rtc))
-            fp.write(json_str)
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
-
-    else:
-        raise Exception("Unrecognized extension for output file")
 
 #######################################################################
 # CMR AUDIT
@@ -341,56 +291,96 @@ async def run(argv: list[str]):
                 cmr_granules_slc_na.add(granule_id)
                 cmr_granules_slc_details_na[granule_id] = granule_details
 
+    logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
+    logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
+
+    cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
+        cmr_granules_slc_na,
+        input_slc_to_outputs_cslc_map := defaultdict(set),
+        output_cslc_to_inputs_slc_map := defaultdict(set)
+    )
+
+    rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
+        cmr_granules_slc,
+        input_slc_to_outputs_rtc_map := defaultdict(set),
+        output_rtc_to_inputs_slc_map := defaultdict(set)
+    )
+
+    logger.info("Querying CMR for list of expected CSLC granules")
+    cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+
+    logger.info("Querying CMR for list of expected RTC granules")
+    cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+
+    missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
+    missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
+
+    #######################################################################
+    # CMR_AUDIT SUMMARY
+    #######################################################################
+    # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
+
+    missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
+    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
+
+    missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
+    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
+
     # logger.debug(f"{pstr(missing_slc)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
+    logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
+    logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
+    logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
+    logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
-    if args.do_cslc:
-        logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
-        cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
-            cmr_granules_slc_na,
-            input_slc_to_outputs_cslc_map := defaultdict(set),
-            output_cslc_to_inputs_slc_map := defaultdict(set)
-        )
-        logger.info("Querying CMR for list of expected CSLC granules")
-        cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns,
-                                                     temporal_date_start=cmr_start_dt_str,
-                                                     temporal_date_end=cmr_end_dt_str)
-        missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(
-            cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
+    now = datetime.datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    start_dt_str = cmr_start_dt_str.replace("-","")
+    start_dt_str = start_dt_str.replace("T", "-")
+    start_dt_str = start_dt_str.replace(":", "")
 
-        missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for
-                                         native_id_pattern in missing_cslc_native_id_patterns]
-        missing_cmr_granules_slc_cslc = set(functools.reduce(set.union,
-                                            missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
+    end_dt_str = cmr_end_dt_str.replace("-", "")
+    end_dt_str = end_dt_str.replace("T", "-")
+    end_dt_str = end_dt_str.replace(":", "")
+    outfilename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
 
-        logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
-        logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
+    if args.format == "txt":
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
+        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            fp.write('\n'.join(missing_cmr_granules_slc_cslc))
+        if missing_cmr_granules_slc_cslc:
+            with open(output_file_missing_cmr_granules, mode='a') as fp:
+                fp.write('\n')
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        out_filename = get_output_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
-        write_out_results(missing_cmr_granules_slc_cslc, out_filename, args.format)
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
+        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            fp.write('\n'.join(missing_cmr_granules_slc_rtc))
+        if missing_cmr_granules_slc_rtc:
+            with open(output_file_missing_cmr_granules, mode='a') as fp:
+                fp.write('\n')
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-    if args.do_rtc:
-        logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
-        rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
-            cmr_granules_slc,
-            input_slc_to_outputs_rtc_map := defaultdict(set),
-            output_rtc_to_inputs_slc_map := defaultdict(set)
-        )
-        logger.info("Querying CMR for list of expected RTC granules")
-        cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns,
-                                                   temporal_date_start=cmr_start_dt_str,
-                                                   temporal_date_end=cmr_end_dt_str)
-        missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
+    elif args.format == "json":
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            from compact_json import Formatter
+            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+            json_str = formatter.serialize(list(missing_cmr_granules_slc_cslc))
+            fp.write(json_str)
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
-        missing_cmr_granules_slc_rtc = set(functools.reduce(set.union,
-                                            missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
-
-        logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
-        logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
-
-        out_filename = get_output_filename(cmr_start_dt_str, cmr_end_dt_str, "RTC")
-        write_out_results(missing_cmr_granules_slc_rtc, out_filename, args.format)
+        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.json"
+        with open(output_file_missing_cmr_granules, mode='w') as fp:
+            from compact_json import Formatter
+            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+            json_str = formatter.serialize(list(missing_cmr_granules_slc_rtc))
+            fp.write(json_str)
+        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+    else:
+        raise Exception()
 
 
 if __name__ == "__main__":
