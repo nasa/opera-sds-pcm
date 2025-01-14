@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import sys
 import logging
 import subprocess
+from cmr_audit_utils import str2bool
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -41,13 +42,13 @@ def create_parser():
     )
     argparser.add_argument(
         "--do_cslc",
-        type=bool,
+        type=str2bool,
         default=True,
         help=f'Flag to execute CSLC accountability. Defaults to "%(default)s".'
     )
     argparser.add_argument(
         "--do_rtc",
-        type=bool,
+        type=str2bool,
         default=True,
         help=f'Flag to execute RTC accountability. Defaults to "%(default)s".'
     )
@@ -80,19 +81,24 @@ if __name__ == "__main__":
                             ])
 
         elif args.input_product == 'SLC':
-            subprocess.run(['python', 'cmr_audit_slc.py',
-                            "--start-datetime", start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                            "--end-datetime", stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                            "--do_cslc", args.do_cslc,
-                            "--do_rtc", args.do_rtc
-                            ])
+            print(args.do_cslc)
+            print(args.do_rtc)
+            # subprocess.run(['python', 'cmr_audit_slc.py',
+            #                 "--start-datetime", start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            #                 "--end-datetime", stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            #                 "--do_cslc", str(args.do_cslc),
+            #                 "--do_rtc", str(args.do_rtc)
+            #                 ])
 
         else:
             logging.error(f"Invalid input product: {args.input_product}")
             exit(1)
 
         start_datetime = stop_datetime
-        time.sleep(SLEEP_TIME_SECS)
+
+        # wait before next iteration
+        if stop_datetime < end_datetime:
+            time.sleep(SLEEP_TIME_SECS)
 
 
 
