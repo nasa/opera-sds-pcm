@@ -231,6 +231,9 @@ def convert(
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
+        elif pge_name == "L3_DIST_S1":
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
@@ -319,6 +322,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "dswx-ni" in dataset_id.lower():
         collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
         product_version = settings.get("DSWX_NI_PRODUCT_VERSION")
+    elif "dist-s1" in dataset_id.lower():
+        collection_name = settings.get("DIST_S1_COLLECTION_NAME")
+        product_version = settings.get("DIST_S1_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"
