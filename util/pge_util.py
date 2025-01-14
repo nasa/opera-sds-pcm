@@ -692,12 +692,14 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             creation_ts=creation_time,
             sensor='S1A',
             spacing='30',
-            product_version='0.1',
+            product_version='0.0.1',
         )
 
         if extension.endswith('tiff') or extension.endswith('tif'):
             for band_name in DIST_S1_BAND_NAMES:
                 output_filenames.append(f'{base_name}_{band_name}.tif')
+
+            output_filenames.append(f'{base_name}_BROWSE.tif')
         elif extension.endswith('png'):
             output_filenames.append(f'{base_name}_BROWSE.png')
         elif extension.endswith('iso.xml'):
@@ -708,7 +710,7 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
                 creation_ts=creation_time,
                 sensor='S1A',
                 spacing='30',
-                product_version=dataset_match.groupdict()['product_version']
+                product_version='0.0.1'
             )
 
             ancillary_file_name = f'{base_name}.{extension}'

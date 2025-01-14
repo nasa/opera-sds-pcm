@@ -486,9 +486,9 @@ def test_simulate_dist_s1_pge():
             assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_BROWSE.png').exists()
             assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.iso.xml').exists()
 
-        assert Path(f'/tmp/{expected_ancillary_basename}.catalog.json').exists()
-        assert Path(f'/tmp/{expected_ancillary_basename}.log').exists()
-        assert Path(f'/tmp/{expected_ancillary_basename}.qa.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
     finally:
         for path in glob.iglob('/tmp/OPERA_L3_DIST-S1*.*'):
             Path(path).unlink(missing_ok=True)
