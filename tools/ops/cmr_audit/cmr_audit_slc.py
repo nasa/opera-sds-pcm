@@ -321,80 +321,100 @@ async def run(argv: list[str]):
     cmr_start_dt_str = args.start_datetime
     cmr_end_dt_str = args.end_datetime
 
-    cmr_granules_slc_s1a, cmr_granules_slc_s1a_details = await async_get_cmr_granules_slc_s1a(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
-    cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = await async_get_cmr_granules_slc_s1b(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    cmr_granules_slc_s1a, cmr_granules_slc_s1a_details = await async_get_cmr_granules_slc_s1a(
+        temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = await async_get_cmr_granules_slc_s1b(
+        temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
     cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
     cmr_granules_slc_details = {}
     cmr_granules_slc_details.update(cmr_granules_slc_s1a_details)
     cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
 
-    logger.info("Filtering North America granules")
-    cmr_granules_slc_na = set()
-    cmr_granules_slc_details_na = {}
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        does_bbox_intersect_north_america([])  # DEV: optimization to force initial cache load of geojson file
-        future_to_granule_map = {}
-        for granule_id, granule_details in cmr_granules_slc_details.items():
-            bounding_box = [
-                {"lat": point["Latitude"], "lon": point["Longitude"]}
-                for point in granule_details["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"][0]["Boundary"]["Points"]
-            ]
-            future_to_granule_map[executor.submit(does_bbox_intersect_north_america, bbox=bounding_box)] = (granule_id, granule_details)
-        for future in concurrent.futures.as_completed(future_to_granule_map):
-            is_granule_in_na = future.result()
-            if is_granule_in_na:
-                granule_id, granule_details = future_to_granule_map[future]
-                cmr_granules_slc_na.add(granule_id)
-                cmr_granules_slc_details_na[granule_id] = granule_details
-
-    logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
-    logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
-
-    cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
-        cmr_granules_slc_na,
-        input_slc_to_outputs_cslc_map := defaultdict(set),
-        output_cslc_to_inputs_slc_map := defaultdict(set)
-    )
-
-    rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
-        cmr_granules_slc,
-        input_slc_to_outputs_rtc_map := defaultdict(set),
-        output_rtc_to_inputs_slc_map := defaultdict(set)
-    )
-
-    logger.info("Querying CMR for list of expected CSLC granules")
-    cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
-
-    logger.info("Querying CMR for list of expected RTC granules")
-    cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
-
-    missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
-    missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
-
-    #######################################################################
-    # CMR_AUDIT SUMMARY
-    #######################################################################
-    # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
-
-    missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
-    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
-
-    missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
-    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
-
-    # logger.debug(f"{pstr(missing_slc)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
-    logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
-    logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
-    logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
-    logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
     if args.do_cslc:
+
+        logger.info("Filtering North America granules")
+        cmr_granules_slc_na = set()
+        cmr_granules_slc_details_na = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            does_bbox_intersect_north_america(
+                [])  # DEV: optimization to force initial cache load of geojson file
+            future_to_granule_map = {}
+            for granule_id, granule_details in cmr_granules_slc_details.items():
+                bounding_box = [
+                    {"lat": point["Latitude"], "lon": point["Longitude"]}
+                    for point in
+                    granule_details["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"][
+                        "GPolygons"][0]["Boundary"]["Points"]
+                ]
+                future_to_granule_map[
+                    executor.submit(does_bbox_intersect_north_america, bbox=bounding_box)] = (
+                    granule_id, granule_details)
+
+            for future in concurrent.futures.as_completed(future_to_granule_map):
+                is_granule_in_na = future.result()
+                if is_granule_in_na:
+                    granule_id, granule_details = future_to_granule_map[future]
+                    cmr_granules_slc_na.add(granule_id)
+                    cmr_granules_slc_details_na[granule_id] = granule_details
+
+        logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
+
+        cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
+            cmr_granules_slc_na,
+            input_slc_to_outputs_cslc_map := defaultdict(set),
+            output_cslc_to_inputs_slc_map := defaultdict(set)
+        )
+
+        logger.info("Querying CMR for list of expected CSLC granules")
+        cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns,
+                                                     temporal_date_start=cmr_start_dt_str,
+                                                     temporal_date_end=cmr_end_dt_str)
+
+        missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(
+            cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
+
+        missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for
+                                         native_id_pattern in missing_cslc_native_id_patterns]
+        missing_cmr_granules_slc_cslc = set(
+            functools.reduce(set.union,
+                             missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
+
+        logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
+        logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
+
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
         write_missing_products_to_file(out_filename, missing_cmr_granules_slc_cslc)
 
     if args.do_rtc:
+
+        logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
+
+        rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
+            cmr_granules_slc,
+            input_slc_to_outputs_rtc_map := defaultdict(set),
+            output_rtc_to_inputs_slc_map := defaultdict(set)
+        )
+
+        logger.info("Querying CMR for list of expected RTC granules")
+        cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns,
+                                                   temporal_date_start=cmr_start_dt_str,
+                                                   temporal_date_end=cmr_end_dt_str)
+
+        missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(
+            cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
+
+        missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for
+                                        native_id_pattern in missing_rtc_native_id_patterns]
+        missing_cmr_granules_slc_rtc = set(
+            functools.reduce(set.union,
+                             missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
+
+        logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
+        logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
+
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "RTC")
         write_missing_products_to_file(out_filename, missing_cmr_granules_slc_rtc)
 
