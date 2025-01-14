@@ -16,6 +16,7 @@ SLEEP_TIME_SECS = 60
 
 
 def create_parser():
+
     argparser = argparse.ArgumentParser(add_help=True)
     argparser.add_argument(
         "--start-datetime",
@@ -38,6 +39,18 @@ def create_parser():
         type=int,
         default=10
     )
+    argparser.add_argument(
+        "--do_cslc",
+        type=bool,
+        default=True,
+        help=f'Flag to execute CSLC accountability. Defaults to "%(default)s".'
+    )
+    argparser.add_argument(
+        "--do_rtc",
+        type=bool,
+        default=True,
+        help=f'Flag to execute RTC accountability. Defaults to "%(default)s".'
+    )
 
     return argparser
 
@@ -59,19 +72,24 @@ if __name__ == "__main__":
 
         # start_datime ==> stop_datetime
         logging.info(f"Processing from: {start_datetime} to: {stop_datetime}")
+
         if args.input_product == 'HLS':
-            script = 'cmr_audit_hls.py'
+            subprocess.run(['python', 'cmr_audit_hls.py',
+                            "--start-datetime", start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "--end-datetime", stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+                            ])
+
         elif args.input_product == 'SLC':
-            script = 'cmr_audit_slc.py'
+            subprocess.run(['python', 'cmr_audit_slc.py',
+                            "--start-datetime", start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "--end-datetime", stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "--do_cslc", args.do_cslc,
+                            "--do_rtc", args.do_rtc
+                            ])
+
         else:
             logging.error(f"Invalid input product: {args.input_product}")
             exit(1)
-
-        subprocess.run(['python', script,
-                        "--start-datetime",
-                        start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        "--end-datetime",
-                        stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")])
 
         start_datetime = stop_datetime
         time.sleep(SLEEP_TIME_SECS)
