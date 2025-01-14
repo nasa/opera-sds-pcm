@@ -81,14 +81,12 @@ if __name__ == "__main__":
                             ])
 
         elif args.input_product == 'SLC':
-            print(args.do_cslc)
-            print(args.do_rtc)
-            # subprocess.run(['python', 'cmr_audit_slc.py',
-            #                 "--start-datetime", start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            #                 "--end-datetime", stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            #                 "--do_cslc", str(args.do_cslc),
-            #                 "--do_rtc", str(args.do_rtc)
-            #                 ])
+            subprocess.run(['python', 'cmr_audit_slc.py',
+                            "--start-datetime", start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "--end-datetime", stop_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "--do_cslc", str(args.do_cslc),
+                            "--do_rtc", str(args.do_rtc)
+                            ])
 
         else:
             logging.error(f"Invalid input product: {args.input_product}")

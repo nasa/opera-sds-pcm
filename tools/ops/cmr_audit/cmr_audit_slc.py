@@ -19,6 +19,7 @@ from more_itertools import always_iterable
 
 from geo.geo_util import does_bbox_intersect_north_america
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
+from cmr_audit_utils import str2bool
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
@@ -59,13 +60,13 @@ def create_parser():
     )
     argparser.add_argument(
         "--do_cslc",
-        type=bool,
+        type=str2bool,
         default=True,
         help=f'Flag to execute CSLC accountability. Defaults to "%(default)s".'
     )
     argparser.add_argument(
         "--do_rtc",
-        type=bool,
+        type=str2bool,
         default=True,
         help=f'Flag to execute RTC accountability. Defaults to "%(default)s".'
     )
