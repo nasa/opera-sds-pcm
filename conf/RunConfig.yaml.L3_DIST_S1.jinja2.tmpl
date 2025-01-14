@@ -6,16 +6,16 @@ RunConfig:
         PGEName: DIST_S1_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in data.pre_rtc_copol %}
+          {%- for input in data.input_file_group.pre_rtc_copol %}
           - {{ input }}
           {%- endfor %}
-          {%- for input in data.pre_rtc_crosspol %}
+          {%- for input in data.input_file_group.pre_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
-          {%- for input in data.post_rtc_copol %}
+          {%- for input in data.input_file_group.post_rtc_copol %}
           - {{ input }}
           {%- endfor %}
-          {%- for input in data.post_rtc_crosspol %}
+          {%- for input in data.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
@@ -45,19 +45,19 @@ RunConfig:
     SAS:
       run_config:
         pre_rtc_copol:
-          {%- for input in data.pre_rtc_copol %}
+          {%- for input in data.input_file_group.pre_rtc_copol %}
           - {{ input }}
           {%- endfor %}
         pre_rtc_crosspol:
-          {%- for input in data.pre_rtc_crosspol %}
+          {%- for input in data.input_file_group.pre_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
         post_rtc_copol:
-          {%- for input in data.post_rtc_copol %}
+          {%- for input in data.input_file_group.post_rtc_copol %}
           - {{ input }}
           {%- endfor %}
         post_rtc_crosspol:
-          {%- for input in data.post_rtc_crosspol %}
+          {%- for input in data.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
         mgrs_tile_id: {{ data.mgrs_tile_id }}
