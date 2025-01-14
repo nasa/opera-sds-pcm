@@ -95,7 +95,7 @@ if __name__ == "__main__":
         start_datetime = stop_datetime
 
         # wait before next iteration
-        if stop_datetime < end_datetime:
+        if start_datetime < end_datetime:
             time.sleep(SLEEP_TIME_SECS)
 
 
