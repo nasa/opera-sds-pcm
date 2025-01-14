@@ -282,6 +282,33 @@ def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product):
 
     return f"missing_granules_SLC-{product}_{out_filename}"
 
+def write_missing_products_to_file(out_filename, missing_cmr_granules):
+
+    out_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.{args.format}"
+    logger.info(f"Writing granule list to file {out_file_missing_cmr_granules!r}")
+
+    if args.format == "txt":
+
+        with open(out_file_missing_cmr_granules, mode='w') as fp:
+            fp.write('\n'.join(missing_cmr_granules))
+        if missing_cmr_granules:
+            with open(out_file_missing_cmr_granules, mode='a') as fp:
+                fp.write('\n')
+
+    elif args.format == "json":
+
+        with open(out_file_missing_cmr_granules, mode='w') as fp:
+            from compact_json import Formatter
+            formatter = Formatter(indent_spaces=2, max_inline_length=300,
+                                  max_compact_list_complexity=0)
+            json_str = formatter.serialize(list(missing_cmr_granules))
+            fp.write(json_str)
+
+    else:
+        raise Exception(f"Unrecognized output format {args.format}")
+
+    logger.info(f"Finished writing to file {out_file_missing_cmr_granules!r}")
+
 #######################################################################
 # CMR AUDIT
 #######################################################################
@@ -298,7 +325,9 @@ async def run(argv: list[str]):
     cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = await async_get_cmr_granules_slc_s1b(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
     cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
-    cmr_granules_slc_details = {}; cmr_granules_slc_details.update(cmr_granules_slc_s1a_details); cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
+    cmr_granules_slc_details = {}
+    cmr_granules_slc_details.update(cmr_granules_slc_s1a_details)
+    cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
 
     logger.info("Filtering North America granules")
     cmr_granules_slc_na = set()
@@ -361,58 +390,13 @@ async def run(argv: list[str]):
     logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
     logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
-    now = datetime.datetime.now()
-    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
-    start_dt_str = cmr_start_dt_str.replace("-","")
-    start_dt_str = start_dt_str.replace("T", "-")
-    start_dt_str = start_dt_str.replace(":", "")
-
-    end_dt_str = cmr_end_dt_str.replace("-", "")
-    end_dt_str = end_dt_str.replace("T", "-")
-    end_dt_str = end_dt_str.replace(":", "")
-    outfilename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
-
-    if args.format == "txt":
+    if args.do_cslc:
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
-        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc_cslc))
-        if missing_cmr_granules_slc_cslc:
-            with open(output_file_missing_cmr_granules, mode='a') as fp:
-                fp.write('\n')
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+        write_missing_products_to_file(out_filename, missing_cmr_granules_slc_cslc)
 
+    if args.do_rtc:
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "RTC")
-        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.txt"
-        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc_rtc))
-        if missing_cmr_granules_slc_rtc:
-            with open(output_file_missing_cmr_granules, mode='a') as fp:
-                fp.write('\n')
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
-
-    elif args.format == "json":
-        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
-        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.json"
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            from compact_json import Formatter
-            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-            json_str = formatter.serialize(list(missing_cmr_granules_slc_cslc))
-            fp.write(json_str)
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
-
-        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "RTC")
-        output_file_missing_cmr_granules = args.output if args.output else f"{out_filename}.json"
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            from compact_json import Formatter
-            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-            json_str = formatter.serialize(list(missing_cmr_granules_slc_rtc))
-            fp.write(json_str)
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
-    else:
-        raise Exception()
+        write_missing_products_to_file(out_filename, missing_cmr_granules_slc_rtc)
 
 
 if __name__ == "__main__":
