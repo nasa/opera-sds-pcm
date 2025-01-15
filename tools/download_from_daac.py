@@ -20,7 +20,7 @@ parser.add_argument("--verbose", action="store_true", help="If set, print out ve
 parser.add_argument("--dry-run", action="store_true", help="If set, do not actually copy any files.", required=False, default=False)
 parser.add_argument("--daac-endpoint", required=False, choices=['UAT', 'OPS'], default='OPS', help='CMR endpoint venue')
 parser.add_argument("--s3-destination", dest="s3_destination", help="S3 bucket name and path to write files to. e.g s3://opera-int-rs-pop1/products/DISP_S1/", required=True)
-parser.add_argument("--frame-list-file", dest="frame_list_file", help="DISP-S1 frames to ", required=True)
+parser.add_argument("--frame-list-file", dest="frame_list_file", help="Text file containing DISP-S1 frame numbers to copy over. They can be separated by commas and/or newlines. e.g '8882, 33039', etc", required=True)
 parser.add_argument("--product-version", dest="product_version", help="Product version to search for. e.g. 0.8, 0.9, etc", required=True)
 #parser.add_argument("--include-pattern", dest="include_pattern", help="Include pattern for native-id", required=False)
 args = parser.parse_args()
