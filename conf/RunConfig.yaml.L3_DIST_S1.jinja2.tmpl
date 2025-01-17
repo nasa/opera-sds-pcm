@@ -19,7 +19,7 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
-        AncillaryFileMap:{}  # TODO: Don't know how I should fill this part out based on the SAS RC
+        AncillaryFileMap: {}  # TODO: Don't know how I should fill this part out based on the SAS RC
       ProductPathGroup:
         OutputProductPath: {{ data.product_path_group.product_path }}
         ScratchPath: {{ data.product_path_group.scratch_path }}
