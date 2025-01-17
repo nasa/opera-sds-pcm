@@ -429,22 +429,22 @@ def update_dist_s1_runconfig(context, work_dir):
 
     run_config['input_file_group']['pre_rtc_copol'] = list(map(
         lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['pre_rtc_copol']
+        run_config['input_file_group']['pre_rtc_copol']
     ))
 
     run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
         lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['pre_rtc_crosspol']
+        run_config['input_file_group']['pre_rtc_crosspol']
     ))
 
     run_config['input_file_group']['post_rtc_copol'] = list(map(
         lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['post_rtc_copol']
+        run_config['input_file_group']['post_rtc_copol']
     ))
 
     run_config['input_file_group']['post_rtc_crosspol'] = list(map(
         lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['post_rtc_crosspol']
+        run_config['input_file_group']['post_rtc_crosspol']
     ))
 
     # TODO: dist_s1_alert_db_dir and water_mask are currently fixed unset so we can skip them for now
