@@ -50,12 +50,10 @@ for frame in frames_to_download:
 
         # NOTE: This time filter isn't really used - we hard-coded it to 1999 to 2099 for now. If at some point we want to
         # filter by time as well, we will need to configure this a bit to make it work
-        for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
-            # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
-            actual_temporal_time = datetime.datetime.strptime(
-                disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
-            if not(actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date):
-                continue
+        actual_temporal_time = datetime.datetime.strptime(
+            disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
+        if not(actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date):
+            continue
 
         # If the path umm.RelatedUrls contains "URL" that starts with "s3" and "Format" field value "netCDF-4" then store that value
         for related_url in disp_s1.get("umm").get("RelatedUrls"):
