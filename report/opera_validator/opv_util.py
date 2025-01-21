@@ -97,7 +97,7 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches):
         with downloaded_batches.get_lock():  # Safely increment the count
             downloaded_batches.value += 1
         return batch_granules
-def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_name = 'OPERA_L2_RTC-S1_V1', window_length_days = 30, timestamp_type = 'temporal'):
+def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_name = 'OPERA_L2_RTC-S1_V1', window_length_days = 30, timestamp_type = 'temporal', extra_params = None):
     """
     Generates URL parameters for querying granules from CMR (Common Metadata Repository) based on provided criteria.
 
@@ -145,9 +145,12 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     else: # default time query type if not provided or set to temporal
         params['temporal'] = f"{start},{end}"
 
+    if extra_params:
+        params.update(extra_params)
+
     return base_url, params
 
-def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname):
+def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extra_params = None):
 
     # Convert timestamps to strings in ISO 8601 format
     smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
@@ -160,7 +163,8 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname):
         endpoint=endpoint,
         provider='',  # leave blank
         short_name=shortname,  # Use the specific product short name
-        timestamp_type='temporal'  # Ensure this matches the query requirements
+        timestamp_type='temporal',  # Ensure this matches the query requirements
+        extra_params=extra_params
     )
 
     # Update the params dictionary directly to include any specific parameters needed

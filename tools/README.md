@@ -33,6 +33,8 @@ This guide provides a quick way to get started with the script.
 
 ## disp_s1_burst_db_tool.py
 
+OPERA PCM must be installed for this tool to work.
+
 Tool to query and analyze the DISP S1 historical burst database. The burst database file must be in the same directory as this script
 
 The database file can be found here
@@ -100,6 +102,8 @@ https://opera-ancillaries.s3.us-west-2.amazonaws.com/opera-disp-s1-consistent-bu
 
 ## run_disp_s1_historical_processing.py
 
+OPERA PCM must be installed for this tool to work.
+
 This is a stand-alone CLI application that runs the DISP S1 historical processing.
 It uses the batch_procs stored in GRQ ES ```batch_proc``` index which are managed by ```pcm_batch.py``` 
 which is the same as how historical processing works for R2 CSLC products.
@@ -129,3 +133,48 @@ See OPERA wiki for detailed CONOPS and use-cases of DISP-S1 historical processin
     # and that may become verbose. If you're actually running, you'd have to wait at least 1 hr between 
     # job submissions anyway so no point in running too often.
     ./run_disp_s1_historical_processing.py --sleep-secs 300
+
+
+## download_from_daac.py
+
+OPERA PCM must be installed for this tool to work.
+
+This is a stand-alone CLI application that copies over DISP-S1 products from the ASF DAAC to an existing OPERA S3 bucket.
+The use-case is to backfill expired products in the INT S3 bucket but there may be other use-cases. 
+While this code isn't yet generalized to copy from any S3 resource to another or to a local dir or local dir to S3, etc, 
+those features can be easily be implemented. The code is written in a bit more generalized way than necessary for this one known use-case.
+
+It's highly recommended to run dry-run before actually performing the copies. There is no undo.
+
+Copying one ~300MB .nc DISP-S1 file takes about 3 seconds. This tool currently copies only the .nc file - .xml, .png, etc are not copied. If those are needed, they can be added easily.
+
+    ./download_from_daac.py --help
+    usage: download_from_daac.py [-h] [--verbose] [--dry-run] [--daac-endpoint {UAT,OPS}] --s3-destination S3_DESTINATION --frame-list-file FRAME_LIST_FILE --product-version PRODUCT_VERSION
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose             If set, print out verbose information.
+      --dry-run             If set, do not actually copy any files.
+      --daac-endpoint {UAT,OPS}
+                            CMR endpoint venue
+      --s3-destination S3_DESTINATION
+                            S3 bucket name and path to write files to. e.g s3://opera-int-rs-pop1/products/DISP_S1/
+      --frame-list-file FRAME_LIST_FILE
+                            Text file containing DISP-S1 frame numbers to copy over. They can be separated by commas and/or newlines. e.g '8882, 33039', etc
+      --product-version PRODUCT_VERSION
+                            Product version to search for. e.g. 0.8, 0.9, etc
+
+#### Examples:
+    # Dry run will print out what it will do but does not copy any files. Useful for double checking the frame list
+    ./download_from_daac.py --daac-endpoint=UAT --s3-destination=s3://opera-int-rs-pop1/products/DISP_S1/ --frame-list-file=frame_list.txt --product-version=0.9 --dry-run > dry.log
+
+    # Actually copy the files from the ASF UAT DAAC to the OPERA S3 bucket
+    ./download_from_daac.py --daac-endpoint=UAT --s3-destination s3://opera-int-rs-pop1/products/DISP_S1/ --frame-list-file=frame_list.txt --product-version=0.9
+
+    # Copy from OPS instead of UAT, product version 1.0 instead of 0.9
+    ./download_from_daac.py --daac-endpoint=OPS --s3-destination s3://opera-int-rs-pop1/products/DISP_S1/ --frame-list-file=frame_list.txt --product-version=1.0
+
+    # Example of a frame_list.txt file (you can mix comma-separated or new lines)
+    8882, 33039, 33040
+    33041, 33042
+    33043
