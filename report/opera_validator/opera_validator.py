@@ -315,13 +315,17 @@ if __name__ == '__main__':
             sys.exit(1)
         else:
             processing_mode = args.processing_mode
-        should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.frames_only, args.validate_with_grq, processing_mode)
+        passing, should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.frames_only, args.validate_with_grq, processing_mode)
         print(tabulate(should_df[['Frame ID', 'Acq Day Index', 'All Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
         if (args.verbose):
-            print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Acq Day Indices', 'All Bursts', 'Matching Bursts']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Acq Day Indices', 'All Bursts', 'Matching Bursts', 'Unmatching Bursts']], headers='keys', tablefmt='plain', showindex=False))
         else:
-            print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Acq Day Indices', 'All Bursts Count', 'Matching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+            print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Bursts Count', 'Matching Bursts Count', 'Unmatching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
+        if passing:
+            print(f"✅ Validation successful: All DISP-S1 products ({result_df['All Bursts Count'].sum()}) available at CMR for corresponding matched input CSLC bursts within sensing time range.")
+        else:
+            print("❌ Validation failed: Mismatch in DISP-S1 products available at CMR for corresponding matched input CSLC bursts within sensing time range.")
     else:
         logging.error(f"Arguments for for --product '{args.product}' missing or not invalid.")
