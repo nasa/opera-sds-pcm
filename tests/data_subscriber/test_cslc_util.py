@@ -14,8 +14,9 @@ from util.conf_util import SettingsConf
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
-BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
-disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
+s3, path, file, burst_file_url = cslc_utils.get_s3_resource_from_settings("DISP_S1_BURST_DB_S3PATH")
+file = Path(__file__).parent / file
+disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(file)
 
 frame_blackout_dates = process_disp_blackout_dates(Path(__file__).parent / "sample_disp_s1_blackout.json")
 blackout_dates_obj = DispS1BlackoutDates(frame_blackout_dates, disp_burst_map_hist, burst_to_frames)
@@ -23,7 +24,7 @@ blackout_dates_obj = DispS1BlackoutDates(frame_blackout_dates, disp_burst_map_hi
 #TODO: We may change the database json during production that could have different burst ids for the same frame
 #TODO: So we may want to create different versions of this unit test, one for each version of the database json
 def test_burst_map():
-    assert len(disp_burst_map_hist.keys()) == 1428
+    assert len(disp_burst_map_hist.keys()) == 1427
     burst_set = set()
     for burst in ['T042-088905-IW2', 'T042-088907-IW3', 'T042-088907-IW2', 'T042-088910-IW1', 'T042-088910-IW3', 'T042-088913-IW1', 'T042-088906-IW1', 'T042-088911-IW1', 'T042-088912-IW2', 'T042-088913-IW2', 'T042-088907-IW1', 'T042-088913-IW3', 'T042-088909-IW3', 'T042-088912-IW3', 'T042-088909-IW1', 'T042-088909-IW2', 'T042-088908-IW2', 'T042-088910-IW2', 'T042-088906-IW3', 'T042-088911-IW2', 'T042-088908-IW1', 'T042-088912-IW1', 'T042-088911-IW3', 'T042-088905-IW1', 'T042-088905-IW3', 'T042-088906-IW2', 'T042-088908-IW3']:
         burst_set.add(burst)
@@ -31,10 +32,10 @@ def test_burst_map():
     diff_time = disp_burst_map_hist[11114].sensing_datetimes[0] - dateutil.parser.isoparse("2016-08-10T14:07:13")
     assert diff_time.total_seconds() < 60
 
-    assert len(disp_burst_map_hist[46799].burst_ids) == 15
-    assert len(disp_burst_map_hist[46799].sensing_datetimes) == 1
+    assert len(disp_burst_map_hist[46799].burst_ids) == 16
+    assert len(disp_burst_map_hist[46799].sensing_datetimes) == 0
 
-    assert len(disp_burst_map_hist[28498].burst_ids) == 23
+    assert len(disp_burst_map_hist[28498].burst_ids) == 18
 
 def test_split_download_batch_id():
     """Test that the download batch id is correctly split into frame and acquisition cycle"""
@@ -90,7 +91,7 @@ def test_parse_cslc_native_id():
     burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
         cslc_utils.parse_cslc_native_id("OPERA_L2_CSLC-S1_T050-105601-IW3_20160823T025448Z_20240614T120433Z_S1A_VV_v1.1", burst_to_frames, disp_burst_map_hist)
     assert frame_ids == [13200, 13201]
-    assert disp_burst_map_hist[13200].sensing_datetimes[0] == dateutil.parser.isoparse("2016-08-23T02:54:48")
+    assert disp_burst_map_hist[13200].sensing_datetimes[0] == dateutil.parser.isoparse("2017-08-18T02:54:31")
 
     #TODO: 09-05-2024 Uncomment after the database file has been updated
     '''burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
@@ -113,7 +114,7 @@ def test_build_ccslc_m_index():
 def test_determine_acquisition_cycle_cslc():
     """Test that the acquisition cycle is correctly determined"""
     acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170227T230524"), 831, disp_burst_map_hist)
-    assert acquisition_cycle == 12
+    assert acquisition_cycle == 240
 
     acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170203T230547"), 832, disp_burst_map_hist)
     assert acquisition_cycle == 216
@@ -130,7 +131,7 @@ def test_determine_k_cycle():
     cslc_dependency = CSLCDependency(10, 1, disp_burst_map_hist, args, token, cmr, settings, blackout_dates_obj) # m doesn't matter here
 
     k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831)
-    assert k_cycle == 2
+    assert k_cycle == 5
 
     k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832)
     assert k_cycle == 1
@@ -271,7 +272,7 @@ def test_nearest_sensing_datetime():
 
     count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
                                                            dateutil.parser.isoparse("2027-11-02T00:26:48"))
-    assert nearest_time == dateutil.parser.isoparse("2024-08-28T00:27:00")
+    assert nearest_time == dateutil.parser.isoparse("2024-12-26T00:26:57")
 
 def test_calculate_historical_progress():
     end_date = dateutil.parser.isoparse("2018-07-01T00:00:00")
@@ -279,7 +280,7 @@ def test_calculate_historical_progress():
 
     progress, frame_completion, last_processed_datetimes \
         = cslc_utils.calculate_historical_progress(frame_states, end_date, disp_burst_map_hist)
-    assert progress == 67
+    assert progress == 69
     assert frame_completion == {'46288': 71, '46289': 71, '26690': 100, '26691': 100, '38500': 0}
     assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 14),
                                         '46289': datetime(2018, 1, 29, 13, 43, 36),

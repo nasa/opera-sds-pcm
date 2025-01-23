@@ -28,14 +28,18 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
-def localize_anc_json(settings_field):
-    '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
-
+def get_s3_resource_from_settings(settings_field):
     settings = SettingsConf().cfg
     burst_file_url = urlparse(settings[settings_field])
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
+
+    return s3, path, file, burst_file_url
+def localize_anc_json(settings_field):
+    '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
+
+    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field)
     s3.Object(burst_file_url.netloc, path).download_file(file)
 
     return file
@@ -134,10 +138,6 @@ def process_disp_frame_burst_hist(file):
     datetime_to_frames = defaultdict(list)      # List of frame numbers
 
     for frame in j:
-
-        # If sensing time list is empty, skip this frame
-        if len(j[frame]["sensing_time_list"]) == 0:
-            continue
 
         frame_to_bursts[int(frame)].frame_number = int(frame)
 
