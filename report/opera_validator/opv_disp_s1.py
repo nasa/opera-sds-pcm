@@ -106,6 +106,26 @@ def match_up_disp_s1(data_should_trigger, disp_s1s):
         pickle.dump(data, f)
     '''
 
+    # Supplement disp_s1 data structure with what should have also been triggered
+    disp_frame_acq_day_indices = set()
+    for disp_s1 in disp_s1s:
+        for acq_index in disp_s1['All Acq Day Indices']:
+            disp_frame_acq_day_indices.add((disp_s1['Frame ID'], acq_index))
+    for item in data_should_trigger:
+        if (item['Frame ID'], item['Acq Day Index']) not in disp_frame_acq_day_indices:
+            disp_s1s.append({
+                'Product ID': "N/A",
+                'Frame ID': item['Frame ID'],
+                'Last Acq Day Index': item['Acq Day Index'],
+                'All Acq Day Indices': "N/A",
+                'All Bursts': item['All Bursts'],
+                'All Bursts Count': item['All Bursts Count'],
+                'Matching Bursts': [],
+                'Matching Bursts Count': 0,
+                'Unmatching Bursts': item['All Bursts'],
+                'Unmatching Bursts Count': item['All Bursts Count']
+            })
+
     passing = True
 
     # Account for produced DISP-S1 products by comparing to available CSLC bursts
@@ -338,5 +358,5 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     # Create a DataFrame from the data
     df = pd.DataFrame(data)
-    df.sort_values(["Frame ID", "Last Acq Day Index"], inplace=True)
+    df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
     return passing, should_df, df
