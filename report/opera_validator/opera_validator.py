@@ -174,6 +174,7 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
 
 if __name__ == '__main__':
     # Create an argument parser
+    # TODO: Create subparsers for each product type so that we can specify argument requirements on a per product basis
     parser = argparse.ArgumentParser(description="CMR Query with Temporal Range and SQLite DB Access")
     parser.add_argument("--timestamp", required=False, default='TEMPORAL', metavar="TEMPORAL|REVISION|PRODUCTION|CREATED",  help="Use temporal, revision, or production time in start / end time granule query to CMR. Ex. --timestamp revision")
     parser.add_argument("--start", required=False, help="Temporal start time (ISO 8601 format)")
@@ -190,6 +191,9 @@ if __name__ == '__main__':
     parser.add_argument("--frames_only", required=False, help="DISP-S1 only. Restrict validation to these frame numbers only. Comma-separated list of frames")
     parser.add_argument("--validate_with_grq", action='store_true', help="DISP-S1 only. Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
     parser.add_argument("--processing_mode", required=False, choices=['forward', 'reprocessing', 'historical'], help="DISP-S1 only. Processing mode to use for DISP-S1 validation")
+    parser.add_argument("--view_all_cslc_groupings", action='store_true', help="DISP-S1 only. View all CSLC input grouping data in addition to the normal output. ")
+    parser.add_argument("--k", required=False, default=15, help="DISP-S1 only. It should almost always be 15 but that could be changed in some edge cases. ")
+
     # Parse the command-line arguments
     args = parser.parse_args()
 
@@ -315,13 +319,18 @@ if __name__ == '__main__':
             sys.exit(1)
         else:
             processing_mode = args.processing_mode
-        passing, should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input, args.endpoint_daac_output, args.frames_only, args.validate_with_grq, processing_mode)
-        #print(tabulate(should_df[['Frame ID', 'Acq Day Index', 'All Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+        passing, should_df, result_df = validate_disp_s1(args.start, args.end, args.timestamp, args.endpoint_daac_input,
+                                                         args.endpoint_daac_output, args.frames_only, args.validate_with_grq,
+                                                         processing_mode, args.k)
+        if args.view_all_cslc_groupings:
+            print(tabulate(should_df[['Frame ID', 'Acq Day Index', 'All Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
 
         if (args.verbose):
             print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Acq Day Indices', 'All Bursts', 'Matching Bursts', 'Unmatching Bursts']], headers='keys', tablefmt='plain', showindex=False))
         else:
             print(tabulate(result_df[['Product ID', 'Frame ID','Last Acq Day Index', 'All Bursts Count', 'Matching Bursts Count', 'Unmatching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))
+
+        print(f"Found {result_df['Product ID'].count()} DISP-S1 products within sensing time range.")
 
         if passing:
             print(f"✅ Validation successful: All DISP-S1 products ({result_df['All Bursts Count'].sum()}) available at CMR for corresponding matched input CSLC bursts within sensing time range.")

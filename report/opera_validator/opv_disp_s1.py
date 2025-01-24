@@ -90,12 +90,32 @@ def filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burs
 
     return frame_to_dayindex_to_granule
 
-def match_up_disp_s1(data_should_trigger, disp_s1s):
+def match_up_disp_s1(data_should_trigger, disp_s1s, processing_mode, k, frame_to_bursts):
+
+    k_set_map = defaultdict(lambda: defaultdict(set)) # Used for determining non-k-complete acq indices in historical mode
 
     # Create dictionary data structure for should_trigger
     frame_to_dayindex_to_granule = defaultdict(lambda: defaultdict(set))
     for item in data_should_trigger:
-        frame_to_dayindex_to_granule[item['Frame ID']][item['Acq Day Index']] = item['All Bursts']
+        frame = item['Frame ID']
+        acq_index = item['Acq Day Index']
+        frame_to_dayindex_to_granule[frame][acq_index] = item['All Bursts']
+
+        if processing_mode == "historical":
+            # # Group acq indices by frame ID and then by k-set number
+            index_number = frame_to_bursts[frame].sensing_datetime_days_index.index(acq_index)  # note "index" is overloaded term here
+            k_set = index_number // k
+            k_set_map[frame][k_set].add(acq_index)
+            logging.debug(f"Frame {frame} Acq Index {acq_index} K-Set {k_set}")
+
+    # Determine all frame / acq indices that weren't part of a k-complete set, only applicable in historical mode
+    skip_cslc_validation = set()
+    for frame_id in k_set_map:
+        for k_set in k_set_map[frame_id]:
+            if len(k_set_map[frame_id][k_set]) < k:
+                for acq_index in k_set_map[frame_id][k_set]:
+                    skip_cslc_validation.add((frame_id, acq_index))
+                    logging.info(f"Frame {frame_id} Acq Index {acq_index} K-Set {k_set} is not k-complete so will ignore during validation")
 
     # Pickle out data (for unit test purposes) while removing any bursts that have COMPRESSED string in them
     ''' for disp_s1 in data:
@@ -107,23 +127,39 @@ def match_up_disp_s1(data_should_trigger, disp_s1s):
     '''
 
     # Supplement disp_s1 data structure with what should have also been triggered
-    disp_frame_acq_day_indices = set()
+    # If we are in historical mode, we need to remove any cslc acq indices that aren't up to k
+    disp_frame_acq_day_indices = defaultdict(set)
     for disp_s1 in disp_s1s:
         for acq_index in disp_s1['All Acq Day Indices']:
-            disp_frame_acq_day_indices.add((disp_s1['Frame ID'], acq_index))
+            disp_frame_acq_day_indices[disp_s1['Frame ID']].add(acq_index)
     for item in data_should_trigger:
-        if (item['Frame ID'], item['Acq Day Index']) not in disp_frame_acq_day_indices:
+        acq_index = item['Acq Day Index']
+        frame = item['Frame ID']
+        if acq_index not in disp_frame_acq_day_indices[frame]:
+
+            # Fake matching bursts for non-k-complete acq indices so that they don't cause validation failure
+            if (frame, acq_index) in skip_cslc_validation:
+                # TODO: These two fields are being overwritten in subsequent code. Need to work on this more.
+                matching_bursts = item['All Bursts']
+                unmatching_bursts = []
+                logging.info(f"Frame {frame} Acq Index {acq_index} is not k-complete so will ignore during validation")
+            else:
+                matching_bursts = []
+                unmatching_bursts = item['All Bursts']
+            matching_bursts_count = len(matching_bursts)
+            unmatching_bursts_count = len(unmatching_bursts)
+
             disp_s1s.append({
-                'Product ID': "N/A",
-                'Frame ID': item['Frame ID'],
-                'Last Acq Day Index': item['Acq Day Index'],
+                'Product ID': "UNPROCESSED",
+                'Frame ID': frame,
+                'Last Acq Day Index': acq_index,
                 'All Acq Day Indices': "N/A",
                 'All Bursts': item['All Bursts'],
                 'All Bursts Count': item['All Bursts Count'],
-                'Matching Bursts': [],
-                'Matching Bursts Count': 0,
-                'Unmatching Bursts': item['All Bursts'],
-                'Unmatching Bursts Count': item['All Bursts Count']
+                'Matching Bursts': matching_bursts,
+                'Matching Bursts Count': matching_bursts_count,
+                'Unmatching Bursts': unmatching_bursts,
+                'Unmatching Bursts Count': unmatching_bursts_count
             })
 
     passing = True
@@ -207,7 +243,8 @@ def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
             filtered_disp_s1.append(disp_s1["_source"]["id"])
     return filtered_disp_s1
 
-def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, disp_s1_validate_with_grq, processing_mode, shortname='OPERA_L2_CSLC-S1_V1'):
+def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only,
+                     disp_s1_validate_with_grq, processing_mode, k, shortname='OPERA_L2_CSLC-S1_V1'):
     """
         Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
         It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -220,12 +257,11 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
         :param endpoint: str
             CMR environment ('UAT' or 'OPS') to specify the operational setting for the data query.
-        :param df: pandas.DataFrame
-            A DataFrame containing columns with granule identifiers which will be checked against the CMR query results.
 
-        :return: pandas.DataFrame or bool
-            A modified DataFrame with additional columns 'Unprocessed RTC Native IDs' and 'Unprocessed RTC Native IDs Count' showing
-            granules not found in the CMR results and their count respectively. Returns False if the CMR query fails.
+        :return: (passing, should_df, df)
+            passing - Overall boolean value indicating if the validation passed or failed.
+            should_df - DataFrame containing the expected granules that should have been processed.
+            df - DataFrame containing the actual granules that were processed.
 
         Raises:
             requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
@@ -353,7 +389,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         pickle.dump(data, f)'''
 
     # Match up data
-    passing, data, frame_to_dayindex_to_granule = match_up_disp_s1(data_should_trigger, data)
+    passing, data, frame_to_dayindex_to_granule = match_up_disp_s1(data_should_trigger, data, processing_mode, k, frame_to_bursts)
     should_df = pd.DataFrame(data_should_trigger)
 
     # Create a DataFrame from the data
