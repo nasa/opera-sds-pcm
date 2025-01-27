@@ -13,7 +13,8 @@ from data_subscriber.cmr import DateTimeRange
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60", "--k=4", "--m=4"]
 
-BURST_MAP = Path(__file__).parent / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
+s3, path, file, burst_file_url = cslc_utils.get_s3_resource_from_settings("DISP_S1_BURST_DB_S3PATH")
+BURST_MAP = Path(__file__).parent / file
 frame_to_bursts, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
 
 def test_extend_additional_records():
@@ -40,7 +41,7 @@ def test_reprocessing_by_native_id(caplog):
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
     c_query.query_cmr(None, datetime.utcnow())
-    assert ("native_id='OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0' is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
+    assert ("native_id=OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0 is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
             in caplog.text)
 
 

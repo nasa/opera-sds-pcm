@@ -265,3 +265,4 @@ if success:
     logging.info("TEST SUCCESS")
 else:
     logging.error("TEST FAILED")
+    exit(-1)
