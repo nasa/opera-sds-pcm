@@ -13,7 +13,7 @@ from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame
 _DISP_S1_INDEX_PATTERNS = "grq_v*_l3_disp_s1*"
 _DISP_S1_PRODUCT_TYPE = "OPERA_L3_DISP-S1_V1"
 
-def get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts):
+def get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts, processing_mode):
     """
     Looks something like:
     {8889:
@@ -40,8 +40,8 @@ def get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_f
             # 2. If the acquisition cycle is not in the database file, skip it
             acq_cycle = acquisition_cycles[frame_id]
             if acq_cycle < 0 or \
-                    acq_cycle < frame_to_bursts[frame_id].sensing_datetime_days_index[-1] and acq_cycle not in frame_to_bursts[frame_id].sensing_datetime_days_index:
-                logging.debug(f"Frame ID {frame_id} has no acquisition cycle {acq_cycle} in the database file. Skipping.")
+                    (processing_mode == "historical" and acq_cycle not in frame_to_bursts[frame_id].sensing_datetime_days_index):
+                logging.info(f"Frame ID {frame_id} acquisition index {acq_cycle} is either 0 or not in the database file while in historical mode. Skipping.")
                 continue
 
             frame_to_dayindex_to_granule[frame_id][acq_cycle].add(granule_id)
@@ -53,6 +53,9 @@ def filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burs
     Given a dictionary of frame IDs to day indices to granule IDs, filter for the frame that should trigger the DISP-S1 job.
     The frame at given day index is triggered if its granule burst ids is a subset of the corresponding list in the database.
     This is a purely deductive function. Remove any day indices that do not meet the criteria.
+
+    Also remove duplicate CSLC granules (defined by the same burst id, differed by production time)
+
     WARNING! The input dictionary is modified in place. It's also being returned for convenience.
     '''
 
@@ -60,11 +63,23 @@ def filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burs
         for day_index in list(frame_to_dayindex_to_granule[frame_id].keys()):
             granule_ids = frame_to_dayindex_to_granule[frame_id][day_index]
             burst_set = set()
+            unique_granules = {} # burst_id -> granule_id
             for granule_id in granule_ids:
                 burst_id, _, _, _ = parse_cslc_native_id(granule_id, burst_to_frames, frame_to_bursts)
-                burst_set.add(burst_id)
+                if burst_id in frame_to_bursts[frame_id].burst_ids:
+                    burst_set.add(burst_id)
+
+                    # If we have duplicate burst ids, keep the one with the latest production time
+                    if burst_id in unique_granules:
+                        production_time_old = unique_granules[burst_id].split("_")[-4]
+                        production_time_new = granule_id.split("_")[-4]
+                        if production_time_new > production_time_old:
+                            unique_granules[burst_id] = granule_id
+                    else:
+                        unique_granules[burst_id] = granule_id
+
             if burst_set.issuperset(frame_to_bursts[frame_id].burst_ids):
-                continue
+                frame_to_dayindex_to_granule[frame_id][day_index] = unique_granules.values()
             else:
                 frame_to_dayindex_to_granule[frame_id].pop(day_index)
 
@@ -75,14 +90,42 @@ def filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burs
 
     return frame_to_dayindex_to_granule
 
-def match_up_disp_s1(data_should_trigger, data):
+def match_up_disp_s1(data_should_trigger, disp_s1s, processing_mode, k, frame_to_bursts):
+
+    k_set_map = defaultdict(lambda: defaultdict(set)) # Used for determining non-k-complete acq indices in historical mode
 
     # Create dictionary data structure for should_trigger
     frame_to_dayindex_to_granule = defaultdict(lambda: defaultdict(set))
     for item in data_should_trigger:
-        frame_to_dayindex_to_granule[item['Frame ID']][item['Acq Day Index']] = item['All Bursts']
+        frame = item['Frame ID']
+        acq_index = item['Acq Day Index']
+        frame_to_dayindex_to_granule[frame][acq_index] = item['All Bursts']
 
-    # Remove any bursts that have COMPRESSED string in them
+        if processing_mode == "historical":
+            # # Group acq indices by frame ID and then by k-set number
+            index_number = frame_to_bursts[frame].sensing_datetime_days_index.index(acq_index)  # note "index" is overloaded term here
+            k_set = index_number // k
+            k_set_map[frame][k_set].add(acq_index)
+            logging.debug(f"Frame {frame} Acq Index {acq_index} K-Set {k_set}")
+
+    # Determine all frame / acq indices that weren't part of a k-complete set, only applicable in historical mode
+    skip_cslc_validation = set()
+    for frame_id in k_set_map:
+        for k_set in k_set_map[frame_id]:
+            if len(k_set_map[frame_id][k_set]) < k:
+                for acq_index in k_set_map[frame_id][k_set]:
+                    skip_cslc_validation.add((frame_id, acq_index))
+                    logging.info(f"Frame {frame_id} Acq Index {acq_index} K-Set {k_set} is not k-complete so will ignore during validation.")
+
+                    # Also add the last acq index of that k-set to the skip list to cover all products. Products have knowledge of the last acq index only.
+                    # Tricky! If we are at the last k-set, the last acq index of this k-set won't be a full-k
+                    last_acq_index_index = (k_set + 1) * k - 1
+                    if last_acq_index_index < len(frame_to_bursts[frame_id].sensing_datetime_days_index):
+                        last_acq_index = frame_to_bursts[frame_id].sensing_datetime_days_index[last_acq_index_index]
+                        skip_cslc_validation.add((frame_id, last_acq_index))
+                        logging.info(f"Frame {frame_id} Acq Index {last_acq_index}, which is the last acq index in that k-set to cover the DISP-S1 products.")
+
+    # Pickle out data (for unit test purposes) while removing any bursts that have COMPRESSED string in them
     ''' for disp_s1 in data:
         disp_s1['All Bursts'] = [b for b in disp_s1['All Bursts'] if 'COMPRESSED' not in b]
         disp_s1['All Bursts Count'] = len(disp_s1['All Bursts'])
@@ -91,26 +134,81 @@ def match_up_disp_s1(data_should_trigger, data):
         pickle.dump(data, f)
     '''
 
-    for disp_s1 in data:
+    passing = True
+
+    # Account for produced DISP-S1 products by comparing to available CSLC bursts
+    for disp_s1 in disp_s1s:
         matching_count = 0
         matching_bursts = []
-        all_bursts_set = set([b.split("/")[-1] for b in disp_s1['All Bursts']])
+        frame_id = disp_s1['Frame ID']
+        all_bursts_set = set([b.split("/")[-1] for b in disp_s1['All Bursts']]) # Get rid of the full file path
         for acq_index in disp_s1['All Acq Day Indices']:
-            if acq_index in frame_to_dayindex_to_granule[disp_s1['Frame ID']]:
-                frame_data = frame_to_dayindex_to_granule[disp_s1['Frame ID']]
+            if acq_index in frame_to_dayindex_to_granule[frame_id]:
+                frame_data = frame_to_dayindex_to_granule[frame_id]
                 acq_index_data  = frame_data[acq_index]
                 intsect = all_bursts_set.intersection(acq_index_data)
                 matching_count += len(intsect)
                 matching_bursts.extend(list(intsect))
                 all_bursts_set = all_bursts_set - intsect
 
+                # Now remove all CSLC products that are being account for by this disp-s1 product so that we can determine any unprocessed CSLC bursts
+                '''for burst in intsect:
+                    acq_index_data.remove(burst)'''
+
         disp_s1['Matching Bursts'] = matching_bursts
         disp_s1['Matching Bursts Count'] = matching_count
+        if matching_count != disp_s1['All Bursts Count'] and (frame_id, disp_s1['Last Acq Day Index']) not in skip_cslc_validation:
+            passing = False
+            logging.warning(f"Product {disp_s1['Product ID']} has {disp_s1['All Bursts Count']} bursts but only {matching_count} were found.")
 
         disp_s1['Unmatching Bursts'] = list(all_bursts_set)
         disp_s1['Unmatching Bursts Count'] = len(all_bursts_set)
+        if len(all_bursts_set) > 0 and (frame_id, disp_s1['Last Acq Day Index']) not in skip_cslc_validation:
+            passing = False
+            logging.debug(f"Product {disp_s1['Product ID']} has {len(all_bursts_set)} unmatching bursts: {all_bursts_set}")
 
-    return data
+    # Supplement disp_s1 data structure with what should have also been triggered
+    # If we are in historical mode, we need to remove any cslc acq indices that aren't up to k
+    disp_frame_acq_day_indices = defaultdict(set)
+    for disp_s1 in disp_s1s:
+        for acq_index in disp_s1['All Acq Day Indices']:
+            disp_frame_acq_day_indices[disp_s1['Frame ID']].add(acq_index)
+    for item in data_should_trigger:
+        acq_index = item['Acq Day Index']
+        frame = item['Frame ID']
+        if acq_index not in disp_frame_acq_day_indices[frame]:
+
+            if (frame, acq_index) in skip_cslc_validation:
+                logging.info(f"Frame {frame} Acq Index {acq_index} is not k-complete so will ignore during validation")
+            else:
+                passing = False
+            matching_bursts = []
+            unmatching_bursts = item['All Bursts']
+            matching_bursts_count = len(matching_bursts)
+            unmatching_bursts_count = len(unmatching_bursts)
+
+            disp_s1s.append({
+                'Product ID': "UNPROCESSED",
+                'Frame ID': frame,
+                'Last Acq Day Index': acq_index,
+                'All Acq Day Indices': "N/A",
+                'All Bursts': item['All Bursts'],
+                'All Bursts Count': item['All Bursts Count'],
+                'Matching Bursts': matching_bursts,
+                'Matching Bursts Count': matching_bursts_count,
+                'Unmatching Bursts': unmatching_bursts,
+                'Unmatching Bursts Count': unmatching_bursts_count
+            })
+
+    # Print out all frame_to_dayindex_to_granule content
+    '''for frame_id in frame_to_dayindex_to_granule:
+        for day_index in frame_to_dayindex_to_granule[frame_id]:
+            len_unprocessed = len(frame_to_dayindex_to_granule[frame_id][day_index])
+            if len_unprocessed > 0:
+                logging.debug(f"Frame {frame_id} Day Index {day_index} has {len_unprocessed} unprocessed bursts")
+                passing = False'''
+
+    return passing, disp_s1s, frame_to_dayindex_to_granule
 
 def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate):
     # Retrieve all DISP-S1 products from CMR within the acquisition time range as a list of granuleIDs
@@ -151,7 +249,8 @@ def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
             filtered_disp_s1.append(disp_s1["_source"]["id"])
     return filtered_disp_s1
 
-def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only, disp_s1_validate_with_grq, processing_mode, shortname='OPERA_L2_CSLC-S1_V1'):
+def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only,
+                     disp_s1_validate_with_grq, processing_mode, k, shortname='OPERA_L2_CSLC-S1_V1'):
     """
         Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
         It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -164,12 +263,11 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
         :param endpoint: str
             CMR environment ('UAT' or 'OPS') to specify the operational setting for the data query.
-        :param df: pandas.DataFrame
-            A DataFrame containing columns with granule identifiers which will be checked against the CMR query results.
 
-        :return: pandas.DataFrame or bool
-            A modified DataFrame with additional columns 'Unprocessed RTC Native IDs' and 'Unprocessed RTC Native IDs Count' showing
-            granules not found in the CMR results and their count respectively. Returns False if the CMR query fails.
+        :return: (passing, should_df, df)
+            passing - Overall boolean value indicating if the validation passed or failed.
+            should_df - DataFrame containing the expected granules that should have been processed.
+            df - DataFrame containing the actual granules that were processed.
 
         Raises:
             requests.exceptions.RequestException if the CMR query fails, which is logged as an error.
@@ -200,7 +298,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         sys.exit(1)
 
     # Determine which frame-dayindex pairs were supposed to have been processed. Remove any one that weren't supposed to have been processed.
-    frame_to_dayindex_to_granule = get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts)
+    frame_to_dayindex_to_granule = get_frame_to_dayindex_to_granule(granule_ids, frames_to_validate, burst_to_frames, frame_to_bursts, processing_mode)
     granules_should_trigger = filter_for_trigger_frame(frame_to_dayindex_to_granule, frame_to_bursts, burst_to_frames)
     data_should_trigger = []
 
@@ -213,7 +311,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     for frame_id in granules_should_trigger:
         for day_index in granules_should_trigger[frame_id]:
             total_triggered += 1
-            logging.info("Frame ID: %s, Day Index: %s, Num CSLCs: %d, CSLCs: %s", frame_id, day_index, len(granules_should_trigger[frame_id][day_index]), granules_should_trigger[frame_id][day_index])
+            logging.debug("Frame ID: %s, Day Index: %s, Num CSLCs: %d, CSLCs: %s", frame_id, day_index, len(granules_should_trigger[frame_id][day_index]), granules_should_trigger[frame_id][day_index])
             data_should_trigger.append({
                 'Frame ID': frame_id,
                 'Acq Day Index': day_index,
@@ -224,7 +322,6 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
                 _, acquisition_dts, _, _ = parse_cslc_native_id(granule_id, burst_to_frames, frame_to_bursts)
                 smallest_date = min(acquisition_dts, smallest_date)
                 greatest_date = max(acquisition_dts, greatest_date)
-    should_df = pd.DataFrame(data_should_trigger)
 
     # Pickle out the data_should_trigger dictionary for later use
     '''with open('data_should_trigger.pkl', 'wb') as f:
@@ -298,9 +395,10 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         pickle.dump(data, f)'''
 
     # Match up data
-    data = match_up_disp_s1(data_should_trigger, data)
+    passing, data, frame_to_dayindex_to_granule = match_up_disp_s1(data_should_trigger, data, processing_mode, k, frame_to_bursts)
+    should_df = pd.DataFrame(data_should_trigger)
 
     # Create a DataFrame from the data
     df = pd.DataFrame(data)
-    df.sort_values(["Frame ID", "Last Acq Day Index"], inplace=True)
-    return should_df, df
+    df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
+    return passing, should_df, df
