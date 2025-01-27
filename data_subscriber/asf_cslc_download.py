@@ -70,7 +70,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
-                cslc_products_to_filepaths: dict[str, set[Path]] = super().run_download(
+                # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
+                cslc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
                     new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
                 )
                 self.logger.info(f"Uploading CSLC input files to S3")
