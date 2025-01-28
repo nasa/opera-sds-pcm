@@ -72,7 +72,7 @@ output_types:
     - tif
     - png
     - catalog.json
-    - iso.xml
+#    - iso.xml
     - log
     - qa.log
 
