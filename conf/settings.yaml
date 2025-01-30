@@ -84,7 +84,7 @@ SHORTNAME_FILTERS:
 #   - S1 # Sentinel-1
     - S2A # Sentinel-2A
     - S2B # Sentinel-2B
-#   - S2C # Sentinel-2C
+    - S2C # Sentinel-2C
 
 GEOJSON_BUCKET: "opera-ancillaries"
 
