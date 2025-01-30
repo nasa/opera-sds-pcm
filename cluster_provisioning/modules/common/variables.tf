@@ -132,7 +132,7 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - December 16, 2024 - R3.1
+    # HySDS v5.0.1 - January 20, 2025 - R3.1
     mozart    = "ami-00d29c6744d037fdc" # mozart v4.26 - 250120
     metrics   = "ami-0521abedf78e836f6" # metrics v4.18 - 250120
     grq       = "ami-0faae06851a654bdb" # grq v4.19 - 250120
