@@ -52,7 +52,7 @@ RunConfig:
 
         # Paths to the CSLC static_layer files (1 per burst) with line-of-sight
         # unit vectors. If none provided, corrections using CSLC static_layer are skipped.
-        static_layers_files: list(str(), required=False, min=0)
+        static_layers_files: list(str(), min=0)
 
         # Optional Byte mask file used to ignore low correlation/bad data (e.g water mask).
         # Convention is 0 for no data/invalid, and 1 for good data. Dtype must be uint8.
@@ -97,9 +97,6 @@ RunConfig:
         # Whether the SAS should output and save the Compressed SLCs in addition to
         # the standard product output.
         save_compressed_slc: bool(required=True)
-
-        # Location of the static layers product associated with this product
-        static_layers_data_access: str(required=False)
 
       worker_settings:
         # Whether to use GPU for processing (if available).
