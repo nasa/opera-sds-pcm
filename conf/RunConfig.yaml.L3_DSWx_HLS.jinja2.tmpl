@@ -21,7 +21,7 @@ RunConfig:
         ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: DSWX_HLS
-        ProductVersion: {{ data.product_path_group.product_version }}
+        ProductVersion: "{{ data.product_path_group.product_version }}"
         ProgramPath: python3
         ProgramOptions:
           - /home/conda/proteus-1.0.1/bin/dswx_hls.py
@@ -29,6 +29,7 @@ RunConfig:
         ErrorCodeBase: 100000
         SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
         IsoTemplatePath: /home/conda/opera/pge/dswx_hls/templates/OPERA_ISO_metadata_L3_DSWx_HLS_template.xml.jinja2
+        IsoMeasuredParameterDescriptions: /home/conda/opera/pge/dswx_hls/templates/dswx_hls_measured_parameters.yaml
       QAExecutable:
         Enabled: False
         ProgramPath:
