@@ -58,17 +58,27 @@ def view_proc(id):
         rows = []
         for hit in procs['hits']['hits']:
             proc = hit['_source']
-            try:
-                pp = f"{proc['progress_percentage']}%"
-            except:
-                pp = "UNKNOWN"
-            try:
-                fcp = [f"{f}: {p}%" for f, p in proc["frame_completion_percentages"].items()]
-            except:
-                fcp = "UNKNOWN"
-            rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp])
+            if proc['job_type'] == "cslc_query_hist":
+                try:
+                    pp = f"{proc['progress_percentage']}%"
+                except:
+                    pp = "UNKNOWN"
+                try:
+                    fcp = [f"{f}: {p}%" for f, p in proc["frame_completion_percentages"].items()]
+                except:
+                    fcp = "UNKNOWN"
+                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp])
+            else:
+                # progress percentage is the ratio of last_successful_proc_data_date in the range between data_start_date and data_end_date
+                total_time = convert_datetime(proc["data_end_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
+                processed_time = convert_datetime(proc["last_successful_proc_data_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
+                progress_percentage = (processed_time / total_time) * 100
+                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A"])
 
         print(" --- Showing Summary of Enabled Batch Procs --- ")
+        if len(rows) == 0:
+            print("No enabled batch procs found")
+            return
         print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60]))
 
         return
