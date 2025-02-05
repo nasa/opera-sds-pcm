@@ -109,6 +109,7 @@ def dswx_s1_lineage_metadata(context, work_dir):
 
     return lineage_metadata
 
+
 def dswx_ni_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DSWx-NI PGE"""
     run_config: Dict = context.get("run_config")
@@ -184,6 +185,32 @@ def disp_s1_lineage_metadata(context, work_dir):
         work_dir, basename(run_config["static_ancillary_file_group"]["reference_date_database_json"])
     )
     lineage_metadata.append(local_reference_date_database)
+
+    return lineage_metadata
+
+
+def dist_s1_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DIST-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    # TODO: update paths as necessary as sample inputs are phased out
+    rtc_data_dir = os.path.join(work_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
+
+    for date in os.listdir(rtc_data_dir):
+        date_dir = os.path.join(rtc_data_dir, date)
+
+        lineage_metadata.extend(
+            [os.path.join(date_dir, rtc_file) for rtc_file in os.listdir(date_dir)]
+        )
+
+    # TODO: No ancillary data exists yet but likely will soon
+    # ancillary_data_dir = os.path.join(work_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'ancillary_data')
+    #
+    # lineage_metadata.extend(
+    #     [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
+    # )
 
     return lineage_metadata
 
@@ -380,5 +407,46 @@ def update_disp_s1_runconfig(context, work_dir):
     run_config["processing"]["algorithm_parameters"] = (
         os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters"]))
     )
+
+    return run_config
+
+
+def update_dist_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DIST-S1 PGE"""
+
+    # TODO: Check against DSWX_NI as it's in a similar stage of pulling fixed data from S3
+
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
+
+    run_config['input_file_group']['pre_rtc_copol'] = list(map(
+        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
+        run_config['input_file_group']['pre_rtc_copol']
+    ))
+
+    run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
+        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
+        run_config['input_file_group']['pre_rtc_crosspol']
+    ))
+
+    run_config['input_file_group']['post_rtc_copol'] = list(map(
+        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
+        run_config['input_file_group']['post_rtc_copol']
+    ))
+
+    run_config['input_file_group']['post_rtc_crosspol'] = list(map(
+        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
+        run_config['input_file_group']['post_rtc_crosspol']
+    ))
+
+    # TODO: dist_s1_alert_db_dir and water_mask are currently fixed unset so we can skip them for now
 
     return run_config

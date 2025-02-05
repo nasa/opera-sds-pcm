@@ -673,6 +673,90 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dist_s1_sample_inputs(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the DSWx-NI
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
+                                 r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>'
+                                 r'\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>'
+                                 r'\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T'
+                                 r'(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_'
+                                 r'(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)'
+                                 r'|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
+
+        s3_bucket = "operasds-dev-pge"
+        s3_key = "dist_s1/dist_s1_interface_0.1_expected_input.zip"
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="DIST-S1 Inputs"
+        )
+
+        import zipfile
+        with zipfile.ZipFile(output_filepath) as myzip:
+            zip_contents = myzip.namelist()
+            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
+            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
+            myzip.extractall(path=working_dir, members=zip_contents)
+
+        rtc_data_dir = os.path.join(working_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
+        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir',
+                                          'ancillary_data')
+
+        rtc_dates = sorted(os.listdir(rtc_data_dir))
+
+        pre_copol = []
+        pre_crosspol = []
+        post_copol = []
+        post_crosspol = []
+
+        for date in rtc_dates:
+            date_dir = os.path.join(rtc_data_dir, date)
+
+            for rtc_file in os.listdir(date_dir):
+                rtc_file_path = os.path.join(date_dir, rtc_file)
+                match = rtc_pattern.match(rtc_file)
+
+                if match is None:
+                    # TODO: Ignoring for now, should this be an error?
+                    continue
+                else:
+                    pol = match.groupdict()['pol']
+
+                    if date != rtc_dates[-1]:
+                        if pol in ['VV', 'HH']:
+                            pre_copol.append(rtc_file)
+                        else:
+                            pre_crosspol.append(rtc_file)
+                    else:
+                        if pol in ['VV', 'HH']:
+                            post_copol.append(rtc_file)
+                        else:
+                            post_crosspol.append(rtc_file)
+
+        rc_params = {
+            'pre_rtc_copol': pre_copol,
+            'pre_rtc_crosspol': pre_crosspol,
+            'post_rtc_copol': post_copol,
+            'post_rtc_crosspol': post_crosspol,
+            'mgrs_tile_id': '10SGD',
+            'dist_s1_alert_db_dir': '',
+            'water_mask': ''
+        }
+
+        return rc_params
+
     def get_dswx_s1_algorithm_parameters(self):
         """
         Downloads the designated algorithm parameters runconfig from S3 for use
