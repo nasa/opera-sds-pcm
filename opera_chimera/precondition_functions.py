@@ -376,10 +376,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use all available cores for threads_per_worker
-
         try:
-            threads_per_worker = self._settings.get("DISP_S1_NUM_THREADS")
+            threads_per_worker = self._settings["DISP_S1_NUM_THREADS"]
         except:
             threads_per_worker = available_cores
             logger.error(f"DISP_S1_NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
@@ -387,8 +385,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
 
         try:
-            parallel_factor = self._settings.get("DISP_S1_NUM_WORKERS").get("FACTOR")
-            parallel_constant = self._settings.get("DISP_S1_NUM_WORKERS").get("CONSTANT")
+            parallel_factor = self._settings["DISP_S1_NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1_NUM_WORKERS"]["CONSTANT"]
         except:
             parallel_factor = 0.25
             parallel_constant = 1
