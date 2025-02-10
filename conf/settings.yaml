@@ -77,6 +77,13 @@ DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_black
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple.geojson"
 
+DISP_S1_NUM_THREADS: 8
+
+# number of workers = available_cpu_cores * FACTOR + CONSTANT
+DISP_S1_NUM_WORKERS:
+  FACTOR: 0.25
+  CONSTANT: 1
+
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:

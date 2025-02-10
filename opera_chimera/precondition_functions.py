@@ -376,14 +376,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use all available cores for threads_per_worker
-        threads_per_worker = available_cores
+        try:
+            threads_per_worker = self._settings["DISP_S1_NUM_THREADS"]
+        except:
+            threads_per_worker = available_cores
+            logger.warning(f"DISP_S1_NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
 
         logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
 
-        # Use (1/2 + 1) of the available cores for parallel burst processing
-        n_parallel_bursts = max(int(round(available_cores / 2)) + 1, 1)
+        try:
+            parallel_factor = self._settings["DISP_S1_NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1_NUM_WORKERS"]["CONSTANT"]
+        except:
+            parallel_factor = 0.25
+            parallel_constant = 1
+            logger.warning(f"DISP_S1_NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
 
+        # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
+        # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
+        n_parallel_bursts = max(int(round(available_cores * parallel_factor)) + parallel_constant, 1)
         logger.info(f"Allocating {n_parallel_bursts=} out of {available_cores} available")
 
         rc_params = {
