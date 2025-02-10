@@ -38,5 +38,6 @@ def detect_duplicate_products(bucket: str, prefix: str):
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print('Usage: detect_duplicate_products_s3.py <bucket> <prefix>')
+        print("Example: python detect_duplicate_products_s3.py opera-pst-rs-pop1 products/DISP_S1/")
         sys.exit(1)
     detect_duplicate_products(sys.argv[1], sys.argv[2])
