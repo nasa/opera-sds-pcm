@@ -104,6 +104,11 @@ resource "aws_autoscaling_group" "autoscaling_group" {
       value               = "pcm"
       propagate_at_launch = true
     },
+    {
+      key                 = "Alfa"
+      value               = "worker"
+      propagate_at_launch = true
+    },
   ]
   mixed_instances_policy {
     instances_distribution {
