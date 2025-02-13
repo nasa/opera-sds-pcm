@@ -180,7 +180,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             logger.debug("Using args.temporal_start_date=%s", args.temporal_start_date)
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
-    logger.info(f"Querying CMR.")
+    logger.info(f"Querying CMR. endpoint: %s  provider: %s", args.endpoint, args.provider)
     logger.debug("request_url=%s", request_url)
     logger.debug("params=%s", params)
 
