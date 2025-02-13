@@ -1,6 +1,6 @@
 machine dataspace.copernicus.eu login {{ DATASPACE_USER }} password {{ DATASPACE_PASS }}
 machine urs.earthdata.nasa.gov login {{ EARTHDATA_USER }} password {{ EARTHDATA_PASS }}
-machine uat.urs.earthdata.nasa.gov login {{ EARTHDATA_USER }} password {{ EARTHDATA_PASS }}
+machine uat.urs.earthdata.nasa.gov login {{ EARTHDATA_UAT_USER }} password {{ EARTHDATA_UAT_PASS }}
 machine {{ MOZART_RABBIT_PVT_IP }} login {{ MOZART_RABBIT_USER }} password {{ MOZART_RABBIT_PASSWORD }}
 macdef init
 

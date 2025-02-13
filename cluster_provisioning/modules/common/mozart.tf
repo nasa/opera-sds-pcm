@@ -338,6 +338,9 @@ resource "aws_instance" "mozart" {
 
       echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config
       echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config
+
+      echo EARTHDATA_UAT_USER: ${var.earthdata_uat_user} >> ~/.sds/config
+      echo EARTHDATA_UAT_PASS: ${var.earthdata_uat_pass} >> ~/.sds/config
       echo >> ~/.sds/config
     EOT
     ]

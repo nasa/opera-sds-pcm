@@ -96,6 +96,8 @@ module "common" {
   dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
+  earthdata_uat_user                      = var.earthdata_uat_user
+  earthdata_uat_pass                      = var.earthdata_uat_pass
   hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
   hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
