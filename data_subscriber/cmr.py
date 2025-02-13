@@ -37,6 +37,7 @@ class Endpoint(str, Enum):
 
 class Provider(str, Enum):
     LPCLOUD = "LPCLOUD"
+    LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
     ASF_SLC = "ASF-SLC"
     ASF_RTC = "ASF-RTC"
@@ -127,7 +128,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     params = {
         "sort_key": "-start_date",
-        "provider": COLLECTION_TO_PROVIDER_MAP[args.collection],
+        "provider": args.provider if args.provider else COLLECTION_TO_PROVIDER_MAP[args.collection],
         "ShortName[]": [args.collection],
         "token": token,
         "bounding_box": bounding_box
