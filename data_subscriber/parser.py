@@ -237,7 +237,7 @@ def create_parser():
 
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    query_parser_arg_list = [verbose, quiet, endpoint, collection, start_date, end_date,
+    query_parser_arg_list = [verbose, quiet, endpoint, provider, collection, start_date, end_date,
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,

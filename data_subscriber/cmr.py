@@ -37,6 +37,7 @@ class Endpoint(str, Enum):
 
 class Provider(str, Enum):
     LPCLOUD = "LPCLOUD"
+    LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
     ASF_SLC = "ASF-SLC"
     ASF_RTC = "ASF-RTC"
@@ -127,7 +128,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     params = {
         "sort_key": "-start_date",
-        "provider": COLLECTION_TO_PROVIDER_MAP[args.collection],
+        "provider": args.provider if args.provider else COLLECTION_TO_PROVIDER_MAP[args.collection],
         "ShortName[]": [args.collection],
         "token": token,
         "bounding_box": bounding_box
@@ -179,7 +180,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             logger.debug("Using args.temporal_start_date=%s", args.temporal_start_date)
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
-    logger.info(f"Querying CMR.")
+    logger.info(f"Querying CMR. endpoint: %s  provider: %s", args.endpoint, args.provider)
     logger.debug("request_url=%s", request_url)
     logger.debug("params=%s", params)
 
