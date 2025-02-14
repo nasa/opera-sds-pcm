@@ -12,8 +12,11 @@ import boto3
 from collections import defaultdict
 from lxml import etree
 import hashlib
+import re
 
 def fix_iso_xmls(bucket: str, prefix: str, dry_run: bool = False):
+
+    count = 0
 
     s3 = boto3.client('s3')
     paginator = s3.get_paginator('list_objects_v2')
@@ -30,24 +33,46 @@ def fix_iso_xmls(bucket: str, prefix: str, dry_run: bool = False):
             if file_name[-4:] != '.xml':
                 continue
 
+            # Skip ahead to half way so that we can run multiple of these scripts to speed up
+            count += 1
+            #if count < 5000:
+            #    print(f'Skipping {key}')
+            #    continue
+
             # Test to see if the xml file is valid by downloading the file and then trying to parse it
             try:
                 s3.download_file(bucket, key, file_name)
                 etree.parse(file_name)
+                print(f'Valid {key}')
             except Exception as e:
+
                 print(f'Fixing {key}')
                 fixed_name = file_name + "fixed.xml"
                 with open(file_name, 'r') as f:
                     xml = f.read()
                     xml = xml.replace('&', '&amp;')
+                    xml = xml.replace('&amp;amp;amp;amp;amp;', '&amp;')
+                    xml = xml.replace('&amp;amp;amp;amp;', '&amp;')
+                    xml = xml.replace('&amp;amp;amp;', '&amp;')
+                    xml = xml.replace('&amp;amp;', '&amp;')
+
+                    # Remove string that starts with <gco:CharacterString>{"algorithm_theoretical_basis_document_id and then ends with </gco:CharacterString>
+                    xml = re.sub(
+                        r'<gco:CharacterString>{"algorithm_theoretical_basis_document_id.*?</gco:CharacterString>',
+                        '87600.0', xml, flags=re.DOTALL)
+
                 # Write out that file
                 with open(fixed_name, 'w') as f:
                     f.write(xml)
+
+                # Validate this new file
+                etree.parse(fixed_name)
+
                 if not dry_run:
                     s3.upload_file(fixed_name, bucket, key)
-                    print(f'Uploaded {key}')
+                    print(f'Replaced {key}')
                 else:
-                    print(f'Dry run: Would have uploaded {key}')
+                    print(f'Dry run: Would have replaced {key}')
 
                 # Update the md5 file
                 md5_file = file_name + ".md5"
@@ -57,9 +82,9 @@ def fix_iso_xmls(bucket: str, prefix: str, dry_run: bool = False):
                     f.write(md5_str)
                 if not dry_run:
                     s3.upload_file(md5_file, bucket, md5_key)
-                    print(f'Uploaded {md5_key}')
+                    print(f'Replaced {md5_key}')
                 else:
-                    print(f'Dry run: Would have uploaded {md5_key}')
+                    print(f'Dry run: Would have replaced {md5_key}')
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
