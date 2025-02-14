@@ -93,10 +93,10 @@ resource "aws_instance" "metrics" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
+        echo installing gdal for manual execution of daac_data_subscriber.py
+        conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet
+
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz"
-        tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz
-        rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz
       fi
     EOT
     ]
