@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 import concurrent.futures
-import datetime
+from datetime import datetime, date, timezone
 import functools
 import logging
 import logging.handlers
@@ -13,6 +13,7 @@ from collections import defaultdict
 from typing import Union, Iterable
 
 import aiohttp
+import dateutil.parser
 import more_itertools
 from dotenv import dotenv_values
 from more_itertools import always_iterable
@@ -54,7 +55,7 @@ def create_parser():
     argparser.add_argument(
         "--format",
         default="txt",
-        choices=["txt", "json"],
+        choices=["txt", "json", "db"],
         help=f'Output file format. Defaults to "%(default)s".'
     )
     argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
@@ -160,65 +161,58 @@ async def async_get_cmr(
                 cmr_granules.update(post_cmr_tasks_result[0])
         return cmr_granules
 
+slc_regex = (
+    r'(?P<mission_id>S1A|S1B)_'
+    r'(?P<beam_mode>IW)_'
+    r'(?P<product_type>SLC)'
+    r'(?P<resolution>_)_'
+    r'(?P<level>1)'
+    r'(?P<class>S)'
+    r'(?P<pol>SH|SV|DH|DV)_'
+    r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
+    r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
+    r'(?P<orbit_num>\d{6})_'
+    r'(?P<data_take_id>[0-9A-F]{6})_'
+    r'(?P<product_id>[0-9A-F]{4})-'
+    r'SLC$'
+)
 
 def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
-    rtc_native_id_patterns = set()
+    cslc_native_id_patterns = set()
     for granule in cmr_granules:
-        m = re.match(
-            r'(?P<mission_id>S1A|S1B)_'
-            r'(?P<beam_mode>IW)_'
-            r'(?P<product_type>SLC)'
-            r'(?P<resolution>_)_'
-            r'(?P<level>1)'
-            r'(?P<class>S)'
-            r'(?P<pol>SH|SV|DH|DV)_'
-            r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
-            r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
-            r'(?P<orbit_num>\d{6})_'
-            r'(?P<data_take_id>[0-9A-F]{6})_'
-            r'(?P<product_id>[0-9A-F]{4})-'
-            r'SLC$',
-            granule
-        )
+        m = re.match(slc_regex, granule)
         cslc_acquisition_dt_str = m.group("start_ts")
 
-        #                         OPERA_L2_CSLC-S1_*_20231124T124529Z_*_S1*
-        rtc_native_id_pattern = f'OPERA_L2_CSLC-S1_*_{cslc_acquisition_dt_str}Z_*_S1*v1.1'
-        rtc_native_id_patterns.add(rtc_native_id_pattern)
+        #                          OPERA_L2_CSLC-S1_*_20231124T124529Z_*_S1*
+        cslc_native_id_pattern = f'OPERA_L2_CSLC-S1_*_{cslc_acquisition_dt_str}Z_*_S1*v1.1'
+        cslc_native_id_patterns.add(cslc_native_id_pattern)
 
         # bi-directional mapping of HLS-DSWx inputs and outputs
-        input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
-        output_to_inputs_map[rtc_native_id_pattern].add(granule)
+        if hasattr(input_to_outputs_map[granule], "add"):
+            input_to_outputs_map[granule].add(cslc_native_id_pattern)  # strip wildcard char
+        else:  # hasattr(input_to_outputs_map[granule], "append"):
+            input_to_outputs_map[granule].append(cslc_native_id_pattern)  # strip wildcard char
 
-    return rtc_native_id_patterns
+        output_to_inputs_map[cslc_native_id_pattern].add(granule)
+
+    return cslc_native_id_patterns
 
 
 def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_outputs_map: defaultdict, output_to_inputs_map: defaultdict):
     rtc_native_id_patterns = set()
     for granule in cmr_granules:
-        m = re.match(
-            r'(?P<mission_id>S1A|S1B)_'
-            r'(?P<beam_mode>IW)_'
-            r'(?P<product_type>SLC)'
-            r'(?P<resolution>_)_'
-            r'(?P<level>1)'
-            r'(?P<class>S)'
-            r'(?P<pol>SH|SV|DH|DV)_'
-            r'(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_'
-            r'(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_'
-            r'(?P<orbit_num>\d{6})_'
-            r'(?P<data_take_id>[0-9A-F]{6})_'
-            r'(?P<product_id>[0-9A-F]{4})-'
-            r'SLC$',
-            granule
-        )
+        m = re.match(slc_regex, granule)
         rtc_acquisition_dt_str = m.group("start_ts")
 
-        rtc_native_id_pattern = f'OPERA_L2_RTC-S1_*_{rtc_acquisition_dt_str}Z_*Z_S1?_30_v*'
-        rtc_native_id_patterns.add(rtc_native_id_pattern)
+        rtc_native_id_pattern = f'OPERA_L2_RTC-S1_*_{rtc_acquisition_dt_str}Z_*Z_S1?_30_v'
+        rtc_native_id_patterns.add(rtc_native_id_pattern + "*")
 
         # bidirectional mapping of HLS-DSWx inputs and outputs
-        input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
+        if hasattr(input_to_outputs_map[granule], "add"):
+            input_to_outputs_map[granule].add(rtc_native_id_pattern)  # strip wildcard char
+        else:  # hasattr(input_to_outputs_map[granule], "append"):
+            input_to_outputs_map[granule].append(rtc_native_id_pattern)  # strip wildcard char
+
         output_to_inputs_map[rtc_native_id_pattern].add(granule)
 
     return rtc_native_id_patterns
@@ -264,7 +258,9 @@ async def run(argv: list[str]):
 
     logger.info("Querying CMR for list of expected SLC granules")
     cmr_start_dt_str = args.start_datetime
+    cmr_start_dt = dateutil.parser.isoparse(cmr_start_dt_str)
     cmr_end_dt_str = args.end_datetime
+    cmr_end_dt = dateutil.parser.isoparse(cmr_end_dt_str)
 
     cmr_granules_slc_s1a, cmr_granules_slc_s1a_details = await async_get_cmr_granules_slc_s1a(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
     cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = await async_get_cmr_granules_slc_s1b(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
@@ -333,18 +329,255 @@ async def run(argv: list[str]):
     logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
     logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
-    now = datetime.datetime.now()
-    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
-    start_dt_str = cmr_start_dt_str.replace("-","")
-    start_dt_str = start_dt_str.replace("T", "-")
-    start_dt_str = start_dt_str.replace(":", "")
-
-    end_dt_str = cmr_end_dt_str.replace("-", "")
-    end_dt_str = end_dt_str.replace("T", "-")
-    end_dt_str = end_dt_str.replace(":", "")
+    start_dt_str = cmr_start_dt.strftime("%Y%m%d-%H%M%S")
+    end_dt_str = cmr_start_dt.strftime("%Y%m%d-%H%M%S")
+    current_dt_str = datetime.now().strftime("%Y%m%d-%H%M%S")
     outfilename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
 
-    if args.format == "txt":
+    if args.format == "db":
+        def date_from_slc(granule_id):
+            return date.fromtimestamp(datetime.strptime(granule_id[17:32], "%Y%m%dT%H%M%S").timestamp())
+        def date_from_cslc(granule_id):
+            return date.fromtimestamp(datetime.strptime(granule_id.split("_")[4], "%Y%m%dT%H%M%SZ").timestamp())
+        def date_from_rtc(granule_id):
+            return date.fromtimestamp(datetime.strptime(granule_id.split("_")[4], "%Y%m%dT%H%M%SZ").timestamp())
+
+        def dt_from_slc(granule_id):
+            return datetime.fromtimestamp(datetime.strptime(granule_id[17:32], "%Y%m%dT%H%M%S").timestamp())
+        def dt_from_cslc(granule_id):
+            return datetime.fromtimestamp(datetime.strptime(granule_id.split("_")[4], "%Y%m%dT%H%M%SZ").timestamp())
+        def dt_from_rtc(granule_id):
+            return datetime.fromtimestamp(datetime.strptime(granule_id.split("_")[4], "%Y%m%dT%H%M%SZ").timestamp())
+
+        # group input products (SLC-RTC) by acquisition dt
+        slc_products_by_acq_dt_rtc = defaultdict(set)
+        for slc in input_slc_to_outputs_rtc_map:
+            dt_slc = dt_from_slc(slc)
+            slc_products_by_acq_dt_rtc[dt_slc].add(slc)
+        # group input products (SLC-RTC) by acquisition date
+        slc_products_by_acq_date_rtc = defaultdict(set)
+        for slc in input_slc_to_outputs_rtc_map:
+            date_slc = date_from_slc(slc)
+            slc_products_by_acq_date_rtc[date_slc].add(slc)
+
+        # group input products (SLC-CSLC) by acquisition dt
+        slc_products_by_acq_dt_cslc = defaultdict(set)
+        for slc in input_slc_to_outputs_cslc_map:
+            dt_slc = dt_from_slc(slc)
+            slc_products_by_acq_dt_cslc[dt_slc].add(slc)
+        # group input products (SLC-CSLC) by acquisition date
+        slc_products_by_acq_date_cslc = defaultdict(set)
+        for slc in input_slc_to_outputs_cslc_map:
+            date_slc = date_from_slc(slc)
+            slc_products_by_acq_date_cslc[date_slc].add(slc)
+
+        # group output products (RTC) by acquisition dt
+        rtc_products_by_acq_dt = defaultdict(set)
+        for rtc in cmr_rtc_products:
+            dt_rtc = dt_from_rtc(rtc)
+            rtc_products_by_acq_dt[dt_rtc].update({rtc})
+        # group output products (RTC) by acquisition date
+        rtc_products_by_acq_date = defaultdict(set)
+        for rtc in cmr_rtc_products:
+            date_rtc = date_from_rtc(rtc)
+            rtc_products_by_acq_date[date_rtc].update({rtc})
+
+        # group output products (CSLC) by acquisition dt
+        cslc_products_by_acq_dt = defaultdict(set)
+        for cslc in cmr_cslc_products:
+            dt_cslc = dt_from_cslc(cslc)
+            cslc_products_by_acq_dt[dt_cslc].update({cslc})
+        # group output products (CSLC) by acquisition date
+        cslc_products_by_acq_date = defaultdict(set)
+        for cslc in cmr_cslc_products:
+            date_cslc = date_from_cslc(cslc)
+            cslc_products_by_acq_date[date_cslc].update({cslc})
+
+        # duplicate detection
+        rtc_duplicates_by_acq_dt = {
+            dt: products
+            for dt, products in rtc_products_by_acq_dt.items()
+            if len(products) >= 2
+        }
+        cslc_duplicates_by_acq_dt = {
+            dt: products
+            for dt, products in cslc_products_by_acq_dt.items()
+            if len(products) >= 2
+        }
+
+        missing_rtc_dts = slc_products_by_acq_dt_rtc.keys() - rtc_products_by_acq_dt.keys()
+        print(f"{missing_rtc_dts=}")
+        missing_cslc_dts = slc_products_by_acq_dt_cslc.keys() - cslc_products_by_acq_dt.keys()
+        print(f"{missing_cslc_dts=}")
+
+        # group metrics by output type and acquisition dt
+        product_accountability_map = {
+            # "CSLC": {
+            #     "2025-01-01": {
+            #         "expected_inputs": 123456,
+            #         "produced_outputs": 123456,
+            #     }
+            # },
+            # "RTC": {
+            #     "2025-01-01": {
+            #         "expected_inputs": 123456,
+            #         "produced_outputs": 123456,
+            #     }
+            # },
+        }
+
+        cslc_accountability_map = {"CSLC": {}}
+        for acquisition_date in cslc_products_by_acq_date:
+            cslc_accountability_map["CSLC"][acquisition_date] = {}
+
+            num_inputs = len(slc_products_by_acq_date_cslc[acquisition_date])
+            cslc_accountability_map["CSLC"][acquisition_date]["expected_inputs"] = num_inputs
+
+            num_outputs = len(cslc_products_by_acq_date[acquisition_date])
+            cslc_accountability_map["CSLC"][acquisition_date]["produced_outputs"] = num_outputs
+        product_accountability_map.update(cslc_accountability_map)
+
+        rtc_accountability_map = {"RTC": {}}
+        for acquisition_date in rtc_products_by_acq_date:
+            rtc_accountability_map["RTC"][acquisition_date] = {}
+
+            num_inputs = len(slc_products_by_acq_date_rtc[acquisition_date])
+            rtc_accountability_map["RTC"][acquisition_date]["expected_inputs"] = num_inputs
+
+            num_outputs = len(rtc_products_by_acq_date[acquisition_date])
+            rtc_accountability_map["RTC"][acquisition_date]["produced_outputs"] = num_outputs
+        product_accountability_map.update(rtc_accountability_map)
+
+        # group missing inputs by output type and acquisition dt
+        output_product_types_to_products_map = {
+            # "CSLC": {
+            #     "2025-01-01": {"SLC-A", "SLC-B", ...}
+            # },
+            # "RTC": {
+            #     "2025-01-01": {"SLC-A", "SLC-B", ...}
+            # },
+        }
+
+        cslc_output_date_to_missing_input_products_map = {"CSLC": {}}
+        output_product_types_to_products_map.update(cslc_output_date_to_missing_input_products_map)
+        for slc in missing_cmr_granules_slc_cslc:
+            date_slc = date_from_slc(slc)
+            if not output_product_types_to_products_map["CSLC"].get(date_slc):
+                output_product_types_to_products_map["CSLC"][date_slc] = set()
+            output_product_types_to_products_map["CSLC"][date_slc].add(slc)
+
+        rtc_output_date_to_missing_input_products_map = {"RTC": {}}
+        output_product_types_to_products_map.update(rtc_output_date_to_missing_input_products_map)
+        for slc in missing_cmr_granules_slc_rtc:
+            date_slc = date_from_slc(slc)
+            if not output_product_types_to_products_map["RTC"].get(date_slc):
+                output_product_types_to_products_map["RTC"][date_slc] = set()
+            output_product_types_to_products_map["RTC"][date_slc].add(slc)
+
+        # create DB model (accountability)
+        docs = []
+        for product_type in product_accountability_map:
+            acquisition_date: date
+            for acquisition_date in product_accountability_map[product_type]:
+                doc = {
+                    "acquisition_date": acquisition_date.isoformat(),
+                    "product_type": product_type,
+                    "num_inputs": product_accountability_map[product_type][acquisition_date]["expected_inputs"],
+                    "num_outputs": product_accountability_map[product_type][acquisition_date]["produced_outputs"],
+                    "num_missing": len(output_product_types_to_products_map[product_type].get(acquisition_date, []))
+                }
+                docs.append(doc)
+
+
+        from pymongo import MongoClient
+        def db_init():
+            client = MongoClient(host="localhost")
+            # client = MongoClient(host="mongo")  # TODO chrisjrd: needed for docker-compose (name of service)
+            db = client["new_db"]  # switch db
+
+            # NOTE: In EC2 against a Mongo DB Docker container, this doesn't create the DB.
+            #  This works locally on macOS against a Mongo DB Docker container, however.
+            try:
+                assert "new_db" in client.list_database_names()
+            except:
+                pass
+            return db
+
+        def create_collection(db, collection_name):
+            # try to create the collection upfront in the new db in Mongo DB
+            #  may not work in some version-client combinations, so ignore errors:
+            #  Mongo DB will likely create the collection on document insert instead
+            try:
+                db.create_collection(collection_name)
+                assert collection_name in db.list_collection_names()
+            except Exception:
+                logger.warning("Failed to create collection. It may already exist. This warning may be safely ignored.")
+            jobs_collection = db[collection_name]
+            return jobs_collection
+
+        # write out to DB
+        db = db_init()
+
+        create_collection(db, "accountability")
+        jobs_collection = db["accountability"]
+        for doc in docs:
+            doc.update({"last_update": datetime.now(tz=timezone.utc)})
+            jobs_collection.update_one(
+                filter={
+                    "acquisition_date": doc["acquisition_date"],
+                    "product_type": doc["product_type"]
+                },
+                update={"$set": doc},
+                upsert=True
+            )
+
+        # create db model (missing products)
+        docs = []
+        for product_type in output_product_types_to_products_map:
+            acquisition_date: date
+            for acquisition_date in product_accountability_map[product_type]:
+                missing_products = output_product_types_to_products_map[product_type].get(acquisition_date, [])
+                for missing_product in missing_products:
+                    doc = {
+                        "acquisition_date": acquisition_date.isoformat(),
+                        "product_type": product_type,
+                        "product": missing_product
+                    }
+                    docs.append(doc)
+
+        create_collection(db, "missing_products")
+        missing_collection = db["missing_products"]
+        for doc in docs:
+            doc.update({"last_update": datetime.now(tz=timezone.utc)})
+            missing_collection.update_one(
+                filter={
+                    "acquisition_date": doc["acquisition_date"],
+                    "product_type": doc["product_type"]
+                },
+                update={"$set": doc},
+                upsert=True
+            )
+
+        # create db model (duplicates)
+        docs = []
+        for duplicates in cslc_duplicates_by_acq_dt:
+            for duplicate in duplicates:
+                docs.append({"product": duplicate})
+        for duplicates in rtc_duplicates_by_acq_dt:
+            for duplicate in duplicates:
+                docs.append({"product": duplicate})
+
+        create_collection(db, "duplicate_products")
+        duplicates_collection = db["duplicate_products"]
+        for doc in docs:
+            doc.update({"last_update": datetime.now(tz=timezone.utc)})
+            duplicates_collection.update_one(
+                filter={"product": doc["product"]},
+                update={"$set": doc},
+                upsert=True
+            )
+
+    elif args.format == "txt":
         output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
@@ -356,7 +589,6 @@ async def run(argv: list[str]):
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_slc_rtc))
         logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
-
     elif args.format == "json":
         output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:

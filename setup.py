@@ -138,11 +138,15 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
-            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "more-itertools",
             "python-dateutil",
             "python-dotenv",
-            "requests"
+            "requests",
+            # common-logging dependencies
+            "boto3",
+            "elasticsearch==7.13.4",
+
         ],
         "cnm_check": [
             # The list of dependencies required for the cnm_check tool.

@@ -85,6 +85,8 @@ git clone --quiet -b "${branch_or_tag}" --filter=blob:none --no-checkout https:/
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
 git sparse-checkout init --cone
 git sparse-checkout set tools
+git sparse-checkout set geo
+git sparse-checkout set commons
 git checkout --quiet
 
 # DEV: emergency handle

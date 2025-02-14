@@ -8,9 +8,8 @@ from typing import Union, Iterable, Optional
 
 import aiohttp
 import dateutil.parser
-import more_itertools
 from dateutil.rrule import rrule, HOURLY, DAILY
-from more_itertools import always_iterable
+from more_itertools import always_iterable, partition, chunked
 
 from tools.ops.cmr_audit.cmr_client import async_cmr_post
 
@@ -71,10 +70,10 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         logger.debug("Batching tasks")
         cmr_granules = set()
         cmr_granules_details = {}
-        task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
+        task_chunks = list(chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
         for i, task_chunk in enumerate(task_chunks, start=1):
             logger.debug(f"Processing batch {i} of {len(task_chunks)}")
-            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
+            post_cmr_tasks_results, post_cmr_tasks_failures = partition(
                 lambda it: isinstance(it, Exception),
                 await asyncio.gather(*task_chunk, return_exceptions=False))
             for post_cmr_tasks_result in post_cmr_tasks_results:
@@ -120,10 +119,10 @@ async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession,
 
 
 def to_cmr_audit_granules(cmr_response_jsons):
-    cmr_granules = set()
+    cmr_granules = []
     cmr_granules_detailed = {}
     for response_json in cmr_response_jsons:
-        cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
+        cmr_granules.extend(item["meta"]["native-id"] for item in response_json["items"])
         cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
     return cmr_granules, cmr_granules_detailed
 
