@@ -59,7 +59,7 @@ def fix_iso_xmls(bucket: str, prefix: str, dry_run: bool = False):
                     # Remove string that starts with <gco:CharacterString>{"algorithm_theoretical_basis_document_id and then ends with </gco:CharacterString>
                     xml = re.sub(
                         r'<gco:CharacterString>{"algorithm_theoretical_basis_document_id.*?</gco:CharacterString>',
-                        '87600.0', xml, flags=re.DOTALL)
+                        '<gco:CharacterString>876000.0</gco:CharacterString>', xml, flags=re.DOTALL)
 
                 # Write out that file
                 with open(fixed_name, 'w') as f:
