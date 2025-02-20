@@ -16,13 +16,14 @@ from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
 from util.conf_util import SettingsConf
 
-from data_subscriber.cslc_utils import localize_disp_frame_burst_hist
+from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
 SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
 GRQ_IP = SETTINGS["GRQ_PVT_IP"]
+MOZART_IP = SETTINGS["MOZART_PVT_IP"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
@@ -33,7 +34,10 @@ LOGGER = logging.getLogger('pcm_batch')
 LOGGER.setLevel(logging.INFO)
 
 eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, LOGGER)
-LOGGER.info("Connected to %s" % str(eu.es_url))
+LOGGER.debug("Connected to %s" % str(eu.es_url))
+
+eu_mzt = ElasticsearchUtility('http://%s:9200' % MOZART_IP, LOGGER)
+LOGGER.debug("Connected to %s" % str(eu_mzt.es_url))
 
 FILE_OPTION = '--file'
 
@@ -59,27 +63,58 @@ def view_proc(id):
         for hit in procs['hits']['hits']:
             proc = hit['_source']
             if proc['job_type'] == "cslc_query_hist":
+
+                data_end_date = datetime.strptime(proc['data_end_date'], ES_DATETIME_FORMAT)
+
                 try:
                     pp = f"{proc['progress_percentage']}%"
                 except:
                     pp = "UNKNOWN"
                 try:
-                    fcp = [f"{f}: {p}%" for f, p in proc["frame_completion_percentages"].items()]
+                    fcp = [f"{frame}: {p}%" for frame, p in proc["frame_completion_percentages"].items()]
+
+                    # Every frame that has 100% frame_completion_percentage, check in Mozart ES to see if the last SCIFLO has been completed
+                    cf = []
+                    job_id_prefixes = {}
+                    for frame, p in proc["frame_completion_percentages"].items():
+                        frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
+                        acq_index = frames_to_bursts[int(frame)].sensing_datetime_days_index[frame_state]
+                        job_id_prefix = f"job-WF-SCIFLO_L3_DISP_S1-frame-{frame}-latest_acq_index-{acq_index}_hist"
+                        if p == 100:
+                            job_id_prefixes[frame] = job_id_prefix
+                        else:
+                            # check to see if there is a last acq index job for this frame that exists
+                            num_sensing_times, _ = get_nearest_sensing_datetime(frames_to_bursts[int(frame)].sensing_datetimes,
+                                                                                data_end_date)
+                            num_sensing_times = num_sensing_times - (num_sensing_times % proc['k']) # Round down to the nearest k
+                            if num_sensing_times == frame_state + 1:
+                                job_id_prefixes[frame] = job_id_prefix
+
+                    for frame, job_id_prefix in job_id_prefixes.items():
+                        logging.debug(f"Checking for {job_id_prefix}")
+                        query = {"query": {"bool": {"must": [{"prefix": {"job_id": job_id_prefix}}]}}}
+                        sciflo_jobs = eu_mzt.query(body=query, index="job_status*")
+                        for j in sciflo_jobs:
+                            if j['_source']['status'] == "job-completed":
+                                cf.append(int(frame))
+
                 except:
                     fcp = "UNKNOWN"
-                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp])
+                    cf = "UNKNOWN"
+
+                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf])
             else:
                 # progress percentage is the ratio of last_successful_proc_data_date in the range between data_start_date and data_end_date
                 total_time = convert_datetime(proc["data_end_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 processed_time = convert_datetime(proc["last_successful_proc_data_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 progress_percentage = (processed_time / total_time) * 100
-                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A"])
+                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A"])
 
         print(" --- Showing Summary of Enabled Batch Procs --- ")
         if len(rows) == 0:
             print("No enabled batch procs found")
             return
-        print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60]))
+        print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60, 30]))
 
         return
 
