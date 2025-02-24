@@ -12,7 +12,7 @@ data "aws_subnet_ids" "public_asg_vpc" {
 resource "aws_launch_template" "launch_template" {
   for_each               = var.queues
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
-  image_id               = var.amis["autoscale"]
+  image_id               = data.aws_ami.autoscale_ami.id
   key_name               = local.key_name
   user_data              = base64encode(templatefile("${path.module}/${lookup(each.value, "user_data")}", {
     code_bucket = local.code_bucket

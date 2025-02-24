@@ -4,11 +4,15 @@ from datetime import datetime
 
 import dateutil
 import elasticsearch.helpers
+import opensearchpy
 from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
+from util.conf_util import SettingsConf
 from util.grq_client import get_body
+
+settings = SettingsConf().cfg
 
 
 class RTCProductCatalog(ProductCatalog):
@@ -76,24 +80,41 @@ class RTCProductCatalog(ProductCatalog):
                     index = last(doc_id_to_index_cache[doc["id"]],
                         self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
                     )
-                    operation = {
-                        "_op_type": "update",
-                        "_index": index,
-                        "_type": "_doc",
-                        "_id": doc["id"],
-                        "doc_as_upsert": True,
-                        "doc": {
-                            "download_job_ids": doc["download_job_ids"],
-                            "latest_download_job_ts": download_job_dts,
-                            "number_of_bursts_expected": number_of_bursts_expected,
-                            "number_of_bursts_actual": number_of_bursts_actual,
-                            "coverage": coverage
-                        }
+
+                    op_doc = {
+                        "download_job_ids": doc["download_job_ids"],
+                        "latest_download_job_ts": download_job_dts,
+                        "number_of_bursts_expected": number_of_bursts_expected,
+                        "number_of_bursts_actual": number_of_bursts_actual,
+                        "coverage": coverage
                     }
+                    if "elasticsearch" == settings["GRQ_ES_ENGINE"]:
+                        operation = {
+                            "_op_type": "update",
+                            "_index": index,
+                            "_type": "_doc",
+                            "_id": doc["id"],
+                            "doc_as_upsert": True,
+                            "doc": op_doc
+                        }
+                    elif "opensearch" == settings["GRQ_ES_ENGINE"]:
+                        operation = {
+                            "_op_type": "update",
+                            "_index": index,
+                            # "_type": "_doc",
+                            "_id": doc["id"],
+                            "doc_as_upsert": True,
+                            "doc": op_doc,
+                            # "update": op_doc
+                        }
                     operations.append(operation)
 
         self.logger.info(f"Marking {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
-        elasticsearch.helpers.bulk(self.es_util.es, operations)
+
+        if "elasticsearch" == settings["GRQ_ES_ENGINE"]:
+            elasticsearch.helpers.bulk(self.es_util.es, operations)
+        if "opensearch" == settings["GRQ_ES_ENGINE"]:
+            opensearchpy.helpers.bulk(self.es_util.es, operations)
 
         self.logger.debug("Performing index refresh")
         self.refresh()
@@ -134,23 +155,38 @@ class RTCProductCatalog(ProductCatalog):
                     doc_id_to_index_cache[doc["id"]],
                     self._get_index_name_for(_id=doc["id"], default=self.generate_es_index_name())
                 )
-                operation = {
-                    "_op_type": "update",
-                    "_index": index,
-                    "_type": "_doc",
-                    "_id": doc["id"],
-                    "doc_as_upsert": True,
-                    "doc": {
-                        "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"],
-                        "latest_dswx_s1_job_ts": dswx_s1_job_dts,
-                        "latest_production_datetime": latest_production_datetime,
-                        "latest_creation_timestamp": latest_creation_timestamp
-                    }
+                op_doc = {
+                    "dswx_s1_jobs_ids": doc["dswx_s1_jobs_ids"],
+                    "latest_dswx_s1_job_ts": dswx_s1_job_dts,
+                    "latest_production_datetime": latest_production_datetime,
+                    "latest_creation_timestamp": latest_creation_timestamp
                 }
+                if "elasticsearch" == settings["GRQ_ES_ENGINE"]:
+                    operation = {
+                        "_op_type": "update",
+                        "_index": index,
+                        "_type": "_doc",
+                        "_id": doc["id"],
+                        "doc_as_upsert": True,
+                        "doc": op_doc
+                    }
+                elif "opensearch" == settings["GRQ_ES_ENGINE"]:
+                    operation = {
+                        "_op_type": "update",
+                        "_index": index,
+                        # "_type": "_doc",
+                        "_id": doc["id"],
+                        "doc_as_upsert": True,
+                        "doc": op_doc,
+                        # "update": op_doc
+                    }
                 operations.append(operation)
 
         self.logger.info(f"Marking {set(batch_id_to_products_map.keys())} products as job-submitted, in bulk")
-        elasticsearch.helpers.bulk(self.es_util.es, operations)
+        if "elasticsearch" == settings["GRQ_ES_ENGINE"]:
+            elasticsearch.helpers.bulk(self.es_util.es, operations)
+        if "opensearch" == settings["GRQ_ES_ENGINE"]:
+            opensearchpy.helpers.bulk(self.es_util.es, operations)
 
         self.logger.debug("Performing index refresh")
         self.refresh()
@@ -201,4 +237,10 @@ class RTCProductCatalog(ProductCatalog):
             }
             doc.update(kwargs)
             index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
-            self.es_util.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
+
+            body = {
+                "doc_as_upsert": True,
+                "doc": doc
+            }
+
+            self.es_util.update_document(index=index, body=body, id=doc['id'])

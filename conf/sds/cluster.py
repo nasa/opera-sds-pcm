@@ -232,9 +232,33 @@ def update_ilm_policy_mozart():
 
 @roles("grq")
 def update_grq_es():
-    create_ilm_policy_grq()
-    override_grq_default_index_template()
-    create_index_templates_grq()
+    context = get_context()
+    grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
+    if grq_es_engine == "opensearch":
+        # TODO chrisjrd: implement ISM policy changes here
+        create_ism_policy_grq()
+        # TODO chrisjrd: implement default index template overrides here
+        # TODO chrisjrd: implement index template changes here
+        pass
+    elif grq_es_engine == "elasticsearch":
+        create_ilm_policy_grq()
+        override_grq_default_index_template()
+        create_index_templates_grq()
+
+
+@roles("grq")
+def create_ism_policy_grq():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_ism_policy_grq.json",
+        f"{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(
+        f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_grq_ism_policy?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json")
 
 
 @roles("grq")
@@ -302,8 +326,49 @@ def update_metrics_es():
     context = get_context()
     mkdir(f"{hysds_dir}/ops/metrics/config", context['OPS_USER'], context['OPS_USER'])
 
-    create_ilm_policy_metrics()
-    create_index_templates_metrics()
+    metrics_es_engine = context.get("METRICS_ES_ENGINE", "elasticsearch")
+    if metrics_es_engine == "opensearch":
+        create_ism_policy_metrics()
+        create_os_index_templates_metrics()
+    elif metrics_es_engine == "elasticsearch":
+        create_ilm_policy_metrics()
+        create_index_templates_metrics()
+
+@roles("metrics")
+def create_ism_policy_metrics():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_ism_policy_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(
+        f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_metrics_ism_policy?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json")
+
+@roles("metrics")
+def create_os_index_templates_metrics():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_template_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/os_template_metrics.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(f"curl --request PUT --url 'localhost:9200/_index_template/metrics_index_template?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/os_template_metrics.json")
+
+    send_template(
+        "os_template_metrics-logstash.json",
+        f"{hysds_dir}/ops/metrics/config/os_template_metrics-logstash.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(f"curl --request PUT --url 'localhost:9200/_index_template/logstash_template?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/os_template_metrics-logstash.json")
 
 
 @roles("metrics")

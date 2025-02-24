@@ -132,13 +132,12 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - February 03, 2025 - R3.1
-    mozart    = "ami-00abc393e08258f4e" # mozart v4.26 - 250203 
-    metrics   = "ami-02be088d737404937" # metrics v4.18 - 250203
-    grq       = "ami-02506d9a0b5e3fbdd" # grq v4.19 - 250203
-    factotum  = "ami-022a1b1e8598dc144" # factotum v4.17 - 250127
-#    autoscale = "ami-0c146bcb6cf104f68" # verdi v4.17 patchdate - 250127
-    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
+    # HySDS v5.2.1 - September 15, 2024 - R3.1
+    mozart    = "ami-0eacb2024e0e7a1aa" # mozart v5.2 - 240915
+    metrics   = "ami-024fcd55ed5f24577" # metrics v5.3 - 240915
+    grq       = "ami-09c80bbcc23281bdd" # grq v5.2 - 240915
+    factotum  = "ami-0aaf21c0102ddf35e" # factotum v5.2 - 240915
+    autoscale = "ami-0acb06c58411bcf64" # verdi v5.2 patchdate - 240915
   }
 }
 
@@ -655,12 +654,12 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-    "cslc_s1"  = "2.1.1"
+#     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
-    "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.2"
-    "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.1.0"
+#     "dswx_s1"  = "3.0.2"
+#     "disp_s1"  = "3.0.2"
+#     "dswx_ni"  = "4.0.0-er.3.0"
+#     "dist_s1"  = "6.0.0-er.1.0"
   }
 }
 
@@ -821,4 +820,25 @@ variable "earthdata_uat_pass" {
 variable "clear_s3_aws_es" {
   type    = bool
   default = true
+}
+
+variable "ami_versions" {
+  type = map(string)
+  default = {}
+}
+
+variable "default_ami_versions" {
+  type = map(string)
+  default = {
+    mozart    = "v5.2" # "v4.24"
+    metrics   = "v5.3" # "v4.16"
+    grq       = "v5.2" # "v4.17"
+    factotum  = "v5.2" # "v4.16"
+    autoscale = "v5.2" # "v4.16"
+  }
+}
+
+variable "es_cluster_mode" {
+  type    = bool
+  default = false
 }

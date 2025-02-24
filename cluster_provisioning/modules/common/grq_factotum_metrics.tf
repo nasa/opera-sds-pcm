@@ -3,7 +3,7 @@
 ######################
 
 resource "aws_instance" "metrics" {
-  ami                  = var.amis["metrics"]
+  ami                  = data.aws_ami.metrics_ami.id
   instance_type        = var.metrics["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
@@ -218,7 +218,7 @@ resource "null_resource" "setup_cron" {
 ######################
 
 resource "aws_instance" "grq" {
-  ami                  = var.amis["grq"]
+  ami                  = data.aws_ami.grq_ami.id
   instance_type        = var.grq["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
@@ -324,7 +324,7 @@ resource "aws_instance" "grq" {
 ######################
 
 resource "aws_instance" "factotum" {
-  ami                  = var.amis["factotum"]
+  ami                  = data.aws_ami.factotum_ami.id
   instance_type        = var.factotum["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az

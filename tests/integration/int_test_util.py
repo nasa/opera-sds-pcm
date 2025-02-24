@@ -8,6 +8,7 @@ from typing import Union
 import backoff
 import boto3
 import elasticsearch
+import opensearchpy
 from botocore.config import Config
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch_dsl import Search, Index
@@ -24,7 +25,7 @@ sns_client = boto3.client("sns", config=(Config(max_pool_connections=30)))
 sqs_client = boto3.client("sqs", config=(Config(max_pool_connections=30)))
 
 
-def index_not_found(e: elasticsearch.exceptions.NotFoundError):
+def index_not_found(e: Union[elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError]):
     return e.error != "index_not_found_exception"
 
 
@@ -48,7 +49,7 @@ def raise_(ex: Exception):
 )
 @backoff.on_exception(
     backoff.constant,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60*10,
     giveup=index_not_found,
     interval=30,
@@ -69,7 +70,7 @@ def wait_for_l2(_id, index):
 )
 @backoff.on_exception(
     backoff.constant,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60*10,
     giveup=index_not_found,
     interval=30,
@@ -90,7 +91,7 @@ def wait_for_l2(_id, index):
 )
 @backoff.on_exception(
     backoff.constant,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60*30,
     giveup=index_not_found,
     interval=30,
@@ -196,13 +197,13 @@ def search_es(index, _id, query_name="match"):
 
 def es_index_delete(index, from_="grq"):
     logger.info(f"Deleting {index=}")
-    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
+    with contextlib.suppress(elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError):
         Index(name=index, using=get_es_client_by_name(name=from_)).delete()
 
 
 def es_index_delete_by_prefix(index_prefix, from_="grq"):
     logger.info(f"Deleting index by prefix {index_prefix=}")
-    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
+    with contextlib.suppress(elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError):
         index_to_details_map: dict[str, dict] = Index(name="_all", using=get_es_client_by_name(name=from_)).get()
         for index in index_to_details_map.keys():
             if index.startswith(f"{index_prefix}-"):
