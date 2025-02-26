@@ -88,12 +88,13 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
                 self.logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
-                downloads = self.get_downloads(args, es_conn)
-                cslc_s3paths = [download["s3_url"] for download in downloads]
-                if len(cslc_s3paths) == 0:
+                downloads = self.get_downloads(new_args, es_conn)
+                batch_cslc_s3paths = [download["s3_url"] for download in downloads]
+                cslc_s3paths.extend(batch_cslc_s3paths)
+                if len(batch_cslc_s3paths) == 0:
                     raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
 
-                for p in cslc_s3paths:
+                for p in batch_cslc_s3paths:
                     # Split the following into bucket name and key
                     # 's3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
                     parsed_url = urllib.parse.urlparse(p)
@@ -111,7 +112,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                     granule_sizes.append((granule_id, file_size))
 
-                cslc_files_to_upload = [Path(p) for p in cslc_s3paths] # Need this for querying static CSLCs
+                cslc_files_to_upload = [Path(p) for p in batch_cslc_s3paths] # Need this for querying static CSLCs
 
                 cslc_products_to_filepaths = {} # Dummy when trying to delete files later in this function
 
