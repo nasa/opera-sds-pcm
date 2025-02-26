@@ -1,10 +1,12 @@
 import copy
+import logging
 import os
 import urllib.parse
 from datetime import datetime, timezone
 from os.path import basename
 from pathlib import PurePath, Path
 import boto3
+import hashlib
 
 from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
@@ -262,6 +264,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         if "proc_mode" in args and args.proc_mode == "historical":
             proc_mode_suffix = "_hist"
 
+        # Compute payload hash by first sorting cslc_s3paths, create a string out of it, and then computing md5 hash
+        payload_hash = hashlib.md5("".join(sorted(cslc_s3paths)).encode()).hexdigest()
+        logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
+
         submitted =  try_submit_mozart_job(
             product=product,
             job_queue=f'opera-job_worker-sciflo-l3_disp_s1{proc_mode_suffix}',
@@ -269,7 +275,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             params=self.create_job_params(product),
             job_spec=f'job-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}'
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}',
+            payload_hash=payload_hash
         )
 
         # Mark the CSLC files as downloaded in the CSLC ES with the file size only after SCIFLO job has been submitted
