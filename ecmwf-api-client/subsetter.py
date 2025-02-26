@@ -55,8 +55,8 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a3_nc_filepath = a3_grib_filepath.with_suffix(".nc")
 
                 logger.info(f"Converting to netCDF4")
-                a2_nc_filepath = run_grib_to_netcdf(src=a2_grib_filepath, target=a2_nc_filepath)
-                a3_nc_filepath = run_grib_to_netcdf(src=a3_grib_filepath, target=a3_nc_filepath)
+                a2_nc_filepath = run_grib_to_netcdf(grib_file=a2_grib_filepath, nc_file=a2_nc_filepath)
+                a3_nc_filepath = run_grib_to_netcdf(grib_file=a3_grib_filepath, nc_file=a3_nc_filepath)
                 logger.info(f"Converted to netCDF4")
 
                 # result_transferer = JobResultTransfererPairs(ecmwf_service=None, dao=None)

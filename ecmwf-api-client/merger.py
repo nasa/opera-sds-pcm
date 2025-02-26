@@ -55,8 +55,8 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a3_nc_filepath = a3_grib_filepath.with_suffix(".nc")
 
                 logger.info(f"Converting to netCDF4")
-                a2_nc_filepath = run_grib_to_netcdf(src=a2_grib_filepath, target=a2_nc_filepath)
-                a3_nc_filepath = run_grib_to_netcdf(src=a3_grib_filepath, target=a3_nc_filepath)
+                a2_nc_filepath = run_grib_to_netcdf(grib_file=a2_grib_filepath, nc_file=a2_nc_filepath)
+                a3_nc_filepath = run_grib_to_netcdf(grib_file=a3_grib_filepath, nc_file=a3_nc_filepath)
                 logger.info(f"Converted to netCDF4")
 
                 # result_transferer = JobResultTransfererPairs(ecmwf_service=None, dao=None)
@@ -64,16 +64,30 @@ def main(*, bucket_name, target_bucket_name, s3_keys):
                 a2_a3_nc_filepath_pair = (a2_nc_filepath, a3_nc_filepath)
                 logger.info(f"Merge input: {a2_a3_nc_filepath_pair=}")
 
-                merged_filepath = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2").removeprefix("A3"))
-                merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=merged_filepath)
-                logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
+                #D06130000061300001.nc
+                merged_filepath_tmp = a2_nc_filepath.resolve().with_name(a2_nc_filepath.name.removeprefix("A2D").removeprefix("A3D"))
 
-                logger.info("Compressing")
-                compressed_filepath = with_inserted_suffix(merged_filepath, ".zz")
-                nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
-                result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
-                nc.close()
-                logger.info("Compressed")
+                merged_filepath = merged_filepath_tmp.parent
+                merged_filename = merged_filepath_tmp.name
+                analysis_hour=str(merged_filename)[4:8]
+
+                tmp_new_filename = f"tmp_ECMWF_TROP_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
+                new_filename = f"ECMWF_TROP_{date}{analysis_hour}_{date}{analysis_hour}_1.nc"
+
+                tmp_merged_filepath = merged_filepath.parent/tmp_new_filename
+                tmp_merged_filepath = result_transferer.do_merge([a2_a3_nc_filepath_pair], target=tmp_merged_filepath)
+                logger.info(f"Merged input: {a2_a3_nc_filepath_pair=}")
+                logger.info(f"Merged output: {tmp_merged_filepath=}")
+
+                logger.info("Compressing merged A2/A3 NetCDF file")
+                compressed_filepath = merged_filepath.parent/new_filename
+
+                result_transferer.compress_netcdf(tmp_merged_filepath, compressed_filepath)
+
+                #nc = xarray.open_dataset(str(merged_filepath.resolve()), chunks="auto")
+                #result_transferer.to_netcdf_compressed(nc, compressed_filepath, complevel=4)
+                #nc.close()
+                logger.info("Finished compressing merged A2/A3 NetCDF file.")
 
                 logging.info(f"Uploading results for {date=}")
                 result_transferer.ancillaries_bucket_name = target_bucket_name
