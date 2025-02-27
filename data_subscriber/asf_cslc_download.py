@@ -337,6 +337,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         cslc_query_args.native_id = query_native_id
         cslc_query_args.no_schedule_download = True
         cslc_query_args.collection = Collection.CSLC_S1_STATIC_V1.value
+        cslc_query_args.provider = None # This will be set in the query function looked up by collection
         cslc_query_args.bbox = "-180,-90,180,90"
         cslc_query_args.start_date = None
         cslc_query_args.end_date = None
