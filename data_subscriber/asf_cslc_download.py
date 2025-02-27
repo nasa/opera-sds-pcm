@@ -129,14 +129,14 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             self.logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
             cslc_static_granules = self.query_cslc_static_files_for_cslc_batch(
-                cslc_files_to_upload, args, token, job_id, settings
+                cslc_files_to_upload, new_args, token, job_id, settings
             )
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
                 self.logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
                 cslc_static_products_to_filepaths: dict[str, set[Path]] = self.download_cslc_static_files_for_cslc_batch(
-                    cslc_static_granules, args, token, netloc,
+                    cslc_static_granules, new_args, token, netloc,
                     username, password, job_id
                 )
 
