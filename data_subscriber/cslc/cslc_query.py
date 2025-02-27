@@ -17,7 +17,7 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,
                                         parse_cslc_native_id,
                                         process_disp_frame_burst_hist,
                                         download_batch_id_forward_reproc,
-                                        split_download_batch_id)
+                                        split_download_batch_id, get_nearest_sensing_datetime)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
@@ -384,9 +384,27 @@ since the first CSLC file for the batch was ingested which is greater than the g
             all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
 
             # Get rid of any granules that aren't in the historical database sensing_datetime_days_index
-            frame_id = int(self.args.frame_id)
+            CMR_TIME_FORMAT = int(self.args.frame_id)
             all_granules = [granule for granule in all_granules
                             if granule["acquisition_cycle"] in self.disp_burst_map_hist[frame_id].sensing_datetime_days_index]
+
+            # Validate to make sure that all granules needed to process this frame at this processing run are present
+            # 1. Make sure we got all acq cycles
+            # 2. For each acq cycle make sure we got all burst_ids
+            #TODO: This section of code is not yet complete and has not been tested --------->
+            acq_cycles_and_bursts = defaultdict(set())
+            for g in all_granules:
+                acq_cycles_and_bursts[g["acquisition_cycle"]].add(g["burst_id"])
+
+            _, start_search_date = get_nearest_sensing_datetime(self.disp_burst_map_hist[frame_id].sensing_datetimes,
+                                                                datetime.strptime(timerange.start_date, CMR_TIME_FORMAT))
+            _, end_search_date = get_nearest_sensing_datetime(self.disp_burst_map_hist[frame_id].sensing_datetimes,
+                                                                datetime.strptime(timerange.end_date, CMR_TIME_FORMAT))
+            all_acq_cyles_found = set(acq_cycles_and_bursts.keys())
+
+            for acq_cycle, bursts in acq_cycles_and_bursts.items():
+                assert bursts.issuperset(self.disp_burst_map_hist[frame_id].burst_ids) == True, f"Missing at least one burst_id for frame_id={frame_id} acq_cycle={acq_cycle}"
+            # TODO <------------------------------------------
 
         # TODO: How do we handle partial frames when querying by date? Make them all whole or only process the full frames?
         # Reprocessing can be done by specifying either a native_id or a date range
