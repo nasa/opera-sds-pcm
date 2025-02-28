@@ -50,6 +50,7 @@ print("\nComputing for triggered DIST-S1 products...")
 min_acq_datetime = None
 max_acq_datetime = None
 rtc_granule_count = 0
+unused_rtc_granule_count = 0
 
 class DIST_S1_Product(object):
     def __init__(self):
@@ -61,6 +62,9 @@ class DIST_S1_Product(object):
         self.latest_acquisition = None
 
 products_triggered = defaultdict(DIST_S1_Product)
+
+tiles_untriggered = set(all_tile_ids)
+all_tiles_set = set(all_tile_ids)
 
 # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
 rtc_survey = pd.read_csv(sys.argv[1])
@@ -89,6 +93,14 @@ for index, row in rtc_survey.iterrows():
         if triggered_product.acquisition_index is None:
             triggered_product.acquisition_index = acquisition_index
 
+        tile_id = product_id.split("_")[0]
+        if tile_id in tiles_untriggered:
+            tiles_untriggered.remove(tile_id)
+        else:
+            if tile_id not in all_tiles_set:
+                print(f"Tile ID {tile_id}: {rtc_granule_id} does not belong to any DIST-S1 product.")
+                unused_rtc_granule_count += 1
+
 # Compute average burst usage percentage
 total_bursts = 0
 total_used_bursts = 0
@@ -96,6 +108,8 @@ for product_id, product in products_triggered.items():
     total_bursts += product.possible_bursts
     total_used_bursts += product.used_bursts
 print(f"Average burst usage is {total_used_bursts / total_bursts * 100}%")
+print(f"Total of {len(tiles_untriggered)} tiles were not triggered by RTC data. This is {len(tiles_untriggered) / all_tile_ids.size * 100}% of all tiles.")
+print(f"Total of {unused_rtc_granule_count} RTC granules were not used in any product generation.")
 
 print("RTC granule count:", rtc_granule_count)
 print(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
