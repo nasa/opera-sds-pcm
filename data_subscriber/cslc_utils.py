@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cache
 from urllib.parse import urlparse
+import backoff
 
 import boto3
 import dateutil
@@ -19,7 +20,6 @@ PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
-
 class _HistBursts(object):
     def __init__(self):
         self.frame_number = None
@@ -28,6 +28,7 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
+@backoff.on_exception(backoff.expo, Exception, max_time=30)
 def get_s3_resource_from_settings(settings_field):
     settings = SettingsConf().cfg
     burst_file_url = urlparse(settings[settings_field])

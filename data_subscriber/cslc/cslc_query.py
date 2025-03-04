@@ -387,6 +387,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             all_granules = [granule for granule in all_granules
                             if granule["acquisition_cycle"] in self.disp_burst_map_hist[frame_id].sensing_datetime_days_index]
 
+            # Validate that we got all the granules we needed for hist: all acq cycles and all bursts within each cycle
             self.validate_historical_query_result(frame_id, timerange, all_granules)
 
         # TODO: How do we handle partial frames when querying by date? Make them all whole or only process the full frames?
@@ -472,7 +473,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         for acq_cycle, bursts in acq_cycles_and_bursts.items():
             assert bursts.issuperset(self.disp_burst_map_hist[
-                                         frame_id].burst_ids) == True, f"Missing at least one burst_id for frame_id={frame_id} acq_cycle={acq_cycle}"
+                                         frame_id].burst_ids) == True, (f"Missing at least one burst_id for frame_id={frame_id} acq_cycle={acq_cycle}. \
+This indicates a rare error with CMR, usually transient, so try this job again. \
+Missing burst(s): {self.disp_burst_map_hist[frame_id].burst_ids - bursts}")
 
     def eliminate_duplicate_granules(self, granules):
         """For CSLC granules revision_id is always one. Instead, we correlate the granules by the unique_id
