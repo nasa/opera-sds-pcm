@@ -104,16 +104,21 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
 
     return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
 
-def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts):
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15):
     '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
 
     total_possible_sensingdates = 0
     total_processed_sensingdates = 0
     frame_completion = {}
     last_processed_datetimes = {}
+
     for frame, state in frame_states.items():
         frame = int(frame)
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
+
+        # Round down to the nearest k
+        num_sensing_times = num_sensing_times - (num_sensing_times % k)
+
         total_possible_sensingdates += num_sensing_times
         total_processed_sensingdates += state
         frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
