@@ -28,7 +28,6 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
-@backoff.on_exception(backoff.expo, Exception, max_time=30)
 def get_s3_resource_from_settings(settings_field):
     settings = SettingsConf().cfg
     burst_file_url = urlparse(settings[settings_field])
@@ -37,6 +36,8 @@ def get_s3_resource_from_settings(settings_field):
     file = path.split("/")[-1]
 
     return s3, path, file, burst_file_url
+
+@backoff.on_exception(backoff.expo, Exception, max_time=30)
 def localize_anc_json(settings_field):
     '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
 
