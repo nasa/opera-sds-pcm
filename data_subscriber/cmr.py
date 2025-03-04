@@ -55,6 +55,7 @@ class ProductType(str, Enum):
 
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
+# maps a collection shortname to the appropriate provider attr in the CMR query
 COLLECTION_TO_PROVIDER_MAP = {
     Collection.HLSL30: Provider.LPCLOUD.value,
     Collection.HLSS30: Provider.LPCLOUD.value,
@@ -66,6 +67,8 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.NISAR_GCOV_BETA_V1: Provider.ASF.value
 }
 
+# PROVIDER_TYPE means provider and product type.
+# TODO: change this to COLLECTION_TO_PROVIDER_PRODUCT_TYPE_MAP so it's less confusing w COLLECTION_TO_PROVIDER_MAP
 COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.HLSL30: Provider.LPCLOUD.value,
     Collection.HLSS30: Provider.LPCLOUD.value,
