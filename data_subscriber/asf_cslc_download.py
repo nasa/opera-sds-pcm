@@ -1,10 +1,12 @@
 import copy
+import logging
 import os
 import urllib.parse
 from datetime import datetime, timezone
 from os.path import basename
 from pathlib import PurePath, Path
 import boto3
+import hashlib
 
 from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
@@ -88,12 +90,13 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
                 self.logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
-                downloads = self.get_downloads(args, es_conn)
-                cslc_s3paths = [download["s3_url"] for download in downloads]
-                if len(cslc_s3paths) == 0:
+                downloads = self.get_downloads(new_args, es_conn)
+                batch_cslc_s3paths = [download["s3_url"] for download in downloads]
+                cslc_s3paths.extend(batch_cslc_s3paths)
+                if len(batch_cslc_s3paths) == 0:
                     raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
 
-                for p in cslc_s3paths:
+                for p in batch_cslc_s3paths:
                     # Split the following into bucket name and key
                     # 's3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
                     parsed_url = urllib.parse.urlparse(p)
@@ -111,7 +114,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                     granule_sizes.append((granule_id, file_size))
 
-                cslc_files_to_upload = [Path(p) for p in cslc_s3paths] # Need this for querying static CSLCs
+                cslc_files_to_upload = [Path(p) for p in batch_cslc_s3paths] # Need this for querying static CSLCs
 
                 cslc_products_to_filepaths = {} # Dummy when trying to delete files later in this function
 
@@ -126,14 +129,14 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             self.logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
             cslc_static_granules = self.query_cslc_static_files_for_cslc_batch(
-                cslc_files_to_upload, args, token, job_id, settings
+                cslc_files_to_upload, new_args, token, job_id, settings
             )
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
                 self.logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
                 cslc_static_products_to_filepaths: dict[str, set[Path]] = self.download_cslc_static_files_for_cslc_batch(
-                    cslc_static_granules, args, token, netloc,
+                    cslc_static_granules, new_args, token, netloc,
                     username, password, job_id
                 )
 
@@ -261,6 +264,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         if "proc_mode" in args and args.proc_mode == "historical":
             proc_mode_suffix = "_hist"
 
+        # Compute payload hash by first sorting cslc_s3paths, create a string out of it, and then computing md5 hash
+        payload_hash = hashlib.md5("".join(sorted(cslc_s3paths)).encode()).hexdigest()
+        logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
+
         submitted =  try_submit_mozart_job(
             product=product,
             job_queue=f'opera-job_worker-sciflo-l3_disp_s1{proc_mode_suffix}',
@@ -268,7 +275,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             params=self.create_job_params(product),
             job_spec=f'job-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}'
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}',
+            payload_hash=payload_hash
         )
 
         # Mark the CSLC files as downloaded in the CSLC ES with the file size only after SCIFLO job has been submitted
@@ -329,6 +337,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         cslc_query_args.native_id = query_native_id
         cslc_query_args.no_schedule_download = True
         cslc_query_args.collection = Collection.CSLC_S1_STATIC_V1.value
+        cslc_query_args.provider = None # This will be set in the query function looked up by collection
         cslc_query_args.bbox = "-180,-90,180,90"
         cslc_query_args.start_date = None
         cslc_query_args.end_date = None

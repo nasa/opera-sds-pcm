@@ -103,7 +103,7 @@ def proc_once(eu, procs, args):
 
                     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
                     progress_percentage, frame_completion, last_processed_datetimes \
-                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map)
+                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k)
 
                     # If we've finshed the frame, then set the progress percentage to 100. Because we process only full k-sets,
                     # it's possible to be finished when there are a few datetimes left in which case the progress percentage

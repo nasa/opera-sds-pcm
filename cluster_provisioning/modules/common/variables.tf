@@ -132,12 +132,11 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - February 03, 2025 - R3.1
-    mozart    = "ami-00abc393e08258f4e" # mozart v4.26 - 250203 
-    metrics   = "ami-02be088d737404937" # metrics v4.18 - 250203
-    grq       = "ami-02506d9a0b5e3fbdd" # grq v4.19 - 250203
+     # HySDS v5.0.1 - March 03, 2025 - R3.1
+    mozart    = "ami-0f7c28e380b4b6629" # mozart v26 - 250303
+    metrics   = "ami-0c28761ed46f11f95" # metrics v4.18 - 250303
+    grq       = "ami-0e66f2290bbefa3af" # grq v4.19 - 250303
     factotum  = "ami-022a1b1e8598dc144" # factotum v4.17 - 250127
-#    autoscale = "ami-0c146bcb6cf104f68" # verdi v4.17 patchdate - 250127
     autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
   }
 }
@@ -526,12 +525,24 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
-      "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
+      "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 250
+      "data_dev_size"     = 50
       "min_size"          = 0
       "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-cslc_data_download_hist" = {
+      "name"              = "opera-job_worker-cslc_data_download_hist"
+      "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 50
+      "min_size"          = 0
+      "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
       "use_on_demand"     = false
@@ -556,18 +567,6 @@ variable "queues" {
       "data_dev_size"     = 100
       "min_size"          = 0
       "max_size"          = 10
-      "total_jobs_metric" = true
-      "use_private_vpc"   = false
-      "use_on_demand"     = false
-    }
-    "opera-job_worker-cslc_data_download_hist" = {
-      "name"              = "opera-job_worker-cslc_data_download_hist"
-      "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
-      "root_dev_size"     = 50
-      "data_dev_size"     = 250
-      "min_size"          = 0
-      "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
       "use_on_demand"     = false
