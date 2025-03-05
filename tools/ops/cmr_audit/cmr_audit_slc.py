@@ -20,6 +20,7 @@ from more_itertools import always_iterable
 
 from geo.geo_util import does_bbox_intersect_north_america
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
+from cmr_audit_utils import str2bool
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
@@ -57,6 +58,18 @@ def create_parser():
         default="txt",
         choices=["txt", "json", "db"],
         help=f'Output file format. Defaults to "%(default)s".'
+    )
+    argparser.add_argument(
+        "--do_cslc",
+        type=str2bool,
+        default=True,
+        help=f'Flag to execute CSLC accountability. Defaults to "%(default)s".'
+    )
+    argparser.add_argument(
+        "--do_rtc",
+        type=str2bool,
+        default=True,
+        help=f'Flag to execute RTC accountability. Defaults to "%(default)s".'
     )
     argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
 
@@ -286,48 +299,62 @@ async def run(argv: list[str]):
                 granule_id, granule_details = future_to_granule_map[future]
                 cmr_granules_slc_na.add(granule_id)
                 cmr_granules_slc_details_na[granule_id] = granule_details
+    if args.do_cslc:
+        logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
+    if args.do_rtc:
+        logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
 
-    logger.info(f"Expected CSLC input (granules): {len(cmr_granules_slc_na)=:,}")
-    logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
+    if args.do_cslc:
+        cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
+            cmr_granules_slc_na,
+            input_slc_to_outputs_cslc_map := defaultdict(set),
+            output_cslc_to_inputs_slc_map := defaultdict(set)
+        )
 
-    cslc_native_id_patterns = slc_granule_ids_to_cslc_native_id_patterns(
-        cmr_granules_slc_na,
-        input_slc_to_outputs_cslc_map := defaultdict(set),
-        output_cslc_to_inputs_slc_map := defaultdict(set)
-    )
+    if args.do_rtc:
+        rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
+            cmr_granules_slc,
+            input_slc_to_outputs_rtc_map := defaultdict(set),
+            output_rtc_to_inputs_slc_map := defaultdict(set)
+        )
 
-    rtc_native_id_patterns = slc_granule_ids_to_rtc_native_id_patterns(
-        cmr_granules_slc,
-        input_slc_to_outputs_rtc_map := defaultdict(set),
-        output_rtc_to_inputs_slc_map := defaultdict(set)
-    )
+    if args.do_cslc:
+        logger.info("Querying CMR for list of expected CSLC granules")
+        cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
-    logger.info("Querying CMR for list of expected CSLC granules")
-    cmr_cslc_products = await async_get_cmr_cslc(cslc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    if args.do_rtc:
+        logger.info("Querying CMR for list of expected RTC granules")
+        cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
-    logger.info("Querying CMR for list of expected RTC granules")
-    cmr_rtc_products = await async_get_cmr_rtc(rtc_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
-
-    missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
-    missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
+    if args.do_cslc:
+        missing_cslc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_cslc_products, cmr_native_id_patterns=cslc_native_id_patterns)
+    if args.do_rtc:
+        missing_rtc_native_id_patterns = cmr_products_native_id_pattern_diff(cmr_products=cmr_rtc_products, cmr_native_id_patterns=rtc_native_id_patterns)
 
     #######################################################################
     # CMR_AUDIT SUMMARY
-    #######################################################################
-    # logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
+    ######################################################################
+    # if args.do_rtc:
+    #     logger.debug(f"{pstr(missing_rtc_native_id_patterns)=!s}")
 
-    missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
-    missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
+    if args.do_cslc:
+        missing_cmr_granules_slc_cslc = [output_cslc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_cslc_native_id_patterns]
+        missing_cmr_granules_slc_cslc = set(functools.reduce(set.union, missing_cmr_granules_slc_cslc)) if missing_cmr_granules_slc_cslc else set()
 
-    missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
-    missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
+    if args.do_rtc:
+        missing_cmr_granules_slc_rtc = [output_rtc_to_inputs_slc_map[native_id_pattern] for native_id_pattern in missing_rtc_native_id_patterns]
+        missing_cmr_granules_slc_rtc = set(functools.reduce(set.union, missing_cmr_granules_slc_rtc)) if missing_cmr_granules_slc_rtc else set()
 
     # logger.debug(f"{pstr(missing_slc)=!s}")
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
-    logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
-    logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
-    logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
-    logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
+    if args.do_cslc:
+        logger.info(f"Fully published (granules) (CSLC): {len(cmr_cslc_products)=:,}")
+    if args.do_rtc:
+        logger.info(f"Fully published (granules) (RTC): {len(cmr_rtc_products)=:,}")
+    if args.do_cslc:
+        logger.info(f"Missing processed CSLC (granules): {len(missing_cmr_granules_slc_cslc)=:,}")
+    if args.do_rtc:
+        logger.info(f"Missing processed RTC (granules): {len(missing_cmr_granules_slc_rtc)=:,}")
 
     start_dt_str = cmr_start_dt.strftime("%Y%m%d-%H%M%S")
     end_dt_str = cmr_start_dt.strftime("%Y%m%d-%H%M%S")
@@ -350,65 +377,73 @@ async def run(argv: list[str]):
             return datetime.fromtimestamp(datetime.strptime(granule_id.split("_")[4], "%Y%m%dT%H%M%SZ").timestamp())
 
         # group input products (SLC-RTC) by acquisition dt
-        slc_products_by_acq_dt_rtc = defaultdict(set)
-        for slc in input_slc_to_outputs_rtc_map:
-            dt_slc = dt_from_slc(slc)
-            slc_products_by_acq_dt_rtc[dt_slc].add(slc)
-        # group input products (SLC-RTC) by acquisition date
-        slc_products_by_acq_date_rtc = defaultdict(set)
-        for slc in input_slc_to_outputs_rtc_map:
-            date_slc = date_from_slc(slc)
-            slc_products_by_acq_date_rtc[date_slc].add(slc)
+        if args.do_rtc:
+            slc_products_by_acq_dt_rtc = defaultdict(set)
+            for slc in input_slc_to_outputs_rtc_map:
+                dt_slc = dt_from_slc(slc)
+                slc_products_by_acq_dt_rtc[dt_slc].add(slc)
+            # group input products (SLC-RTC) by acquisition date
+            slc_products_by_acq_date_rtc = defaultdict(set)
+            for slc in input_slc_to_outputs_rtc_map:
+                date_slc = date_from_slc(slc)
+                slc_products_by_acq_date_rtc[date_slc].add(slc)
 
         # group input products (SLC-CSLC) by acquisition dt
-        slc_products_by_acq_dt_cslc = defaultdict(set)
-        for slc in input_slc_to_outputs_cslc_map:
-            dt_slc = dt_from_slc(slc)
-            slc_products_by_acq_dt_cslc[dt_slc].add(slc)
-        # group input products (SLC-CSLC) by acquisition date
-        slc_products_by_acq_date_cslc = defaultdict(set)
-        for slc in input_slc_to_outputs_cslc_map:
-            date_slc = date_from_slc(slc)
-            slc_products_by_acq_date_cslc[date_slc].add(slc)
+        if args.do_cslc:
+            slc_products_by_acq_dt_cslc = defaultdict(set)
+            for slc in input_slc_to_outputs_cslc_map:
+                dt_slc = dt_from_slc(slc)
+                slc_products_by_acq_dt_cslc[dt_slc].add(slc)
+            # group input products (SLC-CSLC) by acquisition date
+            slc_products_by_acq_date_cslc = defaultdict(set)
+            for slc in input_slc_to_outputs_cslc_map:
+                date_slc = date_from_slc(slc)
+                slc_products_by_acq_date_cslc[date_slc].add(slc)
 
         # group output products (RTC) by acquisition dt
-        rtc_products_by_acq_dt = defaultdict(set)
-        for rtc in cmr_rtc_products:
-            dt_rtc = dt_from_rtc(rtc)
-            rtc_products_by_acq_dt[dt_rtc].update({rtc})
-        # group output products (RTC) by acquisition date
-        rtc_products_by_acq_date = defaultdict(set)
-        for rtc in cmr_rtc_products:
-            date_rtc = date_from_rtc(rtc)
-            rtc_products_by_acq_date[date_rtc].update({rtc})
+        if args.do_rtc:
+            rtc_products_by_acq_dt = defaultdict(set)
+            for rtc in cmr_rtc_products:
+                dt_rtc = dt_from_rtc(rtc)
+                rtc_products_by_acq_dt[dt_rtc].update({rtc})
+            # group output products (RTC) by acquisition date
+            rtc_products_by_acq_date = defaultdict(set)
+            for rtc in cmr_rtc_products:
+                date_rtc = date_from_rtc(rtc)
+                rtc_products_by_acq_date[date_rtc].update({rtc})
 
         # group output products (CSLC) by acquisition dt
-        cslc_products_by_acq_dt = defaultdict(set)
-        for cslc in cmr_cslc_products:
-            dt_cslc = dt_from_cslc(cslc)
-            cslc_products_by_acq_dt[dt_cslc].update({cslc})
-        # group output products (CSLC) by acquisition date
-        cslc_products_by_acq_date = defaultdict(set)
-        for cslc in cmr_cslc_products:
-            date_cslc = date_from_cslc(cslc)
-            cslc_products_by_acq_date[date_cslc].update({cslc})
+        if args.do_cslc:
+            cslc_products_by_acq_dt = defaultdict(set)
+            for cslc in cmr_cslc_products:
+                dt_cslc = dt_from_cslc(cslc)
+                cslc_products_by_acq_dt[dt_cslc].update({cslc})
+            # group output products (CSLC) by acquisition date
+            cslc_products_by_acq_date = defaultdict(set)
+            for cslc in cmr_cslc_products:
+                date_cslc = date_from_cslc(cslc)
+                cslc_products_by_acq_date[date_cslc].update({cslc})
 
         # duplicate detection
-        rtc_duplicates_by_acq_dt = {
-            dt: products
-            for dt, products in rtc_products_by_acq_dt.items()
-            if len(products) >= 2
-        }
-        cslc_duplicates_by_acq_dt = {
-            dt: products
-            for dt, products in cslc_products_by_acq_dt.items()
-            if len(products) >= 2
-        }
+        if args.do_rtc:
+            rtc_duplicates_by_acq_dt = {
+                dt: products
+                for dt, products in rtc_products_by_acq_dt.items()
+                if len(products) >= 2
+            }
+        if args.do_cslc:
+            cslc_duplicates_by_acq_dt = {
+                dt: products
+                for dt, products in cslc_products_by_acq_dt.items()
+                if len(products) >= 2
+            }
 
-        missing_rtc_dts = slc_products_by_acq_dt_rtc.keys() - rtc_products_by_acq_dt.keys()
-        print(f"{missing_rtc_dts=}")
-        missing_cslc_dts = slc_products_by_acq_dt_cslc.keys() - cslc_products_by_acq_dt.keys()
-        print(f"{missing_cslc_dts=}")
+        if args.do_rtc:
+            missing_rtc_dts = slc_products_by_acq_dt_rtc.keys() - rtc_products_by_acq_dt.keys()
+            print(f"{missing_rtc_dts=}")
+        if args.do_cslc:
+            missing_cslc_dts = slc_products_by_acq_dt_cslc.keys() - cslc_products_by_acq_dt.keys()
+            print(f"{missing_cslc_dts=}")
 
         # group metrics by output type and acquisition dt
         product_accountability_map = {
@@ -426,27 +461,29 @@ async def run(argv: list[str]):
             # },
         }
 
-        cslc_accountability_map = {"CSLC": {}}
-        for acquisition_date in cslc_products_by_acq_date:
-            cslc_accountability_map["CSLC"][acquisition_date] = {}
+        if args.do_cslc:
+            cslc_accountability_map = {"CSLC": {}}
+            for acquisition_date in cslc_products_by_acq_date:
+                cslc_accountability_map["CSLC"][acquisition_date] = {}
 
-            num_inputs = len(slc_products_by_acq_date_cslc[acquisition_date])
-            cslc_accountability_map["CSLC"][acquisition_date]["expected_inputs"] = num_inputs
+                num_inputs = len(slc_products_by_acq_date_cslc[acquisition_date])
+                cslc_accountability_map["CSLC"][acquisition_date]["expected_inputs"] = num_inputs
 
-            num_outputs = len(cslc_products_by_acq_date[acquisition_date])
-            cslc_accountability_map["CSLC"][acquisition_date]["produced_outputs"] = num_outputs
-        product_accountability_map.update(cslc_accountability_map)
+                num_outputs = len(cslc_products_by_acq_date[acquisition_date])
+                cslc_accountability_map["CSLC"][acquisition_date]["produced_outputs"] = num_outputs
+            product_accountability_map.update(cslc_accountability_map)
 
-        rtc_accountability_map = {"RTC": {}}
-        for acquisition_date in rtc_products_by_acq_date:
-            rtc_accountability_map["RTC"][acquisition_date] = {}
+        if args.do_rtc:
+            rtc_accountability_map = {"RTC": {}}
+            for acquisition_date in rtc_products_by_acq_date:
+                rtc_accountability_map["RTC"][acquisition_date] = {}
 
-            num_inputs = len(slc_products_by_acq_date_rtc[acquisition_date])
-            rtc_accountability_map["RTC"][acquisition_date]["expected_inputs"] = num_inputs
+                num_inputs = len(slc_products_by_acq_date_rtc[acquisition_date])
+                rtc_accountability_map["RTC"][acquisition_date]["expected_inputs"] = num_inputs
 
-            num_outputs = len(rtc_products_by_acq_date[acquisition_date])
-            rtc_accountability_map["RTC"][acquisition_date]["produced_outputs"] = num_outputs
-        product_accountability_map.update(rtc_accountability_map)
+                num_outputs = len(rtc_products_by_acq_date[acquisition_date])
+                rtc_accountability_map["RTC"][acquisition_date]["produced_outputs"] = num_outputs
+            product_accountability_map.update(rtc_accountability_map)
 
         # group missing inputs by output type and acquisition dt
         output_product_types_to_products_map = {
@@ -458,21 +495,23 @@ async def run(argv: list[str]):
             # },
         }
 
-        cslc_output_date_to_missing_input_products_map = {"CSLC": {}}
-        output_product_types_to_products_map.update(cslc_output_date_to_missing_input_products_map)
-        for slc in missing_cmr_granules_slc_cslc:
-            date_slc = date_from_slc(slc)
-            if not output_product_types_to_products_map["CSLC"].get(date_slc):
-                output_product_types_to_products_map["CSLC"][date_slc] = set()
-            output_product_types_to_products_map["CSLC"][date_slc].add(slc)
+        if args.do_cslc:
+            cslc_output_date_to_missing_input_products_map = {"CSLC": {}}
+            output_product_types_to_products_map.update(cslc_output_date_to_missing_input_products_map)
+            for slc in missing_cmr_granules_slc_cslc:
+                date_slc = date_from_slc(slc)
+                if not output_product_types_to_products_map["CSLC"].get(date_slc):
+                    output_product_types_to_products_map["CSLC"][date_slc] = set()
+                output_product_types_to_products_map["CSLC"][date_slc].add(slc)
 
-        rtc_output_date_to_missing_input_products_map = {"RTC": {}}
-        output_product_types_to_products_map.update(rtc_output_date_to_missing_input_products_map)
-        for slc in missing_cmr_granules_slc_rtc:
-            date_slc = date_from_slc(slc)
-            if not output_product_types_to_products_map["RTC"].get(date_slc):
-                output_product_types_to_products_map["RTC"][date_slc] = set()
-            output_product_types_to_products_map["RTC"][date_slc].add(slc)
+        if args.do_rtc:
+            rtc_output_date_to_missing_input_products_map = {"RTC": {}}
+            output_product_types_to_products_map.update(rtc_output_date_to_missing_input_products_map)
+            for slc in missing_cmr_granules_slc_rtc:
+                date_slc = date_from_slc(slc)
+                if not output_product_types_to_products_map["RTC"].get(date_slc):
+                    output_product_types_to_products_map["RTC"][date_slc] = set()
+                output_product_types_to_products_map["RTC"][date_slc].add(slc)
 
         # create DB model (accountability)
         docs = []
@@ -560,12 +599,14 @@ async def run(argv: list[str]):
 
         # create db model (duplicates)
         docs = []
-        for duplicates in cslc_duplicates_by_acq_dt:
-            for duplicate in duplicates:
-                docs.append({"product": duplicate})
-        for duplicates in rtc_duplicates_by_acq_dt:
-            for duplicate in duplicates:
-                docs.append({"product": duplicate})
+        if args.do_cslc:
+            for duplicates in cslc_duplicates_by_acq_dt:
+                for duplicate in duplicates:
+                    docs.append({"product": duplicate})
+        if args.do_rtc:
+            for duplicates in rtc_duplicates_by_acq_dt:
+                for duplicate in duplicates:
+                    docs.append({"product": duplicate})
 
         create_collection(db, "duplicate_products")
         duplicates_collection = db["duplicate_products"]
@@ -578,33 +619,37 @@ async def run(argv: list[str]):
             )
 
     elif args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
-        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc_cslc))
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+        if args.do_cslc:
+            output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.txt"
+            logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+            with open(output_file_missing_cmr_granules, mode='w') as fp:
+                fp.write('\n'.join(missing_cmr_granules_slc_cslc))
+            logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
-        logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(missing_cmr_granules_slc_rtc))
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+        if args.do_rtc:
+            output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.txt"
+            logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
+            with open(output_file_missing_cmr_granules, mode='w') as fp:
+                fp.write('\n'.join(missing_cmr_granules_slc_rtc))
+            logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
     elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            from compact_json import Formatter
-            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-            json_str = formatter.serialize(list(missing_cmr_granules_slc_cslc))
-            fp.write(json_str)
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+        if args.do_cslc:
+            output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-CSLC_{outfilename}.json"
+            with open(output_file_missing_cmr_granules, mode='w') as fp:
+                from compact_json import Formatter
+                formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+                json_str = formatter.serialize(list(missing_cmr_granules_slc_cslc))
+                fp.write(json_str)
+            logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
 
-        output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.json"
-        with open(output_file_missing_cmr_granules, mode='w') as fp:
-            from compact_json import Formatter
-            formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-            json_str = formatter.serialize(list(missing_cmr_granules_slc_rtc))
-            fp.write(json_str)
-        logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
+        if args.do_rtc:
+            output_file_missing_cmr_granules = args.output if args.output else f"missing_granules_SLC-RTC_{outfilename}.json"
+            with open(output_file_missing_cmr_granules, mode='w') as fp:
+                from compact_json import Formatter
+                formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
+                json_str = formatter.serialize(list(missing_cmr_granules_slc_rtc))
+                fp.write(json_str)
+            logger.info(f"Finished writing to file {output_file_missing_cmr_granules!r}")
     else:
         raise Exception()
 
