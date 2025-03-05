@@ -77,13 +77,6 @@ DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_black
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple.geojson"
 
-DISP_S1_NUM_THREADS: 8
-
-# number of workers = available_cpu_cores * FACTOR + CONSTANT
-DISP_S1_NUM_WORKERS:
-  FACTOR: 0.25
-  CONSTANT: 1
-
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:
@@ -173,6 +166,13 @@ DSWX_S1:
 DISP_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 50
+  # Number of threads to allocate to the "threads_per_worker" field of the DISP-S1 RunConfig
+  NUM_THREADS: 8
+  # Used to calculate the "n_parallel_bursts" field of the DISP-S1 RunConfig
+  # available_cpu_cores * FACTOR + CONSTANT
+  NUM_WORKERS:
+    FACTOR: 0.25
+    CONSTANT: 1
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)

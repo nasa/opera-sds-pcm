@@ -377,20 +377,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         available_cores = os.cpu_count()
 
         try:
-            threads_per_worker = self._settings["DISP_S1_NUM_THREADS"]
-        except:
+            threads_per_worker = self._settings["DISP_S1"]["NUM_THREADS"]
+        except KeyError:
             threads_per_worker = available_cores
-            logger.warning(f"DISP_S1_NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
+            logger.warning(f"DISP_S1.NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
 
         logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
 
         try:
-            parallel_factor = self._settings["DISP_S1_NUM_WORKERS"]["FACTOR"]
-            parallel_constant = self._settings["DISP_S1_NUM_WORKERS"]["CONSTANT"]
-        except:
+            parallel_factor = self._settings["DISP_S1"]["NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1"]["NUM_WORKERS"]["CONSTANT"]
+        except KeyError:
             parallel_factor = 0.25
             parallel_constant = 1
-            logger.warning(f"DISP_S1_NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
+            logger.warning(f"DISP_S1.NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
 
         # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
         # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
