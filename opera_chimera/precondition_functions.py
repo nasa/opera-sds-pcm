@@ -152,8 +152,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if processing_mode == oc_const.PROCESSING_MODE_REPROCESSING:
             processing_mode = oc_const.PROCESSING_MODE_FORWARD
 
-        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
+        if oc_const.SETTINGS_KEY in self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}):
+            settings_key = self._pge_config[oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS][oc_const.SETTINGS_KEY]
+
+            key_path = settings_key.split(".")
+            settings_value = self._settings
+
+            # Traverse the key path into settings.yaml until we resolve to the desired value
+            while len(key_path) > 0:
+                try:
+                    settings_value = settings_value[key_path.pop(0)]
+                except KeyError:
+                    raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
+
+            logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
+
+            parsed_s3_url = urlparse(settings_value)
+            s3_bucket = parsed_s3_url.netloc
+            s3_key = parsed_s3_url.path
+
+            # Strip leading forward slash from url path
+            if s3_key.startswith('/'):
+                s3_key = s3_key[1:]
+        else:
+            s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
+            s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
         # Fill in the processing mode
         s3_key = s3_key.format(processing_mode=processing_mode)
@@ -1620,8 +1643,32 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         static_ancillary_products = self._pge_config.get(oc_const.GET_STATIC_ANCILLARY_FILES, {})
 
         for static_ancillary_product in static_ancillary_products.keys():
-            s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
-            s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+            if "settings_key" in static_ancillary_products.get(static_ancillary_product, {}):
+                settings_key = static_ancillary_products[static_ancillary_product]["settings_key"]
+
+                key_path = settings_key.split(".")
+                settings_value = self._settings
+
+                # Traverse the key path into settings.yaml until we resolve to the desired value
+                while len(key_path) > 0:
+                    try:
+                        settings_value = settings_value[key_path.pop(0)]
+                    except KeyError:
+                        raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
+
+                logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
+
+                parsed_s3_url = urlparse(settings_value)
+                s3_bucket = parsed_s3_url.netloc
+                s3_key = parsed_s3_url.path
+
+                # Strip leading forward slash from url path
+                if s3_key.startswith('/'):
+                    s3_key = s3_key[1:]
+            else:
+                s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
+                s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+
             download = static_ancillary_products.get(static_ancillary_product, {}).get("download", False)
 
             if download:

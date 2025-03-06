@@ -72,14 +72,11 @@ set_daac_product_type:
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
   frame_to_burst_json:
-    s3_bucket: "opera-ancillaries"
-    s3_key: "disp_frames/disp-s1/0.5.3/opera-s1-disp-0.7.0-frame-to-burst.json"
+    settings_key: "DISP_S1.FRAME_TO_BURST_JSON"
   reference_date_database_json:
-    s3_bucket: "opera-ancillaries"
-    s3_key: "disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2025-01-15-minimal.json"
+    settings_key: "DISP_S1.REFERENCE_DATE_DATABASE_JSON"
   algorithm_parameters_overrides_json:
-    s3_bucket: "opera-ancillaries"
-    s3_key: "algorithm_parameters/disp_s1/0.5.3/opera-disp-s1-algorithm-parameters-overrides-2025-01-09.json"
+    settings_key: "DISP_S1.ALGORITHM_PARAMETERS_OVERRIDES_JSON"
     download: true
 
 get_disp_s1_mask_file:
@@ -89,8 +86,7 @@ get_disp_s1_mask_file:
 get_disp_s1_algorithm_parameters:
   # This S3 path only defines a location pattern of an algorithm parameters template file,
   # the processing mode (forward vs. historical) will be filled in by the function itself
-  s3_bucket: "opera-ancillaries"
-  s3_key: "algorithm_parameters/disp_s1/0.5.3/algorithm_parameters_{processing_mode}.yaml.tmpl"
+  settings_key: "DISP_S1.ALGORITHM_PARAMETERS_YAML"
 
 instantiate_algorithm_parameters_template:
   template_mapping:
