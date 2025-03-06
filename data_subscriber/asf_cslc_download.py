@@ -7,6 +7,8 @@ from os.path import basename
 from pathlib import PurePath, Path
 import boto3
 import hashlib
+import backoff
+import elasticsearch
 
 from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
@@ -324,6 +326,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         return all_downloads
 
+    @backoff.on_exception(backoff.expo, exception=elasticsearch.exceptions.ConflictError, max_tries=5, jitter=None)
     def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
         cslc_query_args = copy.deepcopy(args)
 
