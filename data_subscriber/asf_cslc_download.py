@@ -61,8 +61,12 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         args.collection = Collection.CSLC_S1_V1
         args.max_revision = 1000
         new_args = copy.deepcopy(args)
+        k_es_conn = KCSLCProductCatalog(self.logger)
 
-        for batch_id in args.batch_ids:
+        # Sort the batch_ids by acq_cycle_index
+        batch_ids = sorted(args.batch_ids, key=lambda batch_id: split_download_batch_id(batch_id)[1], reverse=True)
+
+        for index, batch_id in enumerate(batch_ids):
             self.logger.info(f"Downloading CSLC files for batch {batch_id}")
 
             # Determine the highest acquisition cycle index here for later use in retrieving m compressed CSLCs
@@ -92,7 +96,16 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
                 self.logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
-                downloads = self.get_downloads(new_args, es_conn)
+
+                '''For CSLC download, the batch_ids are globally unique so there's no need to query for dates
+                Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
+                as the one with the greatest acq_cycle_index, sorted above) is stored in cslc_catalog. 
+                The rest are stored in k_cslc_catalog'''
+                if "proc_mode" in args and args.proc_mode == "historical" or index == 0:
+                    downloads = self.get_downloads(batch_id, es_conn)
+                else:
+                    downloads = self.get_downloads(batch_id, k_es_conn)
+
                 batch_cslc_s3paths = [download["s3_url"] for download in downloads]
                 cslc_s3paths.extend(batch_cslc_s3paths)
                 if len(batch_cslc_s3paths) == 0:
@@ -287,44 +300,15 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         return submitted
 
-    def get_downloads(self, args, es_conn):
-        '''Returns items to download based on the batch_ids
-        For CSLC download, the batch_ids are globally unique so there's no need to query for dates
-        Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
-        as the one with the greatest acq_cycle_index) is stored in cslc_catalog. The rest are stored in k_cslc_catalog.'''
+    def get_downloads(self, batch_id, es_conn):
+        '''Returns items to download based on the batch_ids'''
 
-        k_es_conn = KCSLCProductCatalog(self.logger)
+        self.logger.info("Verifying CSLC files from GRQ ES")
+        downloads = es_conn.get_download_granule_revision(batch_id)
+        self.logger.info(f"Found {len(downloads)=} CSLC granules for {batch_id=}")
+        assert len(downloads) > 0, f"No CSLC granules found for batch_id={batch_id}!"
 
-        # Sort the batch_ids by acq_cycle_index
-        batch_ids = sorted(args.batch_ids, key = lambda batch_id: split_download_batch_id(batch_id)[1])
-
-        all_downloads = []
-
-        # Historical mode stores all granules in normal cslc_catalog
-        if "proc_mode" in args and args.proc_mode == "historical":
-            self.logger.info("Downloading cslc files for historical mode")
-            for batch_id in batch_ids:
-                downloads = es_conn.get_download_granule_revision(batch_id)
-                self.logger.info(f"Got {len(downloads)=} cslc downloads for {batch_id=}")
-                assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
-                all_downloads.extend(downloads)
-
-        # Forward and reprocessing modes store all granules in k_cslc_catalog
-        else:
-            self.logger.info("Downloading cslc files for forward/reprocessing mode")
-            downloads = es_conn.get_download_granule_revision(batch_ids[-1])
-            self.logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
-            assert len(downloads) > 0, f"No downloads found for batch_id={batch_ids[-1]}!"
-            all_downloads.extend(downloads)
-
-            # Download K-CSLC granules
-            for batch_id in batch_ids[:-1]:
-                downloads = k_es_conn.get_download_granule_revision(batch_id)
-                self.logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
-                assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
-                all_downloads.extend(downloads)
-
-        return all_downloads
+        return downloads
 
     @backoff.on_exception(backoff.expo, exception=elasticsearch.exceptions.ConflictError, max_tries=5, jitter=None)
     def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
