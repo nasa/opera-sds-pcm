@@ -35,6 +35,8 @@ def test_burst_map():
     assert len(disp_burst_map_hist[46799].burst_ids) == 16
     assert len(disp_burst_map_hist[46799].sensing_datetimes) == 0
 
+    assert len(disp_burst_map_hist[8885].sensing_datetimes) == 240
+
     assert len(disp_burst_map_hist[28498].burst_ids) == 18
 
 def test_split_download_batch_id():
@@ -281,7 +283,7 @@ def test_calculate_historical_progress():
 
     progress, frame_completion, last_processed_datetimes \
         = cslc_utils.calculate_historical_progress(frame_states, end_date, disp_burst_map_hist, k)
-    assert progress == 69
+    assert progress == 83
     assert frame_completion == {'46288': 71, '46289': 71, '26690': 100, '26691': 100, '38500': 0}
     assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 14),
                                         '46289': datetime(2018, 1, 29, 13, 43, 36),
