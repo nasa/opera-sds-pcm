@@ -279,12 +279,12 @@ def test_nearest_sensing_datetime():
 def test_calculate_historical_progress():
     k = 15
     end_date = dateutil.parser.isoparse("2018-07-01T00:00:00")
-    frame_states = {'46288': 30, '46289': 30, '26690': 45, '26691': 45, '38500': 0}
+    frame_states = {'46288': 30, '46289': 30, '26690': 45, '26691': 45, '38500': 0, '18899': 15}
 
     progress, frame_completion, last_processed_datetimes \
         = cslc_utils.calculate_historical_progress(frame_states, end_date, disp_burst_map_hist, k)
     assert progress == 83
-    assert frame_completion == {'46288': 71, '46289': 71, '26690': 100, '26691': 100, '38500': 0}
+    assert frame_completion == {'46288': 100, '46289': 100, '26690': 100, '26691': 100, '38500': 0, '18899': 15}
     assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 14),
                                         '46289': datetime(2018, 1, 29, 13, 43, 36),
                                         '26690': datetime(2018, 6, 17, 13, 35, 45),
