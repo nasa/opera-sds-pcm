@@ -1,8 +1,0 @@
-rioxarray
-boto3
-boto3-stubs[s3]
-backoff
-more-itertools
-netCDF4
-cfgrib
-dask
