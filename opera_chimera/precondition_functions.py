@@ -152,8 +152,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if processing_mode == oc_const.PROCESSING_MODE_REPROCESSING:
             processing_mode = oc_const.PROCESSING_MODE_FORWARD
 
-        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
+        if oc_const.SETTINGS_KEY in self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}):
+            settings_key = self._pge_config[oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS][oc_const.SETTINGS_KEY]
+
+            key_path = settings_key.split(".")
+            settings_value = self._settings
+
+            # Traverse the key path into settings.yaml until we resolve to the desired value
+            while len(key_path) > 0:
+                try:
+                    settings_value = settings_value[key_path.pop(0)]
+                except KeyError:
+                    raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
+
+            logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
+
+            parsed_s3_url = urlparse(settings_value)
+            s3_bucket = parsed_s3_url.netloc
+            s3_key = parsed_s3_url.path
+
+            # Strip leading forward slash from url path
+            if s3_key.startswith('/'):
+                s3_key = s3_key[1:]
+        else:
+            s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
+            s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
         # Fill in the processing mode
         s3_key = s3_key.format(processing_mode=processing_mode)
@@ -377,20 +400,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         available_cores = os.cpu_count()
 
         try:
-            threads_per_worker = self._settings["DISP_S1_NUM_THREADS"]
-        except:
+            threads_per_worker = self._settings["DISP_S1"]["NUM_THREADS"]
+        except KeyError:
             threads_per_worker = available_cores
-            logger.warning(f"DISP_S1_NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
+            logger.warning(f"DISP_S1.NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
 
         logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
 
         try:
-            parallel_factor = self._settings["DISP_S1_NUM_WORKERS"]["FACTOR"]
-            parallel_constant = self._settings["DISP_S1_NUM_WORKERS"]["CONSTANT"]
-        except:
+            parallel_factor = self._settings["DISP_S1"]["NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1"]["NUM_WORKERS"]["CONSTANT"]
+        except KeyError:
             parallel_factor = 0.25
             parallel_constant = 1
-            logger.warning(f"DISP_S1_NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
+            logger.warning(f"DISP_S1.NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
 
         # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
         # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
@@ -1620,8 +1643,32 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         static_ancillary_products = self._pge_config.get(oc_const.GET_STATIC_ANCILLARY_FILES, {})
 
         for static_ancillary_product in static_ancillary_products.keys():
-            s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
-            s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+            if "settings_key" in static_ancillary_products.get(static_ancillary_product, {}):
+                settings_key = static_ancillary_products[static_ancillary_product]["settings_key"]
+
+                key_path = settings_key.split(".")
+                settings_value = self._settings
+
+                # Traverse the key path into settings.yaml until we resolve to the desired value
+                while len(key_path) > 0:
+                    try:
+                        settings_value = settings_value[key_path.pop(0)]
+                    except KeyError:
+                        raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
+
+                logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
+
+                parsed_s3_url = urlparse(settings_value)
+                s3_bucket = parsed_s3_url.netloc
+                s3_key = parsed_s3_url.path
+
+                # Strip leading forward slash from url path
+                if s3_key.startswith('/'):
+                    s3_key = s3_key[1:]
+            else:
+                s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
+                s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+
             download = static_ancillary_products.get(static_ancillary_product, {}).get("download", False)
 
             if download:

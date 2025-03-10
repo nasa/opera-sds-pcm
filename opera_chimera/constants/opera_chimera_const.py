@@ -136,6 +136,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     SAFE_FILE_PATH = "safe_file_path"
 
+    SETTINGS_KEY = "settings_key"
+
     SET_DAAC_PRODUCT_TYPE = "set_daac_product_type"
 
     SET_EXTRA_PGE_OUTPUT_METADATA = "set_extra_pge_output_metadata"
