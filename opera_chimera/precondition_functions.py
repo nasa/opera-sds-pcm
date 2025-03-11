@@ -770,14 +770,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
                     if date != rtc_dates[-1]:
                         if pol in ['VV', 'HH']:
-                            pre_copol.append(rtc_file)
+                            pre_copol.append(rtc_file_path)
                         else:
-                            pre_crosspol.append(rtc_file)
+                            pre_crosspol.append(rtc_file_path)
                     else:
                         if pol in ['VV', 'HH']:
-                            post_copol.append(rtc_file)
+                            post_copol.append(rtc_file_path)
                         else:
-                            post_crosspol.append(rtc_file)
+                            post_crosspol.append(rtc_file_path)
 
         rc_params = {
             'pre_rtc_copol': pre_copol,
