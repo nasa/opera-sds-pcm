@@ -427,25 +427,30 @@ def update_dist_s1_runconfig(context, work_dir):
     container_home_prefix = f'{container_home}/input_dir'
     rtc_data_prefix = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
-    run_config['input_file_group']['pre_rtc_copol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['pre_rtc_copol']
-    ))
+    dates = list(os.listdir(rtc_data_prefix))
 
-    run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['pre_rtc_crosspol']
-    ))
+    for date in dates:
+        rtc_data_date_prefix = os.path.join(rtc_data_prefix, date)
 
-    run_config['input_file_group']['post_rtc_copol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['post_rtc_copol']
-    ))
+        run_config['input_file_group']['pre_rtc_copol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['pre_rtc_copol']
+        ))
 
-    run_config['input_file_group']['post_rtc_crosspol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['post_rtc_crosspol']
-    ))
+        run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['pre_rtc_crosspol']
+        ))
+
+        run_config['input_file_group']['post_rtc_copol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['post_rtc_copol']
+        ))
+
+        run_config['input_file_group']['post_rtc_crosspol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['post_rtc_crosspol']
+        ))
 
     # TODO: water_mask is currently fixed unset so we can skip it for now
 
