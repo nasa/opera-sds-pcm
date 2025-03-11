@@ -196,7 +196,7 @@ def dist_s1_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10GSD', '137')
+    rtc_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
     for date in os.listdir(rtc_data_dir):
         date_dir = os.path.join(rtc_data_dir, date)
@@ -425,7 +425,7 @@ def update_dist_s1_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10GSD', '137')
+    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
     run_config['input_file_group']['pre_rtc_copol'] = list(map(
         lambda x: x.replace(rtc_data_prefix, container_home_prefix),

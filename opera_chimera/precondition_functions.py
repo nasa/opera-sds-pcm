@@ -744,7 +744,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        rtc_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10GSD', '137')
+        rtc_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
         ancillary_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir',
                                           'ancillary_data')
 
