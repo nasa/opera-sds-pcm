@@ -60,6 +60,15 @@ def convert(
     product_dir = os.path.abspath(product_dir)
     pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
     pge_config = pge_outputs_cfg[pge_name]
+
+    # TODO: Temporary: Flatten product dir for DIST-S1 since SAS puts output GeoTIFFs in subdirectory
+    if pge_name == 'L3_DIST_S1':
+        for root, dirs, files in os.walk(product_dir):
+            for filename in files:
+                src = os.path.join(root, filename)
+                dst = os.path.join(product_dir, filename)
+                shutil.copy(src, dst)
+
     products = process_outputs(product_dir, pge_config["Outputs"])
 
     extra_met.update({"tags": ["PGE"]})
