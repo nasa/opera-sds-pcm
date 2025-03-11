@@ -66,8 +66,10 @@ def convert(
         for root, dirs, files in os.walk(product_dir):
             for filename in files:
                 src = os.path.join(root, filename)
-                dst = os.path.join(product_dir, filename)
-                shutil.copy(src, dst)
+                dst = os.path.join(product_dir, os.path.basename(filename))
+
+                if src != dst:
+                    shutil.copy(src, dst)
 
     products = process_outputs(product_dir, pge_config["Outputs"])
 
