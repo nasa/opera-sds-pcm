@@ -729,7 +729,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                  r'|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "dist_s1/dist_s1_interface_0.1_expected_input.zip"
+        s3_key = "dist_s1/dist_s1_beta_0.0.6_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -744,8 +744,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        rtc_data_dir = os.path.join(working_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
-        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir',
+        rtc_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10GSD', '137')
+        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir',
                                           'ancillary_data')
 
         rtc_dates = sorted(os.listdir(rtc_data_dir))
@@ -785,8 +785,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'post_rtc_copol': post_copol,
             'post_rtc_crosspol': post_crosspol,
             'mgrs_tile_id': '10SGD',
-            'dist_s1_alert_db_dir': '',
-            'water_mask': ''
+            'water_mask_path': '',
+            'apply_water_mask': False,
+            'n_lookbacks': 3
         }
 
         return rc_params
