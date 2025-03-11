@@ -779,6 +779,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                         else:
                             post_crosspol.append(rtc_file_path)
 
+        def sort_fn(path):
+            match = rtc_pattern.match(os.path.basename(path))
+            match_dict = match.groupdict()
+
+            return match_dict['burst_id'], match_dict['acquisition_ts']
+
+        pre_copol.sort(key=sort_fn)
+        pre_crosspol.sort(key=sort_fn)
+        post_copol.sort(key=sort_fn)
+        post_crosspol.sort(key=sort_fn)
+
         rc_params = {
             'pre_rtc_copol': pre_copol,
             'pre_rtc_crosspol': pre_crosspol,
