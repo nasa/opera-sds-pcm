@@ -72,9 +72,14 @@ def proc_once(eu, procs, args):
         for frame_id, last_frame_processed in p.frame_states.items():
             logger.info(f"{frame_id=}, {last_frame_processed=}")
 
-            # Compute job parameters, whether to process or not, and if we're finished
-            do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
-                form_job_params(p, int(frame_id), last_frame_processed, args, eu)
+            # If the last_frame_processed is the same as the length of all sensing times, we'd already completed processing
+            if last_frame_processed == len(disp_burst_map[frame_id].sensing_datetimes):
+                finished = True
+                do_submit = False
+            else:
+                # Compute job parameters, whether to process or not, and if we're finished
+                do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
+                    form_job_params(p, int(frame_id), last_frame_processed, args, eu)
 
             proc_finished = proc_finished & finished # All frames must be finished for this batch proc to be finished
 
@@ -359,11 +364,11 @@ if __name__ == "__main__":
     blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verbose", dest="verbose", required=False, default=False,
+    parser.add_argument("--verbose", dest="verbose", required=False, default=False, action="store_true",
                         help="If true, print out verbose information, mainly INFO logs from elasticsearch module... it's a lot!")
     parser.add_argument("--sleep-secs", dest="sleep_secs", help="Sleep between running for a cycle in seconds",
                         required=False, default=60)
-    parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False)
+    parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False, action="store_true")
 
     args = parser.parse_args()
 
@@ -391,7 +396,7 @@ if __name__ == "__main__":
         time.sleep(int(args.sleep_secs))
 
 else:
-    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
+    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2025-02-13-2016-07-01_to_2024-12-31.json"
     disp_burst_map, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
     blackout_dates = localize_disp_blackout_dates()
     blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)

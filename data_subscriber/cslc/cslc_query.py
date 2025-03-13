@@ -17,7 +17,7 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,
                                         parse_cslc_native_id,
                                         process_disp_frame_burst_hist,
                                         download_batch_id_forward_reproc,
-                                        split_download_batch_id)
+                                        split_download_batch_id, get_nearest_sensing_datetime)
 from data_subscriber.query import CmrQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
@@ -384,9 +384,11 @@ since the first CSLC file for the batch was ingested which is greater than the g
             all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
 
             # Get rid of any granules that aren't in the historical database sensing_datetime_days_index
-            frame_id = int(self.args.frame_id)
             all_granules = [granule for granule in all_granules
                             if granule["acquisition_cycle"] in self.disp_burst_map_hist[frame_id].sensing_datetime_days_index]
+
+            # Validate that we got all the granules we needed for hist: all acq cycles and all bursts within each cycle
+            self.validate_historical_query_result(frame_id, timerange, all_granules)
 
         # TODO: How do we handle partial frames when querying by date? Make them all whole or only process the full frames?
         # Reprocessing can be done by specifying either a native_id or a date range
@@ -445,6 +447,35 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         chunk_batch_ids.extend(list(self.k_batch_ids[chunk_batch_ids[0]]))
         return super().create_download_job_params(query_timerange, chunk_batch_ids)
+
+    def validate_historical_query_result(self, frame_id, timerange, all_granules):
+        '''Validate to make sure that all granules needed to process this frame at this processing run are present.
+        Note that sensing times within the acq cycle for the frame can range within a minute and there are 27 of them. So
+        one may think that the timerange.start_date may get caught within that range. This will not be the case because
+        the timerange originates from run_disp_s1_historical_processing.py and it assigns 30 min buffer either direction
+        '''
+
+        # 1. Make sure we got all acq cycles
+        # 2. For each acq cycle make sure we got all burst_ids
+        acq_cycles_and_bursts = defaultdict(set)
+        for g in all_granules:
+            acq_cycles_and_bursts[g["acquisition_cycle"]].add(g["burst_id"])
+
+        start_days_index, _ = get_nearest_sensing_datetime(self.disp_burst_map_hist[frame_id].sensing_datetimes,
+                                                           datetime.strptime(timerange.start_date, CMR_TIME_FORMAT))
+        end_days_index, _ = get_nearest_sensing_datetime(self.disp_burst_map_hist[frame_id].sensing_datetimes,
+                                                         datetime.strptime(timerange.end_date, CMR_TIME_FORMAT))
+        all_acq_cyles_found = set(acq_cycles_and_bursts.keys())
+        all_acq_cyles_needed = set(self.disp_burst_map_hist[frame_id].sensing_datetime_days_index[start_days_index:end_days_index])
+        assert all_acq_cyles_found == all_acq_cyles_needed, (f"Acquisition cycles returned from CMR does not match what's expected \
+        from the consistency databse file for frame_id={frame_id}. This indicates a rare error with CMR, usually transient, so try this job again. \
+        Expected: {all_acq_cyles_needed} Found: {all_acq_cyles_found}")
+
+        for acq_cycle, bursts in acq_cycles_and_bursts.items():
+            assert bursts.issuperset(self.disp_burst_map_hist[
+                                         frame_id].burst_ids) == True, (f"Missing at least one burst_id for frame_id={frame_id} acq_cycle={acq_cycle}. \
+This indicates a rare error with CMR, usually transient, so try this job again. \
+Missing burst(s): {self.disp_burst_map_hist[frame_id].burst_ids - bursts}")
 
     def eliminate_duplicate_granules(self, granules):
         """For CSLC granules revision_id is always one. Instead, we correlate the granules by the unique_id

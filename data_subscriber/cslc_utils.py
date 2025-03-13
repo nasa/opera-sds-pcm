@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cache
 from urllib.parse import urlparse
+import backoff
 
 import boto3
 import dateutil
@@ -18,7 +19,6 @@ DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
-
 
 class _HistBursts(object):
     def __init__(self):
@@ -36,6 +36,10 @@ def get_s3_resource_from_settings(settings_field):
     file = path.split("/")[-1]
 
     return s3, path, file, burst_file_url
+
+logger = get_logger()
+
+@backoff.on_exception(backoff.expo, Exception, max_time=30)
 def localize_anc_json(settings_field):
     '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
 
@@ -46,7 +50,6 @@ def localize_anc_json(settings_field):
 
 @cache
 def localize_disp_frame_burst_hist():
-    logger = get_logger()
 
     try:
         file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
@@ -59,7 +62,6 @@ def localize_disp_frame_burst_hist():
 
 @cache
 def localize_frame_geo_json():
-    logger = get_logger()
 
     try:
         file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
@@ -98,6 +100,9 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
     the number of sensing datetimes until that datetime.
     It's a linear search in a sorted list but no big deal because there will only ever be a few hundred elements'''
 
+    if len(frame_sensing_datetimes) == 0:
+        return 0, None
+
     for i, dt in enumerate(frame_sensing_datetimes):
         if dt > sensing_time:
             return i, frame_sensing_datetimes[i-1]
@@ -113,6 +118,7 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts,
     last_processed_datetimes = {}
 
     for frame, state in frame_states.items():
+        logger.debug(f"Calculating percentage progress for {frame=}")
         frame = int(frame)
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
 
@@ -130,7 +136,6 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts,
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
-    logger = get_logger()
 
     try:
         j = json.load(open(file))["data"]

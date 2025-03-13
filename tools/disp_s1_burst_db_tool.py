@@ -227,7 +227,7 @@ elif args.subparser_name == "frame":
     if args.k:
         k = int(args.k)
         for i in range(0, len_sensing_times, k):
-            end = i+k if i+k < len_sensing_times else len_sensing_times - 1
+            end = i+k if i+k < len_sensing_times else len_sensing_times
             print(f"K-cycle {math.ceil(i/k)}", [t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes[i:end]])
     else:
         print([t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes])
@@ -236,7 +236,7 @@ elif args.subparser_name == "frame":
     if args.k:
         k = int(args.k)
         for i in range(0, len_sensing_times, k):
-            end = i+k if i+k < len_sensing_times else len_sensing_times - 1
+            end = i+k if i+k < len_sensing_times else len_sensing_times
             print(f"K-cycle {math.ceil(i/k)}", disp_burst_map[frame_number].sensing_datetime_days_index[i:end])
     else:
         print(disp_burst_map[frame_number].sensing_datetime_days_index)
