@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/disp_s1:3.0.3",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.3.tar.gz",
+      "container_image_name": "opera_pge/disp_s1:3.0.4",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.4.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
