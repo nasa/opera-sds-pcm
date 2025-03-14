@@ -53,33 +53,34 @@ def add_status_info(frames, verbose):
     procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
     for hit in procs['hits']['hits']:
         proc = hit['_source']
-        for frame, p in proc["frame_completion_percentages"].items():
-            frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
-            acq_index = frames_to_bursts[int(frame)].sensing_datetime_days_index[frame_state]
+        k = proc['k']
+        for frame, _ in proc["frame_completion_percentages"].items():
+            num_triggered = proc['frame_states'][frame]
             frame_int = int(frame)
+
+            # Normalize the completion percentage according to the number of sensing datetimes that is actually triggerable
+            possible_triggered = len(frames_to_bursts[frame_int].sensing_datetime_days_index) // k * k
+            p = int(num_triggered / possible_triggered * 100)
+
             if frame_int not in frames:
                 if verbose:
-                    LOGGER.info(f"Skipping {frame_int=} completion_percentage {p}")
+                    LOGGER.info(f"Skipping updating frame {frame_int} because it is not in the input geojson")
                 continue
             if verbose:
-                LOGGER.info(f"Updating {frame_int=} completion_percentage {p}")
-            frames[frame_int]['properties']['processing_status'] = {
-                'completion_percentage': p
+                LOGGER.info(f"Updating status for frame {frame_int}: completion_percentage {p}, num_triggered {num_triggered}, possible_triggered {possible_triggered}, last_processed_time {proc['last_processed_datetimes'][frame]}")
+            frames[frame_int]['processing_status'] = {
+                'completion_percentage': p,
+                'sensing_datetimes_triggered': num_triggered,
+                'possible_sending_datetimes_to_trigger': possible_triggered,
+                'sensing_datetime_count': len(frames_to_bursts[frame_int].sensing_datetime_days_index),
+                'last_triggered_sensing_datetime': proc['last_processed_datetimes'][frame]
             }
-        for frame, d in proc["last_processed_datetimes"].items():
-            frame_int = int(frame)
-            if frame_int not in frames:
-                if verbose:
-                    LOGGER.info(f"Skipping {frame_int=} last_processed_time {d}")
-                continue
-            if verbose:
-                LOGGER.info(f"Updating {frame_int=} last_processed_time {d}")
-            frames[frame_int]['properties']['processing_status']['last_processed_datetime'] = d
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Append the given geojson with DISP-S1 Historical Processing Status information')
     parser.add_argument('input_json', type=str, help='Input geojson that lists all the frames')
     parser.add_argument('--verbose', action='store_true', help='Verbose output', default=False)
+    parser.add_argument('--output-filename', type=str, help='Output geojson filename', default='opera_disp_s1_hist_status.geojson')
     args = parser.parse_args(sys.argv[1:])
 
     with open(args.input_json) as f:
@@ -94,6 +95,6 @@ if __name__ == '__main__':
 
     # Write out the updated geojson
     data['features'] = list(frames.values())
-    data['update_datetime'] = datetime.now().isoformat()
-    with open(args.input_json+ ".mod.geojson", 'w') as f:
+    data['status_update_datetime'] = datetime.now().isoformat()
+    with open(args.output_filename, 'w') as f:
         json.dump(data, f, indent=2)
