@@ -69,7 +69,7 @@ DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES: 210
 DISP_S1_K_FETCH_MULTIPLE: 2
 
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data
-DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2025-01-22-2016-07-01_to_2024-12-31.json"
+DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2025-02-13-2016-07-01_to_2024-12-31.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
 DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/sample_disp_s1_blackout.json"
