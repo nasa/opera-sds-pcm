@@ -238,7 +238,7 @@ if [[ -z $IN_END_DATE ]]; then
 fi
 
 # print all variables that have been set
-(set -o posix ; set)
+#(set -o posix ; set)
 
 
 ######################################################################

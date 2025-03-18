@@ -91,7 +91,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
         return (
             "provider=LPCLOUD"
             f"&short_name[]={collection_short_name}"
-            "&bounding_box=-180,-90,180,90"
+            "&bounding_box=-180,-60,180,90"
             "&sort_key=-start_date"
             # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
             f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
@@ -103,7 +103,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
         return (
             "provider=ASF"
             f"&short_name[]={collection_short_name}"
-            "&bounding_box=-180,-90,180,90"
+            "&bounding_box=-180,-60,180,90"
             "&sort_key=-start_date"
             # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
             f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
@@ -133,3 +133,13 @@ def pstr(o):
     pprint(o, stream=sio)
     sio.seek(0)
     return sio.read()
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise Exception('Boolean value expected.')

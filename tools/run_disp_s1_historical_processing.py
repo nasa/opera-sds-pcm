@@ -72,9 +72,14 @@ def proc_once(eu, procs, args):
         for frame_id, last_frame_processed in p.frame_states.items():
             logger.info(f"{frame_id=}, {last_frame_processed=}")
 
-            # Compute job parameters, whether to process or not, and if we're finished
-            do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
-                form_job_params(p, int(frame_id), last_frame_processed, args, eu)
+            # If the last_frame_processed is the same as the length of all sensing times, we'd already completed processing
+            if last_frame_processed == len(disp_burst_map[frame_id].sensing_datetimes):
+                finished = True
+                do_submit = False
+            else:
+                # Compute job parameters, whether to process or not, and if we're finished
+                do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
+                    form_job_params(p, int(frame_id), last_frame_processed, args, eu)
 
             proc_finished = proc_finished & finished # All frames must be finished for this batch proc to be finished
 
@@ -103,7 +108,13 @@ def proc_once(eu, procs, args):
 
                     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
                     progress_percentage, frame_completion, last_processed_datetimes \
-                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map)
+                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k)
+
+                    # If we've finshed the frame, then set the progress percentage to 100. Because we process only full k-sets,
+                    # it's possible to be finished when there are a few datetimes left in which case the progress percentage
+                    # would be less than 100
+                    if finished is True:
+                        progress_percentage = 100
                     eu.update_document(id=doc_id,
                                        body={"doc_as_upsert": True,
                                              "doc": {"progress_percentage": progress_percentage,
@@ -159,6 +170,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     '''start and end data datetime is basically 1 hour window around the total k frame sensing time window.
     TRICKY! the sensing time position is in user-friendly 1-based index, but we need to use 0-based index in code'''
     try:
+        logger.info(f"Attempting to process frame {frame_id} at sensing time position {sensing_time_position_zero_based}")
         s_date = frame_sensing_datetimes[sensing_time_position_zero_based] - timedelta(minutes=30)
     except IndexError:
         finished = True
@@ -174,16 +186,17 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
         finished = True
         do_submit = False
         e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
-        logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
 
+        '''
         # Print out all the reprocessing job commands. This is temporary until it can be automated
-        # TODO: submit reprocessing jobs instead of just printing them
+        # As of Dec 2024, the team's decision is that we will not perform any sub-k historical processing.
+        logger.info(f"{frame_id=} reached end of historical processing. The rest of sensing times will be submitted as reprocessing jobs.")
         for i in range(sensing_time_position_zero_based, len(frame_sensing_datetimes)):
             s_date = frame_sensing_datetimes[i] - timedelta(minutes=30)
             e_date = frame_sensing_datetimes[i] + timedelta(minutes=30)
             logger.info(f"python ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py query -c {CSLC_COLLECTION} \
 --chunk-size=1 --k={p.k} --m={p.m} --job-queue={p.download_job_queue} --processing-mode=reprocessing --grace-mins=0 \
---start-date={convert_datetime(s_date)} --end-date={convert_datetime(e_date)} --frame-id={frame_id} ")
+--start-date={convert_datetime(s_date)} --end-date={convert_datetime(e_date)} --frame-id={frame_id} ")'''
 
     if s_date < data_start_date:
         do_submit = False
@@ -196,15 +209,26 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     
     NOTE! While args, token, cmr, and settings are necessary arguments for CSLCDependency, they will not be used in
     historical processing because all CSLC dependency information is contained in the disp_burst_map'''
-    cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
-    if cslc_dependency.compressed_cslc_satisfied(frame_id,
-                                 disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
-        next_sensing_time_position = sensing_time_position_zero_based + p.k
-    else:
+    logger.info(f"Checking Compressed CSLC satiety for frame {frame_id} at sensing time position {sensing_time_position_zero_based}")
+    try:
+        cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
+        if cslc_dependency.compressed_cslc_satisfied(frame_id,
+                                     disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
+            next_sensing_time_position = sensing_time_position_zero_based + p.k
+        else:
+            do_submit = False
+            next_sensing_time_position = sensing_time_position_zero_based
+            logger.info("Compressed CSLC not satisfied for frame %s at sensing time position %s. \
+    Skipping now but will be retried in the future." % (frame_id, sensing_time_position_zero_based))
+
+    except Exception as e:
+        logger.error(f"Error checking compressed cslc satiety for frame {frame_id} at sensing time position {sensing_time_position_zero_based}. Error: {e}")
         do_submit = False
         next_sensing_time_position = sensing_time_position_zero_based
-        logger.info("Compressed CSLC not satisfied for frame %s at sensing time position %s. \
-Skipping now but will be retried in the future." % (frame_id, sensing_time_position_zero_based))
+
+    # If we are at the end of the frame sensing times, we are done with this frame
+    if next_sensing_time_position >= len(frame_sensing_datetimes):
+        finished = True
 
     # Create job parameters used to submit query job into Mozart
     # Note that if do_submit is False, none of this is actually used
@@ -340,11 +364,11 @@ if __name__ == "__main__":
     blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verbose", dest="verbose", required=False, default=False,
+    parser.add_argument("--verbose", dest="verbose", required=False, default=False, action="store_true",
                         help="If true, print out verbose information, mainly INFO logs from elasticsearch module... it's a lot!")
     parser.add_argument("--sleep-secs", dest="sleep_secs", help="Sleep between running for a cycle in seconds",
                         required=False, default=60)
-    parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False)
+    parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False, action="store_true")
 
     args = parser.parse_args()
 
@@ -372,7 +396,7 @@ if __name__ == "__main__":
         time.sleep(int(args.sleep_secs))
 
 else:
-    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2024-10-14-2016-07-01_to_2024-09-04.json"
+    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2025-02-13-2016-07-01_to_2024-12-31.json"
     disp_burst_map, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
     blackout_dates = localize_disp_blackout_dates()
     blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)

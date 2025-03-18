@@ -338,6 +338,9 @@ resource "aws_instance" "mozart" {
 
       echo EARTHDATA_USER: ${var.earthdata_user} >> ~/.sds/config
       echo EARTHDATA_PASS: ${var.earthdata_pass} >> ~/.sds/config
+
+      echo EARTHDATA_UAT_USER: ${var.earthdata_uat_user} >> ~/.sds/config
+      echo EARTHDATA_UAT_PASS: ${var.earthdata_uat_pass} >> ~/.sds/config
       echo >> ~/.sds/config
     EOT
     ]
@@ -443,30 +446,7 @@ resource "aws_instance" "mozart" {
     ]
   }
 
-  # sync bach-api and bach-ui code. start bach-ui
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
-      set -ex
-      cd ~/mozart/ops
-      if [ "${var.use_artifactory}" = true ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
-        tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
-        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
-        rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
-      else
-        git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
-      fi
 
-      export PATH=~/conda/bin:$PATH
-
-      cd bach-ui
-      ~/conda/bin/npm install --silent --no-progress
-      sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
-      ~/conda/bin/npm run build --silent
-    EOT
-    ]
-  }
 
   # Copy down latest opera-sds-int and opera-sds-ops repos for convenience
   provisioner "remote-exec" {
@@ -592,6 +572,70 @@ resource "aws_instance" "mozart" {
     ]
   }
 
+  // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
+  // Snapshot schedule is in UTC, 5 AM UTC is 9/10 PM PST, depending on daylight savingss
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
+      set -ex
+      source ~/.bash_profile
+      echo // grq
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog --schedule="0 0 5 * * ?"
+      curl -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+
+      echo // mozart
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers --schedule="0 0 5 * * ?"
+      curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+
+      echo // metrics
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
+      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
+      curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+
+    EOT
+    ]
+  }
+}
+
+resource "null_resource" "bach_and_deploy_pges" {
+  depends_on = [
+    aws_instance.mozart
+  ]
+
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  # sync bach-api and bach-ui code. start bach-ui
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
+      set -ex
+      cd ~/mozart/ops
+      if [ "${var.use_artifactory}" = true ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz"
+        tar xfz ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
+        ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-bach-ui-${var.bach_ui_branch} /export/home/hysdsops/mozart/ops/bach-ui
+        rm -rf ${var.project}-sds-bach-ui-${var.bach_ui_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.bach_ui_branch} https://${var.git_auth_key}@${var.bach_ui_repo} bach-ui
+      fi
+
+      export PATH=~/conda/bin:$PATH
+
+      cd bach-ui
+      ~/conda/bin/npm install --silent --no-progress
+      sh create_config_simlink.sh ~/.sds/config ~/mozart/ops/bach-ui
+      ~/conda/bin/npm run build --silent
+    EOT
+    ]
+  }
+
   # deploy PGEs
   provisioner "remote-exec" {
     inline = [<<-EOT
@@ -625,32 +669,6 @@ resource "aws_instance" "mozart" {
       sds -d cloud storage ship_style --bucket ${local.osl_bucket}
       sds -d cloud storage ship_style --bucket ${local.triage_bucket}
       sds -d cloud storage ship_style --bucket ${local.lts_bucket}
-    EOT
-    ]
-  }
-
-  // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
-  // Snapshot schedule is in UTC, 5 AM UTC is 9/10 PM PST, depending on daylight savingss
-  provisioner "remote-exec" {
-    inline = [<<-EOT
-     while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
-      set -ex
-      source ~/.bash_profile
-      echo // grq
-      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog --schedule="0 0 5 * * ?"
-      curl -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
-
-      echo // mozart
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers --schedule="0 0 5 * * ?"
-      curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
-
-      echo // metrics
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository snapshot-repository --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-      ~/mozart/bin/snapshot_es_data.py --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository snapshot-repository --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
-      curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
-
     EOT
     ]
   }

@@ -40,7 +40,8 @@ MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DSWx_HLS',
                               'L2_RTC_S1_STATIC',
                               'L3_DSWx_S1',
                               'L3_DISP_S1',
-                              'L3_DSWx_NI']
+                              'L3_DSWx_NI',
+                              'L3_DIST_S1']
 """
 List of the product types (from settings.yaml) which produce multiple output files
 which should all be bundled in the same dataset.

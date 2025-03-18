@@ -10,7 +10,7 @@ RunConfig:
         InputFilePaths: list(str(), min=1, required=True)
 
       DynamicAncillaryFilesGroup:
-        AncillaryFileMap: map(str(), key=str(), min=0)
+        AncillaryFileMap: map(key=str(), min=0)
 
       ProductPathGroup:
         OutputProductPath: str(required=True)
@@ -18,7 +18,7 @@ RunConfig:
 
       PrimaryExecutable:
         ProductIdentifier: str(required=False)
-        ProductVersion: num(required=False)
+        ProductVersion: any(str(), num(), required=False)
         CompositeReleaseID: str(required=False)
         ProgramPath: str(required=True)
         ProgramOptions: list(str(), min=0, required=False)
@@ -26,6 +26,7 @@ RunConfig:
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
+        IsoMeasuredParameterDescriptions: str(required=False)
         DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:

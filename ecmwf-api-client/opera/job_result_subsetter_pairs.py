@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
 from typing import Optional, Union, Literal
+import subprocess
+import os
 
 import backoff
 import boto3
@@ -53,7 +55,29 @@ class JobResultSubsetterPairs():
         comp = dict(zlib=True, complevel=complevel)
         encoding = {var: comp for var in nc.data_vars}
         nc.to_netcdf(path=target.resolve(), encoding=encoding)
+
         return target.resolve()
+
+
+    def compress_netcdf(self, nc_file, compressed_nc_file, use_bzip2=False):
+
+        logger.info(f"{nc_file=}")
+        logger.info(f"{compressed_nc_file=}")
+        if use_bzip2:
+            subprocess.run(
+                ["bzip2", nc_file],
+                shell=False,
+                check=False,
+            )
+        else:
+            subprocess.run(
+                ["nccopy", "-d", "5", "-s", "-m", "500000000", str(nc_file), str(compressed_nc_file)],
+                shell=False,
+                check=False,
+            )
+        if not os.path.exists(compressed_nc_file):
+            raise RuntimeError(f"Failed to run nccopy compression for {nc_file}.")
+
 
     def do_merge(self, a2_a3_nc_filepath_pairs: list[tuple[Path, Path]],
                  target: Optional[Path] = None):

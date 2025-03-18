@@ -60,6 +60,17 @@ def convert(
     product_dir = os.path.abspath(product_dir)
     pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
     pge_config = pge_outputs_cfg[pge_name]
+
+    # TODO: Temporary: Flatten product dir for DIST-S1 since SAS puts output GeoTIFFs in subdirectory
+    if pge_name == 'L3_DIST_S1':
+        for root, dirs, files in os.walk(product_dir):
+            for filename in files:
+                src = os.path.join(root, filename)
+                dst = os.path.join(product_dir, os.path.basename(filename))
+
+                if src != dst:
+                    shutil.copy(src, dst)
+
     products = process_outputs(product_dir, pge_config["Outputs"])
 
     extra_met.update({"tags": ["PGE"]})
@@ -231,6 +242,9 @@ def convert(
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
+        elif pge_name == "L3_DIST_S1":
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
+            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
@@ -319,6 +333,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "dswx-ni" in dataset_id.lower():
         collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
         product_version = settings.get("DSWX_NI_PRODUCT_VERSION")
+    elif "dist-s1" in dataset_id.lower():
+        collection_name = settings.get("DIST_S1_COLLECTION_NAME")
+        product_version = settings.get("DIST_S1_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"

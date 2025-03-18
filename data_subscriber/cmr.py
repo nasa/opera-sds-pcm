@@ -37,6 +37,7 @@ class Endpoint(str, Enum):
 
 class Provider(str, Enum):
     LPCLOUD = "LPCLOUD"
+    LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
     ASF_SLC = "ASF-SLC"
     ASF_RTC = "ASF-RTC"
@@ -54,6 +55,7 @@ class ProductType(str, Enum):
 
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
+# maps a collection shortname to the appropriate provider attr in the CMR query
 COLLECTION_TO_PROVIDER_MAP = {
     Collection.HLSL30: Provider.LPCLOUD.value,
     Collection.HLSS30: Provider.LPCLOUD.value,
@@ -65,6 +67,8 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.NISAR_GCOV_BETA_V1: Provider.ASF.value
 }
 
+# PROVIDER_TYPE means provider and product type.
+# TODO: change this to COLLECTION_TO_PROVIDER_PRODUCT_TYPE_MAP so it's less confusing w COLLECTION_TO_PROVIDER_MAP
 COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.HLSL30: Provider.LPCLOUD.value,
     Collection.HLSS30: Provider.LPCLOUD.value,
@@ -127,7 +131,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
 
     params = {
         "sort_key": "-start_date",
-        "provider": COLLECTION_TO_PROVIDER_MAP[args.collection],
+        "provider": args.provider if args.provider else COLLECTION_TO_PROVIDER_MAP[args.collection],
         "ShortName[]": [args.collection],
         "token": token,
         "bounding_box": bounding_box
@@ -179,7 +183,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             logger.debug("Using args.temporal_start_date=%s", args.temporal_start_date)
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
-    logger.info(f"Querying CMR.")
+    logger.info(f"Querying CMR. endpoint: %s  provider: %s", args.endpoint, args.provider)
     logger.debug("request_url=%s", request_url)
     logger.debug("params=%s", params)
 

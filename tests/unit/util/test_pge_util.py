@@ -350,7 +350,7 @@ def test_simulate_dswx_s1_pge():
     expected_ancillary_basename = f'OPERA_L3_DSWx-S1_{creation_ts}Z_S1A_30_v0.1'
 
     try:
-        for tile_id in pge_util.DSWX_TILES:
+        for tile_id in pge_util.SIMULATED_MGRS_TILES:
             for band_idx, band_name in enumerate(pge_util.DSWX_S1_BAND_NAMES, start=1):
                 assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_B{band_idx:02}_{band_name}.tif').exists()
 
@@ -392,7 +392,7 @@ def test_simulate_dswx_ni_pge():
     expected_ancillary_basename = f'OPERA_L3_DSWx-NI_{creation_ts}Z_LSAR_30_v0.1'
 
     try:
-        for tile_id in pge_util.DSWX_TILES:
+        for tile_id in pge_util.SIMULATED_MGRS_TILES:
             for band_idx, band_name in enumerate(pge_util.DSWX_S1_BAND_NAMES, start=1):
                 assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_B{band_idx:02}_{band_name}.tif').exists()
 
@@ -443,7 +443,8 @@ def test_simulate_disp_s1_pge():
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
 
         for burst_id in pge_util.CCSLC_BURST_IDS:
-            assert Path(f'/tmp/{expected_compressed_cslc_basename.format(burst_id=burst_id, creation_ts=creation_ts)}.h5').exists()
+            assert Path(
+                f'/tmp/{expected_compressed_cslc_basename.format(burst_id=burst_id, creation_ts=creation_ts)}.h5').exists()
     finally:
         for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
             Path(path).unlink(missing_ok=True)
@@ -451,3 +452,44 @@ def test_simulate_disp_s1_pge():
         for path in glob.iglob('/tmp/OPERA_L2_COMPRESSED-CSLC-S1*.*'):
             Path(path).unlink(missing_ok=True)
 
+
+def test_simulate_dist_s1_pge():
+    for path in glob.iglob('/tmp/OPERA_L3_DIST-S1*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DIST_S1.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": []
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    creation_ts = pge_util.get_time_for_filename()
+    expected_output_basename = 'OPERA_L3_DIST-ALERT-S1_{tile_id}_{creation_ts}Z_{creation_ts}Z_S1_30_v0.1'
+    expected_ancillary_basename = 'OPERA_L3_DIST-S1_{creation_ts}Z_S1_30_v0.1'
+
+    try:
+        for tile_id in pge_util.SIMULATED_MGRS_TILES:
+            for band in pge_util.DIST_S1_BAND_NAMES:
+                assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_{band}.tif').exists()
+
+            # TODO: Current release doesn't make GeoTIFF browse images
+            # assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_BROWSE.tif').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.png').exists()
+            assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.iso.xml').exists()
+
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L3_DIST-S1*.*'):
+            Path(path).unlink(missing_ok=True)

@@ -14,7 +14,7 @@ resource "aws_launch_template" "launch_template" {
   name                   = "${var.project}-${var.venue}-${local.counter}-${each.key}-launch-template"
   image_id               = var.amis["autoscale"]
   key_name               = local.key_name
-  user_data              = base64encode(templatefile("${path.module}/launch_template_user_data.sh.tmpl", {
+  user_data              = base64encode(templatefile("${path.module}/${lookup(each.value, "user_data")}", {
     code_bucket = local.code_bucket
     each_key = each.key
     var_project = var.project
@@ -102,6 +102,11 @@ resource "aws_autoscaling_group" "autoscaling_group" {
     {
       key                 = "Bravo"
       value               = "pcm"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Alfa"
+      value               = "worker"
       propagate_at_launch = true
     },
   ]

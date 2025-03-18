@@ -444,3 +444,11 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
   default = ""
 }
+
+variable "earthdata_uat_user" {
+  default = ""
+} 
+
+variable "earthdata_uat_pass" {
+  default = ""
+} 

@@ -36,6 +36,13 @@ List of band identifiers for the multiple tif outputs produced by the DSWx-S1
 PGE.
 """
 
+DIST_S1_BAND_NAMES = ['DIST-GEN-STATUS', 'DIST-GEN-STATUS-ACQ', 'GEN-METRIC',
+                      'DATE-FIRST', 'DATE-LATEST', 'N-DIST', 'N-OBS']
+"""
+List of band identifiers for the multiple tif outputs produced by the DIST-S1
+PGE.
+"""
+
 CSLC_BURST_IDS = ['T064-135518-IW1', 'T064-135518-IW2', 'T064-135518-IW3',
                   'T064-135519-IW1', 'T064-135519-IW2', 'T064-135519-IW3',
                   'T064-135520-IW1', 'T064-135520-IW2', 'T064-135520-IW3']
@@ -57,9 +64,9 @@ CCSLC_BURST_IDS = [
 ]
 """List of sample burst ID's to simulate multiple Compressed CSLC outputs"""
 
-DSWX_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
-              'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
-"""List of sample MGRS tile ID's to simulate DSWx-S1/NI multi-product output"""
+SIMULATED_MGRS_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
+                        'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
+"""List of sample MGRS tile ID's to simulate DSWx-S1/NI and DIST-S1 multi-product output"""
 
 S3_CONFIG = TransferConfig(multipart_chunksize=128*MB)
 """Transfer configuration for S3 downloads used to override multipart chunksize to 128MB """
@@ -522,7 +529,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     creation_time = get_time_for_filename()
 
-    for tile_id in DSWX_TILES:
+    for tile_id in SIMULATED_MGRS_TILES:
         base_name = base_name_template.format(
             tile_id=tile_id,
             acquisition_ts=acq_time,
@@ -569,7 +576,7 @@ def get_dswx_ni_simulated_output_filenames(dataset_match, pge_config, extension)
     acq_time = get_time_for_filename()
     creation_time = get_time_for_filename()
 
-    for tile_id in DSWX_TILES:
+    for tile_id in SIMULATED_MGRS_TILES:
         base_name = base_name_template.format(
             tile_id=tile_id,
             acquisition_ts=acq_time,
@@ -668,6 +675,54 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     return output_filenames
 
 
+def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DIST-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    acq_time = get_time_for_filename()
+    creation_time = get_time_for_filename()
+
+    for tile_id in SIMULATED_MGRS_TILES:
+        base_name = base_name_template.format(
+            tile_id=tile_id,
+            acquisition_ts=acq_time,
+            creation_ts=creation_time,
+            sensor='S1',
+            spacing='30',
+            product_version='0.1',
+        )
+
+        if extension.endswith('tiff') or extension.endswith('tif'):
+            for band_name in DIST_S1_BAND_NAMES:
+                output_filenames.append(f'{base_name}_{band_name}.tif')
+
+            # TODO: Current release doesn't make GeoTIFF browse images
+            # output_filenames.append(f'{base_name}_BROWSE.tif')
+        elif extension.endswith('png'):
+            output_filenames.append(f'{base_name}.png')
+        elif extension.endswith('iso.xml'):
+            output_filenames.append(f'{base_name}.iso.xml')
+        # Ancillary output product pattern, no tile ID or acquisition time
+        else:
+            base_name = ancillary_name_template.format(
+                creation_ts=creation_time,
+                sensor='S1',
+                spacing='30',
+                product_version='0.1'
+            )
+
+            ancillary_file_name = f'{base_name}.{extension}'
+
+            # Should only be one of these files per simulated run
+            if ancillary_file_name not in output_filenames:
+                output_filenames.append(ancillary_file_name)
+
+    return output_filenames
+
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
@@ -679,7 +734,8 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames,
             'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames,
             'L3_DISP_S1': get_disp_s1_simulated_output_filenames,
-            'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames
+            'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames,
+            'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
         }
 
         try:

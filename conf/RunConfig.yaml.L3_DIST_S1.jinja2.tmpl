@@ -1,0 +1,73 @@
+RunConfig:
+  Name: OPERA-DIST-S1-PGE-SAMPLE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DIST_S1_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.pre_rtc_copol %}
+          - {{ input }}
+          {%- endfor %}
+          {%- for input in data.input_file_group.pre_rtc_crosspol %}
+          - {{ input }}
+          {%- endfor %}
+          {%- for input in data.input_file_group.post_rtc_copol %}
+          - {{ input }}
+          {%- endfor %}
+          {%- for input in data.input_file_group.post_rtc_crosspol %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: {}  # TODO: Don't know how I should fill this part out based on the SAS RC
+      ProductPathGroup:
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: DIST_S1
+        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProgramPath: /opt/miniforge/envs/dist-s1-env/bin/dist-s1
+        ProgramOptions:
+        - run_sas
+        - --runconfig_yml_path
+        ErrorCodeBase: 700000
+        SchemaPath: /home/ops/opera/pge/dist_s1/schema/dist_s1_sas_schema.yaml
+        AlgorithmParametersSchemaPath: /home/ops/opera/pge/dist_s1/schema/algorithm_parameters_dist_s1_schema.yaml
+        IsoTemplatePath: /home/ops/opera/pge/dist_s1/templates/OPERA_ISO_metadata_L3_DIST_S1_template.xml.jinja2
+        IsoMeasuredParameterDescriptions: /home/ops/opera/pge/dist_s1/templates/dist_s1_measured_parameters.yaml
+      QAExecutable:
+        Enabled: false
+        ProgramPath: null
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: false
+        ExecuteViaShell: true
+    SAS:
+      run_config:
+        pre_rtc_copol:
+          {%- for input in data.input_file_group.pre_rtc_copol %}
+          - {{ input }}
+          {%- endfor %}
+        pre_rtc_crosspol:
+          {%- for input in data.input_file_group.pre_rtc_crosspol %}
+          - {{ input }}
+          {%- endfor %}
+        post_rtc_copol:
+          {%- for input in data.input_file_group.post_rtc_copol %}
+          - {{ input }}
+          {%- endfor %}
+        post_rtc_crosspol:
+          {%- for input in data.input_file_group.post_rtc_crosspol %}
+          - {{ input }}
+          {%- endfor %}
+        mgrs_tile_id: {{ data.mgrs_tile_id }}
+        dst_dir: {{ data.product_path_group.scratch_path }}
+        water_mask_path: {{ data.water_mask_path }}
+        apply_water_mask: {{ data.apply_water_mask }}
+        memory_strategy: high
+        tqdm_enabled: false
+        n_lookbacks: {{ data.n_lookbacks }}
+        moderate_confidence_threshold: 3.5
+        high_confidence_threshold: 5.5
+        product_dst_dir: {{ data.product_path_group.product_path }}
+        bucket: ~

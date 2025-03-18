@@ -1,5 +1,5 @@
 {
-  "command": "/home/ops/verdi/ops/ecmwf-api-client/run_merger.sh",
+  "command": " /home/ops/verdi/ops/opera-pcm/ecmwf-api-client/run_merger.sh", 
   "recommended-queues": [ "opera-job_worker-ecmwf-merger" ],
   "params": [
     {

@@ -23,11 +23,6 @@ def create_parser():
                        "action": "store_true",
                        "help": "Quiet mode, only warning and error level messages will be logged."}}
 
-    file = {"positionals": ["-f", "--file"],
-            "kwargs": {"dest": "file",
-                       "help": "Path to file with newline-separated URIs to "
-                               "ingest into data product ES index (to be downloaded later)."}}
-
     endpoint = {"positionals": ["--endpoint"],
                 "kwargs": {"dest": "endpoint",
                            "choices": [endpoint.value for endpoint in Endpoint],
@@ -37,7 +32,6 @@ def create_parser():
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
                            "choices": [provider.value for provider in Provider],
-                           "default": Provider.LPCLOUD.value,
                            "help": "Specify a provider for collection search."}}
 
     collection = {
@@ -217,7 +211,7 @@ def create_parser():
                           "help": "The protocol used for retrieving data, "
                                   "HTTPS or S3 or AUTO."}}
 
-    parser_arg_list = [verbose, quiet, file]
+    parser_arg_list = [verbose, quiet]
     _add_arguments(parser, parser_arg_list)
 
     survey_parser = subparsers.add_parser("survey",
@@ -242,7 +236,7 @@ def create_parser():
 
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    query_parser_arg_list = [verbose, quiet, endpoint, collection, start_date, end_date,
+    query_parser_arg_list = [verbose, quiet, endpoint, provider, collection, start_date, end_date,
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
@@ -254,7 +248,7 @@ def create_parser():
 
     download_parser = subparsers.add_parser("download",
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    download_parser_arg_list = [verbose, quiet, file, endpoint, dry_run, smoke_run, provider,
+    download_parser_arg_list = [verbose, quiet, endpoint, dry_run, smoke_run, provider,
                                 batch_ids, start_date, end_date, use_temporal, proc_mode,
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)

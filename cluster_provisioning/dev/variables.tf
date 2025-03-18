@@ -378,12 +378,13 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.2"
+    "dswx_hls" = "1.0.3"
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.1"
+    "disp_s1"  = "3.0.4"
     "dswx_ni"  = "4.0.0-er.3.0"
+    "dist_s1"  = "6.0.0-er.2.0"
   }
 }
 
@@ -474,3 +475,12 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
   default = ""
 }
+
+variable "earthdata_uat_user" {
+  default = ""
+}
+
+variable "earthdata_uat_pass" {
+  default = ""
+}
+

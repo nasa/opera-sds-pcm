@@ -377,12 +377,13 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.2"
+    "dswx_hls" = "1.0.3"
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.1"
+    "disp_s1"  = "3.0.4"
     "dswx_ni"  = "4.0.0-er.3.0"
+    "dist_s1"  = "6.0.0-er.2.0"
   }
 }
 
@@ -497,16 +498,24 @@ variable "earthdata_user" {
 variable "earthdata_pass" {
 }
 
+variable "earthdata_uat_user" {
+}
+
+variable "earthdata_uat_pass" {
+}
+
+
 # ami vars
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - December 16, 2024 - R3.1
-    mozart    = "ami-017e3329599acd62f" # mozart v4.26 - 241216
-    metrics   = "ami-0d0a7be874df2e50e" # metrics v4.18 - 241216
-    grq       = "ami-091fbec87ae67f22b" # grq v4.19 - 241216
-    factotum  = "ami-0b7a1d2a38c2ee273" # factotum v4.17 - 241216
-    autoscale = "ami-0f71b5eb05a08d42c" # verdi v4.17 patchdate - 241216
+    # HySDS v5.0.1 - March 03, 2025 - R3.1
+    mozart    = "ami-0f7c28e380b4b6629" # mozart v26 - 250303
+    metrics   = "ami-0c28761ed46f11f95" # metrics v4.18 - 250303
+    grq       = "ami-0e66f2290bbefa3af" # grq v4.19 - 250303
+    factotum  = "ami-0999c46e13f519562" # factotum v4.17 - 250305
+#    autoscale = "ami-0c146bcb6cf104f68" # verdi v4.17 patchdate - 250127
+    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
   }
 }
 

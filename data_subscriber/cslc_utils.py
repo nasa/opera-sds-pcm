@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cache
 from urllib.parse import urlparse
+import backoff
 
 import boto3
 import dateutil
@@ -19,7 +20,6 @@ PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
-
 class _HistBursts(object):
     def __init__(self):
         self.frame_number = None
@@ -28,21 +28,28 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
-def localize_anc_json(settings_field):
-    '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
-
+def get_s3_resource_from_settings(settings_field):
     settings = SettingsConf().cfg
     burst_file_url = urlparse(settings[settings_field])
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
+
+    return s3, path, file, burst_file_url
+
+logger = get_logger()
+
+@backoff.on_exception(backoff.expo, Exception, max_time=30)
+def localize_anc_json(settings_field):
+    '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
+
+    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field)
     s3.Object(burst_file_url.netloc, path).download_file(file)
 
     return file
 
 @cache
 def localize_disp_frame_burst_hist():
-    logger = get_logger()
 
     try:
         file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
@@ -55,7 +62,6 @@ def localize_disp_frame_burst_hist():
 
 @cache
 def localize_frame_geo_json():
-    logger = get_logger()
 
     try:
         file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
@@ -94,22 +100,31 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
     the number of sensing datetimes until that datetime.
     It's a linear search in a sorted list but no big deal because there will only ever be a few hundred elements'''
 
+    if len(frame_sensing_datetimes) == 0:
+        return 0, None
+
     for i, dt in enumerate(frame_sensing_datetimes):
         if dt > sensing_time:
             return i, frame_sensing_datetimes[i-1]
 
     return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
 
-def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts):
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15):
     '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
 
     total_possible_sensingdates = 0
     total_processed_sensingdates = 0
     frame_completion = {}
     last_processed_datetimes = {}
+
     for frame, state in frame_states.items():
+        logger.debug(f"Calculating percentage progress for {frame=}")
         frame = int(frame)
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
+
+        # Round down to the nearest k
+        num_sensing_times = num_sensing_times - (num_sensing_times % k)
+
         total_possible_sensingdates += num_sensing_times
         total_processed_sensingdates += state
         frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
@@ -121,7 +136,6 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts)
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
-    logger = get_logger()
 
     try:
         j = json.load(open(file))["data"]
@@ -134,10 +148,6 @@ def process_disp_frame_burst_hist(file):
     datetime_to_frames = defaultdict(list)      # List of frame numbers
 
     for frame in j:
-
-        # If sensing time list is empty, skip this frame
-        if len(j[frame]["sensing_time_list"]) == 0:
-            continue
 
         frame_to_bursts[int(frame)].frame_number = int(frame)
 

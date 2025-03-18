@@ -1,10 +1,14 @@
 import copy
+import logging
 import os
 import urllib.parse
 from datetime import datetime, timezone
 from os.path import basename
 from pathlib import PurePath, Path
 import boto3
+import hashlib
+import backoff
+import elasticsearch
 
 from data_subscriber import ionosphere_download
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
@@ -57,8 +61,12 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         args.collection = Collection.CSLC_S1_V1
         args.max_revision = 1000
         new_args = copy.deepcopy(args)
+        k_es_conn = KCSLCProductCatalog(self.logger)
 
-        for batch_id in args.batch_ids:
+        # Sort the batch_ids by acq_cycle_index
+        batch_ids = sorted(args.batch_ids, key=lambda batch_id: split_download_batch_id(batch_id)[1], reverse=True)
+
+        for index, batch_id in enumerate(batch_ids):
             self.logger.info(f"Downloading CSLC files for batch {batch_id}")
 
             # Determine the highest acquisition cycle index here for later use in retrieving m compressed CSLCs
@@ -70,7 +78,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
-                cslc_products_to_filepaths: dict[str, set[Path]] = super().run_download(
+                # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
+                cslc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
                     new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
                 )
                 self.logger.info(f"Uploading CSLC input files to S3")
@@ -87,12 +96,22 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             # For s3 we can use the files directly so simply copy over the paths
             else: # s3 or auto
                 self.logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
-                downloads = self.get_downloads(args, es_conn)
-                cslc_s3paths = [download["s3_url"] for download in downloads]
-                if len(cslc_s3paths) == 0:
+
+                '''For CSLC download, the batch_ids are globally unique so there's no need to query for dates
+                Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
+                as the one with the greatest acq_cycle_index, sorted above) is stored in cslc_catalog. 
+                The rest are stored in k_cslc_catalog'''
+                if "proc_mode" in args and args.proc_mode == "historical" or index == 0:
+                    downloads = self.get_downloads(batch_id, es_conn)
+                else:
+                    downloads = self.get_downloads(batch_id, k_es_conn)
+
+                batch_cslc_s3paths = [download["s3_url"] for download in downloads]
+                cslc_s3paths.extend(batch_cslc_s3paths)
+                if len(batch_cslc_s3paths) == 0:
                     raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
 
-                for p in cslc_s3paths:
+                for p in batch_cslc_s3paths:
                     # Split the following into bucket name and key
                     # 's3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
                     parsed_url = urllib.parse.urlparse(p)
@@ -110,7 +129,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
                     granule_sizes.append((granule_id, file_size))
 
-                cslc_files_to_upload = [Path(p) for p in cslc_s3paths] # Need this for querying static CSLCs
+                cslc_files_to_upload = [Path(p) for p in batch_cslc_s3paths] # Need this for querying static CSLCs
 
                 cslc_products_to_filepaths = {} # Dummy when trying to delete files later in this function
 
@@ -125,14 +144,14 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
             self.logger.info(f"Querying CSLC-S1 Static Layer products for {batch_id}")
             cslc_static_granules = self.query_cslc_static_files_for_cslc_batch(
-                cslc_files_to_upload, args, token, job_id, settings
+                cslc_files_to_upload, new_args, token, job_id, settings
             )
 
             # Download the files from ASF only if the transfer protocol is HTTPS
             if args.transfer_protocol == "https":
                 self.logger.info(f"Downloading CSLC Static Layer products for {batch_id}")
                 cslc_static_products_to_filepaths: dict[str, set[Path]] = self.download_cslc_static_files_for_cslc_batch(
-                    cslc_static_granules, args, token, netloc,
+                    cslc_static_granules, new_args, token, netloc,
                     username, password, job_id
                 )
 
@@ -260,6 +279,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         if "proc_mode" in args and args.proc_mode == "historical":
             proc_mode_suffix = "_hist"
 
+        # Compute payload hash by first sorting cslc_s3paths, create a string out of it, and then computing md5 hash
+        payload_hash = hashlib.md5("".join(sorted(cslc_s3paths)).encode()).hexdigest()
+        logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
+
         submitted =  try_submit_mozart_job(
             product=product,
             job_queue=f'opera-job_worker-sciflo-l3_disp_s1{proc_mode_suffix}',
@@ -267,7 +290,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             params=self.create_job_params(product),
             job_spec=f'job-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1{proc_mode_suffix}:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}'
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}-latest_acq_index-{latest_acq_cycle_index}{proc_mode_suffix}',
+            payload_hash=payload_hash
         )
 
         # Mark the CSLC files as downloaded in the CSLC ES with the file size only after SCIFLO job has been submitted
@@ -276,45 +300,17 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
         return submitted
 
-    def get_downloads(self, args, es_conn):
-        '''Returns items to download based on the batch_ids
-        For CSLC download, the batch_ids are globally unique so there's no need to query for dates
-        Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
-        as the one with the greatest acq_cycle_index) is stored in cslc_catalog. The rest are stored in k_cslc_catalog.'''
+    def get_downloads(self, batch_id, es_conn):
+        '''Returns items to download based on the batch_ids'''
 
-        k_es_conn = KCSLCProductCatalog(self.logger)
+        self.logger.info("Verifying CSLC files from GRQ ES")
+        downloads = es_conn.get_download_granule_revision(batch_id)
+        self.logger.info(f"Found {len(downloads)=} CSLC granules for {batch_id=}")
+        assert len(downloads) > 0, f"No CSLC granules found for batch_id={batch_id}!"
 
-        # Sort the batch_ids by acq_cycle_index
-        batch_ids = sorted(args.batch_ids, key = lambda batch_id: split_download_batch_id(batch_id)[1])
+        return downloads
 
-        all_downloads = []
-
-        # Historical mode stores all granules in normal cslc_catalog
-        if "proc_mode" in args and args.proc_mode == "historical":
-            self.logger.info("Downloading cslc files for historical mode")
-            for batch_id in batch_ids:
-                downloads = es_conn.get_download_granule_revision(batch_id)
-                self.logger.info(f"Got {len(downloads)=} cslc downloads for {batch_id=}")
-                assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
-                all_downloads.extend(downloads)
-
-        # Forward and reprocessing modes store all granules in k_cslc_catalog
-        else:
-            self.logger.info("Downloading cslc files for forward/reprocessing mode")
-            downloads = es_conn.get_download_granule_revision(batch_ids[-1])
-            self.logger.info(f"Got {len(downloads)=} cslc granules downloads for batch_id={batch_ids[-1]}")
-            assert len(downloads) > 0, f"No downloads found for batch_id={batch_ids[-1]}!"
-            all_downloads.extend(downloads)
-
-            # Download K-CSLC granules
-            for batch_id in batch_ids[:-1]:
-                downloads = k_es_conn.get_download_granule_revision(batch_id)
-                self.logger.info(f"Got {len(downloads)=} k cslc downloads for {batch_id=}")
-                assert len(downloads) > 0, f"No downloads found for batch_id={batch_id}!"
-                all_downloads.extend(downloads)
-
-        return all_downloads
-
+    @backoff.on_exception(backoff.expo, exception=elasticsearch.exceptions.ConflictError, max_tries=5, jitter=None)
     def query_cslc_static_files_for_cslc_batch(self, cslc_files, args, token, job_id, settings):
         cslc_query_args = copy.deepcopy(args)
 
@@ -328,6 +324,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         cslc_query_args.native_id = query_native_id
         cslc_query_args.no_schedule_download = True
         cslc_query_args.collection = Collection.CSLC_S1_STATIC_V1.value
+        cslc_query_args.provider = None # This will be set in the query function looked up by collection
         cslc_query_args.bbox = "-180,-90,180,90"
         cslc_query_args.start_date = None
         cslc_query_args.end_date = None

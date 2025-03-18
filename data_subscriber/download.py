@@ -7,6 +7,7 @@ from typing import Iterable
 import backoff
 import boto3
 import dateutil.parser
+import os
 import requests
 import requests.utils
 import validators
@@ -58,7 +59,7 @@ class DaacDownload:
         )
 
         if rm_downloads_dir:
-            self.logger.info(f"Removing directory tree. {self.downloads_dir}")
+            self.logger.info(f"Removing directory tree {os.path.abspath(self.downloads_dir)}")
             shutil.rmtree(self.downloads_dir)
 
         return product_to_product_filepaths_map

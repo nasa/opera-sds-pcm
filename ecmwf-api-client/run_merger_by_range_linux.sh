@@ -238,7 +238,7 @@ if [[ -z $IN_END_DATE ]]; then
 fi
 
 # print all variables that have been set
-(set -o posix ; set)
+#(set -o posix ; set)
 
 
 ######################################################################
@@ -250,19 +250,19 @@ aws s3 ls 1>/dev/null
 echo Validated AWS CLI session
 
 
-echo "Enter the username you use to access the HySDS UI (Afterwards, you will be prompted for your password upon job submission):"
-read username
-if [[ -z $username ]]; then
-  echo Missing username. Exiting.
-  exit 1
-fi
+#echo "Enter the username you use to access the HySDS UI (Afterwards, you will be prompted for your password upon job submission):"
+#read username
+#if [[ -z $username ]]; then
+#  echo Missing username. Exiting.
+#  exit 1
+#fi
 
-echo "Enter password:"
-read -r -s password
-if [[ -z $password ]]; then
-  echo Missing password. Exiting.
-  exit 1
-fi
+#echo "Enter password:"
+#read -r -s password
+#if [[ -z $password ]]; then
+#  echo Missing password. Exiting.
+#  exit 1
+#fi
 
 # PARSE RANGE
 
@@ -278,9 +278,10 @@ while [ "${IN_DATE}" != ${IN_END_DATE} ]; do
     exit 1
   fi
 
+#  -u "${username}:${password}" \
+
   curl --location 'https://'"${MOZART_IP}"'/mozart/api/v0.1/job/submit?enable_dedup=false' \
   --insecure \
-  -u "${username}:${password}" \
   --form 'queue="'"${JOB_QUEUE}"'"' \
   --form 'priority="0"' \
   --form 'tags="[\"'"${JOB_TAGS}"'\"]"' \
