@@ -384,7 +384,7 @@ variable "pge_releases" {
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.4"
     "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.1.0"
+    "dist_s1"  = "6.0.0-er.2.0"
   }
 }
 

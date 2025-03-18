@@ -26,7 +26,7 @@ RunConfig:
       PrimaryExecutable:
         ProductIdentifier: DIST_S1
         ProductVersion: "{{ data.product_path_group.product_version }}"
-        ProgramPath: /opt/conda/envs/dist-s1-env/bin/dist-s1
+        ProgramPath: /opt/miniforge/envs/dist-s1-env/bin/dist-s1
         ProgramOptions:
         - run_sas
         - --runconfig_yml_path
@@ -61,6 +61,13 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
         mgrs_tile_id: {{ data.mgrs_tile_id }}
-        dist_s1_alert_db_dir: {{ data.dist_s1_alert_db_dir }}
-        dst_dir: {{ data.product_path_group.product_path }}
-        water_mask: {{ data.water_mask }}
+        dst_dir: {{ data.product_path_group.scratch_path }}
+        water_mask_path: {{ data.water_mask_path }}
+        apply_water_mask: {{ data.apply_water_mask }}
+        memory_strategy: high
+        tqdm_enabled: false
+        n_lookbacks: {{ data.n_lookbacks }}
+        moderate_confidence_threshold: 3.5
+        high_confidence_threshold: 5.5
+        product_dst_dir: {{ data.product_path_group.product_path }}
+        bucket: ~
