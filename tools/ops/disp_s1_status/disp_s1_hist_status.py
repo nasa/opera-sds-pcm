@@ -57,7 +57,10 @@ def add_status_info(frames, verbose):
 
             # Normalize the completion percentage according to the number of sensing datetimes that is actually triggerable
             possible_triggered = len(frames_to_bursts[frame_int].sensing_datetime_days_index) // k * k
-            p = int(num_triggered / possible_triggered * 100)
+            if possible_triggered == 0:
+                p = 0
+            else:
+                p = int(num_triggered / possible_triggered * 100)
 
             if frame_int not in frames:
                 if verbose:
