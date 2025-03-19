@@ -6,11 +6,8 @@ import argparse
 import json
 import logging
 import sys
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
-from tabulate import tabulate
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
