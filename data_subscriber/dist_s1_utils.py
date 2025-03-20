@@ -15,7 +15,7 @@ DEFAULT_DIST_BURST_DB_NAME= "mgrs_burst_lookup_table.parquet"
 logger = get_logger()
 
 @cache
-def localize_disp_frame_burst_hist():
+def localize_dist_burst_db():
 
     try:
         file = localize_anc_json("DIST_S1_BURST_DB_S3PATH")
@@ -27,12 +27,12 @@ def localize_disp_frame_burst_hist():
     return process_dist_burst_db(file)
 
 def process_dist_burst_db(file):
-    all_product_count = 0
     dist_products = defaultdict(set)
     bursts_to_products = defaultdict(set)
     product_to_bursts = defaultdict(set)
 
     df = pd.read_parquet(file)
+    all_tile_ids = df['mgrs_tile_id'].unique()
 
     # Create a dictionary of tile ids and the products that are associated with them
     for index, row in df.iterrows():
@@ -45,67 +45,29 @@ def process_dist_burst_db(file):
         bursts_to_products[row['jpl_burst_id']].add(product_id)
         product_to_bursts[product_id].add(row['jpl_burst_id'])
 
-    return dist_products, bursts_to_products, product_to_bursts
+    return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
-if __name__ == "__main__":
+class DIST_S1_Product(object):
+    def __init__(self):
+        self.possible_bursts = 0
+        self.used_bursts = 0
+        self.rtc_granules = []
+        self.acquisition_index = None
+        self.earliest_acquisition = None
+        self.latest_acquisition = None
 
-    unique_bursts = set()
-    df = pd.read_parquet('mgrs_burst_lookup_table.parquet')
-    all_tile_ids = df['mgrs_tile_id'].unique()
-    for index, row in df.iterrows():
-        unique_bursts.add(row['jpl_burst_id'])
-    print(f"There are {all_tile_ids.size} unique tiles.")
+def compute_dist_s1_triggering(bursts_to_products, granule_ids, all_tile_ids):
 
-    #print(dist_products)
-
-    dist_products, bursts_to_products, product_to_bursts = process_dist_burst_db('mgrs_burst_lookup_table.parquet')
-
-    row_count = df.shape[0]
-    all_product_count = 0
-    for tile_id, products in dist_products.items():
-        all_product_count += len(products)
-
-    print(f"There are {all_product_count} unique products, {all_product_count/12} per day because this total is for 12 days")
-    print(f"On average there are {all_product_count / all_tile_ids.size} products per tile.")
-    print(f"On average there are {row_count / all_product_count} rows per product which means that number of RTC bursts were used in one product generation.")
-    print("Example tile and products:")
-    print(dist_products['01FBE'])
-    print(f"Total rows is {row_count} and there are {len(unique_bursts)} unique bursts. Therefore each burst is used on average {row_count/len(unique_bursts)} times.")
-
-    print("\nComputing for triggered DIST-S1 products...")
-
-    min_acq_datetime = None
-    max_acq_datetime = None
-    rtc_granule_count = 0
     unused_rtc_granule_count = 0
-
-    class DIST_S1_Product(object):
-        def __init__(self):
-            self.possible_bursts = 0
-            self.used_bursts = 0
-            self.rtc_granules = []
-            self.acquisition_index = None
-            self.earliest_acquisition = None
-            self.latest_acquisition = None
-
     products_triggered = defaultdict(DIST_S1_Product)
-
     tiles_untriggered = set(all_tile_ids)
     all_tiles_set = set(all_tile_ids)
 
-    # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
-    rtc_survey = pd.read_csv(sys.argv[1])
-    for index, row in rtc_survey.iterrows():
-        rtc_granule_id = row['# Granule ID']
+    for rtc_granule_id in granule_ids:
         burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
         acq_datetime = dateutil.parser.isoparse(acquisition_dts)
         acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
-        #print(burst_id, acq_datetime, acquisition_index)
-        if min_acq_datetime is None or acq_datetime < min_acq_datetime:
-            min_acq_datetime = acq_datetime
-        if max_acq_datetime is None or acq_datetime > max_acq_datetime:
-            max_acq_datetime = acq_datetime
-        rtc_granule_count += 1
+        # print(burst_id, acq_datetime, acquisition_index)
 
         product_ids = bursts_to_products[burst_id]
         for product_id in product_ids:
@@ -128,6 +90,62 @@ if __name__ == "__main__":
                     print(f"Tile ID {tile_id}: {rtc_granule_id} does not belong to any DIST-S1 product.")
                     unused_rtc_granule_count += 1
 
+    return products_triggered, tiles_untriggered, unused_rtc_granule_count
+
+if __name__ == "__main__":
+
+    db_file = sys.argv[1]
+    cmr_survey_file = sys.argv[2]
+
+    unique_bursts = set()
+    df = pd.read_parquet(db_file)
+
+    #for index, row in df.iterrows():
+    #    unique_bursts.add(row['jpl_burst_id'])
+
+    #print(dist_products)
+
+    logger.info("\nProcessing DIST-S1 burst database...")
+
+    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(db_file)
+    print(f"There are {all_tile_ids.size} unique tiles.")
+
+    row_count = df.shape[0]
+    all_product_count = 0
+    for tile_id, products in dist_products.items():
+        all_product_count += len(products)
+
+    print(f"There are {all_product_count} unique products, {all_product_count/12} per day because this total is for 12 days")
+    print(f"On average there are {all_product_count / all_tile_ids.size} products per tile.")
+    print(f"On average there are {row_count / all_product_count} rows per product which means that number of RTC bursts were used in one product generation.")
+    print("Example tile and products:")
+    print(dist_products['01FBE'])
+    #print(f"Total rows is {row_count} and there are {len(unique_bursts)} unique bursts. Therefore each burst is used on average {row_count/len(unique_bursts)} times.")
+
+    min_acq_datetime = None
+    max_acq_datetime = None
+
+    logger.info("\nReading RTC CMR survey CSV file...")
+
+    # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
+    rtc_survey = pd.read_csv(cmr_survey_file)
+    granule_ids = []
+    for index, row in rtc_survey.iterrows():
+        rtc_granule_id = row['# Granule ID']
+        granule_ids.append(rtc_granule_id)
+        burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
+        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
+        acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
+        # print(burst_id, acq_datetime, acquisition_index)
+        if min_acq_datetime is None or acq_datetime < min_acq_datetime:
+            min_acq_datetime = acq_datetime
+        if max_acq_datetime is None or acq_datetime > max_acq_datetime:
+            max_acq_datetime = acq_datetime
+    rtc_granule_count = len(granule_ids)
+
+    logger.info("\nComputing for triggered DIST-S1 products...")
+    products_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(bursts_to_products, granule_ids, all_tile_ids)
+
     # Compute average burst usage percentage
     total_bursts = 0
     total_used_bursts = 0
@@ -147,6 +165,7 @@ if __name__ == "__main__":
     print("Example product and RTC granule IDs:")
 
     # Write out all products triggered into a json file
+    logger.info("\nWriting out products_triggered.json...")
     import json
     def json_default(value):
         if isinstance(value, date):

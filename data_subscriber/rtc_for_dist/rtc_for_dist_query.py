@@ -1,28 +1,26 @@
-import asyncio
-import itertools
-import re
-from collections import namedtuple, defaultdict
-from datetime import datetime, timedelta
-from functools import partial
-from itertools import chain
-from pathlib import Path
+from datetime import datetime
 
-import dateutil.parser
-from more_itertools import first, last
-
-from data_subscriber.cmr import async_query_cmr, COLLECTION_TO_PROVIDER_TYPE_MAP
-from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from data_subscriber.query import CmrQuery, get_query_timerange
-from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
-from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
-from data_subscriber.url import determine_acquisition_cycle
-from geo.geo_util import does_bbox_intersect_region
-from rtc_utils import rtc_granule_regex
+from data_subscriber.dist_s1_utils import localize_dist_burst_db, process_dist_burst_db
 
 class RtcForDistCmrQuery(CmrQuery):
 
-    def __init__(self, args, token, es_conn, cmr, job_id, settings):
+    def __init__(self, args, token, es_conn, cmr, job_id, settings, dist_s1_burst_db_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
-    def run_query(self):
+        if dist_s1_burst_db_file:
+            self.dist_products, self.bursts_to_products, self.product_to_bursts = self.process_dist_burst_db(dist_s1_burst_db_file)
+        else:
+            self.dist_products, self.bursts_to_products, self.product_to_bursts = self.localize_dist_burst_db()
+
+        #TODO: Grace minutes? Read from settings.yaml
+
+        #TODO: Set up es_conn and data structures for Baseline Set granules
+
+    def validate_args(self):
         pass
+
+    def determine_download_granules(self, granules):
+        if self.proc_mode == "reprocessing":
+            if len(granules) == 0:
+                return granules
