@@ -53,7 +53,7 @@ m.save(filename)
 import pdfkit
 import fitz
 options = {'javascript-delay': 500, 'page-size': 'Letter', 'margin-top': '0.0in', 'margin-right': '0.0in', 'margin-bottom': '0.0in', 'margin-left': '0.0in', 'encoding': "UTF-8", 'custom-header': [('Accept-Encoding', 'gzip')]}
-pdfkit.from_file(filename + '.html',  (filename + '.pdf'), options=options)
+pdfkit.from_file(filename,  (filename + '.pdf'), options=options)
 pdf_file = fitz.open(filename + '.pdf')
 page = pdf_file.load_page(0)
 pixels = page.get_pixmap()
