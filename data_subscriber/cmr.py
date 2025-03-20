@@ -53,6 +53,9 @@ class ProductType(str, Enum):
     CSLC_STATIC = "CSLC_STATIC"
     NISAR_GCOV = "NISAR_GCOV"
 
+class PGEProduct(str, Enum):
+    DIST_1 = "DIST_S1"
+
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 # maps a collection shortname to the appropriate provider attr in the CMR query
