@@ -37,4 +37,5 @@ module "int-main" {
   trace                                   = var.trace
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
   po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
+  disp_s1_hist_status                     = var.disp_s1_hist_status
 }

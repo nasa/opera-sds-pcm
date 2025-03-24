@@ -776,3 +776,26 @@ resource "null_resource" "setup_trigger_rules" {
     ]
   }
 }
+
+resource "null_resource" "setup_cron_mozart" {
+  depends_on = [aws_instance.mozart]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  # Set up crontab for updating DISP-S1 historical processing status
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      if [ "${var.disp_s1_hist_status}" = true ]; then
+        source ~/.bash_profile
+        set -ex
+        crontab ~/mozart/ops/opera-pcm/conf/sds/files/mozart/cron/hysdsops
+      fi
+    EOT
+    ]
+  }
+}

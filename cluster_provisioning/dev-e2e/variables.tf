@@ -527,3 +527,8 @@ variable "clear_s3_aws_es" {
   type    = bool
   default = true
 }
+
+variable "disp_s1_hist_status" {
+  type    = bool
+  default = false
+}
