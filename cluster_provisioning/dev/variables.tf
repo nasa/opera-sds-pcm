@@ -484,3 +484,8 @@ variable "earthdata_uat_pass" {
   default = ""
 }
 
+variable "disp_s1_hist_status" {
+  type    = bool
+  default = false
+}
+

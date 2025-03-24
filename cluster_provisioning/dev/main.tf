@@ -99,6 +99,7 @@ module "common" {
   earthdata_pass                          = var.earthdata_pass
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
+  disp_s1_hist_status                     = var.disp_s1_hist_status
 }
 
 locals {

@@ -189,27 +189,6 @@
       "time_limit": 86700,
       "username": "hysdsops",
       "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
-    },
-    {
-      "disk_usage": "3GB",
-      "enable_dedup": false,
-      "enabled": true,
-      "job_spec": "job-lw-mozart-retry:__LW_TAG__",
-      "job_type": "hysds-io-lw-mozart-retry:__LW_TAG__",
-      "kwargs": "{\"retry_count_max\":\"10\",\"job_priority_increment\":\"+1\"}",
-      "passthru_query": false,
-      "priority": 0,
-      "query_all": false,
-      "query_string": "{\"bool\": {\"must\": [{\"bool\": {\"must\": [{\"bool\": {\"must_not\": [{\"terms\": {\"tags.keyword\": [\"trigger-SCIFLO_L3_DISP_S1_hist\",\"trigger-SCIFLO_L3_DISP_S1\"]}}]}},{\"term\": {\"status\": \"job-offline\"}}]}}]}}",
-      "queue": "system-jobs-queue",
-      "rule_name": "retry-worker_offline-except-disp-s1",
-      "soft_time_limit": 86400,
-      "tags": [
-        "retry-worker_offline-except-disp-s1"
-      ],
-      "time_limit": 86700,
-      "username": "hysdsops",
-      "workflow": "hysds-io-lw-mozart-retry:__LW_TAG__"
     }
   ]
 }

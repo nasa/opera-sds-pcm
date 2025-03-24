@@ -1,0 +1,2 @@
+# Run disp_s1_hist_status.py every 6 hrs and upload result to PST RS S3
+* */6 * * * $HOME/mozart/ops/opera-pcm/tools/ops/disp_s1_status/disp_s1_hist_status.sh
