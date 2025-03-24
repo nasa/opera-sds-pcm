@@ -12,7 +12,7 @@ from more_itertools import chunked
 
 from commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr,
-                                 ProductType, DateTimeRange,
+                                 ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
@@ -193,7 +193,14 @@ class CmrQuery:
 
     def download_job_submission_handler(self, granules, query_timerange):
         batch_id_to_urls_map = defaultdict(set)
-        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+
+        # DIST-S1 products are generated from RTC input files. RTC input files are also used by DSWx-S1 products.
+        # COLLECTION_TO_PRODUCT_TYPE_MAP does not allow for one collection to be used by multiple products so we'll deal piece-wise for now.
+        # TODO: Refactor in the future.
+        if self.args.product and self.args.product == PGEProduct.DIST_1:
+            product_type = PGEProduct.DIST_1
+        else:
+            product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
 
         for granule in granules:
             granule_id = granule.get("granule_id")
@@ -209,6 +216,8 @@ class CmrQuery:
                     # For CSLC force chunk_size to be the same as k in args
                     if self.args.k:
                         self.args.chunk_size = self.args.k
+                elif product_type == PGEProduct.DIST_1:
+                    url_grouping_func = None
                 elif product_type in (ProductType.RTC, ProductType.CSLC_STATIC):
                     raise NotImplementedError(
                         f"Download job submission is not supported for product type {product_type}"

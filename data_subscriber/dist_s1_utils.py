@@ -33,6 +33,9 @@ def process_dist_burst_db(file):
 
     df = pd.read_parquet(file)
     all_tile_ids = df['mgrs_tile_id'].unique()
+    all_burst_ids = set()
+
+    rtc_bursts_reused = 0
 
     # Create a dictionary of tile ids and the products that are associated with them
     for index, row in df.iterrows():
@@ -42,8 +45,17 @@ def process_dist_burst_db(file):
         product_id = tile_id + "_" + str(unique_acquisition)
         if product_id not in dist_products[tile_id]:
             dist_products[tile_id].add(product_id)
-        bursts_to_products[row['jpl_burst_id']].add(product_id)
-        product_to_bursts[product_id].add(row['jpl_burst_id'])
+
+        jpl_burst_id = row['jpl_burst_id']
+        bursts_to_products[jpl_burst_id].add(product_id)
+        product_to_bursts[product_id].add(jpl_burst_id)
+
+        if jpl_burst_id in all_burst_ids:
+            rtc_bursts_reused += 1
+        all_burst_ids.add(row['jpl_burst_id'])
+
+    print(f"Total of {len(all_burst_ids)} unique RTC bursts in this database file.")
+    print(f"RTC Bursts were reused {rtc_bursts_reused} times in this database file.")
 
     return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
@@ -56,6 +68,12 @@ class DIST_S1_Product(object):
         self.earliest_acquisition = None
         self.latest_acquisition = None
 
+def dist_s1_download_batch_id(granule):
+    """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
+
+    download_batch_id = "f"+str(granule["frame_id"]) + "_a" + str(granule["acquisition_cycle"])
+
+    return download_batch_id
 def compute_dist_s1_triggering(bursts_to_products, granule_ids, all_tile_ids):
 
     unused_rtc_granule_count = 0
