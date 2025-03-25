@@ -7,8 +7,8 @@ import dateutil.parser
 from datetime import date
 
 from commons.logger import get_logger
-from cslc_utils import parse_r2_product_file_name, localize_anc_json
-from url import determine_acquisition_cycle
+from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
+from data_subscriber.url import determine_acquisition_cycle
 
 DEFAULT_DIST_BURST_DB_NAME= "mgrs_burst_lookup_table.parquet"
 
@@ -26,6 +26,7 @@ def localize_dist_burst_db():
 
     return process_dist_burst_db(file)
 
+@cache
 def process_dist_burst_db(file):
     dist_products = defaultdict(set)
     bursts_to_products = defaultdict(set)
@@ -36,6 +37,8 @@ def process_dist_burst_db(file):
     all_burst_ids = set()
 
     rtc_bursts_reused = 0
+
+    logger.info(f"Processing {df.shape[0]} rows in the DIST-S1 burst database file...")
 
     # Create a dictionary of tile ids and the products that are associated with them
     for index, row in df.iterrows():
@@ -71,15 +74,18 @@ class DIST_S1_Product(object):
 def dist_s1_download_batch_id(granule):
     """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
-    download_batch_id = "f"+str(granule["frame_id"]) + "_a" + str(granule["acquisition_cycle"])
+    download_batch_id = "p"+str(granule["product_id"]) + "_a" + str(granule["acquisition_cycle"])
 
     return download_batch_id
-def compute_dist_s1_triggering(bursts_to_products, granule_ids, all_tile_ids):
+def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, all_tile_ids = None):
 
     unused_rtc_granule_count = 0
     products_triggered = defaultdict(DIST_S1_Product)
-    tiles_untriggered = set(all_tile_ids)
-    all_tiles_set = set(all_tile_ids)
+    if all_tile_ids:
+        tiles_untriggered = set(all_tile_ids)
+        all_tiles_set = set(all_tile_ids)
+    else:
+        tiles_untriggered = None
 
     for rtc_granule_id in granule_ids:
         burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
@@ -100,13 +106,14 @@ def compute_dist_s1_triggering(bursts_to_products, granule_ids, all_tile_ids):
             if triggered_product.acquisition_index is None:
                 triggered_product.acquisition_index = acquisition_index
 
-            tile_id = product_id.split("_")[0]
-            if tile_id in tiles_untriggered:
-                tiles_untriggered.remove(tile_id)
-            else:
-                if tile_id not in all_tiles_set:
-                    print(f"Tile ID {tile_id}: {rtc_granule_id} does not belong to any DIST-S1 product.")
-                    unused_rtc_granule_count += 1
+            if all_tile_ids:
+                tile_id = product_id.split("_")[0]
+                if tile_id in tiles_untriggered:
+                    tiles_untriggered.remove(tile_id)
+                else:
+                    if tile_id not in all_tiles_set:
+                        print(f"Tile ID {tile_id}: {rtc_granule_id} does not belong to any DIST-S1 product.")
+                        unused_rtc_granule_count += 1
 
     return products_triggered, tiles_untriggered, unused_rtc_granule_count
 
@@ -122,8 +129,6 @@ if __name__ == "__main__":
     #    unique_bursts.add(row['jpl_burst_id'])
 
     #print(dist_products)
-
-    logger.info("\nProcessing DIST-S1 burst database...")
 
     dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(db_file)
     print(f"There are {all_tile_ids.size} unique tiles.")

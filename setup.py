@@ -69,6 +69,7 @@ setup(
             "cachetools==5.2.0",
             "geopandas",
             "pyproj",
+            "fastparquet",
 
             # for additional daac subscriber test utilities that are executed from pytest
             #  * DSWx-S1 trigger logic tests

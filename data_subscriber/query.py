@@ -104,7 +104,8 @@ class CmrQuery:
             self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
             return {"download_granules": download_granules}
 
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC:
+        # Only RTC collection that's not DIST-1 does its own unique download job submission
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         else:
