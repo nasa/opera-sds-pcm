@@ -227,7 +227,7 @@ class CmrQuery:
                     raise ValueError(f"Can't use {self.args.collection=} to select grouping function.")
 
                 for filter_url in granule.get("filtered_urls"):
-                    if product_type == ProductType.CSLC:
+                    if product_type == ProductType.CSLC or product_type == PGEProduct.DIST_1:
                         batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
                     else:
                         batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
@@ -296,6 +296,9 @@ class CmrQuery:
                         self.es_conn.mark_download_job_id(batch_id, "PENDING")
 
                     continue # don't actually submit download job
+            elif self.args.product == PGEProduct.DIST_1:
+                product_type = "rtc_for_dist"
+                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"

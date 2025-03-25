@@ -25,16 +25,29 @@ class RtcForDistCmrQuery(CmrQuery):
         pass
 
     def query_cmr(self, timerange, now: datetime):
-        filtered_granules = []
         granules = super().query_cmr(timerange, now)
 
         # Remove granules whose burst_id is not in the burst database
+        filtered_granules = []
         for granule in granules:
             burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
             if burst_id in self.bursts_to_products:
                 granule["burst_id"] = burst_id
                 granule["acquisition_ts"] = acquisition_dts
+                granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
+                                                                           granule["acquisition_ts"], granule["granule_id"])
                 filtered_granules.append(granule)
+
+        # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
+        granules_dict = {}
+        for granule in filtered_granules:
+            key = (granule["burst_id"], granule["acquisition_ts"])
+            if key not in granules_dict:
+                granules_dict[key] = granule
+            else:
+                if granule["acquisition_ts"] > granules_dict[key]["acquisition_ts"]:
+                    granules_dict[key] = granule
+        filtered_granules = list(granules_dict.values())
 
         self.extend_additional_records(filtered_granules)
         return filtered_granules
@@ -57,7 +70,6 @@ class RtcForDistCmrQuery(CmrQuery):
                 self.logger.error(f"This shouldn't happen. Skipping {rtc_granule_id} as it does not belong to any DIST-S1 product.")
                 continue
 
-            granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], granule["acquisition_ts"], rtc_granule_id)
             granule["product_id"] = product_ids[0]
             decorate_granule(granule)
 
@@ -87,11 +99,21 @@ class RtcForDistCmrQuery(CmrQuery):
 
         download_granules = []
 
+        # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
+        self.refresh_index()
+        # TODO: time format is bit diff from CSLC. This one has Z at the end.
+        #unsubmitted = self.es_conn.get_unsubmitted_granules()
+
+        self.logger.debug("len(granules)=%d", len(granules))
+        #self.logger.debug("len(unsubmitted)=%d", len(unsubmitted))
+
+        #TODO: After merging new granules with unsubmitted granules, make sure to remove any duplicates and pick the latest
+
         # Create a dict of granule_id to granule
         granules_dict = {granule["granule_id"]: granule for granule in granules}
         granule_ids = list(granules_dict.keys())
-        products_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(
-            self.bursts_to_products, self.product_to_bursts, granule_ids, self.all_tile_ids)
+        products_triggered, _, _ = compute_dist_s1_triggering(
+            self.bursts_to_products, self.product_to_bursts, granule_ids)
 
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
 
@@ -102,27 +124,21 @@ class RtcForDistCmrQuery(CmrQuery):
 
         self.logger.info("Received the following RTC granules from CMR: ")
         for batch_id, download_batch in by_download_batch_id.items():
+            #if batch_id == "32UPD_4_302":
+            #    for k in download_batch.keys():
+            #        print(k)
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
 
         return download_granules
 
     def get_download_chunks(self, batch_id_to_urls_map):
-        '''For CSLC chunks we must group them by the batch_id that were determined at the time of triggering'''
 
         chunk_map = defaultdict(list)
         if len(list(batch_id_to_urls_map)) == 0:
             return chunk_map.values()
 
-        frame_id, _ = split_download_batch_id(list(batch_id_to_urls_map)[0])
-
         for batch_chunk in batch_id_to_urls_map.items():
-
-            # Chunking is done differently between historical and forward/reprocessing
-            if self.proc_mode == "historical":
-                chunk_map[frame_id].append(batch_chunk)
-            else:
-                chunk_map[batch_chunk[0]].append(
-                    batch_chunk)  # We don't actually care about the URLs, we only care about the batch_id
+            chunk_map[batch_chunk[0]].append(batch_chunk)  # We don't actually care about the URLs, we only care about the batch_id
 
         return chunk_map.values()
 

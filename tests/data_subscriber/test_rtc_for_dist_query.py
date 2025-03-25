@@ -2,6 +2,7 @@
 
 import pytest
 import conftest
+from data_subscriber.url import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import localize_dist_burst_db
 from data_subscriber.parser import create_parser
@@ -35,6 +36,8 @@ def test_extend_additional_records():
         burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
         granule["burst_id"] = burst_id
         granule["acquisition_ts"] = acquisition_dts
+        granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
+                                                                   granule["acquisition_ts"], granule["granule_id"])
 
     args = create_parser().parse_args(forward_arguments)
     cmr_query = RtcForDistCmrQuery(args, None, None, None, None, None)
@@ -45,6 +48,71 @@ def test_extend_additional_records():
     # TODO: Sort this out and renable it
     #for granule in granules:
     #    assert m[granule["download_batch_id"]] == granule["granule_id"]
+
+def test_determine_download_granules():
+    """Given a list of granules, test that we are determining the download granules correctly"""
+
+    granule_ids = ["OPERA_L2_RTC-S1_T168-359595-IW3_20231217T053154Z_20231218T195230Z_S1A_30_v1.0",
+                "OPERA_L2_RTC-S1_T168-359595-IW2_20231217T053153Z_20231218T195230Z_S1A_30_v1.0",
+                "OPERA_L2_RTC-S1_T168-359595-IW1_20231217T053152Z_20231218T195230Z_S1A_30_v1.0",
+                'OPERA_L2_RTC-S1_T168-359594-IW3_20231217T053151Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359593-IW3_20231217T053148Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359593-IW2_20231217T053147Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359593-IW1_20231217T053146Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359592-IW3_20231217T053145Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359592-IW2_20231217T053144Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359592-IW1_20231217T053143Z_20231218T195230Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359591-IW3_20231217T053143Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359591-IW2_20231217T053142Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359591-IW1_20231217T053141Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359590-IW3_20231217T053140Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359590-IW2_20231217T053139Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359590-IW1_20231217T053138Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359589-IW3_20231217T053137Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359589-IW2_20231217T053136Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359589-IW1_20231217T053135Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359588-IW3_20231217T053134Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359588-IW2_20231217T053133Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359588-IW1_20231217T053132Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359587-IW3_20231217T053132Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359587-IW2_20231217T053131Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359587-IW1_20231217T053130Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359586-IW3_20231217T053129Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359586-IW2_20231217T053128Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359586-IW1_20231217T053127Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359585-IW3_20231217T053126Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359585-IW2_20231217T053125Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359585-IW1_20231217T053124Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359584-IW3_20231217T053123Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359584-IW2_20231217T053122Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359583-IW3_20231217T053121Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359584-IW1_20231217T053121Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359583-IW2_20231217T053120Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359583-IW1_20231217T053119Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359582-IW3_20231217T053118Z_20231220T055807Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359582-IW2_20231217T053117Z_20231220T050105Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359582-IW1_20231217T053116Z_20231220T050105Z_S1A_30_v1.0',
+                'OPERA_L2_RTC-S1_T168-359581-IW3_20231217T053115Z_20231220T050105Z_S1A_30_v1.0']
+
+    granules = []
+    for granule_id in granule_ids:
+        granules.append({"granule_id": granule_id})
+
+    for granule in granules:
+        burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
+        granule["burst_id"] = burst_id
+        granule["acquisition_ts"] = acquisition_dts
+        granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
+                                                                   granule["acquisition_ts"], granule["granule_id"])
+
+    args = create_parser().parse_args(forward_arguments)
+    cmr_query = RtcForDistCmrQuery(args, None, None, None, None, None)
+    cmr_query.extend_additional_records(granules)
+
+    download_granules = cmr_query.determine_download_granules(granules)
+
+    assert len(download_granules) == 124
+
 
 """def test_reprocessing_by_native_id(caplog):
     ''' Tests reprocessing query commands and high-level processing when specifying a native_id'''
