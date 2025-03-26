@@ -390,9 +390,9 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py 
-      #conda install conda gdal==3.6.4 poppler --yes --quiet
+      conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet
       # take too long to deploy a cluster, need to check more to switch to conda-forge channel
-      conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet 
+      #conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet 
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -407,9 +407,9 @@ resource "aws_instance" "mozart" {
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         echo installing gdal for manual execution of daac_data_subscriber.py
-        #conda install conda gdal==3.6.4 poppler --yes --quiet
+        conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet
         # take too long to deploy a cluster, need to check more to switch to conda-forge channel
-        conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet
+        #conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
