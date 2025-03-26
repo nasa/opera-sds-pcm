@@ -500,6 +500,18 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
+    "opera-job_worker-rtc_for_dist_data_query" = {
+      "name"              = "opera-job_worker-rtc_for_dist_data_query"
+      "instance_type"     = ["m6i.large", "m6a.large", "m5.large", "m5a.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
     "opera-job_worker-cslc_data_query" = {
       "name"              = "opera-job_worker-cslc_data_query"
       "instance_type"     = ["c6i.xlarge", "m6a.xlarge", "c6a.xlarge", "c5a.xlarge", "r7i.xlarge", "c7i.xlarge"]
@@ -562,6 +574,18 @@ variable "queues" {
     }
     "opera-job_worker-rtc_data_download" = {
       "name"              = "opera-job_worker-rtc_data_download"
+      "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-rtc_for_dist_data_download" = {
+      "name"              = "opera-job_worker-rtc_for_dist_data_download"
       "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
