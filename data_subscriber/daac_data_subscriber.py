@@ -8,6 +8,7 @@ from commons.logger import configure_library_loggers, get_logger
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
+from data_subscriber.asf_rtc_for_dist_download import AsfDaacRtcForDistDownload
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (ProductType, PGEProduct,
                                  Provider, get_cmr_token,
@@ -110,7 +111,10 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     elif provider in (Provider.ASF, Provider.ASF_SLC):
         downloader = AsfDaacSlcDownload(provider)
     elif provider == Provider.ASF_RTC:
-        downloader = AsfDaacRtcDownload(provider)
+        if args.product and  args.product == PGEProduct.DIST_1:
+            downloader = AsfDaacRtcForDistDownload(provider)
+        else:
+            downloader = AsfDaacRtcDownload(provider)
     elif provider == Provider.ASF_CSLC:
         downloader = AsfDaacCslcDownload(provider)
     elif provider == Provider.ASF_CSLC_STATIC:

@@ -26,14 +26,14 @@ class KCSLCProductCatalog(ProductCatalog):
             "revision_date": revision_date_dt
         }
 
-    def get_download_granule_revision(self, granule_id: str):
+    def get_download_granule_revision(self, download_batch_id: str):
         downloads = self.es_util.query(
             index=self.ES_INDEX_PATTERNS,
             body={
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"download_batch_id": granule_id}}
+                            {"match": {"download_batch_id.keyword": download_batch_id}}
                         ]
                     }
                 }

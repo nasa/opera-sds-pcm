@@ -23,7 +23,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
     def __init__(self, provider):
         super().__init__(provider)
 
-        self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
+        #self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
 
     def run_download(self, args, token, es_conn, netloc, username, password, cmr,
                      job_id, rm_downloads_dir=True):
@@ -45,7 +45,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         # Sort the batch_ids by acq_cycle_index
         batch_ids = sorted(args.batch_ids, key=lambda batch_id: dist_s1_split_download_batch_id(batch_id)[1], reverse=True)
         latest_acq_cycle_index = dist_s1_split_download_batch_id(batch_ids[0])[1]
-        tile_id = (dist_s1_split_download_batch_id(batch_ids[0])[0]).splot("_")[0]
+        tile_id = (dist_s1_split_download_batch_id(batch_ids[0])[0]).split("_")[0]
 
         for index, batch_id in enumerate(batch_ids):
             self.logger.info(f"Downloading RTC files for batch {batch_id}")
@@ -110,7 +110,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
             # Create list of RTC files marked as downloaded, this will be used as the very last step in this function
             for granule_id, file_size in granule_sizes:
                 native_id = granule_id.split(".h5")[0]  # remove file extension and revision id
-                burst_id, _, _, _ = parse_r2_product_file_name(native_id, "L2_RTC_S1")
+                burst_id, _ = parse_r2_product_file_name(native_id, "L2_RTC_S1")
                 unique_id = rtc_for_dist_unique_id(batch_id, burst_id)
                 to_mark_downloaded.append((unique_id, file_size))
 
@@ -125,14 +125,14 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                 "dataset": f"L3_DIST_S1-{batch_id}",
                 "metadata": {
                     "batch_id": batch_id,
-                    "tile_id": tile_id,  # frame_id should be same for all download batches
+                    "mgrs_tile_id": tile_id,  # frame_id should be same for all download batches
                     "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "product_paths": {
                         "L2_RTC_S1": rtc_s3paths,
                     },
                     "FileName": batch_id,
                     "id": batch_id,
-                    "bounding_box": batch_id,
+                    "bounding_box": None, #TOD: Fill this in
                     "acquisition_cycle": latest_acq_cycle_index,
                     "Files": [
                         {

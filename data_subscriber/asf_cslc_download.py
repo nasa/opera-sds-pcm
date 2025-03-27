@@ -303,10 +303,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
     def get_downloads(self, batch_id, es_conn):
         '''Returns items to download based on the batch_ids'''
 
-        self.logger.info("Verifying CSLC files from GRQ ES")
+        self.logger.info("Verifying files from GRQ ES")
         downloads = es_conn.get_download_granule_revision(batch_id)
-        self.logger.info(f"Found {len(downloads)=} CSLC granules for {batch_id=}")
-        assert len(downloads) > 0, f"No CSLC granules found for batch_id={batch_id}!"
+        self.logger.info(f"Found {len(downloads)=} granules for {batch_id=}")
+        assert len(downloads) > 0, f"No granules found for batch_id={batch_id}!"
 
         return downloads
 
