@@ -81,7 +81,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
                 cslc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
                     new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
-                )
+                )  # TODO: BUG! Need to fix this for forward mode. es_conn needs to sometimes use k_es_conn
                 self.logger.info(f"Uploading CSLC input files to S3")
                 cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
                 cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],

@@ -46,6 +46,10 @@
     {
       "name": "transfer_protocol",
       "destination": "positional"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
     }
   ]
 }

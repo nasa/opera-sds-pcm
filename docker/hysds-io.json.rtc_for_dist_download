@@ -59,6 +59,11 @@
       "type": "text",
       "default": "--transfer-protocol=auto",
       "optional": true
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
     }
   ]
 }

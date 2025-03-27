@@ -2,6 +2,8 @@ from collections import defaultdict
 from datetime import datetime
 from copy import deepcopy
 
+from util.job_submitter import try_submit_mozart_job
+
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.query import CmrQuery, get_query_timerange
 from data_subscriber.cslc_utils import parse_r2_product_file_name
@@ -131,6 +133,56 @@ class RtcForDistCmrQuery(CmrQuery):
 
         return download_granules
 
+    def download_job_submission_handler(self, granules, query_timerange):
+
+        batch_id_to_urls_map = defaultdict(set)
+
+        for granule in granules:
+            if granule.get("filtered_urls"):
+                for filter_url in granule.get("filtered_urls"):
+                        batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
+
+        self.logger.debug(f"{batch_id_to_urls_map=}")
+
+        job_submission_tasks = []
+
+        for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
+            chunk_batch_ids = []
+            chunk_urls = []
+            for batch_id, urls in batch_chunk:
+                chunk_batch_ids.append(batch_id)
+                chunk_urls.extend(urls)
+
+            self.logger.debug(f"{chunk_batch_ids=}")
+            self.logger.debug(f"{chunk_urls=}")
+
+            product_type = "rtc_for_dist"
+
+            download_job_id = try_submit_mozart_job(product = {},
+                                                    params=self._create_download_job_params(query_timerange, chunk_batch_ids, chunk_urls),
+                                                    job_queue=self.args.job_queue,
+                                                    rule_name=f"trigger-{product_type}_download",
+                                                    job_spec=f"job-{product_type}_download:{self.settings['RELEASE_VERSION']}",
+                                                    job_type=f"{product_type}_download",
+                                                    job_name=f"job-WF-{product_type}_download-{chunk_batch_ids[0]}")
+
+            # Record download job id in ES
+            for batch_id, urls in batch_chunk:
+                self.es_conn.mark_download_job_id(batch_id, download_job_id)
+
+            job_submission_tasks.append(download_job_id)
+
+        return job_submission_tasks
+
+    def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata):
+        params = super().create_download_job_params(query_timerange, chunk_batch_ids)
+        params.append({
+            "name": "product_metadata",
+            "from": "value",
+            "type": "object",
+            "value": product_metadata
+        })
+        return params
     def get_download_chunks(self, batch_id_to_urls_map):
 
         chunk_map = defaultdict(list)

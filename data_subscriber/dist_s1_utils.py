@@ -77,6 +77,15 @@ def dist_s1_download_batch_id(granule):
     download_batch_id = "p"+str(granule["product_id"]) + "_a" + str(granule["acquisition_cycle"])
 
     return download_batch_id
+
+def dist_s1_split_download_batch_id(download_batch_id):
+    """Split the download_batch_id into product_id and acquisition_cycle by utilizing split by _
+    example: p33UVB_4_a302 -> 33UVB_4, 302"""
+
+    product_id = download_batch_id.split("_")[0][1:]
+    acquisition_cycle = download_batch_id.split("_")[2][1:]
+
+    return product_id, acquisition_cycle
 def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, all_tile_ids = None):
 
     unused_rtc_granule_count = 0
