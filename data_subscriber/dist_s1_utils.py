@@ -103,7 +103,15 @@ def rtc_granules_by_acq_index(granules):
         granules_by_acq_index[acquisition_index].append(granule)
 
     return granules_by_acq_index
-    
+
+def basic_decorate_granule(granule):
+    '''Decorate the granule with the burst_id, frame_id, and acquisition_cycle in place'''
+
+    burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
+    granule["burst_id"] = burst_id
+    granule["acquisition_ts"] = acquisition_dts
+    granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
+                                                               granule["acquisition_ts"], granule["granule_id"])
 def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, all_tile_ids = None):
 
     unused_rtc_granule_count = 0

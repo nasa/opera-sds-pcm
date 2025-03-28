@@ -10,10 +10,11 @@ from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique
 from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
 from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
-                                           dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index)
+                                           dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
+                                           basic_decorate_granule)
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
-K_GRANULES = 2 # Should be either parameter into query job or settings.yaml
+K_GRANULES = 10 # Should be either parameter into query job or settings.yaml
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
 
 class RtcForDistCmrQuery(CmrQuery):
@@ -43,12 +44,9 @@ class RtcForDistCmrQuery(CmrQuery):
         # Remove granules whose burst_id is not in the burst database
         filtered_granules = []
         for granule in granules:
-            burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
+            basic_decorate_granule(granule)
+            burst_id = granule["burst_id"]
             if burst_id in self.bursts_to_products:
-                granule["burst_id"] = burst_id
-                granule["acquisition_ts"] = acquisition_dts
-                granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
-                                                                           granule["acquisition_ts"], granule["granule_id"])
                 filtered_granules.append(granule)
 
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
@@ -65,7 +63,7 @@ class RtcForDistCmrQuery(CmrQuery):
         self.extend_additional_records(filtered_granules)
         return filtered_granules
 
-    def extend_additional_records(self, granules):
+    def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
 
         extended_granules = []
 
@@ -83,13 +81,13 @@ class RtcForDistCmrQuery(CmrQuery):
                 self.logger.error(f"This shouldn't happen. Skipping {rtc_granule_id} as it does not belong to any DIST-S1 product.")
                 continue
 
-            granule["product_id"] = product_ids[0]
+            granule["product_id"] = force_product_id if force_product_id else product_ids[0]
             decorate_granule(granule)
 
-            if len(product_ids) > 1:
+            if len(product_ids) > 1 and no_duplicate == False:
                 for product_id in product_ids[1:]:
                     new_granule = deepcopy(granule)
-                    new_granule["product_id"] = product_id
+                    new_granule["product_id"] = force_product_id if force_product_id else product_id
                     decorate_granule(new_granule)
                     extended_granules.append(new_granule)
 
@@ -141,7 +139,10 @@ class RtcForDistCmrQuery(CmrQuery):
             #    for k in download_batch.keys():
             #        print(k)
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
-            self.batch_id_to_k_granules[batch_id] = self.retrieve_baseline_granules(list(download_batch.values()), self.args, K_GRANULES - 1, verbose=True)
+            all_granules = list(download_batch.values())
+            download_batch_id = all_granules[0]["download_batch_id"]
+            self.logger.debug(f"download_batch_id={download_batch_id}")
+            self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(all_granules, self.args, K_GRANULES - 1, verbose=True)
 
         return download_granules
 
@@ -160,7 +161,7 @@ class RtcForDistCmrQuery(CmrQuery):
         acquisition_time = downloads[0]["acquisition_ts"]
         acquisition_time = datetime.strptime(acquisition_time, "%Y%m%dT%H%M%SZ")
         new_args = deepcopy(args)
-        new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts)
+        _, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts) # First return value is the number of native_ids
 
         # TODO: Not sure if we'll need this or not
         # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
@@ -185,10 +186,13 @@ class RtcForDistCmrQuery(CmrQuery):
                 raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
 
             self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
-            self.logger.info(new_args)
+            self.logger.debug(new_args)
 
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
             granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
+            for granule in granules:
+                basic_decorate_granule(granule)
+            self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
             granules_map = rtc_granules_by_acq_index(granules)
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
@@ -212,31 +216,40 @@ class RtcForDistCmrQuery(CmrQuery):
 
     def download_job_submission_handler(self, granules, query_timerange):
 
-        batch_id_to_urls_map = defaultdict(set)
-
-        for granule in granules:
+        def add_filtered_urls(granule, filtered_urls: list):
             if granule.get("filtered_urls"):
                 for filter_url in granule.get("filtered_urls"):
-                        batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
+                    if "s3://" in filter_url and ("VV.tif" in filter_url or "VH.tif" in filter_url):
+                        filtered_urls.append(filter_url)
 
-        self.logger.debug(f"{batch_id_to_urls_map=}")
+        batch_id_to_urls_map = defaultdict(list)
+        batch_id_to_baseline_urls = defaultdict(list)
+        product_metadata = {}
+
+        for granule in granules:
+            #self.logger.info(granule["download_batch_id"])
+            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]])
+
+        for download_batch_id, granules in self.batch_id_to_k_granules.items():
+            for granule in granules:
+                #print(download_batch_id, granule["download_batch_id"])
+                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id])
+        #print(batch_id_to_baseline_urls)
+
+        #self.logger.debug(f"{batch_id_to_urls_map=}")
 
         job_submission_tasks = []
 
-        for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
-            chunk_batch_ids = []
-            chunk_urls = []
-            for batch_id, urls in batch_chunk:
-                chunk_batch_ids.append(batch_id)
-                chunk_urls.extend(urls)
-
+        for batch_id, urls in batch_id_to_urls_map.items():
+            chunk_batch_ids = [batch_id]
             self.logger.debug(f"{chunk_batch_ids=}")
-            self.logger.debug(f"{chunk_urls=}")
+            self.logger.debug(f"{urls=}")
+            product_metadata["current_s3_paths"] = urls
+            product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
 
             product_type = "rtc_for_dist"
-
             download_job_id = try_submit_mozart_job(product = {},
-                                                    params=self._create_download_job_params(query_timerange, chunk_batch_ids, chunk_urls),
+                                                    params=self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata),
                                                     job_queue=self.args.job_queue,
                                                     rule_name=f"trigger-{product_type}_download",
                                                     job_spec=f"job-{product_type}_download:{self.settings['RELEASE_VERSION']}",
@@ -244,8 +257,7 @@ class RtcForDistCmrQuery(CmrQuery):
                                                     job_name=f"job-WF-{product_type}_download-{chunk_batch_ids[0]}")
 
             # Record download job id in ES
-            for batch_id, urls in batch_chunk:
-                self.es_conn.mark_download_job_id(batch_id, download_job_id)
+            self.es_conn.mark_download_job_id(batch_id, download_job_id)
 
             job_submission_tasks.append(download_job_id)
 
@@ -260,15 +272,5 @@ class RtcForDistCmrQuery(CmrQuery):
             "value": product_metadata
         })
         return params
-    def get_download_chunks(self, batch_id_to_urls_map):
-
-        chunk_map = defaultdict(list)
-        if len(list(batch_id_to_urls_map)) == 0:
-            return chunk_map.values()
-
-        for batch_chunk in batch_id_to_urls_map.items():
-            chunk_map[batch_chunk[0]].append(batch_chunk)  # We don't actually care about the URLs, we only care about the batch_id
-
-        return chunk_map.values()
 
 

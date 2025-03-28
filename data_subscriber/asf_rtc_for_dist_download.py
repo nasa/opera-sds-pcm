@@ -30,104 +30,89 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
 
         settings = SettingsConf().cfg
 
-        if not is_running_outside_verdi_worker_context():
-            job_context = JobContext("_context.json").ctx
-            product_metadata = job_context["product_metadata"]
-            self.logger.info(f"{product_metadata=}")
-        else:
-            # Get context by: 1) looking up the job_id in the GRQ ES index, 2) using that to get the context from Mozart ES
+        # TODO: MAYBE: If we're not running in a container, get context by:
+        #  1) looking up the job_id in the GRQ ES index, 2) using that to get the context from Mozart ES
+        #if not is_running_outside_verdi_worker_context():
 
-            product_metadata = None
+        job_context = JobContext("_context.json").ctx
+        product_metadata = job_context
+        current_s3_paths = product_metadata["current_s3_paths"]
+        baseline_s3paths = product_metadata["baseline_s3_paths"]
+        self.logger.info(f"{product_metadata=}")
 
-        rtc_s3paths = []
         to_mark_downloaded = []
+        rtc_s3paths = []
 
-        # Sort the batch_ids by acq_cycle_index
-        batch_ids = sorted(args.batch_ids, key=lambda batch_id: dist_s1_split_download_batch_id(batch_id)[1], reverse=True)
-        latest_acq_cycle_index = dist_s1_split_download_batch_id(batch_ids[0])[1]
-        tile_id = (dist_s1_split_download_batch_id(batch_ids[0])[0]).split("_")[0]
+        batch_id = args.batch_ids[0] # Should always be only one batch_id
+        self.logger.info(f"Downloading RTC files for batch {batch_id}")
 
-        for index, batch_id in enumerate(batch_ids):
-            self.logger.info(f"Downloading RTC files for batch {batch_id}")
+        granule_sizes = []
 
-            granule_sizes = []
+        # WARNING: https download does not work
+        # TODO: Should we support this at all?
+        if args.transfer_protocol == "https":
+            # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
+            rtc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
+                args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
+            )
+            self.logger.info(f"Uploading RTC input files to S3")
+            rtc_files_to_upload = [fp for fp_set in rtc_products_to_filepaths.values() for fp in fp_set]
+            rtc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
+                                                                     key_prefix=f"tmp/dist_s1/{batch_id}",
+                                                                     files=rtc_files_to_upload))
 
-            if args.transfer_protocol == "https":
-                # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
-                rtc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
-                    args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
-                )
-                self.logger.info(f"Uploading RTC input files to S3")
-                rtc_files_to_upload = [fp for fp_set in rtc_products_to_filepaths.values() for fp in fp_set]
-                rtc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
-                                                                         key_prefix=f"tmp/dist_s1/{batch_id}",
-                                                                         files=rtc_files_to_upload))
+            for granule_id, fp_set in rtc_products_to_filepaths.items():
+                filepath = list(fp_set)[0]
+                file_size = os.path.getsize(filepath)
+                granule_sizes.append((granule_id, file_size))
 
-                for granule_id, fp_set in rtc_products_to_filepaths.items():
-                    filepath = list(fp_set)[0]
-                    file_size = os.path.getsize(filepath)
-                    granule_sizes.append((granule_id, file_size))
+        # For s3 we can use the files directly so simply copy over the paths
+        else:  # s3 or auto
+            self.logger.info(
+                "Skipping download RTC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
 
-            # For s3 we can use the files directly so simply copy over the paths
-            else:  # s3 or auto
-                self.logger.info(
-                    "Skipping download RTC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
+            rtc_s3paths = current_s3_paths + baseline_s3paths
 
-                '''For RTC download, the batch_ids are globally unique so there's no need to query for dates
-                Granules are stored in either rtc_for_dist_catalog or baseline_rtc_catalog index. 
-                We assume that the latest batch_id (defined as the one with the greatest acq_cycle_index) is stored in rtc_for_dist_catalog. 
-                The rest are stored in baseline_rtc_catalog'''
-                downloads = self.get_downloads(batch_id, es_conn)
+            '''For RTC download, the batch_ids are globally unique so there's no need to query for dates
+            Granules are stored in rtc_for_dist_catalog which contain the .h5 files which we don't use for actual downloading'''
+            downloads = self.get_downloads(batch_id, es_conn)
 
-                batch_rtc_s3paths = [download["s3_url"] for download in downloads]
-                rtc_s3paths.extend(batch_rtc_s3paths)
-                if len(batch_rtc_s3paths) == 0:
-                    raise Exception(
-                        f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
+            batch_rtc_s3paths = [download["s3_url"] for download in downloads]
+            if len(batch_rtc_s3paths) == 0:
+                raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
 
-                for p in batch_rtc_s3paths:
-                    # Split the following into bucket name and key
-                    # 's3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_CSLC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
-                    parsed_url = urllib.parse.urlparse(p)
-                    bucket = parsed_url.netloc
-                    key = parsed_url.path[1:]
-                    granule_id = p.split("/")[-1]
+            # TODO: Fix this so that we track .tif file sizes and not .h5. There are two files per granule
+            for p in batch_rtc_s3paths:
+                # Split the following into bucket name and key
+                # 's3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1/OPERA_L2_RTC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_RTC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
+                parsed_url = urllib.parse.urlparse(p)
+                bucket = parsed_url.netloc
+                key = parsed_url.path[1:]
+                granule_id = p.split("/")[-1]
 
-                    try:
-                        head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
-                        self.logger.info(f"Adding RTC file: {p}")
-                    except Exception as e:
-                        self.logger.error("Failed when accessing the S3 object:" + p)
-                        raise e
-                    file_size = int(head_object["ContentLength"])
+                try:
+                    head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
+                    self.logger.info(f"Adding RTC file: {p}")
+                except Exception as e:
+                    self.logger.error("Failed when accessing the S3 object:" + p)
+                    raise e
+                file_size = int(head_object["ContentLength"])
 
-                    granule_sizes.append((granule_id, file_size))
+                granule_sizes.append((granule_id, file_size))
 
-                rtc_files_to_upload = [Path(p) for p in batch_rtc_s3paths]  # Need this for querying static CSLCs
-
-                rtc_products_to_filepaths = {}  # Dummy when trying to delete files later in this function
-
-            # Create list of RTC files marked as downloaded, this will be used as the very last step in this function
-            for granule_id, file_size in granule_sizes:
-                native_id = granule_id.split(".h5")[0]  # remove file extension and revision id
-                burst_id, _ = parse_r2_product_file_name(native_id, "L2_RTC_S1")
-                unique_id = rtc_for_dist_unique_id(batch_id, burst_id)
-                to_mark_downloaded.append((unique_id, file_size))
+        # Create list of RTC files marked as downloaded, this will be used as the very last step in this function
+        for granule_id, file_size in granule_sizes:
+            native_id = granule_id.split(".h5")[0]  # remove file extension and revision id
+            burst_id, _ = parse_r2_product_file_name(native_id, "L2_RTC_S1")
+            unique_id = rtc_for_dist_unique_id(batch_id, burst_id)
+            to_mark_downloaded.append((unique_id, file_size))
 
         # TODO: Look up bounding box for frame?
 
-        # Append k granules from product_metadata to the list of RTC files to upload
-        # TODO: This code needs to be reviewed and tested
-        self.logger.debug(f"Adding {len(product_metadata['Files'])} RTC files from product_metadata to the list of RTC files to upload")
-        for file in product_metadata["Files"]:
-            granule_id = file["granule_id"]
-            if granule_id not in rtc_s3paths:
-                # Add the file to the list of RTC files to upload
-                self.logger.debug(f"Adding RTC file from product_metadata: {granule_id}")
-                rtc_s3paths.append(granule_id)
-
         # Now submit DISP-S1 SCIFLO job
         self.logger.info(f"Submitting DIST-S1 SCIFLO job")
+
+        product_id, acquisition_cycle_index = dist_s1_split_download_batch_id(batch_id)
 
         product = {
             "_id": batch_id,
@@ -135,15 +120,15 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                 "dataset": f"L3_DIST_S1-{batch_id}",
                 "metadata": {
                     "batch_id": batch_id,
-                    "mgrs_tile_id": tile_id,  # frame_id should be same for all download batches
+                    "mgrs_tile_id": product_id.split("_")[0],
                     "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "product_paths": {
                         "L2_RTC_S1": rtc_s3paths,
                     },
                     "FileName": batch_id,
                     "id": batch_id,
-                    "bounding_box": None, #TOD: Fill this in
-                    "acquisition_cycle": latest_acq_cycle_index,
+                    "bounding_box": None, #TODO: Fill this in
+                    "acquisition_cycle": acquisition_cycle_index,
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,

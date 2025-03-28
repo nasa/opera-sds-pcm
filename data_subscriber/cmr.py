@@ -140,8 +140,11 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
         "bounding_box": bounding_box
     }
 
+    # TODO: Move this RTC-specific logic out of this module and into the RTC query code
     if args.native_id:
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
+        if args.product and args.product == PGEProduct.DIST_1:
+            params["native-id[]"] = [args.native_id]
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             burst_id = mbc_client.product_burst_id_to_mapping_burst_id(match_native_id.group("burst_id"))
@@ -164,8 +167,11 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     now_date = now.strftime(CMR_TIME_FORMAT)
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
 
+    # TODO: Move this RTC-specific logic out of this module and into the RTC query code
     force_temporal = False
-    if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
+    if args.product and args.product == PGEProduct.DIST_1:
+        pass
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
         if args.native_id:
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             acquisition_dt = dateutil.parser.parse(match_native_id.group("acquisition_ts"))
