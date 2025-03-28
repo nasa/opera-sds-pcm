@@ -2,9 +2,7 @@
 
 import pytest
 import conftest
-from data_subscriber.dist_s1_utils import localize_dist_burst_db, compute_dist_s1_triggering
-from data_subscriber.parser import create_parser
-from data_subscriber.rtc_for_dist.rtc_for_dist_query import RtcForDistCmrQuery
+from data_subscriber.dist_s1_utils import localize_dist_burst_db, compute_dist_s1_triggering, build_rtc_native_ids
 
 dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
 
@@ -21,3 +19,11 @@ def test_compute_dist_s1_triggering():
     assert len(products_triggered["31RGQ_3_302"].rtc_granules) == 1
     assert len(products_triggered["32RKV_3_302"].rtc_granules) == 2
     assert len(products_triggered["32RLV_3_302"].rtc_granules) == 1
+
+def test_build_rtc_native_ids():
+    '''Test building up rtc native ids'''
+    l, native_id = build_rtc_native_ids("32RLV_3", product_to_bursts)
+    #print("----------------------------------")
+    assert l == 16
+    assert native_id == \
+           "OPERA_L2_RTC-S1_T168-359591-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359591-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359592-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359592-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359593-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359593-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359594-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359594-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359595-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359595-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359596-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359596-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359597-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359597-IW2*&native-id[]=OPERA_L2_RTC-S1_T168-359598-IW1*&native-id[]=OPERA_L2_RTC-S1_T168-359598-IW2*"

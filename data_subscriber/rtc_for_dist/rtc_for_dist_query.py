@@ -1,13 +1,20 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from copy import deepcopy
+import asyncio
 
 from util.job_submitter import try_submit_mozart_job
 
+from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
-from data_subscriber.query import CmrQuery, get_query_timerange
+from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
 from data_subscriber.cslc_utils import parse_r2_product_file_name
-from data_subscriber.dist_s1_utils import localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering, dist_s1_download_batch_id
+from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
+                                           dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index)
+
+DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
+K_GRANULES = 2 # Should be either parameter into query job or settings.yaml
+EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
 
 class RtcForDistCmrQuery(CmrQuery):
 
@@ -22,6 +29,10 @@ class RtcForDistCmrQuery(CmrQuery):
         #TODO: Grace minutes? Read from settings.yaml
 
         #TODO: Set up es_conn and data structures for Baseline Set granules
+
+        '''This data structure is set by determine_download_granules and consumed by download_job_submission_handler
+        We're taking this indirect approach instead of just passing this through to work w the current class structure'''
+        self.batch_id_to_k_granules = {}
 
     def validate_args(self):
         pass
@@ -130,8 +141,74 @@ class RtcForDistCmrQuery(CmrQuery):
             #    for k in download_batch.keys():
             #        print(k)
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
+            self.batch_id_to_k_granules[batch_id] = self.retrieve_baseline_granules(list(download_batch.values()), self.args, K_GRANULES - 1, verbose=True)
 
         return download_granules
+
+    def retrieve_baseline_granules(self, downloads, args, k_minus_one, verbose = True):
+        '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the
+        current product. Return all the granules that satisfy that'''
+        k_granules = []
+        k_satified = 0
+
+        if len(downloads) == 0:
+            return k_granules
+
+        '''All download granules should have the same product id
+        All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
+        product_id = downloads[0]["product_id"]
+        acquisition_time = downloads[0]["acquisition_ts"]
+        acquisition_time = datetime.strptime(acquisition_time, "%Y%m%dT%H%M%SZ")
+        new_args = deepcopy(args)
+        new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts)
+
+        # TODO: Not sure if we'll need this or not
+        # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
+        burst_id_set = set()
+        for download in downloads:
+            burst_id_set.add(download["burst_id"])
+
+        # Move start and end date of new_args back and expand 5 days at both ends to capture all k granules
+        shift_day_grouping = 12 * (k_minus_one * DIST_K_MULT_FACTOR) # Number of days by which to shift each iteration
+
+        counter = 1
+        while k_satified < k_minus_one:
+            start_date_shift = timedelta(days= counter * shift_day_grouping, hours=1)
+            end_date_shift = timedelta(days= (counter-1) * shift_day_grouping, hours=1)
+            start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
+            end_date_object = (acquisition_time - end_date_shift)
+            end_date = end_date_object.strftime(CMR_TIME_FORMAT)
+            query_timerange = DateTimeRange(start_date, end_date)
+
+            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhaust data space.
+            if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
+                raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
+
+            self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
+            self.logger.info(new_args)
+
+            # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
+            granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
+            granules_map = rtc_granules_by_acq_index(granules)
+
+            # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
+            acq_day_indices = sorted(granules_map.keys(), reverse=True)
+            for acq_day_index in acq_day_indices:
+
+                ''' This step is a bit tricky.
+                1. We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames.
+                2. We already know what frame these new granules belong to because that's what we queried for. 
+                    We need to force using that because 1/9 times one burst will belong to two frames.'''
+                granules = granules_map[acq_day_index]
+                k_granules.extend(granules)
+                k_satified += 1
+                self.logger.info(f"{product_id=} {acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
+                if k_satified == k_minus_one:
+                    break
+
+            counter += 1
+
+        return k_granules
 
     def download_job_submission_handler(self, granules, query_timerange):
 

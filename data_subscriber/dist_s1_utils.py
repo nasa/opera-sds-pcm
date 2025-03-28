@@ -78,6 +78,13 @@ def dist_s1_download_batch_id(granule):
 
     return download_batch_id
 
+def build_rtc_native_ids(product_id: int, product_to_bursts):
+    """Builds the native_id string for a given DIST-S1 product. The native_id string is used in the CMR query."""
+
+    native_ids = list(product_to_bursts[product_id])
+    native_ids = sorted(native_ids) # Sort to just enforce consistency
+    return len(native_ids), "OPERA_L2_RTC-S1_" + "*&native-id[]=OPERA_L2_RTC-S1_".join(native_ids) + "*"
+
 def dist_s1_split_download_batch_id(download_batch_id):
     """Split the download_batch_id into product_id and acquisition_cycle by utilizing split by _
     example: p33UVB_4_a302 -> 33UVB_4, 302"""
@@ -86,6 +93,17 @@ def dist_s1_split_download_batch_id(download_batch_id):
     acquisition_cycle = download_batch_id.split("_")[2][1:]
 
     return product_id, acquisition_cycle
+
+def rtc_granules_by_acq_index(granules):
+    '''Returns a dict where the key is the acq index and the value is a list of granules'''
+    granules_by_acq_index = defaultdict(list)
+    for granule in granules:
+        burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
+        acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, granule["granule_id"])
+        granules_by_acq_index[acquisition_index].append(granule)
+
+    return granules_by_acq_index
+    
 def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, all_tile_ids = None):
 
     unused_rtc_granule_count = 0

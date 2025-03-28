@@ -116,6 +116,16 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
 
         # TODO: Look up bounding box for frame?
 
+        # Append k granules from product_metadata to the list of RTC files to upload
+        # TODO: This code needs to be reviewed and tested
+        self.logger.debug(f"Adding {len(product_metadata['Files'])} RTC files from product_metadata to the list of RTC files to upload")
+        for file in product_metadata["Files"]:
+            granule_id = file["granule_id"]
+            if granule_id not in rtc_s3paths:
+                # Add the file to the list of RTC files to upload
+                self.logger.debug(f"Adding RTC file from product_metadata: {granule_id}")
+                rtc_s3paths.append(granule_id)
+
         # Now submit DISP-S1 SCIFLO job
         self.logger.info(f"Submitting DIST-S1 SCIFLO job")
 
