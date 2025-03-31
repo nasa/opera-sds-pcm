@@ -11,6 +11,7 @@ COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
  # TODO: remove pin of conda and gdal once updated gdal (3.7.*) has been pushed to the main channel
+ && sudo dnf install cmake \
  && sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal==3.6.4 cffi poppler eccodes==2.31.0 \
  && ln -sf /opt/eccodes/bin/grib_to_netcdf /home/ops/verdi/bin/ \
  # TODO: remove the following kludge once this issue has been resolved:
