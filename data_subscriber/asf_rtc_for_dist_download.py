@@ -35,7 +35,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         #if not is_running_outside_verdi_worker_context():
 
         job_context = JobContext("_context.json").ctx
-        product_metadata = job_context
+        product_metadata = job_context["product_metadata"]
         current_s3_paths = product_metadata["current_s3_paths"]
         baseline_s3paths = product_metadata["baseline_s3_paths"]
         self.logger.info(f"{product_metadata=}")
