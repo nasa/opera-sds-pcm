@@ -31,6 +31,7 @@ setup(
             "elasticmock",
             "geopandas",
             "smart_open",
+            "fastparquet", # To parse parquet files which is the format for DIST-S1 database
 
             "pytest-asyncio",
             "pytest-mock",
