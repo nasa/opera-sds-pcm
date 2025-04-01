@@ -2,6 +2,15 @@
 
 import pytest
 import conftest
+import sys
+
+try:
+    import unittest.mock as umock
+except ImportError:
+    import mock as umock
+sys.modules["hysds.celery"] = umock.MagicMock()
+from mock import MagicMock
+
 from data_subscriber.url import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import localize_dist_burst_db
@@ -49,7 +58,7 @@ def test_extend_additional_records():
     #for granule in granules:
     #    assert m[granule["download_batch_id"]] == granule["granule_id"]
 
-def test_determine_download_granules():
+def test_determine_download_granules(monkeypatch):
     """Given a list of granules, test that we are determining the download granules correctly"""
 
     granule_ids = ["OPERA_L2_RTC-S1_T168-359595-IW3_20231217T053154Z_20231218T195230Z_S1A_30_v1.0",
@@ -109,6 +118,12 @@ def test_determine_download_granules():
     cmr_query = RtcForDistCmrQuery(args, None, None, None, None, None)
     cmr_query.extend_additional_records(granules)
 
+    mock_retrieve_baseline_granules = MagicMock(return_value=[])
+    monkeypatch.setattr(
+        cmr_query,
+        cmr_query.retrieve_baseline_granules.__name__,
+        mock_retrieve_baseline_granules
+    )
     download_granules = cmr_query.determine_download_granules(granules)
 
     assert len(download_granules) == 124
