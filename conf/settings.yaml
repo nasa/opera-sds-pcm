@@ -174,14 +174,14 @@ DISP_S1:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.5/opera-s1-disp-0.9.0-frame-to-burst.json"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.7/opera-s1-disp-0.9.0-frame-to-burst.json"
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
   REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2025-02-13.json"
   # S3 path to the algorithm parameters YAML file to download for all DISP-S1 jobs
   # Note that the {processing_mode} placeholder is required, and will be automatically filled in with "forward" or "historical" based on the type of DISP-S1 job triggered
-  ALGORITHM_PARAMETERS_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.5/algorithm_parameters_{processing_mode}.yaml.tmpl"
+  ALGORITHM_PARAMETERS_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.7/algorithm_parameters_{processing_mode}.yaml.tmpl"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.5/opera-disp-s1-algorithm-parameters-overrides-2025-02-21.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.7/opera-disp-s1-algorithm-parameters-overrides-2025-02-21.json"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
