@@ -11,7 +11,6 @@ COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
  # TODO: remove pin of conda and gdal once updated gdal (3.7.*) has been pushed to the main channel
- && sudo dnf install cmake \
  && sudo /opt/conda/bin/conda install -y -c conda-forge conda==22.11.1 gdal==3.6.2 cffi poppler==22.12.0 \
  # install eccodes from RPM for ECMWF merger
  && curl -o /tmp/eccodes-2.31.0-1.x86_64.rpm https://artifactory-fn.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/opera/sds/pcm/eccodes/eccodes-2.31.0-1.x86_64.rpm \
