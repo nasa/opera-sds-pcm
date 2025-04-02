@@ -14,8 +14,8 @@ RUN set -ex \
  && sudo /opt/conda/bin/conda install -y -c conda-forge conda==22.11.1 gdal==3.6.2 cffi poppler==22.12.0 \
  # install eccodes with binary tar file for ECMWF merger
  && curl -o /tmp/eccodes-2.31.0.bin.tar.gz https://artifactory-fn.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/opera/sds/pcm/eccodes/eccodes-2.31.0.bin.tar.gz \
- && sudo mkdir /opt/eccodes && tar xf /tmp/eccodes-2.31.0.bin.tar.gz -C /opt/eccodes \
- && cd /opt/eccodes &&  mv tmp/opt/eccodes/* . \
+ && sudo mkdir /opt/eccodes && sudo tar xf /tmp/eccodes-2.31.0.bin.tar.gz -C /opt/eccodes \
+ && cd /opt/eccodes &&  sudo mv tmp/opt/eccodes/* . \
  && rm -rf /tmp/eccodes-2.31.0.bin.tar.gz \
  && ln -sf /opt/eccodes/bin/grib_to_netcdf /home/ops/verdi/bin/ \
  # TODO: remove the following kludge once this issue has been resolved:
