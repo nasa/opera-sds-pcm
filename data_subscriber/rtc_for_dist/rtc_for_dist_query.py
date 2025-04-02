@@ -123,8 +123,10 @@ class RtcForDistCmrQuery(CmrQuery):
         # Create a dict of granule_id to granule
         granules_dict = {granule["granule_id"]: granule for granule in granules}
         granule_ids = list(granules_dict.keys())
-        products_triggered, _, _ = compute_dist_s1_triggering(
-            self.bursts_to_products, self.product_to_bursts, granule_ids)
+        #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
+        products_triggered, granules_triggered, _, _ = compute_dist_s1_triggering(
+            self.bursts_to_products, self.product_to_bursts, granule_ids, complete_bursts_only = True)
+        self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
 
@@ -133,7 +135,6 @@ class RtcForDistCmrQuery(CmrQuery):
                 by_download_batch_id[product_id][rtc_granule] = granules_dict[rtc_granule]
                 download_granules.append(granules_dict[rtc_granule])
 
-        self.logger.info("Received the following RTC granules from CMR: ")
         for batch_id, download_batch in by_download_batch_id.items():
             #if batch_id == "32UPD_4_302":
             #    for k in download_batch.keys():
@@ -142,7 +143,12 @@ class RtcForDistCmrQuery(CmrQuery):
             all_granules = list(download_batch.values())
             download_batch_id = all_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
-            self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(all_granules, self.args, K_GRANULES - 1, verbose=True)
+
+            try:
+                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(all_granules, self.args, K_GRANULES - 1, verbose=True)
+            except Exception as e:
+                self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
+                continue
 
         return download_granules
 
@@ -245,6 +251,10 @@ class RtcForDistCmrQuery(CmrQuery):
             self.logger.debug(f"{chunk_batch_ids=}")
             self.logger.debug(f"{urls=}")
             product_metadata["current_s3_paths"] = urls
+
+            if batch_id not in batch_id_to_baseline_urls:
+                self.logger.warning(f"Cannot find baseline URLs for {batch_id}. Cannot submit download job.")
+                continue
             product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
 
             product_type = "rtc_for_dist"

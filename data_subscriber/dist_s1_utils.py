@@ -112,10 +112,11 @@ def basic_decorate_granule(granule):
     granule["acquisition_ts"] = acquisition_dts
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
                                                                granule["acquisition_ts"], granule["granule_id"])
-def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, all_tile_ids = None):
+def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, complete_bursts_only, all_tile_ids = None):
 
     unused_rtc_granule_count = 0
     products_triggered = defaultdict(DIST_S1_Product)
+    granules_triggered = defaultdict(bool)
     if all_tile_ids:
         tiles_untriggered = set(all_tile_ids)
         all_tiles_set = set(all_tile_ids)
@@ -150,7 +151,19 @@ def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_id
                         print(f"Tile ID {tile_id}: {rtc_granule_id} does not belong to any DIST-S1 product.")
                         unused_rtc_granule_count += 1
 
-    return products_triggered, tiles_untriggered, unused_rtc_granule_count
+    # If complete_bursts_only is True, remove all products_triggered where used_bursts != possible_bursts
+    # Also update granules_triggered which is a map from granule id to boolean where True means the granule was used
+    if complete_bursts_only:
+        for product_id, product in list(products_triggered.items()):
+            if product.possible_bursts != product.used_bursts:
+                del products_triggered[product_id]
+                for granule_id in product.rtc_granules:
+                    granules_triggered[granule_id] = False
+            else:
+                for granule_id in product.rtc_granules:
+                    granules_triggered[granule_id] = True
+
+    return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
 if __name__ == "__main__":
 
