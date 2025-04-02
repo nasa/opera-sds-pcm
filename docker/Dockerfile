@@ -12,10 +12,11 @@ RUN set -ex \
  && source /home/ops/.bash_profile \
  # TODO: remove pin of conda and gdal once updated gdal (3.7.*) has been pushed to the main channel
  && sudo /opt/conda/bin/conda install -y -c conda-forge conda==22.11.1 gdal==3.6.2 cffi poppler==22.12.0 \
- # install eccodes from RPM for ECMWF merger
- && curl -o /tmp/eccodes-2.31.0-1.x86_64.rpm https://artifactory-fn.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/opera/sds/pcm/eccodes/eccodes-2.31.0-1.x86_64.rpm \
- && sudo dnf install -y /tmp/eccodes-2.31.0-1.x86_64.rpm \
- && rm -rf /tmp/eccodes-2.31.0-1.x86_64.rpm \
+ # install eccodes with binary tar file for ECMWF merger
+ && curl -o /tmp/eccodes-2.31.0.bin.tar.gz https://artifactory-fn.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/opera/sds/pcm/eccodes/eccodes-2.31.0.bin.tar.gz \
+ && sudo mkdir /opt/eccodes && tar xf /tmp/eccodes-2.31.0.bin.tar.gz -C /opt/eccodes \
+ && cd /opt/eccodes &&  mv tmp/opt/eccodes/* . \
+ && rm -rf /tmp/eccodes-2.31.0.bin.tar.gz \
  && ln -sf /opt/eccodes/bin/grib_to_netcdf /home/ops/verdi/bin/ \
  # TODO: remove the following kludge once this issue has been resolved:
  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
