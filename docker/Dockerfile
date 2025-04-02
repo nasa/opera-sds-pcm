@@ -13,7 +13,11 @@ RUN set -ex \
  # TODO: remove pin of conda and gdal once updated gdal (3.7.*) has been pushed to the main channel
  && sudo /opt/conda/bin/conda install -y -c conda-forge conda==22.11.1 gdal==3.6.2 cffi poppler==22.12.0 \
 
- # TODO: Restore eccodes installation - deleted them to just get build going to test a different feature
+ # install eccodes from RPM for ECMWF merger
+ && curl -o /tmp/eccodes-2.28.1-1.x86_64.rpm https://artifactory.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/nisar/sds/pcm/eccodes/eccodes-2.28.1-1.x86_64.rpm \
+ && sudo dnf install -y /tmp/eccodes-2.28.1-1.x86_64.rpm \
+ && rm -rf /tmp/eccodes-2.28.1-1.x86_64.rpm \
+ && ln -sf /opt/eccodes/bin/grib_to_netcdf /home/ops/verdi/bin/ \
 
  # TODO: remove the following kludge once this issue has been resolved:
  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
