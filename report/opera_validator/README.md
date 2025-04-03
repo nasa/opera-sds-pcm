@@ -43,13 +43,16 @@ This guide provides a quick way to get started with the script.
 * Python 3.6 or higher with special library dependencies (see `pip` command below)
 * Access to the CMR API (i.e., network access to the internet)
 * Availability of database files for DSWx-S1 or DISP-S1
+* For DISP-S1, validator must be run from a deployed OPERA PCM cluster Mozart machine.
 * For DISP-S1, the disp_s1 product ES index must be available in GRQ.
 
 ### Setup Instructions
 
 1. Clone the repository to your local machine.
 2. Install the required Python libraries: `pip install pandas tabulate tqdm sqlite3 requests`.
-3. Ensure you have internet access to the CMR API.
+3. Ensure you have internet access to the CMR API. 
+
+DISP-S1 validator is run on a deployed OPERA PCM cluster Mozart machine. Therefore, all dependencies will have already been installed and validator can be used right away. Above instructions do not apply. 
 
 ### Run Instructions
 
