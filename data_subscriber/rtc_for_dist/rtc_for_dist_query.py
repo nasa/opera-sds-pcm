@@ -39,7 +39,43 @@ class RtcForDistCmrQuery(CmrQuery):
         pass
 
     def query_cmr(self, timerange, now: datetime):
-        granules = super().query_cmr(timerange, now)
+        if self.args.proc_mode == "forward":
+            granules = super().query_cmr(timerange, now)
+            force_product_id = None
+        elif self.args.proc_mode == "reprocessing":
+            granules = []
+
+            #TODO: We can switch over to this code if we want to trigger reprocessing by RTC granule_id
+            '''burst_id, acquisition_dts = parse_r2_product_file_name(self.args.native_id, "L2_RTC_S1")
+            product_ids = self.bursts_to_products[burst_id]
+            if len(product_ids) == 0:
+                raise AssertionError(f"Cannot find burst_id {burst_id} in burst database. Cannot process this product.")
+            self.logger.info(f"Reprocessing burst_id {burst_id} with product_ids {product_ids}")'''
+
+            #TODO: We probably want something more graceful than the native_id looking like 31SGR_3,20231217T053132Z
+            product_ids = [self.args.native_id.split(",")[0]]
+            acquisition_dts = self.args.native_id.split(",")[1]
+
+            acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")
+            start_time = (acquisition_time - timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
+            end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
+            query_timerange = DateTimeRange(start_time, end_time)
+            for product_id in product_ids:
+                force_product_id = product_id #TODO: This needs to change if we change this code back to using granule_id instead of product_id
+                new_args = deepcopy(self.args)
+                new_args.use_temporal = True
+                count, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts)
+                if count == 0:
+                    raise AssertionError(f"No burst_ids found for {product_id=}. Cannot process this product.")
+                self.logger.info(new_args)
+                gs = asyncio.run(
+                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now()))
+                for g in gs:
+                    g["product_id"] = product_id # force product_id because one granule can belong to multiple products
+                granules.extend(gs)
+
+        elif self.args.proc_mode == "historical":
+            self.logger.error("Historical processing mode is not supported for RTC for DIST products.")
 
         # Remove granules whose burst_id is not in the burst database
         filtered_granules = []
@@ -60,7 +96,7 @@ class RtcForDistCmrQuery(CmrQuery):
                     granules_dict[key] = granule
         filtered_granules = list(granules_dict.values())
 
-        self.extend_additional_records(filtered_granules)
+        self.extend_additional_records(filtered_granules, force_product_id)
         return filtered_granules
 
     def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
@@ -139,20 +175,21 @@ class RtcForDistCmrQuery(CmrQuery):
             #if batch_id == "32UPD_4_302":
             #    for k in download_batch.keys():
             #        print(k)
+            product_id = "_".join(batch_id.split("_")[0:2])
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
             all_granules = list(download_batch.values())
             download_batch_id = all_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
             try:
-                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(all_granules, self.args, K_GRANULES - 1, verbose=True)
+                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(product_id, all_granules, self.args, K_GRANULES - 1, verbose=True)
             except Exception as e:
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
 
         return download_granules
 
-    def retrieve_baseline_granules(self, downloads, args, k_minus_one, verbose = True):
+    def retrieve_baseline_granules(self, product_id, downloads, args, k_minus_one, verbose = True):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the
         current product. Return all the granules that satisfy that'''
         k_granules = []
@@ -161,16 +198,15 @@ class RtcForDistCmrQuery(CmrQuery):
         if len(downloads) == 0:
             return k_granules
 
-        '''All download granules should have the same product id
-        All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
-        product_id = downloads[0]["product_id"]
+        '''All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
         acquisition_time = downloads[0]["acquisition_ts"]
         acquisition_time = datetime.strptime(acquisition_time, "%Y%m%dT%H%M%SZ")
         new_args = deepcopy(args)
+        new_args.use_temporal = True
         _, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts) # First return value is the number of native_ids
 
-        # TODO: Not sure if we'll need this or not
-        # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
+        # TODO: Not sure if we'll need this or not; only need if we want to match the burst_id pattern exactly
+        # Create a set of burst_ids for the current product to compare with the frames over k- cycles
         burst_id_set = set()
         for download in downloads:
             burst_id_set.add(download["burst_id"])
@@ -198,6 +234,7 @@ class RtcForDistCmrQuery(CmrQuery):
             granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
             for granule in granules:
                 basic_decorate_granule(granule)
+                granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
             self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
             granules_map = rtc_granules_by_acq_index(granules)
 
@@ -248,7 +285,7 @@ class RtcForDistCmrQuery(CmrQuery):
 
         for batch_id, urls in batch_id_to_urls_map.items():
             chunk_batch_ids = [batch_id]
-            self.logger.debug(f"{chunk_batch_ids=}")
+            self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
             product_metadata["current_s3_paths"] = urls
 
