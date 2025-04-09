@@ -6,7 +6,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-hlsl30-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -69,7 +69,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-hlss30-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -131,7 +131,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-slcs1a-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -194,7 +194,7 @@ resource "aws_lambda_function" "slc_ionosphere_download_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-slc-ionosphere-download-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -244,7 +244,7 @@ resource "aws_lambda_function" "rtc_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-rtc-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -310,7 +310,7 @@ resource "aws_lambda_function" "cslc_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-cslc-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -380,7 +380,7 @@ resource "aws_lambda_function" "batch_query_timer" {
   function_name = "${var.project}-${var.venue}-${local.counter}-batch-query-timer"
   handler       = "lambda_function.lambda_handler"
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
