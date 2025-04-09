@@ -238,7 +238,8 @@ def convert(
                     f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
                     for file in dataset_met_json["Files"]
                 ]
-
+        elif pge_name == "L3_DISP_S1_STATIC":
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
         elif pge_name == "L3_DSWx_NI":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
@@ -328,8 +329,12 @@ def get_collection_info(dataset_id: str, settings: dict):
         collection_name = settings.get("DSWX_S1_COLLECTION_NAME")
         product_version = settings.get("DSWX_S1_PRODUCT_VERSION")
     elif "disp-s1" in dataset_id.lower():
-        collection_name = settings.get("DISP_S1_COLLECTION_NAME")
-        product_version = settings.get("DISP_S1_PRODUCT_VERSION")
+        if "static" in dataset_id.lower():
+            collection_name = settings.get("DISP_S1_STATIC_COLLECTION_NAME")
+            product_version = settings.get("DISP_S1_STATIC_PRODUCT_VERSION")
+        else:
+            collection_name = settings.get("DISP_S1_COLLECTION_NAME")
+            product_version = settings.get("DISP_S1_PRODUCT_VERSION")
     elif "dswx-ni" in dataset_id.lower():
         collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
         product_version = settings.get("DSWX_NI_PRODUCT_VERSION")
