@@ -15,11 +15,8 @@ RUN set -ex \
  # install eccodes with binary tar file for ECMWF merger
  && curl -o /tmp/eccodes-2.31.0-1.el8.x86_64.rpm https://artifactory-fn.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/opera/sds/pcm/eccodes/eccodes-2.31.0-1.el8.x86_64.rpm \
  && sudo dnf install -y /tmp/eccodes-2.31.0-1.el8.x86_64.rpm \
+ && export ECCODES_DIR=/opt/eccodes && pip install eccodes --no-binary eccodes \
  && rm -rf /tmp/eccodes-2.31.0-1.el8.x86_64.rpm \
- # test previous version from NISAR artifactory
-# && curl -o /tmp/eccodes-2.28.1-1.x86_64.rpm https://artifactory.jpl.nasa.gov:443/artifactory/general-develop/gov/nasa/jpl/nisar/sds/pcm/eccodes/eccodes-2.28.1-1.x86_64.rpm \
-# && sudo dnf install -y /tmp/eccodes-2.28.1-1.x86_64.rpm \
-# && rm -rf /tmp/eccodes-2.28.1-1.x86_64.rpm \
  && ln -sf /opt/eccodes/bin/grib_to_netcdf /home/ops/verdi/bin/ \
  # TODO: remove the following kludge once this issue has been resolved:
  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
