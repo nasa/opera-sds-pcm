@@ -248,6 +248,7 @@ def update_grq_es():
     grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
     if grq_es_engine == "opensearch":
         create_ism_policy_grq()
+        # TODO chrisjrd: implement default index template overrides here
         override_os_grq_default_index_template()
         create_os_index_templates_grq()
     elif grq_es_engine == "elasticsearch":

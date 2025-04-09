@@ -57,6 +57,7 @@ def get_es_connection(logger):
         else:
             if es_engine == "elasticsearch":
                 CONN = AncillaryUtility(es_url, logger=logger, product_metadata=product_metadata)
+                CONN.es.ping()  # TODO chrisjrd: remove before final
             elif es_engine == "opensearch":
                 CONN = AncillaryUtility(
                     es_url,
@@ -67,4 +68,5 @@ def get_es_connection(logger):
                     max_retries=10,
                     retry_on_timeout=True,
                 )
+                CONN.es.ping()  # TODO chrisjrd: remove before final
     return CONN
