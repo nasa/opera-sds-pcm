@@ -453,6 +453,8 @@ def update_disp_s1_runconfig(context, work_dir):
 
 def update_disp_s1_static_runconfig(context, work_dir):
     """Updates a runconfig for use with the DISP-S1-STATIC PGE"""
+
+    # TODO: Need to update this when switching away from canned on-demand input data
     run_config: Dict = context.get("run_config")
     job_spec: Dict = context.get("job_specification")
 
