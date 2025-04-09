@@ -581,15 +581,6 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
-    "opera-job_worker-ecmwf-subsetter" = {
-      "instance_type"     = ["r5a.4xlarge", "r6a.4xlarge", "r7a.4xlarge", "r5.4xlarge", "r6i.4xlarge", "r7i.4xlarge", "m5a.8xlarge", "m6a.8xlarge", "m7a.8xlarge", "m5.8xlarge", "m6i.8xlarge", "m7i.8xlarge", "m7i-flex.8xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
-      "root_dev_size"     = 50
-      "data_dev_size"     = 600
-      "max_size"          = 10
-      "total_jobs_metric" = true
-      "use_on_demand"     = false
-    }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
       "instance_type"     = ["r6a.2xlarge"]
