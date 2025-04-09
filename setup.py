@@ -55,6 +55,11 @@ setup(
             "cfgrib",
             "dask",
         ],
+        "disp_s1_status": [
+            # The list of dependencies required to run the disp_s1_status tool.
+            "folium",
+            "branca",
+        ],
         "subscriber": [
             # The list of dependencies required to run the data_subscriber module standalone.
             "boto3",
