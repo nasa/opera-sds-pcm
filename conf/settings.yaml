@@ -27,6 +27,8 @@ DSWX_S1_COLLECTION_NAME: "OPERA_L3_DSWX-S1_V1"
 DSWX_S1_PRODUCT_VERSION: "1.0"
 DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_V1"
 DISP_S1_PRODUCT_VERSION: "1.0"
+DISP_S1_STATIC_COLLECTION_NAME: "OPERA_L3_DISP-S1-STATIC_PROVISIONAL_V0"
+DISP_S1_STATIC_PRODUCT_VERSION: "1.0"
 
 # DSWx-NI in R4
 DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
@@ -182,6 +184,19 @@ DISP_S1:
   ALGORITHM_PARAMETERS_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.7/algorithm_parameters_{processing_mode}.yaml.tmpl"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
   ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.7/opera-disp-s1-algorithm-parameters-overrides-2025-02-21.json"
+
+DISP_S1_STATIC:
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 50
+  # Number of threads to allocate to the "threads_per_worker" field of the DISP-S1 RunConfig
+  NUM_THREADS: 8
+  # Used to calculate the "n_parallel_bursts" field of the DISP-S1 RunConfig
+  # available_cpu_cores * FACTOR + CONSTANT
+  NUM_WORKERS:
+    FACTOR: 0.25
+    CONSTANT: 1
+  # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.7/opera-s1-disp-0.9.0-frame-to-burst.json"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
@@ -423,6 +438,25 @@ PRODUCT_TYPES:
 
         # Specify the metadata key to convert to a start and end time for the dataset times
         Date_Time_Keys: [ 'ref_datetime', 'sec_datetime' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
+    L3_DISP_S1_STATIC:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem_warped_utm.tif"
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_BROWSE.png"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-C])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem_warped_utm|layover_shadow_mask|los_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%d' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'validity_start_date' ]
         # Specify the metadata key to use as the dataset version.
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'

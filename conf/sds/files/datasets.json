@@ -337,6 +337,30 @@
       }
     },
     {
+      "ipath": "hysds::data/L3_DISP_S1_STATIC",
+      "level": "L3",
+      "type": "L3_DISP_S1_STATIC",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\\d{5})_(?P<validity_start_date>\\d{8})_(?P<sensor>S1[A-C])_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DISP_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1_STATIC/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DISP_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1_STATIC/{id}"
+        ]
+      }
+    },
+    {
       "ipath": "hysds::data/L2_CSLC_S1_COMPRESSED",
       "level": "L2",
       "type": "L2_CSLC_S1_COMPRESSED",
