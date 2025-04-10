@@ -1,0 +1,67 @@
+RunConfig:
+  Name: OPERA-TROPO-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: TROPO_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in data.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          {%- for type in data.dynamic_ancillary_file_group.keys() %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}
+          {%- endfor %}
+      ProductPathGroup:
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: TROPO 
+        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProgramPath: opera_tropo 
+        ProgramOptions:
+          - run 
+        ErrorCodeBase: 800000
+        SchemaPath: /home/ops/opera/pge/tropo/schema/tropo_sas_schema.yaml
+        AlgorithmParametersSchemaPath: ""
+        IsoTemplatePath: "" 
+      QAExecutable:
+        Enabled: False
+        ProgramPath: null
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: True
+    SAS:
+      input_file:
+        input_file_path: "{{ data.input_file.input_file_path }}"
+      primary_executable:
+        product_type: OPERA_TROPO 
+      product_path_group:
+        product_path: {{ data.product_path_group.product_path }}
+        scratch_path: {{ data.product_path_group.scratch_path }}
+        sas_output_path: {{ data.product_path_group.product_path }}
+        product_version: "{{ data.product_path_group.product_version }}"
+      worker_settings:
+        n_workers: {{ data.processing.n_workers }} 
+        threads_per_worker: {{ data.processing.threads_per_worker }}
+        max_memory: {{ data.processing.max_memory }}
+        dask_temp_dir: "tmp"
+        block_shape:
+          - 128
+          - 128 
+      output_options:
+        output_heights: 
+        {%- for height in data.output_options.output_heights %}
+          - {{ height }}
+          {%- endfor %} 
+        compression_kwargs:
+          compression_flag: {{ data.output_options.compression_kwargs.compression_flag }} 
+          zlib: {{ data.output_options.compression_kwargs.zlib }} 
+          complevel: {{ data.output_options.compression_kwargs.complevel }} 
+          shuffle: {{ data.output_options.compression_kwargs.shuffle }} 
+      log_file: {{ data.product_path_group.scratch_path }}/dswx-s1.log
