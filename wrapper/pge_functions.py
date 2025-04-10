@@ -474,19 +474,12 @@ def update_disp_s1_static_runconfig(context, work_dir):
     container_home_prefix = f'{container_home}/input_dir'
 
     local_input_dir = os.path.join(work_dir, "disp_s1_static_r6.6_calval_expected_input", 'cslc_static')
+    # local_input_dir = os.path.join(work_dir, "pge_input_dir")
 
-    print(local_input_dir)
-    print()
-    print(os.path.join(local_input_dir, "*CSLC-S1-STATIC_*.h5"))
-    print()
-    print(glob.glob(os.path.join(local_input_dir, "*CSLC-S1-STATIC_*.h5")))
-    print()
-    print()
-
-    updated_input_file_paths = []
-
-    for input_file_path in glob.glob(os.path.join(local_input_dir, "*CSLC-S1-STATIC_*.h5")):
-        updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
+    # updated_input_file_paths = []
+    #
+    # for input_file_path in glob.glob(os.path.join(local_input_dir, "*CSLC-S1-STATIC_*.h5")):
+    #     updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = list(map(
         lambda x: x.replace(local_input_dir, container_home_prefix),
