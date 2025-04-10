@@ -55,7 +55,7 @@ runconfig_update_functions = {
     'L3_DSWx_HLS': update_dswx_hls_runconfig,
     'L3_DSWx_S1': update_dswx_s1_runconfig,
     'L3_DISP_S1': update_disp_s1_runconfig,
-    'L3_DISP_STATIC_S1': update_disp_s1_static_runconfig,
+    'L3_DISP_S1_STATIC': update_disp_s1_static_runconfig,
     'L3_DSWx_NI': update_dswx_ni_runconfig,
     'L3_DIST_S1': update_dist_s1_runconfig,
 }
