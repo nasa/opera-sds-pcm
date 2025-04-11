@@ -28,8 +28,9 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
-def get_s3_resource_from_settings(settings_field):
-    settings = SettingsConf().cfg
+def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
+
+    settings = SettingsConf(settings_yaml_path).cfg
     burst_file_url = urlparse(settings[settings_field])
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
@@ -40,19 +41,19 @@ def get_s3_resource_from_settings(settings_field):
 logger = get_logger()
 
 @backoff.on_exception(backoff.expo, Exception, max_time=30)
-def localize_anc_json(settings_field):
+def localize_anc_json(settings_field, settings_yaml_path=None):
     '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
 
-    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field)
+    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field, settings_yaml_path)
     s3.Object(burst_file_url.netloc, path).download_file(file)
 
     return file
 
 @cache
-def localize_disp_frame_burst_hist():
+def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
     try:
-        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
+        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH", settings_yaml_path)
     except:
         logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. "
                        f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
@@ -61,10 +62,10 @@ def localize_disp_frame_burst_hist():
     return process_disp_frame_burst_hist(file)
 
 @cache
-def localize_frame_geo_json():
+def localize_frame_geo_json(settings_yaml_path=None):
 
     try:
-        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
+        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE", settings_yaml_path=None)
     except:
         logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. "
                        f"Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
