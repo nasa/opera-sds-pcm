@@ -805,12 +805,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_disp_s1_static_sample_inputs(self):
         """
-                Temporary function to stage the "golden" inputs for use with the DIST-S1
-                PGE.
-                TODO: this function will eventually be phased out as functions to
-                      acquire the appropriate input files are implemented with future
-                      releases
-                """
+        Temporary function to stage the "golden" inputs for use with the DISP-S1-STATIC
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # get the working directory
