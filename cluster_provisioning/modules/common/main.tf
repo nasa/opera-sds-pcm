@@ -338,6 +338,14 @@ locals {
           "ID" : "RS Bucket Inputs Deletion",
           "Prefix" : "inputs/",
           "Status" : "Enabled"
+        },
+        {
+          "Expiration" : {
+            "Days" : var.rs_fwd_bucket_ingested_expiration
+          },
+          "ID" : "RS Bucket tmp Deletion",
+          "Prefix" : "tmp/",
+          "Status" : "Enabled"
         }
       ]
     }
