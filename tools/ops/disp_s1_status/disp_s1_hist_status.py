@@ -33,7 +33,7 @@ eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, LOGGER)
 LOGGER.debug("Connected to %s" % str(eu.es_url))
 
 # Process the default disp s1 burst hist file
-frames_to_bursts, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist()
+frames_to_bursts, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist(str(Path("/export/home/hysdsops/mozart/ops/opera-pcm/conf/settings.yaml")))
 
 def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
