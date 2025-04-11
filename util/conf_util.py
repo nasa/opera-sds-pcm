@@ -108,18 +108,20 @@ class RunConfig(object):
         tmpl_file_dir = norm_path(os.path.join(os.path.dirname(__file__), "..", "conf"))
         file_loader = FileSystemLoader(tmpl_file_dir)
         env = Environment(loader=file_loader)
+
         template = env.get_template(
             "RunConfig.yaml.{}.jinja2.tmpl".format(template_type)
         )
+
         self._template_type = template_type
-        self._rendered_rc = template.render(data=rc_data)
+        self._rendered_rc = template.render(runconfig=rc_data)
 
     def validate(self, rc_file, template_type):
-
         try:
             schema_file = os.path.join(os.path.dirname(__file__), "..", "conf", "schema",
                                        "RunConfig_schema.{}.yaml".format(template_type))
             schema = yamale.make_schema(schema_file)
+
             # Create a Data object
             data = yamale.make_data(rc_file)
             yamale.validate(schema, data)

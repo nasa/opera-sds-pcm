@@ -6,22 +6,22 @@ RunConfig:
         PGEName: DSWX_S1_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in data.input_file_group.input_file_paths %}
+          {%- for input in runconfig.input_file_group.input_file_paths %}
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
-          {%- for type in data.dynamic_ancillary_file_group.keys() %}
-          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
-          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        OutputProductPath: {{ data.product_path_group.product_path }}
-        ScratchPath: {{ data.product_path_group.scratch_path }}
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: DSWX_S1
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
         ProgramPath: python3
         ProgramOptions:
           - /home/dswx_user/OPERA/DSWX-SAR/src/dswx_sar/dswx_s1.py
@@ -44,19 +44,19 @@ RunConfig:
             pge_name: DSWX_S1_PGE
           input_file_group:
             input_file_path:
-              {%- for input in data.input_file_group.input_file_paths %}
+              {%- for input in runconfig.input_file_group.input_file_paths %}
               - {{ input }}
               {%- endfor %}
-            input_mgrs_collection_id: {{ data.input_file_group.input_mgrs_collection_id }}
+            input_mgrs_collection_id: {{ runconfig.input_file_group.input_mgrs_collection_id }}
           dynamic_ancillary_file_group:
-            {%- for type in data.dynamic_ancillary_file_group.keys() %}
-            {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
-            {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+            {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+            {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
             {%- endfor %}
-            algorithm_parameters: {{ data.processing.algorithm_parameters }}
+            algorithm_parameters: {{ runconfig.processing.algorithm_parameters }}
             # TODO: update descriptions as necessary when new ancillary releases are available
             dem_file_description: 'Copernicus DEM GLO-30 2021 WGS84'
             worldcover_file_description: 'ESA WorldCover 10m 2020 v1.0'
@@ -65,9 +65,9 @@ RunConfig:
             glad_classification_file_description: 'GLAD Global Land Cover 2020'
           static_ancillary_file_group:
             static_ancillary_inputs_flag: True
-            {%- for type in data.static_ancillary_file_group.keys() %}
-            {%- if data.static_ancillary_file_group[ type ] is not none %}
-            {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
+            {%- for type in runconfig.static_ancillary_file_group.keys() %}
+            {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
@@ -75,10 +75,10 @@ RunConfig:
           primary_executable:
             product_type: dswx_s1
           product_path_group:
-            product_path: {{ data.product_path_group.product_path }}
-            scratch_path: {{ data.product_path_group.scratch_path }}
-            sas_output_path: {{ data.product_path_group.product_path }}
-            product_version: "{{ data.product_path_group.product_version }}"
+            product_path: {{ runconfig.product_path_group.product_path }}
+            scratch_path: {{ runconfig.product_path_group.scratch_path }}
+            sas_output_path: {{ runconfig.product_path_group.product_path }}
+            product_version: "{{ runconfig.product_path_group.product_version }}"
             output_imagery_format: 'COG'
           browse_image_group:
             save_browse: True
@@ -91,4 +91,4 @@ RunConfig:
             set_layover_shadow_to_nodata: True
             set_ocean_masked_to_nodata: False
             save_tif_to_output: True
-          log_file: {{ data.product_path_group.scratch_path }}/dswx-s1.log
+          log_file: {{ runconfig.product_path_group.scratch_path }}/dswx-s1.log
