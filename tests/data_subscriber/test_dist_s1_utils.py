@@ -2,6 +2,7 @@
 
 import pytest
 import conftest
+import pickle
 from data_subscriber.dist_s1_utils import localize_dist_burst_db, compute_dist_s1_triggering, build_rtc_native_ids
 
 dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
@@ -38,6 +39,32 @@ granule_ids = ["OPERA_L2_RTC-S1_T168-359595-IW3_20231217T053154Z_20231218T195230
                 'OPERA_L2_RTC-S1_T168-359585-IW2_20231217T053125Z_20231220T055807Z_S1A_30_v1.0',
                 'OPERA_L2_RTC-S1_T168-359585-IW1_20231217T053124Z_20231220T055807Z_S1A_30_v1.0',
                 'OPERA_L2_RTC-S1_T168-359584-IW3_20231217T053123Z_20231220T055807Z_S1A_30_v1.0']
+
+
+def test_burst_map_pickle():
+    '''Test that we can pickle and unpickle burst map files'''
+
+    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
+
+    # Save the lengths of all the objects for comparison after unpickling
+    dist_products_len = len(dist_products)
+    bursts_to_products_len = len(bursts_to_products)
+    product_to_bursts_len = len(product_to_bursts)
+    all_tile_ids_len = len(all_tile_ids)
+
+    # First, pickle dist_products, bursts_to_products, product_to_bursts, all_tile_ids into a single file
+    with open("dist_products.pickle", "wb") as f:
+        pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
+
+    # Now, unpickle the file
+    with open("dist_products.pickle", "rb") as f:
+        dist_products, bursts_to_products, product_to_bursts, all_tile_ids = pickle.load(f)
+
+    # Check that the lengths of the unpickled objects are the same as the original ones
+    assert len(dist_products) == dist_products_len
+    assert len(bursts_to_products) == bursts_to_products_len
+    assert len(product_to_bursts) == product_to_bursts_len
+    assert len(all_tile_ids) == all_tile_ids_len
 
 def test_compute_dist_s1_triggering_incomplete():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""

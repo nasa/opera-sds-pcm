@@ -1,5 +1,7 @@
 import sys
+import os
 from functools import cache
+import pickle
 
 import pandas as pd
 from collections import defaultdict
@@ -10,12 +12,22 @@ from commons.logger import get_logger
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
 from data_subscriber.url import determine_acquisition_cycle
 
-DEFAULT_DIST_BURST_DB_NAME= "mgrs_burst_lookup_table.parquet"
+DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
+DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
 
 logger = get_logger()
 
 @cache
 def localize_dist_burst_db():
+
+    # First see if a pickle file exists
+    try:
+        with open(DIST_BURST_DB_PICKLE_NAME, "rb") as f:
+            dist_products, bursts_to_products, product_to_bursts, all_tile_ids = pickle.load(f)
+            logger.info("Loaded DIST-S1 burst database from pickle file.")
+            return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
+    except FileNotFoundError:
+        logger.info(f"Could not find {DIST_BURST_DB_PICKLE_NAME}. Processing DIST-S1 burst database file.")
 
     try:
         file = localize_anc_json("DIST_S1_BURST_DB_S3PATH")
@@ -24,7 +36,15 @@ def localize_dist_burst_db():
                        f"Attempting to use local copy named {DEFAULT_DIST_BURST_DB_NAME}.")
         file = DEFAULT_DIST_BURST_DB_NAME
 
-    return process_dist_burst_db(file)
+    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(file)
+
+    # Check to see if the DIST_BURST_DB_PICKLE_NAME file exists and create it if it doesn't
+    if not os.path.isfile(DIST_BURST_DB_PICKLE_NAME):
+        with open(DIST_BURST_DB_PICKLE_NAME, "wb") as f:
+            pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
+            logger.info(f"Saved DIST-S1 burst database to {DIST_BURST_DB_PICKLE_NAME}.")
+
+    return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
 @cache
 def process_dist_burst_db(file):
