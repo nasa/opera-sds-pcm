@@ -28,8 +28,8 @@
       "name":"dataset_type",
       "from": "value",
       "type": "text",
-      "value":"L2_CSLC_S1",
-      "default": "L2_CSLC_S1"
+      "value":"L2_CSLC_S1_STATIC",
+      "default": "L2_CSLC_S1_STATIC"
     },
     {
       "name":"input_dataset_id",
