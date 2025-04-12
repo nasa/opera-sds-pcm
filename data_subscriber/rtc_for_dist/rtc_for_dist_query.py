@@ -29,11 +29,11 @@ class RtcForDistCmrQuery(CmrQuery):
 
         #TODO: Grace minutes? Read from settings.yaml
 
-        #TODO: Set up es_conn and data structures for Baseline Set granules
-
-        '''This data structure is set by determine_download_granules and consumed by download_job_submission_handler
+        '''These two maps are set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
+        self.batch_id_to_granules = {}
         self.batch_id_to_k_granules = {}
+        self.force_product_id = None
 
     def validate_args(self):
         pass
@@ -41,7 +41,6 @@ class RtcForDistCmrQuery(CmrQuery):
     def query_cmr(self, timerange, now: datetime):
         if self.args.proc_mode == "forward":
             granules = super().query_cmr(timerange, now)
-            force_product_id = None
         elif self.args.proc_mode == "reprocessing":
             granules = []
 
@@ -61,7 +60,7 @@ class RtcForDistCmrQuery(CmrQuery):
             end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_time, end_time)
             for product_id in product_ids:
-                force_product_id = product_id #TODO: This needs to change if we change this code back to using granule_id instead of product_id
+                self.force_product_id = product_id #TODO: This needs to change if we change this code back to using granule_id instead of product_id
                 new_args = deepcopy(self.args)
                 new_args.use_temporal = True
                 count, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts)
@@ -76,6 +75,7 @@ class RtcForDistCmrQuery(CmrQuery):
 
         elif self.args.proc_mode == "historical":
             self.logger.error("Historical processing mode is not supported for RTC for DIST products.")
+            granules = []
 
         # Remove granules whose burst_id is not in the burst database
         filtered_granules = []
@@ -96,7 +96,6 @@ class RtcForDistCmrQuery(CmrQuery):
                     granules_dict[key] = granule
         filtered_granules = list(granules_dict.values())
 
-        self.extend_additional_records(filtered_granules, force_product_id)
         return filtered_granules
 
     def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
@@ -106,6 +105,7 @@ class RtcForDistCmrQuery(CmrQuery):
         def decorate_granule(granule):
             granule["tile_id"] = granule["product_id"].split("_")[0]
             granule["acquisition_group"] = granule["product_id"].split("_")[1]
+            granule["batch_id"] = granule["product_id"] + "_" + str(granule["acquisition_cycle"])
             granule["download_batch_id"] = dist_s1_download_batch_id(granule)
             granule["unique_id"] = rtc_for_dist_unique_id(granule["download_batch_id"], granule["burst_id"])
 
@@ -144,6 +144,10 @@ class RtcForDistCmrQuery(CmrQuery):
         if len(granules) == 0:
             return granules
 
+        self.logger.debug(f"{len(granules)} granules, before extending")
+        self.extend_additional_records(granules, force_product_id=self.force_product_id)
+        self.logger.debug(f"{len(granules)} granules, after extending")
+
         download_granules = []
 
         # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
@@ -151,14 +155,16 @@ class RtcForDistCmrQuery(CmrQuery):
         # TODO: time format is bit diff from CSLC. This one has Z at the end.
         #unsubmitted = self.es_conn.get_unsubmitted_granules()
 
-        self.logger.debug("len(granules)=%d", len(granules))
+        self.logger.info(f"Determining download granules from {len(granules)} granules")
         #self.logger.debug("len(unsubmitted)=%d", len(unsubmitted))
 
         #TODO: After merging new granules with unsubmitted granules, make sure to remove any duplicates and pick the latest
 
         # Create a dict of granule_id to granule
-        granules_dict = {granule["granule_id"]: granule for granule in granules}
-        granule_ids = list(granules_dict.keys())
+        granules_dict = {(granule["granule_id"], granule["batch_id"]): granule for granule in granules}
+        #print("len(granules_dict)", len(granules_dict))
+        #print("granules_dict keys: ", granules_dict.keys())
+        granule_ids = list(set([k[0] for k in granules_dict.keys()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
         products_triggered, granules_triggered, _, _ = compute_dist_s1_triggering(
             self.bursts_to_products, self.product_to_bursts, granule_ids, complete_bursts_only = True)
@@ -166,11 +172,12 @@ class RtcForDistCmrQuery(CmrQuery):
 
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
 
-        for product_id, product in products_triggered.items():
+        for batch_id, product in products_triggered.items():
             for rtc_granule in product.rtc_granules:
-                by_download_batch_id[product_id][rtc_granule] = granules_dict[rtc_granule]
-                download_granules.append(granules_dict[rtc_granule])
+                by_download_batch_id[batch_id][rtc_granule] = granules_dict[(rtc_granule, batch_id)]
+                download_granules.append(granules_dict[(rtc_granule, batch_id)])
 
+        # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
         for batch_id, download_batch in by_download_batch_id.items():
             #if batch_id == "32UPD_4_302":
             #    for k in download_batch.keys():
@@ -179,6 +186,7 @@ class RtcForDistCmrQuery(CmrQuery):
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
             all_granules = list(download_batch.values())
             download_batch_id = all_granules[0]["download_batch_id"]
+            self.batch_id_to_granules[download_batch_id] = all_granules # Used when submitting download job
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
             try:
@@ -257,7 +265,7 @@ class RtcForDistCmrQuery(CmrQuery):
 
         return k_granules
 
-    def download_job_submission_handler(self, granules, query_timerange):
+    def download_job_submission_handler(self, total_granules, query_timerange):
 
         def add_filtered_urls(granule, filtered_urls: list):
             if granule.get("filtered_urls"):
@@ -269,9 +277,10 @@ class RtcForDistCmrQuery(CmrQuery):
         batch_id_to_baseline_urls = defaultdict(list)
         product_metadata = {}
 
-        for granule in granules:
-            #self.logger.info(granule["download_batch_id"])
-            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]])
+        for batch_id, granules in self.batch_id_to_granules.items():
+            for granule in granules:
+                #self.logger.info(granule["download_batch_id"])
+                add_filtered_urls(granule, batch_id_to_urls_map[batch_id])
 
         for download_batch_id, granules in self.batch_id_to_k_granules.items():
             for granule in granules:

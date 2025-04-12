@@ -30,12 +30,10 @@ def test_extend_additional_records():
     GRANULE_ID1 = "OPERA_L2_RTC-S1_T168-359595-IW3_20231217T053154Z_20231218T195230Z_S1A_30_v1.0"
     GRANULE_ID2 = "OPERA_L2_RTC-S1_T168-359595-IW2_20231217T053153Z_20231218T195230Z_S1A_30_v1.0"
 
-    # TODO: Sort this out and renable it
-    #m = {}
-    #m["p31RGQ_3_a302"] = GRANULE_ID1
-    #m["p32RKV_3_a302"] = GRANULE_ID1
-    #m["p32RLV_3_a302"] = GRANULE_ID2
-    #m["p32RKV_3_a302"] = GRANULE_ID2
+    m = {}
+    m["p31RGQ_3_a302"] = [GRANULE_ID1]
+    m["p32RKV_3_a302"] = [GRANULE_ID1, GRANULE_ID2]
+    m["p32RLV_3_a302"] = [GRANULE_ID2]
 
     granules = []
     granules.append({"granule_id": GRANULE_ID1})
@@ -54,34 +52,44 @@ def test_extend_additional_records():
 
     assert len(granules) == 4
 
-    # TODO: Sort this out and renable it
-    #for granule in granules:
-    #    assert m[granule["download_batch_id"]] == granule["granule_id"]
+    for granule in granules:
+        assert granule["granule_id"] in m[granule["download_batch_id"]]
 
 def test_determine_download_granules(monkeypatch):
     """Given a list of granules, test that we are determining the download granules correctly"""
 
-    granule_ids = ['OPERA_L2_RTC-S1_T168-359593-IW3_20231217T053148Z_20231218T195230Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359593-IW2_20231217T053147Z_20231218T195230Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359593-IW1_20231217T053146Z_20231218T195230Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359592-IW3_20231217T053145Z_20231218T195230Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359592-IW2_20231217T053144Z_20231218T195230Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359592-IW1_20231217T053143Z_20231218T195230Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359591-IW3_20231217T053143Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359591-IW2_20231217T053142Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359591-IW1_20231217T053141Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359590-IW3_20231217T053140Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359590-IW2_20231217T053139Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359590-IW1_20231217T053138Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359589-IW3_20231217T053137Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359589-IW2_20231217T053136Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359589-IW1_20231217T053135Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359588-IW3_20231217T053134Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359588-IW2_20231217T053133Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359588-IW1_20231217T053132Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359587-IW3_20231217T053132Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359587-IW2_20231217T053131Z_20231220T055807Z_S1A_30_v1.0',
-                'OPERA_L2_RTC-S1_T168-359587-IW1_20231217T053130Z_20231220T055807Z_S1A_30_v1.0']
+    granule_ids = ['OPERA_L2_RTC-S1_T168-359433-IW1_20231217T052425Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359432-IW3_20231217T052424Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359432-IW2_20231217T052423Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359432-IW1_20231217T052422Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359431-IW3_20231217T052421Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359431-IW2_20231217T052420Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359430-IW3_20231217T052419Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359431-IW1_20231217T052419Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359430-IW2_20231217T052418Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359430-IW1_20231217T052417Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359429-IW3_20231217T052416Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359429-IW1_20231217T052414Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359428-IW3_20231217T052413Z_20231220T055805Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359428-IW2_20231217T052412Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359428-IW1_20231217T052411Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359427-IW3_20231217T052410Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359427-IW2_20231217T052409Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359427-IW1_20231217T052408Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359426-IW3_20231217T052408Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359426-IW2_20231217T052407Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359426-IW1_20231217T052406Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359425-IW3_20231217T052405Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359425-IW2_20231217T052404Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359425-IW1_20231217T052403Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359424-IW3_20231217T052402Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359424-IW2_20231217T052401Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359424-IW1_20231217T052400Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359423-IW3_20231217T052359Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359423-IW2_20231217T052358Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359423-IW1_20231217T052357Z_20231220T055739Z_S1A_30_v1.0',
+                    'OPERA_L2_RTC-S1_T168-359422-IW3_20231217T052356Z_20231220T055739Z_S1A_30_v1.0']
 
     granules = []
     for granule_id in granule_ids:
@@ -98,6 +106,13 @@ def test_determine_download_granules(monkeypatch):
     cmr_query = RtcForDistCmrQuery(args, None, None, None, None, None)
     cmr_query.extend_additional_records(granules)
 
+    '''mock_super_cmr_query = MagicMock(return_value=[])
+    monkeypatch.setattr(
+        cmr_query.super,
+        cmr_query.super.query_cmr.__name__,
+        mock_super_cmr_query
+    )'''
+
     mock_retrieve_baseline_granules = MagicMock(return_value=[])
     monkeypatch.setattr(
         cmr_query,
@@ -106,7 +121,12 @@ def test_determine_download_granules(monkeypatch):
     )
     download_granules = cmr_query.determine_download_granules(granules)
 
-    assert len(download_granules) == 7
+    assert 'p33VUF_5_a302' in cmr_query.batch_id_to_granules
+    assert 'p32VPL_5_a302' in cmr_query.batch_id_to_granules
+    assert len(cmr_query.batch_id_to_granules["p33VUF_5_a302"]) == 11
+    assert len(cmr_query.batch_id_to_granules["p32VPL_5_a302"]) == 7
+
+    assert len(download_granules) == 18
 
 
 """def test_reprocessing_by_native_id(caplog):
