@@ -4,17 +4,17 @@
   "soft_time_limit": 129600,
   "time_limit": 129660,
   "imported_worker_files": {
-    "$HOME/.netrc": "/home/ops/.netrc",
-    "$HOME/.aws": "/home/ops/.aws",
-    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
   "dependency_images": [
     {
       "container_image_name": "opera_pge/disp_s1:3.0.2",
       "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.2.tar.gz",
       "container_mappings": {
-        "$HOME/.netrc": ["/root/.netrc"],
-        "$HOME/.aws": ["/root/.aws", "ro"]
+        "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+        "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
       }
     }
   ],

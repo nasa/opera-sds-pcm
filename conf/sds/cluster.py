@@ -127,6 +127,26 @@ def update_opera_packages():
         update_harikiri_config()
         update_spot_termination_config()
 
+    hysds_dirs = get_hysds_dirs()
+    for hysds_dir in hysds_dirs:
+        if hysds_dir == "verdi":
+            send_template(
+                "docker-compose.yml.verdi",
+                "~/verdi/ops/hysds-dockerfiles/verdi/docker-compose.yml",
+            )
+            send_template(
+                "run_verdi_podman.sh.tmpl",
+                "~/verdi/ops/hysds-dockerfiles/verdi/run_verdi_podman.sh",
+            )
+            # Deploying this will allow us to dynamically determine whether we should start up verdi
+            # with docker or podman
+            send_template(
+                "start-verdi.sh",
+                "~/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh",
+            )
+            execute(chmod, "uog+x", "~/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh", roles=[role])
+
+
 
 def get_hysds_dirs():
     role, hysds_dir, _ = resolve_role()

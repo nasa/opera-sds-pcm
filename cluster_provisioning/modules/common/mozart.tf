@@ -273,6 +273,9 @@ resource "aws_instance" "mozart" {
       echo VERDI_TAG: ${var.hysds_release} >> ~/.sds/config
       echo VERDI_UID: 1002 >> ~/.sds/config
       echo VERDI_GID: 1002 >> ~/.sds/config
+      echo HOST_VERDI_HOME: "$HOME" >> ~/.sds/config
+      echo VERDI_HOME: "root" >> ~/.sds/config
+      echo VERDI_SHELL: "/bin/bash" >> ~/.sds/config
       echo VENUE: ${var.project}-${var.venue}-${local.counter} >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -320,6 +323,7 @@ resource "aws_instance" "mozart" {
       echo DATASET_QUERY_INDEX: grq >> ~/.sds/config
       echo USER_RULES_DATASET_INDEX: user_rules >> ~/.sds/config
       echo EXTRACTOR_HOME: /home/ops/verdi/ops/${var.project}-pcm/extractor >> ~/.sds/config
+      echo CONTAINER_ENGINE: docker >> ~/.sds/config
       echo CONTAINER_REGISTRY: localhost:5050 >> ~/.sds/config
       echo CONTAINER_REGISTRY_BUCKET: ${var.docker_registry_bucket} >> ~/.sds/config
 
@@ -412,7 +416,7 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py ;
-      conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet ;
+      conda install conda gdal==3.6.4 poppler --yes --quiet ;
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -427,7 +431,7 @@ resource "aws_instance" "mozart" {
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         echo installing gdal for manual execution of daac_data_subscriber.py
-        conda install conda==22.11.1 gdal==3.6.2 poppler==22.12.0 --yes --quiet
+        conda install conda gdal==3.6.4 poppler --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
@@ -608,7 +612,7 @@ resource "aws_instance" "mozart" {
       sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
-      aws s3 cp logstash-7.9.3.tar.gz s3://${local.code_bucket}/ --no-progress
+      aws s3 cp logstash-oss-7.16.3.tar.gz s3://${local.code_bucket}/ --no-progress
       sds -d reset all -f
       cd ~/mozart/ops/pcm_commons
       pip install --progress-bar off -e .

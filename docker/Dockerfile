@@ -5,13 +5,23 @@ ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
 ARG PRODUCT_DELIVERY_BRANCH
 
+# create ops user and group
+RUN useradd -M -u 10005 ops
+
+# softlink /home/ops
+RUN ln -s /root /home/ops
+
+# Make sure $HOME is set when we run this container
+ENV HOME=/home/ops
+
 # provision
-USER ops
+USER root
 COPY . /home/ops/verdi/ops/opera-pcm
 RUN set -ex \
  && source /home/ops/.bash_profile \
  # TODO: remove pin of conda and gdal once updated gdal (3.7.*) has been pushed to the main channel
- && sudo /opt/conda/bin/conda install -y conda==22.11.1 gdal==3.6.2 cffi poppler==22.12.0 \
+ && sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal==3.6.4 cffi poppler eccodes==2.31.0 \
+ && ln -sf /opt/eccodes/bin/grib_to_netcdf /home/ops/verdi/bin/ \
  # TODO: remove the following kludge once this issue has been resolved:
  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
  && sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2 \
