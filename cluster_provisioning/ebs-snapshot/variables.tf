@@ -80,7 +80,7 @@ variable "verdi" {
   type = map(string)
   default = {
     name = "verdi"
-    ami = "ami-0acb06c58411bcf64" # verdi v5.2 patchdate - 240915
+    ami = "ami-0848b01e539be8005"  # OL8 All-project verdi v5.3 patchdate - 250331
     instance_type = "t3.medium"
     device_name = "/dev/sda1"
     device_size = 50

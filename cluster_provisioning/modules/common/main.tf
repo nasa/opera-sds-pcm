@@ -507,7 +507,7 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
   }
   filter {
     name   = "tag:Logstash"
-    values = ["7.9.3"]
+    values = ["7.16.3"]
   }
 }
 

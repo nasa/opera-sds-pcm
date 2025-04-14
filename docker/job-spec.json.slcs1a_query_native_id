@@ -4,9 +4,9 @@
   "soft_time_limit": 600,
   "time_limit": 660,
   "imported_worker_files": {
-    "$HOME/.netrc": "/home/ops/.netrc",
-    "$HOME/.aws": "/home/ops/.aws",
-    "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
   "recommended-queues": [ "opera-job_worker-slc_data_query" ],
   "post": [ "hysds.triage.triage" ],
