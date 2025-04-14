@@ -99,6 +99,8 @@ class OperaAccountability(Accountability):
         elif self.input_files_type in ('L2_RTC_S1', 'L2_CSLC_S1',):
             self.product_paths = [os.path.join(file_metadata['FileLocation'], file_metadata['FileName'])
                                   for file_metadata in metadata.get('Files', {})]
+        elif self.input_files_type in ('L2_CSLC_S1_STATIC',):
+            self.product_paths = metadata["product_paths"]["L2_CSLC_S1_STATIC"]
         elif self.input_files_type in ('L2_NISAR_GCOV',):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
         else:

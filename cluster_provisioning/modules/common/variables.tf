@@ -360,6 +360,18 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = true
     }
+    "opera-job_worker-sciflo-l3_disp_s1_static" = {
+      "name"              = "opera-job_worker-sciflo-l3_disp_s1_static"
+      "log_file_name"     = "run_sciflo_L3_DISP_S1_STATIC"
+      "instance_type"     = ["c7a.large", "c6a.large", "c6i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 100
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 40
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
