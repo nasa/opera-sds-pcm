@@ -47,6 +47,14 @@ setup(
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
 
             "aws-requests-auth",
+
+            # for ECMWF merger
+            "rioxarray",
+            "boto3",
+            "backoff",
+            "netCDF4",
+            "cfgrib",
+            "dask",
         ],
         "subscriber": [
             # The list of dependencies required to run the data_subscriber module standalone.
