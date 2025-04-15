@@ -17,12 +17,12 @@ from sdscli.adapters.hysds.fabfile import (
     settings,
     get_user_files_path,
     copy,
-#    install_es_template
-	install_es_template,
+    install_es_template,
     pip_install_with_req,
     ops_dir,
     ssh_opts,
-    extra_opts
+    extra_opts,
+    chmod,
 )
 
 
@@ -85,6 +85,8 @@ def update_opera_packages():
     """Update verdi and factotum with OPERA packages."""
 
     role, hysds_dir, hostname = resolve_role()
+    ctx = get_context(role)
+    metrics_es_engine = ctx.get("METRICS_ES_ENGINE", "elasticsearch")
 
     if role == "mozart":
         rm_rf("~/.sds/rules/staging_rules.json")
@@ -92,6 +94,16 @@ def update_opera_packages():
             "user_rules-cnm.json.tmpl",
             "~/.sds/rules/user_rules-cnm.json",
             "~/mozart/ops/opera-pcm/conf/sds/rules",
+        )
+        # Copy the dashboard script template from ~/.sds/files to the deployment
+        # area
+        if metrics_es_engine == "opensearch":
+            dashboard_dir = "opensearch_dashboards_import"
+        else:
+            dashboard_dir = "kibana_dashboard_import"
+        copy(
+            f"~/.sds/files/{dashboard_dir}/import_dashboard.sh.tmpl",
+            f"~/mozart/ops/sdscli/sdscli/adapters/hysds/files/{dashboard_dir}/import_dashboard.sh.tmpl",
         )
         copy(
             "~/mozart/ops/pcm_commons/pcm_commons/tools/snapshot_es_data.py",
@@ -235,11 +247,9 @@ def update_grq_es():
     context = get_context()
     grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
     if grq_es_engine == "opensearch":
-        # TODO chrisjrd: implement ISM policy changes here
         create_ism_policy_grq()
-        # TODO chrisjrd: implement default index template overrides here
-        # TODO chrisjrd: implement index template changes here
-        pass
+        override_os_grq_default_index_template()
+        create_os_index_templates_grq()
     elif grq_es_engine == "elasticsearch":
         create_ilm_policy_grq()
         override_grq_default_index_template()
@@ -292,6 +302,17 @@ def override_grq_default_index_template():
 
 
 @roles("grq")
+def override_os_grq_default_index_template():
+    role, hysds_dir, _ = resolve_role()
+
+    copy(
+        "~/.sds/files/os_template.json",
+        f"{hysds_dir}/ops/grq2/config/es_template.json",
+    )
+    execute(install_es_template, roles=[role])
+
+
+@roles("grq")
 def create_index_templates_grq():
     role, hysds_dir, _ = resolve_role()
 
@@ -310,6 +331,34 @@ def create_index_templates_grq():
     ]:
         copy(
             f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
+            f"{hysds_dir}/ops/grq2/config/{file}"
+        )
+        run(
+            f"curl --request PUT --url 'localhost:9200/_index_template/{template}?pretty&create=true' "
+            "--fail-with-body "
+            f"--json @{hysds_dir}/ops/grq2/config/{file}"
+        )
+
+
+@roles("grq")
+def create_os_index_templates_grq():
+    role, hysds_dir, _ = resolve_role()
+
+    print(f"Creating index templates for {role}")
+
+    for file, template in [
+        ("os_template_jobs_accountability_catalog.json",    "jobs_accountability_catalog_template"),
+        ("os_template_hls_catalog.json",                    "hls_catalog_template"),
+        ("os_template_hls_spatial_catalog.json",            "hls_spatial_catalog_template"),
+        ("os_template_slc_catalog.json",                    "slc_catalog_template"),
+        ("os_template_slc_spatial_catalog.json",            "slc_spatial_catalog_template"),
+        ("os_template_rtc_catalog.json",                    "rtc_catalog_template"),
+        ("os_template_cslc_catalog.json",                   "cslc_catalog_template"),
+        ("os_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
+        ("os_template_cslc_compressed_product.json",        "cslc_compressed_product_template")
+    ]:
+        copy(
+            f"~/.sds/files/opensearch/grq_os_templates/{file}",
             f"{hysds_dir}/ops/grq2/config/{file}"
         )
         run(

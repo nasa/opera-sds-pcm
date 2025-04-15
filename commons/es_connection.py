@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from typing import Union
 
 from hysds.celery import app
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
@@ -13,7 +13,7 @@ GRQ_ES = None
 MOZART_ES = None
 
 
-def get_grq_es(logger=None) -> AncillaryUtility:
+def get_grq_es(logger=None) -> Union[ElasticsearchUtility, AncillaryUtility]:
     global GRQ_ES
 
     if GRQ_ES is None:
@@ -81,5 +81,18 @@ def get_mozart_es(logger):
             hosts = [app.conf.JOBS_ES_URL, app.conf.GRQ_ES_URL, app.conf.METRICS_ES_URL]
         else:
             hosts = [app.conf.JOBS_ES_URL]
-        MOZART_ES = ElasticsearchUtility(hosts, logger=logger or default_logger)
+
+        es_engine = app.conf.get('GRQ_ES_ENGINE', "elasticsearch")
+        if es_engine == "elasticsearch":
+            MOZART_ES = ElasticsearchUtility(hosts, logger=logger or default_logger)
+        elif es_engine == "opensearch":
+            MOZART_ES = AncillaryUtility(
+                    hosts,
+                    engine=es_engine,
+                    logger=logger or default_logger,
+                    product_metadata=product_metadata,
+                    timeout=30,
+                    max_retries=10,
+                    retry_on_timeout=True,
+                )
     return MOZART_ES

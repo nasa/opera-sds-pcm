@@ -5,7 +5,6 @@
   ],
   "settings": {
     "index.refresh_interval": "5s",
-    "index.lifecycle.name": "opera_grq_ilm_policy",
     "analysis": {
       "analyzer": {
         "default": {
@@ -16,8 +15,7 @@
           "tokenizer": "keyword"
         }
       }
-    },
-    "default_pipeline": "dataset_pipeline"
+    }
   },
   "mappings": {
     "dynamic_templates": [

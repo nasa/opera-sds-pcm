@@ -32,7 +32,6 @@ def create_parser():
     provider = {"positionals": ["-p", "--provider"],
                 "kwargs": {"dest": "provider",
                            "choices": [provider.value for provider in Provider],
-                           "default": Provider.LPCLOUD.value,
                            "help": "Specify a provider for collection search."}}
 
     collection = {

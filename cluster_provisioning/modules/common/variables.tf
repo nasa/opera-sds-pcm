@@ -525,12 +525,24 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
-      "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
+      "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 250
+      "data_dev_size"     = 50
       "min_size"          = 0
       "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-cslc_data_download_hist" = {
+      "name"              = "opera-job_worker-cslc_data_download_hist"
+      "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 50
+      "min_size"          = 0
+      "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
       "use_on_demand"     = false
@@ -555,18 +567,6 @@ variable "queues" {
       "data_dev_size"     = 100
       "min_size"          = 0
       "max_size"          = 10
-      "total_jobs_metric" = true
-      "use_private_vpc"   = false
-      "use_on_demand"     = false
-    }
-    "opera-job_worker-cslc_data_download_hist" = {
-      "name"              = "opera-job_worker-cslc_data_download_hist"
-      "instance_type"     = ["c5n.2xlarge", "m5dn.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
-      "root_dev_size"     = 50
-      "data_dev_size"     = 250
-      "min_size"          = 0
-      "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
       "use_on_demand"     = false

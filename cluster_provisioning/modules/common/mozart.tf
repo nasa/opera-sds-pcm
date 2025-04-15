@@ -151,8 +151,6 @@ resource "aws_instance" "mozart" {
       echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config
       echo >> ~/.sds/config
 
-      echo MOZART_ES_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-
 
       echo MOZART_ES_ENGINE: ${tonumber(substr(local.ami_versions["mozart"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"} >> ~/.sds/config
       echo MOZART_ES_PVT_IP: ${local.es_cluster_mode ? "" : aws_instance.mozart.private_ip} >> ~/.sds/config

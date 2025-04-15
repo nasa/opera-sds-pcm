@@ -1,0 +1,14 @@
+#!/bin/bash
+./wait-for-it.sh {{METRICS_FQDN}}:5601 -t 120
+
+# job and worker metrics
+curl -f -XDELETE -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/logstash-*'
+curl -f -XPOST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/logstash-*' '-d{"attributes":{"title":"logstash-*","timeFieldName":"@timestamp"}}'
+curl -XPOST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/kibana/settings/defaultIndex' -d'{"value": "logstash-*"}'
+curl -XPOST {{METRICS_FQDN}}:5601/api/kibana/dashboards/import -H 'kbn-xsrf:true' -H 'Content-type:application/json' -d @job-dashboards.json
+curl -XPOST {{METRICS_FQDN}}:5601/api/kibana/dashboards/import -H 'kbn-xsrf:true' -H 'Content-type:application/json' -d @worker-dashboards.json
+
+# SDSWatch
+curl -f -XDELETE -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/sdswatch-*'
+curl -f -XPOST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/sdswatch-*' '-d{"attributes":{"title":"sdswatch-*","timeFieldName":"sdswatch_timestamp"}}'
+curl -XPOST {{METRICS_FQDN}}:5601/api/kibana/dashboards/import -H 'kbn-xsrf:true' -H 'Content-type:application/json' -d @sdswatch-dashboards.json

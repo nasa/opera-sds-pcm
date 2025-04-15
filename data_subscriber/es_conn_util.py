@@ -12,9 +12,12 @@ def get_es_connection(logger):
 
     if CONN is None:
         aws_es = app.conf.get('GRQ_AWS_ES', False)
+        logger.info(f"{aws_es=}")
         es_url = app.conf.get('GRQ_ES_URL', "http://localhost:9200")
+        logger.info(f"{es_url=}")
 
         es_engine = app.conf.get('GRQ_ES_ENGINE', "elasticsearch")
+        logger.info(f"{es_engine=}")
 
         if aws_es is True or "es.amazonaws.com" in es_url:
             region = app.conf.get('AWS_REGION', "us-west-2")

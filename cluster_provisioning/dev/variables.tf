@@ -476,6 +476,11 @@ variable "earthdata_pass" {
   default = ""
 }
 
+variable "es_cluster_mode" {
+  type    = bool
+  default = false
+}
+
 variable "earthdata_uat_user" {
   default = ""
 }
