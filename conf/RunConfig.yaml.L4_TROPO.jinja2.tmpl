@@ -50,18 +50,18 @@ RunConfig:
         n_workers: {{ data.processing.n_workers }} 
         threads_per_worker: {{ data.processing.threads_per_worker }}
         max_memory: {{ data.processing.max_memory }}
-        dask_temp_dir: "tmp"
+        dask_temp_dir: {{ data.product_path_group.dask_tmp_dir }}
         block_shape:
           - 128
           - 128 
       output_options:
         output_heights: 
-        {%- for height in data.output_options.output_heights %}
+          {%- for height in data.output_options.output_heights %}
           - {{ height }}
           {%- endfor %} 
         compression_kwargs:
-          compression_flag: {{ data.output_options.compression_kwargs.compression_flag }} 
-          zlib: {{ data.output_options.compression_kwargs.zlib }} 
-          complevel: {{ data.output_options.compression_kwargs.complevel }} 
-          shuffle: {{ data.output_options.compression_kwargs.shuffle }} 
+          compression_flag: true 
+          zlib: true 
+          complevel: 5 
+          shuffle: true 
       log_file: {{ data.product_path_group.scratch_path }}/tropo.log
