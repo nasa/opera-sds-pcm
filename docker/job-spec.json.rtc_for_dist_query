@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/cslc/cslc_query.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/rtc_for_dist/rtc_for_dist_query.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 3600,
   "time_limit": 3660,
@@ -8,7 +8,7 @@
     "$HOME/.aws": "/home/ops/.aws",
     "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-cslc_data_query" ],
+  "recommended-queues": [ "opera-job_worker-rtc_for_dist_data_query" ],
   "post": [ "hysds.triage.triage" ],
   "params": [
     {
@@ -44,6 +44,10 @@
       "destination": "positional"
     },
     {
+      "name": "grace_mins",
+      "destination": "positional"
+    },
+    {
       "name": "smoke_run",
       "destination": "positional"
     },
@@ -65,30 +69,6 @@
     },
     {
       "name": "processing_mode",
-      "destination": "positional"
-    },
-    {
-      "name": "include_regions",
-      "destination": "positional"
-    },
-    {
-      "name": "exclude_regions",
-      "destination": "positional"
-    },
-    {
-      "name": "frame_id",
-      "destination": "positional"
-    },
-    {
-      "name": "k",
-      "destination": "positional"
-    },
-    {
-      "name": "m",
-      "destination": "positional"
-    },
-    {
-      "name": "grace_mins",
       "destination": "positional"
     },
     {

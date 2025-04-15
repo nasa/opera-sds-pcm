@@ -8,8 +8,9 @@ from commons.logger import configure_library_loggers, get_logger
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
+from data_subscriber.asf_rtc_for_dist_download import AsfDaacRtcForDistDownload
 from data_subscriber.catalog import ProductCatalog
-from data_subscriber.cmr import (ProductType,
+from data_subscriber.cmr import (ProductType, PGEProduct,
                                  Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
@@ -24,6 +25,8 @@ from data_subscriber.lpdaac_download import DaacDownloadLpdaac
 from data_subscriber.parser import create_parser, validate_args
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
 from data_subscriber.rtc.rtc_query import RtcCmrQuery
+from data_subscriber.rtc_for_dist.rtc_for_dist_catalog import RTCForDistProductCatalog
+from data_subscriber.rtc_for_dist.rtc_for_dist_query import RtcForDistCmrQuery
 from data_subscriber.slc.slc_catalog import SLCProductCatalog
 from data_subscriber.slc.slc_query import SlcCmrQuery
 from data_subscriber.survey import run_survey
@@ -87,8 +90,11 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
         cmr_query = CslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
-    elif product_type == ProductType.RTC:
-        cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif product_type == ProductType.RTC: #RTC input can have multiple product types
+        if args.product and args.product == PGEProduct.DIST_1:
+            cmr_query = RtcForDistCmrQuery(args, token, es_conn, cmr, job_id, settings)
+        else:
+            cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.NISAR_GCOV:
         cmr_query = NisarGcovCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
@@ -105,7 +111,10 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     elif provider in (Provider.ASF, Provider.ASF_SLC):
         downloader = AsfDaacSlcDownload(provider)
     elif provider == Provider.ASF_RTC:
-        downloader = AsfDaacRtcDownload(provider)
+        if args.product and  args.product == PGEProduct.DIST_1:
+            downloader = AsfDaacRtcForDistDownload(provider)
+        else:
+            downloader = AsfDaacRtcDownload(provider)
     elif provider == Provider.ASF_CSLC:
         downloader = AsfDaacCslcDownload(provider)
     elif provider == Provider.ASF_CSLC_STATIC:
@@ -126,8 +135,11 @@ def supply_es_conn(args):
         es_conn = HLSProductCatalog(logger)
     elif provider in (Provider.ASF, Provider.ASF_SLC):
         es_conn = SLCProductCatalog(logger)
-    elif provider == Provider.ASF_RTC:
-        es_conn = RTCProductCatalog(logger)
+    elif provider == Provider.ASF_RTC: # RTC input can have multiple product types
+        if args.product and args.product == PGEProduct.DIST_1:
+            es_conn = RTCForDistProductCatalog(logger)
+        else:
+            es_conn = RTCProductCatalog(logger)
     elif provider == Provider.ASF_CSLC:
         es_conn = CSLCProductCatalog(logger)
     elif provider == Provider.ASF_CSLC_STATIC:

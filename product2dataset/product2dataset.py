@@ -245,7 +245,7 @@ def convert(
             dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
         elif pge_name == "L3_DIST_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
-            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
+            dataset_met_json["mgrs_tile_id"] = product_metadata["mgrs_tile_id"]
 
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]

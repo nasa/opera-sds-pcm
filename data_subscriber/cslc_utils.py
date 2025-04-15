@@ -211,18 +211,21 @@ def process_frame_geo_json(file):
 
     return frame_geo_map
 
-def parse_cslc_file_name(native_id):
+def parse_r2_product_file_name(native_id, product_type):
+
     dataset_json = datasets_json_util.DatasetsJson()
-    cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
+    cslc_granule_regex = dataset_json.get(product_type)["match_pattern"]
     match_product_id = re.match(cslc_granule_regex, native_id)
 
     if not match_product_id:
-        raise ValueError(f"CSLC native ID {native_id} could not be parsed with regex from datasets.json")
+        raise ValueError(f"{product_type} native ID {native_id} could not be parsed with regex from datasets.json")
 
-    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def parse_cslc_file_name(native_id):
+    return parse_r2_product_file_name(native_id, "L2_CSLC_S1")
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!

@@ -134,7 +134,7 @@ class ProductCatalog(ABC):
     def granule_and_revision(self, es_id: str):
         pass
 
-    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=60, jitter=None)
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=10, jitter=None)
     def mark_download_job_id(self, batch_id, job_id):
         """Stores the download_job_id in the catalog for all granules in this batch"""
 
@@ -148,7 +148,7 @@ class ProductCatalog(ABC):
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"download_batch_id": batch_id}}
+                            {"match": {"download_batch_id.keyword": batch_id}}
                         ]
                     }
                 }
@@ -156,7 +156,10 @@ class ProductCatalog(ABC):
             refresh=True # refresh every time so that we don't run into doc version conflicts
         )
 
-        self.logger.info(f"Document updated: {result}")
+        if result["updated"] == 0:
+            self.logger.warning(f"No documents updated for {batch_id=} {job_id=}")
+        else:
+            self.logger.info(f"Document updated: {batch_id=} {job_id=} {result}")
 
     def mark_product_as_downloaded(self, url, job_id, filesize=None, doc=None):
         filename = url.split("/")[-1]
