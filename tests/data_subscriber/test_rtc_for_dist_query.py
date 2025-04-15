@@ -24,6 +24,11 @@ forward_arguments = ["query", "-c", "OPERA_L2_RTC-S1_V1", "--product=DIST_S1", "
 
 dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
 
+
+class MockESConn:
+    def get_unsubmitted_granules(self):
+        return []
+
 def test_extend_additional_records():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
 
@@ -47,7 +52,7 @@ def test_extend_additional_records():
                                                                    granule["acquisition_ts"], granule["granule_id"])
 
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, None, None, None, None)
+    cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, None)
     cmr_query.extend_additional_records(granules)
 
     assert len(granules) == 4
@@ -103,15 +108,7 @@ def test_determine_download_granules(monkeypatch):
                                                                    granule["acquisition_ts"], granule["granule_id"])
 
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, None, None, None, None)
-    cmr_query.extend_additional_records(granules)
-
-    '''mock_super_cmr_query = MagicMock(return_value=[])
-    monkeypatch.setattr(
-        cmr_query.super,
-        cmr_query.super.query_cmr.__name__,
-        mock_super_cmr_query
-    )'''
+    cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, None)
 
     mock_retrieve_baseline_granules = MagicMock(return_value=[])
     monkeypatch.setattr(
@@ -119,6 +116,7 @@ def test_determine_download_granules(monkeypatch):
         cmr_query.retrieve_baseline_granules.__name__,
         mock_retrieve_baseline_granules
     )
+
     download_granules = cmr_query.determine_download_granules(granules)
 
     assert 'p33VUF_5_a302' in cmr_query.batch_id_to_granules
