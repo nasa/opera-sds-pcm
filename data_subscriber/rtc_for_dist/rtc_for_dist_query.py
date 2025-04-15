@@ -135,7 +135,7 @@ class RtcForDistCmrQuery(CmrQuery):
 
         # Copy metadata fields to the additional_fields so that they are written to ES
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
-        for f in ["burst_id", "tile_id", "product_id", "acquisition_group", "acquisition_ts", "acquisition_cycle", "unique_id", "download_batch_id"]:
+        for f in ["burst_id", "tile_id", "product_id", "acquisition_group", "acquisition_ts", "acquisition_cycle", "unique_id", "batch_id", "download_batch_id"]:
             additional_fields[f] = granule[f]
 
         return additional_fields
@@ -152,18 +152,21 @@ class RtcForDistCmrQuery(CmrQuery):
 
         # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
         self.refresh_index()
-        # TODO: time format is bit diff from CSLC. This one has Z at the end.
-        #unsubmitted = self.es_conn.get_unsubmitted_granules()
+        unsubmitted = self.es_conn.get_unsubmitted_granules()
+        self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
+        '''for granule in unsubmitted:
+            print(granule)
+            basic_decorate_granule(granule)'''
 
-        self.logger.info(f"Determining download granules from {len(granules)} granules")
-        #self.logger.debug("len(unsubmitted)=%d", len(unsubmitted))
+        self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granules")
 
-        #TODO: After merging new granules with unsubmitted granules, make sure to remove any duplicates and pick the latest
-
-        # Create a dict of granule_id to granule
+        # Create a dict of granule_id to granule for both the new granules and unsubmitted granules
         granules_dict = {(granule["granule_id"], granule["batch_id"]): granule for granule in granules}
-        #print("len(granules_dict)", len(granules_dict))
-        #print("granules_dict keys: ", granules_dict.keys())
+        for granule in unsubmitted:
+            granules_dict[(granule["granule_id"], granule["batch_id"])] = granule
+
+        print("len(granules_dict)", len(granules_dict))
+        print("granules_dict keys: ", granules_dict.keys())
         granule_ids = list(set([k[0] for k in granules_dict.keys()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
         products_triggered, granules_triggered, _, _ = compute_dist_s1_triggering(
@@ -208,7 +211,6 @@ class RtcForDistCmrQuery(CmrQuery):
 
         '''All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
         acquisition_time = downloads[0]["acquisition_ts"]
-        acquisition_time = datetime.strptime(acquisition_time, "%Y%m%dT%H%M%SZ")
         new_args = deepcopy(args)
         new_args.use_temporal = True
         _, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts) # First return value is the number of native_ids

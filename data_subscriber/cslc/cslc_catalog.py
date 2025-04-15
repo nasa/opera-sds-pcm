@@ -78,7 +78,7 @@ class CSLCProductCatalog(KCSLCProductCatalog):
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"download_batch_id": download_batch_id}},
+                            {"match": {"download_batch_id.keyword": download_batch_id}},
                             {"exists": {"field": "download_job_id"}}
                         ]
                     }
@@ -96,7 +96,7 @@ class CSLCProductCatalog(KCSLCProductCatalog):
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"download_batch_id": granule_id}}
+                            {"match": {"download_batch_id.keyword": granule_id}}
                         ]
                     }
                 }

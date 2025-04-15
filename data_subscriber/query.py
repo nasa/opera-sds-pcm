@@ -117,7 +117,7 @@ class CmrQuery:
 
         self.logger.debug(f"{results=}")
         self.logger.info(f"{len(succeeded)} download jobs {succeeded=}")
-        self.logger.info(f"{len(succeeded)} download jobs {failed=}")
+        self.logger.info(f"{len(failed)} download jobs {failed=}")
         self.logger.debug(f"{download_granules=}")
 
         return {

@@ -129,9 +129,8 @@ def basic_decorate_granule(granule):
 
     burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
     granule["burst_id"] = burst_id
-    granule["acquisition_ts"] = acquisition_dts
-    granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"],
-                                                               granule["acquisition_ts"], granule["granule_id"])
+    granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
+    granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
 def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, complete_bursts_only, all_tile_ids = None):
 
     unused_rtc_granule_count = 0
