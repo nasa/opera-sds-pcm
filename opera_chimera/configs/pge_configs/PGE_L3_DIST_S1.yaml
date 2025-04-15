@@ -38,6 +38,7 @@ preconditions:
   - get_dist_s1_rtc_s3_paths
   - get_dist_s1_mgrs_tile
   - get_dist_s1_mask_file
+  - get_dist_s1_lookbacks
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:

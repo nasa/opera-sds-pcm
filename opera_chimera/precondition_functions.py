@@ -844,6 +844,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dist_s1_lookbacks(self):
+        """
+        Get number of lookbacks for DIST-S1 job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # This is currently hardcoded, should we move it to settings?
+
+        rc_params = {
+            'n_lookbacks': 3
+        }
+
+        return rc_params
+
     def get_disp_s1_static_sample_inputs(self):
         """
         Temporary function to stage the "golden" inputs for use with the DISP-S1-STATIC
