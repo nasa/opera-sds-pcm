@@ -50,7 +50,7 @@ RunConfig:
         n_workers: {{ data.processing.n_workers }} 
         threads_per_worker: {{ data.processing.threads_per_worker }}
         max_memory: {{ data.processing.max_memory }}
-        dask_temp_dir: {{ data.product_path_group.dask_tmp_dir }}
+        dask_temp_dir: {{ data.product_path_group.dask_tmp_path }}
         block_shape:
           - 128
           - 128 
