@@ -719,6 +719,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'mgrs_tile_id': metadata['mgrs_tile_id'],
         }
 
+        logger.info(f"rc_params : {rc_params}")
+
         return rc_params
 
     def get_dist_s1_rtc_s3_paths(self):
@@ -780,6 +782,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'post_rtc_copol': post_copol,
             'post_rtc_crosspol': post_crosspol,
         }
+
+        logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
