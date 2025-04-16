@@ -38,6 +38,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         self.frame_geo_map = localize_frame_geo_json()
         self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
         self.blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), self.disp_burst_map, self.burst_to_frames)
+        self.dataset_type = "L2_CSLC_S1"
 
     def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
 
@@ -405,7 +406,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 "name": "dataset_type",
                 "from": "value",
                 "type": "text",
-                "value": "L2_CSLC_S1"
+                "value": self.dataset_type
             },
             {
                 "name": "input_dataset_id",
