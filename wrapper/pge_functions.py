@@ -189,6 +189,54 @@ def disp_s1_lineage_metadata(context, work_dir):
     return lineage_metadata
 
 
+def disp_s1_static_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DISP-S1-STATIC PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    input_file_group = run_config["input_file_group"]
+    s3_input_filepaths = input_file_group["input_file_paths"]
+
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    # for s3_input_filepath in s3_input_filepaths:
+    #     local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+    #
+    #     if os.path.isdir(local_input_filepath):
+    #         lineage_metadata.extend(
+    #             [os.path.join(local_input_filepath, file_name)
+    #              for file_name in os.listdir(local_input_filepath)
+    #              if file_name.endswith(".h5")]
+    #         )
+    #     else:
+    #         lineage_metadata.append(local_input_filepath)
+    #
+    # for dynamic_ancillary_key in ("rtc_static_layers_files",):
+    #     if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
+    #         for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
+    #             local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+    #             lineage_metadata.append(local_input_filepath)
+
+    # TODO: put canned input paths into lineage instead of trying to figure out paths
+    lineage_metadata.extend(s3_input_filepaths)
+    for dynamic_ancillary_key in ("rtc_static_layers_files",):
+        if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
+            lineage_metadata.extend(run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key])
+
+    # Copy the pre-downloaded ancillaries for this job to the pge input directory
+    # local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    # lineage_metadata.extend(local_dem_filepaths)
+    lineage_metadata.append(run_config["dynamic_ancillary_file_group"]["dem_file"])
+    lineage_metadata.append(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
+
+    # local_frame_database_filepath = os.path.join(
+    #     work_dir, basename(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
+    # )
+    # lineage_metadata.append(local_frame_database_filepath)
+
+    return lineage_metadata
+
+
 def dist_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DIST-S1 PGE"""
     run_config: Dict = context.get("run_config")
@@ -196,7 +244,7 @@ def dist_s1_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
+    rtc_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
     for date in os.listdir(rtc_data_dir):
         date_dir = os.path.join(rtc_data_dir, date)
@@ -206,7 +254,7 @@ def dist_s1_lineage_metadata(context, work_dir):
         )
 
     # TODO: No ancillary data exists yet but likely will soon
-    # ancillary_data_dir = os.path.join(work_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'ancillary_data')
+    # ancillary_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', 'ancillary_data')
     #
     # lineage_metadata.extend(
     #     [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
@@ -411,6 +459,58 @@ def update_disp_s1_runconfig(context, work_dir):
     return run_config
 
 
+def update_disp_s1_static_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DISP-S1-STATIC PGE"""
+
+    # TODO: Need to update this when switching away from canned on-demand input data
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    local_input_dir = os.path.join(work_dir, "disp_s1_static_r6.6_calval_expected_input", 'cslc_static')
+    # local_input_dir = os.path.join(work_dir, "pge_input_dir")
+
+    # updated_input_file_paths = []
+    #
+    # for input_file_path in glob.glob(os.path.join(local_input_dir, "*CSLC-S1-STATIC_*.h5")):
+    #     updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
+
+    run_config["input_file_group"]["input_file_paths"] = list(map(
+        lambda x: x.replace(local_input_dir, container_home_prefix),
+        run_config["input_file_group"]["input_file_paths"]
+    ))
+
+    dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
+
+    for dynamic_ancillary_key in ("rtc_static_layers_files",):
+        if dynamic_ancillary_key in dynamic_ancillary_file_group:
+            dynamic_ancillary_file_group[dynamic_ancillary_key] = [
+                os.path.join(container_home_prefix, basename(input_file_path))
+                for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
+            ]
+
+    static_ancillary_file_group = run_config["static_ancillary_file_group"]
+
+    for static_ancillary_key in ("frame_to_burst_json",):
+        static_ancillary_file_group[static_ancillary_key] = os.path.join(
+            container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
+        )
+
+    if "dem_file" in run_config["dynamic_ancillary_file_group"]:
+        run_config["dynamic_ancillary_file_group"]["dem_file"] = (
+            os.path.join(container_home_prefix,
+                         os.path.basename(run_config["dynamic_ancillary_file_group"]["dem_file"]))
+        )
+
+    return run_config
+
+
 def update_dist_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the DIST-S1 PGE"""
 
@@ -425,28 +525,33 @@ def update_dist_s1_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
+    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
-    run_config['input_file_group']['pre_rtc_copol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['pre_rtc_copol']
-    ))
+    dates = list(os.listdir(rtc_data_prefix))
 
-    run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['pre_rtc_crosspol']
-    ))
+    for date in dates:
+        rtc_data_date_prefix = os.path.join(rtc_data_prefix, date)
 
-    run_config['input_file_group']['post_rtc_copol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['post_rtc_copol']
-    ))
+        run_config['input_file_group']['pre_rtc_copol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['pre_rtc_copol']
+        ))
 
-    run_config['input_file_group']['post_rtc_crosspol'] = list(map(
-        lambda x: x.replace(rtc_data_prefix, container_home_prefix),
-        run_config['input_file_group']['post_rtc_crosspol']
-    ))
+        run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['pre_rtc_crosspol']
+        ))
 
-    # TODO: dist_s1_alert_db_dir and water_mask are currently fixed unset so we can skip them for now
+        run_config['input_file_group']['post_rtc_copol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['post_rtc_copol']
+        ))
+
+        run_config['input_file_group']['post_rtc_crosspol'] = list(map(
+            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
+            run_config['input_file_group']['post_rtc_crosspol']
+        ))
+
+    # TODO: water_mask is currently fixed unset so we can skip it for now
 
     return run_config

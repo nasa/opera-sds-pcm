@@ -132,12 +132,13 @@ variable "purge_es_snapshot" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.2.1 - September 15, 2024 - R3.1
-    mozart    = "ami-0eacb2024e0e7a1aa" # mozart v5.2 - 240915
-    metrics   = "ami-024fcd55ed5f24577" # metrics v5.3 - 240915
-    grq       = "ami-09c80bbcc23281bdd" # grq v5.2 - 240915
-    factotum  = "ami-0aaf21c0102ddf35e" # factotum v5.2 - 240915
-    autoscale = "ami-0acb06c58411bcf64" # verdi v5.2 patchdate - 240915
+   # HySDS v5.0.1 - March 31, 2025 - R3.1
+    mozart    = "ami-04e69a02b62ba59a6" # mozart v26 - 250331
+    metrics   = "ami-08434f16555f84e7c" # metrics v4.18 - 250331
+    grq       = "ami-03a5ca8165a46aa41" # grq v4.19 - 250331
+    factotum  = "ami-0fad4c5f50f59b770" # factotum v4.17 - 250331
+#    autoscale = "ami-05f33b814196b5e2d" # verdi v4.17 patchdate - 250331
+    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
   }
 }
 
@@ -359,6 +360,18 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = true
     }
+    "opera-job_worker-sciflo-l3_disp_s1_static" = {
+      "name"              = "opera-job_worker-sciflo-l3_disp_s1_static"
+      "log_file_name"     = "run_sciflo_L3_DISP_S1_STATIC"
+      "instance_type"     = ["c7a.large", "c6a.large", "c6i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 100
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 40
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
@@ -499,9 +512,21 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
+    "opera-job_worker-rtc_for_dist_data_query" = {
+      "name"              = "opera-job_worker-rtc_for_dist_data_query"
+      "instance_type"     = ["m6i.large", "m6a.large", "m5.large", "m5a.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
     "opera-job_worker-cslc_data_query" = {
       "name"              = "opera-job_worker-cslc_data_query"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
+      "instance_type"     = ["c6i.xlarge", "m6a.xlarge", "c6a.xlarge", "c5a.xlarge", "r7i.xlarge", "c7i.xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
@@ -513,12 +538,12 @@ variable "queues" {
     }
     "opera-job_worker-cslc_data_query_hist" = {
       "name"              = "opera-job_worker-cslc_data_query_hist"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
+      "instance_type"     = ["c6i.2xlarge", "c6a.2xlarge", "c5a.2xlarge", "c7i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
-      "max_size"          = 1
+      "max_size"          = 5
       "total_jobs_metric" = false
       "use_private_vpc"   = false
       "use_on_demand"     = false
@@ -571,16 +596,19 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
-    "opera-job_worker-ecmwf-merger" = {
-      "instance_type"     = ["r5a.4xlarge", "r6a.4xlarge", "r7a.4xlarge", "r5.4xlarge", "r6i.4xlarge", "r7i.4xlarge", "m5a.8xlarge", "m6a.8xlarge", "m7a.8xlarge", "m5.8xlarge", "m6i.8xlarge", "m7i.8xlarge", "m7i-flex.8xlarge"]
+    "opera-job_worker-rtc_for_dist_data_download" = {
+      "name"              = "opera-job_worker-rtc_for_dist_data_download"
+      "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 600
+      "data_dev_size"     = 100
+      "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
+      "use_private_vpc"   = false
       "use_on_demand"     = false
     }
-    "opera-job_worker-ecmwf-subsetter" = {
+    "opera-job_worker-ecmwf-merger" = {
       "instance_type"     = ["r5a.4xlarge", "r6a.4xlarge", "r7a.4xlarge", "r5.4xlarge", "r6i.4xlarge", "r7i.4xlarge", "m5a.8xlarge", "m6a.8xlarge", "m7a.8xlarge", "m5.8xlarge", "m6i.8xlarge", "m7i.8xlarge", "m7i-flex.8xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
@@ -654,12 +682,12 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-#     "cslc_s1"  = "2.1.1"
+    "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
-#     "dswx_s1"  = "3.0.2"
-#     "disp_s1"  = "3.0.2"
-#     "dswx_ni"  = "4.0.0-er.3.0"
-#     "dist_s1"  = "6.0.0-er.1.0"
+    "dswx_s1"  = "3.0.2"
+    "disp_s1"  = "3.0.5"
+    "dswx_ni"  = "4.0.0-er.3.0"
+    "dist_s1"  = "6.0.0-er.2.0"
   }
 }
 
@@ -712,6 +740,10 @@ variable "rtc_provider" {
 }
 
 variable "rtc_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "rtc_for_dist_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
@@ -839,6 +871,11 @@ variable "default_ami_versions" {
 }
 
 variable "es_cluster_mode" {
+  type    = bool
+  default = false
+}
+
+variable "disp_s1_hist_status" {
   type    = bool
   default = false
 }

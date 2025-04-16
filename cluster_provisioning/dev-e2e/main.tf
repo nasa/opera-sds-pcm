@@ -105,6 +105,7 @@ module "common" {
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
   run_smoke_test                          = var.run_smoke_test
+  disp_s1_hist_status                     = var.disp_s1_hist_status
 }
 
 locals {

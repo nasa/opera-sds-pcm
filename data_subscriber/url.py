@@ -18,6 +18,9 @@ def form_batch_id_cslc(granule_id, revision_id):
 def cslc_unique_id(download_batch_id, burst_id):
     return download_batch_id+'_'+burst_id
 
+def rtc_for_dist_unique_id(download_batch_id, burst_id):
+    return download_batch_id+'_'+burst_id
+
 def _to_batch_id(dl_doc: dict[str, Any]):
     return form_batch_id(dl_doc['granule_id'], dl_doc['revision_id'])
 

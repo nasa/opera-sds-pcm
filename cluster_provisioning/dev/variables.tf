@@ -166,7 +166,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 100
+    root_dev_size = 200
     private_ip    = ""
     public_ip     = ""
   }
@@ -382,9 +382,9 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.2"
+    "disp_s1"  = "3.0.5"
     "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.1.0"
+    "dist_s1"  = "6.0.0-er.2.0"
   }
 }
 
@@ -487,5 +487,10 @@ variable "earthdata_uat_user" {
 
 variable "earthdata_uat_pass" {
   default = ""
+}
+
+variable "disp_s1_hist_status" {
+  type    = bool
+  default = false
 }
 

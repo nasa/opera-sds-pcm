@@ -3,10 +3,7 @@
 import argparse
 from datetime import datetime
 
-from data_subscriber.cmr import (Collection,
-                                 Endpoint,
-                                 Provider,
-                                 CMR_TIME_FORMAT)
+from data_subscriber.cmr import (Collection, Endpoint, Provider, PGEProduct, CMR_TIME_FORMAT)
 
 def create_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -41,6 +38,16 @@ def create_parser():
             "choices": [collection.value for collection in Collection],
             "required": True,
             "help": "The collection shortname to retrieve data for."
+        }
+    }
+
+    product = {
+        "positionals": ["--product"],
+        "kwargs": {
+            "dest": "product",
+            "choices": [pge_product.value for pge_product in PGEProduct],
+            "required": False,
+            "help": "Specify the PGE output product when it's ambiguous given the collection type."
         }
     }
 
@@ -224,7 +231,7 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full",
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    full_parser_arg_list = [verbose, quiet, endpoint, collection, start_date, end_date,
+    full_parser_arg_list = [verbose, quiet, endpoint, collection, product, start_date, end_date,
                             bbox, minutes, k, m, grace_mins,
                             dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
@@ -236,7 +243,7 @@ def create_parser():
 
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    query_parser_arg_list = [verbose, quiet, endpoint, provider, collection, start_date, end_date,
+    query_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product, start_date, end_date,
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
@@ -248,7 +255,7 @@ def create_parser():
 
     download_parser = subparsers.add_parser("download",
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    download_parser_arg_list = [verbose, quiet, endpoint, dry_run, smoke_run, provider,
+    download_parser_arg_list = [verbose, quiet, endpoint, dry_run, smoke_run, provider, product,
                                 batch_ids, start_date, end_date, use_temporal, proc_mode,
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)

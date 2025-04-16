@@ -31,6 +31,7 @@ setup(
             "elasticmock",
             "geopandas",
             "smart_open",
+            "fastparquet", # To parse parquet files which is the format for DIST-S1 database
 
             "pytest-asyncio",
             "pytest-mock",
@@ -56,6 +57,11 @@ setup(
             "cfgrib",
             "dask",
         ],
+        "disp_s1_status": [
+            # The list of dependencies required to run the disp_s1_status tool.
+            "folium",
+            "branca",
+        ],
         "subscriber": [
             # The list of dependencies required to run the data_subscriber module standalone.
             "boto3",
@@ -70,6 +76,7 @@ setup(
             "cachetools==5.2.0",
             "geopandas",
             "pyproj",
+            "fastparquet",
 
             # for additional daac subscriber test utilities that are executed from pytest
             #  * DSWx-S1 trigger logic tests

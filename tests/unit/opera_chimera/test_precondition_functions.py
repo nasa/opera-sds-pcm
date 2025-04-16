@@ -870,6 +870,66 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
             self.assertEqual(oc_const.DISP_S1_FORWARD, rc_params[oc_const.PRODUCT_TYPE])
 
+    def test_get_disp_s1_static_ancillary_files(self):
+        """Unit tests for get_static_ancillary_files() precondition function as used for DISP-S1"""
+        # Set up the arguments to OperaPreConditionFunctions
+        pge_config = {
+            oc_const.GET_STATIC_ANCILLARY_FILES: {
+                "frame_to_burst_json": {
+                    oc_const.SETTINGS_KEY: "DISP_S1.FRAME_TO_BURST_JSON"
+                },
+                "reference_date_database_json": {
+                    oc_const.SETTINGS_KEY: "DISP_S1.REFERENCE_DATE_DATABASE_JSON"
+                },
+                "algorithm_parameters_overrides_json": {
+                    oc_const.SETTINGS_KEY: "DISP_S1.ALGORITHM_PARAMETERS_OVERRIDES_JSON"
+                }
+            }
+        }
+
+        settings = {
+            "DISP_S1": {
+                "FRAME_TO_BURST_JSON": "s3://opera-ancillaries/disp_frames/disp-s1/opera-s1-disp-frame-to-burst.json",
+                "REFERENCE_DATE_DATABASE_JSON": "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates.json",
+                "ALGORITHM_PARAMETERS_OVERRIDES_JSON": "s3://opera-ancillaries/algorithm_parameters/disp_s1/opera-disp-s1-algorithm-parameters-overrides.json",
+            }
+        }
+
+        # These are not used with get_dswx_s1_static_ancillary_files()
+        context = {}
+        job_params = None
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_static_ancillary_files()
+
+        expected_static_ancillary_products = ["frame_to_burst_json",
+                                              "reference_date_database_json",
+                                              "algorithm_parameters_overrides_json"]
+
+        for expected_static_ancillary_product in expected_static_ancillary_products:
+            self.assertIn(expected_static_ancillary_product, rc_params)
+            self.assertIsInstance(rc_params[expected_static_ancillary_product], str)
+            self.assertEqual(
+                rc_params[expected_static_ancillary_product],
+                settings["DISP_S1"][expected_static_ancillary_product.upper()]
+            )
+
+        # Try with an invalid/missing settings.yaml key path, should resut in exception
+        settings = {
+            "DISP_S1": {}
+        }
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        with self.assertRaises(RuntimeError) as cm:
+            precondition_functions.get_static_ancillary_files()
+            self.assertIn("Could not resolve settings.yaml key path", str(cm))
+
     @patch.object(boto3.s3.inject, "object_download_file", _object_download_file_patch)
     def test_get_disp_s1_algorithm_parameters(self):
         """Unit tests for get_disp_s1_algorithm_parameters() precondition function"""
@@ -914,6 +974,34 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
             self.assertIn("algorithm_parameters_forward.yaml",
                           rc_params[oc_const.ALGORITHM_PARAMETERS])
             self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+
+        # Test with the settings_key method of retrieval
+        pge_config = {
+            oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS: {
+                oc_const.SETTINGS_KEY: "DISP_S1.ALGORITHM_PARAMETERS_YAML"
+            }
+        }
+
+        settings = {
+            "DISP_S1": {
+                "ALGORITHM_PARAMETERS_YAML": "s3://opera-ancillaries/algorithm_parameters/disp_s1/algorithm_parameters_{processing_mode}.yaml"
+            }
+        }
+
+        context["processing_mode"] = oc_const.PROCESSING_MODE_HISTORICAL
+
+        precondition_functions = OperaPreConditionFunctions(
+            context, pge_config, settings, job_params
+        )
+
+        rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
+
+        # Ensure the S3 URI was formed as expected
+        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
+        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertIn("algorithm_parameters_historical.yaml",
+                      rc_params[oc_const.ALGORITHM_PARAMETERS])
+        self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
 
     def test_instantiate_algorithm_parameters_template(self):
         """

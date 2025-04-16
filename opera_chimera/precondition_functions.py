@@ -152,8 +152,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if processing_mode == oc_const.PROCESSING_MODE_REPROCESSING:
             processing_mode = oc_const.PROCESSING_MODE_FORWARD
 
-        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
+        if oc_const.SETTINGS_KEY in self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}):
+            settings_key = self._pge_config[oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS][oc_const.SETTINGS_KEY]
+
+            key_path = settings_key.split(".")
+            settings_value = self._settings
+
+            # Traverse the key path into settings.yaml until we resolve to the desired value
+            while len(key_path) > 0:
+                try:
+                    settings_value = settings_value[key_path.pop(0)]
+                except KeyError:
+                    raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
+
+            logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
+
+            parsed_s3_url = urlparse(settings_value)
+            s3_bucket = parsed_s3_url.netloc
+            s3_key = parsed_s3_url.path
+
+            # Strip leading forward slash from url path
+            if s3_key.startswith('/'):
+                s3_key = s3_key[1:]
+        else:
+            s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
+            s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
         # Fill in the processing mode
         s3_key = s3_key.format(processing_mode=processing_mode)
@@ -377,20 +400,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         available_cores = os.cpu_count()
 
         try:
-            threads_per_worker = self._settings["DISP_S1_NUM_THREADS"]
-        except:
+            threads_per_worker = self._settings["DISP_S1"]["NUM_THREADS"]
+        except KeyError:
             threads_per_worker = available_cores
-            logger.warning(f"DISP_S1_NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
+            logger.warning(f"DISP_S1.NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
 
         logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
 
         try:
-            parallel_factor = self._settings["DISP_S1_NUM_WORKERS"]["FACTOR"]
-            parallel_constant = self._settings["DISP_S1_NUM_WORKERS"]["CONSTANT"]
-        except:
+            parallel_factor = self._settings["DISP_S1"]["NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1"]["NUM_WORKERS"]["CONSTANT"]
+        except KeyError:
             parallel_factor = 0.25
             parallel_constant = 1
-            logger.warning(f"DISP_S1_NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
+            logger.warning(f"DISP_S1.NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
 
         # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
         # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
@@ -686,7 +709,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_dist_s1_sample_inputs(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DSWx-NI
+        Temporary function to stage the "golden" inputs for use with the DIST-S1
         PGE.
         TODO: this function will eventually be phased out as functions to
               acquire the appropriate input files are implemented with future
@@ -706,7 +729,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                  r'|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "dist_s1/dist_s1_interface_0.1_expected_input.zip"
+        s3_key = "dist_s1/dist_s1_beta_0.0.6_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -721,8 +744,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        rtc_data_dir = os.path.join(working_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir', 'RTC')
-        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_interface_0.1_expected_input', 'input_dir',
+        rtc_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
+        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir',
                                           'ancillary_data')
 
         rtc_dates = sorted(os.listdir(rtc_data_dir))
@@ -747,14 +770,25 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
                     if date != rtc_dates[-1]:
                         if pol in ['VV', 'HH']:
-                            pre_copol.append(rtc_file)
+                            pre_copol.append(rtc_file_path)
                         else:
-                            pre_crosspol.append(rtc_file)
+                            pre_crosspol.append(rtc_file_path)
                     else:
                         if pol in ['VV', 'HH']:
-                            post_copol.append(rtc_file)
+                            post_copol.append(rtc_file_path)
                         else:
-                            post_crosspol.append(rtc_file)
+                            post_crosspol.append(rtc_file_path)
+
+        def sort_fn(path):
+            match = rtc_pattern.match(os.path.basename(path))
+            match_dict = match.groupdict()
+
+            return match_dict['burst_id'], match_dict['acquisition_ts']
+
+        pre_copol.sort(key=sort_fn)
+        pre_crosspol.sort(key=sort_fn)
+        post_copol.sort(key=sort_fn)
+        post_crosspol.sort(key=sort_fn)
 
         rc_params = {
             'pre_rtc_copol': pre_copol,
@@ -762,8 +796,56 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'post_rtc_copol': post_copol,
             'post_rtc_crosspol': post_crosspol,
             'mgrs_tile_id': '10SGD',
-            'dist_s1_alert_db_dir': '',
-            'water_mask': ''
+            'water_mask_path': '',
+            'apply_water_mask': False,
+            'n_lookbacks': 3
+        }
+
+        return rc_params
+
+    def get_disp_s1_static_sample_inputs(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the DISP-S1-STATIC
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        s3_bucket = "operasds-dev-pge"
+        s3_key = "disp_s1/disp_s1_static_r6.6_calval_expected_input.zip"
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="DISP-S1-STATIC Inputs"
+        )
+
+        import zipfile
+        with zipfile.ZipFile(output_filepath) as myzip:
+            zip_contents = myzip.namelist()
+            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
+            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
+            myzip.extractall(path=working_dir, members=zip_contents)
+
+        data_dir = os.path.join(working_dir, 'disp_s1_static_r6.6_calval_expected_input')
+
+        cslc_static_dir = os.path.join(data_dir, 'cslc_static')
+        rtc_static_dir = os.path.join(data_dir, 'rtc_static')
+
+        rc_params = {
+            'input_file_paths': [os.path.join(cslc_static_dir, f) for f in sorted(os.listdir(cslc_static_dir))],
+            'rtc_static_layers_files': [os.path.join(rtc_static_dir, f) for f in sorted(os.listdir(rtc_static_dir))],
+            'dem_file': os.path.join(data_dir, 'dem.vrt'),
+            'frame_to_burst_json': os.path.join(data_dir, 'opera-s1-disp-0.9.0-frame-to-burst.json.zip'),
+            'product_version': "1.0",
+            'frame_id': "11115",
+            'threads_per_worker': 2,
+            'n_parallel_bursts': 9
         }
 
         return rc_params
@@ -1620,8 +1702,32 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         static_ancillary_products = self._pge_config.get(oc_const.GET_STATIC_ANCILLARY_FILES, {})
 
         for static_ancillary_product in static_ancillary_products.keys():
-            s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
-            s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+            if "settings_key" in static_ancillary_products.get(static_ancillary_product, {}):
+                settings_key = static_ancillary_products[static_ancillary_product]["settings_key"]
+
+                key_path = settings_key.split(".")
+                settings_value = self._settings
+
+                # Traverse the key path into settings.yaml until we resolve to the desired value
+                while len(key_path) > 0:
+                    try:
+                        settings_value = settings_value[key_path.pop(0)]
+                    except KeyError:
+                        raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
+
+                logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
+
+                parsed_s3_url = urlparse(settings_value)
+                s3_bucket = parsed_s3_url.netloc
+                s3_key = parsed_s3_url.path
+
+                # Strip leading forward slash from url path
+                if s3_key.startswith('/'):
+                    s3_key = s3_key[1:]
+            else:
+                s3_bucket = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_BUCKET)
+                s3_key = static_ancillary_products.get(static_ancillary_product, {}).get(oc_const.S3_KEY)
+
             download = static_ancillary_products.get(static_ancillary_product, {}).get("download", False)
 
             if download:

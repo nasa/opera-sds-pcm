@@ -416,7 +416,7 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py ;
-      conda install conda gdal==3.6.4 poppler --yes --quiet ;
+      conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet ;
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -431,7 +431,7 @@ resource "aws_instance" "mozart" {
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         echo installing gdal for manual execution of daac_data_subscriber.py
-        conda install conda gdal==3.6.4 poppler --yes --quiet
+        conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
@@ -620,6 +620,7 @@ resource "aws_instance" "mozart" {
       echo # download dependencies for CLI execution of daac_data_subscriber.py
       pip install '.[subscriber]'
       pip install '.[audit]'
+      pip install '.[disp_s1_status]'
 
       # comment out on 5-15-24 due to deployment failure
       #pip install '.[cmr_audit]'
@@ -803,6 +804,29 @@ resource "null_resource" "setup_trigger_rules" {
       echo Set up trigger rules
       sh ~/mozart/ops/${var.project}-pcm/cluster_provisioning/setup_trigger_rules.sh ${aws_instance.mozart.private_ip}
 
+    EOT
+    ]
+  }
+}
+
+resource "null_resource" "setup_cron_mozart" {
+  depends_on = [aws_instance.mozart]
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  # Set up crontab for updating DISP-S1 historical processing status
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      if [ "${var.disp_s1_hist_status}" = true ]; then
+        source ~/.bash_profile
+        set -ex
+        crontab ~/mozart/ops/opera-pcm/conf/sds/files/mozart/cron/hysdsops
+      fi
     EOT
     ]
   }

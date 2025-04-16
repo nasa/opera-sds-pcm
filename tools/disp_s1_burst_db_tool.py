@@ -42,7 +42,7 @@ server_parser.add_argument("--k", dest="k", help="If the k parameter is provided
 
 server_parser = subparsers.add_parser("frame", help="Print information based on frame")
 server_parser.add_argument("number", help="The frame number")
-server_parser.add_argument("--k", dest="k", help="If the k parameter is provided, the output is grouped by k-cycles", required=False)
+server_parser.add_argument("--k", dest="k", help="If the k parameter is provided, the output is grouped by k-cycles", default=15, required=False)
 
 server_parser = subparsers.add_parser("burst", help="Print information based on burst id.")
 server_parser.add_argument("burst_id", help="Burst id looks like T175-374393-IW1.")
@@ -227,7 +227,7 @@ elif args.subparser_name == "frame":
     if args.k:
         k = int(args.k)
         for i in range(0, len_sensing_times, k):
-            end = i+k if i+k < len_sensing_times else len_sensing_times - 1
+            end = i+k if i+k < len_sensing_times else len_sensing_times
             print(f"K-cycle {math.ceil(i/k)}", [t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes[i:end]])
     else:
         print([t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes])
@@ -236,7 +236,7 @@ elif args.subparser_name == "frame":
     if args.k:
         k = int(args.k)
         for i in range(0, len_sensing_times, k):
-            end = i+k if i+k < len_sensing_times else len_sensing_times - 1
+            end = i+k if i+k < len_sensing_times else len_sensing_times
             print(f"K-cycle {math.ceil(i/k)}", disp_burst_map[frame_number].sensing_datetime_days_index[i:end])
     else:
         print(disp_burst_map[frame_number].sensing_datetime_days_index)

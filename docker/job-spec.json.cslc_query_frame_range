@@ -1,8 +1,8 @@
 {
   "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/cslc/cslc_query.sh",
   "disk_usage":"1GB",
-  "soft_time_limit": 1200,
-  "time_limit": 1260,
+  "soft_time_limit": 3600,
+  "time_limit": 3660,
   "imported_worker_files": {
     "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",

@@ -12,7 +12,7 @@ from more_itertools import chunked
 
 from commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr,
-                                 ProductType, DateTimeRange,
+                                 ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
@@ -104,7 +104,8 @@ class CmrQuery:
             self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
             return {"download_granules": download_granules}
 
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC:
+        # Only RTC collection that's not DIST-1 does its own unique download job submission
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         else:
@@ -115,8 +116,8 @@ class CmrQuery:
         failed = [e for e in results if isinstance(e, Exception)]
 
         self.logger.debug(f"{results=}")
-        self.logger.info(f"{succeeded=}")
-        self.logger.info(f"{failed=}")
+        self.logger.info(f"{len(succeeded)} download jobs {succeeded=}")
+        self.logger.info(f"{len(failed)} download jobs {failed=}")
         self.logger.debug(f"{download_granules=}")
 
         return {
@@ -193,7 +194,14 @@ class CmrQuery:
 
     def download_job_submission_handler(self, granules, query_timerange):
         batch_id_to_urls_map = defaultdict(set)
-        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+
+        # DIST-S1 products are generated from RTC input files. RTC input files are also used by DSWx-S1 products.
+        # COLLECTION_TO_PRODUCT_TYPE_MAP does not allow for one collection to be used by multiple products so we'll deal piece-wise for now.
+        # TODO: Refactor in the future.
+        if self.args.product and self.args.product == PGEProduct.DIST_1:
+            product_type = PGEProduct.DIST_1
+        else:
+            product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
 
         for granule in granules:
             granule_id = granule.get("granule_id")
@@ -209,6 +217,8 @@ class CmrQuery:
                     # For CSLC force chunk_size to be the same as k in args
                     if self.args.k:
                         self.args.chunk_size = self.args.k
+                elif product_type == PGEProduct.DIST_1:
+                    url_grouping_func = None
                 elif product_type in (ProductType.RTC, ProductType.CSLC_STATIC):
                     raise NotImplementedError(
                         f"Download job submission is not supported for product type {product_type}"
@@ -217,7 +227,7 @@ class CmrQuery:
                     raise ValueError(f"Can't use {self.args.collection=} to select grouping function.")
 
                 for filter_url in granule.get("filtered_urls"):
-                    if product_type == ProductType.CSLC:
+                    if product_type == ProductType.CSLC or product_type == PGEProduct.DIST_1:
                         batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
                     else:
                         batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
@@ -286,6 +296,9 @@ class CmrQuery:
                         self.es_conn.mark_download_job_id(batch_id, "PENDING")
 
                     continue # don't actually submit download job
+            elif self.args.product == PGEProduct.DIST_1:
+                product_type = "rtc_for_dist"
+                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"

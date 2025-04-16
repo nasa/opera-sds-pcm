@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cache
 from urllib.parse import urlparse
+import backoff
 
 import boto3
 import dateutil
@@ -30,28 +31,32 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
-def get_s3_resource_from_settings(settings_field):
-    settings = SettingsConf().cfg
+def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
+
+    settings = SettingsConf(settings_yaml_path).cfg
     burst_file_url = urlparse(settings[settings_field])
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
 
     return s3, path, file, burst_file_url
-def localize_anc_json(settings_field):
+
+logger = get_logger()
+
+@backoff.on_exception(backoff.expo, Exception, max_time=30)
+def localize_anc_json(settings_field, settings_yaml_path=None):
     '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
 
-    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field)
+    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field, settings_yaml_path)
     s3.Object(burst_file_url.netloc, path).download_file(file)
 
     return file
 
 @cache
-def localize_disp_frame_burst_hist():
-    logger = get_logger()
+def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
     try:
-        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
+        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH", settings_yaml_path)
     except:
         logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. "
                        f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
@@ -60,11 +65,10 @@ def localize_disp_frame_burst_hist():
     return process_disp_frame_burst_hist(file)
 
 @cache
-def localize_frame_geo_json():
-    logger = get_logger()
+def localize_frame_geo_json(settings_yaml_path=None):
 
     try:
-        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
+        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE", settings_yaml_path=None)
     except:
         logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. "
                        f"Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
@@ -100,22 +104,31 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
     the number of sensing datetimes until that datetime.
     It's a linear search in a sorted list but no big deal because there will only ever be a few hundred elements'''
 
+    if len(frame_sensing_datetimes) == 0:
+        return 0, None
+
     for i, dt in enumerate(frame_sensing_datetimes):
         if dt > sensing_time:
             return i, frame_sensing_datetimes[i-1]
 
     return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
 
-def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts):
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15):
     '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
 
     total_possible_sensingdates = 0
     total_processed_sensingdates = 0
     frame_completion = {}
     last_processed_datetimes = {}
+
     for frame, state in frame_states.items():
+        logger.debug(f"Calculating percentage progress for {frame=}")
         frame = int(frame)
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
+
+        # Round down to the nearest k
+        num_sensing_times = num_sensing_times - (num_sensing_times % k)
+
         total_possible_sensingdates += num_sensing_times
         total_processed_sensingdates += state
         frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
@@ -127,7 +140,6 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts)
 @cache
 def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
-    logger = get_logger()
 
     try:
         j = json.load(open(file))["data"]
@@ -202,18 +214,21 @@ def process_frame_geo_json(file):
 
     return frame_geo_map
 
-def parse_cslc_file_name(native_id):
+def parse_r2_product_file_name(native_id, product_type):
+
     dataset_json = datasets_json_util.DatasetsJson()
-    cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
+    cslc_granule_regex = dataset_json.get(product_type)["match_pattern"]
     match_product_id = re.match(cslc_granule_regex, native_id)
 
     if not match_product_id:
-        raise ValueError(f"CSLC native ID {native_id} could not be parsed with regex from datasets.json")
+        raise ValueError(f"{product_type} native ID {native_id} could not be parsed with regex from datasets.json")
 
-    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def parse_cslc_file_name(native_id):
+    return parse_r2_product_file_name(native_id, "L2_CSLC_S1")
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!

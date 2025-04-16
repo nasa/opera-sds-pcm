@@ -165,7 +165,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 100
+    root_dev_size = 200
     private_ip    = ""
     public_ip     = ""
   }
@@ -381,9 +381,9 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.2"
+    "disp_s1"  = "3.0.5"
     "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.1.0"
+    "dist_s1"  = "6.0.0-er.2.0"
   }
 }
 
@@ -509,12 +509,13 @@ variable "earthdata_uat_pass" {
 variable "amis" {
   type = map(string)
   default = {
-    # HySDS v5.0.1 - February 03, 2025 - R3.1
-    mozart    = "ami-00abc393e08258f4e" # mozart v4.26 - 250203
-    metrics   = "ami-02be088d737404937" # metrics v4.18 - 250203
-    grq       = "ami-02506d9a0b5e3fbdd" # grq v4.19 - 250203
-    factotum  = "ami-022a1b1e8598dc144" # factotum v4.17 - 250127
-    autoscale = "ami-0c146bcb6cf104f68" # verdi v4.17 patchdate - 250127
+    # HySDS v5.0.1 - March 31, 2025 - R3.1
+    mozart    = "ami-04e69a02b62ba59a6" # mozart v26 - 250331
+    metrics   = "ami-08434f16555f84e7c" # metrics v4.18 - 250331
+    grq       = "ami-03a5ca8165a46aa41" # grq v4.19 - 250331
+    factotum  = "ami-0fad4c5f50f59b770" # factotum v4.17 - 250331
+    autoscale = "ami-05f33b814196b5e2d" # verdi v4.17 patchdate - 250331
+#    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
   }
 }
 
@@ -525,4 +526,9 @@ variable "es_pass" {}
 variable "clear_s3_aws_es" {
   type    = bool
   default = true
+}
+
+variable "disp_s1_hist_status" {
+  type    = bool
+  default = false
 }

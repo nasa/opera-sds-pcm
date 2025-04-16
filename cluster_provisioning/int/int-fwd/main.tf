@@ -31,8 +31,11 @@ module "int-main" {
   dataspace_pass                          = var.dataspace_pass
   earthdata_user                          = var.earthdata_user
   earthdata_pass                          = var.earthdata_pass
+  earthdata_uat_user                      = var.earthdata_uat_user
+  earthdata_uat_pass                      = var.earthdata_uat_pass
   cnm_r_venue                             = var.cnm_r_venue
   trace                                   = var.trace
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
   po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
+  disp_s1_hist_status                     = var.disp_s1_hist_status
 }
