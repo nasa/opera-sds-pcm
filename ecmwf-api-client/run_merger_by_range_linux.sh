@@ -238,7 +238,7 @@ if [[ -z $IN_END_DATE ]]; then
 fi
 
 # print all variables that have been set
-(set -o posix ; set)
+#(set -o posix ; set)
 
 
 ######################################################################
@@ -278,9 +278,10 @@ while [ "${IN_DATE}" != ${IN_END_DATE} ]; do
     exit 1
   fi
 
+#  -u "${username}:${password}" \
+
   curl --location 'https://'"${MOZART_IP}"'/mozart/api/v0.1/job/submit?enable_dedup=false' \
   --insecure \
-  -u "${username}:${password}" \
   --form 'queue="'"${JOB_QUEUE}"'"' \
   --form 'priority="0"' \
   --form 'tags="[\"'"${JOB_TAGS}"'\"]"' \
