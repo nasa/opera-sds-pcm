@@ -250,19 +250,19 @@ aws s3 ls 1>/dev/null
 echo Validated AWS CLI session
 
 
-echo "Enter the username you use to access the HySDS UI (Afterwards, you will be prompted for your password upon job submission):"
-read username
-if [[ -z $username ]]; then
-  echo Missing username. Exiting.
-  exit 1
-fi
+#echo "Enter the username you use to access the HySDS UI (Afterwards, you will be prompted for your password upon job submission):"
+#read username
+#if [[ -z $username ]]; then
+#  echo Missing username. Exiting.
+#  exit 1
+#fi
 
-echo "Enter password:"
-read -r -s password
-if [[ -z $password ]]; then
-  echo Missing password. Exiting.
-  exit 1
-fi
+#echo "Enter password:"
+#read -r -s password
+#if [[ -z $password ]]; then
+#  echo Missing password. Exiting.
+#  exit 1
+#fi
 
 # PARSE RANGE
 
