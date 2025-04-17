@@ -730,11 +730,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        metadata = self._context["product_metadata"]["metadata"]
 
         dataset_type = self._context["dataset_type"]
 
-        product_paths = metadata["product_paths"][dataset_type]
+        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
         rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
                                  r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acquisition_date>'
@@ -742,28 +742,45 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                  r'(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?'
                                  r'[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
 
-        rtc_dates_map = {}
-
-        for path in product_paths:
-            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
-
-            rtc_dates_map.setdefault(rtc_match['acquisition_date'], dict(co=[], cross=[]))
-
-            if rtc_match['pol'] in ['VV', 'HH']:
-                rtc_dates_map[rtc_match['acquisition_date']]['co'].append(path)
-            else:
-                rtc_dates_map[rtc_match['acquisition_date']]['cross'].append(path)
-
-        rtc_dates = list(sorted(rtc_dates_map.keys()))
+        # rtc_dates_map = {}
+        #
+        # for path in product_paths:
+        #     rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
+        #
+        #     rtc_dates_map.setdefault(rtc_match['acquisition_date'], dict(co=[], cross=[]))
+        #
+        #     if rtc_match['pol'] in ['VV', 'HH']:
+        #         rtc_dates_map[rtc_match['acquisition_date']]['co'].append(path)
+        #     else:
+        #         rtc_dates_map[rtc_match['acquisition_date']]['cross'].append(path)
+        #
+        # rtc_dates = list(sorted(rtc_dates_map.keys()))
+        #
+        # pre_copol = []
+        # pre_crosspol = []
+        # post_copol = rtc_dates_map[rtc_dates[-1]]['co']
+        # post_crosspol = rtc_dates_map[rtc_dates[-1]]['cross']
 
         pre_copol = []
         pre_crosspol = []
-        post_copol = rtc_dates_map[rtc_dates[-1]]['co']
-        post_crosspol = rtc_dates_map[rtc_dates[-1]]['cross']
+        post_copol = []
+        post_crosspol = []
 
-        for date in rtc_dates[:-1]:
-            pre_copol.extend(rtc_dates_map[date]['co'])
-            pre_crosspol.extend(rtc_dates_map[date]['cross'])
+        for path in product_paths["baseline_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
+
+            if rtc_match['pol'] in ['VV', 'HH']:
+                pre_copol.append(path)
+            else:
+                pre_crosspol.append(path)
+
+        for path in product_paths["current_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
+
+            if rtc_match['pol'] in ['VV', 'HH']:
+                post_copol.append(path)
+            else:
+                post_crosspol.append(path)
 
         def sort_fn(path):
             match = rtc_pattern.match(os.path.basename(path))
