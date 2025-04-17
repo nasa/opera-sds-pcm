@@ -131,7 +131,34 @@ def basic_decorate_granule(granule):
     granule["burst_id"] = burst_id
     granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
-def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_ids, complete_bursts_only, all_tile_ids = None):
+
+def get_unique_rtc_id_for_dist(granule_id):
+    '''Get the unique id for a DIST-S1 triggering. The unique id is the granule_id up to the acquisition time.
+    example: "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0" -> "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z"
+    '''
+    return "_".join(granule_id.split("_")[0:5])
+
+def add_unique_rtc_granules(granules_dict: dict, granules: list) -> None:
+    '''Add unique granules to the granules_dict. The key is a tuple of granule_id up to the acquisition time and the batch_id.
+    example: ("OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z", "p31RGQ_3_a302") and the value is the granule itself.
+    If there's more than one granule for the same key, use the one with the latest production date.
+    The dictionary is updated in place.
+    '''
+
+    for granule in granules:
+        unique_granule = get_unique_rtc_id_for_dist(granule["granule_id"])
+        key = (unique_granule, granule["batch_id"])
+        if key in granules_dict:
+            granules_dict[key] = granule if granule["granule_id"] > granules_dict[key]["granule_id"] else granules_dict[key]
+        else:
+            granules_dict[key] = granule
+def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, denorm_granules, complete_bursts_only, all_tile_ids = None):
+    '''Given a list of tuples that represent denormalized granules, compute the triggering of DIST-S1 products
+    Denormalized means is that the RTC granules already went through extension and therefore potential duplication based on producd_id
+    and therefore do not need to be duplicated again.
+
+    One tuple looks like this: ('OPERA_L2_RTC-S1_T168-359432-IW2_20231217T052423Z', '33VVE_4_302')
+    '''
 
     unused_rtc_granule_count = 0
     products_triggered = defaultdict(DIST_S1_Product)
@@ -142,33 +169,33 @@ def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, granule_id
     else:
         tiles_untriggered = None
 
-    for rtc_granule_id in granule_ids:
-        burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
-        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
-        acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
+    for d_g in denorm_granules:
+        partial_granule_id = d_g[0]
+        acq_datetime = dateutil.parser.isoparse(d_g[0].split("_")[-1])
+        acquisition_index = int(d_g[1].split("_")[-1])
         # print(burst_id, acq_datetime, acquisition_index)
 
-        product_ids = bursts_to_products[burst_id]
-        for product_id in product_ids:
-            triggered_product = products_triggered[product_id + "_" + str(acquisition_index)]
-            triggered_product.rtc_granules.append(rtc_granule_id)
-            triggered_product.possible_bursts = len(product_to_bursts[product_id])
-            triggered_product.used_bursts += 1
-            if triggered_product.earliest_acquisition is None or acq_datetime < triggered_product.earliest_acquisition:
-                triggered_product.earliest_acquisition = acq_datetime
-            if triggered_product.latest_acquisition is None or acq_datetime > triggered_product.latest_acquisition:
-                triggered_product.latest_acquisition = acq_datetime
-            if triggered_product.acquisition_index is None:
-                triggered_product.acquisition_index = acquisition_index
+        batch_id = d_g[1]
+        product_id = "_".join(batch_id.split("_")[0:2])
+        triggered_product = products_triggered[batch_id]
+        triggered_product.rtc_granules.append(partial_granule_id)
+        triggered_product.possible_bursts = len(product_to_bursts[product_id])
+        triggered_product.used_bursts += 1
+        if triggered_product.earliest_acquisition is None or acq_datetime < triggered_product.earliest_acquisition:
+            triggered_product.earliest_acquisition = acq_datetime
+        if triggered_product.latest_acquisition is None or acq_datetime > triggered_product.latest_acquisition:
+            triggered_product.latest_acquisition = acq_datetime
+        if triggered_product.acquisition_index is None:
+            triggered_product.acquisition_index = acquisition_index
 
-            if all_tile_ids:
-                tile_id = product_id.split("_")[0]
-                if tile_id in tiles_untriggered:
-                    tiles_untriggered.remove(tile_id)
-                else:
-                    if tile_id not in all_tiles_set:
-                        print(f"Tile ID {tile_id}: {rtc_granule_id} does not belong to any DIST-S1 product.")
-                        unused_rtc_granule_count += 1
+        if all_tile_ids:
+            tile_id = product_id.split("_")[0]
+            if tile_id in tiles_untriggered:
+                tiles_untriggered.remove(tile_id)
+            else:
+                if tile_id not in all_tiles_set:
+                    print(f"Tile ID {tile_id}: {partial_granule_id} does not belong to any DIST-S1 product.")
+                    unused_rtc_granule_count += 1
 
     # If complete_bursts_only is True, remove all products_triggered where used_bursts != possible_bursts
     # Also update granules_triggered which is a map from granule id to boolean where True means the granule was used

@@ -34,15 +34,21 @@ def test_extend_additional_records():
 
     GRANULE_ID1 = "OPERA_L2_RTC-S1_T168-359595-IW3_20231217T053154Z_20231218T195230Z_S1A_30_v1.0"
     GRANULE_ID2 = "OPERA_L2_RTC-S1_T168-359595-IW2_20231217T053153Z_20231218T195230Z_S1A_30_v1.0"
+    GRANULE_ID3 = "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"
 
     m = {}
     m["p31RGQ_3_a302"] = [GRANULE_ID1]
     m["p32RKV_3_a302"] = [GRANULE_ID1, GRANULE_ID2]
     m["p32RLV_3_a302"] = [GRANULE_ID2]
+    m["p33VUF_5_a302"] = [GRANULE_ID3]
+    m["p33VVF_4_a302"] = [GRANULE_ID3]
+    m["p33VVE_4_a302"] = [GRANULE_ID3]
+    m["p33VUE_5_a302"] = [GRANULE_ID3]
 
     granules = []
     granules.append({"granule_id": GRANULE_ID1})
     granules.append({"granule_id": GRANULE_ID2})
+    granules.append({"granule_id": GRANULE_ID3})
 
     for granule in granules:
         burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
@@ -55,7 +61,7 @@ def test_extend_additional_records():
     cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, None)
     cmr_query.extend_additional_records(granules)
 
-    assert len(granules) == 4
+    assert len(granules) == 8
 
     for granule in granules:
         assert granule["granule_id"] in m[granule["download_batch_id"]]
