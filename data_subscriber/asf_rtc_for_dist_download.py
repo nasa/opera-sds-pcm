@@ -22,6 +22,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
 
     def __init__(self, provider):
         super().__init__(provider)
+        self.dataset_type = "L2_RTC_S1"
 
         #self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
 
