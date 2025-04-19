@@ -193,7 +193,8 @@ class RtcForDistCmrQuery(CmrQuery):
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
             try:
-                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(product_id, all_granules, self.args, K_GRANULES - 1, verbose=False)
+                k = K_GRANULES if self.args.k is None else self.args.k
+                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(product_id, all_granules, self.args, k - 1, verbose=False)
             except Exception as e:
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
