@@ -873,8 +873,31 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # This is currently hardcoded, should we move it to settings?
 
+        N_LOOKBACKS = 3
+
+        # TODO: To support testing for smaller (thus quicker) k, contract this value if few sensing dates are
+        #  available
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
+
+        rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
+                                 r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acquisition_date>'
+                                 r'\d{8})T\d{6}Z)_(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_'
+                                 r'(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?'
+                                 r'[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
+
+        baseline_sensing_dates = set()
+
+        for path in product_paths["baseline_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
+            baseline_sensing_dates.add(rtc_match['aquisition_date'])
+
         rc_params = {
-            'n_lookbacks': 3
+            'n_lookbacks': min(N_LOOKBACKS, len(baseline_sensing_dates)),
         }
 
         return rc_params
