@@ -100,6 +100,10 @@ module "common" {
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
   disp_s1_hist_status                     = var.disp_s1_hist_status
+  amis                                    = var.amis
+  asf_cnm_s_ids                           = var.asf_cnm_s_ids
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  es_bucket_role_arn                      = var.es_bucket_role_arn
 }
 
 locals {

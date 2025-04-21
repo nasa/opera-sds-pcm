@@ -26,7 +26,6 @@ locals {
   asf_daac_delivery_account        = split(":", var.asf_daac_delivery_proxy)[4]
   asf_daac_delivery_resource_name  = split(":", var.asf_daac_delivery_proxy)[5]
   asf_daac_proxy_cnm_r_sns_count   = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
-  asf_daac_delivery_proxy_maturity = split("-", var.asf_daac_delivery_proxy)[4]
 
   pge_artifactory_dev_url     = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
@@ -62,7 +61,9 @@ locals {
   enable_query_timer          = var.cluster_type == "reprocessing" ? false : true
   enable_download_timer       = false
 
-  delete_old_job_catalog = true
+  delete_old_job_catalog      = true
+  amis                        = var.amis
+  asf_cnm_s_ids               = var.asf_cnm_s_ids
 }
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
@@ -212,10 +213,9 @@ data "aws_sqs_queue" "cnm_response" {
 
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   count            = local.sqs_count
-  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[local.asf_daac_delivery_proxy_maturity] : aws_sqs_queue.cnm_response.arn
-  #event_source_arn = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : aws_sqs_queue.cnm_response.arn
+  event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue] : aws_sqs_queue.cnm_response.arn
   function_name = aws_lambda_function.sqs_cnm_response_handler.arn
-}
+} 
 
 data "aws_iam_policy_document" "cnm_response" {
   policy_id = "SQSDefaultPolicy"
@@ -228,12 +228,11 @@ data "aws_iam_policy_document" "cnm_response" {
       type = "AWS"
       identifiers = [
         "arn:aws:iam::${var.aws_account_id}:root",
-        "arn:aws:iam::871271927522:root",
-        "arn:aws:iam::156214815904:root",
-        "arn:aws:iam::097260566921:root",
-        "arn:aws:iam::907504701509:root",
-        "arn:aws:iam::510296831643:root"
-      ]
+        "arn:aws:iam::${var.asf_cnm_s_ids["dev"]}:root",
+        "arn:aws:iam::${var.asf_cnm_s_ids["dev-int"]}:root",
+        "arn:aws:iam::${var.asf_cnm_s_ids["test"]}:root",
+        "arn:aws:iam::${var.asf_cnm_s_ids["prod"]}:root"
+      ] 
     }
     resources = [
       data.aws_sqs_queue.cnm_response.arn

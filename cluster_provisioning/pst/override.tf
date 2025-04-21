@@ -6,10 +6,6 @@
 #
 
 ##### Environments #######
-variable "aws_account_id" {
-  default = "483785460105"
-}
-
 variable "venue" {
   default = "pst"
 }
@@ -50,20 +46,6 @@ variable "clear_s3_aws_es" {
    default = false
 }
 
-###### Security  ########
-variable "public_verdi_security_group_id" {
-  default = "sg-01b0d3772049cc263"
-}
-
-variable "private_verdi_security_group_id" {
-  default = "sg-03eed53cf8fbfea3a"
-}
-
-variable "cluster_security_group_id" {
-  default = "sg-070b0cf50df41767f"
-}
-
-
 variable "private_key_file" {
   default = "~/.ssh/pyoon_pcm_pst.pem"
 }
@@ -87,26 +69,6 @@ variable "profile" {
   default = "saml-pub"
 }
 
-####### Subnet ###########
-variable "subnet_id" {
-  default = "subnet-005726c648910667e"
-}
-
-####### VPC #########
-variable "lambda_vpc" {
-  default = "vpc-09690c3880fda922e"
-}
-
-variable "public_asg_vpc" {
-  default = "vpc-09690c3880fda922e"
-}
-
-variable "private_asg_vpc" {
-  default = "vpc-0ac48391a96eb1291"
-}
-
-
-##### Bucket Names #########
 variable "docker_registry_bucket" {
   default = "opera-pst-cc-pop1"
 }
@@ -174,22 +136,6 @@ variable "pcm_verdi_role" {
   }
 }
 
-variable "lambda_role_arn" {
-  default = "arn:aws:iam::483785460105:role/am-pcm-lambda-role"
-}
-
-##### ES ######
-variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::483785460105:role/am-es-role"
-}
-
-####### CNM Response job vars #######
-variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:483785460105:daac-proxy-for-opera-pst"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-throttled-provider-input-sns"
-}
-
-
 variable "grq_aws_es_host" {
   default = ""
 }
@@ -205,7 +151,6 @@ variable "mozart" {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.10"
     private_ip    = "100.104.62.10"
     public_ip     = ""
   }
@@ -218,7 +163,6 @@ variable "metrics" {
     name          = "metrics"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.11"
     private_ip    = "100.104.62.11"
     public_ip     = ""
   }
@@ -231,7 +175,6 @@ variable "grq" {
     name          = "grq"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.12"
     private_ip    = "100.104.62.12"
     public_ip     = ""
   }
@@ -247,7 +190,6 @@ variable "factotum" {
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
-    #private_ip    = "100.104.13.13"
     private_ip    = "100.104.62.13"
     publicc_ip    = ""
   }

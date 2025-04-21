@@ -107,6 +107,8 @@ module "common" {
   es_bucket_role_arn                      = var.es_bucket_role_arn
   run_smoke_test                          = var.run_smoke_test
   disp_s1_hist_status                     = var.disp_s1_hist_status
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  asf_cnm_s_ids                           = var.asf_cnm_s_ids
 }
 
 locals {
@@ -164,17 +166,6 @@ resource "null_resource" "mozart" {
                 ${var.use_daac_cnm_r} \
                 ${local.crid} \
                 ${var.cluster_type} || :
-              fi
-    EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              if [ "${var.run_smoke_test}" = true ]; then
-                pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:
               fi
     EOF
     ]
@@ -250,10 +241,10 @@ resource "null_resource" "smoke_test" {
     inline = [<<-EOT
       if [ "${var.run_smoke_test}" = true ]; then
         set -ex
-        source ~/.bash_profile
-
+        source ~/.bash_profile 
+  
         cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
-
+  
         ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_opera_smoke_tests.sh \
         --mozart-ip=${module.common.mozart.private_ip} \
         --grq-host="grq:9200" \
