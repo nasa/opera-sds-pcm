@@ -894,7 +894,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         for path in product_paths["baseline_burst_set"]:
             rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
-            baseline_sensing_dates.add(rtc_match['aquisition_date'])
+            baseline_sensing_dates.add(rtc_match['acquisition_date'])
 
         rc_params = {
             'n_lookbacks': min(N_LOOKBACKS, len(baseline_sensing_dates)),
