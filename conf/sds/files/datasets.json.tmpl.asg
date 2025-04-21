@@ -428,7 +428,7 @@
       "ipath": "hysds::data/L4_TROPO",
       "level": "L4",
       "type": "L4_TROPO",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<hres>HRES?)_(?P<product_version>\\d+[.]\\d+)_(?P<alg_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<model>.+?)_(?P<product_version>\\d+[.]\\d+)_(?P<alg_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
