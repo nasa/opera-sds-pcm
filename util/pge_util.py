@@ -816,7 +816,7 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DISP_S1_STATIC': get_disp_s1_static_simulated_output_filenames,
             'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames,
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
-            'TROPO': get_tropo_simulated_output_filenames
+            'L4_TROPO': get_tropo_simulated_output_filenames
         }
 
         try:
