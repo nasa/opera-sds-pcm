@@ -90,6 +90,7 @@ class DIST_S1_Product(object):
         self.acquisition_index = None
         self.earliest_acquisition = None
         self.latest_acquisition = None
+        self.earliest_creation = None
 
 def dist_s1_download_batch_id(granule):
     """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
@@ -152,7 +153,7 @@ def add_unique_rtc_granules(granules_dict: dict, granules: list) -> None:
             granules_dict[key] = granule if granule["granule_id"] > granules_dict[key]["granule_id"] else granules_dict[key]
         else:
             granules_dict[key] = granule
-def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, denorm_granules, complete_bursts_only, all_tile_ids = None):
+def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete_bursts_only, grace_mins, now, all_tile_ids = None):
     '''Given a list of tuples that represent denormalized granules, compute the triggering of DIST-S1 products
     Denormalized means is that the RTC granules already went through extension and therefore potential duplication based on producd_id
     and therefore do not need to be duplicated again.
@@ -169,7 +170,12 @@ def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, denorm_gra
     else:
         tiles_untriggered = None
 
-    for d_g in denorm_granules:
+    for d_g, granule in denorm_granules_dict.items():
+
+        # If this granule was from the unsubmitted list, we will use the creation_timestamp from ES to evaludate against the grace period
+        # creation_timestamp looks like this: 2025-04-17T00:19:08.283857
+        creation_timestamp = dateutil.parser.isoparse(granule["creation_timestamp"]) if "creation_timestamp" in granule else now
+
         partial_granule_id = d_g[0]
         acq_datetime = dateutil.parser.isoparse(d_g[0].split("_")[-1])
         acquisition_index = int(d_g[1].split("_")[-1])
@@ -181,6 +187,11 @@ def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, denorm_gra
         triggered_product.rtc_granules.append(partial_granule_id)
         triggered_product.possible_bursts = len(product_to_bursts[product_id])
         triggered_product.used_bursts += 1
+
+        # earliest_creation is used for grace period evaluation
+        if triggered_product.earliest_creation is None or creation_timestamp < triggered_product.earliest_creation:
+            triggered_product.earliest_creation = creation_timestamp
+
         if triggered_product.earliest_acquisition is None or acq_datetime < triggered_product.earliest_acquisition:
             triggered_product.earliest_acquisition = acq_datetime
         if triggered_product.latest_acquisition is None or acq_datetime > triggered_product.latest_acquisition:
@@ -202,9 +213,14 @@ def compute_dist_s1_triggering(bursts_to_products, product_to_bursts, denorm_gra
     if complete_bursts_only:
         for product_id, product in list(products_triggered.items()):
             if product.possible_bursts != product.used_bursts:
-                del products_triggered[product_id]
-                for granule_id in product.rtc_granules:
-                    granules_triggered[granule_id] = False
+                mins_delta = (now - product.earliest_creation).total_seconds() / 60
+                if mins_delta < grace_mins:
+                    del products_triggered[product_id]
+                    for granule_id in product.rtc_granules:
+                        granules_triggered[granule_id] = False
+                else:
+                    logger.info(f"Product {product_id} was triggered with {product.used_bursts} out of {product.possible_bursts} bursts. "
+                                f"Earliest creation time is {product.earliest_creation} and current time is {now}, a delta of {mins_delta} minutes. This is outside of the grace period {grace_mins} minutes.")
             else:
                 for granule_id in product.rtc_granules:
                     granules_triggered[granule_id] = True
@@ -261,7 +277,7 @@ if __name__ == "__main__":
     rtc_granule_count = len(granule_ids)
 
     logger.info("\nComputing for triggered DIST-S1 products...")
-    products_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(bursts_to_products, granule_ids, all_tile_ids)
+    products_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(granule_ids, all_tile_ids)
 
     # Compute average burst usage percentage
     total_bursts = 0

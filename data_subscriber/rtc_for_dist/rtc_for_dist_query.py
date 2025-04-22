@@ -26,7 +26,8 @@ class RtcForDistCmrQuery(CmrQuery):
         else:
             self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
 
-        #TODO: Grace minutes? Read from settings.yaml
+        self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
+        self.logger.info(f"grace_mins={self.grace_mins}")
 
         '''These two maps are set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
@@ -168,8 +169,7 @@ class RtcForDistCmrQuery(CmrQuery):
         print("granules_dict keys: ", granules_dict.keys())
         granule_ids = list(set([g["granule_id"] for g in granules_dict.values()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
-        products_triggered, _, _, _ = compute_dist_s1_triggering(
-            self.bursts_to_products, self.product_to_bursts, list(granules_dict.keys()), complete_bursts_only = True)
+        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))

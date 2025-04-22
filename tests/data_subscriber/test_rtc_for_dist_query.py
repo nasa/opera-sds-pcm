@@ -58,7 +58,7 @@ def test_extend_additional_records():
                                                                    granule["acquisition_ts"], granule["granule_id"])
 
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, None)
+    cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210})
     cmr_query.extend_additional_records(granules)
 
     assert len(granules) == 8
@@ -114,7 +114,7 @@ def test_determine_download_granules(monkeypatch):
                                                                    granule["acquisition_ts"], granule["granule_id"])
 
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, None)
+    cmr_query = RtcForDistCmrQuery(args, None, MockESConn(), None, None, {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210})
 
     mock_retrieve_baseline_granules = MagicMock(return_value=[])
     monkeypatch.setattr(
