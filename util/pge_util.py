@@ -762,6 +762,44 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     return output_filenames
 
 
+def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DISP-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    acq_time = get_time_for_filename()
+    creation_time = get_time_for_filename()
+
+    if extension.endswith('nc') or extension.endswith('png') or extension.endswith('iso.xml'):
+        base_name = base_name_template.format(
+            acquisition_ts=acq_time,
+            creation_ts=creation_time,
+            model='HRES',
+            spacing='0.1',
+            product_version=dataset_match.groupdict()['product_version']
+        )
+    # ancillary has a different output format
+    else:
+        base_name = base_name_template.format(
+            creation_ts=creation_time,
+        )
+
+    # Simulate the multiple output tif files created by this PGE
+    if extension.endswith('nc'):
+        output_filenames.append(f'{base_name}.nc')
+    elif extension.endswith('png'):
+        output_filenames.append(f'{base_name}.png')
+    elif extension.endswith('iso.xml'):
+        output_filenames.append(f'{base_name}.iso.xml')
+    elif extension.endswith('log'):
+        output_filenames.append(f'{base_name}.log')
+    elif extension.endswith('qa.log'):
+        output_filenames.append(f'{base_name}.qa.log')
+    elif extension.endswith('catalog.json'):
+        output_filenames.append(f'{base_name}.catalog.json')
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
@@ -776,6 +814,7 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DISP_S1_STATIC': get_disp_s1_static_simulated_output_filenames,
             'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames,
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
+            'TROPO': get_tropo_simulated_output_filenames
         }
 
         try:
