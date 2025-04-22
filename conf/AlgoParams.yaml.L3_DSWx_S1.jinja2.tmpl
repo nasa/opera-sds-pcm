@@ -1,0 +1,231 @@
+runconfig:
+    name: dswx_s1_workflow_algorithm
+
+    processing:
+        # dswx_workflow 'opera_dswx_s1', 'twele', 'opera_dswx_s1_inundated_vegetation'
+        dswx_workflow: 'opera_dswx_s1'
+        # Polarizations to be used for DSWx-SAR
+        # [polarizations] for list of specific frequency(s) e.g. [VV, VH] or [VV]
+        # 'dual-pol', 'co-pol', 'cross-pol' will search the polarizations Input GeoTiff files have.
+        # For example, 'co-pol' uses ['HH'], ['VV'], or ['HH', 'VV'] by looking at the input data.
+        # ['auto'] will detect available polarizations from given RTC data
+        polarizations: ['auto']
+        # Additional for polarimetric computations to be performed in specific polarization modes (co/cross and co + cross)
+        # e.g. ['ratio', 'span']
+        polarimetric_option:
+
+        # Specifiy the max_value for permanent water and no_data_value for invalid pixels
+        reference_water:
+            max_value: 100
+            no_data_value: 255
+            # value assuming the permanent water [0-1]
+            permanent_water_value: 0.9
+            # number of pixel to apply erosion for drought case
+            drought_erosion_pixel: 10
+            # number of pixel to apply dilation for flood case
+            flood_dilation_pixel: 16
+
+        hand:
+            mask_value: 200
+
+        ocean_mask:
+            # Flag to apply ocean mask
+            mask_enabled: False
+            # Margin to apply ocean mask in km
+            mask_margin_km: 5
+            # Flag if the polygon is water
+            mask_polygon_water: True
+
+        mosaic:
+            mosaic_prefix: 'mosaic'
+            mosaic_cog_enable: True
+            # Burst Mosaic options
+            #   - average : overlapped areas are averaged.
+            #   - first : choose one burst without average.
+            mosaic_mode: 'first'
+
+        # Flag to turn on/off the filtering for RTC image.
+        # The enhanced Lee filter is available.
+        filter:
+            enabled: True
+            method: bregman
+            block_pad: 300
+            lee_filter:
+                window_size: 3
+            guided_filter:
+                radius: 1
+                eps: 3
+                ddepth: -1
+            bregman:
+                lambda_value: 20
+            anisotropic_diffusion:
+                weight: 1
+            # Window size for filtering.
+            line_per_block: 1000
+
+        initial_threshold:
+            # Maximum tile size for initial threshold.
+            maximum_tile_size:
+                x: 400
+                y: 400
+            # Minimum tile size for initial threshold.
+            minimum_tile_size:
+                x: 40
+                y: 40
+            # tile selecting strategy to identify the boundary between water and nonwater
+            # ['twele', 'chini', 'bimodality', 'combined']
+            # 'combined' option applies all selection strategy
+            selection_method: ['chini', 'bimodality']
+
+            # Thresholds to select tiles showing the boundary between water and nonwater
+            # using bimodality strategy.
+            # One values are required for twele method
+            tile_selection_twele: [0.09, 0.8, 0.97]
+            # Thresholds to select tiles showing the boundary between water and nonwater
+            # using bimodality strategy.
+            # One values are required for bimodality method
+            tile_selection_bimodality: 0.7
+            # Stratey to interpolate the tile-based thresholds.
+            # Currently, only 'smoothed' is available.
+            extending_method: 'gdal_grid'
+            # Thresholding algorithm for initial thresholds.
+            # Currently, 1) Otsu and 2) Kittler-Illingworth algorithms are available.
+            # ['otsu', 'ki']
+            threshold_method: 'ki'
+            # Thresholding boundary values in dB. The boundary values are computed internally
+            # using the statics of the rtc image. If the values are out of the given range,
+            # adopt these values instead of the computed values
+            threshold_bounds:
+                co_pol: [-28, -11]
+                cross_pol: [-28, -18]
+            # Flag to assume the trimodal distribution.
+            # If flag is false, the distribution is assumed to have bimodal distribution and
+            # estimate single threshold per tile. If True, the trimodal distribution is assumed,
+            # the lowest threshold is estimated.
+            multi_threshold: True
+            # Flag to adjust threshold where two gaussian distribution is not overlapped.
+            # If 'adjust_if_nonoverlap' is enabled,
+            # start to search the alternative threshold when two distributions are not
+            # overlapped. The 'low_dist_percentile' is the percentile of
+            # the low distribution and 'high_dist_percentile' is the percentile of
+            # the high distribution. Both values should be within range of 0 to 1.
+            adjust_if_nonoverlap: True
+            low_dist_percentile: 0.99
+            high_dist_percentile: 0.01
+            # Number of threads to run
+            # -1 represents the all available threads
+            number_cpu: {{ runconfig.processing.num_workers }}
+            tile_average: True
+            line_per_block: 300
+
+        fuzzy_value:
+            line_per_block: 200
+            hand:
+                # The units of the HAND is meters.
+                member_min: 0
+                member_max: 15
+            # membership bound for slope angle
+            slope:
+                # The units of the slope is degree.
+                member_min: 0.5
+                member_max: 15
+            # membership bound for reference water
+            reference_water:
+                # Minimum reference water value for membership
+                member_min: 0.8
+                # Maximum reference water value for membership
+                member_max: 0.95
+            # membership bound for area of initial water bodies
+            # area membership is only required for 'twele' workflow.
+            # area unit is pixel number.
+            area:
+                member_min: 0
+                member_max: 40
+            # Dark area is defined where cross-pol is lower than cross_land
+            # Water is defined where cross-pol is lower than cross_water
+            dark_area:
+                # Threshold [dB] for land in the dark area definition
+                cross_land: -18
+                # Threshold [dB] for water in the dark area definition
+                cross_water: -24
+            # High frequent water is defined based on two values
+            # water_min_value < high_frequent_water < water_max_value
+            high_frequent_water:
+                # Minimum value for high frequent water
+                water_min_value: 0.1
+                # Maximum value for high frequent water
+                water_max_value: 0.9
+
+        # Region growing options
+        region_growing:
+            # seed value for region growing start
+            initial_threshold: 0.81
+            # end value for region growing
+            relaxed_threshold: 0.51
+            line_per_block: 400
+
+        masking_ancillary:
+            # Land covers that behaves like dark lands in DSWx-SAR.
+            # The elements should be in given landcover file.
+            # The elements will be masked out during this step.
+            land_cover_darkland_list: ['Bare sparse vegetation', 'Urban', 'Moss and lichen']
+            # The elements is considered as the dark land candidates
+            # where these elemtns are spatially connected to the dark land.
+            land_cover_darkland_extension_list: ['Grassland', 'Shrubs']
+            land_cover_water_label: ['Permanent water bodies']
+            # VV and VH threshold values for dark land candidates
+            co_pol_threshold: -14.6
+            cross_pol_threshold: -22.8
+            # reference water threshold value for dark land candidates
+            water_threshold: 0.05
+            # Flag to enable the darkland extension.
+            extended_darkland: True
+            extended_darkland_minimum_pixel: 3
+            extended_darkland_water_buffer: 10
+            # Flag to enable the HAND filter.
+            hand_variation_mask: True
+            # pixels with HAND threshold is masked out.
+            hand_variation_threshold: 2.5
+            line_per_block: 400
+            number_cpu: {{ runconfig.processing.num_workers }}
+
+        refine_with_bimodality:
+            minimum_pixel: 40
+            lines_per_block: 500
+            number_cpu: {{ runconfig.processing.num_workers }}
+            thresholds:
+                ashman: 1.5
+                Bhattacharyya_coefficient: 0.97
+                bm_coefficient: 0.7
+                surface_ratio: 0.1
+
+        inundated_vegetation:
+            # 'auto' determine the inundated vegetation availability
+            # based on available cross-polarizations
+            enabled: auto
+            dual_pol_ratio_max: 12
+            dual_pol_ratio_min: 7
+            dual_pol_ratio_threshold: 8
+            cross_pol_min: -26
+            line_per_block: 300
+            target_area_file_type: 'auto'
+            target_worldcover_class: ['Herbaceous wetland']
+            target_glad_class: ['112-124', '200-207', '125-148']
+            filter:
+                enabled: True
+                method: lee
+                block_pad: 300
+                lee_filter:
+                    window_size: 3
+                guided_filter:
+                    radius: 1
+                    eps: 3
+                    ddepth: -1
+                bregman:
+                    lambda_value: 20
+                anisotropic_diffusion:
+                    weight: 1
+                # Window size for filtering.
+                line_per_block: 1000
+        # debug mode is true, intermediate product is generated.
+        debug_mode: False
