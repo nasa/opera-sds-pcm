@@ -799,6 +799,8 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
         output_filenames.append(f'{base_name}.qa.log')
     elif extension.endswith('catalog.json'):
         output_filenames.append(f'{base_name}.catalog.json')
+    
+    return output_filenames
 
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
