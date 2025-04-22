@@ -92,7 +92,9 @@ class SettingsConf(YamlConf):
 
 
 class RunConfig(object):
-    """PGE run configuration class."""
+    """PGE Run Config template instantiation class."""
+    template_name = "RunConfig.yaml.{template_type}.jinja2.tmpl"
+    schema_name = "RunConfig_schema.{template_type}.yaml"
 
     def __init__(self, rc_data, template_type):
         """
@@ -101,25 +103,29 @@ class RunConfig(object):
         :param rc_data: Run Config content.
         :param template_type: The template type to use.
         """
+
         self._rc_data = rc_data
+
         if template_type is None:
             raise ValueError("Must specify a template type.")
 
-        tmpl_file_dir = norm_path(os.path.join(os.path.dirname(__file__), "..", "conf"))
+        tmpl_file_dir = norm_path(os.path.join(os.path.dirname(__file__), os.pardir, "conf"))
         file_loader = FileSystemLoader(tmpl_file_dir)
         env = Environment(loader=file_loader)
 
-        template = env.get_template(
-            "RunConfig.yaml.{}.jinja2.tmpl".format(template_type)
-        )
+        template = env.get_template(self.template_name.format(template_type=template_type))
 
         self._template_type = template_type
         self._rendered_rc = template.render(runconfig=rc_data)
 
     def validate(self, rc_file, template_type):
+        """Validates the instantiated RunConfig against its corresponding Yamale schema"""
+
         try:
-            schema_file = os.path.join(os.path.dirname(__file__), "..", "conf", "schema",
-                                       "RunConfig_schema.{}.yaml".format(template_type))
+            schema_file = os.path.join(
+                os.path.dirname(__file__), os.pardir, "conf", "schema",
+                self.schema_name.format(template_type=template_type)
+            )
             schema = yamale.make_schema(schema_file)
 
             # Create a Data object
@@ -128,6 +134,7 @@ class RunConfig(object):
         except yamale.YamaleError as e:
             logger.error(e.message)
             raise RuntimeError(e.message)
+
         return True
 
     def dump(self, output_file=None, validate=True):
@@ -140,10 +147,16 @@ class RunConfig(object):
         if output_file is not None:
             with open(output_file, "w") as f:
                 f.write("{}\n".format(self._rendered_rc))
+
             if validate:
                 self.validate(output_file, self._template_type)
         else:
             return self._rendered_rc
+
+class AlgorithmParameters(RunConfig):
+    """PGE Algorithm Parameters template instantiaton class."""
+    template_name = "AlgoParams.yaml.{template_type}.jinja2.tmpl"
+    schema_name = "AlgoParams_schema.{template_type}.yaml"
 
 
 class PGEOutputsConf(YamlConf):
