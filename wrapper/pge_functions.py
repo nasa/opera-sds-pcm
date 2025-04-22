@@ -571,3 +571,5 @@ def update_tropo_runconfig(context, work_dir):
         updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
+    
+    return run_config
