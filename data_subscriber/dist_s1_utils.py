@@ -224,6 +224,7 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete
             else:
                 for granule_id in product.rtc_granules:
                     granules_triggered[granule_id] = True
+                logger.info(f"Product {product_id} was triggered with {product.used_bursts} out of {product.possible_bursts} bursts. ")
 
     return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
