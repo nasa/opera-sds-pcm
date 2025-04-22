@@ -102,11 +102,6 @@ def dswx_s1_lineage_metadata(context, work_dir):
     local_db_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
     lineage_metadata.extend(local_db_filepaths)
 
-    local_algorithm_parameters_filepath = os.path.join(
-        work_dir, basename(run_config["processing"]["algorithm_parameters"])
-    )
-    lineage_metadata.append(local_algorithm_parameters_filepath)
-
     return lineage_metadata
 
 
@@ -166,11 +161,6 @@ def disp_s1_lineage_metadata(context, work_dir):
 
     local_mask_filepaths = glob.glob(os.path.join(work_dir, "*mask*.*"))
     lineage_metadata.extend(local_mask_filepaths)
-
-    local_algorithm_parameters_filepath = os.path.join(
-        work_dir, basename(run_config["processing"]["algorithm_parameters"])
-    )
-    lineage_metadata.append(local_algorithm_parameters_filepath)
 
     # Algorithm parameters overrides has already been downloaded to local disk
     local_algorithm_parameters_overrides_filepath = run_config["processing"]["algorithm_parameters_overrides_json"]
@@ -363,9 +353,6 @@ def update_dswx_s1_runconfig(context, work_dir):
     }
     run_config["static_ancillary_file_group"] = updated_static_ancillary_file_paths
 
-    algorithm_parameters_filename = basename(run_config["processing"]["algorithm_parameters"])
-    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/{algorithm_parameters_filename}'
-
     return run_config
 
 
@@ -452,8 +439,8 @@ def update_disp_s1_runconfig(context, work_dir):
                          os.path.basename(run_config["dynamic_ancillary_file_group"]["mask_file"]))
         )
 
-    run_config["processing"]["algorithm_parameters"] = (
-        os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters"]))
+    run_config["processing"]["algorithm_parameters_overrides_json"] = (
+        os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters_overrides_json"]))
     )
 
     return run_config

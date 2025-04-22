@@ -56,7 +56,7 @@ RunConfig:
             {{ type }}:
             {%- endif %}
             {%- endfor %}
-            algorithm_parameters: {{ runconfig.processing.algorithm_parameters }}
+            algorithm_parameters: {{ runconfig.product_path_group.input_path }}/AlgoParams.yaml
             # TODO: update descriptions as necessary when new ancillary releases are available
             dem_file_description: 'Copernicus DEM GLO-30 2021 WGS84'
             worldcover_file_description: 'ESA WorldCover 10m 2020 v1.0'
