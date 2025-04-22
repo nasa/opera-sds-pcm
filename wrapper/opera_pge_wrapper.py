@@ -46,7 +46,7 @@ lineage_metadata_functions = {
     'L3_DISP_S1_STATIC': disp_s1_static_lineage_metadata,
     'L3_DSWx_NI': dswx_ni_lineage_metadata,
     'L3_DIST_S1': dist_s1_lineage_metadata,
-    'TROPO': tropo_lineage_metadata
+    'L4_TROPO': tropo_lineage_metadata
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -61,7 +61,7 @@ runconfig_update_functions = {
     'L3_DISP_S1_STATIC': update_disp_s1_static_runconfig,
     'L3_DSWx_NI': update_dswx_ni_runconfig,
     'L3_DIST_S1': update_dist_s1_runconfig,
-    'TROPO': update_tropo_runconfig
+    'L4_TROPO': update_tropo_runconfig
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
