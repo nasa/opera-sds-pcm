@@ -742,25 +742,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                  r'(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?'
                                  r'[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
 
-        # rtc_dates_map = {}
-        #
-        # for path in product_paths:
-        #     rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
-        #
-        #     rtc_dates_map.setdefault(rtc_match['acquisition_date'], dict(co=[], cross=[]))
-        #
-        #     if rtc_match['pol'] in ['VV', 'HH']:
-        #         rtc_dates_map[rtc_match['acquisition_date']]['co'].append(path)
-        #     else:
-        #         rtc_dates_map[rtc_match['acquisition_date']]['cross'].append(path)
-        #
-        # rtc_dates = list(sorted(rtc_dates_map.keys()))
-        #
-        # pre_copol = []
-        # pre_crosspol = []
-        # post_copol = rtc_dates_map[rtc_dates[-1]]['co']
-        # post_crosspol = rtc_dates_map[rtc_dates[-1]]['cross']
-
         pre_copol = []
         pre_crosspol = []
         post_copol = []
