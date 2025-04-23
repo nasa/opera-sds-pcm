@@ -280,6 +280,7 @@ variable "cnm_r_venue" {
 
 variable "trace" {
   type    = string
+  default = "opera-dev"
 }
 
 variable "po_daac_delivery_proxy" {
@@ -418,6 +419,9 @@ variable "artifactory_fn_user" {
   default = ""
 }
 
+variable "es_bucket_role_arn" {
+}
+
 variable "dataspace_user" {
   default = ""
 }
@@ -440,4 +444,16 @@ variable "earthdata_uat_user" {
 
 variable "earthdata_uat_pass" {
   default = ""
+}
+
+variable "amis" {
+  type = map(string)
+  default = {
+  }
+} 
+
+variable "cnm_r_sqs_arn" {
+}
+  
+variable "asf_cnm_s_ids" {
 }
