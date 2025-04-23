@@ -390,6 +390,7 @@ variable "queues" {
 
                             //TODO: Pick one
       // Compute optimized 4x large - barely enough memory, reasonable amount of cores
+      // Note: When tested, could not complete jobs on spot since it would terminate too soon, had to switch to on-demand
       "instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
 
       // Compute optimized 8x large - ample memory, great number of cores if all are utilized (not possible in 0.0.6 - will be soon)
