@@ -118,6 +118,18 @@ GRQ_ES_URL = "{{ 'https://'~GRQ_ES_PVT_IP_VERDI if GRQ_AWS_ES == true or 'es.ama
 
 CONTAINER_ENGINE = "{{ CONTAINER_ENGINE or 'docker' }}"
 
+PODMAN_CFG = {
+  "set_uid_gid": False,
+  "set_passwd_entry": True,
+  "cmd_base": {
+    "security-opt": "label=disable"
+  },
+  "environment": [
+    "HOST_VERDI_HOME",
+    "HOST_USER",
+    "HOST_UID"
+  ]
+}
 
 
 DATASET_PROCESSED_QUEUE = "dataset_processed"
@@ -183,3 +195,7 @@ CONTAINER_REGISTRY = "{{ CONTAINER_REGISTRY }}"
 AWS_REGION = "{{ AWS_REGION }}"
 
 ES_CLUSTER_MODE = {{ ES_CLUSTER_MODE or False }}
+
+VERDI_HOME = "{{ VERDI_HOME or '/root' }}"
+
+VERDI_SHELL = "{{ VERDI_SHELL or '/bin/bash' }}"
