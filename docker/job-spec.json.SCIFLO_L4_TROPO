@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/tropo:3.0.0-er.1.0",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-tropo-3.0.0-er.1.0.tar.gz",
+      "container_image_name": "opera_pge/tropo:3.0.0-er.1.0-tropo",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-tropo-3.0.0-er.1.0-tropo.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
