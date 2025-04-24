@@ -83,6 +83,7 @@ def submit_mozart_job_wrapper(
                 "product_paths": {"L4_TROPO": [s3_path]},  # The S3 paths to localize
                 "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "FileName": PurePath(s3_key).name,
+                "FileLocation": s3_path,
                 "id": s3_key,
                 "Files": [
                     {
