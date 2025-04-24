@@ -6,7 +6,7 @@ RunConfig:
         PGEName: CSLC_S1_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in data.input_file_group.values() %}
+          {%- for input in runconfig.input_file_group.values() %}
           {%- if input is iterable and input is not string %}
           {%- for value in input %}
           - {{ value }}
@@ -14,27 +14,27 @@ RunConfig:
           {%- else %}
           - {{ input }}
           {%- endif %}{# if input is iterable and input is not string #}
-          {%- endfor %}{# for input in data.input_file_group.values() #}
+          {%- endfor %}{# for input in runconfig.input_file_group.values() #}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
-          {%- for type in data.dynamic_ancillary_file_group.keys() %}
-          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
-          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}
           {%- endfor %}
-          {%- for type in data.static_ancillary_file_group.keys() %}
-          {%- if data.static_ancillary_file_group[ type ] is not none %}
-          {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
+          {%- for type in runconfig.static_ancillary_file_group.keys() %}
+          {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
           {%- else %}
           {{ type }}:
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        OutputProductPath: {{ data.product_path_group.product_path }}
-        ScratchPath: {{ data.product_path_group.scratch_path }}
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: CSLC_S1
-        ProductVersion: "{{ data.product_path_group.static_product_version }}"
+        ProductVersion: "{{ runconfig.product_path_group.static_product_version }}"
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -44,7 +44,7 @@ RunConfig:
         ErrorCodeBase: 200000
         SchemaPath: /home/compass_user/opera/pge/cslc_s1/schema/cslc_s1_sas_schema.yaml
         IsoTemplatePath: /home/compass_user/opera/pge/cslc_s1/templates/OPERA_ISO_metadata_L2_CSLC_S1_template.xml.jinja2
-        DataValidityStartDate: {{ data.product_path_group.data_validity_start_date }}
+        DataValidityStartDate: {{ runconfig.product_path_group.data_validity_start_date }}
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -59,23 +59,23 @@ RunConfig:
           pge_name_group:
             pge_name: CSLC_S1_PGE
           input_file_group:
-            {%- for type in data.input_file_group.keys() %}
-            {%- if data.input_file_group[ type ] is not none %}
+            {%- for type in runconfig.input_file_group.keys() %}
+            {%- if runconfig.input_file_group[ type ] is not none %}
             {{ type }}:
-            {%- if data.input_file_group[ type ] is iterable and data.input_file_group[ type ] is not string %}
-            {%- for value in data.input_file_group[ type ] %}
+            {%- if runconfig.input_file_group[ type ] is iterable and runconfig.input_file_group[ type ] is not string %}
+            {%- for value in runconfig.input_file_group[ type ] %}
               - {{ value }}
-            {%- endfor %}{# for value in data.input_file_group[ type ] #}
+            {%- endfor %}{# for value in runconfig.input_file_group[ type ] #}
             {%- else %}
-              - {{ data.input_file_group[ type ] }}
-            {%- endif %}{# if data.input_file_group[ type ] is iterable and data.input_file_group[ type ] is not string #}
-            {%- endif %}{# if data.input_file_group[ type ] is not none #}
-            {%- endfor %}{# for type in data.input_file_group.keys() #}
+              - {{ runconfig.input_file_group[ type ] }}
+            {%- endif %}{# if runconfig.input_file_group[ type ] is iterable and runconfig.input_file_group[ type ] is not string #}
+            {%- endif %}{# if runconfig.input_file_group[ type ] is not none #}
+            {%- endfor %}{# for type in runconfig.input_file_group.keys() #}
             burst_id:
           dynamic_ancillary_file_group:
-            {%- for type in data.dynamic_ancillary_file_group.keys() %}
-            {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
-            {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+            {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+            {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
@@ -84,23 +84,23 @@ RunConfig:
             # TODO: update descriptions as necessary when new ancillary releases are available
             dem_description: "Digital Elevation Model (DEM) for the NASA OPERA project version 1.1 (v1.1) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid"
           static_ancillary_file_group:
-            {%- for type in data.static_ancillary_file_group.keys() %}
-            {%- if data.static_ancillary_file_group[ type ] is not none %}
-            {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
+            {%- for type in runconfig.static_ancillary_file_group.keys() %}
+            {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
             {%- endfor %}
           product_path_group:
-            product_path: {{ data.product_path_group.product_path }}
-            scratch_path: {{ data.product_path_group.scratch_path }}
-            sas_output_file: {{ data.product_path_group.product_path }}
-            product_version: "{{ data.product_path_group.static_product_version }}"
-            product_specification_version: "{{ data.product_path_group.product_specification_version }}"
+            product_path: {{ runconfig.product_path_group.product_path }}
+            scratch_path: {{ runconfig.product_path_group.scratch_path }}
+            sas_output_file: {{ runconfig.product_path_group.product_path }}
+            product_version: "{{ runconfig.product_path_group.static_product_version }}"
+            product_specification_version: "{{ runconfig.product_path_group.product_specification_version }}"
           primary_executable:
             product_type: CSLC_S1_STATIC
           processing:
-            polarization: {{ data.processing.polarization }}
+            polarization: {{ runconfig.processing.polarization }}
             geocoding:
               flatten: True
               x_posting: 5

@@ -1,0 +1,341 @@
+# JSON file containing frame-specific algorithm parameters to override the defaults passed
+#   in the `algorithm_parameters.yaml`.
+#   Type: string | null.
+algorithm_parameters_overrides_json: {{ runconfig.processing.algorithm_parameters_overrides_json }}
+ps_options:
+  # Amplitude dispersion threshold to consider a pixel a PS.
+  #   Type: number.
+  amp_dispersion_threshold: 0.2
+phase_linking:
+  # Size of the ministack for sequential estimator.
+  #   Type: integer.
+  ministack_size: 100
+  # Maximum number of compressed images to use in sequential estimator. If there are more
+  #   ministacks than this, the earliest CCSLCs will be left out of the later stacks. .
+  #   Type: integer.
+  max_num_compressed: 100
+  # Index of input SLC to use for making phase linked interferograms after EVD/EMI.
+  #   Type: integer.
+  output_reference_idx: 0
+  half_window:
+    # Half window size (in pixels) for x direction.
+    #   Type: integer.
+    x: 11
+    # Half window size (in pixels) for y direction.
+    #   Type: integer.
+    y: 5
+  # Use EVD on the coherence instead of using the EMI algorithm.
+  #   Type: boolean.
+  use_evd: false
+  # Beta regularization parameter for correlation matrix inversion. 0 is no regularization.
+  #   Type: number.
+  beta: 0.0
+  # Snap correlation values in the coherence matrix below this value to 0.
+  #   Type: number.
+  zero_correlation_threshold: 0.0
+  # Method for finding SHPs during phase linking.
+  #   Type: string.
+  #   Options: ['glrt', 'ks', 'rect', 'rect'].
+  shp_method: glrt
+  # Significance level (probability of false alarm) for SHP tests. Lower numbers include more
+  #   pixels within the multilook window during covariance estimation.
+  #   Type: number.
+  shp_alpha: 0.001
+  # If True, pixels labeled as PS will get set to NaN during phase linking to avoid summing
+  #   their phase. Default of False means that the SHP algorithm will decide if a pixel should
+  #   be included, regardless of its PS label.
+  #   Type: boolean.
+  mask_input_ps: false
+  # StBAS parameter to include only nearest-N interferograms forphase linking. A
+  #   `baseline_lag` of `n` will only include the closest`n` interferograms. `baseline_line`
+  #   must be positive.
+  #   Type: integer | null.
+  baseline_lag:
+  # Plan for creating Compressed SLCs during phase linking.
+  #   Type: string.
+  #   Options: ['always_first', 'first_per_ministack', 'last_per_ministack'].
+  compressed_slc_plan: last_per_ministack
+interferogram_network:
+  # For single-reference network: Index of the reference image in the network.
+  #   Type: integer | null.
+  reference_idx:
+  # Max `n` to form the nearest-`n` interferograms by index.
+  #   Type: integer | null.
+  max_bandwidth: 3
+  # Maximum temporal baseline of interferograms.
+  #   Type: integer | null.
+  max_temporal_baseline:
+  # For manual-index network: list of (ref_idx, sec_idx) defining the interferograms to form.
+  #   Type: array | null.
+  indexes:
+unwrap_options:
+  # Whether to run the unwrapping step after wrapped phase estimation.
+  #   Type: boolean.
+  run_unwrap: true
+  # Whether to run Goldstein filtering step on wrapped interferogram.
+  #   Type: boolean.
+  run_goldstein: false
+  # Whether to run interpolation step on wrapped interferogram.
+  #   Type: boolean.
+  run_interpolation: true
+  # Phase unwrapping method.
+  #   Type: string.
+  #   Options: ['snaphu', 'icu', 'phass', 'spurt', 'whirlwind'].
+  unwrap_method: snaphu
+  # Number of interferograms to unwrap in parallel.
+  #   Type: integer.
+  n_parallel_jobs: 4
+  # Set wrapped phase/correlation to 0 where mask is 0 before unwrapping. .
+  #   Type: boolean.
+  zero_where_masked: false
+  preprocess_options:
+    # Adaptive phase (Goldstein) filter exponent parameter.
+    #   Type: number.
+    alpha: 0.5
+    # (for interpolation) Maximum radius to find scatterers.
+    #   Type: integer.
+    max_radius: 71
+    # Threshold on the correlation raster to use for interpolation. Pixels with less than this
+    #   value are replaced by a weighted combination of neighboring pixels.
+    #   Type: number.
+    interpolation_cor_threshold: 0.3
+    # Threshold on the correlation raster to use for interpolation. Pixels with less than this
+    #   value are replaced by a weighted combination of neighboring pixels.
+    #   Type: number.
+    interpolation_similarity_threshold: 0.4
+  snaphu_options:
+    # Number of tiles to split the inputs into using SNAPHU's internal tiling.
+    #   Type: array.
+    ntiles:
+      - 5
+      - 5
+    # Amount of tile overlap (in pixels) along the (row, col) directions.
+    #   Type: array.
+    tile_overlap:
+      - 400
+      - 400
+    # Number of tiles to unwrap in parallel for each interferogram.
+    #   Type: integer.
+    n_parallel_tiles: 7
+    # Initialization method for SNAPHU.
+    #   Type: string.
+    #   Options: ['mcf', 'mst'].
+    init_method: mcf
+    # Statistical cost mode method for SNAPHU.
+    #   Type: string.
+    #   Options: ['defo', 'smooth'].
+    cost: smooth
+    # If True, after unwrapping with multiple tiles, an additional post-processing unwrapping
+    #   step is performed to re-optimize the unwrapped phase using a single tile.
+    #   Type: boolean.
+    single_tile_reoptimize: true
+  tophu_options:
+    # Number of tiles to split the inputs into.
+    #   Type: array.
+    ntiles:
+      - 1
+      - 1
+    # Extra multilook factor to use for the coarse unwrap.
+    #   Type: array.
+    downsample_factor:
+      - 1
+      - 1
+    # Initialization method for SNAPHU.
+    #   Type: string.
+    #   Options: ['mcf', 'mst'].
+    init_method: mcf
+    # Statistical cost mode method for SNAPHU.
+    #   Type: string.
+    #   Options: ['defo', 'smooth'].
+    cost: smooth
+  spurt_options:
+    # Temporal coherence to pick pixels used on an irregular grid.
+    #   Type: number.
+    temporal_coherence_threshold: 0.6
+    # Similarity to pick pixels used on an irregular grid. Any pixel with similarity above
+    #   `similarity_threshold` *or* above the temporal coherence threshold is chosen.
+    #   Type: number.
+    similarity_threshold: 0.5
+    # After running spurt, interpolate the values that were masked during unwrapping (which are
+    #   otherwise left as nan).
+    #   Type: boolean.
+    run_ambiguity_interpolation: true
+    general_settings:
+      # Tile up data spatially.
+      #   Type: boolean.
+      use_tiles: true
+    tiler_settings:
+      # Maximum number of tiles allowed.
+      #   Type: integer.
+      max_tiles: 64
+      # Number of points used for determining tiles based on density.
+      #   Type: integer.
+      target_points_for_generation: 120000
+      # Target points per tile when generating tiles.
+      #   Type: integer.
+      target_points_per_tile: 700000
+      # Dilation factor of non-overlapping tiles. 0.05 would lead to 5 percent dilation of the
+      #   tile.
+      #   Type: number.
+      dilation_factor: 0.04
+    solver_settings:
+      # Number of workers for temporal unwrapping in parallel. Set value to <=0 to let workflow
+      #   use default workers (ncpus - 1).
+      #   Type: integer.
+      t_worker_count: 16
+      # Number of workers for spatial unwrapping in parallel. Set value to <=0 to let workflow use
+      #   (ncpus - 1).
+      #   Type: integer.
+      s_worker_count: 5
+      # Temporal unwrapping operations over spatial links are performed in batches and each batch
+      #   is solved in parallel.
+      #   Type: integer.
+      links_per_batch: 150000
+      # Temporal unwrapping costs.
+      #   Type: string.
+      #   Options: ['constant', 'distance', 'centroid'].
+      t_cost_type: distance
+      # Scale factor used to compute edge costs for temporal unwrapping.
+      #   Type: number.
+      t_cost_scale: 100.0
+      # Spatial unwrapping costs.
+      #   Type: string.
+      #   Options: ['constant', 'distance', 'centroid'].
+      s_cost_type: constant
+      # Scale factor used to compute edge costs for spatial unwrapping.
+      #   Type: number.
+      s_cost_scale: 100.0
+      # Number of tiles to process in parallel. Set to 0 for all tiles.
+      #   Type: integer.
+      num_parallel_tiles: 1
+    merger_settings:
+      # Minimum number of overlap pixels to be considered valid.
+      #   Type: integer.
+      min_overlap_points: 25
+      # Currently, only 'dirichlet' is supported.
+      #   Type: dirichlet.
+      method: dirichlet
+      # Method used to estimate bulk offset between tiles.
+      #   Type: string.
+      #   Options: ['integer', 'L2'].
+      bulk_method: L2
+      # Number of interferograms to merge in one batch. Use zero to merge all interferograms in a
+      #   single batch.
+      #   Type: integer.
+      num_parallel_ifgs: 42
+timeseries_options:
+  # Whether to run the inversion step after unwrapping, if more than  a single-reference
+  #   network is used.
+  #   Type: boolean.
+  run_inversion: true
+  # Norm to use during timeseries inversion.
+  #   Type: string.
+  #   Options: ['L1', 'L2'].
+  method: L1
+  # Reference point (row, col) used if performing a time series inversion. If not provided, a
+  #   point will be selected from a consistent connected component with low amplitude
+  #   dispersion.
+  #   Type: array | null.
+  reference_point:
+  # Run the velocity estimation from the phase time series.
+  #   Type: boolean.
+  run_velocity: false
+  # Pixels with correlation below this value will be masked out.
+  #   Type: number.
+  correlation_threshold: 0.0
+  # Size (rows, columns) of blocks of data to load at a time. 3D dimsion is number of
+  #   interferograms (during inversion) and number of SLC dates (during velocity fitting).
+  #   Type: array.
+  block_shape:
+    - 256
+    - 256
+  # Number of parallel blocks to process at once.
+  #   Type: integer.
+  num_parallel_blocks: 4
+output_options:
+  # Output (x, y) resolution (in units of input data).
+  #   Type: object | null.
+  output_resolution:
+  # Alternative to specifying output resolution: Specify the (x, y) strides (decimation
+  #   factor) to perform while processing input. For example, strides of [4, 2] would turn an
+  #   input resolution of [5, 10] into an output resolution of [20, 20].
+  #   Type: object.
+  strides:
+    x: 6
+    y: 3
+  # Area of interest: [left, bottom, right, top] coordinates. e.g.
+  #   `bbox=[-150.2,65.0,-150.1,65.5]`.
+  #   Type: array | null.
+  bounds:
+  # Area of interest as a simple Polygon in well-known-text (WKT) format. Can pass a string,
+  #   or a `.wkt` filename containing the Polygon text.
+  #   Type: string | null.
+  bounds_wkt:
+  # EPSG code for the `bounds` or `bounds_wkt` coordinates, if specified.
+  #   Type: integer.
+  bounds_epsg: 4326
+  # Options for `create_dataset` with h5py.
+  #   Type: object.
+  hdf5_creation_options:
+    chunks:
+      - 128
+      - 128
+    compression: gzip
+    compression_opts: 4
+    shuffle: true
+  # GDAL creation options for GeoTIFF files.
+  #   Type: array.
+  gtiff_creation_options:
+    - COMPRESS=lzw
+    - ZLEVEL=4
+    - BIGTIFF=yes
+    - TILED=yes
+    - INTERLEAVE=band
+    - BLOCKXSIZE=128
+    - BLOCKYSIZE=128
+  # Whether to add overviews to the output GeoTIFF files. This will increase file size, but
+  #   can be useful for visualizing the data with web mapping tools. See
+  #   https://gdal.org/programs/gdaladdo.html for more.
+  #   Type: boolean.
+  add_overviews: true
+  # List of overview levels to create (if `add_overviews=True`).
+  #   Type: array.
+  overview_levels:
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+  # Specify an extra reference datetime in UTC. Adding this lets you to create and unwrap two
+  #   single reference networks; the later resets at the given date (e.g. for a large
+  #   earthquake event). If passing strings, formats accepted are YYYY-MM-
+  #   DD[T]HH:MM[:SS[.ffffff]][Z or [±]HH[:]MM], or YYYY-MM-DD.
+  #   Type: string | null.
+  extra_reference_date:
+# Name of the subdataset to use in the input NetCDF files.
+#   Type: string.
+subdataset: /data/{{ runconfig.processing.polarization }}
+# When creating `recommended_mask`, pixels with temporal coherence below this threshold and
+#   with similarity below `recommended_similarity_threshold` are masked.
+#   Type: number.
+recommended_temporal_coherence_threshold: 0.6
+# When creating `recommended_mask`, pixels with similarity below this threshold and with
+#   temporal coherence below `recommended_temporal_coherence_threshold` are masked.
+#   Type: number.
+recommended_similarity_threshold: 0.30
+# When creating `recommended_mask`, use the `connected_component_label`
+#   layer to hide pixels whose label == 0.
+#   Type: boolean.
+recommended_use_conncomp: false
+# Spatial wavelength cutoff (in meters) for the spatial filter. Used to create the short
+#   wavelength displacement layer.
+#   Type: number.
+spatial_wavelength_cutoff: 30000.0
+# `vmin, vmax` matplotlib arguments (in meters) passed to browse image creator.
+#   Type: array.
+browse_image_vmin_vmax:
+  - -0.05
+  - 0.05
+# Number of output products to create in parallel.
+#   Type: integer.
+num_parallel_products: 3

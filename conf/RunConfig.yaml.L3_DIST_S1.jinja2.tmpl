@@ -6,26 +6,26 @@ RunConfig:
         PGEName: DIST_S1_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in data.input_file_group.pre_rtc_copol %}
+          {%- for input in runconfig.input_file_group.pre_rtc_copol %}
           - {{ input }}
           {%- endfor %}
-          {%- for input in data.input_file_group.pre_rtc_crosspol %}
+          {%- for input in runconfig.input_file_group.pre_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
-          {%- for input in data.input_file_group.post_rtc_copol %}
+          {%- for input in runconfig.input_file_group.post_rtc_copol %}
           - {{ input }}
           {%- endfor %}
-          {%- for input in data.input_file_group.post_rtc_crosspol %}
+          {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap: {}  # TODO: Don't know how I should fill this part out based on the SAS RC
       ProductPathGroup:
-        OutputProductPath: {{ data.product_path_group.product_path }}
-        ScratchPath: {{ data.product_path_group.scratch_path }}
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: DIST_S1
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
         ProgramPath: /opt/miniforge/envs/dist-s1-env/bin/dist-s1
         ProgramOptions:
         - run_sas
@@ -45,29 +45,29 @@ RunConfig:
     SAS:
       run_config:
         pre_rtc_copol:
-          {%- for input in data.input_file_group.pre_rtc_copol %}
+          {%- for input in runconfig.input_file_group.pre_rtc_copol %}
           - {{ input }}
           {%- endfor %}
         pre_rtc_crosspol:
-          {%- for input in data.input_file_group.pre_rtc_crosspol %}
+          {%- for input in runconfig.input_file_group.pre_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
         post_rtc_copol:
-          {%- for input in data.input_file_group.post_rtc_copol %}
+          {%- for input in runconfig.input_file_group.post_rtc_copol %}
           - {{ input }}
           {%- endfor %}
         post_rtc_crosspol:
-          {%- for input in data.input_file_group.post_rtc_crosspol %}
+          {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
-        mgrs_tile_id: {{ data.mgrs_tile_id }}
-        dst_dir: {{ data.product_path_group.scratch_path }}
-        water_mask_path: {{ data.water_mask_path }}
-        apply_water_mask: {{ data.apply_water_mask }}
+        mgrs_tile_id: {{ runconfig.mgrs_tile_id }}
+        dst_dir: {{ runconfig.product_path_group.scratch_path }}
+        water_mask_path: {{ runconfig.water_mask_path }}
+        apply_water_mask: {{ runconfig.apply_water_mask }}
         memory_strategy: high
         tqdm_enabled: false
-        n_lookbacks: {{ data.n_lookbacks }}
+        n_lookbacks: {{ runconfig.n_lookbacks }}
         moderate_confidence_threshold: 3.5
         high_confidence_threshold: 5.5
-        product_dst_dir: {{ data.product_path_group.product_path }}
+        product_dst_dir: {{ runconfig.product_path_group.product_path }}
         bucket: ~
