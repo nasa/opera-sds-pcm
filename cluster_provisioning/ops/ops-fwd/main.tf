@@ -36,8 +36,8 @@ module "int-main" {
   trace                                   = var.trace
   asf_daac_delivery_proxy                 = var.asf_daac_delivery_proxy
   po_daac_delivery_proxy                  = var.po_daac_delivery_proxy
-  es_user				                  = var.es_user
-  es_pass				                  = var.es_pass
+  es_user                                 = var.es_user
+  es_pass                                 = var.es_pass
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
 }
