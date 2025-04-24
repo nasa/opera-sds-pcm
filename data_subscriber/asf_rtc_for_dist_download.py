@@ -100,8 +100,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
 
         # Create list of RTC files marked as downloaded, this will be used as the very last step in this function
         for granule_id, file_size in granule_sizes.items():
-            native_id = granule_id.split(".h5")[0]  # remove file extension and revision id
-            burst_id, _ = parse_r2_product_file_name(native_id, "L2_RTC_S1")
+            burst_id, _ = parse_r2_product_file_name(granule_id, "L2_RTC_S1")
             unique_id = rtc_for_dist_unique_id(batch_id, burst_id)
             to_mark_downloaded.append((unique_id, file_size))
 
@@ -155,6 +154,9 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
             job_name=f'job-WF-SCIFLO_L3_DIST_S1-batch-{batch_id}',
             payload_hash=payload_hash
         )
+
+        logging.info("Submitted SCIFLO job with the following product_metadata:")
+        logging.info(product)
 
         # Mark the RTC files as downloaded in the RTC ES with the file size only after SCIFLO job has been submitted
         for unique_id, file_size in to_mark_downloaded:
