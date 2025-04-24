@@ -1,0 +1,612 @@
+{
+  "version": "7.1.1",
+  "objects": [
+    {
+      "id": "100e1110-8432-11ea-8f66-23b4730527e4",
+      "type": "dashboard",
+      "updated_at": "2020-09-11T17:03:35.601Z",
+      "version": "WzE0OSw0XQ==",
+      "attributes": {
+        "title": "SDSWatch",
+        "hits": 0,
+        "description": "",
+        "panelsJSON": "[{\"embeddableConfig\":{},\"gridData\":{\"h\":9,\"i\":\"1\",\"w\":48,\"x\":0,\"y\":62},\"panelIndex\":\"1\",\"title\":\"Keys over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_0\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":6,\"i\":\"9\",\"w\":22,\"x\":0,\"y\":99},\"panelIndex\":\"9\",\"title\":\"Unique Number of Keys\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_1\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":29,\"i\":\"10\",\"w\":48,\"x\":0,\"y\":138},\"panelIndex\":\"10\",\"title\":\"Metrics Table\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_2\"},{\"embeddableConfig\":{\"vis\":{\"legendOpen\":false}},\"gridData\":{\"h\":11,\"i\":\"12\",\"w\":16,\"x\":16,\"y\":127},\"panelIndex\":\"12\",\"title\":\"Avg Value (numeric) over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_3\"},{\"embeddableConfig\":{\"vis\":{\"legendOpen\":false}},\"gridData\":{\"h\":11,\"i\":\"13\",\"w\":16,\"x\":0,\"y\":127},\"panelIndex\":\"13\",\"title\":\"Min Value (numeric) over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_4\"},{\"embeddableConfig\":{\"vis\":{\"legendOpen\":false}},\"gridData\":{\"h\":11,\"i\":\"14\",\"w\":16,\"x\":32,\"y\":127},\"panelIndex\":\"14\",\"title\":\"Max Value (numeric) over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_5\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":8,\"i\":\"15\",\"w\":48,\"x\":0,\"y\":105},\"panelIndex\":\"15\",\"title\":\"Statistics of Values (numeric)\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_6\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":17,\"i\":\"16\",\"w\":22,\"x\":0,\"y\":82},\"panelIndex\":\"16\",\"title\":\"Distribution of Keys\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_7\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":12,\"i\":\"17\",\"w\":20,\"x\":0,\"y\":38},\"panelIndex\":\"17\",\"title\":\"Distribution of Host\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_8\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":12,\"i\":\"18\",\"w\":20,\"x\":0,\"y\":50},\"panelIndex\":\"18\",\"title\":\"Distribution of Source Type\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_9\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":24,\"i\":\"19\",\"w\":28,\"x\":20,\"y\":38},\"panelIndex\":\"19\",\"title\":\"Distribution of Source ID\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_10\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":11,\"i\":\"20\",\"w\":48,\"x\":0,\"y\":71},\"panelIndex\":\"20\",\"title\":\"Value (string) over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_11\"},{\"embeddableConfig\":{\"vis\":{\"legendOpen\":true}},\"gridData\":{\"h\":14,\"i\":\"21\",\"w\":48,\"x\":0,\"y\":113},\"panelIndex\":\"21\",\"title\":\"Avg Value (numeric) over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_12\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":17,\"i\":\"22\",\"w\":25,\"x\":22,\"y\":82},\"panelIndex\":\"22\",\"title\":\"Distribution of Values (string)\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_13\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":6,\"i\":\"23\",\"w\":25,\"x\":22,\"y\":99},\"panelIndex\":\"23\",\"title\":\"Unique Number of Values\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_14\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":9,\"i\":\"24\",\"w\":48,\"x\":0,\"y\":0},\"panelIndex\":\"24\",\"title\":\"Host over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_15\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":10,\"i\":\"25\",\"w\":48,\"x\":0,\"y\":9},\"panelIndex\":\"25\",\"title\":\"Source Type over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_16\"},{\"embeddableConfig\":{},\"gridData\":{\"h\":19,\"i\":\"26\",\"w\":48,\"x\":0,\"y\":19},\"panelIndex\":\"26\",\"title\":\"Source ID over Time\",\"version\":\"7.1.1\",\"panelRefName\":\"panel_17\"}]",
+        "optionsJSON": "{\"hidePanelTitles\":false,\"useMargins\":true}",
+        "version": 1,
+        "timeRestore": false,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[]}"
+        }
+      },
+      "references": [
+        {
+          "name": "panel_0",
+          "type": "visualization",
+          "id": "52dba8e0-8432-11ea-8f66-23b4730527e4"
+        },
+        {
+          "name": "panel_1",
+          "type": "visualization",
+          "id": "53de12d0-8434-11ea-8f66-23b4730527e4"
+        },
+        {
+          "name": "panel_2",
+          "type": "search",
+          "id": "2149cfc0-8435-11ea-8f66-23b4730527e4"
+        },
+        {
+          "name": "panel_3",
+          "type": "visualization",
+          "id": "1dc11af0-8766-11ea-a1fc-196a3150a14e"
+        },
+        {
+          "name": "panel_4",
+          "type": "visualization",
+          "id": "3e887500-88e5-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_5",
+          "type": "visualization",
+          "id": "916bf080-88e5-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_6",
+          "type": "visualization",
+          "id": "345318c0-88e9-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_7",
+          "type": "visualization",
+          "id": "82ff6850-88eb-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_8",
+          "type": "visualization",
+          "id": "3c5e0f60-88ef-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_9",
+          "type": "visualization",
+          "id": "e36d3340-88ee-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_10",
+          "type": "visualization",
+          "id": "dfdeee50-88ec-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_11",
+          "type": "visualization",
+          "id": "187e47d0-898b-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_12",
+          "type": "visualization",
+          "id": "4c48e4d0-8986-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_13",
+          "type": "visualization",
+          "id": "07d58710-8998-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_14",
+          "type": "visualization",
+          "id": "2afd9e80-8998-11ea-9fed-5d106481c764"
+        },
+        {
+          "name": "panel_15",
+          "type": "visualization",
+          "id": "c46a8410-964b-11ea-9184-498e3a609b49"
+        },
+        {
+          "name": "panel_16",
+          "type": "visualization",
+          "id": "fad88970-964b-11ea-9184-498e3a609b49"
+        },
+        {
+          "name": "panel_17",
+          "type": "visualization",
+          "id": "2a196650-964c-11ea-9184-498e3a609b49"
+        }
+      ],
+      "migrationVersion": {
+        "dashboard": "7.0.0"
+      }
+    },
+    {
+      "id": "52dba8e0-8432-11ea-8f66-23b4730527e4",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzg4LDRd",
+      "attributes": {
+        "title": "Metrics_key over time (SDSWatch)",
+        "visState": "{\"title\":\"Metrics_key over time (SDSWatch)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Count\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Count\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"2020-04-24T13:37:44.402Z\",\"to\":\"2020-04-25T03:22:22.234Z\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{},\"customLabel\":\"\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"metric_key.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":true,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "53de12d0-8434-11ea-8f66-23b4730527e4",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzg5LDRd",
+      "attributes": {
+        "title": "Unique Number of Metric Key (SDSWatch)",
+        "visState": "{\"title\":\"Unique Number of Metric Key (SDSWatch)\",\"type\":\"metric\",\"params\":{\"addTooltip\":true,\"addLegend\":false,\"type\":\"metric\",\"metric\":{\"percentageMode\":false,\"useRanges\":false,\"colorSchema\":\"Green to Red\",\"metricColorMode\":\"None\",\"colorsRange\":[{\"from\":0,\"to\":10000}],\"labels\":{\"show\":true},\"invertColors\":false,\"style\":{\"bgFill\":\"#000\",\"bgColor\":false,\"labelColor\":false,\"subText\":\"\",\"fontSize\":60}}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"cardinality\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_key.keyword\",\"customLabel\":\"Unique Number of Metric Key\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "2149cfc0-8435-11ea-8f66-23b4730527e4",
+      "type": "search",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzkwLDRd",
+      "attributes": {
+        "title": "Metric Table (SDSWatch)",
+        "description": "",
+        "hits": 0,
+        "columns": [
+          "host",
+          "source_type",
+          "source_id",
+          "metric_key",
+          "metric_value_string",
+          "metric_value_float"
+        ],
+        "sort": [
+          "sdswatch_timestamp",
+          "desc"
+        ],
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"highlightAll\":true,\"version\":true,\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "search": "7.0.0"
+      }
+    },
+    {
+      "id": "1dc11af0-8766-11ea-a1fc-196a3150a14e",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzkxLDRd",
+      "attributes": {
+        "title": "Average of metric_value_float over time (SDSWatch)",
+        "visState": "{\"aggs\":[{\"enabled\":true,\"id\":\"1\",\"params\":{\"customMetric\":{\"enabled\":true,\"id\":\"1-metric\",\"params\":{\"field\":\"metric_value_float\"},\"schema\":{\"aggFilter\":[\"!top_hits\",\"!percentiles\",\"!percentile_ranks\",\"!median\",\"!std_dev\",\"!geo_bounds\",\"!geo_centroid\"],\"deprecate\":false,\"editor\":false,\"group\":\"none\",\"hideCustomLabel\":true,\"max\":null,\"min\":0,\"name\":\"metricAgg\",\"params\":[],\"title\":\"Metric Agg\"},\"type\":\"avg\"},\"metricAgg\":\"custom\",\"script\":\"MovingFunctions.unweightedAvg(values)\",\"window\":5},\"schema\":\"metric\",\"type\":\"moving_avg\"},{\"enabled\":true,\"id\":\"2\",\"params\":{\"customInterval\":\"10m\",\"customLabel\":\"\",\"drop_partials\":false,\"extended_bounds\":{},\"field\":\"sdswatch_timestamp\",\"interval\":\"custom\",\"min_doc_count\":0,\"timeRange\":{\"from\":\"now-2d\",\"to\":\"now\"},\"useNormalizedEsInterval\":true},\"schema\":\"segment\",\"type\":\"date_histogram\"}],\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{},\"type\":\"category\"}],\"grid\":{\"categoryLines\":false},\"legendPosition\":\"right\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Moving Avg of Average metric_value_float\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"times\":[],\"type\":\"histogram\",\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Moving Avg of Average metric_value_float\"},\"type\":\"value\"}]},\"title\":\"Average of metric_value_float over time (SDSWatch)\",\"type\":\"histogram\"}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "3e887500-88e5-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzkyLDRd",
+      "attributes": {
+        "title": "Min of metric_value_float over time (SDSWatch)",
+        "visState": "{\"title\":\"Min of metric_value_float over time (SDSWatch)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Min metric_value_float\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Min metric_value_float\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"now-5h\",\"to\":\"now\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{},\"customLabel\":\"\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "916bf080-88e5-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzkzLDRd",
+      "attributes": {
+        "title": "Max of metric_value_float over time (SDSWatch)",
+        "visState": "{\"title\":\"Max of metric_value_float over time (SDSWatch)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Max metric_value_float\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Max metric_value_float\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"now-1M\",\"to\":\"now\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"15m\",\"min_doc_count\":1,\"extended_bounds\":{},\"customLabel\":\"\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "345318c0-88e9-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzk0LDRd",
+      "attributes": {
+        "title": "Statistics of metric_value_float (SDSWatch)",
+        "visState": "{\"title\":\"Statistics of metric_value_float (SDSWatch)\",\"type\":\"metric\",\"params\":{\"addTooltip\":true,\"addLegend\":false,\"type\":\"metric\",\"metric\":{\"percentageMode\":false,\"useRanges\":false,\"colorSchema\":\"Green to Red\",\"metricColorMode\":\"None\",\"colorsRange\":[{\"from\":0,\"to\":10000}],\"labels\":{\"show\":true},\"invertColors\":false,\"style\":{\"bgFill\":\"#000\",\"bgColor\":false,\"labelColor\":false,\"subText\":\"\",\"fontSize\":20}}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\",\"customLabel\":\"Min\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\",\"customLabel\":\"Mean\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\",\"customLabel\":\"Max\"}},{\"id\":\"4\",\"enabled\":true,\"type\":\"median\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\",\"percents\":[50],\"customLabel\":\"\"}},{\"id\":\"6\",\"enabled\":true,\"type\":\"cardinality\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_float\",\"customLabel\":\"Unique Count\"}},{\"id\":\"5\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "82ff6850-88eb-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzk1LDRd",
+      "attributes": {
+        "title": "Distribution of Metric Key (SDSWatch)",
+        "visState": "{\"title\":\"Distribution of Metric Key (SDSWatch)\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"top\",\"isDonut\":true,\"labels\":{\"show\":true,\"values\":true,\"last_level\":true,\"truncate\":100}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"metric_key.keyword\",\"size\":10,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":true,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "3c5e0f60-88ef-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzk2LDRd",
+      "attributes": {
+        "title": "Distribution of Host (SDSWatch)",
+        "visState": "{\"title\":\"Distribution of Host (SDSWatch)\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"top\",\"isDonut\":true,\"labels\":{\"show\":true,\"values\":true,\"last_level\":true,\"truncate\":100}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"host.keyword\",\"size\":10,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":true,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "e36d3340-88ee-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzk3LDRd",
+      "attributes": {
+        "title": "Distribution of Source Type (SDSWatch)",
+        "visState": "{\"title\":\"Distribution of Source Type (SDSWatch)\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"top\",\"isDonut\":true,\"labels\":{\"show\":true,\"values\":true,\"last_level\":true,\"truncate\":100}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"source_type.keyword\",\"size\":10,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":true,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "dfdeee50-88ec-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzk4LDRd",
+      "attributes": {
+        "title": "Distribution of Source Id (SDSWatch)",
+        "visState": "{\"title\":\"Distribution of Source Id (SDSWatch)\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"top\",\"isDonut\":true,\"labels\":{\"show\":true,\"values\":true,\"last_level\":true,\"truncate\":50}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"source_id.keyword\",\"size\":10,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":true,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{\"vis\":{\"legendOpen\":true}}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "187e47d0-898b-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "Wzk5LDRd",
+      "attributes": {
+        "title": "Metric_value_string over time (SDSWatch)",
+        "visState": "{\"title\":\"Metric_value_string over time (SDSWatch)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Count\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Count\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"2020-04-28T21:14:38.489Z\",\"to\":\"2020-04-28T21:43:16.164Z\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{},\"customLabel\":\"\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"metric_value_string.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "4c48e4d0-8986-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzEwMCw0XQ==",
+      "attributes": {
+        "title": "Average of metric_value_float over time (per 5 minute) (SDSWatch)",
+        "visState": "{\"aggs\":[{\"enabled\":true,\"id\":\"1\",\"params\":{\"customMetric\":{\"enabled\":true,\"id\":\"1-metric\",\"params\":{\"field\":\"metric_value_float\"},\"schema\":{\"aggFilter\":[\"!top_hits\",\"!percentiles\",\"!percentile_ranks\",\"!median\",\"!std_dev\",\"!geo_bounds\",\"!geo_centroid\"],\"deprecate\":false,\"editor\":false,\"group\":\"none\",\"hideCustomLabel\":true,\"max\":null,\"min\":0,\"name\":\"metricAgg\",\"params\":[],\"title\":\"Metric Agg\"},\"type\":\"avg\"},\"metricAgg\":\"custom\",\"script\":\"MovingFunctions.unweightedAvg(values)\",\"window\":5},\"schema\":\"metric\",\"type\":\"moving_avg\"},{\"enabled\":true,\"id\":\"2\",\"params\":{\"customInterval\":\"5m\",\"drop_partials\":false,\"extended_bounds\":{},\"field\":\"sdswatch_timestamp\",\"interval\":\"custom\",\"min_doc_count\":0,\"timeRange\":{\"from\":\"now-2d\",\"to\":\"now\"},\"useNormalizedEsInterval\":true},\"schema\":\"segment\",\"type\":\"date_histogram\"}],\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{},\"type\":\"category\"}],\"grid\":{\"categoryLines\":false},\"legendPosition\":\"right\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Moving Avg of Average metric_value_float\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"times\":[],\"type\":\"histogram\",\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Moving Avg of Average metric_value_float\"},\"type\":\"value\"}]},\"title\":\"Average of metric_value_float over time (per 5 minute) (SDSWatch)\",\"type\":\"histogram\"}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "07d58710-8998-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzEwMSw0XQ==",
+      "attributes": {
+        "title": "Distribution of metric_value_string (SDSWatch)",
+        "visState": "{\"title\":\"Distribution of metric_value_string (SDSWatch)\",\"type\":\"pie\",\"params\":{\"type\":\"pie\",\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"isDonut\":true,\"labels\":{\"show\":false,\"values\":true,\"last_level\":true,\"truncate\":100}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"metric_value_string.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "2afd9e80-8998-11ea-9fed-5d106481c764",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzEwMiw0XQ==",
+      "attributes": {
+        "title": "Unique Number of Metric Value String (SDSWatch)",
+        "visState": "{\"title\":\"Unique Number of Metric Value String (SDSWatch)\",\"type\":\"metric\",\"params\":{\"addTooltip\":true,\"addLegend\":false,\"type\":\"metric\",\"metric\":{\"percentageMode\":false,\"useRanges\":false,\"colorSchema\":\"Green to Red\",\"metricColorMode\":\"None\",\"colorsRange\":[{\"from\":0,\"to\":10000}],\"labels\":{\"show\":true},\"invertColors\":false,\"style\":{\"bgFill\":\"#000\",\"bgColor\":false,\"labelColor\":false,\"subText\":\"\",\"fontSize\":60}}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"cardinality\",\"schema\":\"metric\",\"params\":{\"field\":\"metric_value_string.keyword\",\"customLabel\":\"Unique number of Metric Value String\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "c46a8410-964b-11ea-9184-498e3a609b49",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzEwMyw0XQ==",
+      "attributes": {
+        "title": "Host over time (SDSWatch)",
+        "visState": "{\"title\":\"Host over time (SDSWatch)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Count\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Count\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"now-2d\",\"to\":\"now\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{}}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"host.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "fad88970-964b-11ea-9184-498e3a609b49",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzEwNCw0XQ==",
+      "attributes": {
+        "title": "Source Type over time (SDSWatch)",
+        "visState": "{\"title\":\"Source Type over time (SDSWatch)\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Count\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Count\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"now-2d\",\"to\":\"now\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{}}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"source_type.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "2a196650-964c-11ea-9184-498e3a609b49",
+      "type": "visualization",
+      "updated_at": "2020-09-11T16:42:53.093Z",
+      "version": "WzEwNSw0XQ==",
+      "attributes": {
+        "title": "Source ID over Time",
+        "visState": "{\"title\":\"Source ID over Time\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Count\"}}],\"seriesParams\":[{\"show\":\"true\",\"type\":\"histogram\",\"mode\":\"stacked\",\"data\":{\"label\":\"Count\",\"id\":\"1\"},\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"showCircles\":true}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"sdswatch_timestamp\",\"timeRange\":{\"from\":\"now-2d\",\"to\":\"now\"},\"useNormalizedEsInterval\":true,\"interval\":\"custom\",\"drop_partials\":false,\"customInterval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{}}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"source_id.keyword\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"1\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "opensearchDashboardsSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[],\"indexRefName\":\"opensearchDashboardsSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "opensearchDashboardsSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.0.1"
+      }
+    },
+    {
+      "id": "ffc7f5a0-8431-11ea-8f66-23b4730527e4",
+      "type": "index-pattern",
+      "updated_at": "2020-09-11T16:54:17.522Z",
+      "version": "WzE0OCw0XQ==",
+      "attributes": {
+        "title": "sdswatch-*",
+        "timeFieldName": "sdswatch_timestamp",
+        "fields": "[{\"name\":\"@timestamp\",\"type\":\"date\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"@version\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"@version.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"_id\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"name\":\"_index\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"name\":\"_score\",\"type\":\"number\",\"count\":0,\"scripted\":false,\"searchable\":false,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"_source\",\"type\":\"_source\",\"count\":0,\"scripted\":false,\"searchable\":false,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"_type\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"name\":\"host\",\"type\":\"string\",\"count\":2,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"host.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"log_path\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"log_path.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"message\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"message.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"metric_key\",\"type\":\"string\",\"count\":2,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"metric_key.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"metric_value_string\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false,\"count\":3},{\"name\":\"metric_value_string.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"metric_value_float\",\"type\":\"number\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"sdswatch_timestamp\",\"type\":\"date\",\"count\":2,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"source_id\",\"type\":\"string\",\"count\":2,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"source_id.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"source_type\",\"type\":\"string\",\"count\":2,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"source_type.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true}]"
+      },
+      "references": [],
+      "migrationVersion": {
+        "index-pattern": "6.5.0"
+      }
+    }
+  ]
+}

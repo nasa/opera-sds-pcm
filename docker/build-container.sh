@@ -11,6 +11,8 @@ TAG="${2}"
 shift
 shift
 
+echo "RUNNING build-container.sh"
+
 HYSDS_COMMONS_DIR=/home/hysdsops/verdi/ops/hysds_commons/hysds_commons
 
 # detect branch or tag

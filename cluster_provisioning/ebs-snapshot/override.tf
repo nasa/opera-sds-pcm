@@ -1,6 +1,6 @@
 variable "verdi_release" {
   type    = string
-  default = "v5.3.0"
+  default = "v5.4.1"
 }
 
 variable "registry_release" {
