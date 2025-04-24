@@ -331,4 +331,20 @@ class RtcForDistCmrQuery(CmrQuery):
         })
         return params
 
+    def update_url_index(
+            self,
+            es_conn,
+            urls: list[str],
+            granule: dict,
+            job_id: str,
+            query_dt: datetime,
+            temporal_extent_beginning_dt: datetime,
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
+    ):
+        '''We pass all urls through context so no need to store the urls in the ES'''
+        es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+
+
 
