@@ -165,8 +165,8 @@ class RtcForDistCmrQuery(CmrQuery):
         add_unique_rtc_granules(granules_dict, granules)
         add_unique_rtc_granules(granules_dict, unsubmitted)
 
-        print("len(granules_dict)", len(granules_dict))
-        print("granules_dict keys: ", granules_dict.keys())
+        #print("len(granules_dict)", len(granules_dict))
+        #print("granules_dict keys: ", granules_dict.keys())
         granule_ids = list(set([g["granule_id"] for g in granules_dict.values()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
         products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
