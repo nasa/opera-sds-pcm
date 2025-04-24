@@ -40,6 +40,7 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
+  - get_tropo_input_filepaths
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
