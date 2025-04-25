@@ -1165,16 +1165,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if not input_file_paths:
             raise RuntimeError("No input file paths found in product metadata for L4_TROPO job")
 
-
         rc_params = {
-            "input_file_group": {
-                "input_file_paths": input_file_paths,
-            },
-            "processing": {
-                "n_workers": tropo_settings["NUM_WORKERS"],
-                "threads_per_worker": tropo_settings["NUM_THREADS"],
-                "max_memory": tropo_settings["MAX_MEMORY"]
-            }
+            "input_file_paths": input_file_paths,
+            "n_workers": tropo_settings["NUM_WORKERS"],
+            "threads_per_worker": tropo_settings["NUM_THREADS"],
+            "max_memory": tropo_settings["MAX_MEMORY"]
         }
 
         logger.info(f"rc_params : {rc_params}")
