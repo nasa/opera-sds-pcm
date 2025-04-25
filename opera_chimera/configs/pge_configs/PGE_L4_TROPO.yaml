@@ -18,8 +18,6 @@ runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
   dynamic_ancillary_file_group: {}
-  input_file:
-    input_file_path: __CHIMERA_VAL__
   processing:
     n_workers: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__

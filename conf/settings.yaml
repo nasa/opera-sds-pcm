@@ -215,6 +215,15 @@ DIST_S1:
 
   DESIRED_LOOKBACKS: 3
 
+TROPO:
+  # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig
+  NUM_WORKERS: 4
+  # Number of threads to allocate to the "threads_per_worker" field of the TROPO RunConfig
+  NUM_THREADS: 2
+  # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
+  MAX_MEMORY: 8192
+
+
 # End PGE Configuration section
 
 PRODUCT_TYPES:

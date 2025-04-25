@@ -1151,11 +1151,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
     def get_tropo_input_filepaths(self):
         """
         Derives the list of S3 paths to the input files to be used with a
-        L4_TROPO job.
+        L4_TROPO job and sets other required runconfig values.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata = self._context["product_metadata"]["metadata"]
+        tropo_settings = self._settings["TROPO"]
+
         input_file_paths = []
         for file_metadata in metadata.get("Files", []):
             input_file_paths.append(file_metadata["FileLocation"])
@@ -1163,8 +1165,16 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if not input_file_paths:
             raise RuntimeError("No input file paths found in product metadata for L4_TROPO job")
 
+
         rc_params = {
-            "input_file_paths": input_file_paths
+            "input_file_group": {
+                "input_file_paths": input_file_paths,
+            },
+            "processing": {
+                "n_workers": tropo_settings["NUM_WORKERS"],
+                "threads_per_worker": tropo_settings["NUM_THREADS"],
+                "max_memory": tropo_settings["MAX_MEMORY"]
+            }
         }
 
         logger.info(f"rc_params : {rc_params}")
