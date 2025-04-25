@@ -396,8 +396,8 @@ variable "queues" {
       // Compute optimized 8x large - ample memory, great number of cores if all are utilized (not possible in 0.0.6 - will be soon)
       //"instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
 
-      // Memory optimized 4x large - like c4x but without the memory issues, perhaps too much memory...
-      //"instance_type"     = ["r7i.4xlarge", "r6a.4xlarge", "r6i.4xlarge", "r7a.4xlarge", "r5a.4xlarge"]
+      // General purpose 4x large - like c4x but without the memory issues
+      //"instance_type"     = ["m7i.4xlarge", "m6a.4xlarge", "m6i.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
 
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
