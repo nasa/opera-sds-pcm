@@ -777,7 +777,7 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
             creation_ts=creation_time,
             model='HRES',
             spacing='0.1',
-            product_version=dataset_match.groupdict()['product_version']
+            product_version='0.1',
         )
     # ancillary has a different output format
     else:
