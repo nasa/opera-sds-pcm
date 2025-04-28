@@ -771,7 +771,6 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
 
     acq_time = get_time_for_filename()
     creation_time = get_time_for_filename()
-
     if extension.endswith('nc') or extension.endswith('png') or extension.endswith('iso.xml'):
         base_name = base_name_template.format(
             acquisition_ts=acq_time,
@@ -782,7 +781,7 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
         )
     # ancillary has a different output format
     else:
-        base_name = base_name_template.format(
+        base_name = ancillary_name_template.format(
             creation_ts=creation_time,
         )
 
