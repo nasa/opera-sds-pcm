@@ -98,9 +98,6 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             else: # s3 or auto
                 self.logger.info("Skipping download CSLC bursts and instead using ASF S3 paths for direct SCIFLO PGE ingestion")
 
-### need to ask Chris about this
-###                downloads = self.get_downloads(new_args, es_conn)
-
                 '''For CSLC download, the batch_ids are globally unique so there's no need to query for dates
                 Granules are stored in either cslc_catalog or k_cslc_catalog index. We assume that the latest batch_id (defined
                 as the one with the greatest acq_cycle_index, sorted above) is stored in cslc_catalog. 

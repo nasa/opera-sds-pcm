@@ -743,9 +743,9 @@ variable "rtc_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-#variable "rtc_for_dist_query_timer_trigger_frequency" {
-#  default = "rate(60 minutes)"
-#}
+variable "rtc_for_dist_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
 
 variable "cslc_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"

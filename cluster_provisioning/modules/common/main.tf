@@ -39,7 +39,7 @@ locals {
   slcs1a_query_job_type            = "slcs1a_query"
   slc_ionosphere_download_job_type = "slc_download_ionosphere"
   rtc_query_job_type               = "rtc_query"
-  #rtc_for_dist_query_job_type      = "rtc_for_dist_query"
+  rtc_for_dist_query_job_type      = "rtc_for_dist_query"
   cslc_query_job_type              = "cslc_query"
 
   use_s3_uri_structure = var.use_s3_uri_structure
