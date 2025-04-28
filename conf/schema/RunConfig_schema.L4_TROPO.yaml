@@ -55,7 +55,7 @@ RunConfig:
         threads_per_worker: int(required=False)
         max_memory: int(required=False)
         dask_temp_dir: str(required=False) 
-        block_shape: list(str(), min=0, required=False)
+        block_shape: list(int, min=0, required=False)
       output_options:
         output_heights: list(min=0, required=False) 
         compression_kwargs:
