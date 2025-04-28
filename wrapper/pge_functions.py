@@ -260,6 +260,7 @@ def tropo_lineage_metadata(context, work_dir):
         local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
 
+    return lineage_metadata
 
 def update_slc_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
