@@ -564,7 +564,7 @@ def update_tropo_runconfig(context, work_dir):
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
 
-    local_input_dir = os.path.join(work_dir, pge_input_dir_param)
+    local_input_dir = os.path.join(work_dir, pge_input_dir_param['value'])
 
     updated_input_file_paths = []
 
