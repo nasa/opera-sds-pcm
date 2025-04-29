@@ -208,6 +208,8 @@ DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
 
+  DESIRED_LOOKBACKS: 3
+
 # End PGE Configuration section
 
 PRODUCT_TYPES:
