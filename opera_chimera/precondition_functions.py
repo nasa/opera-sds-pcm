@@ -736,7 +736,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
-        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_\w{4}-\w{6}-\w{3}_\d{8}T\d{6}Z_\d{8}T\d{6}Z_S1[AB]_30_v\d+[.]\d+_'
+        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[AB]_30_v\d+[.]\d+_'
                                  r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
