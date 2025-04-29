@@ -298,6 +298,11 @@ class RtcForDistCmrQuery(CmrQuery):
             chunk_batch_ids = [batch_id]
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
+
+            # If the length of urls is 0, throw an assertion error
+            if len(urls) == 0:
+                raise AssertionError(f"No urls found for {batch_id}. Cannot submit download job.")
+
             product_metadata["current_s3_paths"] = urls
 
             if batch_id not in batch_id_to_baseline_urls:

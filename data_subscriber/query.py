@@ -75,13 +75,8 @@ class CmrQuery:
         Otherwise, fail this job'''
 
         self.logger.info("Granule Cataloguing STARTED")
-
-        print(f"Granules to be catalogued: {len(granules)}")
-        for granule in granules:
-            print(granule)
-
+        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
         self.catalog_granules(granules, query_dt)
-
         self.logger.info("Granule Cataloguing FINISHED")
 
         # TODO: This function only applies to RTC, merge w CSLC at some point
