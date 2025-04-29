@@ -736,11 +736,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
-        rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
-                                 r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acquisition_date>'
-                                 r'\d{8})T\d{6}Z)_(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_'
-                                 r'(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?'
-                                 r'[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
+        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_\w{4}-\w{6}-\w{3}_\d{8}T\d{6}Z_\d{8}T\d{6}Z_S1[AB]_30_v\d+[.]\d+_'
+                                 r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
         pre_crosspol = []
@@ -854,7 +851,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # This is currently hardcoded, should we move it to settings?
 
-        N_LOOKBACKS = 3
+        n_desired_lookbacks = int(self._settings.get("DIST_S1", {}).get("DESIRED_LOOKBACKS", 3))
+        # Q: Is there any validation here? (ie must be >= 3) ^^
 
         # TODO: To support testing for smaller (thus quicker) k, contract this value if few sensing dates are
         #  available
@@ -865,11 +863,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
-        rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
-                                 r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acquisition_date>'
-                                 r'\d{8})T\d{6}Z)_(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_'
-                                 r'(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?'
-                                 r'[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
+        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_\w{4}-\w{6}-\w{3}_(?P<acquisition_date>\d{8})T\d{6}Z_\d{8}T\d{6}Z_'
+                                 r'S1[AB]_30_v\d+[.]\d+_(VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         baseline_sensing_dates = set()
 
@@ -878,7 +873,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             baseline_sensing_dates.add(rtc_match['acquisition_date'])
 
         rc_params = {
-            'n_lookbacks': min(N_LOOKBACKS, len(baseline_sensing_dates)),
+            'n_lookbacks': min(n_desired_lookbacks, len(baseline_sensing_dates)),
         }
 
         return rc_params
