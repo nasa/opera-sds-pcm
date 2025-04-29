@@ -8,10 +8,9 @@ from util.job_submitter import try_submit_mozart_job
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
-from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
-                                           basic_decorate_granule)
+                                           basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist)
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
 K_GRANULES = 10 # Should be either parameter into query job or settings.yaml
@@ -27,7 +26,8 @@ class RtcForDistCmrQuery(CmrQuery):
         else:
             self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
 
-        #TODO: Grace minutes? Read from settings.yaml
+        self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
+        self.logger.info(f"grace_mins={self.grace_mins}")
 
         '''These two maps are set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
@@ -141,8 +141,8 @@ class RtcForDistCmrQuery(CmrQuery):
         return additional_fields
 
     def determine_download_granules(self, granules):
-        if len(granules) == 0:
-            return granules
+        #if len(granules) == 0:
+        #    return granules
 
         self.logger.debug(f"{len(granules)} granules, before extending")
         self.extend_additional_records(granules, force_product_id=self.force_product_id)
@@ -158,27 +158,27 @@ class RtcForDistCmrQuery(CmrQuery):
             print(granule)
             basic_decorate_granule(granule)'''
 
-        self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granules")
+        self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granule records")
 
         # Create a dict of granule_id to granule for both the new granules and unsubmitted granules
-        granules_dict = {(granule["granule_id"], granule["batch_id"]): granule for granule in granules}
-        for granule in unsubmitted:
-            granules_dict[(granule["granule_id"], granule["batch_id"])] = granule
+        granules_dict = {}
+        add_unique_rtc_granules(granules_dict, granules)
+        add_unique_rtc_granules(granules_dict, unsubmitted)
 
-        print("len(granules_dict)", len(granules_dict))
-        print("granules_dict keys: ", granules_dict.keys())
-        granule_ids = list(set([k[0] for k in granules_dict.keys()])) # Only use a unique set of granule_ids
+        #print("len(granules_dict)", len(granules_dict))
+        #print("granules_dict keys: ", granules_dict.keys())
+        granule_ids = list(set([g["granule_id"] for g in granules_dict.values()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
-        products_triggered, granules_triggered, _, _ = compute_dist_s1_triggering(
-            self.bursts_to_products, self.product_to_bursts, granule_ids, complete_bursts_only = True)
+        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
         by_download_batch_id = defaultdict(lambda: defaultdict(dict))
 
         for batch_id, product in products_triggered.items():
             for rtc_granule in product.rtc_granules:
-                by_download_batch_id[batch_id][rtc_granule] = granules_dict[(rtc_granule, batch_id)]
-                download_granules.append(granules_dict[(rtc_granule, batch_id)])
+                unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
+                by_download_batch_id[batch_id][unique_rtc_id] = granules_dict[(unique_rtc_id, batch_id)]
+                download_granules.append(granules_dict[(unique_rtc_id, batch_id)])
 
         # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
         for batch_id, download_batch in by_download_batch_id.items():
@@ -299,6 +299,11 @@ class RtcForDistCmrQuery(CmrQuery):
             chunk_batch_ids = [batch_id]
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
+
+            # If the length of urls is 0, throw an assertion error
+            if len(urls) == 0:
+                raise AssertionError(f"No urls found for {batch_id}. Cannot submit download job.")
+
             product_metadata["current_s3_paths"] = urls
 
             if batch_id not in batch_id_to_baseline_urls:
@@ -331,5 +336,21 @@ class RtcForDistCmrQuery(CmrQuery):
             "value": product_metadata
         })
         return params
+
+    def update_url_index(
+            self,
+            es_conn,
+            urls: list[str],
+            granule: dict,
+            job_id: str,
+            query_dt: datetime,
+            temporal_extent_beginning_dt: datetime,
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
+    ):
+        '''We pass all urls through context so no need to store the urls in the ES'''
+        es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+
 
 

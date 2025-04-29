@@ -79,6 +79,11 @@ DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_black
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple.geojson"
 
+# Force DIST-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
+# This can be over-ridden by argument into daac_data_subsriber.py
+DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES: 210
+
+# Location of the burst lookup table for DIST-S1 processing
 DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
