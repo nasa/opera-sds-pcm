@@ -168,15 +168,30 @@ class CSLCDependency:
                 ccslc = eu.query(
                     index=_C_CSLC_ES_INDEX_PATTERNS,
                     body={"query": {"bool": {"must": [
-                        {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}},
-                        {"term": {"metadata.frame_id": frame_id}}
+                        {"term": {"metadata.ccslc_m_index.keyword": ccslc_m_index}}
                     ]}}})
 
                 if len(ccslc) == 0:
-                    self.logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
+                    self.logger.info(f"Compressed CSLCs for {ccslc_m_index=} was not found in GRQ ES", ccslc_m_index)
                     return False
 
-                ccslcs.append(ccslc[0]) # There should only be one
+                if len(ccslc) == 2:
+                    # Pick the one that has this frame_id
+                    _found = False
+                    for c in ccslc:
+                        if c["_source"]["metadata"]["frame_id"] == frame_id:
+                            ccslcs.append(c)
+                            _found = True
+                            break
+                    if not _found:
+                        raise Exception(f"Two compressed CSLCs for {ccslc_m_index=} were found but neither was for {frame_id=}. This shouldn't be possible!")
+                elif len(ccslc) == 1:
+                    ccslcs.append(ccslc[0])
+                    found_frame_id = ccslc[0]["_source"]["metadata"]["frame_id"]
+                    if found_frame_id != frame_id:
+                        self.logger.warning(f"Compressed CSLCs for {ccslc_m_index=} was found but was for frame {found_frame_id} instead of {frame_id}. This can happen and is ok.")
+                else:
+                    raise Exception(f"More than 2 compressed CSLCs for {ccslc_m_index=} was found in GRQ ES. Should not be possible!")
 
         self.logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
         self.logger.debug(ccslcs)
