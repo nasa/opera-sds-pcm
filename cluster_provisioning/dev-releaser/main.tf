@@ -82,7 +82,6 @@ module "common" {
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
   triage_bucket                           = var.triage_bucket
-  isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
@@ -94,9 +93,13 @@ module "common" {
   earthdata_pass                          = var.earthdata_pass
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
+  amis                                    = var.amis
   hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
   hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  asf_cnm_s_ids                           = var.asf_cnm_s_ids
+  es_bucket_role_arn                      = var.es_bucket_role_arn
 }
 
 locals {

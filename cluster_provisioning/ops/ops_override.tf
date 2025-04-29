@@ -6,10 +6,6 @@
 #
 
 ##### Environments #######
-variable "aws_account_id" {
-  default = "907504701509"
-}
-
 variable "venue" {
   default = "ops"
 }
@@ -53,24 +49,6 @@ variable "profile" {
   default = "saml-pub"
 }
 
-####### Subnet ###########
-variable "subnet_id" {
-  default = "subnet-0009fde6de693b714"
-}
-
-####### VPC #########
-variable "lambda_vpc" {
-  default = "vpc-04ce247929cd21150"
-}
-
-variable "public_asg_vpc" {
-  default = "vpc-04ce247929cd21150"
-}
-
-variable "private_asg_vpc" {
-  default = "vpc-05d9f741bae3208ab"
-}
-
 variable "artifactory_repo" {
   default = "general-stage"
 }
@@ -103,15 +81,6 @@ variable "pcm_verdi_role" {
   }
 }
 
-variable "lambda_role_arn" {
-  default = "arn:aws:iam::907504701509:role/am-pcm-lambda-role"
-}
-
-##### ES ######
-variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::907504701509:role/am-es-role"
-}
-
 # mozart vars
 variable "mozart" {
   type = map(string)
@@ -132,7 +101,6 @@ variable "metrics" {
     name          = "metrics"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.11"
     private_ip    = "100.104.82.11"
     public_ip     = ""
   }
@@ -145,7 +113,6 @@ variable "grq" {
     name          = "grq"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.12"
     private_ip    = "100.104.82.12"
     public_ip     = ""
   }
@@ -161,7 +128,6 @@ variable "factotum" {
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
-    #private_ip    = "100.104.13.13"
     private_ip    = "100.104.82.13"
     publicc_ip    = ""
   }

@@ -41,8 +41,6 @@ variable "pge_releases" {
 }
 
 variable "private_key_file" {
-  #int
-  #default="~/.ssh/operasds-int-cluster-1.pem"
 }
 
 variable "keypair_name" {
@@ -62,11 +60,9 @@ variable "region" {
 }
 
 variable "public_verdi_security_group_id" {
-  default = "sg-008b5ba6ecb1b95b8"
 }
 
 variable "private_verdi_security_group_id" {
-  default = "sg-08d98b1b7b66f7dea"
 }
 
 variable "pcm_verdi_role" {
@@ -80,7 +76,6 @@ variable "verdi" {
   type = map(string)
   default = {
     name = "verdi"
-    ami = "ami-0b3b047af6d70bc82" # verdi v4.16 patchdate - 20230816
     instance_type = "t3.medium"
     device_name = "/dev/sda1"
     device_size = 50
@@ -96,15 +91,12 @@ variable "asg_use_role" {
 }
 
 variable "public_asg_vpc" {
-  default = "vpc-02676637ea26098a7"
 }
 
 variable "private_asg_vpc" {
-  default = "vpc-b5a983cd"
 }
 
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
 }
 
 variable "artifactory_base_url" {
