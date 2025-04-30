@@ -15,7 +15,12 @@ from tqdm import tqdm
 from util.conf_util import SettingsConf
 from data_subscriber.cmr import get_cmr_token
 from data_subscriber.parser import create_parser
-from data_subscriber.query import DateTimeRange
+from data_subscriber.cmr import DateTimeRange
+
+# This is only needed if you want to run this code locally instead of a deployed pcm environment -->
+#import tests.data_subscriber.conftest
+# <---------------------------------------------------------------------------------------
+
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
 
 ''' Tool to query the DISP S1 burst database 
@@ -25,7 +30,7 @@ logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.", required=False, default=False)
+parser.add_argument("--verbose", action="store_true", help="If true, print out verbose information, mainly cmr queries and k-cycle calculation.", required=False, default=False)
 parser.add_argument("--db-file", dest="db_file", help="Specify the DISP-S1 database json file \
 on the local file system instead of using the standard one in S3 ancillary", required=False)
 parser.add_argument("--blackout-file", dest="blackout_file", help="Specify the DISP-S1 blackout dates json file \
@@ -35,6 +40,8 @@ subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 server_parser = subparsers.add_parser("list", help="List all frame numbers")
 
 server_parser = subparsers.add_parser("summary", help="List all frame numbers, number of bursts, and sensing datetimes")
+
+server_parser = subparsers.add_parser("analyze", help="Analyzes potential Compressed CSLC ID collisions")
 
 server_parser = subparsers.add_parser("native_id", help="Print information based on native_id")
 server_parser.add_argument("id", help="The CSLC native id from CMR")
@@ -92,6 +99,60 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
 
     return k_cycle
 
+def analyze_ccslc_collisions(verbose = False):
+    # Analyze the burst database file for potential collisions
+
+    # 1. Get the list of all burst ids that belong to more than one frame. But just choose one out of the up to 3 IW. And store the corresponding frame ids
+    # So if we find  T173-370289-IW1, T173-370289-IW2, T173-370289-IW3 just pick one of them
+    bursts_any_beam = defaultdict()
+    for burst_id in burst_to_frames.keys():
+        if len(burst_to_frames[burst_id]) > 1:
+            bursts_any_beam[burst_id[:-4]] = (burst_id, tuple(sorted(burst_to_frames[burst_id])))
+
+    print(f"Found {len(bursts_any_beam)} bursts that belong to more than one frame")
+    if verbose:
+        for burst_id in bursts_any_beam.keys():
+            print(burst_id, bursts_any_beam[burst_id])
+
+    # 2. Now go through each item in bursts_any_beam and check how many pairs of frames contain the same start and end acquisition indices for every 15 groups
+    # These are the ID collisions
+    compressed_cslc_schedules = 0
+    num_collisions = 0
+    num_collisions_diff_data = 0
+
+    for _, burst_frame_pair in bursts_any_beam.items():
+        burst_id, frame_ids = burst_frame_pair
+        frame_id_1, frame_id_2 = frame_ids
+        frame1_acq_indices = disp_burst_map[frame_id_1].sensing_datetime_days_index
+        frame2_acq_indices = disp_burst_map[frame_id_2].sensing_datetime_days_index
+
+        lesser_len = min(len(frame1_acq_indices), len(frame2_acq_indices))
+        for i in range(0, lesser_len, 15):
+            end = i + 15
+            if end > lesser_len - 1:
+                break
+            compressed_cslc_schedules += 1
+
+            if frame1_acq_indices[i] == frame2_acq_indices[i] and frame1_acq_indices[end] == frame2_acq_indices[end]:
+                frame1_acq_indices_set = set(frame1_acq_indices[i:end])
+                frame2_acq_indices_set = set(frame2_acq_indices[i:end])
+                intersection = frame1_acq_indices_set.intersection(frame2_acq_indices_set)
+                num_collisions += 1
+
+                # 3. When all 15 acquisition indices are not the same, then we have collision for which the underlying data differ
+                if len(intersection) < 15:
+                    num_collisions_diff_data += 1
+                    print(f"Burst {burst_id} set between frames {frame_id_1} and {frame_id_2} at indices {i} to {end} consist of {15-len(intersection)} different data in the 15-k sets")
+                    print(f"\t{frame_id_1=} acquisition indices: {frame1_acq_indices[i:end]}")
+                    print(f"\t{frame_id_1=} acquisition indices: {frame2_acq_indices[i:end]}")
+                    print(f"\t\tIntersection: {intersection}")
+                else:
+                    if verbose:
+                        print(f"Burst {burst_id} set between frames {frame_id_1} and {frame_id_2} at indices {i} to {end} consist of same data in the 15-k sets")
+
+    print(f"Found {compressed_cslc_schedules} pairings of compressed cslc runs")
+    print(f"Found {num_collisions} Compressed CSLC ID collisions in the burst database file")
+    print(f"Of those, {num_collisions_diff_data} contain different data in the 15-k sets")
 def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = False, verbose = False):
     if frame_id not in disp_burst_map.keys():
         print("Frame id: ", frame_id, "does not exist")
@@ -269,6 +330,9 @@ elif args.subparser_name == "time_range":
 
 elif args.subparser_name == "unique_id":
     print("This feature is not implemented yet")
+
+elif args.subparser_name == "analyze":
+    analyze_ccslc_collisions(args.verbose)
 
 elif args.subparser_name == "validate":
 
