@@ -52,6 +52,8 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
 
         # WARNING: https download does not work
         # TODO: Should we support this at all?
+        #  Not sure how to split these paths into baseline & current lists - maybe we should until
+        #  we have a method to do so. -R
         if args.transfer_protocol == "https":
             # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
             rtc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
@@ -120,7 +122,10 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                     "mgrs_tile_id": product_id.split("_")[0],
                     "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "product_paths": {
-                        "L2_RTC_S1": rtc_s3paths,
+                        "L2_RTC_S1": {
+                            "baseline_burst_set": baseline_s3paths,
+                            "current_burst_set": current_s3_paths,
+                        }
                     },
                     "FileName": batch_id,
                     "id": batch_id,

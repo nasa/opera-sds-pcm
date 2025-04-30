@@ -3,6 +3,7 @@ PGE-specific functions for use with the OPERA PGE Wrapper
 """
 import glob
 import os
+from itertools import chain
 from os.path import basename, splitext
 from typing import Dict
 
@@ -233,22 +234,16 @@ def dist_s1_lineage_metadata(context, work_dir):
 
     lineage_metadata = []
 
-    # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
+    input_file_group = run_config["input_file_group"]
 
-    for date in os.listdir(rtc_data_dir):
-        date_dir = os.path.join(rtc_data_dir, date)
+    for s3_input_filepath in chain(input_file_group['pre_rtc_copol'], input_file_group['pre_rtc_crosspol'],
+                                   input_file_group['post_rtc_copol'], input_file_group['post_rtc_crosspol']):
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+        lineage_metadata.append(local_input_filepath)
 
-        lineage_metadata.extend(
-            [os.path.join(date_dir, rtc_file) for rtc_file in os.listdir(date_dir)]
-        )
-
-    # TODO: No ancillary data exists yet but likely will soon
-    # ancillary_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', 'ancillary_data')
-    #
-    # lineage_metadata.extend(
-    #     [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
-    # )
+    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
+        local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
+        lineage_metadata.append(local_input_filepath)
 
     return lineage_metadata
 
@@ -512,33 +507,30 @@ def update_dist_s1_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
-    dates = list(os.listdir(rtc_data_prefix))
+    local_input_dir = os.path.join(work_dir, "pge_input_dir")
 
-    for date in dates:
-        rtc_data_date_prefix = os.path.join(rtc_data_prefix, date)
+    run_config['input_file_group']['pre_rtc_copol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['pre_rtc_copol']
+    ))
 
-        run_config['input_file_group']['pre_rtc_copol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['pre_rtc_copol']
-        ))
+    run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['pre_rtc_crosspol']
+    ))
 
-        run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['pre_rtc_crosspol']
-        ))
+    run_config['input_file_group']['post_rtc_copol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['post_rtc_copol']
+    ))
 
-        run_config['input_file_group']['post_rtc_copol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['post_rtc_copol']
-        ))
+    run_config['input_file_group']['post_rtc_crosspol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['post_rtc_crosspol']
+    ))
 
-        run_config['input_file_group']['post_rtc_crosspol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['post_rtc_crosspol']
-        ))
-
-    # TODO: water_mask is currently fixed unset so we can skip it for now
+    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
+        run_config["water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["water_mask_path"]))
 
     return run_config

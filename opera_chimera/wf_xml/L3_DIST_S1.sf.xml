@@ -10,7 +10,7 @@
         <sf_context>_context.json</sf_context>
     </sf:inputs>
     <sf:outputs>
-      <job_id_L3_DSWx_S1 from="@#L3_DIST_S1_PGE"/>
+      <job_id_L3_DIST_S1 from="@#L3_DIST_S1_PGE"/>
     </sf:outputs>
 
     <sf:processes>
@@ -23,7 +23,7 @@
           <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
         </sf:inputs>
         <sf:outputs>
-          <PGE_L3_DSWx_S1_job_params />
+          <PGE_L3_DIST_S1_job_params />
         </sf:outputs>
         <sf:operator>
           <sf:description>Pre-processing steps for L3_DIST_S1 PGE</sf:description>
@@ -36,13 +36,13 @@
       <sf:process id="L3_DIST_S1_PGE">
         <sf:inputs>
           <sf_context/>
-          <PGE_L3_DSWx_S1_job_params from="@#input_preprocessor_L3_DIST_S1"/>
+          <PGE_L3_DIST_S1_job_params from="@#input_preprocessor_L3_DIST_S1"/>
           <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_DIST_S1.yaml</pge_config_file>
           <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
           <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
         </sf:inputs>
         <sf:outputs>
-          <job_id_L3_DSWx_S1 />
+          <job_id_L3_DIST_S1 />
         </sf:outputs>
         <sf:operator>
           <sf:description>Run the L3_DIST_S1 PGE on an EC2 worker</sf:description>
@@ -55,7 +55,7 @@
       <sf:process id="post_L3_DIST_S1">
         <sf:inputs>
           <sf_context/>
-          <job_id_L3_DSWx_S1 from="@#previous"/>
+          <job_id_L3_DIST_S1 from="@#previous"/>
           <chimera_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/chimera_config.yaml</chimera_config_file>
           <pge_config_file>/home/ops/verdi/ops/opera-pcm/opera_chimera/configs/pge_configs/PGE_L3_DIST_S1.yaml</pge_config_file>
           <settings_file>/home/ops/verdi/ops/opera-pcm/conf/settings.yaml</settings_file>
