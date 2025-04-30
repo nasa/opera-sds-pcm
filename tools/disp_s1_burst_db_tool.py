@@ -123,8 +123,18 @@ def analyze_ccslc_collisions(verbose = False):
     for _, burst_frame_pair in bursts_any_beam.items():
         burst_id, frame_ids = burst_frame_pair
         frame_id_1, frame_id_2 = frame_ids
-        frame1_acq_indices = disp_burst_map[frame_id_1].sensing_datetime_days_index
-        frame2_acq_indices = disp_burst_map[frame_id_2].sensing_datetime_days_index
+        frame1_acq_indices = disp_burst_map[frame_id_1].sensing_datetimes
+        frame2_acq_indices = disp_burst_map[frame_id_2].sensing_datetimes
+
+        def round_off_to_day(d):
+            # If the day is within 20 seconds of mid might throw assertion error
+            if d.hour == 23 and d.minute == 59 and d.second > 40:
+                assert False, f"Day {d} is not within 20 seconds of mid"
+            return d.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Round off the sensing datetimes to the nearest day
+        frame1_acq_indices = [round_off_to_day(d) for d in frame1_acq_indices]
+        frame2_acq_indices = [round_off_to_day(d) for d in frame2_acq_indices]
 
         lesser_len = min(len(frame1_acq_indices), len(frame2_acq_indices))
         for i in range(0, lesser_len, 15):
@@ -143,9 +153,10 @@ def analyze_ccslc_collisions(verbose = False):
                 if len(intersection) < 15:
                     num_collisions_diff_data += 1
                     print(f"Burst {burst_id} set between frames {frame_id_1} and {frame_id_2} at indices {i} to {end} consist of {15-len(intersection)} different data in the 15-k sets")
-                    print(f"\t{frame_id_1=} acquisition indices: {frame1_acq_indices[i:end]}")
-                    print(f"\t{frame_id_1=} acquisition indices: {frame2_acq_indices[i:end]}")
-                    print(f"\t\tIntersection: {intersection}")
+                    #print(f"\t{frame_id_1=} acquisition indices: {frame1_acq_indices[i:end]}")
+                    #print(f"\t{frame_id_1=} acquisition indices: {frame2_acq_indices[i:end]}")
+                    print(f"\t\tOnly in frame {frame_id_1}: {[d.isoformat() for d in list(frame1_acq_indices_set - frame2_acq_indices_set)]}")
+                    print(f"\t\tOnly in frame {frame_id_2}: {[d.isoformat() for d in list(frame2_acq_indices_set - frame1_acq_indices_set)]}")
                 else:
                     if verbose:
                         print(f"Burst {burst_id} set between frames {frame_id_1} and {frame_id_2} at indices {i} to {end} consist of same data in the 15-k sets")
