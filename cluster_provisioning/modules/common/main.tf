@@ -64,7 +64,7 @@ locals {
   delete_old_job_catalog      = true
   amis                        = var.amis
   asf_cnm_s_id_dev            = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev-int        = var.asf_cnm_s_id_dev-int
+  asf_cnm_s_id_dev_int        = var.asf_cnm_s_id_dev_int
   asf_cnm_s_id_test           = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod           = var.asf_cnm_s_id_prod
 }
@@ -232,7 +232,7 @@ data "aws_iam_policy_document" "cnm_response" {
       identifiers = [
         "arn:aws:iam::${var.aws_account_id}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_dev}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_dev-int}:root",
+        "arn:aws:iam::${var.asf_cnm_s_id_dev_int}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_test}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_prod}:root"
       ] 

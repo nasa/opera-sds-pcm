@@ -99,7 +99,7 @@ module "common" {
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
   cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
   asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev-int                    = var.asf_cnm_s_id_dev-int
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
   es_bucket_role_arn                      = var.es_bucket_role_arn

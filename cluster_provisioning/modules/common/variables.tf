@@ -841,7 +841,7 @@ variable "clear_s3_aws_es" {
 variable "asf_cnm_s_id_dev" {
 }
 
-variable "asf_cnm_s_id_dev-int" {
+variable "asf_cnm_s_id_dev_int" {
 }
 
 variable "asf_cnm_s_id_test" {
