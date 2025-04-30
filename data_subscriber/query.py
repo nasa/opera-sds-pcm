@@ -75,9 +75,8 @@ class CmrQuery:
         Otherwise, fail this job'''
 
         self.logger.info("Granule Cataloguing STARTED")
-
+        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
         self.catalog_granules(granules, query_dt)
-
         self.logger.info("Granule Cataloguing FINISHED")
 
         # TODO: This function only applies to RTC, merge w CSLC at some point
@@ -173,7 +172,7 @@ class CmrQuery:
 
             additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
 
-            update_url_index(
+            self.update_url_index(
                 es_conn,
                 granule.get("filtered_urls"),
                 granule,
@@ -185,6 +184,28 @@ class CmrQuery:
             )
 
             self.update_granule_index(granule)
+
+    def update_url_index(
+            self,
+            es_conn,
+            urls: list[str],
+            granule: dict,
+            job_id: str,
+            query_dt: datetime,
+            temporal_extent_beginning_dt: datetime,
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
+    ):
+        # group pairs of URLs (http and s3) by filename
+        filename_to_urls_map = defaultdict(list)
+        for url in urls:
+            filename = Path(url).name
+            filename_to_urls_map[filename].append(url)
+
+        for filename, filename_urls in filename_to_urls_map.items():
+            es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
+                                revision_date_dt, *args, **kwargs)
 
     def update_granule_index(self, granule):
         pass
@@ -416,27 +437,6 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
         time_limit=None,
         component=None
     )
-
-
-def update_url_index(
-        es_conn,
-        urls: list[str],
-        granule: dict,
-        job_id: str,
-        query_dt: datetime,
-        temporal_extent_beginning_dt: datetime,
-        revision_date_dt: datetime,
-        *args,
-        **kwargs
-):
-    # group pairs of URLs (http and s3) by filename
-    filename_to_urls_map = defaultdict(list)
-    for url in urls:
-        filename = Path(url).name
-        filename_to_urls_map[filename].append(url)
-
-    for filename, filename_urls in filename_to_urls_map.items():
-        es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 def get_query_timerange(args: argparse.Namespace, now: datetime):
     logger = get_logger()

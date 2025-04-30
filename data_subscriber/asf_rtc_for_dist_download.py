@@ -2,6 +2,7 @@ from pathlib import PurePath, Path
 import os
 import urllib
 import boto3
+from collections import defaultdict
 from datetime import datetime, timezone
 import hashlib
 import logging
@@ -47,7 +48,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         batch_id = args.batch_ids[0] # Should always be only one batch_id
         self.logger.info(f"Downloading RTC files for batch {batch_id}")
 
-        granule_sizes = []
+        granule_sizes = defaultdict(int)
 
         # WARNING: https download does not work
         # TODO: Should we support this at all?
@@ -76,22 +77,18 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
 
             rtc_s3paths = current_s3_paths + baseline_s3paths
 
-            '''For RTC download, the batch_ids are globally unique so there's no need to query for dates
-            Granules are stored in rtc_for_dist_catalog which contain the .h5 files which we don't use for actual downloading'''
-            downloads = self.get_downloads(batch_id, es_conn)
+            if len(current_s3_paths) == 0:
+                raise Exception(f"No s3_path found for {batch_id}. Something went wrong with the query job.")
 
-            batch_rtc_s3paths = [download["s3_url"] for download in downloads]
-            if len(batch_rtc_s3paths) == 0:
-                raise Exception(f"No s3_path found for {batch_id}. You probably should specify https transfer protocol.")
-
-            # TODO: Fix this so that we track .tif file sizes and not .h5. There are two files per granule
-            for p in batch_rtc_s3paths:
+            for p in current_s3_paths:
                 # Split the following into bucket name and key
-                # 's3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1/OPERA_L2_RTC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0/OPERA_L2_RTC-S1_T122-260026-IW3_20231214T011435Z_20231215T075814Z_S1A_VV_v1.0.h5'
+                # 's3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1/OPERA_L2_RTC-S1_T137-292318-IW1_20250102T015857Z_20250102T190143Z_S1A_30_v1.0/OPERA_L2_RTC-S1_T137-292318-IW1_20250102T015857Z_20250102T190143Z_S1A_30_v1.0_VH.tif' or VH
                 parsed_url = urllib.parse.urlparse(p)
                 bucket = parsed_url.netloc
                 key = parsed_url.path[1:]
-                granule_id = p.split("/")[-1]
+
+                # Granule ID is just the "folder name" in that s3 path
+                granule_id = key.split("/")[-2]
 
                 try:
                     head_object = boto3.client("s3").head_object(Bucket=bucket, Key=key)
@@ -101,12 +98,11 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                     raise e
                 file_size = int(head_object["ContentLength"])
 
-                granule_sizes.append((granule_id, file_size))
+                granule_sizes[granule_id] += file_size
 
         # Create list of RTC files marked as downloaded, this will be used as the very last step in this function
-        for granule_id, file_size in granule_sizes:
-            native_id = granule_id.split(".h5")[0]  # remove file extension and revision id
-            burst_id, _ = parse_r2_product_file_name(native_id, "L2_RTC_S1")
+        for granule_id, file_size in granule_sizes.items():
+            burst_id, _ = parse_r2_product_file_name(granule_id, "L2_RTC_S1")
             unique_id = rtc_for_dist_unique_id(batch_id, burst_id)
             to_mark_downloaded.append((unique_id, file_size))
 
@@ -163,6 +159,9 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
             job_name=f'job-WF-SCIFLO_L3_DIST_S1-batch-{batch_id}',
             payload_hash=payload_hash
         )
+
+        logging.info("Submitted SCIFLO job with the following product_metadata:")
+        logging.info(product)
 
         # Mark the RTC files as downloaded in the RTC ES with the file size only after SCIFLO job has been submitted
         for unique_id, file_size in to_mark_downloaded:
