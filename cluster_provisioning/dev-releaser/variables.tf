@@ -454,6 +454,16 @@ variable "amis" {
 
 variable "cnm_r_sqs_arn" {
 }
-  
-variable "asf_cnm_s_ids" {
+
+variable "asf_cnm_s_id_dev" {
 }
+
+variable "asf_cnm_s_id_dev-int" {
+}
+
+variable "asf_cnm_s_id_test" {
+}
+
+variable "asf_cnm_s_id_prod" {
+}
+
