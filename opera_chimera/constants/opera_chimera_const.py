@@ -78,6 +78,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_WORLDCOVER = "get_worldcover"
 
+    GET_DIST_S1_MASK_FILE = "get_dist_s1_mask_file"
+
     GPU_ENABLED = "gpu_enabled"
 
     INGEST_STAGED = "INGEST_STAGED"

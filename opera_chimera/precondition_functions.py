@@ -707,77 +707,59 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dist_s1_sample_inputs(self):
+    def get_dist_s1_mgrs_tile(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DIST-S1
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Assigns the MGRS tile ID for DIST-S1 jobs
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # get the working directory
-        working_dir = get_working_dir()
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
 
-        rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
-                                 r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>'
-                                 r'\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>'
-                                 r'\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T'
-                                 r'(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_'
-                                 r'(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)'
-                                 r'|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
+        rc_params = {
+            'mgrs_tile_id': metadata['mgrs_tile_id'],
+        }
 
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "dist_s1/dist_s1_beta_0.0.6_expected_input.zip"
+        logger.info(f"rc_params : {rc_params}")
 
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+        return rc_params
 
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DIST-S1 Inputs"
-        )
+    def get_dist_s1_rtc_s3_paths(self):
+        """
+        Gets the list of input RTCs to be processed by the DIST-S1 job and organizes them into
+        the pre-/post-copol/-crosspol lists
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
+        metadata = self._context["product_metadata"]["metadata"]
 
-        rtc_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
-        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir',
-                                          'ancillary_data')
+        dataset_type = self._context["dataset_type"]
 
-        rtc_dates = sorted(os.listdir(rtc_data_dir))
+        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
+
+        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[AB]_30_v\d+[.]\d+_'
+                                 r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
         pre_crosspol = []
         post_copol = []
         post_crosspol = []
 
-        for date in rtc_dates:
-            date_dir = os.path.join(rtc_data_dir, date)
+        for path in product_paths["baseline_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
 
-            for rtc_file in os.listdir(date_dir):
-                rtc_file_path = os.path.join(date_dir, rtc_file)
-                match = rtc_pattern.match(rtc_file)
+            if rtc_match['pol'] in ['VV', 'HH']:
+                pre_copol.append(path)
+            else:
+                pre_crosspol.append(path)
 
-                if match is None:
-                    # TODO: Ignoring for now, should this be an error?
-                    continue
-                else:
-                    pol = match.groupdict()['pol']
+        for path in product_paths["current_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
 
-                    if date != rtc_dates[-1]:
-                        if pol in ['VV', 'HH']:
-                            pre_copol.append(rtc_file_path)
-                        else:
-                            pre_crosspol.append(rtc_file_path)
-                    else:
-                        if pol in ['VV', 'HH']:
-                            post_copol.append(rtc_file_path)
-                        else:
-                            post_crosspol.append(rtc_file_path)
+            if rtc_match['pol'] in ['VV', 'HH']:
+                post_copol.append(path)
+            else:
+                post_crosspol.append(path)
 
         def sort_fn(path):
             match = rtc_pattern.match(os.path.basename(path))
@@ -795,10 +777,104 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'pre_rtc_crosspol': pre_crosspol,
             'post_rtc_copol': post_copol,
             'post_rtc_crosspol': post_crosspol,
-            'mgrs_tile_id': '10SGD',
-            'water_mask_path': '',
-            'apply_water_mask': False,
-            'n_lookbacks': 3
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dist_s1_mask_file(self):
+        """
+        This function downloads a sub-region of the water mask used with DIST-S1
+        processing over the bounding box provided in the input product metadata.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        if bbox is None:
+            rc_params = {
+                'water_mask_path': '',
+                'apply_water_mask': False,
+            }
+
+            return rc_params
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DIST_S1_MASK_FILE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DIST_S1_MASK_FILE, {}).get(oc_const.S3_KEY)
+
+        ancillary_type = "Water mask"
+        output_filepath = os.path.join(working_dir, 'water_mask.vrt')
+
+        # Set up arguments to stage_ancillary_map.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.outfile = output_filepath
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.bbox = bbox
+        args.margin = int(self._settings.get("DIST_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
+
+        pge_metrics = self.get_opera_ancillary(
+            ancillary_type=ancillary_type,
+            output_filepath=output_filepath,
+            staging_func=stage_ancillary_map,
+            staging_func_args=args
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            'water_mask_path': output_filepath,
+            'apply_water_mask': True,
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dist_s1_lookbacks(self):
+        """
+        Get number of lookbacks for DIST-S1 job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # This is currently hardcoded, should we move it to settings?
+
+        n_desired_lookbacks = int(self._settings.get("DIST_S1", {}).get("DESIRED_LOOKBACKS", 3))
+        # Q: Is there any validation here? (ie must be >= 3) ^^
+
+        # TODO: To support testing for smaller (thus quicker) k, contract this value if few sensing dates are
+        #  available
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+
+        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
+
+        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_\w{4}-\w{6}-\w{3}_(?P<acquisition_date>\d{8})T\d{6}Z_\d{8}T\d{6}Z_'
+                                 r'S1[AB]_30_v\d+[.]\d+_(VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
+
+        baseline_sensing_dates = set()
+
+        for path in product_paths["baseline_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
+            baseline_sensing_dates.add(rtc_match['acquisition_date'])
+
+        rc_params = {
+            'n_lookbacks': min(n_desired_lookbacks, len(baseline_sensing_dates)),
         }
 
         return rc_params
