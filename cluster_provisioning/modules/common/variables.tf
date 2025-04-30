@@ -838,7 +838,16 @@ variable "clear_s3_aws_es" {
   default = true
 }
 
-variable "asf_cnm_s_ids" {
+variable "asf_cnm_s_id_dev" {
+}
+
+variable "asf_cnm_s_id_dev-int" {
+}
+
+variable "asf_cnm_s_id_test" {
+}
+
+variable "asf_cnm_s_id_prod" {
 }
 
 variable "disp_s1_hist_status" {
