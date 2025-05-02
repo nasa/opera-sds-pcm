@@ -155,8 +155,7 @@ class RtcForDistCmrQuery(CmrQuery):
         unsubmitted = self.es_conn.get_unsubmitted_granules()
         self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
         '''for granule in unsubmitted:
-            print(granule)
-            basic_decorate_granule(granule)'''
+            print(granule)'''
 
         self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granule records")
 
@@ -349,7 +348,7 @@ class RtcForDistCmrQuery(CmrQuery):
             *args,
             **kwargs
     ):
-        '''We pass all urls through context so no need to store the urls in the ES'''
+        # We store the entire filtered_urls in the ES index from the granule dict in RTCForDistProductCatalog.form_document()
         es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 

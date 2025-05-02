@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# This is only needed if you want to run this code locally instead of a deployed pcm environment
+#import tests.data_subscriber.conftest
+
 import argparse
 import sys
 from urllib.parse import urlparse
