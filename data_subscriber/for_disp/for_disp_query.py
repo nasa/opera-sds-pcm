@@ -72,11 +72,10 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
 
     path_burst_db = downloads_dir / "opera-s1-disp-0.9.0-frame-to-burst.json"
 
-    if is_dev_mode:
-        if not path_burst_db.exists():
-            if not frame_to_burst_db:
-                frame_to_burst_db = settings["FRAME_TO_BURST_JSON"]
-            path_burst_db = download_burst_db(frame_to_burst_db, downloads_dir=downloads_dir)
+    if not path_burst_db.exists():
+        if not frame_to_burst_db:
+            frame_to_burst_db = settings["FRAME_TO_BURST_JSON"]
+        path_burst_db = download_burst_db(frame_to_burst_db, downloads_dir=downloads_dir)
 
     # READ BURST DB
     with path_burst_db.open() as fp:
