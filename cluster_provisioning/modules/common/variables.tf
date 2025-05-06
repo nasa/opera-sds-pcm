@@ -398,8 +398,8 @@ variable "queues" {
     "opera-job_worker-sciflo-l4_tropo" = {
       "name"              = "opera-job_worker-sciflo-l4_tropo"
       "log_file_name"     = "run_sciflo_L4_TROPO"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
-      "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
+      "instance_type"     = ["m7i.4xlarge", "m7a.4xlarge", "r7a.2xlarge", "r7i.2xlarge", "r6a.2xlarge", "r6i.2xlarge", "r5a.2xlarge", "r5i.2xlarge", "r5ad.2xlarge", "r5d.2xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
