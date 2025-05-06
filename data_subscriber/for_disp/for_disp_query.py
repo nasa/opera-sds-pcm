@@ -230,9 +230,9 @@ def submit_disp_s1_submissions_tasks(product):
             job_queue='opera-job_worker-sciflo-l3_disp_s1_static',
             rule_name='trigger-SCIFLO_L3_DISP_S1_static',
             params=create_job_params(product),
-            job_spec=f'job-SCIFLO_L3_DISP_S1_static:{settings["RELEASE_VERSION"]}',
-            job_type=f'hysds-io-SCIFLO_L3_DISP_S1_static:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}'
+            job_spec=f'job-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
+            job_type=f'hysds-io-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-{frame_id}'
         )
 
 def create_job_params(product):
