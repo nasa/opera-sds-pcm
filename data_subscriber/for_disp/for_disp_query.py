@@ -238,6 +238,12 @@ def submit_disp_s1_submissions_tasks(product):
 def create_job_params(product):
     return [
         {
+            "name": "input_dataset_id",
+            "type": "text",
+            "from": "value",
+            "value": product["_source"]["metadata"]["batch_id"]
+        },
+        {
            "name": "product_metadata",
            "from": "value",
            "type": "object",
