@@ -18,7 +18,7 @@ from util.conf_util import SettingsConf
 
 from util.job_util import is_running_outside_verdi_worker_context
 
-if is_running_outside_verdi_worker_context:
+if is_running_outside_verdi_worker_context():
     pass
 else:
     from data_subscriber.cslc_utils import get_bounding_box_for_frame, localize_frame_geo_json
