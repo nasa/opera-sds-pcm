@@ -131,6 +131,8 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
 
             del job_data[frame][f"L2_{type_}-S1-STATIC"]["native-id-pattern-batch"]
 
+    results = []
+
     # ISSUE CMR QUERIES. COLLECT RESULTS
     for frame in job_data:
         for type_ in ("CSLC", "RTC"):
@@ -159,7 +161,17 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
 
                 product = {
                     "native_id": meta["native-id"],
-                    "s3_urls": [d["URL"] for d in umm["RelatedUrls"] if d["Type"] == "GET DATA VIA DIRECT ACCESS" and d.get("URL").startswith("s3") and (d.get("URL").endswith(".h5") or d.get("URL").endswith(".tif"))]
+                    "s3_urls": [
+                        d["URL"]
+                        for d in umm["RelatedUrls"]
+                        if (
+                            d["Type"] == "GET DATA VIA DIRECT ACCESS"
+                            and d.get("URL").startswith("s3")
+                            and (
+                                d.get("URL").endswith(".h5") or d.get("URL").endswith("_mask.tif")
+                            )
+                        )
+                    ]
                 }
                 products.append(product)
             job_data[frame][f"L2_{type_}-S1-STATIC"]["products"] = products
@@ -212,9 +224,27 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
                 }
             }
 
-            submit_disp_s1_submissions_tasks(disp_s1_job_product)
+            job_id = submit_disp_s1_submissions_tasks(disp_s1_job_product)
+            results.append(job_id)
 
-    print("")
+    suceeded_frames = [job_id for job_id in results if isinstance(job_id, str)]
+    failed_frames = [e for e in results if isinstance(e, Exception)]
+
+    succeeded = suceeded_frames
+    failed = failed_frames
+
+    logger.debug(f"{results=}")
+    logger.info(f"{len(succeeded)} DISP-S1 jobs {succeeded=}")
+    logger.info(f"{len(failed)} DISP-S1 jobs {failed=}")
+    logger.debug(f"{succeeded=}")
+
+    results = {
+        "success": succeeded,
+        "fail": failed,
+    }
+
+    logger.info(f"{len(results)=}")
+    logger.debug(f"{results=}")
     logger.info("END")
 
 
@@ -225,7 +255,7 @@ def submit_disp_s1_submissions_tasks(product):
         logger.info(f"{ is_dev_mode=}. Skipping job submission.")
     else:
         frame_id = product["_source"]["metadata"]["frame_id"]
-        try_submit_mozart_job(
+        return try_submit_mozart_job(
             product=product,
             job_queue='opera-job_worker-sciflo-l3_disp_s1_static',
             rule_name='trigger-SCIFLO_L3_DISP_S1_static',
