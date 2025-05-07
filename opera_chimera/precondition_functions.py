@@ -879,53 +879,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_disp_s1_static_sample_inputs(self):
-        """
-        Temporary function to stage the "golden" inputs for use with the DISP-S1-STATIC
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        # get the working directory
-        working_dir = get_working_dir()
-
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "disp_s1/disp_s1_static_r6.6_calval_expected_input.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DISP-S1-STATIC Inputs"
-        )
-
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        data_dir = os.path.join(working_dir, 'disp_s1_static_r6.6_calval_expected_input')
-
-        cslc_static_dir = os.path.join(data_dir, 'cslc_static')
-        rtc_static_dir = os.path.join(data_dir, 'rtc_static')
-
-        rc_params = {
-            'input_file_paths': [os.path.join(cslc_static_dir, f) for f in sorted(os.listdir(cslc_static_dir))],
-            'rtc_static_layers_files': [os.path.join(rtc_static_dir, f) for f in sorted(os.listdir(rtc_static_dir))],
-            'dem_file': os.path.join(data_dir, 'dem.vrt'),
-            'frame_to_burst_json': os.path.join(data_dir, 'opera-s1-disp-0.9.0-frame-to-burst.json.zip'),
-            'product_version': "1.0",
-            'frame_id': "11115",
-            'threads_per_worker': 2,
-            'n_parallel_bursts': 9
-        }
-
-        return rc_params
-
     def get_disp_s1_static_inputs(self):
         """
         Gets the lists of input static layers S3 URLs to be processed

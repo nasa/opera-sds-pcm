@@ -420,7 +420,6 @@ def update_disp_s1_runconfig(context, work_dir):
 def update_disp_s1_static_runconfig(context, work_dir):
     """Updates a runconfig for use with the DISP-S1-STATIC PGE"""
 
-    # TODO: Need to update this when switching away from canned on-demand input data
     run_config: Dict = context.get("run_config")
     job_spec: Dict = context.get("job_specification")
 
@@ -430,13 +429,6 @@ def update_disp_s1_static_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-
-    # local_input_dir = os.path.join(work_dir, "pge_input_dir")
-
-    # updated_input_file_paths = []
-    #
-    # for input_file_path in glob.glob(os.path.join(local_input_dir, "*CSLC-S1-STATIC_*.h5")):
-    #     updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = list(map(
         lambda x: os.path.join(container_home_prefix, basename(x)),
