@@ -234,7 +234,8 @@ class RtcForDistCmrQuery(CmrQuery):
 
             # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
             if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
-                raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
+                self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
+                break
 
             self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
             self.logger.debug(new_args)
@@ -292,10 +293,10 @@ class RtcForDistCmrQuery(CmrQuery):
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
 
-            # If the length of urls is 0, throw an assertion error
+            # If the length of urls is 0, we can't submit this. Skip.
             if len(urls) == 0:
-                raise AssertionError(f"No urls found for {batch_id}. Cannot submit download job.")
-
+                self.logger.error(f"No urls found for {batch_id}. Cannot submit download job.")
+                continue
             product_metadata["current_s3_paths"] = urls
 
             if batch_id not in batch_id_to_baseline_urls:
