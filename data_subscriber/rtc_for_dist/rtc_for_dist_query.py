@@ -267,7 +267,9 @@ class RtcForDistCmrQuery(CmrQuery):
         def add_filtered_urls(granule, filtered_urls: list):
             if granule.get("filtered_urls"):
                 for filter_url in granule.get("filtered_urls"):
-                    if "s3://" in filter_url and ("VV.tif" in filter_url or "VH.tif" in filter_url):
+                    # Get rid of .h and mask.tif files that aren't used
+                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                    if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
                         filtered_urls.append(filter_url)
 
         batch_id_to_urls_map = defaultdict(list)
