@@ -19,7 +19,7 @@ echo "##########################################"
 echo "Running job to query CMR data for DISP-S1 production"
 date
 
-python $OPERA_HOME/data_subscriber/for_disp/for_disp_query.py --filter-frames 1111 $* > run_job.log 2>&1
+python $OPERA_HOME/data_subscriber/for_disp/for_disp_query.py $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
