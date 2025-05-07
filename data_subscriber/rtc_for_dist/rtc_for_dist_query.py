@@ -29,9 +29,10 @@ class RtcForDistCmrQuery(CmrQuery):
         self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
 
-        '''These two maps are set by determine_download_granules and consumed by download_job_submission_handler
+        '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
         self.batch_id_to_k_granules = {}
+
         self.force_product_id = None
 
     def validate_args(self):
@@ -249,15 +250,10 @@ class RtcForDistCmrQuery(CmrQuery):
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
             for acq_day_index in acq_day_indices:
-
-                ''' This step is a bit tricky.
-                1. We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames.
-                2. We already know what frame these new granules belong to because that's what we queried for. 
-                    We need to force using that because 1/9 times one burst will belong to two frames.'''
                 granules = granules_map[acq_day_index]
                 k_granules.extend(granules)
                 k_satified += 1
-                self.logger.info(f"{product_id=} {acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
+                self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {k_satified=} {k_minus_one=} {len(granules)=}")
                 if k_satified == k_minus_one:
                     break
 
