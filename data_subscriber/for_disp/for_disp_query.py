@@ -241,7 +241,7 @@ def create_job_params(product):
             "name": "input_dataset_id",
             "type": "text",
             "from": "value",
-            "value": product["_source"]["metadata"]["batch_id"]
+            "value": product["_source"]["metadata"]["frame_id"]
         },
         {
            "name": "product_metadata",
