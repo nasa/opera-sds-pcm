@@ -157,7 +157,7 @@ class ProductCatalog(ABC):
         )
 
         if result["updated"] == 0:
-            self.logger.warning(f"No documents updated for {batch_id=} {job_id=}")
+            self.logger.error(f"No documents updated for {batch_id=} {job_id=}")
         else:
             self.logger.info(f"Document updated: {batch_id=} {job_id=} {result}")
 
