@@ -926,6 +926,136 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_static_inputs(self):
+        """
+        Gets the lists of input static layers S3 URLs to be processed
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata["product_paths"]
+
+        cslc_static_files = product_paths['L2_CSLC_S1_STATIC']
+        rtc_static_files = product_paths['L2_RTC_S1_STATIC']
+
+        rc_params = {
+            'input_file_paths': cslc_static_files,
+            'rtc_static_layers_files': rtc_static_files,
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_frame_id(self):
+        """
+        Assigns the Frame ID for DISP-S1-STATIC jobs
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        rc_params = {
+            'frame_id': metadata['frame_id'],
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DISP-S1 job as a
+        fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        try:
+            threads_per_worker = self._settings["DISP_S1_STATIC"]["NUM_THREADS"]
+        except KeyError:
+            threads_per_worker = available_cores
+            logger.warning(f"DISP_S1_STATIC.NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
+
+        logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
+
+        try:
+            parallel_factor = self._settings["DISP_S1_STATIC"]["NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1_STATIC"]["NUM_WORKERS"]["CONSTANT"]
+        except KeyError:
+            parallel_factor = 0.25
+            parallel_constant = 1
+            logger.warning(f"DISP_S1_STATIC.NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
+
+        # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
+        # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
+        n_parallel_bursts = max(int(round(available_cores * parallel_factor)) + parallel_constant, 1)
+        logger.info(f"Allocating {n_parallel_bursts=} out of {available_cores} available")
+
+        rc_params = {
+            "threads_per_worker": str(threads_per_worker),
+            "n_parallel_bursts": str(n_parallel_bursts)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_dem(self):
+        """
+        This function downloads a DEM sub-region over the bounding box provided
+        in the input product metadata for a DISP-S1 processing job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        # Get the bounding box for the sub-region to select
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        # Get the s3 location parameters
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_STATIC_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_STATIC_DEM, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
+
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.outfile = output_filepath
+        args.filepath = None
+        args.bbox = bbox
+        args.tile_code = None
+        args.margin = int(self._settings.get("DISP_S1_STATIC", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DISP-S1-STATIC DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.DEM_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_s1_algorithm_parameters(self):
         """
         Downloads the designated algorithm parameters runconfig from S3 for use

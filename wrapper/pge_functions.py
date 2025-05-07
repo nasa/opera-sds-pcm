@@ -189,41 +189,17 @@ def disp_s1_static_lineage_metadata(context, work_dir):
     input_file_group = run_config["input_file_group"]
     s3_input_filepaths = input_file_group["input_file_paths"]
 
-    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
-    # for s3_input_filepath in s3_input_filepaths:
-    #     local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
-    #
-    #     if os.path.isdir(local_input_filepath):
-    #         lineage_metadata.extend(
-    #             [os.path.join(local_input_filepath, file_name)
-    #              for file_name in os.listdir(local_input_filepath)
-    #              if file_name.endswith(".h5")]
-    #         )
-    #     else:
-    #         lineage_metadata.append(local_input_filepath)
-    #
-    # for dynamic_ancillary_key in ("rtc_static_layers_files",):
-    #     if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
-    #         for s3_input_filepath in run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key]:
-    #             local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
-    #             lineage_metadata.append(local_input_filepath)
-
-    # TODO: put canned input paths into lineage instead of trying to figure out paths
     lineage_metadata.extend(s3_input_filepaths)
     for dynamic_ancillary_key in ("rtc_static_layers_files",):
         if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
             lineage_metadata.extend(run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key])
 
     # Copy the pre-downloaded ancillaries for this job to the pge input directory
-    # local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
-    # lineage_metadata.extend(local_dem_filepaths)
     lineage_metadata.append(run_config["dynamic_ancillary_file_group"]["dem_file"])
     lineage_metadata.append(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
 
-    # local_frame_database_filepath = os.path.join(
-    #     work_dir, basename(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
-    # )
-    # lineage_metadata.append(local_frame_database_filepath)
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    lineage_metadata = [os.path.join(work_dir, basename(uri)) for uri in lineage_metadata]
 
     return lineage_metadata
 
@@ -455,7 +431,6 @@ def update_disp_s1_static_runconfig(context, work_dir):
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
 
-    local_input_dir = os.path.join(work_dir, "disp_s1_static_r6.6_calval_expected_input", 'cslc_static')
     # local_input_dir = os.path.join(work_dir, "pge_input_dir")
 
     # updated_input_file_paths = []
@@ -464,7 +439,7 @@ def update_disp_s1_static_runconfig(context, work_dir):
     #     updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = list(map(
-        lambda x: x.replace(local_input_dir, container_home_prefix),
+        lambda x: os.path.join(container_home_prefix, basename(x)),
         run_config["input_file_group"]["input_file_paths"]
     ))
 
@@ -495,8 +470,6 @@ def update_disp_s1_static_runconfig(context, work_dir):
 
 def update_dist_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the DIST-S1 PGE"""
-
-    # TODO: Check against DSWX_NI as it's in a similar stage of pulling fixed data from S3
 
     run_config: Dict = context.get("run_config")
     job_spec: Dict = context.get("job_specification")
