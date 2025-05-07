@@ -18,7 +18,7 @@ from util.conf_util import SettingsConf
 
 from util.job_util import is_running_outside_verdi_worker_context
 
-if is_running_outside_verdi_worker_context:
+if is_running_outside_verdi_worker_context():
     pass
 else:
     from data_subscriber.cslc_utils import get_bounding_box_for_frame, localize_frame_geo_json
@@ -72,11 +72,10 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
 
     path_burst_db = downloads_dir / "opera-s1-disp-0.9.0-frame-to-burst.json"
 
-    if is_dev_mode:
-        if not path_burst_db.exists():
-            if not frame_to_burst_db:
-                frame_to_burst_db = settings["FRAME_TO_BURST_JSON"]
-            path_burst_db = download_burst_db(frame_to_burst_db, downloads_dir=downloads_dir)
+    if not path_burst_db.exists():
+        if not frame_to_burst_db:
+            frame_to_burst_db = settings["DISP_S1"]["FRAME_TO_BURST_JSON"]
+        path_burst_db = download_burst_db(frame_to_burst_db, downloads_dir=downloads_dir)
 
     # READ BURST DB
     with path_burst_db.open() as fp:
@@ -132,6 +131,8 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
 
             del job_data[frame][f"L2_{type_}-S1-STATIC"]["native-id-pattern-batch"]
 
+    results = []
+
     # ISSUE CMR QUERIES. COLLECT RESULTS
     for frame in job_data:
         for type_ in ("CSLC", "RTC"):
@@ -160,7 +161,17 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
 
                 product = {
                     "native_id": meta["native-id"],
-                    "s3_urls": [d["URL"] for d in umm["RelatedUrls"] if d["Type"] == "GET DATA VIA DIRECT ACCESS" and d.get("URL").startswith("s3") and (d.get("URL").endswith(".h5") or d.get("URL").endswith(".tif"))]
+                    "s3_urls": [
+                        d["URL"]
+                        for d in umm["RelatedUrls"]
+                        if (
+                            d["Type"] == "GET DATA VIA DIRECT ACCESS"
+                            and d.get("URL").startswith("s3")
+                            and (
+                                d.get("URL").endswith(".h5") or d.get("URL").endswith("_mask.tif")
+                            )
+                        )
+                    ]
                 }
                 products.append(product)
             job_data[frame][f"L2_{type_}-S1-STATIC"]["products"] = products
@@ -213,9 +224,27 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
                 }
             }
 
-            submit_disp_s1_submissions_tasks(disp_s1_job_product)
+            job_id = submit_disp_s1_submissions_tasks(disp_s1_job_product)
+            results.append(job_id)
 
-    print("")
+    suceeded_frames = [job_id for job_id in results if isinstance(job_id, str)]
+    failed_frames = [e for e in results if isinstance(e, Exception)]
+
+    succeeded = suceeded_frames
+    failed = failed_frames
+
+    logger.debug(f"{results=}")
+    logger.info(f"{len(succeeded)} DISP-S1 jobs {succeeded=}")
+    logger.info(f"{len(failed)} DISP-S1 jobs {failed=}")
+    logger.debug(f"{succeeded=}")
+
+    results = {
+        "success": succeeded,
+        "fail": failed,
+    }
+
+    logger.info(f"{len(results)=}")
+    logger.debug(f"{results=}")
     logger.info("END")
 
 
@@ -226,18 +255,24 @@ def submit_disp_s1_submissions_tasks(product):
         logger.info(f"{ is_dev_mode=}. Skipping job submission.")
     else:
         frame_id = product["_source"]["metadata"]["frame_id"]
-        try_submit_mozart_job(
+        return try_submit_mozart_job(
             product=product,
             job_queue='opera-job_worker-sciflo-l3_disp_s1_static',
             rule_name='trigger-SCIFLO_L3_DISP_S1_static',
             params=create_job_params(product),
-            job_spec=f'job-SCIFLO_L3_DISP_S1_static:{settings["RELEASE_VERSION"]}',
-            job_type=f'hysds-io-SCIFLO_L3_DISP_S1_static:{settings["RELEASE_VERSION"]}',
-            job_name=f'job-WF-SCIFLO_L3_DISP_S1-frame-{frame_id}'
+            job_spec=f'job-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
+            job_type=f'hysds-io-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
+            job_name=f'job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-{frame_id}'
         )
 
 def create_job_params(product):
     return [
+        {
+            "name": "input_dataset_id",
+            "type": "text",
+            "from": "value",
+            "value": product["_source"]["metadata"]["frame_id"]
+        },
         {
            "name": "product_metadata",
            "from": "value",
