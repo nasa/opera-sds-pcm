@@ -6,17 +6,17 @@ RunConfig:
         PGEName: TROPO_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in data.input_file_group.input_file_paths %}
+          {%- for input in runconfig.input_file_group.input_file_paths %}
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap: {}
       ProductPathGroup:
-        OutputProductPath: {{ data.product_path_group.product_path }}
-        ScratchPath: {{ data.product_path_group.scratch_path }}
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: TROPO 
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
         ProgramPath: opera_tropo 
         ProgramOptions:
           - run 
@@ -33,25 +33,25 @@ RunConfig:
         ExecuteViaShell: True
     SAS:
       input_file:
-        input_file_path: "{{ data.input_file_group.input_file_paths[0] }}"
+        input_file_path: "{{ runconfig.input_file_group.input_file_paths[0] }}"
       primary_executable:
         product_type: OPERA_TROPO 
       product_path_group:
-        product_path: {{ data.product_path_group.product_path }}
-        scratch_path: {{ data.product_path_group.scratch_path }}
-        sas_output_path: {{ data.product_path_group.product_path }}
-        product_version: "{{ data.product_path_group.product_version }}"
+        product_path: {{ runconfig.product_path_group.product_path }}
+        scratch_path: {{ runconfig.product_path_group.scratch_path }}
+        sas_output_path: {{ runconfig.product_path_group.product_path }}
+        product_version: "{{ runconfig.product_path_group.product_version }}"
       worker_settings:
-        n_workers: {{ data.processing.n_workers }} 
-        threads_per_worker: {{ data.processing.threads_per_worker }}
-        max_memory: {{ data.processing.max_memory }}
-        dask_temp_dir: {{ data.product_path_group.dask_temp_dir }}
+        n_workers: {{ runconfig.processing.n_workers }} 
+        threads_per_worker: {{ runconfig.processing.threads_per_worker }}
+        max_memory: {{ runconfig.processing.max_memory }}
+        dask_temp_dir: {{ runconfig.product_path_group.dask_temp_dir }}
         block_shape:
           - 128
           - 128 
       output_options:
         output_heights: 
-          {%- for height in data.output_options.output_heights %}
+          {%- for height in runconfig.output_options.output_heights %}
           - {{ height }}
           {%- endfor %} 
         compression_kwargs:
@@ -59,4 +59,4 @@ RunConfig:
           zlib: true 
           complevel: 5 
           shuffle: true 
-      log_file: {{ data.product_path_group.scratch_path }}/tropo.log
+      log_file: {{ runconfig.product_path_group.scratch_path }}/tropo.log
