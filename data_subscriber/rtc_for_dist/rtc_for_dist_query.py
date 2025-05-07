@@ -31,7 +31,6 @@ class RtcForDistCmrQuery(CmrQuery):
 
         '''These two maps are set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
-        self.batch_id_to_granules = {}
         self.batch_id_to_k_granules = {}
         self.force_product_id = None
 
@@ -171,29 +170,28 @@ class RtcForDistCmrQuery(CmrQuery):
         products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
-        by_download_batch_id = defaultdict(lambda: defaultdict(dict))
+        by_download_batch_id = defaultdict(list)
 
         for batch_id, product in products_triggered.items():
             for rtc_granule in product.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
-                by_download_batch_id[batch_id][unique_rtc_id] = granules_dict[(unique_rtc_id, batch_id)]
+                by_download_batch_id[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
                 download_granules.append(granules_dict[(unique_rtc_id, batch_id)])
 
         # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
-        for batch_id, download_batch in by_download_batch_id.items():
+        for batch_id, batch_granules in by_download_batch_id.items():
             #if batch_id == "32UPD_4_302":
             #    for k in download_batch.keys():
             #        print(k)
             product_id = "_".join(batch_id.split("_")[0:2])
-            self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
-            all_granules = list(download_batch.values())
-            download_batch_id = all_granules[0]["download_batch_id"]
-            self.batch_id_to_granules[download_batch_id] = all_granules # Used when submitting download job
+            self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(batch_granules))
+            download_batch_id = batch_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
             try:
                 k = K_GRANULES if self.args.k is None else self.args.k
-                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(product_id, all_granules, self.args, k - 1, verbose=False)
+                self.batch_id_to_k_granules[download_batch_id] =(
+                    self.retrieve_baseline_granules(product_id, batch_granules, self.args, k - 1, verbose=False))
             except Exception as e:
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
@@ -233,7 +231,7 @@ class RtcForDistCmrQuery(CmrQuery):
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_date, end_date)
 
-            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhaust data space.
+            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
             if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
                 raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
 
@@ -279,10 +277,9 @@ class RtcForDistCmrQuery(CmrQuery):
         batch_id_to_baseline_urls = defaultdict(list)
         product_metadata = {}
 
-        for batch_id, granules in self.batch_id_to_granules.items():
-            for granule in granules:
-                #self.logger.info(granule["download_batch_id"])
-                add_filtered_urls(granule, batch_id_to_urls_map[batch_id])
+        for granule in total_granules:
+            #self.logger.info(granule["download_batch_id"])
+            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]])
 
         for download_batch_id, granules in self.batch_id_to_k_granules.items():
             for granule in granules:
