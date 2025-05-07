@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from collections import defaultdict
+from email.policy import default
 
 import pytest
 import conftest
@@ -124,11 +126,14 @@ def test_determine_download_granules(monkeypatch):
     )
 
     download_granules = cmr_query.determine_download_granules(granules)
+    download_batch_id_to_granules = defaultdict(list)
+    for granule in download_granules:
+        download_batch_id_to_granules[granule["download_batch_id"]].append(granule)
 
-    assert 'p33VUF_5_a302' in cmr_query.batch_id_to_granules
-    assert 'p32VPL_5_a302' in cmr_query.batch_id_to_granules
-    assert len(cmr_query.batch_id_to_granules["p33VUF_5_a302"]) == 11
-    assert len(cmr_query.batch_id_to_granules["p32VPL_5_a302"]) == 7
+    assert 'p33VUF_5_a302' in download_batch_id_to_granules
+    assert 'p32VPL_5_a302' in download_batch_id_to_granules
+    assert len(download_batch_id_to_granules["p33VUF_5_a302"]) == 11
+    assert len(download_batch_id_to_granules["p32VPL_5_a302"]) == 7
 
     assert len(download_granules) == 18
 
