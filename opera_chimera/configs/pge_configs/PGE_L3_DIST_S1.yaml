@@ -43,6 +43,7 @@ preconditions:
   - get_dist_s1_mgrs_tile
   - get_dist_s1_mask_file
   - get_dist_s1_lookbacks
+  - get_dist_s1_processing_params
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
