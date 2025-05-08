@@ -212,6 +212,10 @@ DIST_S1:
 
   DESIRED_LOOKBACKS: 3
 
+  WORKERS:
+    N_DESPECKLE: 16
+    N_NORM_PARAMS: 2
+
 # End PGE Configuration section
 
 PRODUCT_TYPES:
