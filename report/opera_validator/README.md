@@ -99,7 +99,7 @@ DISP-S1 validator is run on a deployed OPERA PCM cluster Mozart machine. Therefo
 If you're validating DISP-S1 products, you'll need to use the following additional arguments:
 
 - **`--processing_mode`**: Must be provided. "forward", "reprocessing", or "historical".
-- **`--frame`**: Highly recommended for historical processing mode. The frame number to validate. If this is not specified this tool will query for all CSLC bursts in CMR over the time period which can potentially take hours.
+- **`--frames_only`**: Highly recommended for historical processing mode. List of frame numbers to validate, comma separated. If not specified this tool will query for all CSLC bursts in CMR over the time period and generally will give you irrelevant result.
 - **`--validate_with_grq`**: Optional. Retrieve DISP-S1 products also from GRQ instead of CMR. This is useful when you've run a test without delivering DISP-S1 products to DAAC.
 
 * **Validate DISP-S1 forward processing by revision time.**
@@ -114,12 +114,12 @@ If you're validating DISP-S1 products, you'll need to use the following addition
   
 * **Validate DISP-S1 historical processing by temporal time.**
   ```bash 
-  python opera_validator.py --product DISP-S1 --timestamp TEMPORAL --start 2016-12-01T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=historical --frame=11116
+  python opera_validator.py --product DISP-S1 --timestamp TEMPORAL --start 2016-12-01T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=historical --frames_only=11115,11116
   ```
 
 * **Validate DISP-S1 historical processing by temporal time but compare entirely against GRQ instead of CMR.**
   ```bash 
-  python opera_validator.py --product DISP-S1 --timestamp TEMPORAL --start 2016-12-01T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=historical --frame=11116 --validate_with_grq 
+  python opera_validator.py --product DISP-S1 --timestamp TEMPORAL --start 2016-12-01T08:00:00Z --end 2024-12-15T09:00:00Z --endpoint_daac_input OPS --endpoint_daac_output UAT --processing_mode=historical --frames_only=11115,11116 --validate_with_grq 
   ```  
 
 ## Running Tests

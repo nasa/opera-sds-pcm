@@ -80,6 +80,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Append the given geojson with DISP-S1 Historical Processing Status information')
     parser.add_argument('input_json', type=str, help='Input geojson that lists all the frames')
     parser.add_argument('--verbose', action='store_true', help='Verbose output', default=False)
+    parser.add_argument('--skip-frames-file', type=str, help='File containing a list of frames to skip, one frame per line', default=None)
     parser.add_argument('--output-filename', type=str, help='Output geojson filename', default='opera_disp_s1_hist_status.geojson')
     args = parser.parse_args(sys.argv[1:])
 
@@ -90,6 +91,20 @@ if __name__ == '__main__':
     for feature in data['features']:
         frame_id = feature['properties']['frame_id']
         frames[frame_id] = feature
+
+    if args.skip_frames_file:
+        try:
+            f = open(args.skip_frames_file)
+            skip_frames = []
+            for line in f.readlines():
+                if line.strip():
+                    skip_frames.append(int(line.strip()))
+            for frame in skip_frames:
+                if frame in frames:
+                    LOGGER.info(f"Skipping frame {frame}")
+                    del frames[frame]
+        except Exception as e:
+            LOGGER.error(f"Error reading skip frames file {args.skip_frames_file} {e}")
 
     add_status_info(frames, args.verbose)
 

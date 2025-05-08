@@ -117,11 +117,9 @@ variable "grq_aws_es" {
 }
 
 variable "grq_aws_es_host" {
-  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
 variable "grq_aws_es_host_private_verdi" {
-  default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
 variable "grq_aws_es_port" {
@@ -133,7 +131,6 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
 }
 
 variable "public_verdi_security_group_id" {
@@ -250,11 +247,9 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
 }
 
 # CNM Response job vars
@@ -280,7 +275,7 @@ variable "cnm_r_allowed_account" {
 }
 
 variable "cnm_r_venue" {
-  default = "dev"
+  default = "int"
 }
 
 variable "trace" {
@@ -289,9 +284,7 @@ variable "trace" {
 }
 
 #The value of po_daac_delivery_proxy can be
-#  arn:aws:sqs:us-west-2:871271927522:asf-w2-cumulus-dev-opera-workflow-queue
 variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm_r" {
@@ -303,11 +296,7 @@ variable "po_daac_endpoint_url" {
 }
 
 #The value of asf_daac_delivery_proxy can be
-# for DEV: arn:aws:sqs:us-west-2:871271927522:asf-cumulus-dev-opera-cnm-ingest-queue
-# for dev-int:
 variable "asf_daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
-  #default = "arn:aws:sqs:us-west-2:156214815904:asf-cumulus-int-opera-cnm-ingest-queue"
 }
 
 variable "asf_daac_endpoint_url" {
@@ -324,15 +313,12 @@ variable "asg_role" {
 }
 
 variable "public_asg_vpc" {
-  default = "vpc-02676637ea26098a7"
 }
 
 variable "private_asg_vpc" {
-  default = "vpc-b5a983cd"
 }
 
 variable "aws_account_id" {
-  default = "681612454726"
 }
 
 variable "lambda_package_release" {
@@ -379,7 +365,7 @@ variable "pge_releases" {
   default = {
     "dswx_hls" = "1.0.3"
     "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1"
+    "rtc_s1"   = "2.1.1" 
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.5"
     "dswx_ni"  = "4.0.0-er.3.0"
@@ -479,7 +465,6 @@ variable "es_snapshot_bucket" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-es-role"
 }
 
 variable "artifactory_fn_user" {
@@ -504,19 +489,22 @@ variable "earthdata_uat_user" {
 variable "earthdata_uat_pass" {
 }
 
-
-# ami vars
 variable "amis" {
-  type = map(string)
-  default = {
-    # HySDS v5.0.1 - March 31, 2025 - R3.1
-    mozart    = "ami-04e69a02b62ba59a6" # mozart v26 - 250331
-    metrics   = "ami-08434f16555f84e7c" # metrics v4.18 - 250331
-    grq       = "ami-03a5ca8165a46aa41" # grq v4.19 - 250331
-    factotum  = "ami-0fad4c5f50f59b770" # factotum v4.17 - 250331
-    autoscale = "ami-05f33b814196b5e2d" # verdi v4.17 patchdate - 250331
-#    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
-  }
+}
+
+variable "cnm_r_sqs_arn" {
+} 
+
+variable "asf_cnm_s_id_dev" {
+}
+
+variable "asf_cnm_s_id_dev_int" {
+}
+
+variable "asf_cnm_s_id_test" {
+}
+
+variable "asf_cnm_s_id_prod" {
 }
 
 variable "es_user" {}
@@ -531,4 +519,4 @@ variable "clear_s3_aws_es" {
 variable "disp_s1_hist_status" {
   type    = bool
   default = false
-}
+} 

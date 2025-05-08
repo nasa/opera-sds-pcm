@@ -29,10 +29,10 @@ class RtcForDistCmrQuery(CmrQuery):
         self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
 
-        '''These two maps are set by determine_download_granules and consumed by download_job_submission_handler
+        '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
-        self.batch_id_to_granules = {}
         self.batch_id_to_k_granules = {}
+
         self.force_product_id = None
 
     def validate_args(self):
@@ -155,8 +155,7 @@ class RtcForDistCmrQuery(CmrQuery):
         unsubmitted = self.es_conn.get_unsubmitted_granules()
         self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
         '''for granule in unsubmitted:
-            print(granule)
-            basic_decorate_granule(granule)'''
+            print(granule)'''
 
         self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granule records")
 
@@ -172,29 +171,28 @@ class RtcForDistCmrQuery(CmrQuery):
         products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
-        by_download_batch_id = defaultdict(lambda: defaultdict(dict))
+        by_download_batch_id = defaultdict(list)
 
         for batch_id, product in products_triggered.items():
             for rtc_granule in product.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
-                by_download_batch_id[batch_id][unique_rtc_id] = granules_dict[(unique_rtc_id, batch_id)]
+                by_download_batch_id[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
                 download_granules.append(granules_dict[(unique_rtc_id, batch_id)])
 
         # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
-        for batch_id, download_batch in by_download_batch_id.items():
+        for batch_id, batch_granules in by_download_batch_id.items():
             #if batch_id == "32UPD_4_302":
             #    for k in download_batch.keys():
             #        print(k)
             product_id = "_".join(batch_id.split("_")[0:2])
-            self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(download_batch))
-            all_granules = list(download_batch.values())
-            download_batch_id = all_granules[0]["download_batch_id"]
-            self.batch_id_to_granules[download_batch_id] = all_granules # Used when submitting download job
+            self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(batch_granules))
+            download_batch_id = batch_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
             try:
                 k = K_GRANULES if self.args.k is None else self.args.k
-                self.batch_id_to_k_granules[download_batch_id] = self.retrieve_baseline_granules(product_id, all_granules, self.args, k - 1, verbose=False)
+                self.batch_id_to_k_granules[download_batch_id] =(
+                    self.retrieve_baseline_granules(product_id, batch_granules, self.args, k - 1, verbose=False))
             except Exception as e:
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
@@ -234,9 +232,10 @@ class RtcForDistCmrQuery(CmrQuery):
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_date, end_date)
 
-            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhaust data space.
+            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
             if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
-                raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
+                self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
+                break
 
             self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
             self.logger.debug(new_args)
@@ -252,15 +251,10 @@ class RtcForDistCmrQuery(CmrQuery):
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
             for acq_day_index in acq_day_indices:
-
-                ''' This step is a bit tricky.
-                1. We want exactly one frame worth of granules do don't create additional granules if the burst belongs to two frames.
-                2. We already know what frame these new granules belong to because that's what we queried for. 
-                    We need to force using that because 1/9 times one burst will belong to two frames.'''
                 granules = granules_map[acq_day_index]
                 k_granules.extend(granules)
                 k_satified += 1
-                self.logger.info(f"{product_id=} {acq_day_index=} satsifies. {k_satified=} {k_minus_one=}")
+                self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {k_satified=} {k_minus_one=} {len(granules)=}")
                 if k_satified == k_minus_one:
                     break
 
@@ -273,17 +267,18 @@ class RtcForDistCmrQuery(CmrQuery):
         def add_filtered_urls(granule, filtered_urls: list):
             if granule.get("filtered_urls"):
                 for filter_url in granule.get("filtered_urls"):
-                    if "s3://" in filter_url and ("VV.tif" in filter_url or "VH.tif" in filter_url):
+                    # Get rid of .h and mask.tif files that aren't used
+                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                    if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
                         filtered_urls.append(filter_url)
 
         batch_id_to_urls_map = defaultdict(list)
         batch_id_to_baseline_urls = defaultdict(list)
         product_metadata = {}
 
-        for batch_id, granules in self.batch_id_to_granules.items():
-            for granule in granules:
-                #self.logger.info(granule["download_batch_id"])
-                add_filtered_urls(granule, batch_id_to_urls_map[batch_id])
+        for granule in total_granules:
+            #self.logger.info(granule["download_batch_id"])
+            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]])
 
         for download_batch_id, granules in self.batch_id_to_k_granules.items():
             for granule in granules:
@@ -300,10 +295,10 @@ class RtcForDistCmrQuery(CmrQuery):
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
 
-            # If the length of urls is 0, throw an assertion error
+            # If the length of urls is 0, we can't submit this. Skip.
             if len(urls) == 0:
-                raise AssertionError(f"No urls found for {batch_id}. Cannot submit download job.")
-
+                self.logger.error(f"No urls found for {batch_id}. Cannot submit download job.")
+                continue
             product_metadata["current_s3_paths"] = urls
 
             if batch_id not in batch_id_to_baseline_urls:
@@ -349,7 +344,7 @@ class RtcForDistCmrQuery(CmrQuery):
             *args,
             **kwargs
     ):
-        '''We pass all urls through context so no need to store the urls in the ES'''
+        # We store the entire filtered_urls in the ES index from the granule dict in RTCForDistProductCatalog.form_document()
         es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 

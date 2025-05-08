@@ -51,7 +51,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         granule_sizes = defaultdict(int)
 
         # WARNING: https download does not work
-        # TODO: Should we support this at all?
+        # TODO: Should we support this at all. If we do, we need to update download_job_submission_handler.add_filtered_urls
         #  Not sure how to split these paths into baseline & current lists - maybe we should until
         #  we have a method to do so. -R
         if args.transfer_protocol == "https":
@@ -129,7 +129,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                     },
                     "FileName": batch_id,
                     "id": batch_id,
-                    "bounding_box": None, #TODO: Fill this in
+                    "bounding_box": None, #TODO: Fill this in?
                     "acquisition_cycle": acquisition_cycle_index,
                     "Files": [
                         {

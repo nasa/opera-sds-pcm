@@ -9,13 +9,10 @@ import backoff
 
 from data_subscriber import es_conn_util
 from data_subscriber.url import form_batch_id
-from util.conf_util import SettingsConf
 
 null_logger = logging.getLogger('dummy')
 null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
-
-settings = SettingsConf().cfg
 
 
 class ProductCatalog(ABC):
@@ -160,7 +157,7 @@ class ProductCatalog(ABC):
         )
 
         if result["updated"] == 0:
-            self.logger.warning(f"No documents updated for {batch_id=} {job_id=}")
+            self.logger.error(f"No documents updated for {batch_id=} {job_id=}")
         else:
             self.logger.info(f"Document updated: {batch_id=} {job_id=} {result}")
 
@@ -179,14 +176,12 @@ class ProductCatalog(ABC):
 
         index = self._get_index_name_for(_id=filename, default=self.generate_es_index_name())
 
-        body = {
-            "doc_as_upsert": True,
-            "doc": doc
-        }
-
         result = self.es_util.update_document(
             id=filename,
-            body=body,
+            body={
+                "doc_as_upsert": True,
+                "doc": doc
+            },
             index=index
         )
 
@@ -243,12 +238,7 @@ class ProductCatalog(ABC):
 
         index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
 
-        body = {
-            "doc_as_upsert": True,
-            "doc": doc
-        }
-
-        result = self.es_util.update_document(index=index, body=body, id=doc['id'])
+        result = self.es_util.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
 
         self.logger.debug(f"Document {filename} upserted: {result}")
 

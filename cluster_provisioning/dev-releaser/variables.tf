@@ -117,11 +117,9 @@ variable "grq_aws_es" {
 }
 
 variable "grq_aws_es_host" {
-  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
 variable "grq_aws_es_host_private_verdi" {
-  default = "vpce-07498e8171c201602-l2wfjtow.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
 }
 
 variable "grq_aws_es_port" {
@@ -133,7 +131,6 @@ variable "use_grq_aws_es_private_verdi" {
 }
 
 variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
 }
 
 variable "public_verdi_security_group_id" {
@@ -250,11 +247,9 @@ variable "autoscale" {
 # staging area vars
 
 variable "lambda_vpc" {
-  default = "vpc-02676637ea26098a7"
 }
 
 variable "lambda_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
 }
 
 # CNM Response job vars
@@ -285,11 +280,10 @@ variable "cnm_r_venue" {
 
 variable "trace" {
   type    = string
+  default = "opera-dev"
 }
 
 variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
 variable "use_daac_cnm_r" {
@@ -301,7 +295,6 @@ variable "po_daac_endpoint_url" {
 }
 
 variable "asf_daac_delivery_proxy" {
-  default = "arn:aws:sqs:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "asf_daac_endpoint_url" {
@@ -318,15 +311,12 @@ variable "asg_role" {
 }
 
 variable "public_asg_vpc" {
-  default = "vpc-02676637ea26098a7"
 }
 
 variable "private_asg_vpc" {
-  default = "vpc-b5a983cd"
 }
 
 variable "aws_account_id" {
-  default = "681612454726"
 }
 
 variable "lambda_package_release" {
@@ -429,6 +419,9 @@ variable "artifactory_fn_user" {
   default = ""
 }
 
+variable "es_bucket_role_arn" {
+}
+
 variable "dataspace_user" {
   default = ""
 }
@@ -452,3 +445,25 @@ variable "earthdata_uat_user" {
 variable "earthdata_uat_pass" {
   default = ""
 }
+
+variable "amis" {
+  type = map(string)
+  default = {
+  }
+} 
+
+variable "cnm_r_sqs_arn" {
+}
+
+variable "asf_cnm_s_id_dev" {
+}
+
+variable "asf_cnm_s_id_dev_int" {
+}
+
+variable "asf_cnm_s_id_test" {
+}
+
+variable "asf_cnm_s_id_prod" {
+}
+
