@@ -29,17 +29,17 @@ is_dev_mode = None
 settings = None
 
 
-def init_logging(level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']):
+def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]):
     log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
     log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
     logging.basicConfig(level=level, format=log_format, force=True)
 
-    rfh1 = logging.handlers.RotatingFileHandler('app.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1 = logging.handlers.RotatingFileHandler("app.log", mode="a", maxBytes=100 * 2 ** 20, backupCount=10)
     rfh1.setLevel(logging.INFO)
     rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
     logging.getLogger().addHandler(rfh1)
 
-    rfh2 = logging.handlers.RotatingFileHandler('app-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2 = logging.handlers.RotatingFileHandler("app-error.log", mode="a", maxBytes=100 * 2 ** 20, backupCount=10)
     rfh2.setLevel(logging.ERROR)
     rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
     logging.getLogger().addHandler(rfh2)
@@ -52,10 +52,10 @@ def create_parser():
     argparser.add_argument("--filter-frames", nargs="*", dest="filter_frame_numbers", required=True, help="List of frame numbers to process. If unset, this tool will process all frames in the frame-to-burst JSON.")
     argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True,
                            required=False, help="Toggle for filtering frames in North America as defined in the frame-to-burst JSON.")
-    argparser.add_argument('--smoke-run', action="store_true")
-    argparser.add_argument('--dry-run', action="store_true")
-    argparser.add_argument('--dev', dest="is_dev_mode", action="store_true", default=False)
-    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+    argparser.add_argument("--smoke-run", action="store_true")
+    argparser.add_argument("--dry-run", action="store_true")
+    argparser.add_argument("--dev", dest="is_dev_mode", action="store_true", default=False)
+    argparser.add_argument("--log-level", default="INFO", choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"))
 
     return argparser
 
@@ -136,7 +136,7 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
             logger.info(f"{request_url=}")
             rsp = requests.get(
                 request_url,
-                headers={'Client-Id': f'nasa.jpl.opera.sds.pcm.sandbox.{os.environ["USER"]}'}
+                headers={"Client-Id": f'nasa.jpl.opera.sds.pcm.sandbox.{os.environ["USER"]}'}
             ).json()
             job_data[frame][f"L2_{type_}-S1-STATIC"]["rsp"] = {}
             if rsp["hits"]:
@@ -258,8 +258,8 @@ def submit_disp_s1_job(product):
         frame_id = product["_source"]["metadata"]["frame_id"]
         return try_submit_mozart_job(
             product=product,
-            job_queue='opera-job_worker-sciflo-l3_disp_s1_static',
-            rule_name='trigger-SCIFLO_L3_DISP_S1_static',
+            job_queue="opera-job_worker-sciflo-l3_disp_s1_static",
+            rule_name="trigger-SCIFLO_L3_DISP_S1_static",
             params=create_job_params(product),
             job_spec=f'job-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
@@ -365,7 +365,7 @@ def dicts(t):
 
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
     init_logging(level=args.log_level)
     logger = logging.getLogger(__name__)
