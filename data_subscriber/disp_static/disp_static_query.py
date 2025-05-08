@@ -47,6 +47,7 @@ def init_logging(level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 def create_parser():
     argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument("--settings", type=Path, required=False, help="Custom settings.yaml filepath. Refer to the implementation of this workflow for the specification required.")
     argparser.add_argument("--frame-to-burst-db", required=False, help="Required outside of PCM. S3 URL pointing to the frame-to-burst JSON. If not provided, the URL will be read from PCM settings when running in PCM.")
     argparser.add_argument("--filter-frames", nargs="*", dest="filter_frame_numbers", required=True, help="List of frame numbers to process. If unset, this tool will process all frames in the frame-to-burst JSON.")
     argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True,
@@ -372,7 +373,7 @@ if __name__ == '__main__':
     is_dev_mode = args.is_dev_mode
 
     if is_running_outside_verdi_worker_context():
-        settings = SettingsConf(file=str(Path("conf/settings.yaml").absolute())).cfg
+        settings = SettingsConf(file=str((args.settings or Path("conf/settings.yaml")).absolute())).cfg
     else:
         settings = SettingsConf().cfg
 
