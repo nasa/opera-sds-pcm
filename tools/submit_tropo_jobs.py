@@ -24,8 +24,6 @@ Optional Arguments:
     --date DATE        Date in YYYY-MM-DD format to filter S3 objects
     --start-date DATE  Start date in YYYY-MM-DD format for range filtering
     --end-date DATE    End date in YYYY-MM-DD format for range filtering
-    --job-type TYPE    Type of job to submit (default: job-sciflo-l4_tropo)
-    --release RELEASE  Release version of the job (default: 3.0.0-er.1.0-tropo)
 
 Note: You must provide either --prefix, --date, or --start-date with --end-date.
 The script will exit with an error if no filtering option is specified.
@@ -42,6 +40,7 @@ import boto3
 from mypy_boto3_s3 import S3ServiceResource
 
 from util.job_submitter import try_submit_mozart_job
+from util.conf_util import SettingsConf
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -70,7 +69,7 @@ def get_s3_objects(bucket_name: str, prefix: Optional[str] = None) -> List[str]:
 def submit_mozart_job_wrapper(
     s3_key: str,
     bucket_name: str,
-    job_type: str = "job-sciflo-l4_tropo",
+    job_type: str = "job-SCIFLO_L4_TROPO",
     release: str = "3.0.0-er.1.0-tropo"
 ) -> str:
     """
@@ -207,8 +206,8 @@ def parse_args():
     # End date is not in the mutually exclusive group since it's used with start-date
     parser.add_argument("--end-date", help="End date in YYYY-MM-DD format for range filtering")
     
-    parser.add_argument("--job-type", default="job-sciflo-l4_tropo", help="Type of job to submit")
-    parser.add_argument("--release", default="3.0.0-er.1.0-tropo", help="Release version of the job")
+    #parser.add_argument("--job-type", default="job-sciflo-l4_tropo", help="Type of job to submit")
+    #parser.add_argument("--release", default="3.0.0-er.1.0-tropo", help="Release version of the job")
     
     return parser.parse_args()
 
@@ -240,14 +239,17 @@ def main():
         objects = get_s3_objects(args.bucket, prefix)
         all_objects.extend(objects)
         logger.info(f"Found {len(objects)} objects with prefix {prefix}")
-    
+
+    settings = SettingsConf().cfg
+    release_version = settings["RELEASE_VERSION"]
+
     # Submit jobs for each object
     for s3_key in all_objects:
         submit_mozart_job_wrapper(
             s3_key=s3_key,
             bucket_name=args.bucket,
-            job_type=args.job_type,
-            release=args.release
+            job_type="job-SCIFLO_L4_TROPO",
+            release=release_version
         )
 
 if __name__ == "__main__":
