@@ -130,16 +130,6 @@ variable "purge_es_snapshot" {
 
 # ami vars
 variable "amis" {
-  type = map(string)
-  default = {
-   # HySDS v5.0.1 - March 31, 2025 - R3.1
-    mozart    = "ami-04e69a02b62ba59a6" # mozart v26 - 250331
-    metrics   = "ami-08434f16555f84e7c" # metrics v4.18 - 250331
-    grq       = "ami-03a5ca8165a46aa41" # grq v4.19 - 250331
-    factotum  = "ami-0fad4c5f50f59b770" # factotum v4.17 - 250331
-#    autoscale = "ami-05f33b814196b5e2d" # verdi v4.17 patchdate - 250331
-    autoscale = "resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v4.17"
-  }
 }
 
 variable "mozart" {
@@ -170,8 +160,6 @@ variable "lambda_role_arn" {
 }
 
 variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-es-role"
-  #  default = "arn:aws:iam::271039147104:role/am-es-role"
 }
 
 variable "es_snapshot_bucket" {
@@ -689,13 +677,6 @@ variable "use_daac_cnm_r" {
 }
 
 variable "cnm_r_sqs_arn" {
-  type = map(string)
-  default = {
-    dev  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-daac-cnm-response"
-    int  = "arn:aws:sqs:us-west-2:681612454726:opera-dev-fwd-daac-cnm-response"
-    test = "arn:aws:sqs:us-west-2:337765570207:opera-int-daac-cnm-response"
-    prod = "arn:aws:sqs:us-west-2:907504701509:opera-ops-daac-cnm-response"
-  }
 }
 
 variable "lambda_log_retention_in_days" {
@@ -713,6 +694,7 @@ variable "pge_releases" {
     "disp_s1"  = "3.0.5"
     "dswx_ni"  = "4.0.0-er.3.0"
     "dist_s1"  = "6.0.0-er.2.0"
+    "tropo"    = "3.0.0-er.1.0-tropo"
   }
 }
 
@@ -877,6 +859,18 @@ variable "earthdata_uat_pass" {
 variable "clear_s3_aws_es" {
   type    = bool
   default = true
+}
+
+variable "asf_cnm_s_id_dev" {
+}
+
+variable "asf_cnm_s_id_dev_int" {
+}
+
+variable "asf_cnm_s_id_test" {
+}
+
+variable "asf_cnm_s_id_prod" {
 }
 
 variable "ami_versions" {
