@@ -1,5 +1,7 @@
+import concurrent.futures
 import json
 import logging
+import os
 import uuid
 from pathlib import Path
 
@@ -22,3 +24,20 @@ def supply_job_id():
         job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
 
     return job_id
+
+
+def multithread_gather(job_submission_tasks, max_workers=min(32, (os.cpu_count() or 1) + 4)):
+    """
+    Given a list of tasks, executes them concurrently and gathers the results.
+    Exceptions are returned as results rather than re-raised.
+    """
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(job_submission_task) for job_submission_task in job_submission_tasks]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = exc
+            results.append(result)
+    return results

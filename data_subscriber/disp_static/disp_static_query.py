@@ -6,6 +6,7 @@ import sys
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path, PurePath
 from typing import Literal
 
@@ -17,7 +18,7 @@ import pandas as pd
 
 from util.conf_util import SettingsConf
 
-from util.job_util import is_running_outside_verdi_worker_context
+from util.job_util import is_running_outside_verdi_worker_context, multithread_gather
 
 if is_running_outside_verdi_worker_context():
     pass
@@ -224,10 +225,12 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
         }
         products.append(disp_s1_job_product)
 
-    results = []
+    job_submission_tasks = []
     for product in products:
-        job_id = submit_disp_s1_job(product)
-        results.append(job_id)
+        job_submission_tasks.append(
+            partial(submit_disp_s1_job, product=product)
+        )
+    results = multithread_gather(job_submission_tasks, max_workers=min(8, os.cpu_count() + 4))
 
     suceeded_frames = [job_id for job_id in results if isinstance(job_id, str)]
     failed_frames = [e for e in results if isinstance(e, Exception)]
