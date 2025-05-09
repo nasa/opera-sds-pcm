@@ -409,6 +409,18 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
+    "opera-job_worker-sciflo-l4_tropo" = {
+      "name"              = "opera-job_worker-sciflo-l4_tropo"
+      "log_file_name"     = "run_sciflo_L4_TROPO"
+      "instance_type"     = ["m7i.4xlarge", "m7a.4xlarge", "r7a.2xlarge", "r7i.2xlarge", "r6a.2xlarge", "r6i.2xlarge", "r5.2xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 100
+      "data_dev_size"     = 100
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
     "opera-job_worker-send_cnm_notify" = {
       "name"              = "opera-job_worker-send_cnm_notify"
       "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
