@@ -6,9 +6,6 @@
 #
 
 ##### Environments #######
-variable "aws_account_id" {
-}
-
 variable "venue" {
   default = "ops"
 }
