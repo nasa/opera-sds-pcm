@@ -14,6 +14,7 @@ from data_subscriber.url import determine_acquisition_cycle
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
+K_OFFSETS_AND_COUNTS = "[(365, 3), (730, 3), (1095, 3)]"
 
 logger = get_logger()
 
@@ -227,6 +228,15 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete
                 logger.info(f"Product {product_id} was triggered with {product.used_bursts} out of {product.possible_bursts} bursts. ")
 
     return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
+
+def parse_k_parameter(k_offsets_and_counts):
+    '''Parse the k parameter from the command line. The k parameter is a list of tuples where each tuple is a list of offsets and counts.
+    example: "[(0, 1), (2, 3), (4, 5)]" -> [(0, 1), (2, 3), (4, 5)]
+    '''
+    k_offsets_and_counts = k_offsets_and_counts.strip("[]").split("),")
+    k_offsets_and_counts = [k.strip(" ()") for k in k_offsets_and_counts]
+    k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
+    return k_offsets_and_counts
 
 if __name__ == "__main__":
 

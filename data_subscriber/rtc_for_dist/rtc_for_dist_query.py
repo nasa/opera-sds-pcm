@@ -10,10 +10,10 @@ from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique
 from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
-                                           basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist)
+                                           basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
+                                           parse_k_parameter)
 
-DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
-K_GRANULES = 10 # Should be either parameter into query job or settings.yaml
+DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
 
 class RtcForDistCmrQuery(CmrQuery):
@@ -190,20 +190,30 @@ class RtcForDistCmrQuery(CmrQuery):
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
             try:
-                k = K_GRANULES if self.args.k is None else self.args.k
+                if self.args.k_offsets_counts:
+                    k_offsets_counts = self.args.k_offsets_counts
+                    self.logger.info(f"Using k_offsets_counts {k_offsets_counts}")
+                else:
+                    self.logger.error("k_offsets_counts not provided in args. This should not be possible because \
+there must be a default value. Cannot retrieve baseline granules.")
+
+                k_offsets_counts = parse_k_parameter(k_offsets_counts)
+                self.logger.info(f"Parsed k_offsets_counts: {k_offsets_counts}")
+
                 self.batch_id_to_k_granules[download_batch_id] =(
-                    self.retrieve_baseline_granules(product_id, batch_granules, self.args, k - 1, verbose=False))
+                    self.retrieve_baseline_granules(product_id, batch_granules, self.args, k_offsets_counts, verbose=False))
             except Exception as e:
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
 
         return download_granules
 
-    def retrieve_baseline_granules(self, product_id, downloads, args, k_minus_one, verbose = True):
+    def retrieve_baseline_granules(self, product_id, downloads, args, k_offsets_and_counts, verbose = True):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the
-        current product. Return all the granules that satisfy that'''
+        current product.
+        k_offsets_and_counts is a list of tuples of (offset, count) where offset is the number of days to go back
+        and count is the number of granules for that tuple set'''
         k_granules = []
-        k_satified = 0
 
         if len(downloads) == 0:
             return k_granules
@@ -220,45 +230,48 @@ class RtcForDistCmrQuery(CmrQuery):
         for download in downloads:
             burst_id_set.add(download["burst_id"])
 
-        # Move start and end date of new_args back and expand 5 days at both ends to capture all k granules
-        shift_day_grouping = 12 * (k_minus_one * DIST_K_MULT_FACTOR) # Number of days by which to shift each iteration
+        for k_offset, k_count in k_offsets_and_counts:
+            k_satisfied = 0
 
-        counter = 1
-        while k_satified < k_minus_one:
-            start_date_shift = timedelta(days= counter * shift_day_grouping, hours=1)
-            end_date_shift = timedelta(days= (counter-1) * shift_day_grouping, hours=1)
-            start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
-            end_date_object = (acquisition_time - end_date_shift)
-            end_date = end_date_object.strftime(CMR_TIME_FORMAT)
-            query_timerange = DateTimeRange(start_date, end_date)
+            # Move start and end date of new_args back and expand 5 days at both ends to capture all k granules
+            shift_day_grouping = 12 * (k_count * DIST_K_MULT_FACTOR) # Number of days by which to shift each iteration
 
-            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
-            if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
-                self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
-                break
+            counter = 1
+            while k_satisfied < k_count:
+                start_date_shift = timedelta(days= k_offset + counter * shift_day_grouping, hours=1)
+                end_date_shift = timedelta(days= k_offset + (counter-1) * shift_day_grouping, hours=1)
+                start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
+                end_date_object = (acquisition_time - end_date_shift)
+                end_date = end_date_object.strftime(CMR_TIME_FORMAT)
+                query_timerange = DateTimeRange(start_date, end_date)
 
-            self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
-            self.logger.debug(new_args)
-
-            # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-            granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
-            for granule in granules:
-                basic_decorate_granule(granule)
-                granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
-            self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
-            granules_map = rtc_granules_by_acq_index(granules)
-
-            # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
-            acq_day_indices = sorted(granules_map.keys(), reverse=True)
-            for acq_day_index in acq_day_indices:
-                granules = granules_map[acq_day_index]
-                k_granules.extend(granules)
-                k_satified += 1
-                self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {k_satified=} {k_minus_one=} {len(granules)=}")
-                if k_satified == k_minus_one:
+                # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
+                if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
+                    self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
                     break
 
-            counter += 1
+                self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
+                self.logger.debug(new_args)
+
+                # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
+                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
+                for granule in granules:
+                    basic_decorate_granule(granule)
+                    granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
+                self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
+                granules_map = rtc_granules_by_acq_index(granules)
+
+                # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
+                acq_day_indices = sorted(granules_map.keys(), reverse=True)
+                for acq_day_index in acq_day_indices:
+                    granules = granules_map[acq_day_index]
+                    k_granules.extend(granules)
+                    k_satisfied += 1
+                    self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {k_satisfied=} {k_offset=} {k_count=} {len(granules)=}")
+                    if k_satisfied == k_count:
+                        break
+
+                counter += 1
 
         return k_granules
 
