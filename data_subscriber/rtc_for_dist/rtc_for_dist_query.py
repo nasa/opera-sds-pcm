@@ -36,7 +36,9 @@ class RtcForDistCmrQuery(CmrQuery):
         self.force_product_id = None
 
     def validate_args(self):
-        pass
+        if self.args.proc_mode == "reprocessing":
+            if not self.args.product_id_time:
+                raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
 
     def query_cmr(self, timerange, now: datetime):
         if self.args.proc_mode == "forward":
@@ -51,14 +53,16 @@ class RtcForDistCmrQuery(CmrQuery):
                 raise AssertionError(f"Cannot find burst_id {burst_id} in burst database. Cannot process this product.")
             self.logger.info(f"Reprocessing burst_id {burst_id} with product_ids {product_ids}")'''
 
-            #TODO: We probably want something more graceful than the native_id looking like 31SGR_3,20231217T053132Z
-            product_ids = [self.args.native_id.split(",")[0]]
-            acquisition_dts = self.args.native_id.split(",")[1]
+            #TODO: We probably want something more graceful than the product_id_time looking like 31SGR_3,20231217T053132Z
+            product_ids = [self.args.product_id_time.split(",")[0]]
+            acquisition_dts = self.args.product_id_time.split(",")[1]
 
             acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")
             start_time = (acquisition_time - timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_time, end_time)
+
+            # TODO: The fact that this is a loop makes sense if we ever decide to trigger by native_id instead of product_id_time
             for product_id in product_ids:
                 self.force_product_id = product_id #TODO: This needs to change if we change this code back to using granule_id instead of product_id
                 new_args = deepcopy(self.args)
