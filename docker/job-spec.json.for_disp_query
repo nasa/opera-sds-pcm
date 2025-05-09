@@ -16,6 +16,10 @@
       "destination": "positional"
     },
     {
+      "name": "endpoint",
+      "destination": "positional"
+    },
+    {
       "name": "smoke_run",
       "destination": "positional"
     },

@@ -16,6 +16,7 @@ import requests
 import json
 import pandas as pd
 
+from data_subscriber.cmr import Endpoint
 from util.conf_util import SettingsConf
 
 from util.job_util import is_running_outside_verdi_worker_context, multithread_gather
@@ -53,6 +54,8 @@ def create_parser():
     argparser.add_argument("--filter-frames", nargs="*", dest="filter_frame_numbers", required=True, help="List of frame numbers to process. If unset, this tool will process all frames in the frame-to-burst JSON.")
     argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True,
                            required=False, help="Toggle for filtering frames in North America as defined in the frame-to-burst JSON.")
+    argparser.add_argument("--endpoint", choices=[endpoint.value for endpoint in Endpoint], default=Endpoint.OPS.value, help="Specify the DAAC endpoint to use.")
+
     argparser.add_argument("--smoke-run", action="store_true")
     argparser.add_argument("--dry-run", action="store_true")
     argparser.add_argument("--dev", dest="is_dev_mode", action="store_true", default=False)
@@ -61,7 +64,7 @@ def create_parser():
     return argparser
 
 
-def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst_db=None, dry_run=None, smoke_run=None, is_dev_mode=None, **kwargs):
+def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst_db=None, endpoint=None, dry_run=None, smoke_run=None, is_dev_mode=None, **kwargs):
     # LOCALIZE BURST DB
 
     downloads_dir = Path("downloads")
@@ -110,13 +113,14 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
         job_data[frame]["L2_RTC-S1-STATIC"]["native-id-pattern-batch"] = rtc_static_native_id_pattern_batch
 
     # FORMAT CMR QUERIES
+    cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
     for frame in job_data:
         for type_ in ("CSLC", "RTC"):
             static_native_id_pattern_batch = job_data[frame][f"L2_{type_}-S1-STATIC"]["native-id-pattern-batch"]
 
             native_id_patterns_query_params = "&native_id[]=" + "&native_id[]=".join(static_native_id_pattern_batch)
             request_url = (
-                "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+                f"https://{cmr}/search/granules.umm_json"
                 "?provider=ASF"
                 f"&ShortName=OPERA_L2_{type_}-S1-STATIC_V1"
                 "&sort_key[]=start_date"

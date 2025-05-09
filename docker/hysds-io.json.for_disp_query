@@ -10,6 +10,13 @@
       "optional": true
     },
     {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
+      "default": "--endpoint=OPS"
+    },
+    {
       "name": "smoke_run",
       "from": "submitter",
       "placeholder": "e.g. --smoke-run",
