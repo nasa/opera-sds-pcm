@@ -16,6 +16,10 @@
       "destination": "positional"
     },
     {
+      "name": "max_concurrent_frames",
+      "destination": "positional"
+    },
+    {
       "name": "endpoint",
       "destination": "positional"
     },

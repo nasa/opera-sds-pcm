@@ -1,8 +1,10 @@
 import argparse
+import concurrent.futures
 import logging
 import logging.handlers
 import os
 import sys
+import threading
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -49,22 +51,32 @@ def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 def create_parser():
     argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument("--filter-frames", nargs="*", dest="filter_frame_numbers", required=True, help="List of frame numbers to process. If unset, this tool will process all frames in the frame-to-burst JSON.")
+    argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True, required=False, help="Toggle for filtering frames in North America as defined in the frame-to-burst JSON.")
+
     argparser.add_argument("--settings", type=Path, required=False, help="Custom settings.yaml filepath. Refer to the implementation of this workflow for the specification required.")
     argparser.add_argument("--frame-to-burst-db", required=False, help="Required outside of PCM. S3 URL pointing to the frame-to-burst JSON. If not provided, the URL will be read from PCM settings when running in PCM.")
-    argparser.add_argument("--filter-frames", nargs="*", dest="filter_frame_numbers", required=True, help="List of frame numbers to process. If unset, this tool will process all frames in the frame-to-burst JSON.")
-    argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True,
-                           required=False, help="Toggle for filtering frames in North America as defined in the frame-to-burst JSON.")
-    argparser.add_argument("--endpoint", choices=[endpoint.value for endpoint in Endpoint], default=Endpoint.OPS.value, help="Specify the DAAC endpoint to use.")
+    argparser.add_argument("--endpoint", choices=[endpoint.value for endpoint in Endpoint], default=Endpoint.OPS.value, help="Specify the DAAC endpoint to use. (default: %(default)s)")
+
+    argparser.add_argument("--max-concurrent-frames", default=1, type=int, choices=(1, 2, 3), help="Maximum number of frames to concurrently query products for in CMR. (default: %(default)s)")
 
     argparser.add_argument("--smoke-run", action="store_true")
     argparser.add_argument("--dry-run", action="store_true")
     argparser.add_argument("--dev", dest="is_dev_mode", action="store_true", default=False)
-    argparser.add_argument("--log-level", default="INFO", choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"))
+    argparser.add_argument("--log-level", default="INFO", choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"), help="(default: %(default)s)")
 
     return argparser
 
 
-def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst_db=None, endpoint=None, dry_run=None, smoke_run=None, is_dev_mode=None, **kwargs):
+def main(
+        filter_frame_numbers=None,
+        filter_is_north_america=True,
+        frame_to_burst_db=None,
+        endpoint=None,
+        max_concurrent_frames=None,
+        smoke_run=None,
+        **kwargs
+):
     # LOCALIZE BURST DB
 
     downloads_dir = Path("downloads")
@@ -135,106 +147,31 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
     # ISSUE CMR QUERIES. COLLECT RESULTS
     #  for OPERA-CMR performance reasons, the queries will be executed sequentially.
     #  this COULD be bumped up to 2-5 concurrent requests MAXIMUM, per CMR recommendations.
-    for frame in job_data:
-        for type_ in ("CSLC", "RTC"):
-            request_url = job_data[frame][f"L2_{type_}-S1-STATIC"]["request_url"]
-            logger.info(f"{request_url=}")
-            rsp = requests.get(
-                request_url,
-                headers={"Client-Id": f'nasa.jpl.opera.sds.pcm.sandbox.{os.environ["USER"]}'}
-            ).json()
-            job_data[frame][f"L2_{type_}-S1-STATIC"]["rsp"] = {}
-            if rsp["hits"]:
-                job_data[frame][f"L2_{type_}-S1-STATIC"]["rsp"] = rsp
 
-            del job_data[frame][f"L2_{type_}-S1-STATIC"]["request_url"]
+    frame_to_type_to_results_map = defaultdict(partial(defaultdict, partial(defaultdict, dict)))
+    futures = []
+    with SemaphoreThreadPoolExecutor(max_concurrent_frames) as executor:
+        for frame in job_data:
+            future = executor.submit(get_products_for_frame, frame, job_data)
+            futures.append(future)
+        for future in concurrent.futures.as_completed(futures):
+            frame_to_type_to_results_map.update(future.result())
 
-            # COLLECT S3 URLS PER SET
+    for frame in frame_to_type_to_results_map:
+        for type_ in frame_to_type_to_results_map[frame]:
+            job_data[frame][type_]["products"] = frame_to_type_to_results_map[frame][type_]["products"]
 
-            job_data[frame][f"L2_{type_}-S1-STATIC"]["products"] = []
-
-            rsp = job_data[frame][f"L2_{type_}-S1-STATIC"]["rsp"]
-
-            products = []
-            for item in rsp["items"]:
-                meta = item["meta"]
-                umm = item["umm"]
-
-                product = {
-                    "native_id": meta["native-id"],
-                    "s3_urls": [
-                        d["URL"]
-                        for d in umm["RelatedUrls"]
-                        if (
-                            d["Type"] == "GET DATA VIA DIRECT ACCESS"
-                            and d.get("URL").startswith("s3")
-                            and (
-                                d.get("URL").endswith(".h5") or d.get("URL").endswith("_mask.tif")
-                            )
-                        )
-                    ]
-                }
-                products.append(product)
-            job_data[frame][f"L2_{type_}-S1-STATIC"]["products"] = products
-
-            del job_data[frame][f"L2_{type_}-S1-STATIC"]["rsp"]
-
-    products = []
+    job_products = []
     logger.info("SUBMITTING MOZART JOBS")
     for frame in job_data:
-        logger.info(f"SUBMITTING MOZART JOB. {frame=}")
-
-        product_paths = {}
-        for type_ in ("CSLC", "RTC"):
-            s3_urls = [
-                s3_url
-                for p in job_data[frame][f"L2_{type_}-S1-STATIC"]["products"]
-                for s3_url in p["s3_urls"]
-            ]
-            product_paths[f"L2_{type_}_S1_STATIC"] = s3_urls
-
-        product_type = "DISP-S1-JOB-SUBMISSION"
-        product_id = f"{frame}"
-
-        if is_dev_mode:
-            logger.info(f"{ is_dev_mode=}. Using global bounding box.")
-            bounding_box = [-180., -90., 180., 90.]
-        else:
-            bounding_box = get_bounding_box_for_frame(int(frame), localize_frame_geo_json())
-
-        disp_s1_job_product = {
-            "_id": f"{product_id}",
-            "_source": {
-                "dataset": f"{product_type}-{product_id}",
-                "metadata": {
-                    "frame_id": f"{frame}",
-                    "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                    "product_paths": product_paths,
-                    "FileName": f"{product_id}",
-                    "id": f"{product_id}",
-                    "bounding_box": bounding_box,
-                    "Files": [
-                        {
-                            "FileName": PurePath(s3path).name,
-                            "FileSize": 1,
-                            "FileLocation": os.path.dirname(s3path),
-                            "id": PurePath(s3path).name,
-                            "product_paths": "$.product_paths"
-                        }
-                        for type_ in product_paths
-                        for s3path in product_paths[type_]
-                    ]
-                }
-            }
-        }
-        products.append(disp_s1_job_product)
+        disp_s1_job_product = create_job_submission_product(job_data, frame)
+        job_products.append(disp_s1_job_product)
 
     job_submission_tasks = []
-    for product in products:
-        job_submission_tasks.append(
-            partial(submit_disp_s1_job, product=product)
-        )
-    results = multithread_gather(job_submission_tasks, max_workers=min(8, os.cpu_count() + 4))
+    for job_product in job_products:
+        job_submission_tasks.append(partial(submit_disp_s1_job, product=job_product))
+
+    results = multithread_gather(job_submission_tasks, max_workers=min(8, os.cpu_count() + 4), return_exceptions=True)
 
     suceeded_frames = [job_id for job_id in results if isinstance(job_id, str)]
     failed_frames = [e for e in results if isinstance(e, Exception)]
@@ -257,11 +194,111 @@ def main(filter_is_north_america=True, filter_frame_numbers=None, frame_to_burst
     logger.info("END")
 
 
+def get_products_for_frame(frame, job_data):
+    result = defaultdict(partial(defaultdict, partial(defaultdict, list)))
+    for type_ in ("CSLC", "RTC"):
+        request_url = job_data[frame][f"L2_{type_}-S1-STATIC"]["request_url"]
+        logger.info(f"{request_url=}")
+        rsp = requests.get(
+            request_url,
+            headers={"Client-Id": f'nasa.jpl.opera.sds.pcm.data_subscriber.dist_static.{os.environ["USER"]}'}
+        ).json()
+
+        products = cmr_response_to_cmr_product(rsp)
+        result[frame][f"L2_{type_}-S1-STATIC"]["products"] = products
+    return result
+
+
+def cmr_response_to_cmr_product(rsp):
+    products = []
+    # COLLECT S3 URLS PER SET
+    for item in rsp.get("items", []):
+        meta = item["meta"]
+        umm = item["umm"]
+
+        product = {
+            "native_id": meta["native-id"],
+            "s3_urls": [
+                d["URL"]
+                for d in umm["RelatedUrls"]
+                if (
+                        d["Type"] == "GET DATA VIA DIRECT ACCESS"
+                        and d.get("URL").startswith("s3")
+                        and (
+                                d.get("URL").endswith(".h5") or d.get("URL").endswith("_mask.tif")
+                        )
+                )
+            ]
+        }
+        products.append(product)
+    return products
+
+
+def download_burst_db(s3_url, downloads_dir: Path):
+    # download burst DB
+    AWS_REGION = "us-west-2"
+    s3 = boto3.Session(region_name=AWS_REGION).client("s3")
+    filename = PurePath(s3_url).name
+
+    source = s3_url[len("s3://"):].partition("/")
+    source_bucket = source[0]
+    source_key = source[2]
+
+    s3.download_file(source_bucket, source_key, f"{downloads_dir}/{filename}")
+    return Path(f"{downloads_dir}/{filename}")
+
+
+def create_job_submission_product(job_data, frame):
+    product_paths = {}
+    for type_ in ("CSLC", "RTC"):
+        s3_urls = [
+            s3_url
+            for p in job_data[frame][f"L2_{type_}-S1-STATIC"]["products"]
+            for s3_url in p["s3_urls"]
+        ]
+        product_paths[f"L2_{type_}_S1_STATIC"] = s3_urls
+    product_type = "DISP-S1-JOB-SUBMISSION"
+    product_id = f"{frame}"
+    if is_dev_mode:
+        logger.info(f"{ is_dev_mode=}. Using global bounding box.")
+        bounding_box = [-180., -90., 180., 90.]
+    else:
+        bounding_box = get_bounding_box_for_frame(int(frame), localize_frame_geo_json())
+    disp_s1_job_product = {
+        "_id": f"{product_id}",
+        "_source": {
+            "dataset": f"{product_type}-{product_id}",
+            "metadata": {
+                "frame_id": f"{frame}",
+                "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "product_paths": product_paths,
+                "FileName": f"{product_id}",
+                "id": f"{product_id}",
+                "bounding_box": bounding_box,
+                "Files": [
+                    {
+                        "FileName": PurePath(s3path).name,
+                        "FileSize": 1,
+                        "FileLocation": os.path.dirname(s3path),
+                        "id": PurePath(s3path).name,
+                        "product_paths": "$.product_paths"
+                    }
+                    for type_ in product_paths
+                    for s3path in product_paths[type_]
+                ]
+            }
+        }
+    }
+    return disp_s1_job_product
+
+
 def submit_disp_s1_job(product):
     if is_dev_mode:
         logger.info(f"{ is_dev_mode=}. Skipping job submission.")
         return str(uuid.uuid4())
     else:
+        logger.info(f'SUBMITTING MOZART JOB. frame={product["_source"]["metadata"]["frame_id"]}')
+
         frame_id = product["_source"]["metadata"]["frame_id"]
         return try_submit_mozart_job(
             product=product,
@@ -272,6 +309,7 @@ def submit_disp_s1_job(product):
             job_type=f'hysds-io-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
             job_name=f'job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-{frame_id}'
         )
+
 
 def create_job_params(product):
     return [
@@ -288,20 +326,6 @@ def create_job_params(product):
            "value": product["_source"]
         }
     ]
-
-
-def download_burst_db(s3_url, downloads_dir: Path):
-    # download burst DB
-    AWS_REGION = "us-west-2"
-    s3 = boto3.Session(region_name=AWS_REGION).client("s3")
-    filename = PurePath(s3_url).name
-
-    source = s3_url[len("s3://"):].partition("/")
-    source_bucket = source[0]
-    source_key = source[2]
-
-    s3.download_file(source_bucket, source_key, f"{downloads_dir}/{filename}")
-    return Path(f"{downloads_dir}/{filename}")
 
 
 def reduce_cslc_bursts_to_cmr_patterns(cslc_native_id_patterns_burst_sets):
@@ -371,16 +395,31 @@ def dicts(t):
     return {k: dicts(t[k]) for k in t}
 
 
+class SemaphoreThreadPoolExecutor(concurrent.futures.ThreadPoolExecutor):
+    def __init__(self, max_workers=None, *args, **kwargs):
+        super().__init__(*args, max_workers=max_workers, **kwargs)
+        self.sem = threading.Semaphore(self._max_workers)
+
+    def submit(self, __fn, *args, **kwargs):
+        self.sem.acquire()
+        future = super().submit(__fn, *args, **kwargs)
+        future.add_done_callback(lambda _: self.sem.release())
+        return future
+
+
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
     init_logging(level=args.log_level)
     logger = logging.getLogger(__name__)
 
+    logger.info(f" {__file__} invoked with {sys.argv=}")
+
     is_dev_mode = args.is_dev_mode
 
     if is_running_outside_verdi_worker_context():
-        settings = SettingsConf(file=str((args.settings or Path("conf/settings.yaml")).absolute())).cfg
+        settings_filepath = str(args.settings.absolute()) if args.settings else None
+        settings = SettingsConf(file=settings_filepath).cfg
     else:
         settings = SettingsConf().cfg
 

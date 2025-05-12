@@ -10,6 +10,13 @@
       "optional": true
     },
     {
+      "name": "max_concurrent_frames",
+      "from": "submitter",
+      "placeholder": "e.g. --max-concurrent-frames=1",
+      "type": "text",
+      "optional": true
+    },
+    {
       "name": "endpoint",
       "from": "submitter",
       "placeholder": "e.g. --endpoint=OPS",
