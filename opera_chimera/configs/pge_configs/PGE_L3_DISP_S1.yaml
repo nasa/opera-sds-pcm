@@ -130,4 +130,4 @@ input_file_base_name_regexes:
 sample_input_dataset_id: "OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20160822T000000Z_S1A_VV_v0.1"
 output_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
 ancillary_base_name: OPERA_L3_DISP-S1_IW_{frame_id}_{product_version}_{creation_ts}Z
-compressed_cslc_name: OPERA_L2_COMPRESSED-CSLC-S1_{burst_id}_{ref_date}T000000Z_{first_date}T000000Z_{last_date}T000000Z_{creation_ts}Z_{pol}_{product_version}
+compressed_cslc_name: OPERA_L2_COMPRESSED-CSLC-S1_{frame_id}_{burst_id}_{ref_date}T000000Z_{first_date}T000000Z_{last_date}T000000Z_{creation_ts}Z_{pol}_{product_version}

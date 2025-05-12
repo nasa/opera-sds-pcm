@@ -655,6 +655,7 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     elif extension.endswith('h5'):
         for burst_id in CCSLC_BURST_IDS:
             base_name = compressed_cslc_template.format(
+                frame_id="F10859",
                 burst_id=burst_id,
                 ref_date="20160705",
                 first_date="20160822",
@@ -798,7 +799,7 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
         output_filenames.append(f'{base_name}.qa.log')
     elif extension.endswith('catalog.json'):
         output_filenames.append(f'{base_name}.catalog.json')
-    
+
     return output_filenames
 
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
