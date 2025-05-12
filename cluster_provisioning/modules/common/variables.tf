@@ -675,9 +675,9 @@ variable "use_daac_cnm_r" {
 }
 
 variable "cnm_r_sqs_arn" {
-  type = map(string)      
+  type = map(string)
   default = {
-  } 
+  }
 }
 
 variable "lambda_log_retention_in_days" {
@@ -692,7 +692,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.5"
+    "disp_s1"  = "3.0.6"
     "dswx_ni"  = "4.0.0-er.3.0"
     "dist_s1"  = "6.0.0-er.2.0"
   }
