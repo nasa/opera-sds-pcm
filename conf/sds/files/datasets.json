@@ -364,7 +364,7 @@
       "ipath": "hysds::data/L2_CSLC_S1_COMPRESSED",
       "level": "L2",
       "type": "L2_CSLC_S1_COMPRESSED",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<ref_date_time>\\d{8})T000000Z_(?P<first_date_time>\\d{8})T000000Z_(?P<last_date_time>\\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<frame_id>F\\d{5})_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<ref_date_time>\\d{8})T000000Z_(?P<first_date_time>\\d{8})T000000Z_(?P<last_date_time>\\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
