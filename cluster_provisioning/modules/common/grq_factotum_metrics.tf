@@ -458,6 +458,11 @@ resource "null_resource" "setup_cron_factotum" {
     destination = "cron"
   }
 
+  provisioner "file" {
+    source      = "${path.module}/../../../tools/submit_tropo_jobs.py"
+    destination = "submit_tropo_jobs.py"
+  }
+
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
@@ -466,6 +471,9 @@ resource "null_resource" "setup_cron_factotum" {
 
       chmod +x ~/cron/submit_job.py
       mv ~/cron/submit_job.py ~/.local/bin/cron/
+
+      chmod +x ~/submit_tropo_jobs.py
+      mv ~/submit_tropo_jobs.py ~/.local/bin/cron/
 
       crontab ~/cron/hysdsops
     EOT
