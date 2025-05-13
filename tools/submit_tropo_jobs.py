@@ -201,7 +201,7 @@ def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[
         # Generate all 6-hour chunks between start and end dates
         # make sure the whole range ends before end time
         while current + timedelta(hours=6) <= end:
-            prefixes.add(current.strftime("%Y-%m-%dT%H0000"))
+            prefixes.add(current.strftime("%Y%m%d%H0000"))
             current += timedelta(hours=6)
             
         return prefixes
