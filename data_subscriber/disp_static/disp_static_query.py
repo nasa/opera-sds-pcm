@@ -18,7 +18,6 @@ import requests
 import json
 import pandas as pd
 
-from commons.logger import configure_library_loggers
 from data_subscriber.cmr import Endpoint
 from util.conf_util import SettingsConf
 
@@ -412,7 +411,6 @@ class SemaphoreThreadPoolExecutor(concurrent.futures.ThreadPoolExecutor):
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
     init_logging(level=args.log_level)
-    configure_library_loggers()
     logger = logging.getLogger(__name__)
 
     logger.info(f" {__file__} invoked with {sys.argv=}")
