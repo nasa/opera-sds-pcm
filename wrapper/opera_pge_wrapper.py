@@ -244,6 +244,8 @@ def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir
         f"-v {input_dir}:{container_home}/input_dir:ro",
         f"-v {output_dir}:{container_home}/output_dir",
         f"-v {scratch_dir}:{container_home}/scratch_dir",
+        '--env OMP_NUM_THREADS=16',  # TODO: Delete this line before merging
+        '--env MKL_NUM_THREADS=16',  # TODO: Delete this line before merging
         dep_img_name,
         f"--file {container_home}/runconfig/RunConfig.yaml",
     ]

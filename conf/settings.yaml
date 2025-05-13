@@ -214,7 +214,9 @@ DIST_S1:
 
   WORKERS:
     N_DESPECKLE: 16
-    N_NORM_PARAMS: 2
+    N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
+                      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
+                      # reassess
 
 # End PGE Configuration section
 
