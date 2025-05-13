@@ -23,11 +23,8 @@ from util.conf_util import SettingsConf
 
 from util.job_util import is_running_outside_verdi_worker_context, multithread_gather
 
-if is_running_outside_verdi_worker_context():
-    pass
-else:
-    from data_subscriber.cslc_utils import get_bounding_box_for_frame, localize_frame_geo_json
-    from util.job_submitter import try_submit_mozart_job
+from data_subscriber.cslc_utils import get_bounding_box_for_frame, localize_frame_geo_json
+from util.job_submitter import try_submit_mozart_job
 
 is_dev_mode = None
 settings = None
