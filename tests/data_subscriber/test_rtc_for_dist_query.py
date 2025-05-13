@@ -59,6 +59,8 @@ class MockESConnUnsubmittedGranules:
         for granule in granules:
             basic_decorate_granule(granule)
 
+        # Unsubmitted granules come from GRQ ES. Before they were stored in the ES they had been extended.
+        # So we need to simulate that here.
         self.rtc_for_dist_query.extend_additional_records(granules)
 
         return granules

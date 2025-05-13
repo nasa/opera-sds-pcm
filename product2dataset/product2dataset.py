@@ -236,7 +236,8 @@ def convert(
         elif pge_name == "L3_DIST_S1":
             dataset_met_json["input_granule_id"] = product_metadata["id"]
             dataset_met_json["mgrs_tile_id"] = product_metadata["mgrs_tile_id"]
-
+        elif pge_name == "L4_TROPO":
+            dataset_met_json["input_granule_id"] = product_metadata["id"]
         if product_metadata.get("ProductReceivedTime"):
             dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
 
@@ -331,6 +332,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "dist-s1" in dataset_id.lower():
         collection_name = settings.get("DIST_S1_COLLECTION_NAME")
         product_version = settings.get("DIST_S1_PRODUCT_VERSION")
+    elif "tropo" in dataset_id.lower():
+        collection_name = settings.get("TROPO_COLLECTION_NAME")
+        product_version = settings.get("TROPO_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"
