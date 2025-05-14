@@ -879,6 +879,28 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dist_s1_processing_params(self):
+        """Get processing parameters for DIST-S1 execution"""
+
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        despeckle_batch_size = int(self._settings.get("DIST_S1", {}).get("DESPECKLE_BATCH_SIZE", 25))
+
+        worker_settings = self._settings.get("DIST_S1", {}).get("WORKERS", {})
+
+        n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
+        n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
+
+        rc_params = {
+            'batch_size_for_despeckling': despeckle_batch_size,
+            'n_workers_for_despeckling': n_despeckle,
+            'n_workers_for_norm_param_estimation': n_norm_param_est
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_static_sample_inputs(self):
         """
         Temporary function to stage the "golden" inputs for use with the DISP-S1-STATIC
