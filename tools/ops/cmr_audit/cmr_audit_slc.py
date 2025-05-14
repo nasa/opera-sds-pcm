@@ -266,7 +266,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
         missing_product_native_id_patterns = functools.reduce(set.union, missing_product_native_id_patterns)
     return missing_product_native_id_patterns
 
-def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product):
+def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product, input="SLC"):
 
     now = datetime.datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
@@ -281,7 +281,7 @@ def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product):
     end_dt_str = end_dt_str.replace("Z", "")
     out_filename = f"{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
 
-    return f"missing_granules_SLC-{product}_{out_filename}"
+    return f"missing_granules_{input}-{product}_{out_filename}"
 
 def write_missing_products_to_file(out_filename, missing_cmr_granules):
 

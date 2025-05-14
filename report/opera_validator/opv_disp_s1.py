@@ -6,7 +6,7 @@ import datetime
 import pandas as pd
 import pickle
 
-from opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
+from report.opera_validator.opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
 from data_subscriber import es_conn_util
 from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids
 
@@ -180,8 +180,9 @@ def match_up_disp_s1(data_should_trigger, disp_s1s, processing_mode, k, frame_to
 
             if (frame, acq_index) in skip_cslc_validation:
                 logging.info(f"Frame {frame} Acq Index {acq_index} is not k-complete so will ignore during validation")
-            else:
-                passing = False
+                continue
+
+            passing = False
             matching_bursts = []
             unmatching_bursts = item['All Bursts']
             matching_bursts_count = len(matching_bursts)
@@ -306,7 +307,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     smallest_date = datetime.datetime.strptime("2099-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     greatest_date = datetime.datetime.strptime("1999-01-01T00:00:00.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ")
 
-    logging.info("Should have generated the following DISP-S1 products:")
+    logging.debug("Should have generated the following DISP-S1 products:")
     total_triggered = 0
     for frame_id in granules_should_trigger:
         for day_index in granules_should_trigger[frame_id]:
