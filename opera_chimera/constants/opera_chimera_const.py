@@ -42,6 +42,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DISP_S1_DEM = "get_disp_s1_dem"
 
+    GET_DISP_S1_STATIC_DEM = "get_disp_s1_static_dem"
+
     GET_DISP_S1_MASK_FILE = "get_disp_s1_mask_file"
 
     GET_DSWX_HLS_DEM = "get_dswx_hls_dem"

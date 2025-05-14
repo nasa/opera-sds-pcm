@@ -879,50 +879,155 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_disp_s1_static_sample_inputs(self):
+    def get_dist_s1_processing_params(self):
+        """Get processing parameters for DIST-S1 execution"""
+
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        despeckle_batch_size = int(self._settings.get("DIST_S1", {}).get("DESPECKLE_BATCH_SIZE", 25))
+
+        worker_settings = self._settings.get("DIST_S1", {}).get("WORKERS", {})
+
+        n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
+        n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
+
+        rc_params = {
+            'batch_size_for_despeckling': despeckle_batch_size,
+            'n_workers_for_despeckling': n_despeckle,
+            'n_workers_for_norm_param_estimation': n_norm_param_est
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_inputs(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DISP-S1-STATIC
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Gets the lists of input static layers S3 URLs to be processed
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata["product_paths"]
+
+        cslc_static_files = product_paths['L2_CSLC_S1_STATIC']
+        rtc_static_files = product_paths['L2_RTC_S1_STATIC']
+
+        rc_params = {
+            'input_file_paths': cslc_static_files,
+            'rtc_static_layers_files': rtc_static_files,
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_frame_id(self):
+        """
+        Assigns the Frame ID for DISP-S1-STATIC jobs
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        rc_params = {
+            'frame_id': metadata['frame_id'],
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DISP-S1 job as a
+        fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        try:
+            threads_per_worker = self._settings["DISP_S1_STATIC"]["NUM_THREADS"]
+        except KeyError:
+            threads_per_worker = available_cores
+            logger.warning(f"DISP_S1_STATIC.NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
+
+        logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
+
+        try:
+            parallel_factor = self._settings["DISP_S1_STATIC"]["NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1_STATIC"]["NUM_WORKERS"]["CONSTANT"]
+        except KeyError:
+            parallel_factor = 0.25
+            parallel_constant = 1
+            logger.warning(f"DISP_S1_STATIC.NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
+
+        # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
+        # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
+        n_parallel_bursts = max(int(round(available_cores * parallel_factor)) + parallel_constant, 1)
+        logger.info(f"Allocating {n_parallel_bursts=} out of {available_cores} available")
+
+        rc_params = {
+            "threads_per_worker": str(threads_per_worker),
+            "n_parallel_bursts": str(n_parallel_bursts)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_dem(self):
+        """
+        This function downloads a DEM sub-region over the bounding box provided
+        in the input product metadata for a DISP-S1 processing job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # get the working directory
         working_dir = get_working_dir()
 
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "disp_s1/disp_s1_static_r6.6_calval_expected_input.zip"
+        logger.info("working_dir : {}".format(working_dir))
 
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+        # Get the bounding box for the sub-region to select
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
 
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DISP-S1-STATIC Inputs"
-        )
+        bbox = metadata.get('bounding_box')
 
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
+        # Get the s3 location parameters
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_STATIC_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_STATIC_DEM, {}).get(oc_const.S3_KEY)
 
-        data_dir = os.path.join(working_dir, 'disp_s1_static_r6.6_calval_expected_input')
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
 
-        cslc_static_dir = os.path.join(data_dir, 'cslc_static')
-        rtc_static_dir = os.path.join(data_dir, 'rtc_static')
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.outfile = output_filepath
+        args.filepath = None
+        args.bbox = bbox
+        args.tile_code = None
+        args.margin = int(self._settings.get("DISP_S1_STATIC", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DISP-S1-STATIC DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
         rc_params = {
-            'input_file_paths': [os.path.join(cslc_static_dir, f) for f in sorted(os.listdir(cslc_static_dir))],
-            'rtc_static_layers_files': [os.path.join(rtc_static_dir, f) for f in sorted(os.listdir(rtc_static_dir))],
-            'dem_file': os.path.join(data_dir, 'dem.vrt'),
-            'frame_to_burst_json': os.path.join(data_dir, 'opera-s1-disp-0.9.0-frame-to-burst.json.zip'),
-            'product_version': "1.0",
-            'frame_id': "11115",
-            'threads_per_worker': 2,
-            'n_parallel_bursts': 9
+            oc_const.DEM_FILE: output_filepath
         }
+
+        logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 

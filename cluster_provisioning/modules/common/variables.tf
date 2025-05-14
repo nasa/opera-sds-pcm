@@ -607,6 +607,18 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
+    "opera-job_worker-disp_static_query" = {
+      "name"              = "opera-job_worker-disp_static_query"
+      "instance_type"     = ["c6i.xlarge", "m6a.xlarge", "c6a.xlarge", "c5a.xlarge", "r7i.xlarge", "c7i.xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
     "opera-job_worker-rtc_for_dist_data_download" = {
       "name"              = "opera-job_worker-rtc_for_dist_data_download"
       "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
@@ -689,9 +701,9 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.5"
+    "disp_s1"  = "3.0.6"
     "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.2.0"
+    "dist_s1"  = "6.0.0-er.3.0"
     "tropo"    = "3.0.0-er.1.0-tropo"
   }
 }

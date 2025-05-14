@@ -64,8 +64,12 @@ RunConfig:
         dst_dir: {{ runconfig.product_path_group.scratch_path }}
         water_mask_path: {{ runconfig.water_mask_path }}
         apply_water_mask: {{ runconfig.apply_water_mask }}
+        device: best
         memory_strategy: high
         tqdm_enabled: false
+        batch_size_for_despeckling: {{ runconfig.processing.batch_size_for_despeckling }}
+        n_workers_for_despeckling: {{ runconfig.processing.n_workers_for_despeckling }}
+        n_workers_for_norm_param_estimation: {{ runconfig.processing.n_workers_for_norm_param_estimation }}
         n_lookbacks: {{ runconfig.n_lookbacks }}
         moderate_confidence_threshold: 3.5
         high_confidence_threshold: 5.5
