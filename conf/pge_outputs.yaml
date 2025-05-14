@@ -159,8 +159,8 @@ L3_DISP_S1:
         verify: false
     Optional:
       # Pattern for parsing Compressed CSLC output filenames, such as:
-      # * "OPERA_L2_COMPRESSED-CSLC-S1_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      # * "OPERA_L2_COMPRESSED-CSLC-S1_F11114_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<disp_frame_id>F\d{5})_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
         verify: true
         hash: md5
 
@@ -230,4 +230,25 @@ L3_DIST_S1:
 
   Missing_Metadata: {
     # "daac_product_type": "OPERA_L3_DIST_S1_0.0"
+  }
+
+L4_TROPO:
+  Outputs:
+    Primary:
+      # Pattern for parsing output image filenames, such as:
+      # OPERA_L4_TROPO_20190613T060000Z_20250208T180402Z_HRES_0.1_v0.1.nc
+      # OPERA_L4_TROPO_20190613T060000Z_20250208T180402Z_HRES_0.1_v0.1.png
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<spacing>\d+[.]\d+)_(?P<product_version>v\d+[.]\d+))?[.](?P<ext>nc|png)$'
+        verify: true
+        hash: md5
+    Secondary:
+      # Patterns for parsing aux filenames, such as:
+      # OPERA_L4_TROPO_20250411T173117.log
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})))?[.](?P<ext>log|catalog\.json|qa\.log)$'
+        verify: false
+    Optional: []
+      # Pattern for optional output product filenames
+
+  Missing_Metadata: {
+    # "daac_product_type": "OPERA_L4_TROPO_0.0"
   }

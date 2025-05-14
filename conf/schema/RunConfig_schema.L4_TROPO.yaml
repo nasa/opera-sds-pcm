@@ -1,0 +1,66 @@
+RunConfig:
+  Name: str()
+
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: str(required=True)
+
+      InputFilesGroup:
+        InputFilePaths: list(str(), min=1, required=True)
+
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: map(key=str(), min=0)
+
+      ProductPathGroup:
+        OutputProductPath: str(required=True)
+        ScratchPath: str(required=True)
+
+      PrimaryExecutable:
+        ProductIdentifier: str(required=False)
+        ProductVersion: any(str(), num(), required=False)
+        ProgramPath: str(required=True)
+        ProgramOptions: list(str(), min=0, required=False)
+        ErrorCodeBase: int(required=True)
+        SchemaPath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
+        IsoMeasuredParameterDescriptions: str(required=False)
+        IsoTemplatePath: str(required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
+
+      QAExecutable:
+        Enabled: bool(required=True)
+        ProgramPath: str(required=False)
+        ProgramOptions: list(str(), min=0, required=False)
+
+      DebugLevelGroup:
+        DebugSwitch: bool(required=False)
+        ExecuteViaShell: bool(required=False)
+
+    SAS:
+      input_file:
+        input_file_path: str(required=True)
+
+      primary_executable:
+        product_type: str(required=True)
+      
+      product_path_group:
+        product_path: str(required=True)
+        scratch_path: str(required=True)
+        sas_output_path: str(required=True)
+        product_version: str(required=True)
+
+      worker_settings:
+        n_workers: int(required=False)
+        threads_per_worker: int(required=False)
+        max_memory: int(required=False)
+        dask_temp_dir: str(required=False) 
+        block_shape: list(int, min=0, required=False)
+      output_options:
+        output_heights: list(min=0, required=False) 
+        compression_kwargs:
+          compression_flag: bool(required=False) 
+          zlib: bool(required=False) 
+          complevel: int(required=False) 
+          shuffle: bool(required=False) 
+      log_file: str(required=False) 

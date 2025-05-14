@@ -103,6 +103,8 @@ class OperaAccountability(Accountability):
             self.product_paths = metadata["product_paths"]["L2_CSLC_S1_STATIC"]
         elif self.input_files_type in ('L2_NISAR_GCOV',):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
+        elif self.input_files_type in ('L4_TROPO',):
+            self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 

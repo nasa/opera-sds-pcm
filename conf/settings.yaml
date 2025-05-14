@@ -37,6 +37,9 @@ DSWX_NI_PRODUCT_VERSION: "0.1"
 DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
 DIST_S1_PRODUCT_VERSION: "0.1"
 
+TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENTIH_PROVISIONAL_V0"
+TROPO_PRODUCT_VERSION: "0.1"
+
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
 DAAC_S3_CRED_URLS:
@@ -211,6 +214,21 @@ DIST_S1:
   ANCILLARY_MARGIN: 50
 
   DESIRED_LOOKBACKS: 3
+
+  WORKERS:
+    N_DESPECKLE: 16
+    N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
+                      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
+                      # reassess
+
+TROPO:
+  # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig
+  NUM_WORKERS: 4
+  # Number of threads to allocate to the "threads_per_worker" field of the TROPO RunConfig
+  NUM_THREADS: 2
+  # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
+  MAX_MEMORY: 8192
+
 
 # End PGE Configuration section
 
@@ -470,9 +488,9 @@ PRODUCT_TYPES:
 
     L2_CSLC_S1_COMPRESSED:
       # Pattern for parsing filenames such as:
-      # * "OPERA_L2_COMPRESSED-CSLC-S1_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
+      # * "OPERA_L2_COMPRESSED-CSLC-S1_F11114_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<disp_frame_id>F\d{5})_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -532,6 +550,26 @@ PRODUCT_TYPES:
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'
       Dataset_Keys: { }
+
+    L4_TROPO:
+        # Pattern for parsing filenames
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<spacing>\d+[.]\d+)_(?P<product_version>v\d+[.]\d+))?[.](?P<ext>nc|png)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+          # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+          # For example, "20210211T163901":
+          #   year: 2021
+          #   month: 02 (February)
+          #   day of month: 11 (the 11th)
+          #   hour (24hr): 16
+          #   minute: 39
+          #   second: 01
+          Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
+          # Specify the metadata key to convert to a start and end time for the dataset times
+          Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+          Dataset_Version_Key: 'product_version'
+        Dataset_Keys: { }
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # WARNING: ONLY MODIFY THE SETTINGS BELOW IF YOU KNOW WHAT YOU'RE DOING !!!!!!!!!!!!!!

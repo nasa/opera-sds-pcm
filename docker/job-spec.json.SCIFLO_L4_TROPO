@@ -1,8 +1,8 @@
 {
   "command": "/home/ops/verdi/ops/opera-pcm/opera_chimera/run_sciflo.sh",
-  "disk_usage":"400GB",
-  "soft_time_limit": 129600,
-  "time_limit": 129660,
+  "disk_usage":"100GB",
+  "soft_time_limit": 1800,
+  "time_limit": 1860,
   "imported_worker_files": {
     "$HOME/.netrc": "/home/ops/.netrc",
     "$HOME/.aws": "/home/ops/.aws",
@@ -10,15 +10,15 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/disp_s1:3.0.6",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.6.tar.gz",
+      "container_image_name": "opera_pge/tropo:3.0.0-er.1.0-tropo",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-tropo-3.0.0-er.1.0-tropo.tar.gz",
       "container_mappings": {
         "$HOME/.netrc": ["/root/.netrc"],
         "$HOME/.aws": ["/root/.aws", "ro"]
       }
     }
   ],
-  "recommended-queues": [ "opera-job_worker-sciflo-l3_disp_s1_hist" ],
+  "recommended-queues": [ "opera-job_worker-sciflo-l4_tropo"],
   "disable_pre_builtins": true,
   "disable_post_builtins": true,
   "pre": [
@@ -45,10 +45,6 @@
     },
     {
       "name": "dataset_type",
-      "destination": "context"
-    },
-    {
-      "name": "processing_mode",
       "destination": "context"
     },
     {

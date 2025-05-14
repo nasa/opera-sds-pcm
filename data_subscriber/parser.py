@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 
 from data_subscriber.cmr import (Collection, Endpoint, Provider, PGEProduct, CMR_TIME_FORMAT)
+from data_subscriber.dist_s1_utils import K_OFFSETS_AND_COUNTS
 
 def create_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -150,10 +151,25 @@ def create_parser():
                                     "if present. The native ID value supports the "
                                     "'*' and '?' wildcards."}}
 
+    product_id_time = {"positionals": ["--product-id-time"],
+                 "kwargs": {"dest": "product_id_time",
+                            "help": "Used in DIST-S1 reprocessing only. "
+                                    "Specify the Product ID and acquisition time pair for which to reprocess "
+                                    "e.g. '54SUG_1,20250507T204314Z' Product ID is Tile ID + Acq Group ID. "}}
+
     k = {"positionals": ["--k"],
                   "kwargs": {"dest": "k",
                              "type": int,
                              "help": "k is used only in DISP-S1 processing."}}
+
+    k_offsets_counts = {"positionals": ["--k-offsets-counts"],
+         "kwargs": {"dest": "k_offsets_counts",
+                    "type": str,
+                    "default": K_OFFSETS_AND_COUNTS,
+                    "help": "This is used only in DIST-S1 processing. Provide a list of tuples that represent"
+                    "the offset in number of days and number of k granules to retrieve for each offset. "
+                    "For example, [(365, 3), (730, 3), (1095, 3)] will retrieve 3 granules each from 1, 2, and 3 years"
+                    " from the current triggering acquisition date. This is also the default value"}}
 
     coverage_percent = {"positionals": ["--coverage-percent"],
          "kwargs": {"dest": "coverage_target",
@@ -237,7 +253,7 @@ def create_parser():
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
-                            exclude_regions, proc_mode]
+                            exclude_regions, proc_mode, k_offsets_counts, product_id_time]
     _add_arguments(full_parser, full_parser_arg_list)
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
@@ -247,8 +263,8 @@ def create_parser():
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
-                             native_id, use_temporal, temporal_start_date, transfer_protocol,
-                             frame_id, include_regions, exclude_regions, proc_mode]
+                             native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time,
+                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts]
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 

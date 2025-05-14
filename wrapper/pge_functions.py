@@ -223,6 +223,20 @@ def dist_s1_lineage_metadata(context, work_dir):
 
     return lineage_metadata
 
+def tropo_lineage_metadata(context, work_dir):
+    """
+    Generates the lineage metadata for the TROPO PGE"""
+    run_config = context.get("run_config")
+    lineage_metadata = []
+    input_file_group = run_config["input_file_group"]
+    s3_input_filepaths = input_file_group["input_file_paths"]
+
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    for s3_input_filepath in s3_input_filepaths:
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+        lineage_metadata.append(local_input_filepath)
+
+    return lineage_metadata
 
 def update_slc_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
@@ -498,4 +512,30 @@ def update_dist_s1_runconfig(context, work_dir):
     if 'water_mask_path' in run_config and run_config["water_mask_path"]:
         run_config["water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["water_mask_path"]))
 
+    return run_config
+
+def update_tropo_runconfig(context, work_dir):
+    """Updates a runconfig for use with the TROPO PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+    pge_input_dir_param = list(
+        filter(lambda param: param['name'] == 'pge_input_dir', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    local_input_dir = os.path.join(work_dir, pge_input_dir_param['value'])
+
+    updated_input_file_paths = []
+
+    for input_file_path in glob.glob(os.path.join(local_input_dir, "*.nc")):
+        updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
+
+    run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
+    
     return run_config

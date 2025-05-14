@@ -879,6 +879,28 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dist_s1_processing_params(self):
+        """Get processing parameters for DIST-S1 execution"""
+
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        despeckle_batch_size = int(self._settings.get("DIST_S1", {}).get("DESPECKLE_BATCH_SIZE", 25))
+
+        worker_settings = self._settings.get("DIST_S1", {}).get("WORKERS", {})
+
+        n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
+        n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
+
+        rc_params = {
+            'batch_size_for_despeckling': despeckle_batch_size,
+            'n_workers_for_despeckling': n_despeckle,
+            'n_workers_for_norm_param_estimation': n_norm_param_est
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_disp_s1_static_inputs(self):
         """
         Gets the lists of input static layers S3 URLs to be processed
@@ -1225,6 +1247,34 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             "num_workers": str(num_workers)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_tropo_input_filepaths(self):
+        """
+        Derives the list of S3 paths to the input files to be used with a
+        L4_TROPO job and sets other required runconfig values.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        tropo_settings = self._settings["TROPO"]
+
+        input_file_paths = []
+        for file_metadata in metadata.get("Files", []):
+            input_file_paths.append(file_metadata["FileLocation"])
+
+        if not input_file_paths:
+            raise RuntimeError("No input file paths found in product metadata for L4_TROPO job")
+
+        rc_params = {
+            "input_file_paths": input_file_paths,
+            "n_workers": tropo_settings["NUM_WORKERS"],
+            "threads_per_worker": tropo_settings["NUM_THREADS"],
+            "max_memory": tropo_settings["MAX_MEMORY"]
         }
 
         logger.info(f"rc_params : {rc_params}")
