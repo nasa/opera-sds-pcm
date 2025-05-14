@@ -365,9 +365,9 @@ variable "pge_releases" {
   default = {
     "dswx_hls" = "1.0.3"
     "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1" 
+    "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.5"
+    "disp_s1"  = "3.0.6"
     "dswx_ni"  = "4.0.0-er.3.0"
     "dist_s1"  = "6.0.0-er.2.0"
     "tropo"    = "3.0.0-er.1.0-tropo"
@@ -494,7 +494,7 @@ variable "amis" {
 }
 
 variable "cnm_r_sqs_arn" {
-} 
+}
 
 variable "asf_cnm_s_id_dev" {
 }
@@ -520,4 +520,4 @@ variable "clear_s3_aws_es" {
 variable "disp_s1_hist_status" {
   type    = bool
   default = false
-} 
+}
