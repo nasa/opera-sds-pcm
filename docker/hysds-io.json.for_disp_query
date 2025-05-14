@@ -1,0 +1,39 @@
+{
+  "label": "Query CRM data for DISP-S1",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "filter_frames",
+      "from": "submitter",
+      "placeholder": "e.g. --filter-frames 1111 95",
+      "optional": true
+    },
+    {
+      "name": "max_concurrent_frames",
+      "from": "submitter",
+      "placeholder": "e.g. --max-concurrent-frames=1",
+      "type": "text",
+      "optional": true
+    },
+    {
+      "name": "endpoint",
+      "from": "submitter",
+      "placeholder": "e.g. --endpoint=OPS",
+      "type": "text",
+      "default": "--endpoint=OPS"
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "placeholder": "e.g. --dry-run",
+      "optional": true
+    }
+  ]
+}
