@@ -171,11 +171,11 @@ def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[
     Each day is split into 4 chunks: 00:00, 06:00, 12:00, and 18:00.
     
     Args:
-        start_datetime: Start datetime string in YYYY-MM-DDTHH:MM:SS format
-        end_datetime: End datetime string in YYYY-MM-DDTHH:MM:SS format
+        start_datetime: Start datetime string in YYYYmmddTHH:MM:SS format
+        end_datetime: End datetime string in YYYYmmddTHH:MM:SS format
         
     Returns:
-        Set[str]: Set of prefix strings in YYYY-MM-DDTHH0000 format
+        Set[str]: Set of prefix strings in YYYYmmddTHH0000 format
     """
     try:
         start = datetime.fromisoformat(start_datetime)
@@ -208,24 +208,20 @@ def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[
     except ValueError as e:
         raise ValueError(f"Invalid datetime range: {str(e)}")
 
-def get_prefixes_from_maxage(maxage: int) -> Set[str]:
+def get_prefix_from_age(age: int) -> Set[str]:
     """
-    Generate a set of prefixes for dates from the current date back to maxage days ago.
+    Generate a set of prefixes for a single day that is age days ago from the current date.
     
     Args:
         maxage: Number of days to look back from current date
         
     Returns:
-        Set[str]: Set of prefix strings in YYYYMMDD/ECMWF format
+        str: prefix string in YYYYmmdd/ECMWF format
     """
-    # For forward mode, use current time as end and go back maxage days
-    end_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    start_datetime = (datetime.now(timezone.utc) - timedelta(days=maxage)).strftime("%Y-%m-%dT%H:%M:%S")
-    
-    return get_prefixes_from_date_range(
-        start_datetime,
-        end_datetime
-    )
+    # Calculate the date maxage days ago
+    target_date = datetime.now(timezone.utc) - timedelta(days=age)
+    # Format as YYYYMMDD/ECMWF
+    return {f"{target_date.strftime('%Y%m%d')}/ECMWF"}
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Submit L4_TROPO jobs for S3 objects")
@@ -236,7 +232,7 @@ def parse_args():
     filter_group.add_argument("--prefix", help="Prefix to filter S3 objects")
     filter_group.add_argument("--date", help="Date in YYYY-MM-DD format to filter S3 objects")
     filter_group.add_argument("--start-datetime", help="Start datetime in YYYY-MM-DDTHH:MM:SS format for range filtering")
-    filter_group.add_argument("--forward-mode-maxage", help="Forward processing mode, maximum age in days of files to process", type=int)
+    filter_group.add_argument("--forward-mode-age", help="Forward processing mode, integer days of previous day to process", type=int)
     
     # End datetime is not in the mutually exclusive group since it's used with start-datetime
     parser.add_argument("--end-datetime", help="End datetime in YYYY-MM-DDTHH:MM:SS format for range filtering")
@@ -260,9 +256,9 @@ def main():
     elif args.prefix:
         prefixes.add(args.prefix)
         logger.info(f"Using provided prefix: {args.prefix}")
-    elif args.forward_mode_maxage:
-        prefixes = get_prefixes_from_maxage(args.forward_mode_maxage)
-        logger.info(f"Using forward mode prefixes for maxage days from now")
+    elif args.forward_mode_age:
+        prefixes.add(get_prefix_from_age(args.forward_mode_age))
+        logger.info(f"Using forward mode prefixes for age days in the past: {prefixes}")
     else:
         logger.error("No prefix specified. Please provide either --prefix, --date, or --start-datetime with --end-datetime")
         sys.exit(1)

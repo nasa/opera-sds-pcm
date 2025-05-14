@@ -12,4 +12,4 @@ SHELL=/bin/bash
 #######################################################################
 
 0 * * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_job.py 2>&1 | logger -i -p user.notice -t submit_pending_jobs-task
-0 0 * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_tropo_jobs.py --bucket opera-ecmwf --forward-mode-maxage 4 2>&1 | logger -i -p user.notice -t submit_tropo_jobs-task
+0 0 * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_tropo_jobs.py --bucket opera-ecmwf --forward-mode-age 4 2>&1 | logger -i -p user.notice -t submit_tropo_jobs-task
