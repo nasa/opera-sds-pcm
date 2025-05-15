@@ -102,12 +102,12 @@ class CMRAudit:
 
         # Write out all bursts from the missing products
         with open(out_filename, "w") as out_file:
-            out_file.write("Frame ID, Acquisition Date\n")
+            out_file.write("Frame ID, Acquisition Date, Acquisition Index\n")
             for d in disp_s1_products_miss:
 
                 # Get the first and the last bu
                 _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
-                out_file.write(f"{d['Frame ID']}, {acq_date}\n")
+                out_file.write(f"{d['Frame ID']}, {acq_date}, {d['Last Acq Day Index']}\n")
 
 if __name__ == "__main__":
     cmr_audit = CMRAudit()
