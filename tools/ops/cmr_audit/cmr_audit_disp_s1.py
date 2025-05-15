@@ -2,12 +2,16 @@ import logging
 import logging.handlers
 import os
 import sys
+from collections import defaultdict
+
 from dotenv import dotenv_values
 from tabulate import tabulate
+import pandas as pd
 
 # NOTE! Only import this if this code is being run locally instead of a deployed environment.
 #import tests.data_subscriber.conftest
 
+from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame_burst_hist
 from cmr_audit_hls import create_parser, init_logging
 from cmr_audit_slc import get_out_filename
 from report.opera_validator.opv_disp_s1 import validate_disp_s1
@@ -31,12 +35,14 @@ class CMRAudit:
         self.argparser = create_parser()
         self.add_more_args()
 
+        #self.disp_burst_map, self.burst_to_frames, self.day_indices_to_frames = localize_disp_frame_burst_hist()
+
     def add_more_args(self):
-        self.argparser.add_argument("--frames-only", required=False, help="DISP-S1 only. Restrict validation to these frame numbers only. Comma-separated list of frames")
-        self.argparser.add_argument("--validate-with-grq", action='store_true', help="DISP-S1 only. Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
+        self.argparser.add_argument("--frames-only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
+        self.argparser.add_argument("--validate-with-grq", action='store_true', help="Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
         self.argparser.add_argument("--processing-mode", required=True, choices=['forward', 'reprocessing', 'historical'], help="DISP-S1 only. Processing mode to use for DISP-S1 validation")
-        self.argparser.add_argument("--view-all-cslc-groupings", action='store_true', help="DISP-S1 only. View all CSLC input grouping data in addition to the normal output. ")
-        self.argparser.add_argument("--k", required=False, default=15, help="DISP-S1 only. It should almost always be 15 but that could be changed in some edge cases. ")
+        self.argparser.add_argument("--k", required=False, default=15, help="It should almost always be 15 but that could be changed in some edge cases. ")
+        self.argparser.add_argument("--use-pickle-file", required=False, dest="pickle_file", help="Use a picked file for input instead of querying CMR. Used in testing.")
 
     def perform_audit(self, args):
 
@@ -61,7 +67,15 @@ class CMRAudit:
         cmr_start_dt_str = args.start_datetime
         cmr_end_dt_str = args.end_datetime
 
-        passing, should_df, result_df = self.perform_audit(args)
+        if args.pickle_file:
+            self.logger.info("Reading in existing result_df from {args.pickle_file}")
+            result_df = pd.read_pickle(args.pickle_file)
+        else:
+            self.logger.info("Performing DISP-S1 audit")
+            passing, should_df, result_df = self.perform_audit(args)
+
+            # Pickle out result_df
+            #result_df.to_pickle("cmr_audit_disp_s1.pickle")
 
         # From the result_df, count the number of products that have product ID not "UNPROCESSED"
         disp_s1_products = []
@@ -82,22 +96,18 @@ class CMRAudit:
         # Generate the output filename
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "DISP-S1", "CSLC")
 
-        # if processing mode is historical, deduplicate All Bursts by the entire groupings per frame
+        # TODO: if processing mode is historical, deduplicate All Bursts by the entire groupings per frame
         # and write out only the unique groupings
-
-        if args.processing_mode == "historical":
-            unique_burst_sets = {}
-            for d in disp_s1_products_miss:
-                burst_set = frozenset(d["All Bursts"])
-                if burst_set not in unique_burst_sets:
-                    unique_burst_sets[burst_set] = d
+        #if args.processing_mode == "historical":
 
         # Write out all bursts from the missing products
         with open(out_filename, "w") as out_file:
-            out_file.write("Frame ID, Burst ID, Product ID\n")
-            for d in unique_burst_sets:
-                out_file.write(f"{d['Frame ID']}, {d['Burst ID']}, {d['Product ID']}\n")
+            out_file.write("Frame ID, Acquisition Date\n")
+            for d in disp_s1_products_miss:
 
+                # Get the first and the last bu
+                _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
+                out_file.write(f"{d['Frame ID']}, {acq_date}\n")
 
 if __name__ == "__main__":
     cmr_audit = CMRAudit()

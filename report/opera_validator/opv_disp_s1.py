@@ -99,7 +99,7 @@ def match_up_disp_s1(data_should_trigger, disp_s1s, processing_mode, k, frame_to
     for item in data_should_trigger:
         frame = item['Frame ID']
         acq_index = item['Acq Day Index']
-        frame_to_dayindex_to_granule[frame][acq_index] = item['All Bursts']
+        frame_to_dayindex_to_granule[frame][acq_index] = list(item['All Bursts'])
 
         if processing_mode == "historical":
             # # Group acq indices by frame ID and then by k-set number
