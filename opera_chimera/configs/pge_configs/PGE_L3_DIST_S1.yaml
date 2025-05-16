@@ -28,6 +28,10 @@ runconfig:
     product_version: __CHIMERA_VAL__
     product_path: /home/ops/output_dir
     scratch_path: /home/ops/scratch_dir
+  processing:
+    batch_size_for_despeckling: __CHIMERA_VAL__
+    n_workers_for_despeckling: __CHIMERA_VAL__
+    n_workers_for_norm_param_estimation: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -39,6 +43,7 @@ preconditions:
   - get_dist_s1_mgrs_tile
   - get_dist_s1_mask_file
   - get_dist_s1_lookbacks
+  - get_dist_s1_processing_params
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:

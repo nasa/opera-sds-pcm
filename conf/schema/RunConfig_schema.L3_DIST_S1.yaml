@@ -68,14 +68,23 @@ RunConfig:
         # PLACEHOLDER FOR check_input_paths PARAMETER DESCRIPTION
         check_input_paths: bool(required=False)
 
+        # PLACEHOLDER FOR device PARAMETER DESCRIPTION
+        device: enum('best', 'cuda', 'mps', 'cpu', required=False)
+
         # PLACEHOLDER FOR memory_strategy PARAMETER DESCRIPTION
         memory_strategy: enum('high', 'low')
 
         # PLACEHOLDER FOR tqdm_enabled PARAMETER DESCRIPTION
         tqdm_enabled: bool(required=False)
 
+        # PLACEHOLDER FOR batch_size_for_despeckling PARAMETER DESCRIPTION
+        batch_size_for_despeckling: int(min=1, required=False)
+
         # PLACEHOLDER FOR n_workers_for_despeckling PARAMETER DESCRIPTION
         n_workers_for_despeckling: int(min=1, required=False)
+
+        # PLACEHOLDER FOR n_workers_for_norm_param_estimation PARAMETER DESCRIPTION
+        n_workers_for_norm_param_estimation: int(min=1, required=False)
 
         # PLACEHOLDER FOR n_lookbacks PARAMETER DESCRIPTION
         n_lookbacks: int(min=1, max=3, required=False)
