@@ -18,7 +18,7 @@ to run the DISP-S1 CMR audit tool.
 Historical mode is run over a large range of dates for specific frames. Therefore, you want to specify those parameters 
 when using cmr audit. The following is an example of how to run the DISP-S1 CMR audit tool in historical mode for a specific set of frames
 ```bash
-python cmr_audit_disp_s1.py  --start-datetime 2016-07-01T00:00:00 --end-datetime 2025-01-01T00:00:00 --processing-mode=historical --frames-only=18904,18905,38504,38503,11115,11116,11117,26689
+python cmr_audit_disp_s1.py  --start-datetime 2016-07-01T00:00:00 --end-datetime 2025-01-01T00:00:00 --processing-mode=historical --frames-only=16936,46294,18904,18905,38504,38503,11115,11116,11117,26689
 ```
 The output shows number of products that should have been found and of those how many are missing. 
 ```bash
