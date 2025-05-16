@@ -8,6 +8,7 @@ from dotenv import dotenv_values
 from tabulate import tabulate
 import pandas as pd
 
+from data_subscriber.cmr import CMR_TIME_FORMAT
 # NOTE! Only import this if this code is being run locally instead of a deployed environment.
 #import tests.data_subscriber.conftest
 
@@ -15,6 +16,8 @@ from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame
 from cmr_audit_hls import create_parser, init_logging
 from cmr_audit_slc import get_out_filename
 from report.opera_validator.opv_disp_s1 import validate_disp_s1
+
+OPERA_VALIDATOR_TIME_FORMAT = "%Y%m%dT%H%M%SZ"
 
 class CMRAudit:
     def __init__(self):
@@ -35,7 +38,7 @@ class CMRAudit:
         self.argparser = create_parser()
         self.add_more_args()
 
-        #self.disp_burst_map, self.burst_to_frames, self.day_indices_to_frames = localize_disp_frame_burst_hist()
+        self.disp_burst_map, self.burst_to_frames, self.day_indices_to_frames = localize_disp_frame_burst_hist()
 
     def add_more_args(self):
         self.argparser.add_argument("--frames-only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
@@ -96,18 +99,50 @@ class CMRAudit:
         # Generate the output filename
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "DISP-S1", "CSLC")
 
-        # TODO: if processing mode is historical, deduplicate All Bursts by the entire groupings per frame
-        # and write out only the unique groupings
-        #if args.processing_mode == "historical":
+        # If processing mode is historical, group by frame_id and k_cycle
+        if args.processing_mode == "historical":
+
+            class TwoDates:
+                def __init__(self):
+                    self.first_date = None
+                    self.last_date = None
+
+            start_end_date_map = defaultdict(TwoDates)
+
+            for d in disp_s1_products_miss:
+                _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
+                day_index = d["Last Acq Day Index"]
+                frame_id = d["Frame ID"]
+                frame = self.disp_burst_map[frame_id]
+                index_number = frame.sensing_datetime_days_index.index(day_index)  # note "index" is overloaded term here
+                k_order = index_number % args.k
+                k_cycle = index_number // args.k
+
+                # acq_date looks like this: 20160810T140608Z
+                acq_date = pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True)
+                if k_order == 0:
+                    # First date should be 30 minutes before acq_date. Format the output to be like 2021-01-14T00:00:00Z
+                    start_date = (acq_date + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
+                    start_end_date_map[(frame_id, k_cycle)].first_date = start_date
+                if k_order == args.k - 1:
+                    # Last date should be 30 mins after. This way we cover the small variations in time
+                    end_date = (acq_date + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
+                    start_end_date_map[(frame_id, k_cycle)].last_date = end_date
 
         # Write out all bursts from the missing products
         with open(out_filename, "w") as out_file:
-            out_file.write("Frame ID, Acquisition Date, Acquisition Index\n")
-            for d in disp_s1_products_miss:
 
-                # Get the first and the last bu
-                _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
-                out_file.write(f"{d['Frame ID']}, {acq_date}, {d['Last Acq Day Index']}\n")
+            out_file.write("Frame ID, Start Date, End Date, K-Cycle\n")
+
+            if args.processing_mode == "historical":
+                for (frame_id, k_cycle), dates in start_end_date_map.items():
+                    out_file.write(f"{frame_id}, {dates.first_date}, {dates.last_date}, {k_cycle}\n")
+            else:
+                for d in disp_s1_products_miss:
+                    _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
+                    start_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
+                    end_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
+                    out_file.write(f"{d['Frame ID']}, {start_date}, {end_date}\n")
 
 if __name__ == "__main__":
     cmr_audit = CMRAudit()
