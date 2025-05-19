@@ -102,7 +102,7 @@ def submit_mozart_job_wrapper(
                 "Files": [
                     {
                         "FileName": PurePath(s3_key).name,
-                        "FileSize": 1,  # TODO: Get actual file size if needed
+                        "FileSize": 1, 
                         "FileLocation": s3_path,
                         "id": PurePath(s3_key).name,
                         "product_paths": "$.product_paths"
