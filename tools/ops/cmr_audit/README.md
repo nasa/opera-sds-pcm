@@ -14,6 +14,9 @@ DISP-S1 CMR Audit generally works in the same way as other CMR Audit tools with 
 DISP-S1 execution works very differently depending on its processing mode. Correspondingly, there are two distinct ways 
 to run the DISP-S1 CMR audit tool.
 
+<b>NOTE</b> that DISP-S1 CMR Audit must be run from a deployed Mozart machine. This is because it requires the GRQ ES to retrieve 
+provenance information. Provenance information is not stored in the CMR, unlike other products, so it must be retrieved from GRQ.
+
 #### Historical Mode
 Historical mode is run over a large range of dates for specific frames. Therefore, you want to specify those parameters 
 when using cmr audit. The following is an example of how to run the DISP-S1 CMR audit tool in historical mode for a specific set of frames
