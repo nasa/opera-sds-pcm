@@ -40,4 +40,18 @@ module "int-main" {
   es_pass				                  = var.es_pass
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
+  lambda_role_arn                         = var.lambda_role_arn
+  subnet_id                               = var.subnet_id
+  private_asg_vpc                         = var.private_asg_vpc
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  amis                                    = var.amis
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  lambda_vpc                              = var.lambda_vpc
+  public_asg_vpc                          = var.public_asg_vpc
+  grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
+  es_bucket_role_arn                      = var.es_bucket_role_arn
+  aws_account_id                          = var.aws_account_id
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
 }
