@@ -26,6 +26,7 @@ RunConfig:
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
         IsoTemplatePath: str(required=False)
+        IsoMeasuredParameterDescriptions: str(required=False)
         DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
       QAExecutable:
