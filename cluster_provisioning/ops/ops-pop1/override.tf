@@ -20,22 +20,6 @@ variable "clear_s3_aws_es" {
    default = false
 }
 
-###### Security  ########
-variable "public_verdi_security_group_id" {
-  # fwd security group
-  default = "sg-0a823f71dc21a1cd5"
-}
-
-variable "private_verdi_security_group_id" {
-  # fwd security group
-  default = "sg-0382b621a07a60d70"
-}
-
-variable "cluster_security_group_id" {
-  # fwd security group
-  default = "sg-0a10b320f13fdf2ba"
-}
-
 variable "private_key_file" {
   default = "~/.ssh/operasds-ops-pop1.pem"
 }
@@ -79,17 +63,6 @@ variable "es_snapshot_bucket" {
 
 variable "trace" {
   default = "opera-ops-pop1"
-}
-
-####### CNM Response job vars #######
-variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
-}
-
-variable "asf_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
 }
 
 variable "grq_aws_es_host" {
