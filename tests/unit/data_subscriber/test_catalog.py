@@ -168,7 +168,7 @@ def test_hls_product_catalog():
         mock_update_by_query.assert_called()
         assert mock_update_by_query.call_args.kwargs["index"] == "hls_catalog*"
         assert mock_update_by_query.call_args.kwargs["body"]["script"]["source"] == "ctx._source.download_job_id = 'test_job_id'"
-        assert mock_update_by_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["term"]["download_batch_id"] == "test_batch_id"
+        assert mock_update_by_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["download_batch_id.keyword"] == "test_batch_id"
 
     with patch("tests.unit.conftest.MockElasticsearchUtility.query") as mock_query:
         # Tests for ProductCatalog.get_all_between()
@@ -386,7 +386,7 @@ def test_clsc_product_catalog():
         cslc_product_catalog.get_submitted_granules(download_batch_id="11114_15")
         mock_query.assert_called()
         assert mock_query.call_args.kwargs["index"] == "cslc_catalog*"
-        assert mock_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["term"]["download_batch_id"] == "11114_15"
+        assert mock_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["download_batch_id.keyword"] == "11114_15"
         assert mock_query.call_args.kwargs["body"]["query"]["bool"]["must"][1]["exists"]["field"] == "download_job_id"
 
         mock_query.reset_mock()
@@ -395,7 +395,7 @@ def test_clsc_product_catalog():
         cslc_product_catalog.get_download_granule_revision(granule_id="11113_15")
         mock_query.assert_called()
         assert mock_query.call_args.kwargs["index"] == "cslc_catalog*"
-        assert mock_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["term"]["download_batch_id"] == "11113_15"
+        assert mock_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["download_batch_id.keyword"] == "11113_15"
 
     with patch("tests.unit.conftest.MockElasticsearchUtility.query", new=mock_cslc_query):
         # Tests for CSLCProductCatalog.get_k_and_m()
