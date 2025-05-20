@@ -1,12 +1,12 @@
 RunConfig:
-  Name: OPERA-RTC-S1-STATIC-PGE-CONFIG
+  Name: OPERA-RTC-S1-PGE-CONFIG
   Groups:
     PGE:
       PGENameGroup:
         PGEName: RTC_S1_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in runconfig.input_file_group.values() %}
+          {%- for input in data.input_file_group.values() %}
           {%- if input is iterable and input is not string %}
           {%- for value in input %}
           - {{ value }}
@@ -14,27 +14,27 @@ RunConfig:
           {%- else %}
           - {{ input }}
           {%- endif %}{# if input is iterable and input is not string #}
-          {%- endfor %}{# for input in runconfig.input_file_group.values() #}
+          {%- endfor %}{# for input in data.input_file_group.values() #}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
-          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
-          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
-          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+          {%- for type in data.dynamic_ancillary_file_group.keys() %}
+          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}
           {%- endfor %}
-          {%- for type in runconfig.static_ancillary_file_group.keys() %}
-          {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
-          {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
+          {%- for type in data.static_ancillary_file_group.keys() %}
+          {%- if data.static_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
           {%- else %}
           {{ type }}:
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        OutputProductPath: {{ runconfig.product_path_group.product_path }}
-        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
+        OutputProductPath: {{ data.product_path_group.product_path }}
+        ScratchPath: {{ data.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: RTC_S1
-        ProductVersion: "{{ runconfig.product_path_group.static_product_version }}"
+        ProductVersion: "{{ data.product_path_group.product_version }}"
         ProgramPath: conda
         ProgramOptions:
           - run
@@ -45,8 +45,6 @@ RunConfig:
         ErrorCodeBase: 300000
         SchemaPath: /home/rtc_user/opera/pge/rtc_s1/schema/rtc_s1_sas_schema.yaml
         IsoTemplatePath: /home/rtc_user/opera/pge/rtc_s1/templates/OPERA_ISO_metadata_L2_RTC_S1_template.xml.jinja2
-{#        IsoMeasuredParameterDescriptions: /home/rtc_user/opera/pge/rtc_s1/templates/rtc_s1_static_measured_parameters.yaml#}
-        DataValidityStartDate: {{ runconfig.product_path_group.data_validity_start_date }}
       QAExecutable:
         Enabled: False
         ProgramPath:
@@ -61,24 +59,24 @@ RunConfig:
           pge_name_group:
             pge_name: RTC_S1_PGE
           input_file_group:
-            {%- for type in runconfig.input_file_group.keys() %}
-            {%- if runconfig.input_file_group[ type ] is not none %}
+            {%- for type in data.input_file_group.keys() %}
+            {%- if data.input_file_group[ type ] is not none %}
             {{ type }}:
-            {%- if runconfig.input_file_group[ type ] is iterable and runconfig.input_file_group[ type ] is not string %}
-            {%- for value in runconfig.input_file_group[ type ] %}
+            {%- if data.input_file_group[ type ] is iterable and data.input_file_group[ type ] is not string %}
+            {%- for value in data.input_file_group[ type ] %}
               - {{ value }}
-            {%- endfor %}{# for value in runconfig.input_file_group[ type ] #}
+            {%- endfor %}{# for value in data.input_file_group[ type ] #}
             {%- else %}
-              - {{ runconfig.input_file_group[ type ] }}
-            {%- endif %}{# if runconfig.input_file_group[ type ] is iterable and runconfig.input_file_group[ type ] is not string #}
-            {%- endif %}{# if runconfig.input_file_group[ type ] is not none #}
-            {%- endfor %}{# for type in runconfig.input_file_group.keys() #}
+              - {{ data.input_file_group[ type ] }}
+            {%- endif %}{# if data.input_file_group[ type ] is iterable and data.input_file_group[ type ] is not string #}
+            {%- endif %}{# if data.input_file_group[ type ] is not none #}
+            {%- endfor %}{# for type in data.input_file_group.keys() #}
             burst_id:
             source_data_access: "https://search.asf.alaska.edu/#/?dataset=SENTINEL-1&productTypes=SLC"
           dynamic_ancillary_file_group:
-            {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
-            {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
-            {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+            {%- for type in data.dynamic_ancillary_file_group.keys() %}
+            {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
@@ -87,43 +85,44 @@ RunConfig:
             # TODO: update descriptions as necessary when new ancillary releases are available
             dem_file_description: "Digital Elevation Model (DEM) for the NASA OPERA project version 1.1 (v1.1) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid"
           static_ancillary_file_group:
-            {%- for type in runconfig.static_ancillary_file_group.keys() %}
-            {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
-            {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
+            {%- for type in data.static_ancillary_file_group.keys() %}
+            {%- if data.static_ancillary_file_group[ type ] is not none %}
+            {{ type }}: {{ data.static_ancillary_file_group[ type ] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
             {%- endfor %}
           product_group:
-            product_version: "{{ runconfig.product_path_group.static_product_version }}"
-            product_path: {{ runconfig.product_path_group.product_path }}
-            scratch_path: {{ runconfig.product_path_group.scratch_path }}
-            output_dir: {{ runconfig.product_path_group.product_path }}
+            product_version: "{{ data.product_path_group.product_version }}"
+            product_path: {{ data.product_path_group.product_path }}
+            scratch_path: {{ data.product_path_group.scratch_path }}
+            output_dir: {{ data.product_path_group.product_path }}
             product_id:
-            rtc_s1_static_validity_start_date: {{ runconfig.product_path_group.data_validity_start_date }}
-            product_data_access: "https://search.asf.alaska.edu/#/?dataset=OPERA-S1&productTypes=RTC-STATIC&operaBurstID={burst_id}&end={end_date}"
+            rtc_s1_static_validity_start_date: {{ data.product_path_group.data_validity_start_date }}
+            product_data_access: "https://search.asf.alaska.edu/#/?dataset=OPERA-S1&productTypes=RTC"
+            static_layers_data_access: "https://search.asf.alaska.edu/#/?dataset=OPERA-S1&productTypes=RTC-STATIC&operaBurstID={burst_id}&end={end_date}"
             save_bursts: True
             save_mosaics: False
             save_browse: True
             output_imagery_format: COG
             save_metadata: True
           primary_executable:
-            product_type: RTC_S1_STATIC
+            product_type: RTC_S1
           processing:
             check_ancillary_inputs_coverage: True
-            polarization: {{ runconfig.processing.polarization }}
+            polarization: {{ data.processing.polarization }}
             rtc:
               output_type: gamma0
 
-            num_workers: {{ runconfig.processing.num_workers }}
+            num_workers: {{ data.processing.num_workers }}
 
             geocoding:
               memory_mode: auto
 
-              estimated_geometric_accuracy_bias_x: {{ runconfig.processing.estimated_geometric_accuracy_bias_x }}
-              estimated_geometric_accuracy_bias_y: {{ runconfig.processing.estimated_geometric_accuracy_bias_y }}
-              estimated_geometric_accuracy_stddev_x: {{ runconfig.processing.estimated_geometric_accuracy_stddev_x }}
-              estimated_geometric_accuracy_stddev_y: {{ runconfig.processing.estimated_geometric_accuracy_stddev_y }}
+              estimated_geometric_accuracy_bias_x: {{ data.processing.estimated_geometric_accuracy_bias_x }}
+              estimated_geometric_accuracy_bias_y: {{ data.processing.estimated_geometric_accuracy_bias_y }}
+              estimated_geometric_accuracy_stddev_x: {{ data.processing.estimated_geometric_accuracy_stddev_x }}
+              estimated_geometric_accuracy_stddev_y: {{ data.processing.estimated_geometric_accuracy_stddev_y }}
             mosaicking:
               mosaic_mode: first
             browse_image_group:
