@@ -41,13 +41,6 @@
             "$HOME/.aws": ["/root/.aws", "ro"]
           }
         },
-        {
-          "container_image_name": "opera_pge/dist_s1:6.0.0-er.2.0",
-          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dist_s1-6.0.0-er.2.0.tar.gz",
-          "container_mappings": {
-            "$HOME/.netrc": ["/root/.netrc"],
-            "$HOME/.aws": ["/root/.aws", "ro"]
-          }
     }
     ],
     "recommended-queues": [ "opera-job_worker-pge_smoke_test_amd", "opera-job_worker-pge_smoke_test_intel" ],
