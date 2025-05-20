@@ -1,1 +1,1 @@
-../ops-fwd/main.tf
+../main.tf

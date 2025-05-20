@@ -1,1 +1,1 @@
-../int-fwd/main.tf
+../main.tf

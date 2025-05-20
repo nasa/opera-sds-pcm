@@ -84,7 +84,6 @@ module "common" {
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
   triage_bucket                           = var.triage_bucket
-  isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
   docker_registry_bucket                  = var.docker_registry_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
@@ -104,6 +103,12 @@ module "common" {
   purge_es_snapshot                       = var.purge_es_snapshot
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  disp_s1_hist_status                     = var.disp_s1_hist_status
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
 }
 
 locals {
