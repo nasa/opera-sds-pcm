@@ -41,7 +41,6 @@
             "$HOME/.aws": ["/root/.aws", "ro"]
           }
         },
-    }
     ],
     "recommended-queues": [ "opera-job_worker-pge_smoke_test_amd", "opera-job_worker-pge_smoke_test_intel" ],
     "post": [ "hysds.triage.triage" ],
