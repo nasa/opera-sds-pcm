@@ -194,13 +194,8 @@ def convert(
                 rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
                 dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
 
-                rtc_input_list = json.loads(
-                    "".join(
-                        json.loads(
-                            "".join(
-                                iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)))
-                    ).replace("'", '"')
-                )
+                rtc_input_list = iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)
+                rtc_input_list = json.loads(rtc_input_list.replace("'", '"'))
                 rtc_input_list = sorted(rtc_input_list)
                 dataset_met_json["rtc_input_list"] = rtc_input_list
         elif pge_name == "L3_DISP_S1":
