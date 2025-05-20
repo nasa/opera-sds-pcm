@@ -104,7 +104,11 @@ module "common" {
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
   cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
-  asf_cnm_s_ids                           = var.asf_cnm_s_ids
+  disp_s1_hist_status                     = var.disp_s1_hist_status
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
 }
 
 locals {

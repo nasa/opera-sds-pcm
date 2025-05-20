@@ -12,20 +12,6 @@ variable "clear_s3_aws_es" {
    default = false
 }
 
-###### Security  ########
-variable "public_verdi_security_group_id" {
-  default = "sg-09e617d8d3e708df2"
-}
-
-variable "private_verdi_security_group_id" {
-  default = "sg-0a42f42f56f358971"
-}
-
-variable "cluster_security_group_id" {
-  default = "sg-029c5fb30fd2f3876"
-}
-
-
 variable "private_key_file" {
   default = "~/.ssh/operasds-ops-fwd.pem"
 }
@@ -71,19 +57,6 @@ variable "trace" {
   default = "opera-ops-fwd"
 }
 
-####### CNM Response job vars #######
-variable "po_daac_delivery_proxy" {
-  default = "arn:aws:sns:us-west-2:234498297282:podaac-ops-cumulus-throttled-provider-input-sns"
-  #"arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
-}
-
-variable "asf_daac_delivery_proxy" {
-  default =  "arn:aws:sqs:us-west-2:510296831643:asf-cumulus-prod-opera-cnm-ingest-queue"
-  #"arn:aws:sns:us-west-2:907504701509:daac-proxy-for-opera-ops"
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
-}
-
 variable "grq_aws_es_host" {
   default = ""
 }
@@ -99,7 +72,6 @@ variable "mozart" {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.10"
     private_ip    = "100.104.82.20"
     public_ip     = ""
   }
@@ -112,7 +84,6 @@ variable "metrics" {
     name          = "metrics"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.11"
     private_ip    = "100.104.82.11"
     public_ip     = ""
   }
@@ -125,7 +96,6 @@ variable "grq" {
     name          = "grq"
     instance_type = "r5.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.12"
     private_ip    = "100.104.82.12"
     public_ip     = ""
   }
@@ -141,7 +111,6 @@ variable "factotum" {
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 300
-    #private_ip    = "100.104.13.13"
     private_ip    = "100.104.82.13"
     publicc_ip    = ""
   }
