@@ -38,7 +38,7 @@ DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
 DIST_S1_PRODUCT_VERSION: "0.1"
 
 TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENTIH_PROVISIONAL_V0"
-TROPO_PRODUCT_VERSION: "0.1"
+TROPO_PRODUCT_VERSION: "0.2"
 
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
@@ -227,7 +227,7 @@ TROPO:
   # Number of threads to allocate to the "threads_per_worker" field of the TROPO RunConfig
   NUM_THREADS: 2
   # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
-  MAX_MEMORY: 8192
+  MAX_MEMORY: 8GB
 
 
 # End PGE Configuration section

@@ -54,8 +54,13 @@ RunConfig:
           {%- for height in runconfig.output_options.output_heights %}
           - {{ height }}
           {%- endfor %} 
+        max_height: 81000
+        chunk_size:
+          - 1
+          - 64
+          - 64
+          - 64
         compression_kwargs:
-          compression_flag: true 
           zlib: true 
           complevel: 5 
           shuffle: true 
