@@ -54,7 +54,7 @@ RunConfig:
       worker_settings:
         n_workers: int(required=False)
         threads_per_worker: int(required=False)
-        max_memory: int(required=False)
+        max_memory: str(required=False)
         dask_temp_dir: str(required=False) 
         block_shape: list(int, min=0, required=False)
       output_options:
