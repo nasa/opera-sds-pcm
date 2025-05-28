@@ -20,7 +20,7 @@ variable "registry_release" {
 }
 
 variable "logstash_release" {
-  default = "7.9.3"
+  default = "7.16.3"
 }
 
 variable "pge_snapshots_date" {
