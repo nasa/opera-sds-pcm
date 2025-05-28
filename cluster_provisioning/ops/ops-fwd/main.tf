@@ -53,5 +53,6 @@ module "int-main" {
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   es_bucket_role_arn                      = var.es_bucket_role_arn
   aws_account_id                          = var.aws_account_id
+  ssm_account_id                          = var.ssm_account_id
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
 }

@@ -221,6 +221,9 @@ variable "private_asg_vpc" {
 variable "aws_account_id" {
 }
 
+variable "ssm_account_id" {
+}
+
 variable "lambda_cnm_r_handler_package_name" {
   default = "lambda-cnm-r-handler"
 }

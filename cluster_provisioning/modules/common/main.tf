@@ -69,8 +69,8 @@ locals {
   asf_cnm_s_id_prod           = var.asf_cnm_s_id_prod
 
   ami_versions = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
-  # resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v5.3
-  verdi_ssm_arn               = "resolve:ssm:arn:aws:ssm:${var.region}:512942196302:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
+  # resolve:ssm:arn:aws:ssm:us-west-2:${var.ssm_account_id}:parameter/iems/pcm/verdi/v5.3
+  verdi_ssm_arn               = "resolve:ssm:arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
 }
 
 resource "null_resource" "download_lambdas" {
@@ -531,7 +531,7 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
 #####################################
 data "aws_ami" "mozart_ami" {
   most_recent = true
-  owners = [512942196302]
+  owners = [${var.ssm_account_id}]
 
   filter {
     name = "name"
@@ -544,7 +544,7 @@ data "aws_ami" "mozart_ami" {
 
 data "aws_ami" "metrics_ami" {
   most_recent = true
-  owners = [512942196302]
+  owners = [${var.ssm_account_id}]
 
   filter {
     name = "name"
@@ -557,7 +557,7 @@ data "aws_ami" "metrics_ami" {
 
 data "aws_ami" "grq_ami" {
   most_recent = true
-  owners = [512942196302]
+  owners = [${var.ssm_account_id}]
 
   filter {
     name = "name"
@@ -570,7 +570,7 @@ data "aws_ami" "grq_ami" {
 
 data "aws_ami" "factotum_ami" {
   most_recent = true
-  owners = [512942196302]
+  owners = [${var.ssm_account_id}]
 
   filter {
     name = "name"
@@ -583,7 +583,7 @@ data "aws_ami" "factotum_ami" {
 
 data "aws_ami" "autoscale_ami" {
   most_recent = true
-  owners = [512942196302]
+  owners = [${var.ssm_account_id}]
 
   filter {
     name = "name"
