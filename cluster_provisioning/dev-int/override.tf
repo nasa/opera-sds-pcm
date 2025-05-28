@@ -6,10 +6,6 @@
 #
 
 ##### Environments #######
-variable "aws_account_id" {
-  default = "681612454726"
-}
-
 variable "venue" {
   default = "ci"
 }
@@ -50,19 +46,6 @@ variable "cluster_type" {
 }
 
 ###### Security  ########
-variable "public_verdi_security_group_id" {
-}
-
-variable "private_verdi_security_group_id" {
-}
-
-variable "cluster_security_group_id" {
-}
-
-variable "private_key_file" {
-  default = ""
-}
-
 variable "keypair_name" {
   #default = "operasds-int-cluster-1"
   default = ""
@@ -80,24 +63,6 @@ variable "shared_credentials_file" {
 #
 variable "profile" {
   default = "saml-pub"
-}
-
-####### Subnet ###########
-variable "subnet_id" {
-  default = "subnet-000eb551ad06392c7"
-}
-
-####### VPC #########
-variable "lambda_vpc" {
-  default = "vpc-02676637ea26098a7"
-}
-
-variable "public_asg_vpc" {
-  default = "vpc-02676637ea26098a7"
-}
-
-variable "private_asg_vpc" {
-  default = "vpc-b5a983cd"
 }
 
 ##### Bucket Names #########
@@ -135,12 +100,6 @@ variable "es_snapshot_bucket" {
 
 variable "artifactory_repo" {
   default = "general-develop"
-}
-
-####### CNM Response job vars #######
-variable "po_daac_delivery_proxy" {
-  #default = "arn:aws:sns:us-west-2:638310961674:podaac-uat-cumulus-provider-input-sns"
-  default = "arn:aws:sns:us-west-2:681612454726:daac-proxy-for-opera"
 }
 
 variable "use_daac_cnm_r" {
@@ -205,13 +164,11 @@ variable "asg_use_role" {
 
 variable "asg_role" {
   default = "am-pcm-dev-verdi-role"
-  #default = "am-pcm-verdi-role"
 }
 
 variable "pcm_cluster_role" {
   default = {
     name = "am-pcm-dev-cluster-role"
-    #name = "am-pcm-cluster-role"
     path = "/"
   }
 }
@@ -224,20 +181,7 @@ variable "pcm_verdi_role" {
   }
 }
 
-variable "lambda_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-pcm-dev-lambda-role"
-  #default = "arn:aws:iam::681612454726:role/am-pcm-lambda-role"
-}
-
 ##### ES ######
-variable "es_bucket_role_arn" {
-  default = "arn:aws:iam::681612454726:role/am-es-role"
-}
-
-variable "grq_aws_es_host" {
-  default = "vpce-0d33a52fc8fed6e40-ndiwktos.vpce-svc-09fc53c04147498c5.us-west-2.vpce.amazonaws.com"
-}
-
 variable "grq_aws_es_port" {
   default = 443
 }
