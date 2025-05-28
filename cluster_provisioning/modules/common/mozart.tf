@@ -280,7 +280,8 @@ resource "aws_instance" "mozart" {
       echo >> ~/.sds/config
 
       echo ASG: >> ~/.sds/config
-      echo '  AMI: ${data.aws_ami.autoscale_ami.id}' >> ~/.sds/config
+      echo '  SSM_ARN: ${local.verdi_ssm_arn}' >> ~/.sds/config
+#      echo '  AMI: ${data.aws_ami.autoscale_ami.id}' >> ~/.sds/config
       echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config
       echo '  USE_ROLE: ${var.asg_use_role}' >> ~/.sds/config
       echo '  ROLE: ${var.asg_role}' >> ~/.sds/config

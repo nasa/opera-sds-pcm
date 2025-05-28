@@ -69,7 +69,10 @@ locals {
   asf_cnm_s_id_prod           = var.asf_cnm_s_id_prod
 
   ami_versions = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
+  # resolve:ssm:arn:aws:ssm:us-west-2:512942196302:parameter/iems/pcm/verdi/v5.3
+  verdi_ssm_arn               = "resolve:ssm:arn:aws:ssm:${var.region}:512942196302:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
 }
+
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
@@ -535,7 +538,7 @@ data "aws_ami" "mozart_ami" {
     # TODO: undo this kludge once hostname resolution issue in AMI is resolved
     values = ["OL8 All-project mozart ${local.ami_versions["mozart"]} *"]
     # values = ["OL8 All-project mozart v4.24 - 230919"]  # elasticsearch
-    # values = ["OL8 All-project mozart v5.0 - 231026"]  # opensearch
+    # values = ["OL8 All-project mozart v5.3 - 231026"]  # opensearch
   }
 }
 
@@ -548,7 +551,7 @@ data "aws_ami" "metrics_ami" {
     # TODO: undo this kludge once hostname resolution issue in AMI is resolved
     values = ["OL8 All-project metrics ${local.ami_versions["metrics"]} *"]
     # values = ["OL8 All-project metrics v4.16 - 230829"]  # elasticsearch
-    # values = ["OL8 All-project metrics v5.0 - 231027"]  # opensearch
+    # values = ["OL8 All-project metrics v5.3 - 231027"]  # opensearch
   }
 }
 
@@ -561,7 +564,7 @@ data "aws_ami" "grq_ami" {
     # TODO: undo this kludge once hostname resolution issue in AMI is resolved
     values = ["OL8 All-project grq ${local.ami_versions["grq"]} *"]
     # values = ["OL8 All-project grq v4.17 - 230829"]  # elasticsearch
-    # values = ["OL8 All-project grq v5.0 - 231027"]  # opensearch
+    # values = ["OL8 All-project grq v5.2 - 231027"]  # opensearch
   }
 }
 
@@ -574,7 +577,7 @@ data "aws_ami" "factotum_ami" {
     # TODO: undo this kludge once hostname resolution issue in AMI is resolved
     values = ["OL8 All-project factotum ${local.ami_versions["factotum"]} *"]
     # values = ["OL8 All-project factotum v4.16 - 230816"]  # elasticsearch
-    # values = ["OL8 All-project factotum v5.0 - 231025"]  # opensearch
+    # values = ["OL8 All-project factotum v5.3 - 231025"]  # opensearch
   }
 }
 
@@ -587,6 +590,6 @@ data "aws_ami" "autoscale_ami" {
     # TODO: undo this kludge once hostname resolution issue in AMI is resolved
     values = ["OL8 All-project verdi ${local.ami_versions["autoscale"]} *"]
     # values = ["OL8 All-project verdi v4.16 patchdate - 230816"]  # elasticsearch
-    # values = ["OL8 All-project verdi v5.0 patchdate - 231027"]  # opensearch
+    # values = ["OL8 All-project verdi v5.3 patchdate - 231027"]  # opensearch
   }
 }
