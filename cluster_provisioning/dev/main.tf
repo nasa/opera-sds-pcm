@@ -64,6 +64,7 @@ module "common" {
   public_asg_vpc                          = var.public_asg_vpc
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
+  ssm_account_id                          = var.ssm_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory

@@ -100,7 +100,7 @@
       "ipath": "hysds::data/L1_S1_SLC",
       "level": "L1",
       "type": "L1_S1_SLC",
-      "match_pattern": "(?P<id>(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\\d{4})(?P<start_month>\\d{2})(?P<start_day>\\d{2})T(?P<start_hour>\\d{2})(?P<start_minute>\\d{2})(?P<start_second>\\d{2}))_(?P<stop_ts>(?P<stop_year>\\d{4})(?P<stop_month>\\d{2})(?P<stop_day>\\d{2})T(?P<stop_hour>\\d{2})(?P<stop_minute>\\d{2})(?P<stop_second>\\d{2}))_(?P<orbit_num>\\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})[-]r(?P<revision_id>\\d+))$",
+      "match_pattern": "(?P<id>(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\\d{4})(?P<start_month>\\d{2})(?P<start_day>\\d{2})T(?P<start_hour>\\d{2})(?P<start_minute>\\d{2})(?P<start_second>\\d{2}))_(?P<stop_ts>(?P<stop_year>\\d{4})(?P<stop_month>\\d{2})(?P<stop_day>\\d{2})T(?P<stop_hour>\\d{2})(?P<stop_minute>\\d{2})(?P<stop_second>\\d{2}))_(?P<orbit_num>\\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})[-]r(?P<revision_id>\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -172,7 +172,7 @@
       "ipath": "hysds::data/L2_CSLC_S1",
       "level": "L2",
       "type": "L2_CSLC_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -196,7 +196,7 @@
       "ipath": "hysds::data/L2_CSLC_S1_STATIC",
       "level": "L2",
       "type": "L2_CSLC_S1_STATIC",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<sensor>S1A|S1B)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<sensor>S1A|S1B|S1C)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -220,7 +220,7 @@
       "ipath": "hysds::data/L2_RTC_S1",
       "level": "L2",
       "type": "L2_RTC_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -244,7 +244,7 @@
       "ipath": "hysds::data/L2_RTC_S1_STATIC",
       "level": "L2",
       "type": "L2_RTC_S1_STATIC",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
@@ -292,7 +292,7 @@
       "ipath": "hysds::data/L3_DSWx_S1",
       "level": "L3",
       "type": "L3_DSWx_S1",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {

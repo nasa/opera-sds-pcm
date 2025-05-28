@@ -88,7 +88,6 @@ variable "mozart" {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
     root_dev_size = 200
-    #private_ip    = "100.104.13.10"
     private_ip    = "100.104.82.20"
     public_ip     = ""
   }

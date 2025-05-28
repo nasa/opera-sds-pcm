@@ -1,0 +1,1417 @@
+{
+  "version": "7.10.2",
+  "objects": [
+    {
+      "id": "5e0abbd0-5abd-11e7-a451-0fe7e85b0f7a",
+      "type": "dashboard",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzgzLDFd",
+      "attributes": {
+        "title": "Worker Metrics",
+        "hits": 0,
+        "description": "",
+        "panelsJSON": "[{\"panelIndex\":\"1\",\"panelRefName\":\"panel_0\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":0,\"w\":48,\"h\":12,\"i\":\"1\"},\"embeddableConfig\":{}},{\"panelIndex\":\"2\",\"panelRefName\":\"panel_1\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":12,\"w\":48,\"h\":12,\"i\":\"2\"},\"embeddableConfig\":{}},{\"panelIndex\":\"3\",\"panelRefName\":\"panel_2\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":24,\"w\":16,\"h\":12,\"i\":\"3\"},\"embeddableConfig\":{}},{\"panelIndex\":\"4\",\"panelRefName\":\"panel_3\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":24,\"w\":16,\"h\":12,\"i\":\"4\"},\"embeddableConfig\":{}},{\"panelIndex\":\"5\",\"panelRefName\":\"panel_4\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":24,\"w\":16,\"h\":12,\"i\":\"5\"},\"embeddableConfig\":{}},{\"panelIndex\":\"6\",\"panelRefName\":\"panel_5\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":36,\"w\":16,\"h\":12,\"i\":\"6\"},\"embeddableConfig\":{}},{\"panelIndex\":\"7\",\"panelRefName\":\"panel_6\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":36,\"w\":16,\"h\":12,\"i\":\"7\"},\"embeddableConfig\":{}},{\"panelIndex\":\"8\",\"panelRefName\":\"panel_7\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":36,\"w\":16,\"h\":12,\"i\":\"8\"},\"embeddableConfig\":{}},{\"panelIndex\":\"9\",\"panelRefName\":\"panel_8\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":48,\"w\":16,\"h\":12,\"i\":\"9\"},\"embeddableConfig\":{}},{\"panelIndex\":\"10\",\"panelRefName\":\"panel_9\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":48,\"w\":16,\"h\":12,\"i\":\"10\"},\"embeddableConfig\":{}},{\"panelIndex\":\"11\",\"panelRefName\":\"panel_10\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":48,\"w\":16,\"h\":12,\"i\":\"11\"},\"embeddableConfig\":{}},{\"panelIndex\":\"12\",\"panelRefName\":\"panel_11\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":60,\"w\":16,\"h\":12,\"i\":\"12\"},\"embeddableConfig\":{}},{\"panelIndex\":\"13\",\"panelRefName\":\"panel_12\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":60,\"w\":16,\"h\":12,\"i\":\"13\"},\"embeddableConfig\":{}},{\"panelIndex\":\"14\",\"panelRefName\":\"panel_13\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":60,\"w\":16,\"h\":12,\"i\":\"14\"},\"embeddableConfig\":{}},{\"panelIndex\":\"15\",\"panelRefName\":\"panel_14\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":72,\"w\":16,\"h\":12,\"i\":\"15\"},\"embeddableConfig\":{}},{\"panelIndex\":\"16\",\"panelRefName\":\"panel_15\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":72,\"w\":16,\"h\":12,\"i\":\"16\"},\"embeddableConfig\":{}},{\"panelIndex\":\"17\",\"panelRefName\":\"panel_16\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":72,\"w\":16,\"h\":12,\"i\":\"17\"},\"embeddableConfig\":{}},{\"panelIndex\":\"18\",\"panelRefName\":\"panel_17\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":84,\"w\":16,\"h\":12,\"i\":\"18\"},\"embeddableConfig\":{}},{\"panelIndex\":\"19\",\"panelRefName\":\"panel_18\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":84,\"w\":16,\"h\":12,\"i\":\"19\"},\"embeddableConfig\":{}},{\"panelIndex\":\"20\",\"panelRefName\":\"panel_19\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":84,\"w\":16,\"h\":12,\"i\":\"20\"},\"embeddableConfig\":{}},{\"panelIndex\":\"21\",\"panelRefName\":\"panel_20\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":108,\"w\":16,\"h\":12,\"i\":\"21\"},\"embeddableConfig\":{}},{\"panelIndex\":\"23\",\"panelRefName\":\"panel_21\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":108,\"w\":16,\"h\":12,\"i\":\"23\"},\"embeddableConfig\":{}},{\"panelIndex\":\"24\",\"panelRefName\":\"panel_22\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":108,\"w\":16,\"h\":12,\"i\":\"24\"},\"embeddableConfig\":{}},{\"panelIndex\":\"25\",\"panelRefName\":\"panel_23\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":96,\"w\":16,\"h\":12,\"i\":\"25\"},\"embeddableConfig\":{}},{\"panelIndex\":\"26\",\"panelRefName\":\"panel_24\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":96,\"w\":16,\"h\":12,\"i\":\"26\"},\"embeddableConfig\":{}},{\"panelIndex\":\"27\",\"panelRefName\":\"panel_25\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":96,\"w\":16,\"h\":12,\"i\":\"27\"},\"embeddableConfig\":{}},{\"panelIndex\":\"28\",\"panelRefName\":\"panel_26\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":120,\"w\":16,\"h\":12,\"i\":\"28\"},\"embeddableConfig\":{}},{\"panelIndex\":\"29\",\"panelRefName\":\"panel_27\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":120,\"w\":16,\"h\":12,\"i\":\"29\"},\"embeddableConfig\":{}},{\"panelIndex\":\"30\",\"panelRefName\":\"panel_28\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":120,\"w\":16,\"h\":12,\"i\":\"30\"},\"embeddableConfig\":{}},{\"panelIndex\":\"31\",\"panelRefName\":\"panel_29\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":132,\"w\":16,\"h\":12,\"i\":\"31\"},\"embeddableConfig\":{}},{\"panelIndex\":\"32\",\"panelRefName\":\"panel_30\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":132,\"w\":16,\"h\":12,\"i\":\"32\"},\"embeddableConfig\":{}},{\"panelIndex\":\"33\",\"panelRefName\":\"panel_31\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":132,\"w\":16,\"h\":12,\"i\":\"33\"},\"embeddableConfig\":{}},{\"panelIndex\":\"34\",\"panelRefName\":\"panel_32\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":144,\"w\":16,\"h\":12,\"i\":\"34\"},\"embeddableConfig\":{}},{\"panelIndex\":\"35\",\"panelRefName\":\"panel_33\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":144,\"w\":16,\"h\":12,\"i\":\"35\"},\"embeddableConfig\":{}},{\"panelIndex\":\"36\",\"panelRefName\":\"panel_34\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":144,\"w\":16,\"h\":12,\"i\":\"36\"},\"embeddableConfig\":{}},{\"panelIndex\":\"37\",\"panelRefName\":\"panel_35\",\"version\":\"7.3.0\",\"gridData\":{\"x\":0,\"y\":156,\"w\":16,\"h\":12,\"i\":\"37\"},\"embeddableConfig\":{}},{\"panelIndex\":\"38\",\"panelRefName\":\"panel_36\",\"version\":\"7.3.0\",\"gridData\":{\"x\":16,\"y\":156,\"w\":16,\"h\":12,\"i\":\"38\"},\"embeddableConfig\":{}},{\"panelIndex\":\"39\",\"panelRefName\":\"panel_37\",\"version\":\"7.3.0\",\"gridData\":{\"x\":32,\"y\":156,\"w\":16,\"h\":12,\"i\":\"39\"},\"embeddableConfig\":{}}]",
+        "optionsJSON": "{\"darkTheme\":true}",
+        "version": 1,
+        "timeRestore": false,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[],\"highlightAll\":true,\"version\":true,\"query\":{\"query\":\"*\",\"language\":\"lucene\"}}"
+        }
+      },
+      "references": [
+        {
+          "name": "panel_0",
+          "type": "visualization",
+          "id": "9da63870-5abb-11e7-a451-0fe7e85b0f7a"
+        },
+        {
+          "name": "panel_1",
+          "type": "visualization",
+          "id": "eab7a740-5abe-11e7-a451-0fe7e85b0f7a"
+        },
+        {
+          "name": "panel_2",
+          "type": "visualization",
+          "id": "f8a84480-5abf-11e7-a451-0fe7e85b0f7a"
+        },
+        {
+          "name": "panel_3",
+          "type": "visualization",
+          "id": "51b18aa0-5ac0-11e7-a451-0fe7e85b0f7a"
+        },
+        {
+          "name": "panel_4",
+          "type": "visualization",
+          "id": "61d1f5a0-5ac0-11e7-a451-0fe7e85b0f7a"
+        },
+        {
+          "name": "panel_5",
+          "type": "visualization",
+          "id": "74dc9d60-5ac2-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_6",
+          "type": "visualization",
+          "id": "8a967180-5ac2-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_7",
+          "type": "visualization",
+          "id": "9503d0e0-5ac2-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_8",
+          "type": "visualization",
+          "id": "fd9d7700-5ac2-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_9",
+          "type": "visualization",
+          "id": "0eceb5c0-5ac3-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_10",
+          "type": "visualization",
+          "id": "199fb8f0-5ac3-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_11",
+          "type": "visualization",
+          "id": "1de2ab10-5ac9-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_12",
+          "type": "visualization",
+          "id": "2bc24dd0-5ac9-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_13",
+          "type": "visualization",
+          "id": "3ae9d9e0-5ac9-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_14",
+          "type": "visualization",
+          "id": "1e200cc0-5aca-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_15",
+          "type": "visualization",
+          "id": "2a828560-5aca-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_16",
+          "type": "visualization",
+          "id": "358546f0-5aca-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_17",
+          "type": "visualization",
+          "id": "812f8c00-5aca-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_18",
+          "type": "visualization",
+          "id": "8c65b9a0-5aca-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_19",
+          "type": "visualization",
+          "id": "9a533f10-5aca-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_20",
+          "type": "visualization",
+          "id": "ecd575d0-5acc-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_21",
+          "type": "visualization",
+          "id": "d3163420-5ace-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_22",
+          "type": "visualization",
+          "id": "c4d314a0-5ace-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_23",
+          "type": "visualization",
+          "id": "0a2aaf80-5acb-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_24",
+          "type": "visualization",
+          "id": "20dd89a0-5acb-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_25",
+          "type": "visualization",
+          "id": "35bd5170-5acb-11e7-a8a3-37f88d4052ad"
+        },
+        {
+          "name": "panel_26",
+          "type": "visualization",
+          "id": "7d936030-5acf-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_27",
+          "type": "visualization",
+          "id": "9724c930-5acf-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_28",
+          "type": "visualization",
+          "id": "a55f8440-5acf-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_29",
+          "type": "visualization",
+          "id": "cb080500-5acf-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_30",
+          "type": "visualization",
+          "id": "daba9300-5acf-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_31",
+          "type": "visualization",
+          "id": "bb2f9f80-5acf-11e7-b04c-fb55ed28b6e9"
+        },
+        {
+          "name": "panel_32",
+          "type": "visualization",
+          "id": "4c5541d0-5ad1-11e7-a812-bffabc6a4541"
+        },
+        {
+          "name": "panel_33",
+          "type": "visualization",
+          "id": "611e9b70-5ad1-11e7-a812-bffabc6a4541"
+        },
+        {
+          "name": "panel_34",
+          "type": "visualization",
+          "id": "6c86ae80-5ad1-11e7-a812-bffabc6a4541"
+        },
+        {
+          "name": "panel_35",
+          "type": "visualization",
+          "id": "8582b550-5ad1-11e7-a812-bffabc6a4541"
+        },
+        {
+          "name": "panel_36",
+          "type": "visualization",
+          "id": "923e9890-5ad1-11e7-a812-bffabc6a4541"
+        },
+        {
+          "name": "panel_37",
+          "type": "visualization",
+          "id": "a1611b90-5ad1-11e7-a812-bffabc6a4541"
+        }
+      ],
+      "migrationVersion": {
+        "dashboard": "7.9.3"
+      }
+    },
+    {
+      "id": "9da63870-5abb-11e7-a451-0fe7e85b0f7a",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzQ0LDFd",
+      "attributes": {
+        "title": "Instance Heartbeats",
+        "visState": "{\"title\":\"Instance Heartbeats\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":true,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"host heartbeats\"},\"drawLinesBetweenPoints\":true,\"mode\":\"normal\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\",\"defaultYExtents\":false,\"setYExtents\":false},\"show\":true,\"style\":{},\"title\":{\"text\":\"host heartbeats\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"sum\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.host_up\",\"customLabel\":\"host heartbeats\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"10m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "eab7a740-5abe-11e7-a451-0fe7e85b0f7a",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzQ1LDFd",
+      "attributes": {
+        "title": "Instances",
+        "visState": "{\"title\":\"Instances\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":200},\"position\":\"left\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"stats.host.keyword: Descending\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"right\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"normal\",\"show\":true,\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":true,\"rotate\":75,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"bottom\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"segment\",\"params\":{\"field\":\"stats.host.keyword\",\"size\":1000,\"order\":\"desc\",\"orderBy\":\"1\"}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "f8a84480-5abf-11e7-a451-0fe7e85b0f7a",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzQ2LDFd",
+      "attributes": {
+        "title": "Min Instance CPU Utilization (percent)",
+        "visState": "{\"title\":\"Min Instance CPU Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.cpu\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\",\"setYExtents\":true,\"max\":100,\"min\":0},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.cpu\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.cpu\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "51b18aa0-5ac0-11e7-a451-0fe7e85b0f7a",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzQ3LDFd",
+      "attributes": {
+        "title": "Mean Instance CPU Utilization (percent)",
+        "visState": "{\"title\":\"Mean Instance CPU Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.cpu\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\",\"setYExtents\":true,\"max\":100,\"min\":0},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.cpu\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.cpu\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "61d1f5a0-5ac0-11e7-a451-0fe7e85b0f7a",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzQ4LDFd",
+      "attributes": {
+        "title": "Max Instance CPU Utilization (percent)",
+        "visState": "{\"title\":\"Max Instance CPU Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.cpu\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"type\":\"linear\",\"setYExtents\":true,\"max\":100,\"min\":0},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.cpu\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.cpu\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "74dc9d60-5ac2-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzQ5LDFd",
+      "attributes": {
+        "title": "Min Per Core CPU Utilization (percent)",
+        "visState": "{\"title\":\"Min Per Core CPU Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.per_cpu\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.per_cpu\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.per_cpu\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "8a967180-5ac2-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzUwLDFd",
+      "attributes": {
+        "title": "Mean Per Core CPU Utilization (percent)",
+        "visState": "{\"title\":\"Mean Per Core CPU Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.per_cpu\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.per_cpu\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.per_cpu\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "9503d0e0-5ac2-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzUxLDFd",
+      "attributes": {
+        "title": "Max Per Core CPU Utilization (percent)",
+        "visState": "{\"title\":\"Max Per Core CPU Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.per_cpu\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.per_cpu\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.per_cpu\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "fd9d7700-5ac2-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzUyLDFd",
+      "attributes": {
+        "title": "Min Instance Memory Utilization (percent)",
+        "visState": "{\"title\":\"Min Instance Memory Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.memory.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.memory.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.memory.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "0eceb5c0-5ac3-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzUzLDFd",
+      "attributes": {
+        "title": "Mean Instance Memory Utilization (percent)",
+        "visState": "{\"title\":\"Mean Instance Memory Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.memory.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.memory.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.memory.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "199fb8f0-5ac3-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzU0LDFd",
+      "attributes": {
+        "title": "Max Instance Memory Utilization (percent)",
+        "visState": "{\"title\":\"Max Instance Memory Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.memory.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.memory.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.memory.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "1de2ab10-5ac9-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzU1LDFd",
+      "attributes": {
+        "title": "Min Instance Swap Utilization (percent)",
+        "visState": "{\"title\":\"Min Instance Swap Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.swap.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.swap.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.swap.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "2bc24dd0-5ac9-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzU2LDFd",
+      "attributes": {
+        "title": "Mean Instance Swap Utilization (percent)",
+        "visState": "{\"title\":\"Mean Instance Swap Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.swap.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.swap.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.swap.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "3ae9d9e0-5ac9-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzU3LDFd",
+      "attributes": {
+        "title": "Max Instance Swap Utilization (percent)",
+        "visState": "{\"title\":\"Max Instance Swap Utilization (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.swap.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.swap.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.swap.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "1e200cc0-5aca-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzU4LDFd",
+      "attributes": {
+        "title": "Min Instance Root Disk Usage (percent)",
+        "visState": "{\"title\":\"Min Instance Root Disk Usage (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.disk.root.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.disk.root.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk.root.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "2a828560-5aca-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzU5LDFd",
+      "attributes": {
+        "title": "Mean Instance Root Disk Usage (percent)",
+        "visState": "{\"title\":\"Mean Instance Root Disk Usage (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.disk.root.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.disk.root.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk.root.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "358546f0-5aca-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzYwLDFd",
+      "attributes": {
+        "title": "Max Instance Root Disk Usage (percent)",
+        "visState": "{\"title\":\"Max Instance Root Disk Usage (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.disk.root.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.disk.root.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk.root.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "812f8c00-5aca-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzYxLDFd",
+      "attributes": {
+        "title": "Min Instance Work/Data Disk Usage (percent)",
+        "visState": "{\"title\":\"Min Instance Work/Data Disk Usage (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.disk.data.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.disk.data.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk.data.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "8c65b9a0-5aca-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzYyLDFd",
+      "attributes": {
+        "title": "Mean Instance Work/Data Disk Usage (percent)",
+        "visState": "{\"title\":\"Mean Instance Work/Data Disk Usage (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.disk.data.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.disk.data.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk.data.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "9a533f10-5aca-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzYzLDFd",
+      "attributes": {
+        "title": "Max Instance Work/Data Disk Usage (percent)",
+        "visState": "{\"title\":\"Max Instance Work/Data Disk Usage (percent)\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per 10 minutes\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.disk.data.percent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"max\":100,\"min\":0,\"mode\":\"normal\",\"setYExtents\":true,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.disk.data.percent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk.data.percent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"m\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "ecd575d0-5acc-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzY0LDFd",
+      "attributes": {
+        "title": "Min Instance Disk I/O Bytes Read",
+        "visState": "{\"aggs\":[{\"enabled\":true,\"id\":\"1\",\"params\":{\"customLabel\":\"\",\"field\":\"stats.disk_io.read_bytes\"},\"schema\":\"metric\",\"type\":\"min\"},{\"enabled\":true,\"id\":\"2\",\"params\":{\"extended_bounds\":{},\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1},\"schema\":\"segment\",\"type\":\"date_histogram\"}],\"listeners\":{},\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.disk_io.read_bytes\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.disk_io.read_bytes\"},\"type\":\"value\"}]},\"title\":\"Min Instance Disk I/O Bytes Read\",\"type\":\"histogram\"}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "d3163420-5ace-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzY1LDFd",
+      "attributes": {
+        "title": "Max Instance Disk I/O Bytes Read",
+        "visState": "{\"title\":\"Max Instance Disk I/O Bytes Read\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.disk_io.read_bytes\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.disk_io.read_bytes\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.read_bytes\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "c4d314a0-5ace-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzY2LDFd",
+      "attributes": {
+        "title": "Mean Instance Disk I/O Bytes Read",
+        "visState": "{\"aggs\":[{\"enabled\":true,\"id\":\"1\",\"params\":{\"field\":\"stats.disk_io.read_bytes\"},\"schema\":\"metric\",\"type\":\"avg\"},{\"enabled\":true,\"id\":\"2\",\"params\":{\"extended_bounds\":{},\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1},\"schema\":\"segment\",\"type\":\"date_histogram\"}],\"listeners\":{},\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.disk_io.read_bytes\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.disk_io.read_bytes\"},\"type\":\"value\"}]},\"title\":\"Mean Instance Disk I/O Bytes Read\",\"type\":\"histogram\"}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "0a2aaf80-5acb-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzY3LDFd",
+      "attributes": {
+        "title": "Min Instance Disk I/O Reads",
+        "visState": "{\"title\":\"Min Instance Disk I/O Reads\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.disk_io.read_count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.disk_io.read_count\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.read_count\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "20dd89a0-5acb-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzY4LDFd",
+      "attributes": {
+        "title": "Mean Instance Disk I/O Reads",
+        "visState": "{\"title\":\"Mean Instance Disk I/O Reads\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.disk_io.read_count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.disk_io.read_count\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.read_count\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "35bd5170-5acb-11e7-a8a3-37f88d4052ad",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzY5LDFd",
+      "attributes": {
+        "title": "Max Instance Disk I/O Reads",
+        "visState": "{\"title\":\"Max Instance Disk I/O Reads\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.disk_io.read_count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.disk_io.read_count\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.read_count\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "7d936030-5acf-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzcwLDFd",
+      "attributes": {
+        "title": "Min Instance Disk I/O Writes",
+        "visState": "{\"title\":\"Min Instance Disk I/O Writes\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.disk_io.write_count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.disk_io.write_count\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.write_count\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "9724c930-5acf-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzcxLDFd",
+      "attributes": {
+        "title": "Mean Instance Disk I/O Writes",
+        "visState": "{\"title\":\"Mean Instance Disk I/O Writes\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.disk_io.write_count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.disk_io.write_count\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.write_count\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "a55f8440-5acf-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzcyLDFd",
+      "attributes": {
+        "title": "Max Instance Disk I/O Writes",
+        "visState": "{\"title\":\"Max Instance Disk I/O Writes\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.disk_io.write_count\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.disk_io.write_count\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.write_count\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "cb080500-5acf-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzczLDFd",
+      "attributes": {
+        "title": "Mean Instance Disk I/O Bytes Written",
+        "visState": "{\"title\":\"Mean Instance Disk I/O Bytes Written\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.disk_io.write_bytes\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.disk_io.write_bytes\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.write_bytes\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "daba9300-5acf-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "Wzc0LDFd",
+      "attributes": {
+        "title": "Max Instance Disk I/O Bytes Written",
+        "visState": "{\"aggs\":[{\"enabled\":true,\"id\":\"1\",\"params\":{\"field\":\"stats.disk_io.read_bytes\"},\"schema\":\"metric\",\"type\":\"max\"},{\"enabled\":true,\"id\":\"2\",\"params\":{\"extended_bounds\":{},\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1},\"schema\":\"segment\",\"type\":\"date_histogram\"}],\"listeners\":{},\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.disk_io.read_bytes\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.disk_io.read_bytes\"},\"type\":\"value\"}]},\"title\":\"Max Instance Disk I/O Bytes Written\",\"type\":\"histogram\"}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "bb2f9f80-5acf-11e7-b04c-fb55ed28b6e9",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "Wzc1LDFd",
+      "attributes": {
+        "title": "Min Instance Disk I/O Bytes Written",
+        "visState": "{\"title\":\"Min Instance Disk I/O Bytes Written\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.disk_io.write_bytes\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.disk_io.write_bytes\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.disk_io.write_bytes\",\"customLabel\":\"\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "4c5541d0-5ad1-11e7-a812-bffabc6a4541",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "Wzc2LDFd",
+      "attributes": {
+        "title": "Min Instance Network I/O Bytes Sent",
+        "visState": "{\"title\":\"Min Instance Network I/O Bytes Sent\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.net_io.bytes_sent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.net_io.bytes_sent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.net_io.bytes_sent\",\"customLabel\":\"\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "611e9b70-5ad1-11e7-a812-bffabc6a4541",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "Wzc3LDFd",
+      "attributes": {
+        "title": "Mean Instance Network I/O Bytes Sent",
+        "visState": "{\"title\":\"Mean Instance Network I/O Bytes Sent\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.net_io.bytes_sent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.net_io.bytes_sent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.net_io.bytes_sent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "6c86ae80-5ad1-11e7-a812-bffabc6a4541",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "Wzc4LDFd",
+      "attributes": {
+        "title": "Max Instance Network I/O Bytes Sent",
+        "visState": "{\"title\":\"Max Instance Network I/O Bytes Sent\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.net_io.bytes_sent\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.net_io.bytes_sent\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.net_io.bytes_sent\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "8582b550-5ad1-11e7-a812-bffabc6a4541",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "Wzc5LDFd",
+      "attributes": {
+        "title": "Min Instance Network I/O Bytes Received",
+        "visState": "{\"title\":\"Min Instance Network I/O Bytes Received\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Min stats.net_io.bytes_recv\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Min stats.net_io.bytes_recv\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"min\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.net_io.bytes_recv\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "923e9890-5ad1-11e7-a812-bffabc6a4541",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzgwLDFd",
+      "attributes": {
+        "title": "Mean Instance Network I/O Bytes Received",
+        "visState": "{\"title\":\"Mean Instance Network I/O Bytes Received\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Average stats.net_io.bytes_recv\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Average stats.net_io.bytes_recv\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"avg\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.net_io.bytes_recv\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "a1611b90-5ad1-11e7-a812-bffabc6a4541",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzgxLDFd",
+      "attributes": {
+        "title": "Max Instance Network I/O Bytes Received",
+        "visState": "{\"title\":\"Max Instance Network I/O Bytes Received\",\"type\":\"histogram\",\"params\":{\"addLegend\":true,\"addTimeMarker\":false,\"addTooltip\":true,\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"labels\":{\"show\":true,\"truncate\":100},\"position\":\"bottom\",\"scale\":{\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"@timestamp per hour\"},\"type\":\"category\"}],\"defaultYExtents\":false,\"drawLinesBetweenPoints\":true,\"grid\":{\"categoryLines\":false,\"style\":{\"color\":\"#eee\"}},\"interpolate\":\"linear\",\"legendPosition\":\"top\",\"radiusRatio\":9,\"scale\":\"linear\",\"seriesParams\":[{\"data\":{\"id\":\"1\",\"label\":\"Max stats.net_io.bytes_recv\"},\"drawLinesBetweenPoints\":true,\"mode\":\"stacked\",\"show\":\"true\",\"showCircles\":true,\"type\":\"histogram\",\"valueAxis\":\"ValueAxis-1\"}],\"setYExtents\":false,\"showCircles\":true,\"times\":[],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"labels\":{\"filter\":false,\"rotate\":0,\"show\":true,\"truncate\":100},\"name\":\"LeftAxis-1\",\"position\":\"left\",\"scale\":{\"mode\":\"normal\",\"setYExtents\":false,\"type\":\"linear\"},\"show\":true,\"style\":{},\"title\":{\"text\":\"Max stats.net_io.bytes_recv\"},\"type\":\"value\"}]},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"max\",\"schema\":\"metric\",\"params\":{\"field\":\"stats.net_io.bytes_recv\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"h\",\"min_doc_count\":1,\"extended_bounds\":{}}}],\"listeners\":{}}",
+        "uiStateJSON": "{}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "type": "search",
+          "name": "search_0",
+          "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "9ef431b0-5aba-11e7-a451-0fe7e85b0f7a",
+      "type": "search",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:14.663Z",
+      "version": "WzgyLDFd",
+      "attributes": {
+        "title": "instance_stats",
+        "description": "",
+        "hits": 0,
+        "columns": [
+          "_source"
+        ],
+        "sort": [
+          [
+            "@timestamp",
+            "desc"
+          ]
+        ],
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"highlightAll\":true,\"version\":true,\"query\":{\"query\":{\"query_string\":{\"query\":\"type.keyword:instance_stats\",\"analyze_wildcard\":true}},\"language\":\"lucene\"},\"filter\":[],\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "75800890-8b5b-11e8-9fd0-236fca1cd40c"
+        }
+      ],
+      "migrationVersion": {
+        "search": "7.9.3"
+      }
+    },
+    {
+      "id": "75800890-8b5b-11e8-9fd0-236fca1cd40c",
+      "type": "index-pattern",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T22:29:19.615Z",
+      "version": "WzI0NTMsMV0=",
+      "attributes": {
+        "title": "logstash-*",
+        "timeFieldName": "@timestamp",
+        "fields": "[{\"count\":0,\"name\":\"@timestamp\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"@version\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"_id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"count\":0,\"name\":\"_index\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"count\":0,\"name\":\"_score\",\"type\":\"number\",\"scripted\":false,\"searchable\":false,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"_source\",\"type\":\"_source\",\"scripted\":false,\"searchable\":false,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"count\":0,\"name\":\"geoip.ip\",\"type\":\"ip\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"geoip.latitude\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"geoip.location\",\"type\":\"geo_point\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"geoip.longitude\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.container_image_name\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.container_image_name.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.container_image_url\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.container_image_url.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.delivery_info.exchange\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.delivery_info.exchange.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.delivery_info.priority\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.delivery_info.redelivered\",\"type\":\"boolean\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.delivery_info.routing_key\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.delivery_info.routing_key.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_id.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.cmd_duration\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.cmd_end\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.cmd_start\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.context_file\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.context_file.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.datasets_cfg_file\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.datasets_cfg_file.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.dedup\",\"type\":\"boolean\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.duration\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.execute_node\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.execute_node.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.architecture\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.architecture.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.domain\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.domain.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.ec2_instance_id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.ec2_instance_id.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.ec2_instance_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.ec2_instance_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.ec2_placement_availability_zone\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.ec2_placement_availability_zone.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.fqdn\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.fqdn.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.hardwaremodel\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.hardwaremodel.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.hostname\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.hostname.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.hysds_execute_node\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.hysds_execute_node.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.hysds_public_ip\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.hysds_public_ip.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.ipaddress\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.ipaddress.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.ipaddress_eth0\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.ipaddress_eth0.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.is_virtual\",\"type\":\"boolean\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.memoryfree\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.memoryfree.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.memorysize\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.memorysize.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.operatingsystem\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.operatingsystem.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.operatingsystemrelease\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.operatingsystemrelease.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.osfamily\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.osfamily.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.physicalprocessorcount\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.processorcount\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.swapfree\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.swapfree.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.swapsize\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.swapsize.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.uptime\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.uptime.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.facts.virtual\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.facts.virtual.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.id.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.job_dir\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.job_dir.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.job_payload.job_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.job_payload.job_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.job_payload.payload_task_id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.job_payload.payload_task_id.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.job_queue\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.job_queue.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.job_url\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.job_url.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.disk_usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.duration\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.path\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.path.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.time_end\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.time_start\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.transfer_rate\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.url\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.inputs_localized.url.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.job_dir_size\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.product_provenance.availability_time\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.product_provenance.processing_latency\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.product_provenance.processing_start_time\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.product_provenance.product_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.product_provenance.product_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.product_provenance.total_latency\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.browse_urls\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.browse_urls.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.dataset\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.dataset.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.dataset_level\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.dataset_level.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.dataset_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.dataset_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.disk_usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.duration\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.id.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.index\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.index.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.ipath\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.ipath.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.path\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.path.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.system_version\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.system_version.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.time_end\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.time_start\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.transfer_rate\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.urls\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.products_staged.urls.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_service_bytes_recursive.major\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_service_bytes_recursive.op\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_service_bytes_recursive.op.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_service_bytes_recursive.value\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_serviced_recursive.major\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_serviced_recursive.op\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_serviced_recursive.op.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.blkio_stats.io_serviced_recursive.value\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.percpu_usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.total_usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.usage_in_kernelmode\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.usage_in_usermode\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.hugetlb_stats.1GB.failcnt\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.hugetlb_stats.2MB.failcnt\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.cache\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.kernel_tcp_usage.failcnt\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.kernel_tcp_usage.limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.kernel_usage.failcnt\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.kernel_usage.limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.active_anon\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.active_file\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.cache\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.hierarchical_memory_limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.hierarchical_memsw_limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.inactive_anon\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.inactive_file\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.mapped_file\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.pgfault\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.pgmajfault\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.pgpgin\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.pgpgout\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.rss\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.rss_huge\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.swap\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_active_anon\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_active_file\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_cache\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_inactive_anon\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_inactive_file\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_mapped_file\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_pgfault\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_pgmajfault\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_pgpgin\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_pgpgout\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_rss\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_rss_huge\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_swap\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.total_unevictable\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.stats.unevictable\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.swap_usage.failcnt\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.swap_usage.limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.swap_usage.max_usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.swap_usage.usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.usage.failcnt\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.usage.limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.usage.max_usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.memory_stats.usage.usage\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.cgroups.pids_stats.current\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.sys_cpu_time\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.user_cpu_time\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.metrics.usage_stats.wall_time\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.payload_hash\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.payload_hash.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.pid\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.public_ip\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.public_ip.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.soft_time_limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.status\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.stderr\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.stderr.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.stdout\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.job_info.stdout.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.time_end\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.time_limit\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.time_queued\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.job_info.time_start\",\"type\":\"date\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.name\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.name.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.priority\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.tag\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.tag.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job.task_id\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job.task_id.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"job_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"job_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.cpu\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.device\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.all.device.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.free\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.fs_opts\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.all.fs_opts.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.fs_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.all.fs_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.mount_point\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.all.mount_point.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.percent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.total\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.all.used\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.device\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.data.device.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.free\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.fs_opts\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.data.fs_opts.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.fs_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.data.fs_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.mount_point\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.data.mount_point.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.percent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.total\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.data.used\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.device\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.root.device.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.free\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.fs_opts\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.root.fs_opts.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.fs_type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.root.fs_type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.mount_point\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.disk.root.mount_point.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.percent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.total\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk.root.used\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.busy_time\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.read_bytes\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.read_count\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.read_merged_count\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.read_time\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.write_bytes\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.write_count\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.write_merged_count\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.disk_io.write_time\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.host\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"stats.host.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.host_up\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.active\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.available\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.buffers\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.cached\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.free\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.inactive\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.percent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.shared\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.slab\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.total\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.memory.used\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.bytes_recv\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.bytes_sent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.dropin\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.dropout\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.errin\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.errout\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.packets_recv\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.net_io.packets_sent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.per_cpu\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.swap.free\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.swap.percent\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.swap.sin\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.swap.sout\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.swap.total\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"stats.swap.used\",\"type\":\"number\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"count\":0,\"name\":\"type\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"count\":0,\"name\":\"type.keyword\",\"type\":\"string\",\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true}]",
+        "fieldFormatMap": "{\"job.job_info.cmd_duration\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"outputFormat\":\"asSeconds\"}},\"job.job_info.duration\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.inputs_localized.disk_usage\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.inputs_localized.duration\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.job_dir_size\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.products_staged.disk_usage\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.products_staged.duration\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.percpu_usage\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.total_usage\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.usage_in_kernelmode\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.cgroups.cpu_stats.cpu_usage.usage_in_usermode\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.cgroups.memory_stats.cache\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.usage_stats.cgroups.memory_stats.swap_usage.max_usage\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.usage_stats.cgroups.memory_stats.swap_usage.usage\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.usage_stats.cgroups.memory_stats.usage.max_usage\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.usage_stats.cgroups.memory_stats.usage.usage\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.usage_stats.sys_cpu_time\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.user_cpu_time\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.usage_stats.wall_time\":{\"id\":\"duration\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"},\"inputFormat\":\"nanoseconds\",\"outputFormat\":\"asSeconds\"}},\"job.job_info.metrics.inputs_localized.transfer_rate\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}},\"job.job_info.metrics.products_staged.transfer_rate\":{\"id\":\"bytes\",\"params\":{\"parsedUrl\":{\"origin\":\"https://100.104.10.138\",\"pathname\":\"/metrics/app/management/kibana/indexPatterns/patterns/logstash-*/field/job.job_info.metrics.inputs_localized.transfer_rate\",\"basePath\":\"/metrics\"}}}}"
+      },
+      "references": [],
+      "migrationVersion": {
+        "index-pattern": "7.6.0"
+      }
+    }
+  ]
+}

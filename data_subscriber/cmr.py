@@ -26,6 +26,7 @@ class Collection(str, Enum):
     HLSS30 = "HLSS30"
     S1A_SLC = "SENTINEL-1A_SLC"
     S1B_SLC = "SENTINEL-1B_SLC"
+    S1C_SLC = "SENTINEL-1C_SLC"
     RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
@@ -64,6 +65,7 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.HLSS30: Provider.LPCLOUD.value,
     Collection.S1A_SLC: Provider.ASF.value,
     Collection.S1B_SLC: Provider.ASF.value,
+    Collection.S1C_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
@@ -77,6 +79,7 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.HLSS30: Provider.LPCLOUD.value,
     Collection.S1A_SLC: Provider.ASF.value,
     Collection.S1B_SLC: Provider.ASF.value,
+    Collection.S1C_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF_RTC.value,
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
@@ -88,6 +91,7 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.HLSS30: ProductType.HLS.value,
     Collection.S1A_SLC: ProductType.SLC.value,
     Collection.S1B_SLC: ProductType.SLC.value,
+    Collection.S1C_SLC: ProductType.SLC.value,
     Collection.RTC_S1_V1: ProductType.RTC.value,
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
     Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
@@ -99,6 +103,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.HLSS30: ["B02.tif", "B03.tif", "B04.tif", "B8A.tif", "B11.tif", "B12.tif", "Fmask.tif"],
     Collection.S1A_SLC: ["zip"],
     Collection.S1B_SLC: ["zip"],
+    Collection.S1C_SLC: ["zip"],
     Collection.RTC_S1_V1: ["tif", "h5"],
     Collection.CSLC_S1_V1: ["h5"],
     Collection.CSLC_S1_STATIC_V1: ["h5"],
@@ -124,7 +129,7 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
     assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
     assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
-    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC):
+    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC, Collection.S1C_SLC):
         bound_list = bounding_box.split(",")
 
         # Excludes Antarctica

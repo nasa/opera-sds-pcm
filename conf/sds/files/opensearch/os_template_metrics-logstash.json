@@ -1,0 +1,14 @@
+{
+  "index_patterns": [
+    "logstash-*"
+  ],
+  "template" : {
+    "settings" : {
+      "index" : {
+        "refresh_interval": "5s"
+      }
+    }
+  },
+  "priority": 500,
+  "composed_of": []
+}

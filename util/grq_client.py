@@ -1,18 +1,18 @@
 """Helper functions for interacting with GRQ."""
 import logging
 from datetime import datetime
+from typing import Literal
 
 import backoff
 from elasticsearch import Elasticsearch
-from elasticsearch import helpers
+from opensearchpy import OpenSearch
 
 from data_subscriber import es_conn_util
 
 logger = logging.getLogger(__name__)
 
 
-def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: datetime, creation_timestamp_end_dt: datetime):
-    es: Elasticsearch = es_conn_util.get_es_connection(logger).es
+def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: datetime, creation_timestamp_end_dt: datetime, es_engine: Literal["elasticsearch", "opensearch"]):
 
     body = get_body()
     body["sort"] = []
@@ -27,7 +27,16 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
     body["query"]["bool"]["must_not"].append({"exists": {"field": "metadata.ionosphere.FileSize"}})
     body["query"]["bool"]["must_not"].append({"exists": {"field": "metadata.ionosphere.FileLocation"}})
 
-    search_results = list(helpers.scan(es, body, index="grq_*_l1_s1_slc*", scroll="5m", size=10_000))
+    if es_engine == "elasticsearch":
+        es: Elasticsearch = es_conn_util.get_es_connection(logger).es
+        from elasticsearch import helpers
+        search_results = list(helpers.scan(es, body, index="grq_*_l1_s1_slc*", scroll="5m", size=10_000))
+    elif es_engine == "opensearch":
+        es: OpenSearch = es_conn_util.get_es_connection(logger).es
+        from opensearchpy import helpers
+        search_results = list(helpers.scan(es, body, index="grq_*_l1_s1_slc*", scroll="5m", size=10_000))
+    else:
+        raise AssertionError(f"Invalid {es_engine=}")
 
     return search_results
 

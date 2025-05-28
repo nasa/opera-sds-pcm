@@ -160,7 +160,8 @@ startsecs=10
 [program:system-jobs-queue]
 directory={{ OPS_HOME }}/verdi/ops/hysds
 environment=HYSDS_ROOT_WORK_DIR="/data/work",
-            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json,
+            HOST_VERDI_HOME="{{ OPS_HOME }}"
 command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q system-jobs-queue -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
 process_name=%(program_name)s-%(process_num)02d
 priority=1
@@ -175,7 +176,8 @@ startsecs=10
 [program:factotum-job_worker-small]
 directory={{ OPS_HOME }}/verdi/ops/hysds
 environment=HYSDS_ROOT_WORK_DIR="/data/work",
-            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json",
+            HOST_VERDI_HOME="{{ OPS_HOME }}"
 command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q factotum-job_worker-small -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
 process_name=%(program_name)s-%(process_num)02d
 priority=1

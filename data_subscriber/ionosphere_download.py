@@ -20,6 +20,7 @@ from hysds_commons.job_utils import submit_mozart_job
 from tools import stage_ionosphere_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from util import grq_client as grq_client, job_util
+from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 from util.grq_client import try_update_slc_dataset_with_ionosphere_metadata
 
@@ -152,7 +153,8 @@ def get_pending_slc_datasets(args):
     slc_dataset_timerange = get_arg_timerange(args)
     slc_datasets = grq_client.get_slc_datasets_without_ionosphere_data(
         dateutil.parser.isoparse(slc_dataset_timerange.start_date),
-        dateutil.parser.isoparse(slc_dataset_timerange.end_date)
+        dateutil.parser.isoparse(slc_dataset_timerange.end_date),
+        SettingsConf().cfg["GRQ_ES_ENGINE"]
     )
     return slc_datasets
 
