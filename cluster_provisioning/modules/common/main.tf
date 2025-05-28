@@ -223,7 +223,7 @@ resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   count            = local.sqs_count
   event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue] : aws_sqs_queue.cnm_response.arn
   function_name = aws_lambda_function.sqs_cnm_response_handler.arn
-}
+} 
 
 data "aws_iam_policy_document" "cnm_response" {
   policy_id = "SQSDefaultPolicy"
@@ -236,11 +236,11 @@ data "aws_iam_policy_document" "cnm_response" {
       type = "AWS"
       identifiers = [
         "arn:aws:iam::${var.aws_account_id}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_dev}:root", 
+        "arn:aws:iam::${var.asf_cnm_s_id_dev}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_dev_int}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_test}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_prod}:root"
-      ]
+      ] 
     }
     resources = [
       data.aws_sqs_queue.cnm_response.arn

@@ -322,6 +322,7 @@ variable "aws_account_id" {
 }
 
 variable "ssm_account_id" {
+
 }
 
 variable "lambda_package_release" {

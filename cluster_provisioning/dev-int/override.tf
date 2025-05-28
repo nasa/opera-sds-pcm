@@ -176,7 +176,6 @@ variable "pcm_cluster_role" {
 variable "pcm_verdi_role" {
   default = {
     name = "am-pcm-dev-verdi-role"
-    #name = "am-pcm-verdi-role"
     path = "/"
   }
 }
