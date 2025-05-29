@@ -531,7 +531,7 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
 #####################################
 data "aws_ami" "mozart_ami" {
   most_recent = true
-  owners = [${var.ssm_account_id}]
+  owners = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -544,7 +544,7 @@ data "aws_ami" "mozart_ami" {
 
 data "aws_ami" "metrics_ami" {
   most_recent = true
-  owners = [${var.ssm_account_id}]
+  owners = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -557,7 +557,7 @@ data "aws_ami" "metrics_ami" {
 
 data "aws_ami" "grq_ami" {
   most_recent = true
-  owners = [${var.ssm_account_id}]
+  owners = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -570,7 +570,7 @@ data "aws_ami" "grq_ami" {
 
 data "aws_ami" "factotum_ami" {
   most_recent = true
-  owners = [${var.ssm_account_id}]
+  owners = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -583,7 +583,7 @@ data "aws_ami" "factotum_ami" {
 
 data "aws_ami" "autoscale_ami" {
   most_recent = true
-  owners = [${var.ssm_account_id}]
+  owners = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
