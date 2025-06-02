@@ -106,7 +106,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "InstanceId",
                    "${aws_instance.mozart.id}",
                    "ImageId",
-                   "${var.amis["mozart"]}",
+                   "${data.aws_ami.mozart_ami.id}",
                    "InstanceType",
                    "${var.mozart["instance_type"]}"
                 ]
@@ -131,7 +131,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "InstanceId",
                    "${aws_instance.mozart.id}",
                    "ImageId",
-                   "${var.amis["mozart"]}",
+                   "${data.aws_ami.mozart_ami.id}",
                    "InstanceType",
                    "${var.mozart["instance_type"]}",
                    "fstype",
@@ -162,7 +162,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "InstanceId",
                    "${aws_instance.mozart.id}",
                    "ImageId",
-                   "${var.amis["mozart"]}",
+                   "${data.aws_ami.mozart_ami.id}",
                    "InstanceType",
                    "${var.mozart["instance_type"]}",
                    "cpu",
@@ -174,7 +174,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "InstanceId",
                    "${aws_instance.mozart.id}",
                    "ImageId",
-                   "${var.amis["mozart"]}",
+                   "${data.aws_ami.mozart_ami.id}",
                    "InstanceType",
                    "${var.mozart["instance_type"]}",
                    "cpu",
@@ -186,7 +186,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "InstanceId",
                    "${aws_instance.mozart.id}",
                    "ImageId",
-                   "${var.amis["mozart"]}",
+                   "${data.aws_ami.mozart_ami.id}",
                    "InstanceType",
                    "${var.mozart["instance_type"]}",
                    "cpu",
@@ -198,7 +198,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "InstanceId",
                    "${aws_instance.mozart.id}",
                    "ImageId",
-                   "${var.amis["mozart"]}",
+                   "${data.aws_ami.mozart_ami.id}",
                    "InstanceType",
                    "${var.mozart["instance_type"]}",
                    "cpu",
@@ -298,7 +298,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_memoryalarm" {
   insufficient_data_actions = []
   dimensions = {
     InstanceId   = aws_instance.mozart.id
-    ImageId      = var.amis["mozart"]
+    ImageId      = data.aws_ami.mozart_ami.id
     InstanceType = var.mozart["instance_type"]
   }
 }
@@ -316,7 +316,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
   insufficient_data_actions = []
   dimensions = {
     InstanceId   = aws_instance.mozart.id
-    ImageId      = var.amis["mozart"]
+    ImageId      = data.aws_ami.mozart_ami.id
     InstanceType = var.mozart["instance_type"]
     device       = "nvme0n1p1"
     fstype       = "xfs"

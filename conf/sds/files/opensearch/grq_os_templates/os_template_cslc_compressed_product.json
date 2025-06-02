@@ -1,0 +1,8 @@
+{
+  "index_patterns": ["grq_1_l2_cslc_s1_compressed", "grq_1_l2_cslc_s1_compressed-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 8
+    }
+  }
+}

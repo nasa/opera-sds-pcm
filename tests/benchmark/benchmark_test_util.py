@@ -3,10 +3,12 @@ import logging
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 import backoff
 import boto3
 import elasticsearch
+import opensearchpy
 from botocore.config import Config
 
 from elasticsearch import Elasticsearch, RequestsHttpConnection
@@ -21,7 +23,7 @@ s3_client = boto3.client("s3", config=(Config(max_pool_connections=30)))
 sqs_client = boto3.client("sqs")
 
 
-def index_not_found(e: elasticsearch.exceptions.NotFoundError):
+def index_not_found(e: Union[elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError]):
     return e.error != "index_not_found_exception"
 
 
@@ -44,7 +46,7 @@ def raise_(ex: Exception):
 )
 @backoff.on_exception(
     backoff.expo,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60*10,
     giveup=index_not_found
 )
@@ -62,7 +64,7 @@ def wait_for_l2(_id, index):
 )
 @backoff.on_exception(
     backoff.expo,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60*10,
     giveup=index_not_found
 )
@@ -134,7 +136,7 @@ def search_es(index, _id):
 
 def es_index_delete(index):
     logging.info(f"Deleting {index=}")
-    with contextlib.suppress(elasticsearch.exceptions.NotFoundError):
+    with contextlib.suppress(elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError):
         Index(name=index, using=get_es_client()).delete()
 
 
