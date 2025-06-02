@@ -30,20 +30,41 @@ fi
 # Start up SDSWatch client
 IPADDRESS_ETH0=$(/usr/sbin/ifconfig $(/usr/sbin/route | awk '/default/{print $NF}') | grep 'inet ' | sed 's/addr://' | awk '{print $2}')
 FQDN=$IPADDRESS_ETH0
-export LOGSTASH_IMAGE="s3://{{ CODE_BUCKET }}/logstash-oss-7.16.3.tar.gz"
+export LOGSTASH_IMAGE="s3://{{ CODE_BUCKET }}/logstash-7.9.3.tar.gz"
 export LOGSTASH_IMAGE_BASENAME="$(basename $LOGSTASH_IMAGE 2>/dev/null)"
-if [ -z "$(docker images -q logstash-oss:7.16.3)" ]; then
-  rm -rf /tmp/logstash-oss-7.16.3.tar.gz
+if [ -z "$(docker images -q logstash:7.9.3)" ]; then
+  rm -rf /tmp/logstash-7.9.3.tar.gz
   aws s3 cp ${LOGSTASH_IMAGE} /tmp/${LOGSTASH_IMAGE_BASENAME}
   docker load -i /tmp/${LOGSTASH_IMAGE_BASENAME}
 else
   echo "Logstash already exists in Docker. Will not download image"
 fi
 exec docker run --rm -e HOST=${FQDN} \
-#  -e XPACK_MONITORING_ENABLED=false \
+  -e XPACK_MONITORING_ENABLED=false \
   $verdi_params \
   -v $HYSDS_DIR/log:/sdswatch/log \
   -v sdswatch_data:/usr/share/logstash/data \
   -v $HYSDS_DIR/etc/sdswatch_client.conf:/usr/share/logstash/config/conf/logstash.conf \
-  --name=sdswatch-client logstash-oss:7.16.3 \
+  --name=sdswatch-client logstash:7.9.3 \
   logstash -f /usr/share/logstash/config/conf/logstash.conf --config.reload.automatic
+
+
+# TODO chrisjrd: maybe uncomment. copied the rest from the elasticsearch versionAdd commentMore actions
+#IPADDRESS_ETH0=$(/usr/sbin/ifconfig $(/usr/sbin/route | awk '/default/{print $NF}') | grep 'inet ' | sed 's/addr://' | awk '{print $2}')
+#FQDN=$IPADDRESS_ETH0
+#export LOGSTASH_IMAGE="s3://{{ CODE_BUCKET }}/logstash-oss-7.16.3.tar.gz"
+#export LOGSTASH_IMAGE_BASENAME="$(basename $LOGSTASH_IMAGE 2>/dev/null)"
+#if [ -z "$(docker images -q logstash-oss:7.16.3)" ]; then
+#  rm -rf /tmp/logstash-oss-7.16.3.tar.gz
+#  aws s3 cp ${LOGSTASH_IMAGE} /tmp/${LOGSTASH_IMAGE_BASENAME}
+#  docker load -i /tmp/${LOGSTASH_IMAGE_BASENAME}
+#else
+#  echo "Logstash already exists in Docker. Will not download image"
+#fi
+#exec docker run --rm -e HOST=${FQDN} \
+#  $verdi_params \
+#  -v $HYSDS_DIR/log:/sdswatch/log \
+#  -v sdswatch_data:/usr/share/logstash/data \
+#  -v $HYSDS_DIR/etc/sdswatch_client.conf:/usr/share/logstash/config/conf/logstash.conf \
+#  --name=sdswatch-client logstash-oss:7.16.3 \
+#  logstash -f /usr/share/logstash/config/conf/logstash.conf --config.reload.automatic
