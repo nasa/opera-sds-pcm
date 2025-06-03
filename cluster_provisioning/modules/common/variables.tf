@@ -128,10 +128,6 @@ variable "purge_es_snapshot" {
   default = true
 }
 
-# ami vars
-variable "amis" {
-}
-
 variable "mozart" {
 }
 
