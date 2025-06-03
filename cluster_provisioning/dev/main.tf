@@ -101,7 +101,6 @@ module "common" {
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
   disp_s1_hist_status                     = var.disp_s1_hist_status
-  amis                                    = var.amis
   asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
   asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test

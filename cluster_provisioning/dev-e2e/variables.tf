@@ -494,9 +494,6 @@ variable "earthdata_uat_user" {
 variable "earthdata_uat_pass" {
 }
 
-variable "amis" {
-}
-
 variable "cnm_r_sqs_arn" {
 }
 

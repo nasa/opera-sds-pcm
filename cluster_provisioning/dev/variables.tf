@@ -482,12 +482,6 @@ variable "disp_s1_hist_status" {
   default = false
 }
 
-variable "amis" {
-  type = map(string)
-  default = {
-  }
-}
-
 variable "cnm_r_sqs_arn" {
 }
 

@@ -6,7 +6,6 @@ provider "aws" {
 
 module "common" {
   source                                  = "../modules/common"
-  amis                                    = var.amis
   hysds_release                           = var.hysds_release
   pcm_repo                                = var.pcm_repo
   pcm_branch                              = var.pcm_branch

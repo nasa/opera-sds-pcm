@@ -449,12 +449,6 @@ variable "earthdata_uat_pass" {
   default = ""
 }
 
-variable "amis" {
-  type = map(string)
-  default = {
-  }
-} 
-
 variable "cnm_r_sqs_arn" {
 }
 
