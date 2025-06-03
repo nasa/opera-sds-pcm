@@ -11,7 +11,7 @@ locals {
 
 resource "aws_instance" "verdi" {
   depends_on           = [aws_ebs_volume.verdi_docker]
-  ami                  = var.verdi["ami"]
+  ami                  = data.aws_ami.verdi_ami.id
   instance_type        = var.verdi["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
