@@ -590,6 +590,7 @@ resource "aws_instance" "mozart" {
       else
          cp -pr /export/home/hysdsops/mozart/ops/opera-sds-pcm-${var.pcm_branch} ~/verdi/ops/opera-pcm
       fi
+
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket}
 
       sed -i "s/RELEASE_VERSION: '{{ RELEASE_VERSION }}'/RELEASE_VERSION: '${var.pcm_branch}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
