@@ -446,7 +446,6 @@ resource "aws_instance" "mozart" {
       fi
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
-
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz"
         tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
         ln -s /export/home/hysdsops/mozart/ops/${var.project}-sds-pcm-${var.pcm_branch} /export/home/hysdsops/mozart/ops/${var.project}-pcm
@@ -586,9 +585,9 @@ resource "aws_instance" "mozart" {
         sds -d update factotum -f -c
       fi
       if [ "${var.use_artifactory}" = true ]; then
-         cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
-      else
          cp -pr /export/home/hysdsops/mozart/ops/opera-sds-pcm-${var.pcm_branch} ~/verdi/ops/opera-pcm
+      else
+         cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
       fi
 
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket}
