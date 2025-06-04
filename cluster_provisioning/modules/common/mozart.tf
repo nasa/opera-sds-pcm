@@ -585,7 +585,11 @@ resource "aws_instance" "mozart" {
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
-      cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
+      if [ "${var.use_artifactory}" = true ]; then
+         cp -pr ~/mozart/ops/opera-pcm ~/verdi/ops/opera-pcm
+      else
+         cp -pr /export/home/hysdsops/mozart/ops/opera-sds-pcm-${var.pcm_branch} ~/verdi/ops/opera-pcm
+      fi
       echo buckets are ---- ${local.code_bucket} ${local.dataset_bucket}
 
       sed -i "s/RELEASE_VERSION: '{{ RELEASE_VERSION }}'/RELEASE_VERSION: '${var.pcm_branch}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
