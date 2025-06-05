@@ -8,7 +8,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "smart_open",
-        "pandas",
+        "pandas<2.3.0",
         "h5py"
     ],
     extras_require={
