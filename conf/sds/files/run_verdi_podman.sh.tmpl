@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# set some environment variables
+export HOST_VERDI_HOME={{ HOST_VERDI_HOME or '$HOME' }}
+
+# Start the socket service
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+loginctl enable-linger $USER
+systemctl --user --now enable podman.socket
+systemctl --user status podman.socket
+export PODMAN_SOCK=/run/user/$UID/podman/podman.sock
+
+# Run podman
+podman --remote --url unix:${PODMAN_SOCK} run -d --rm \
+-e HOST_VERDI_HOME=$HOST_VERDI_HOME \
+-e HOST_USER=$(whoami) \
+-e HOST_UID=${UID} \
+-e PYTHONPATH=/home/ops/verdi/ops/swot-pcm:$PYTHONPATH \
+-e AWS_CONFIG_FILE=/root/.aws/config
+-p 8085:8085 \
+-p 9001:9001 \
+--name=verdi \
+--security-opt label=disable \
+-v ${PODMAN_SOCK}:${PODMAN_SOCK} \
+-v ${DATA_DIR}/work:${DATA_DIR}/work \
+-v ${HYSDS_HOME}/verdi/etc:/root/verdi/etc \
+-v ${HYSDS_HOME}/verdi/log:/root/verdi/log \
+-v ${HYSDS_HOME}/verdi/run:/root/verdi/run \
+-v ${HOST_VERDI_HOME}/.boto:/root/.boto \
+-v ${HOST_VERDI_HOME}/.netrc:/root/.netrc \
+-v ${HOST_VERDI_HOME}/.s3cfg:/root/.s3cfg \
+-v ${HOST_VERDI_HOME}/.aws:/root/.aws \
+-v ${HYSDS_HOME}/verdi/etc/settings.yaml:/home/ops/verdi/ops/swot-pcm/conf/settings.yaml \
+-v ${HYSDS_HOME}/verdi/ops/swot-pcm:/home/ops/verdi/ops/swot-pcm \
+hysds/verdi

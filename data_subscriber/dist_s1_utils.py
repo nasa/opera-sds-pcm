@@ -229,6 +229,7 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete
 
     return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
+
 def parse_k_parameter(k_offsets_and_counts):
     '''Parse the k parameter from the command line. The k parameter is a list of tuples where each tuple is a list of offsets and counts.
     example: "[(0, 1), (2, 3), (4, 5)]" -> [(0, 1), (2, 3), (4, 5)]
@@ -237,6 +238,7 @@ def parse_k_parameter(k_offsets_and_counts):
     k_offsets_and_counts = [k.strip(" ()") for k in k_offsets_and_counts]
     k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
     return k_offsets_and_counts
+
 
 if __name__ == "__main__":
 

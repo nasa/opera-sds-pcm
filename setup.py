@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="opera_pcm",
-    version="1.0.0",
+    version="3.1.6",
     packages=find_packages(),
     install_requires=[
         "smart_open",
@@ -47,10 +47,11 @@ setup(
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
 
+            "aws-requests-auth",
+
             # for ECMWF merger
             "rioxarray",
             "boto3",
-            "boto3-stubs[s3]",
             "backoff",
             "netCDF4",
             "cfgrib",
@@ -154,7 +155,7 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
-            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.6.4",  # install native gdal first. `brew install gdal` on macOS.
             "more-itertools",
             "python-dateutil",
             "python-dotenv",
@@ -171,7 +172,7 @@ setup(
         "subscriber_client": [
             "more-itertools",
             "python-dateutil",
-            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.6.4",  # install native gdal first. `brew install gdal` on macOS.
         ]
     }
 )

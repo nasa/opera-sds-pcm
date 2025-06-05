@@ -1,0 +1,44 @@
+{
+  "policy": {
+    "description": "Rolling Job Accountability indices from hot -> warm -> delete",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "warm",
+            "conditions": {
+              "min_index_age": "90d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "{{ JOB_ACCOUNTABILITY_ES_ILM_POLICY_EXPIRATION }}"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ]
+      }
+    ],
+    "ism_template": {
+      "index_patterns": ["jobs_accountability_catalog-*"],
+      "priority": 500
+    }
+  }
+}

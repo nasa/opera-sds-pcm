@@ -11,7 +11,7 @@ locals {
 
 resource "aws_instance" "verdi" {
   depends_on           = [aws_ebs_volume.verdi_docker]
-  ami                  = var.verdi["ami"]
+  ami                  = data.aws_ami.verdi_ami.id
   instance_type        = var.verdi["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
@@ -89,9 +89,9 @@ resource "aws_volume_attachment" "volume_attachment" {
       "  wget https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.verdi_release}/hysds-mozart_venv-${var.verdi_release}.tar.gz!/mozart/pkgs/hysds-verdi-${var.verdi_release}.tar.gz",
       "  docker load < hysds-verdi-${var.verdi_release}.tar.gz",
       "  rm hysds-verdi-${var.verdi_release}.tar.gz",
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/logstash/${var.logstash_release}/logstash-${var.logstash_release}.tar.gz\"",
-      "  docker load < logstash-${var.logstash_release}.tar.gz",
-      "  rm logstash-${var.logstash_release}.tar.gz",
+      "  curl -O \"https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/logstash/${var.logstash_release}/logstash-oss-${var.logstash_release}.tar.gz\"",
+      "  docker load < logstash-oss-${var.logstash_release}.tar.gz",
+      "  rm logstash-oss-${var.logstash_release}.tar.gz",
       "  curl -O \"https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/docker-registry/${var.registry_release}/docker-registry-${var.registry_release}.tar.gz\"",
       "  docker load < docker-registry-${var.registry_release}.tar.gz",
       "  rm docker-registry-${var.registry_release}.tar.gz",

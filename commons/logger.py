@@ -45,7 +45,9 @@ class LogFilter(logging.Filter):
             record.id = "--"
         return True
 
+
 logger = logging.getLogger("opera_pcm")
+logger.setLevel(logging.INFO)
 logger.addFilter(LogFilter())
 
 
@@ -130,3 +132,10 @@ def configure_library_loggers():
     logger_elasticsearch.addFilter(NoBaseFilter())
 
     boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
+
+    import warnings
+    from elasticsearch.exceptions import ElasticsearchWarning
+    warnings.simplefilter('ignore', ElasticsearchWarning)
+    from cryptography.utils import CryptographyDeprecationWarning
+    warnings.simplefilter('ignore', CryptographyDeprecationWarning)
+

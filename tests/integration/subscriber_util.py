@@ -7,6 +7,7 @@ import boto3
 import elasticsearch
 import elasticsearch_dsl.response
 import elasticsearch_dsl.response
+import opensearchpy
 import requests
 from botocore.config import Config
 from elasticsearch_dsl import Search
@@ -209,7 +210,7 @@ def wait_for_query_job(job_id):
 )
 @backoff.on_exception(
     backoff.expo,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60 * 10,
     giveup=index_not_found,
     jitter=None
@@ -242,7 +243,7 @@ def wait_for_job(job_id):
 )
 @backoff.on_exception(
     backoff.expo,
-    elasticsearch.exceptions.NotFoundError,
+    [elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError],
     max_time=60 * 10,
     giveup=index_not_found,
     jitter=None

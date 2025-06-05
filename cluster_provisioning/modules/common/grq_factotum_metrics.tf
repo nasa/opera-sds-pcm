@@ -3,7 +3,7 @@
 ######################
 
 resource "aws_instance" "metrics" {
-  ami                  = var.amis["metrics"]
+  ami                  = data.aws_ami.metrics_ami.id
   instance_type        = var.metrics["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
@@ -86,6 +86,7 @@ resource "aws_instance" "metrics" {
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
@@ -93,6 +94,8 @@ resource "aws_instance" "metrics" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
+        conda install curl --yes --quiet
+
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz"
         tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz
@@ -218,7 +221,7 @@ resource "null_resource" "setup_cron" {
 ######################
 
 resource "aws_instance" "grq" {
-  ami                  = var.amis["grq"]
+  ami                  = data.aws_ami.grq_ami.id
   instance_type        = var.grq["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
@@ -300,6 +303,7 @@ resource "aws_instance" "grq" {
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
@@ -307,6 +311,8 @@ resource "aws_instance" "grq" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
+        conda install curl --yes --quiet
+
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz"
         tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz
@@ -324,7 +330,7 @@ resource "aws_instance" "grq" {
 ######################
 
 resource "aws_instance" "factotum" {
-  ami                  = var.amis["factotum"]
+  ami                  = data.aws_ami.factotum_ami.id
   instance_type        = var.factotum["instance_type"]
   key_name             = local.key_name
   availability_zone    = var.az
@@ -413,6 +419,7 @@ resource "aws_instance" "factotum" {
   provisioner "remote-exec" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
@@ -420,6 +427,8 @@ resource "aws_instance" "factotum" {
         tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
+        conda install curl --yes --quiet
+
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
         ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
         tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
