@@ -150,29 +150,4 @@ resource "null_resource" "mozart" {
     EOF
     ]
   }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "python ~/mozart/ops/pcm_commons/pcm_commons/tools/trigger_snapshot.py \\",
-      "  --mozart-es http://${module.common.mozart.private_ip}:9200 \\",
-      "  --grq-es ${local.grq_es_url} \\",
-      "  --metrics-es http://${module.common.metrics.private_ip}:9200 \\",
-      "  --repository snapshot-repository \\",
-      "  --policy-id daily-snapshot",
-      "fi",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    when = destroy
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
-    ]
-  }
 }
