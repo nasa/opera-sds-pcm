@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="opera_pcm",
-    version="3.1.6",
+    version="3.1.4",
     packages=find_packages(),
     install_requires=[
         "smart_open",
