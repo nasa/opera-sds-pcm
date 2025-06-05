@@ -1,6 +1,7 @@
 {
   "index_patterns": [
-    "job_status*"
+    "job_status*",
+    "job_failed"
   ],
   "template": {
       "mappings": {
