@@ -23,6 +23,7 @@ echo -n "Starting PGE integration smoke test for ${PGE_NAME}: " 2>&1
 date 2>&1
 
 echo "Working dir is ${WORKING_DIR}" 2>&1
+echo "User is $(id -u):$(id -g)"
 
 VERSION_TAG=$(docker images | grep opera_pge/${PGE_NAME} -m 1 | xargs sh -c 'echo $1') 2>&1
 STATUS=$?
