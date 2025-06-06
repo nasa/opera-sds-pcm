@@ -241,7 +241,7 @@ def main():
         logger.info(f"Found {len(objects)} objects with prefix {prefix}")
 
     settings = SettingsConf().cfg
-    release_version = settings["RELEASE_VERSION"]
+    release_version = settings["TROPO"]["PGE_RELEASE_VERSION"]
 
     # Submit jobs for each object
     for s3_key in all_objects:

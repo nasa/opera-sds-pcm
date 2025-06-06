@@ -232,6 +232,9 @@ TROPO:
   NUM_THREADS: 2
   # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
   MAX_MEMORY: 8GB
+  # TROPO PGE Release version
+  PGE_RELEASE_VERSION: 3.0.0-er.3.0-tropo
+
 
 
 # End PGE Configuration section
