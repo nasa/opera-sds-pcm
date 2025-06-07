@@ -37,7 +37,13 @@
       }
     ],
     "ism_template": {
-      "index_patterns": ["*-status.*"]
+      "index_patterns": [
+        "job_status*",
+        "worker_status*",
+        "task_status*",
+        "event_status*",
+        "job_accountability_catalog_*"
+      ]
     }
   }
 }
