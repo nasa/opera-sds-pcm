@@ -71,7 +71,7 @@ setup(
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
             "more-itertools==8.13.0",
-            "requests==2.27.1",
+            "requests==2.*",
             "validators",
             "cachetools==5.2.0",
             "geopandas",
@@ -104,7 +104,7 @@ setup(
             "Shapely",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
-            "requests==2.27.1",
+            "requests==2.*",
             "pytest==7.2.1",
             "pytest-mock>=3.8.2",
             "pytest-asyncio==0.20.3",
@@ -126,12 +126,13 @@ setup(
             "boto3-stubs[sns]",
             "elasticsearch==7.13.4",
             "elasticsearch-dsl==7.3.0",
-            "requests==2.27.1",
+            "requests==2.*",
             "backoff==1.11.1",
             "python-dotenv==0.20.0",
             "pytest-xdist==3.1.0",
             "pytest-xdist[psutil]",
-            "filelock==3.6.0"
+            "filelock==3.6.0",
+            "opensearch-py==2.8.*"
         ],
         "benchmark": [
             # The list of dependencies required for the benchmarking module
