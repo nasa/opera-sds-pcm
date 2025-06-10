@@ -116,6 +116,7 @@ def update_opera_packages():
         )
         run(f"chmod +x {hysds_dir}/bin/restore_snapshot.sh")
 
+
     if role == "grq":
         update_run_aws_es_sh()
 
@@ -249,16 +250,24 @@ def create_all_user_rules_index():
 
 @roles("mozart")
 def update_ilm_policy_mozart():
-    _, hysds_dir, _ = resolve_role()
+    role, hysds_dir, hostname = resolve_role()
+    context = get_context()
+    mozart_es_engine = context.get("MOZART_ES_ENGINE", "elasticsearch")
+
+    if role == "mozart":
+        if mozart_es_engine == "opensearch":
+            policy_file_name = "opensearch_ism_policy_mozart.json"
+        else:
+            policy_file_name = "es_ilm_policy_mozart.json"
 
     copy(
-        "~/.sds/files/es_ilm_policy_mozart.json",
-        f"{hysds_dir}/ops/grq2/config/es_ilm_policy_mozart.json"
+        "~/.sds/files/{policy_file_name}",
+        f"{hysds_dir}/ops/grq2/config/{policy_file_name}"
     )
     run(
         "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
         "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_mozart.json"
+        f"--json @{hysds_dir}/ops/grq2/config/{policy_file_name}"
     )
 
 
