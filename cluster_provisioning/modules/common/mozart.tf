@@ -573,6 +573,7 @@ resource "aws_instance" "mozart" {
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       source ~/.bash_profile
+      fab -f ~/.sds/cluster.py -R mozart update_ilm_policy_mozart
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
         sds -d update grq -f
