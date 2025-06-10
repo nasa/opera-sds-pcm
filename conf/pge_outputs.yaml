@@ -243,7 +243,7 @@ L4_TROPO:
     Secondary:
       # Patterns for parsing aux filenames, such as:
       # OPERA_L4_TROPO_20250411T173117.log
-      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})))?[.](?P<ext>log|catalog\.json|qa\.log)$'
+      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})))?[.](?P<ext>log|catalog\.json|qa\.log|iso\.xml)$'
         verify: false
     Optional: []
       # Pattern for optional output product filenames
