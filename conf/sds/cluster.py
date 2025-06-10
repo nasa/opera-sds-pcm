@@ -260,14 +260,20 @@ def update_ilm_policy_mozart():
         else:
             policy_file_name = "es_ilm_policy_mozart.json"
 
-    copy(
+    #copy(
+    #    f"~/.sds/files/{policy_file_name}",
+    #    f"{hysds_dir}/ops/grq2/config/{policy_file_name}"
+    #)
+    #run(
+    #    "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
+    #    "--fail-with-body "
+    #    f"--json @{hysds_dir}/ops/grq2/config/{policy_file_name}"
+    #)
+    rm_rf(f"~/.sds/files/{policy_file_name}")
+    send_template(
+        f"{policy_file_name}.tmpl",
         f"~/.sds/files/{policy_file_name}",
-        f"{hysds_dir}/ops/grq2/config/{policy_file_name}"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/{policy_file_name}"
+        "~/mozart/ops/opera-pcm/conf/sds/files",
     )
 
 
