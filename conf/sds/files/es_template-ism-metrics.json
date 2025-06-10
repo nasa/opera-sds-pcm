@@ -1,0 +1,17 @@
+{
+  "index_patterns": [
+    "mozart-logs-*",
+    "factotum-logs-*",
+    "grq-logs-*",
+    "sdswatch-*"
+  ],
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index": {
+        "refresh_interval": "5s"
+      }
+    }
+  },
+  "composed_of": []
+}

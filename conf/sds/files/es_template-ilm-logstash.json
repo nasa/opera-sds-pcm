@@ -1,0 +1,18 @@
+{
+  "index_patterns": [
+    "logstash-*",
+    "qa_reports_*"
+  ],
+  "template": {
+    "settings": {
+      "index": {
+        "refresh_interval": "5s",
+        "lifecycle": {
+          "name": "index-delete-policy"
+        }
+      }
+    }
+  },
+  "priority": 500,
+  "composed_of": []
+}
