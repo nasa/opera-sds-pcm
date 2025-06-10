@@ -16,12 +16,13 @@ PGE_NAME=$1
 S3_BUCKET=$2
 PGE_REPO_BRANCH=$3
 PGE_REPO_URL="https://github.com/nasa/opera-sds-pge.git"
-PGE_HOME=/home/ops/verdi/ops/opera-sds-pge
+PGE_HOME=$WORKING_DIR/opera-sds-pge
 
 echo "##########################################" 2>&1
 echo -n "Starting PGE integration smoke test for ${PGE_NAME}: " 2>&1
 date 2>&1
 
+echo "User is $(id -u):$(id -g)"
 echo "Working dir is ${WORKING_DIR}" 2>&1
 
 VERSION_TAG=$(docker images | grep opera_pge/${PGE_NAME} -m 1 | xargs sh -c 'echo $1') 2>&1
