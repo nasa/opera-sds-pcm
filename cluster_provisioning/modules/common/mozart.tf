@@ -417,7 +417,7 @@ resource "aws_instance" "mozart" {
       export PATH=$HOME/conda/bin:$PATH;
       conda-unpack;
       echo installing gdal for manual execution of daac_data_subscriber.py ;
-      conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet ;
+      conda install -y -c conda-forge conda gdal poppler --yes --quiet ;
 
       rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
       '
@@ -432,7 +432,7 @@ resource "aws_instance" "mozart" {
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         echo installing gdal for manual execution of daac_data_subscriber.py
-        conda install -y -c conda-forge conda gdal==3.6.4 poppler --yes --quiet
+        conda install -y -c conda-forge conda gdal poppler --yes --quiet
 
         rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
 
