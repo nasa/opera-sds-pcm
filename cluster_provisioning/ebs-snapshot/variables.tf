@@ -144,3 +144,6 @@ variable "artifactory_fn_user" {
 variable "artifactory_fn_api_key" {
   default = ""
 }
+
+variable "ssm_account_id" {
+}
