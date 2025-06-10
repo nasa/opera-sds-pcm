@@ -261,7 +261,7 @@ def update_ilm_policy_mozart():
             policy_file_name = "es_ilm_policy_mozart.json"
 
     copy(
-        "~/.sds/files/{policy_file_name}",
+        f"~/.sds/files/{policy_file_name}",
         f"{hysds_dir}/ops/grq2/config/{policy_file_name}"
     )
     run(
