@@ -10,8 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/rtc_s1:2.1.1",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.1.1.tar.gz",
+      "container_image_name": "opera_pge/rtc_s1:2.1.3",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.1.3.tar.gz",
       "container_mappings": {
         "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
         "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]

@@ -1606,7 +1606,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         slc_filename = metadata['FileName']
 
-        slc_regex = "(S1A|S1B)_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
+        slc_regex = "(S1[A-C])_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
 
         result = re.search(slc_regex, slc_filename)
 

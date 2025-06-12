@@ -1,5 +1,10 @@
 variable "project" {
   default = "opera"
+  type    = string
+  validation {
+    condition     = var.project == "opera"
+    error_message = "The project must be 'opera'."
+  }
 }
 
 variable "venue" {
@@ -13,6 +18,8 @@ variable "profile" {
 }
 
 variable "verdi_release" {
+  default = "v5.2.1.2"
+  type    = string 
 }
 
 variable "registry_release" {
@@ -31,11 +38,11 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-    "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1"
+    "cslc_s1"  = "2.1.3"
+    "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.4.0"
+    "dswx_ni"  = "4.0.0-er.3.0"
     "dist_s1"  = "6.0.0-er.3.0"
     "tropo"    = "3.0.0-er.3.0-tropo"
   }
@@ -121,6 +128,11 @@ variable "docker_pwd" {
   default = ""
 }
 
+variable "verdi_ami_version" {
+  type    = string
+  default = "v5.3"
+}
+
 variable "use_s3_uri_structure" {
   default = true
 }
@@ -131,4 +143,7 @@ variable "artifactory_fn_user" {
 
 variable "artifactory_fn_api_key" {
   default = ""
+}
+
+variable "ssm_account_id" {
 }
