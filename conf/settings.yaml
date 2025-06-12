@@ -41,8 +41,8 @@ DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
 DIST_S1_PRODUCT_VERSION: "0.1"
 
 # TROPO in R3.2
-TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENTIH_PROVISIONAL_V0"
-TROPO_PRODUCT_VERSION: "0.1"
+TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENITH_PROVISIONAL_V0"
+TROPO_PRODUCT_VERSION: "0.2"
 
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
@@ -231,7 +231,7 @@ TROPO:
   # Number of threads to allocate to the "threads_per_worker" field of the TROPO RunConfig
   NUM_THREADS: 2
   # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
-  MAX_MEMORY: 8192
+  MAX_MEMORY: 8GB
 
 
 # End PGE Configuration section
@@ -557,7 +557,8 @@ PRODUCT_TYPES:
 
     L4_TROPO:
         # Pattern for parsing filenames
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<spacing>\d+[.]\d+)_(?P<product_version>v\d+[.]\d+))?[.](?P<ext>nc|png)$'
+        #Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<spacing>\d+[.]\d+)_(?P<product_version>v\d+[.]\d+))?[.](?P<ext>nc|png)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)-ZENITH_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<product_version>v\d+[.]\d+))?[.](?P<ext>nc|png)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
