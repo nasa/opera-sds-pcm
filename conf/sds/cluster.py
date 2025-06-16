@@ -81,6 +81,34 @@ def test():
     run("whoami")
 
 
+def copy_opera_pcm():
+    role, hysds_dir, hostname = resolve_role()
+    if role == "factotum" or role == "mozart":
+        if role == "mozart":
+            hysds_dir = "verdi"
+
+        rm_rf("~/%s/ops/opera-pcm" % hysds_dir)
+        copy("~/mozart/ops/opera-pcm", "~/%s/ops/" % hysds_dir)
+
+        send_template(
+            "settings.yaml",
+            "%s/ops/opera-pcm/conf/settings.yaml" % hysds_dir,
+            "~/mozart/ops/opera-pcm/conf",
+        )
+
+    if role == "mozart":
+        hysds_dir = "verdi"
+        rm_rf("~/%s/ops/opera-pcm" % hysds_dir)
+        copy("~/mozart/ops/opera-pcm", "~/%s/ops/" % hysds_dir)
+
+
+def copy_pcm_commons():
+    role, hysds_dir, hostname = resolve_role()
+    if role == "factotum":
+        rm_rf("~/%s/ops/pcm_commons" % hysds_dir)
+        copy("~/mozart/ops/pcm_commons", "~/%s/ops/" % hysds_dir)
+
+
 def update_opera_packages():
     """Update verdi and factotum with OPERA packages."""
 
@@ -269,6 +297,7 @@ def update_ilm_policy_mozart():
     #    "--fail-with-body "
     #    f"--json @{hysds_dir}/ops/grq2/config/{policy_file_name}"
     #)
+
     rm_rf(f"~/.sds/files/{policy_file_name}")
     send_template(
         f"{policy_file_name}.tmpl",
