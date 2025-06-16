@@ -230,15 +230,49 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
         native_id = audit_data["native_id"]
         output_rtc_id_to_audit_data[native_id] = audit_data
 
+    # Build DataFrames from dictionaries
+    if not input_rtc_id_to_audit_data:
+        print("Warning: input_rtc_id_to_audit_data is empty.")
+        a = pd.DataFrame()
+    else:
+        a = pd.DataFrame.from_dict(input_rtc_id_to_audit_data, orient="index")
 
-    a = pd.DataFrame.from_dict(input_rtc_id_to_audit_data, orient="index")
-    b = pd.DataFrame.from_dict(output_rtc_id_to_audit_data, orient="index")
+    if not output_rtc_id_to_audit_data:
+        print("Warning: output_rtc_id_to_audit_data is empty.")
+        b = pd.DataFrame()
+    else:
+        b = pd.DataFrame.from_dict(output_rtc_id_to_audit_data, orient="index")
 
-    unused_rtc = set(b["native_id"]) - set(a["native_id"])
+    # Check before computing unused_rtc
+    if "native_id" in b.columns and "native_id" in a.columns:
+        unused_rtc = set(a["native_id"]) - set(b["native_id"])
+    elif "native_id" in a.columns:
+        # b is missing 'native_id', so treat it as an empty set
+        unused_rtc = set(a["native_id"])
+        print("'native_id' column missing in output_rtc_id_to_audit_data")
+    elif "native_id" in b.columns:
+        # a is missing 'native_id', so all of b is unused
+        unused_rtc = set()
+        print("'native_id' column missing in input_rtc_id_to_audit_data")
+    else:
+        # Neither has 'native_id' — define unused_rtc as empty set
+        unused_rtc = set()
+        print("'native_id' column missing in both input and output audit data")
 
-    logger.info(f"Expected input (granules) (RTC): {len(set(a['native_id']))=:,}")
-    logger.info(f"Fully published (granules) (RTC): {len(set(b['native_id']))=:,}")
-    logger.info(f"Missing processed RTC (granules): {len(unused_rtc)=:,}")
+    if a.empty or "native_id" not in a.columns:
+        logger.info(f"Expected input (granules) (RTC): 0 (RTC-S1 is empty or missing 'native_id' column)")
+    else:
+        logger.info(f"Expected input (granules) (RTC): {len(set(a['native_id']))=:,}")
+
+    if b.empty or "native_id" not in b.columns:
+        logger.info("Fully published (granules) (RTC): 0 (DSWX-S1 is empty or missing 'native_id' column)")
+    else:
+        logger.info(f"Fully published (granules) (RTC): {len(set(b['native_id']))=:,}")
+
+    if not unused_rtc:
+        logger.info(f"Missing processed RTC (granules): 0")
+    else:
+        logger.info(f"Missing processed RTC (granules): {len(unused_rtc)=:,}")
 
     now = datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")

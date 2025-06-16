@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 from typing import Any
-from warnings import deprecated
+from deprecated import deprecated
 
 import rtc_utils
 from commons.logger import get_logger
