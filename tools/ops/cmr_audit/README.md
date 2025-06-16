@@ -39,6 +39,12 @@ python ~/mozart/ops/opera-pcm/tools/ops/data_subscriber/data_subscriber_client.p
 ```
 The output file from above command can be used to submit DSWx-S1 jobs to recover missing DSWx-S1 granules.
 
+Each line represents a single `daac_data_subscriber.py` command to create the missing product. 
+
+The first line item will translate to the following command
+```bash
+python3 ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py query -c OPERA_L2_RTC-S1_V1   --job-queue=opera-job_worker-rtc_data_download  --chunk-size 1 --native-id=OPERA_L2_RTC-S1_T048-101760-IW3_20250519T235845Z_20250520T050410Z_S1A_30_v1.0
+```
 
 
 
