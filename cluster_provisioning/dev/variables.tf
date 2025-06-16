@@ -17,7 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
-  default = "v5.0.1"
+  default = "v5.4.3"
 }
 
 variable "pcm_repo" {
@@ -33,7 +33,7 @@ variable "pcm_commons_repo" {
 }
 
 variable "pcm_commons_branch" {
-  default = "3.0.0-rc.5.0"
+  default = "develop"
 }
 
 variable "product_delivery_repo" {
@@ -322,6 +322,9 @@ variable "private_asg_vpc" {
 variable "aws_account_id" {
 }
 
+variable "ssm_account_id" {
+}
+
 variable "lambda_package_release" {
   default = "develop"
 }
@@ -358,20 +361,20 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20231023-2.1.0"
+  default = "20250514-3.1.6"
 }
 
 variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-    "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1"
+    "cslc_s1"  = "2.1.3"
+    "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
+    "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-er.3.0"
-    "tropo"    = "3.0.0-er.1.0-tropo"
+    "tropo"    = "3.0.0-er.3.0-tropo"
   }
 }
 
@@ -477,12 +480,6 @@ variable "earthdata_uat_pass" {
 variable "disp_s1_hist_status" {
   type    = bool
   default = false
-}
-
-variable "amis" {
-  type = map(string)
-  default = {
-  }
 }
 
 variable "cnm_r_sqs_arn" {

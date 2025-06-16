@@ -128,10 +128,6 @@ variable "purge_es_snapshot" {
   default = true
 }
 
-# ami vars
-variable "amis" {
-}
-
 variable "mozart" {
 }
 
@@ -219,6 +215,9 @@ variable "private_asg_vpc" {
 }
 
 variable "aws_account_id" {
+}
+
+variable "ssm_account_id" {
 }
 
 variable "lambda_cnm_r_handler_package_name" {
@@ -687,9 +686,6 @@ variable "use_daac_cnm_r" {
 }
 
 variable "cnm_r_sqs_arn" {
-  type = map(string)
-  default = {
-  }
 }
 
 variable "lambda_log_retention_in_days" {
@@ -701,12 +697,13 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-    "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1"
+    "cslc_s1"  = "2.1.3"
+    "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
+    "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-er.3.0"
+    "tropo"    = "3.0.0-er.1.0-tropo"
   }
 }
 
@@ -747,6 +744,10 @@ variable "slc_download_timer_trigger_frequency" {
 }
 
 variable "slcs1a_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "slcs1c_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
@@ -883,6 +884,27 @@ variable "asf_cnm_s_id_test" {
 }
 
 variable "asf_cnm_s_id_prod" {
+}
+
+variable "ami_versions" {
+  type = map(string)
+  default = {}
+}
+
+variable "default_ami_versions" {
+  type = map(string)
+  default = {
+    mozart    = "v5.3"
+    metrics   = "v5.3"
+    grq       = "v5.2"
+    factotum  = "v5.3"
+    autoscale = "v5.3"
+  }
+}
+
+variable "es_cluster_mode" {
+  type    = bool
+  default = false
 }
 
 variable "disp_s1_hist_status" {

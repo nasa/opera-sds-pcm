@@ -1,0 +1,203 @@
+{
+  "version": "7.10.2",
+  "objects": [
+    {
+      "id": "482537f0-7d4b-11eb-9963-0336cf2a3b43",
+      "type": "dashboard",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:17.673Z",
+      "version": "Wzg2LDFd",
+      "attributes": {
+        "title": "Minimal OPS UI",
+        "hits": 0,
+        "description": "Minimal example of an OPS UI",
+        "panelsJSON": "[{\"embeddableConfig\":{},\"gridData\":{\"x\":0,\"y\":0,\"w\":48,\"h\":17,\"i\":\"1\"},\"panelIndex\":\"1\",\"version\":\"7.3.0\",\"panelRefName\":\"panel_0\"},{\"embeddableConfig\":{},\"gridData\":{\"x\":0,\"y\":17,\"w\":48,\"h\":24,\"i\":\"2\"},\"panelIndex\":\"2\",\"version\":\"7.3.0\",\"panelRefName\":\"panel_1\"}]",
+        "optionsJSON": "{\"hidePanelTitles\":false,\"useMargins\":true}",
+        "version": 1,
+        "timeRestore": false,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[]}"
+        }
+      },
+      "references": [
+        {
+          "name": "panel_0",
+          "type": "visualization",
+          "id": "a4ef7320-7d4a-11eb-9963-0336cf2a3b43"
+        },
+        {
+          "name": "panel_1",
+          "type": "visualization",
+          "id": "0ccef100-7d4b-11eb-9963-0336cf2a3b43"
+        }
+      ],
+      "migrationVersion": {
+        "dashboard": "7.9.3"
+      }
+    },
+    {
+      "id": "a4ef7320-7d4a-11eb-9963-0336cf2a3b43",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:17.673Z",
+      "version": "Wzg3LDFd",
+      "attributes": {
+        "title": "Systemd Service Status",
+        "visState": "{\"title\":\"Systemd Service Status\",\"type\":\"table\",\"params\":{\"perPage\":100,\"showPartialRows\":false,\"showMetricsAtAllLevels\":false,\"sort\":{\"columnIndex\":null,\"direction\":null},\"showTotal\":false,\"totalFunc\":\"sum\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"sdswatch_timestamp\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"sdswatch_timestamp\",\"sortOrder\":\"desc\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"systemd.ActiveState.keyword\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"sdswatch_timestamp\",\"sortOrder\":\"desc\"}},{\"id\":\"6\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"systemd.SubState.keyword\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"sdswatch_timestamp\",\"sortOrder\":\"desc\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"systemd.ActiveStateTimestamp.keyword\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"sdswatch_timestamp\",\"sortOrder\":\"desc\"}},{\"id\":\"4\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"host.keyword\",\"size\":1000,\"order\":\"desc\",\"orderBy\":\"_key\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}},{\"id\":\"5\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"systemd.service.keyword\",\"size\":1000,\"order\":\"desc\",\"orderBy\":\"_key\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}}]}",
+        "uiStateJSON": "{\"vis\":{\"params\":{\"sort\":{\"columnIndex\":null,\"direction\":null}}}}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"language\":\"kuery\",\"query\":\"\"},\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "name": "search_0",
+          "type": "search",
+          "id": "2089dd50-7d4a-11eb-9963-0336cf2a3b43"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "0ccef100-7d4b-11eb-9963-0336cf2a3b43",
+      "type": "visualization",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:17.673Z",
+      "version": "Wzg4LDFd",
+      "attributes": {
+        "title": "Supervisord Service Status",
+        "visState": "{\"title\":\"Supervisord Service Status\",\"type\":\"table\",\"params\":{\"perPage\":100,\"showPartialRows\":false,\"showMetricsAtAllLevels\":false,\"sort\":{\"columnIndex\":null,\"direction\":null},\"showTotal\":false,\"totalFunc\":\"sum\"},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"sdswatch_timestamp\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"sdswatch_timestamp\",\"sortOrder\":\"desc\"}},{\"id\":\"2\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"host.keyword\",\"size\":1000,\"order\":\"desc\",\"orderBy\":\"_key\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"bucket\",\"params\":{\"field\":\"supervisord.service.keyword\",\"size\":1000,\"order\":\"desc\",\"orderBy\":\"_key\",\"otherBucket\":false,\"otherBucketLabel\":\"Other\",\"missingBucket\":false,\"missingBucketLabel\":\"Missing\"}},{\"id\":\"4\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"supervisord.status.keyword\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"sdswatch_timestamp\",\"sortOrder\":\"desc\"}},{\"id\":\"5\",\"enabled\":true,\"type\":\"top_hits\",\"schema\":\"metric\",\"params\":{\"field\":\"supervisord.uptime.keyword\",\"aggregate\":\"concat\",\"size\":1,\"sortField\":\"@timestamp\",\"sortOrder\":\"desc\"}}]}",
+        "uiStateJSON": "{\"vis\":{\"params\":{\"sort\":{\"columnIndex\":null,\"direction\":null}}}}",
+        "description": "",
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[]}"
+        },
+        "savedSearchRefName": "search_0"
+      },
+      "references": [
+        {
+          "name": "search_0",
+          "type": "search",
+          "id": "2ea8d300-7d4a-11eb-9963-0336cf2a3b43"
+        }
+      ],
+      "migrationVersion": {
+        "visualization": "7.10.0"
+      }
+    },
+    {
+      "id": "2089dd50-7d4a-11eb-9963-0336cf2a3b43",
+      "type": "search",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:17.673Z",
+      "version": "Wzg5LDFd",
+      "attributes": {
+        "title": "Search: systemd",
+        "description": "",
+        "hits": 0,
+        "columns": [
+          "_source"
+        ],
+        "sort": [
+          [
+            "@timestamp",
+            "desc"
+          ]
+        ],
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"highlightAll\":true,\"version\":true,\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[{\"meta\":{\"negate\":false,\"type\":\"phrase\",\"key\":\"source_type\",\"value\":\"systemd\",\"params\":{\"query\":\"systemd\"},\"disabled\":false,\"alias\":null,\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"},\"query\":{\"match\":{\"source_type\":{\"query\":\"systemd\",\"type\":\"phrase\"}}},\"$state\":{\"store\":\"appState\"}}],\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "684cf7c0-7d37-11eb-9ca4-d9758905c91a"
+        },
+        {
+          "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+          "type": "index-pattern",
+          "id": "684cf7c0-7d37-11eb-9ca4-d9758905c91a"
+        }
+      ],
+      "migrationVersion": {
+        "search": "7.9.3"
+      }
+    },
+    {
+      "id": "2ea8d300-7d4a-11eb-9963-0336cf2a3b43",
+      "type": "search",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:17.673Z",
+      "version": "WzkwLDFd",
+      "attributes": {
+        "title": "Search: supervisord",
+        "description": "",
+        "hits": 0,
+        "columns": [
+          "_source"
+        ],
+        "sort": [
+          [
+            "@timestamp",
+            "desc"
+          ]
+        ],
+        "version": 1,
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": "{\"highlightAll\":true,\"version\":true,\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[{\"meta\":{\"negate\":false,\"type\":\"phrase\",\"key\":\"source_type\",\"value\":\"supervisord\",\"params\":{\"query\":\"supervisord\"},\"disabled\":false,\"alias\":null,\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index\"},\"query\":{\"match\":{\"source_type\":{\"query\":\"supervisord\",\"type\":\"phrase\"}}},\"$state\":{\"store\":\"appState\"}}],\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.index\"}"
+        }
+      },
+      "references": [
+        {
+          "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+          "type": "index-pattern",
+          "id": "684cf7c0-7d37-11eb-9ca4-d9758905c91a"
+        },
+        {
+          "name": "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index",
+          "type": "index-pattern",
+          "id": "684cf7c0-7d37-11eb-9ca4-d9758905c91a"
+        }
+      ],
+      "migrationVersion": {
+        "search": "7.9.3"
+      }
+    },
+    {
+      "id": "684cf7c0-7d37-11eb-9ca4-d9758905c91a",
+      "type": "index-pattern",
+      "namespaces": [
+        "default"
+      ],
+      "updated_at": "2023-03-23T01:25:17.673Z",
+      "version": "WzkxLDFd",
+      "attributes": {
+        "title": "sdswatch-*",
+        "timeFieldName": "@timestamp",
+        "fields": "[{\"name\":\"@index\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"@index.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"@timestamp\",\"type\":\"date\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"@version\",\"type\":\"number\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"_id\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"name\":\"_index\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"name\":\"_score\",\"type\":\"number\",\"count\":0,\"scripted\":false,\"searchable\":false,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"_source\",\"type\":\"_source\",\"count\":0,\"scripted\":false,\"searchable\":false,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"_type\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":false},{\"name\":\"host\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"host.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"log_path\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"log_path.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"message\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"message.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"sdswatch_timestamp\",\"type\":\"date\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"source_id\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"source_id.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"source_type\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"source_type.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"supervisord.pid\",\"type\":\"number\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"supervisord.service\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"supervisord.service.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"supervisord.status\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"supervisord.status.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"supervisord.uptime\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"supervisord.uptime.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"systemd.ActiveState\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"systemd.ActiveState.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"systemd.ActiveStateTimestamp\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"systemd.ActiveStateTimestamp.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"systemd.SubState\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"systemd.SubState.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"systemd.WatchdogTimestamp\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"systemd.WatchdogTimestamp.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true},{\"name\":\"systemd.service\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":false,\"readFromDocValues\":false},{\"name\":\"systemd.service.keyword\",\"type\":\"string\",\"count\":0,\"scripted\":false,\"searchable\":true,\"aggregatable\":true,\"readFromDocValues\":true}]"
+      },
+      "references": [],
+      "migrationVersion": {
+        "index-pattern": "7.6.0"
+      }
+    }
+  ]
+}

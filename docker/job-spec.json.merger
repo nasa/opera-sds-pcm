@@ -1,5 +1,5 @@
 {
-  "command": " /home/ops/verdi/ops/opera-pcm/ecmwf-api-client/run_merger.sh", 
+  "command": "/home/ops/verdi/ops/opera-pcm/ecmwf-api-client/run_merger.sh",
   "recommended-queues": [ "opera-job_worker-ecmwf-merger" ],
   "params": [
     {
@@ -24,6 +24,6 @@
     }
   ],
   "disk_usage": "600GB",
-  "soft_time_limit": 42600,
-  "time_limit": 43200
+  "soft_time_limit": 12600,
+  "time_limit": 13200
 }

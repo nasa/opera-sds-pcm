@@ -2,8 +2,8 @@
   "command": "/home/ops/verdi/ops/opera-pcm/tools/send_notify_msg.sh",
   "disk_usage":"10GB",
   "imported_worker_files": {
-    "$HOME/.netrc": "/home/ops/.netrc",
-    "$HOME/.aws": "/home/ops/.aws"
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws"
   },
   "post": [ "hysds.triage.triage" ],
   "soft_time_limit": 900,

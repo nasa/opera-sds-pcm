@@ -9,34 +9,95 @@ locals {
   key_name = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
 }
 
-resource "aws_instance" "verdi" {
-  depends_on           = [aws_ebs_volume.verdi_docker]
-  ami                  = var.verdi["ami"]
-  instance_type        = var.verdi["instance_type"]
-  key_name             = local.key_name
-  availability_zone    = var.az
-  iam_instance_profile = var.pcm_verdi_role["name"]
-  private_ip           = var.verdi["private_ip"] != "" ? var.verdi["private_ip"] : null
-  tags = {
-    Name  = "${var.project}-${var.venue}-pcm-${var.verdi["name"]}-standalone",
-    Bravo = "pcm"
-  }
-  volume_tags = {
-    Bravo = "pcm"
-  }
-  #This is very important, as it tells terraform to not mess with tags
-  lifecycle {
-    ignore_changes = [tags]
-  }
-  subnet_id              = var.subnet_id
-  vpc_security_group_ids = [var.public_verdi_security_group_id]
 
-  ebs_block_device {
-    device_name           = var.verdi["device_name"]
-    volume_size           = var.verdi["device_size"]
-    delete_on_termination = true
+resource "aws_launch_template" "verdi" {
+  name_prefix   = "${var.project}-${var.venue}-pcm-verdi-"
+  image_id      = "resolve:ssm:arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${var.verdi_ami_version}"
+  instance_type = var.verdi["instance_type"]
+  key_name      = local.key_name
+
+  iam_instance_profile {
+    name = var.pcm_verdi_role["name"]
+  }
+
+  network_interfaces {
+    associate_public_ip_address = false
+    subnet_id                   = var.subnet_id
+    security_groups             = [var.public_verdi_security_group_id]
+  }
+
+  block_device_mappings {
+    device_name = var.verdi["device_name"]
+    ebs {
+      volume_size           = var.verdi["device_size"]
+      delete_on_termination = true
+    }
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name  = "${var.project}-${var.venue}-pcm-${var.verdi["name"]}-standalone"
+      Bravo = "pcm"
+    }
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = {
+      Bravo = "pcm"
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [tag_specifications]
   }
 }
+
+resource "aws_instance" "verdi" {
+#  count      = local.verdi_release_is_develop || !local.snapshot_exists ? 1 : 0
+  depends_on = [aws_ebs_volume.verdi_docker]
+  launch_template {
+    id      = aws_launch_template.verdi.id
+    version = "$Latest"
+  }
+  availability_zone = var.az
+  private_ip        = var.verdi["private_ip"] != "" ? var.verdi["private_ip"] : null
+
+  #This is very important, as it tells terraform to not mess with tags
+  lifecycle {
+    ignore_changes = [tags, volume_tags]
+  }
+}
+
+#resource "aws_instance" "verdi" {
+#  depends_on           = [aws_ebs_volume.verdi_docker]
+#  ami                  = data.aws_ami.verdi_ami.id
+#  instance_type        = var.verdi["instance_type"]
+#  key_name             = local.key_name
+#  availability_zone    = var.az
+#  iam_instance_profile = var.pcm_verdi_role["name"]
+#  private_ip           = var.verdi["private_ip"] != "" ? var.verdi["private_ip"] : null
+#  tags = {
+#    Name  = "${var.project}-${var.venue}-pcm-${var.verdi["name"]}-standalone",
+#    Bravo = "pcm"
+#  }
+#  volume_tags = {
+#    Bravo = "pcm"
+#  }
+#  #This is very important, as it tells terraform to not mess with tags
+#  lifecycle {
+#    ignore_changes = [tags]
+#  }
+#  subnet_id              = var.subnet_id
+#  vpc_security_group_ids = [var.public_verdi_security_group_id]
+#
+#  ebs_block_device {
+#    device_name           = var.verdi["device_name"]
+#    volume_size           = var.verdi["device_size"]
+#    delete_on_termination = true
+#  }
+#}
 
 # Create EBS volume
 resource "aws_ebs_volume" "verdi_docker" {
@@ -89,9 +150,9 @@ resource "aws_volume_attachment" "volume_attachment" {
       "  wget https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/${var.verdi_release}/hysds-mozart_venv-${var.verdi_release}.tar.gz!/mozart/pkgs/hysds-verdi-${var.verdi_release}.tar.gz",
       "  docker load < hysds-verdi-${var.verdi_release}.tar.gz",
       "  rm hysds-verdi-${var.verdi_release}.tar.gz",
-      "  curl -O \"https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/logstash/${var.logstash_release}/logstash-${var.logstash_release}.tar.gz\"",
-      "  docker load < logstash-${var.logstash_release}.tar.gz",
-      "  rm logstash-${var.logstash_release}.tar.gz",
+      "  curl -O \"https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/logstash/${var.logstash_release}/logstash-oss-${var.logstash_release}.tar.gz\"",
+      "  docker load < logstash-oss-${var.logstash_release}.tar.gz",
+      "  rm logstash-oss-${var.logstash_release}.tar.gz",
       "  curl -O \"https://cae-artifactory.jpl.nasa.gov/artifactory/${var.artifactory_repo}/gov/nasa/jpl/iems/sds/pcm/docker-registry/${var.registry_release}/docker-registry-${var.registry_release}.tar.gz\"",
       "  docker load < docker-registry-${var.registry_release}.tar.gz",
       "  rm docker-registry-${var.registry_release}.tar.gz",

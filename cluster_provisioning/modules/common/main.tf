@@ -36,6 +36,7 @@ locals {
   hlss30_query_job_type            = "hlss30_query"
   batch_query_job_type             = "batch_query"
   slcs1a_query_job_type            = "slcs1a_query"
+  slcs1c_query_job_type            = "slcs1c_query"
   slc_ionosphere_download_job_type = "slc_download_ionosphere"
   rtc_query_job_type               = "rtc_query"
   rtc_for_dist_query_job_type      = "rtc_for_dist_query"
@@ -62,12 +63,16 @@ locals {
   enable_download_timer       = false
 
   delete_old_job_catalog      = true
-  amis                        = var.amis
   asf_cnm_s_id_dev            = var.asf_cnm_s_id_dev
   asf_cnm_s_id_dev_int        = var.asf_cnm_s_id_dev_int
   asf_cnm_s_id_test           = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod           = var.asf_cnm_s_id_prod
+
+  ami_versions = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
+  # resolve:ssm:arn:aws:ssm:us-west-2:${var.ssm_account_id}:parameter/iems/pcm/verdi/v5.3
+  verdi_ssm_arn               = "resolve:ssm:arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
 }
+
 resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_cnm_r_handler_package_name}-${var.lambda_package_release}.zip"
@@ -259,7 +264,7 @@ resource "aws_lambda_function" "harikiri_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-harikiri-autoscaling"
   role          = var.lambda_role_arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.8"
+  runtime       = "python3.9"
   timeout       = 600
 }
 
@@ -314,8 +319,8 @@ resource "null_resource" "destroy_es_snapshots" {
       "  aws s3 rm --recursive s3://${self.triggers.es_snapshot_bucket}/${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}",
       "  if [ \"${self.triggers.grq_aws_es}\" = true ]; then",
       "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-lifecycle --policy-id hourly-snapshot",
-      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-all-snapshots --repository snapshot-repository",
-      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-repository --repository snapshot-repository",
+      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-all-snapshots --repository grq-snapshot-repo",
+      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-repository --repository grq-snapshot-repo",
       "  fi",
       "fi"
     ]
@@ -384,7 +389,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -409,7 +414,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.8"
+  runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
@@ -516,6 +521,75 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
   }
   filter {
     name   = "tag:Logstash"
-    values = ["7.9.3"]
+    values = ["7.16.3"]
+  }
+}
+
+
+#####################################
+# Fetch the latest AMIs
+#####################################
+data "aws_ami" "mozart_ami" {
+  most_recent = true
+  owners = ["${var.ssm_account_id}"]
+
+  filter {
+    name = "name"
+    # TODO: undo this kludge once hostname resolution issue in AMI is resolved
+    values = ["OL8 All-project mozart ${local.ami_versions["mozart"]} *"]
+    # values = ["OL8 All-project mozart v4.24 - 230919"]  # elasticsearch
+    # values = ["OL8 All-project mozart v5.3 - 231026"]  # opensearch
+  }
+}
+
+data "aws_ami" "metrics_ami" {
+  most_recent = true
+  owners = ["${var.ssm_account_id}"]
+
+  filter {
+    name = "name"
+    # TODO: undo this kludge once hostname resolution issue in AMI is resolved
+    values = ["OL8 All-project metrics ${local.ami_versions["metrics"]} *"]
+    # values = ["OL8 All-project metrics v4.16 - 230829"]  # elasticsearch
+    # values = ["OL8 All-project metrics v5.3 - 231027"]  # opensearch
+  }
+}
+
+data "aws_ami" "grq_ami" {
+  most_recent = true
+  owners = ["${var.ssm_account_id}"]
+
+  filter {
+    name = "name"
+    # TODO: undo this kludge once hostname resolution issue in AMI is resolved
+    values = ["OL8 All-project grq ${local.ami_versions["grq"]} *"]
+    # values = ["OL8 All-project grq v4.17 - 230829"]  # elasticsearch
+    # values = ["OL8 All-project grq v5.2 - 231027"]  # opensearch
+  }
+}
+
+data "aws_ami" "factotum_ami" {
+  most_recent = true
+  owners = ["${var.ssm_account_id}"]
+
+  filter {
+    name = "name"
+    # TODO: undo this kludge once hostname resolution issue in AMI is resolved
+    values = ["OL8 All-project factotum ${local.ami_versions["factotum"]} *"]
+    # values = ["OL8 All-project factotum v4.16 - 230816"]  # elasticsearch
+    # values = ["OL8 All-project factotum v5.3 - 231025"]  # opensearch
+  }
+}
+
+data "aws_ami" "autoscale_ami" {
+  most_recent = true
+  owners = ["${var.ssm_account_id}"]
+
+  filter {
+    name = "name"
+    # TODO: undo this kludge once hostname resolution issue in AMI is resolved
+    values = ["OL8 All-project verdi ${local.ami_versions["autoscale"]} *"]
+    # values = ["OL8 All-project verdi v4.16 patchdate - 230816"]  # elasticsearch
+    # values = ["OL8 All-project verdi v5.3 patchdate - 231027"]  # opensearch
   }
 }

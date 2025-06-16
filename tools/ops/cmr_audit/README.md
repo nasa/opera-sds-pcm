@@ -8,6 +8,46 @@ See the README one level above for instructions on how to set up the environment
 
 ## Running
 
+### DSWx-S1 CMR Audit
+
+```bash
+python cmr_audit_dswx_s1.py  --start-datetime 2025-05-19T23:30:00Z --end-datetime 2025-05-20T00:00:00Z
+```
+
+For any missing products, an output file is generated and its name looks like the following
+```missing_granules_RTC-DSWx_20250519-233000ZZ_20250520-000000ZZ_20250616-175805Z.txt``` 
+
+A list of RTC-S1 granules will be included in the report (e.g., missing*.txt) as shown below. 
+
+```bash
+% more missing_granules_RTC-DSWx_20250519-233000ZZ_20250520-000000ZZ_20250616-175805Z.txt 
+OPERA_L2_RTC-S1_T048-101760-IW3_20250519T235845Z_20250520T050410Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101188-IW2_20250519T233227Z_20250520T055956Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101156-IW2_20250519T233058Z_20250520T110037Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101150-IW3_20250519T233043Z_20250520T110054Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101160-IW1_20250519T233108Z_20250520T110037Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101178-IW2_20250519T233159Z_20250520T065935Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101139-IW2_20250519T233011Z_20250520T070714Z_S1A_30_v1.0
+OPERA_L2_RTC-S1_T048-101165-IW3_20250519T233124Z_20250520T070105Z_S1A_30_v1.0
+```
+
+The file above lists all RTC-S1 granules but does not indicate which MGRS tile collection sets are used for each granule.
+
+To find a granule for a given tile collection set, use the following command:
+```bash
+python ~/mozart/ops/opera-pcm/tools/ops/data_subscriber/data_subscriber_client.py --rtc-native-ids-file missing_granules_RTC-DSWx_20250519-233000ZZ_20250520-000000ZZ_20250616-175805Z.txt  --output native_id_per_tilecollectionsets_RTC-DSWx_20250519-233000ZZ_20250520-000000ZZ_20250616-175805Z.txt
+```
+The output file from above command can be used to submit DSWx-S1 jobs to recover missing DSWx-S1 granules.
+
+Each line represents a single `daac_data_subscriber.py` command to create the missing product. 
+
+The first line item will translate to the following command
+```bash
+python3 ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py query -c OPERA_L2_RTC-S1_V1   --job-queue=opera-job_worker-rtc_data_download  --chunk-size 1 --native-id=OPERA_L2_RTC-S1_T048-101760-IW3_20250519T235845Z_20250520T050410Z_S1A_30_v1.0
+```
+
+
+
 ### DISP-S1 CMR Audit
 
 DISP-S1 CMR Audit generally works in the same way as other CMR Audit tools with DISP-S1-specific parameters. 

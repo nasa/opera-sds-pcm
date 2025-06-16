@@ -321,6 +321,10 @@ variable "private_asg_vpc" {
 variable "aws_account_id" {
 }
 
+variable "ssm_account_id" {
+
+}
+
 variable "lambda_package_release" {
   default = "develop"
 }
@@ -364,13 +368,13 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-    "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1"
+    "cslc_s1"  = "2.1.3"
+    "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
+    "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-er.3.0"
-    "tropo"    = "3.0.0-er.1.0-tropo"
+    "tropo"    = "3.0.0-er.3.0-tropo"
   }
 }
 
@@ -488,9 +492,6 @@ variable "earthdata_uat_user" {
 }
 
 variable "earthdata_uat_pass" {
-}
-
-variable "amis" {
 }
 
 variable "cnm_r_sqs_arn" {

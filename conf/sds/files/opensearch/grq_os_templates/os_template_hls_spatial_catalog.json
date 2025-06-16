@@ -1,0 +1,21 @@
+{
+  "index_patterns": ["hls_spatial_catalog", "hls_spatial_catalog-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "bounding_box"       : {"type": "geo_point"},
+        "short_name"         : {"type": "keyword" },
+        "product_id"         : {"type": "keyword" },
+        "production_datetime": {"type": "date"    },
+        "creation_timestamp" : {"type": "date"    }
+      }
+    },
+    "aliases": {
+      "catalog_alias": {},
+      "hls_spatial_catalog_alias": {}
+    }
+  }
+}

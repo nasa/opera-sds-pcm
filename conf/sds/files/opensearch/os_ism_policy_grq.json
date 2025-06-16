@@ -1,0 +1,53 @@
+{
+  "policy": {
+    "description": "Rolling Mozart indices from hot -> warm -> cold -> delete",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "warm",
+            "conditions": {
+              "min_index_age": "2d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "90d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ]
+      }
+    ],
+    "ism_template": {
+      "index_patterns": [
+        "cslc_catalog", "cslc_catalog-*",
+        "hls_spatial_catalog", "hls_spatial_catalog-*",
+        "hls_catalog", "hls_catalog-*",
+        "jobs_accountability_catalog", "jobs_accountability_catalog-*",
+        "k_cslc_catalog", "k_cslc_catalog-*",
+        "rtc_catalog", "rtc_catalog-*",
+        "slc_catalog", "slc_catalog-*",
+        "slc_spatial_catalog", "slc_spatial_catalog-*"
+      ],
+      "priority": 1
+    }
+  }
+}

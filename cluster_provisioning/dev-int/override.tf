@@ -46,19 +46,6 @@ variable "cluster_type" {
 }
 
 ###### Security  ########
-variable "public_verdi_security_group_id" {
-}
-
-variable "private_verdi_security_group_id" {
-}
-
-variable "cluster_security_group_id" {
-}
-
-variable "private_key_file" {
-  default = ""
-}
-
 variable "keypair_name" {
   #default = "operasds-int-cluster-1"
   default = ""
@@ -115,7 +102,6 @@ variable "artifactory_repo" {
   default = "general-develop"
 }
 
-####### CNM Response job vars #######
 variable "use_daac_cnm_r" {
   default = false
 }
@@ -133,42 +119,42 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.3"
-    "cslc_s1"  = "2.1.1"
-    "rtc_s1"   = "2.1.1"
+    "cslc_s1"  = "2.1.3"
+    "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.2"
     "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.1.0"
-    "tropo"    = "3.0.0-er.1.0-tropo"
+    "dswx_ni"  = "4.0.0-er.4.0"
+    "tropo"    = "3.0.0-er.3.0-tropo"
+    "dist_s1"  = "6.0.0-er.3.0"
   }
 }
 
 variable "hysds_release" {
-  default = "v5.0.1"
+  default = "v5.4.3"
 }
 
 variable "lambda_package_release" {
-  default = "3.1.6"
+  default = "3.2.0-rc.2.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "3.1.6"
+  default = "3.2.0-rc.2.0"
 }
 
 variable "pcm_branch" {
-  default = "3.1.6"
+  default = "3.2.0-rc.2.0"
 }
 
 variable "product_delivery_branch" {
-  default = "3.1.6"
+  default = "3.2.0-rc.2.0"
 }
 
 variable "bach_api_branch" {
-  default = "3.1.6"
+  default = "3.2.0-rc.2.0"
 }
 
 variable "bach_ui_branch" {
-  default = "3.1.6"
+  default = "3.2.0-rc.2.0"
 }
 
 ###### Roles ########

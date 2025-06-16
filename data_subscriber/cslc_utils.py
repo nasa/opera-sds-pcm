@@ -9,6 +9,7 @@ import backoff
 import boto3
 import dateutil
 import elasticsearch
+import opensearchpy
 
 from commons.logger import get_logger
 from util import datasets_json_util
@@ -19,6 +20,8 @@ DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
+
+settings = SettingsConf().cfg
 
 class _HistBursts(object):
     def __init__(self):
@@ -304,18 +307,22 @@ def get_pending_download_jobs(es):
                 }
             }
         )
-    except elasticsearch.exceptions.NotFoundError as e:
+    except (elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError) as e:
         return []
 
     return result
 
 def mark_pending_download_job_submitted(es, doc_id, download_job_id):
+    doc = {"submitted": True, "submitted_job_id": download_job_id}
+    body = {
+        "doc_as_upsert": True,
+        "doc": doc
+    }
+
     return es.update_document(
         index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
         id = doc_id,
-        body={ "doc_as_upsert": True,
-                "doc": {"submitted": True, "submitted_job_id": download_job_id}
-        }
+        body=body
     )
 
 def parse_cslc_burst_id(native_id):

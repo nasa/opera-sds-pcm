@@ -1,0 +1,452 @@
+{
+  "datasets": [
+    {
+      "ipath": "ariamh::data/area_of_interest",
+      "match_pattern": "/(?P<id>AOI_.+)$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "level": "L0",
+      "type": "area_of_interest",
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/browse/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/triaged_job",
+      "level": "NA",
+      "type": "triaged_job",
+      "match_pattern": "/(?P<id>triaged_job-.*)$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ TRIAGE_BUCKET }}/{id}",
+        "urls": [
+          "http://{{ TRIAGE_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ TRIAGE_BUCKET }}/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ TRIAGE_BUCKET }}/browse/{id}",
+        "urls": [
+          "http://{{ TRIAGE_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ TRIAGE_BUCKET }}/browse/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/on_demand",
+      "level": "NA",
+      "type": "generic",
+      "match_pattern": "/(?P<id>ON_DEMAND-.*)$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/on_demand/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/on_demand/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/on_demand/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/on_demand/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/on_demand/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/on_demand/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/Observation_Accountability_Report",
+      "level": "Report",
+      "type": "Observation_Accountability_Report",
+      "match_pattern": "/(?P<id>oad_(?P<ContentType>\\w+)_(?P<ValidityStartDateTime>\\d{4}-\\d{3}T\\d{2}:\\d{2}:\\d{2})_(?P<ValidityEndDateTime>\\d{4}-\\d{3}T\\d{2}:\\d{2}:\\d{2}))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/reports/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/reports/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/reports/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/Observation_Accountability_Report/{met[ValidityStartYear]}/{met[ValidityStartMonth]}/{met[ValidityStartDay]}/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L1_S1_SLC",
+      "level": "L1",
+      "type": "L1_S1_SLC",
+      "match_pattern": "(?P<id>(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\\d{4})(?P<start_month>\\d{2})(?P<start_day>\\d{2})T(?P<start_hour>\\d{2})(?P<start_minute>\\d{2})(?P<start_second>\\d{2}))_(?P<stop_ts>(?P<stop_year>\\d{4})(?P<stop_month>\\d{2})(?P<stop_day>\\d{2})T(?P<stop_hour>\\d{2})(?P<stop_minute>\\d{2})(?P<stop_second>\\d{2}))_(?P<orbit_num>\\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})[-]r(?P<revision_id>\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/SLC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/SLC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/SLC/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/SLC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/SLC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/SLC/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_L30",
+      "level": "L2",
+      "type": "L2_HLS_L30",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[-]r(?P<revision_id>\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_L30/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/HLS_L30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_L30/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_L30/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/HLS_L30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_L30/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_HLS_S30",
+      "level": "L2",
+      "type": "L2_HLS_S30",
+      "match_pattern": "(?P<id>(?P<product_shortname>HLS[.]S30)[.](?P<tile_id>T[^\\W_]{5})[.](?P<acquisition_ts>(?P<year>\\d{4})(?P<day_of_year>\\d{3})T(?P<hour>\\d{2})(?P<minute>\\d{2})(?P<second>\\d{2}))[.](?P<collection_version>v\\d+[.]\\d+)[-]r(?P<revision_id>\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_S30/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/HLS_S30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/HLS_S30/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_S30/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/HLS_S30/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/HLS_S30/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_CSLC_S1",
+      "level": "L2",
+      "type": "L2_CSLC_S1",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/CSLC_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/CSLC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/CSLC_S1/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/CSLC_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/CSLC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/CSLC_S1/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_CSLC_S1_STATIC",
+      "level": "L2",
+      "type": "L2_CSLC_S1_STATIC",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<sensor>S1A|S1B|S1C)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/CSLC_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/CSLC_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/CSLC_S1_STATIC/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/CSLC_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/CSLC_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/CSLC_S1_STATIC/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_RTC_S1",
+      "level": "L2",
+      "type": "L2_RTC_S1",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/RTC_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/RTC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/RTC_S1/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/RTC_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/RTC_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/RTC_S1/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_RTC_S1_STATIC",
+      "level": "L2",
+      "type": "L2_RTC_S1_STATIC",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<validity_ts>(?P<validity_year>\\d{4})(?P<validity_month>\\d{2})(?P<validity_day>\\d{2}))_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/RTC_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/RTC_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/RTC_S1_STATIC/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/RTC_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/RTC_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/RTC_S1_STATIC/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DSWx_HLS",
+      "level": "L3",
+      "type": "L3_DSWx_HLS",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>HLS)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S2A|S2B|S2C|S2D|L8|L9)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_HLS/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DSWx_HLS/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_HLS/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_HLS/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DSWx_HLS/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_HLS/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DSWx_S1",
+      "level": "L3",
+      "type": "L3_DSWx_S1",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DSWx_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_S1/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DSWx_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_S1/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DISP_S1",
+      "level": "L3",
+      "type": "L3_DISP_S1",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_(?P<mode>IW)_(?P<frame_id>F\\d{5})_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<ref_datetime>\\d{8}T\\d{6}Z)_(?P<sec_datetime>\\d{8}T\\d{6}Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DISP_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DISP_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DISP_S1_STATIC",
+      "level": "L3",
+      "type": "L3_DISP_S1_STATIC",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\\d{5})_(?P<validity_start_date>\\d{8})_(?P<sensor>S1[A-C])_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DISP_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_S1_STATIC/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1_STATIC/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DISP_S1_STATIC/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_S1_STATIC/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_CSLC_S1_COMPRESSED",
+      "level": "L2",
+      "type": "L2_CSLC_S1_COMPRESSED",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<disp_frame_id>F\\d{5})_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<ref_date_time>\\d{8})T000000Z_(?P<first_date_time>\\d{8})T000000Z_(?P<last_date_time>\\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/CSLC_S1_COMPRESSED/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/CSLC_S1_COMPRESSED/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/CSLC_S1_COMPRESSED/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DSWx_NI",
+      "level": "L3",
+      "type": "L3_DSWx_NI",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>NI)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>LSAR)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DSWx_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DSWx_NI/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DSWx_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DSWx_NI/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L3_DIST_S1",
+      "level": "L3",
+      "type": "L3_DIST_S1",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DIST(-ALERT)?)-(?P<source>S1)_(?P<tile_id>T[^\\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1[AC]?)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DIST_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DIST_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DIST_S1/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DIST_S1/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DIST_S1/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DIST_S1/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L4_TROPO",
+      "level": "L4",
+      "type": "L4_TROPO",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)-ZENITH_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<model>.+?)_(?P<alg_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/TROPO/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/TROPO/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/TROPO/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/TROPO/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/TROPO/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/TROPO/{id}"
+        ]
+      }
+    }
+  ]
+}

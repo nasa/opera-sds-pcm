@@ -319,6 +319,9 @@ variable "private_asg_vpc" {
 variable "aws_account_id" {
 }
 
+variable "ssm_account_id" {
+}
+
 variable "lambda_package_release" {
   default = "develop"
 }
@@ -445,12 +448,6 @@ variable "earthdata_uat_user" {
 variable "earthdata_uat_pass" {
   default = ""
 }
-
-variable "amis" {
-  type = map(string)
-  default = {
-  }
-} 
 
 variable "cnm_r_sqs_arn" {
 }

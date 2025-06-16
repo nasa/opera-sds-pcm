@@ -261,9 +261,6 @@ geocoding_options:
   # Memory mode
   memory_mode: enum('auto', 'single_block', 'geogrid', 'geogrid_and_radargrid', required=False)
 
-  # Processing upsampling factor on top of the input geogrid
-  geogrid_upsampling: int(required=False)
-
   # Save the incidence angle
   save_incidence_angle: bool(required=False)
 

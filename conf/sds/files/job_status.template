@@ -1,6 +1,7 @@
 {
   "index_patterns": [
-    "job_status*"
+    "job_status*",
+    "job_failed"
   ],
   "template": {
       "mappings": {
@@ -686,10 +687,7 @@
       "settings": {
         "number_of_shards": 5,
         "index": {
-          "refresh_interval": "5s",
-          "lifecycle": {
-            "name": "ilm_policy_mozart"
-          }
+          "refresh_interval": "5s"
         },
         "analysis": {
           "analyzer": {

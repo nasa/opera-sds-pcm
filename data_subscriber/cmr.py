@@ -26,6 +26,7 @@ class Collection(str, Enum):
     HLSS30 = "HLSS30"
     S1A_SLC = "SENTINEL-1A_SLC"
     S1B_SLC = "SENTINEL-1B_SLC"
+    S1C_SLC = "SENTINEL-1C_SLC"
     RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
@@ -64,6 +65,7 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.HLSS30: Provider.LPCLOUD.value,
     Collection.S1A_SLC: Provider.ASF.value,
     Collection.S1B_SLC: Provider.ASF.value,
+    Collection.S1C_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
@@ -77,6 +79,7 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.HLSS30: Provider.LPCLOUD.value,
     Collection.S1A_SLC: Provider.ASF.value,
     Collection.S1B_SLC: Provider.ASF.value,
+    Collection.S1C_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF_RTC.value,
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
@@ -88,6 +91,7 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.HLSS30: ProductType.HLS.value,
     Collection.S1A_SLC: ProductType.SLC.value,
     Collection.S1B_SLC: ProductType.SLC.value,
+    Collection.S1C_SLC: ProductType.SLC.value,
     Collection.RTC_S1_V1: ProductType.RTC.value,
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
     Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
@@ -99,6 +103,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.HLSS30: ["B02.tif", "B03.tif", "B04.tif", "B8A.tif", "B11.tif", "B12.tif", "Fmask.tif"],
     Collection.S1A_SLC: ["zip"],
     Collection.S1B_SLC: ["zip"],
+    Collection.S1C_SLC: ["zip"],
     Collection.RTC_S1_V1: ["tif", "h5"],
     Collection.CSLC_S1_V1: ["h5"],
     Collection.CSLC_S1_STATIC_V1: ["h5"],
@@ -115,16 +120,53 @@ def get_cmr_token(endpoint, settings):
 
     return cmr, token, username, password, edl
 
-async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, verbose=True) -> list:
+async def async_query_cmr_v2(timerange, provider=None, collection=None, bbox=None, token=None,
+                             cmr_hostname="cmr.earthdata.nasa.gov") -> list[dict]:
     logger = get_logger()
-    request_url = f"https://{cmr}/search/granules.umm_json"
+    request_url = f"https://{cmr_hostname}/search/granules.umm_json"
+    bounding_box = bbox
+
+    # Assert that timerange looks like this: 2016-08-22T23:00:00Z
+    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+
+    params = {
+        "sort_key": "-start_date",
+        "provider": provider,
+        "ShortName[]": [collection],
+        **({} if not token else {"token": token}),
+        **({} if not bounding_box else {"bounding_box": bounding_box})
+    }
+
+    # derive and apply param "temporal"
+    now_date = datetime.now().strftime(CMR_TIME_FORMAT)
+    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+
+    logger.debug("Time Range: %s", temporal_range)
+
+    params["temporal"] = temporal_range
+
+    logger.info(f"Querying CMR. endpoint: %s  provider: %s", cmr_hostname, provider)
+    logger.debug("request_url=%s", request_url)
+    logger.debug("params=%s", params)
+
+    product_granules = await _async_request_search_cmr_granules(collection, request_url, [params], convert_results=False)
+    search_results_count = len(product_granules)
+
+    logger.info(f"CMR Query Complete. Found %d granule(s)", search_results_count)
+
+    return product_granules
+
+async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: datetime, verbose=True) -> list:
+    logger = get_logger()
+    request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = args.bbox
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
     assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
     assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
-    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC):
+    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC, Collection.S1C_SLC):
         bound_list = bounding_box.split(",")
 
         # Excludes Antarctica
@@ -192,11 +234,11 @@ async def async_query_cmr(args, token, cmr, settings, timerange, now: datetime, 
             logger.debug("Using args.temporal_start_date=%s", args.temporal_start_date)
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
-    logger.info(f"Querying CMR. endpoint: %s  provider: %s", args.endpoint, args.provider)
+    logger.info(f"Querying CMR. endpoint: %s  provider: %s", cmr_hostname, args.provider)
     logger.debug("request_url=%s", request_url)
     logger.debug("params=%s", params)
 
-    product_granules = await _async_request_search_cmr_granules(args, request_url, [params])
+    product_granules = await _async_request_search_cmr_granules(args.collection, request_url, [params])
     search_results_count = len(product_granules)
 
     logger.info(f"CMR Query Complete. Found %d granule(s)", search_results_count)
@@ -277,15 +319,18 @@ def _get_temporal_range(start: str, end: str, now: str) -> str:
     return "{},{}".format(start, end)
 
 
-async def _async_request_search_cmr_granules(args, request_url, paramss: Iterable[dict]):
+async def _async_request_search_cmr_granules(collection, request_url, paramss: Iterable[dict], convert_results=True):
     response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss))
-    return response_jsons_to_cmr_granules(args, response_jsons)
+    return response_jsons_to_cmr_granules(collection, response_jsons, convert_results=convert_results)
 
 
-def response_jsons_to_cmr_granules(args, response_jsons):
+def response_jsons_to_cmr_granules(collection, response_jsons, convert_results=True):
     items = [item
              for response_json in response_jsons
              for item in response_json.get("items")]
+
+    if not convert_results:
+        return items
 
     collection_identifier_map = {
         Collection.HLSL30: "LANDSAT_PRODUCT_ID",
@@ -331,8 +376,8 @@ def response_jsons_to_cmr_granules(args, response_jsons):
             "identifier": next(
                 attr.get("Values")[0]
                 for attr in item["umm"].get("AdditionalAttributes")
-                if attr.get("Name") == collection_identifier_map[args.collection]
-            ) if args.collection in collection_identifier_map else None
+                if attr.get("Name") == collection_identifier_map[collection]
+            ) if collection in collection_identifier_map else None
         })
 
     return granules
