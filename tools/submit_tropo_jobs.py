@@ -37,7 +37,6 @@ from datetime import datetime, timezone, timedelta
 from pathlib import PurePath
 
 import boto3
-from mypy_boto3_s3 import S3ServiceResource
 
 from util.job_submitter import try_submit_mozart_job
 from util.conf_util import SettingsConf
@@ -57,7 +56,7 @@ def get_s3_objects(bucket_name: str, prefix: Optional[str] = None) -> List[str]:
     Returns:
         List of S3 object keys that match the criteria
     """
-    s3: S3ServiceResource = boto3.resource("s3")
+    s3 = boto3.resource("s3")
     bucket = s3.Bucket(bucket_name)
     
     objects = []
@@ -201,7 +200,7 @@ def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[
         # Generate all 6-hour chunks between start and end dates
         # make sure the whole range ends before end time
         while current + timedelta(hours=6) <= end:
-            prefixes.add(current.strftime("%Y%m%d%H0000"))
+            prefixes.add(f'{current.strftime("%Y%m%d")}/ECMWF_TROP_{current.strftime("%Y%m%d%H00")}')
             current += timedelta(hours=6)
             
         return prefixes
