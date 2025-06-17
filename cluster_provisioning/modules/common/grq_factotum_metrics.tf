@@ -434,6 +434,8 @@ resource "aws_instance" "factotum" {
         tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
         rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
       fi
+      cd ~/verdi/ops/opera-pcm
+      pip install -e .
     EOT
     ]
   }
