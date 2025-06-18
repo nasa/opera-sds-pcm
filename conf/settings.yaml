@@ -219,11 +219,16 @@ DIST_S1:
 
   DESIRED_LOOKBACKS: 3
 
-  WORKERS:
-    N_DESPECKLE: 16
-    N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
-                      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
-                      # reassess
+  PROCESSING:
+    MODEL_OPTIMIZATION: false  # Currently locked to false for now
+    BATCH_DESPECKLING: 8
+    BATCH_NORM_PARAMS: 32
+    STRIDE_NORM_PARAMS: 16
+    WORKERS:
+      N_DESPECKLE: 16
+      N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
+      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
+      # reassess
 
 TROPO:
   # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig
