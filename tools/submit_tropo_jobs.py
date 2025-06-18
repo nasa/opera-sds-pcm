@@ -220,7 +220,7 @@ def get_prefix_from_age(age: int) -> Set[str]:
     # Calculate the date maxage days ago
     target_date = datetime.now(timezone.utc) - timedelta(days=age)
     # Format as YYYYMMDD/ECMWF
-    return {f"{target_date.strftime('%Y%m%d')}/ECMWF"}
+    return f"{target_date.strftime('%Y%m%d')}/ECMWF"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Submit L4_TROPO jobs for S3 objects")
