@@ -69,7 +69,7 @@ def submit_mozart_job_wrapper(
     s3_key: str,
     bucket_name: str,
     job_type: str = "job-SCIFLO_L4_TROPO",
-    release: str = "3.0.0-er.1.0-tropo"
+    release: str = "3.2.0-rc.1.0"
 ) -> str:
     """
     Submit a job to Mozart API using hysds_commons.job_utils.submit_mozart_job.
@@ -140,7 +140,7 @@ def submit_mozart_job_wrapper(
             rule_name=f"trigger-{job_type}",
             params=params,
             job_spec=f"{job_type}:{release}",
-            job_name=f"job-WF-{job_type}",
+            job_name=f"job-WF-SCIFLO_L4_TROPO",
         )
         logger.info(f"Successfully submitted job for {s3_key}")
         return job_id
