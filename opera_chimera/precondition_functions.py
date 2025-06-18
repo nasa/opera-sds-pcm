@@ -783,6 +783,28 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dist_s1_prev_product(self):
+        """
+        Gets the paths of OPERA DIST-S1 products from previous run on this tile
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        # TODO: Fill this out when sample prev product meta dict is available
+        if 'dummy_key_for_prev_product' in metadata and metadata['dummy_key_for_prev_product']:
+            prev_product = []
+        else:
+            prev_product = None
+
+        rc_params = {
+            'prev_product': prev_product
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dist_s1_mask_file(self):
         """
         This function downloads a sub-region of the water mask used with DIST-S1
@@ -884,17 +906,32 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        despeckle_batch_size = int(self._settings.get("DIST_S1", {}).get("DESPECKLE_BATCH_SIZE", 25))
+        dist_settings = self._settings.get("DIST_S1", {})
+        processing_settings = dist_settings.get("PROCESSING", {})
+        worker_settings = processing_settings.get("WORKERS", {})
 
-        worker_settings = self._settings.get("DIST_S1", {}).get("WORKERS", {})
+        despeckle_batch_size = int(processing_settings.get("BATCH_DESPECKLING", 25))
+        norm_params_batch_size = int(processing_settings.get("BATCH_NORM_PARAMS", 32))
+
+        stride_norm_params = int(processing_settings.get('STRIDE_NORM_PARAMS', 2))
 
         n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
         n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
 
+        model_optimize = processing_settings.get("MODEL_OPTIMIZATION", False)
+
+        # TODO: Model optimization is disabled in current delivery, but the settings logic is implemented now
+        if model_optimize:
+            logger.warning('MODEL_OPTIMIZATION enabled in settings, but is not yet supported. Disabling.')
+            model_optimize = False
+
         rc_params = {
             'batch_size_for_despeckling': despeckle_batch_size,
+            'batch_size_for_norm_param_estimation': norm_params_batch_size,
             'n_workers_for_despeckling': n_despeckle,
-            'n_workers_for_norm_param_estimation': n_norm_param_est
+            'n_workers_for_norm_param_estimation': n_norm_param_est,
+            'stride_for_norm_param_estimation': stride_norm_params,
+            'optimize': model_optimize,
         }
 
         logger.info(f"rc_params : {rc_params}")
