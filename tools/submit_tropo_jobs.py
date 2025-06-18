@@ -34,7 +34,7 @@ import logging
 import sys
 from typing import List, Optional, Set
 from datetime import datetime, timezone, timedelta
-from pathlib import PurePath
+from pathlib import PurePath, Path
 
 import boto3
 
@@ -270,7 +270,7 @@ def main():
         all_objects.extend(objects)
         logger.info(f"Found {len(objects)} objects with prefix {prefix}")
 
-    settings = SettingsConf().cfg
+    settings = SettingsConf(file=str(Path("/export/home/hysdsops/verdi/etc/settings.yaml"))).cfg
     release_version = settings["RELEASE_VERSION"]
 
     # Submit jobs for each object
