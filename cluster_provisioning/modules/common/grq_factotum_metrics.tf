@@ -452,6 +452,8 @@ resource "aws_instance" "factotum" {
       else
         git clone --quiet --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm
       fi
+
+      export PATH=~/conda/bin:$PATH
       cd ~/verdi/ops/opera-pcm
       pip install -e .
     EOT
