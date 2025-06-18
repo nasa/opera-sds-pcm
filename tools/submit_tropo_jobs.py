@@ -14,7 +14,7 @@ Usage Examples:
     python submit_tropo_jobs.py --bucket my-bucket --date 2024-03-20
 
     # Process objects for a date range (inclusive)
-    python submit_tropo_jobs.py --bucket my-bucket --start-date 2024-03-20 --end-date 2024-03-25
+    python submit_tropo_jobs.py --bucket my-bucket --start-datetime 2024-03-20T00:00:00 --end-datetime 2024-03-25T23:59:59
 
 Required Arguments:
     --bucket BUCKET    Source S3 bucket name
@@ -22,10 +22,10 @@ Required Arguments:
 Optional Arguments:
     --prefix PREFIX    Prefix to filter S3 objects
     --date DATE        Date in YYYY-MM-DD format to filter S3 objects
-    --start-date DATE  Start date in YYYY-MM-DD format for range filtering
-    --end-date DATE    End date in YYYY-MM-DD format for range filtering
+    --start-datetime DATETIME  Start datetime in YYYY-MM-DDTHH:MM:SS format for range filtering
+    --end-datetime DATETIME    End datetime in YYYY-MM-DDTHH:MM:SS format for range filtering
 
-Note: You must provide either --prefix, --date, or --start-date with --end-date.
+Note: You must provide either --prefix, --date, or --start-datetime with --end-datetime.
 The script will exit with an error if no filtering option is specified.
 """
 
@@ -34,10 +34,9 @@ import logging
 import sys
 from typing import List, Optional, Set
 from datetime import datetime, timezone, timedelta
-from pathlib import PurePath
+from pathlib import PurePath, Path
 
 import boto3
-from mypy_boto3_s3 import S3ServiceResource
 
 from util.job_submitter import try_submit_mozart_job
 from util.conf_util import SettingsConf
@@ -57,7 +56,7 @@ def get_s3_objects(bucket_name: str, prefix: Optional[str] = None) -> List[str]:
     Returns:
         List of S3 object keys that match the criteria
     """
-    s3: S3ServiceResource = boto3.resource("s3")
+    s3 = boto3.resource("s3")
     bucket = s3.Bucket(bucket_name)
     
     objects = []
@@ -70,7 +69,7 @@ def submit_mozart_job_wrapper(
     s3_key: str,
     bucket_name: str,
     job_type: str = "job-SCIFLO_L4_TROPO",
-    release: str = "3.0.0-er.1.0-tropo"
+    release: str = "3.2.0-rc.1.0"
 ) -> str:
     """
     Submit a job to Mozart API using hysds_commons.job_utils.submit_mozart_job.
@@ -102,7 +101,7 @@ def submit_mozart_job_wrapper(
                 "Files": [
                     {
                         "FileName": PurePath(s3_key).name,
-                        "FileSize": 1,  # TODO: Get actual file size if needed
+                        "FileSize": 1, 
                         "FileLocation": s3_path,
                         "id": PurePath(s3_key).name,
                         "product_paths": "$.product_paths"
@@ -141,7 +140,7 @@ def submit_mozart_job_wrapper(
             rule_name=f"trigger-{job_type}",
             params=params,
             job_spec=f"{job_type}:{release}",
-            job_name=f"job-WF-{job_type}",
+            job_name=f"job-WF-SCIFLO_L4_TROPO",
         )
         logger.info(f"Successfully submitted job for {s3_key}")
         return job_id
@@ -165,33 +164,63 @@ def get_prefix_from_date(date_str: str) -> str:
     except ValueError as e:
         raise ValueError(f"Invalid date format. Please use YYYY-MM-DD format: {str(e)}")
 
-def get_prefixes_from_date_range(start_date: str, end_date: str) -> Set[str]:
+def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[str]:
     """
-    Generate a set of prefixes for all dates in the given range (inclusive).
+    Generate a set of prefixes for all 6-hour chunks in the given range (inclusive).
+    Each day is split into 4 chunks: 00:00, 06:00, 12:00, and 18:00.
     
     Args:
-        start_date: Start date string in YYYY-MM-DD format
-        end_date: End date string in YYYY-MM-DD format
+        start_datetime: Start datetime string in YYYYmmddTHH:MM:SS format
+        end_datetime: End datetime string in YYYYmmddTHH:MM:SS format
         
     Returns:
-        Set[str]: Set of prefix strings in YYYYMMDD/ECMWF format
+        Set[str]: Set of prefix strings in YYYYmmddTHH0000 format
     """
     try:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d")
+        start = datetime.fromisoformat(start_datetime)
+        end = datetime.fromisoformat(end_datetime)
         
         if end < start:
-            raise ValueError("End date must be after or equal to start date")
+            raise ValueError("End datetime must be after or equal to start datetime")
             
         prefixes = set()
         current = start
-        while current <= end:
-            prefixes.add(get_prefix_from_date(current.strftime("%Y-%m-%d")))
-            current += timedelta(days=1)
+
+        # Find the first 6-hour chunk that current intersects with
+        if current.hour < 6:
+            current = current.replace(hour=0)
+        elif current.hour < 12:
+            current = current.replace(hour=6) 
+        elif current.hour < 18:
+            current = current.replace(hour=12)
+        else:
+            current = current.replace(hour=18)
+        current = current.replace(minute=0, second=0, microsecond=0)
+
+        # Generate all 6-hour chunks between start and end dates
+        # make sure the whole range ends before end time
+        while current + timedelta(hours=6) <= end:
+            prefixes.add(f'{current.strftime("%Y%m%d")}/ECMWF_TROP_{current.strftime("%Y%m%d%H00")}')
+            current += timedelta(hours=6)
             
         return prefixes
     except ValueError as e:
-        raise ValueError(f"Invalid date range: {str(e)}")
+        raise ValueError(f"Invalid datetime range: {str(e)}")
+
+def get_prefix_from_age(age: int) -> Set[str]:
+    """
+    Generate a set of prefixes for a single day that is age days ago from the current date.
+    
+    Args:
+        maxage: Number of days to look back from current date
+        
+    Returns:
+        str: prefix string in YYYYmmdd/ECMWF format
+    """
+    # Calculate the date maxage days ago
+    target_date = datetime.now(timezone.utc) - timedelta(days=age)
+    # Format as YYYYMMDD/ECMWF
+    return f"{target_date.strftime('%Y%m%d')}/ECMWF"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Submit L4_TROPO jobs for S3 objects")
@@ -201,13 +230,11 @@ def parse_args():
     filter_group = parser.add_mutually_exclusive_group()
     filter_group.add_argument("--prefix", help="Prefix to filter S3 objects")
     filter_group.add_argument("--date", help="Date in YYYY-MM-DD format to filter S3 objects")
-    filter_group.add_argument("--start-date", help="Start date in YYYY-MM-DD format for range filtering")
+    filter_group.add_argument("--start-datetime", help="Start datetime in YYYY-MM-DDTHH:MM:SS format for range filtering")
+    filter_group.add_argument("--forward-mode-age", help="Forward processing mode, integer days of previous day to process", type=int)
     
-    # End date is not in the mutually exclusive group since it's used with start-date
-    parser.add_argument("--end-date", help="End date in YYYY-MM-DD format for range filtering")
-    
-    #parser.add_argument("--job-type", default="job-sciflo-l4_tropo", help="Type of job to submit")
-    #parser.add_argument("--release", default="3.0.0-er.1.0-tropo", help="Release version of the job")
+    # End datetime is not in the mutually exclusive group since it's used with start-datetime
+    parser.add_argument("--end-datetime", help="End datetime in YYYY-MM-DDTHH:MM:SS format for range filtering")
     
     return parser.parse_args()
 
@@ -220,16 +247,19 @@ def main():
         prefix = get_prefix_from_date(args.date)
         prefixes.add(prefix)
         logger.info(f"Using date-based prefix: {prefix}")
-    elif args.start_date:
-        if not args.end_date:
-            raise ValueError("--end-date is required when using --start-date")
-        prefixes = get_prefixes_from_date_range(args.start_date, args.end_date)
-        logger.info(f"Using date range prefixes: {', '.join(sorted(prefixes))}")
+    elif args.start_datetime:
+        if not args.end_datetime:
+            raise ValueError("--end-datetime is required when using --start-datetime")
+        prefixes = get_prefixes_from_date_range(args.start_datetime, args.end_datetime)
+        logger.info(f"Using datetime range prefixes: {', '.join(sorted(prefixes))}")
     elif args.prefix:
         prefixes.add(args.prefix)
         logger.info(f"Using provided prefix: {args.prefix}")
+    elif args.forward_mode_age:
+        prefixes.add(get_prefix_from_age(args.forward_mode_age))
+        logger.info(f"Using forward mode prefixes for age days in the past: {prefixes}")
     else:
-        logger.error("No prefix specified. Please provide either --prefix, --date, or --start-date with --end-date")
+        logger.error("No prefix specified. Please provide either --prefix, --date, or --start-datetime with --end-datetime")
         sys.exit(1)
  
     # Get S3 objects that meet the criteria
@@ -240,7 +270,7 @@ def main():
         all_objects.extend(objects)
         logger.info(f"Found {len(objects)} objects with prefix {prefix}")
 
-    settings = SettingsConf().cfg
+    settings = SettingsConf(file=str(Path("/export/home/hysdsops/verdi/etc/settings.yaml"))).cfg
     release_version = settings["RELEASE_VERSION"]
 
     # Submit jobs for each object
