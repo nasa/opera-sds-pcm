@@ -434,6 +434,24 @@ resource "aws_instance" "factotum" {
         tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
         rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
       fi
+    EOT
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      set -ex
+
+      cd ~/verdi/ops
+      if [ "${var.use_artifactory}" = true ]; then
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.project}-sds-pcm-${var.pcm_branch}.tar.gz"
+        tar xfz ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
+        ln -s ~/verdi/ops/${var.project}-sds-pcm-${var.pcm_branch} ~/verdi/ops/${var.project}-pcm
+        rm -rf ${var.project}-sds-pcm-${var.pcm_branch}.tar.gz
+      else
+        git clone --quiet --single-branch -b ${var.pcm_branch} https://${var.git_auth_key}@${var.pcm_repo} ${var.project}-pcm
+      fi
       cd ~/verdi/ops/opera-pcm
       pip install -e .
     EOT
