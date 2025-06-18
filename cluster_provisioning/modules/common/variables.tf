@@ -637,7 +637,7 @@ variable "queues" {
       "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
