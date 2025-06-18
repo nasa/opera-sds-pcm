@@ -795,7 +795,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if 'dummy_key_for_prev_product' in metadata and metadata['dummy_key_for_prev_product']:
             prev_product = []
         else:
-            prev_product = None
+            prev_product = []
 
         rc_params = {
             'prev_product': prev_product
