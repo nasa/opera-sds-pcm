@@ -18,6 +18,11 @@ RunConfig:
           {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
+          {%  if runconfig.input_file_group.prev_product %}
+          {%- for input in runconfig.input_file_group.prev_product %}
+          - {{ input }}
+          {%- endfor %}
+          {%- endif %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap: {}  # TODO: Don't know how I should fill this part out based on the SAS RC
       ProductPathGroup:
@@ -26,7 +31,7 @@ RunConfig:
       PrimaryExecutable:
         ProductIdentifier: DIST_S1
         ProductVersion: "{{ runconfig.product_path_group.product_version }}"
-        ProgramPath: /opt/miniforge/envs/dist-s1-env/bin/dist-s1
+        ProgramPath: /opt/conda/envs/dist-s1-env/bin/dist-s1
         ProgramOptions:
         - run_sas
         - --runconfig_yml_path
@@ -60,6 +65,12 @@ RunConfig:
           {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
+        {%  if runconfig.input_file_group.prev_product %}
+        pre_dist_s1_product:
+          {%- for input in runconfig.input_file_group.prev_product %}
+          - {{ input }}
+          {%- endfor %}
+        {%- endif %}
         mgrs_tile_id: {{ runconfig.mgrs_tile_id }}
         dst_dir: {{ runconfig.product_path_group.scratch_path }}
         water_mask_path: {{ runconfig.water_mask_path }}
@@ -68,10 +79,14 @@ RunConfig:
         memory_strategy: high
         tqdm_enabled: false
         batch_size_for_despeckling: {{ runconfig.processing.batch_size_for_despeckling }}
+        batch_size_for_norm_param_estimation: {{ runconfig.processing.batch_size_for_norm_param_estimation }}
+        stride_for_norm_param_estimation: {{ runconfig.processing.stride_for_norm_param_estimation }}
         n_workers_for_despeckling: {{ runconfig.processing.n_workers_for_despeckling }}
         n_workers_for_norm_param_estimation: {{ runconfig.processing.n_workers_for_norm_param_estimation }}
+        optimize: {{ runconfig.processing.optimize }}
         n_lookbacks: {{ runconfig.n_lookbacks }}
         moderate_confidence_threshold: 3.5
         high_confidence_threshold: 5.5
         product_dst_dir: {{ runconfig.product_path_group.product_path }}
         bucket: ~
+        confirmation_strategy: use_prev_product
