@@ -245,18 +245,18 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
 
     # Check before computing unused_rtc
     if "native_id" in b.columns and "native_id" in a.columns:
-        unused_rtc = set(a["native_id"]) - set(b["native_id"])
+        missing_rtc = set(a["native_id"]) ^ set(b["native_id"])
     elif "native_id" in a.columns:
         # b is missing 'native_id', so treat it as an empty set
-        unused_rtc = set(a["native_id"])
+        missing_rtc = set(a["native_id"])
         print("'native_id' column missing in output_rtc_id_to_audit_data")
     elif "native_id" in b.columns:
         # a is missing 'native_id', so all of b is unused
-        unused_rtc = set()
+        missing_rtc = set()
         print("'native_id' column missing in input_rtc_id_to_audit_data")
     else:
         # Neither has 'native_id' — define unused_rtc as empty set
-        unused_rtc = set()
+        missing_rtc = set()
         print("'native_id' column missing in both input and output audit data")
 
     if a.empty or "native_id" not in a.columns:
@@ -269,10 +269,10 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
     else:
         logger.info(f"Fully published (granules) (RTC): {len(set(b['native_id']))=:,}")
 
-    if not unused_rtc:
+    if not missing_rtc:
         logger.info(f"Missing processed RTC (granules): 0")
     else:
-        logger.info(f"Missing processed RTC (granules): {len(unused_rtc)=:,}")
+        logger.info(f"Missing processed RTC (granules): {len(missing_rtc)=:,}")
 
     now = datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
@@ -289,8 +289,8 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
         output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
-            fp.write('\n'.join(unused_rtc))
-        if unused_rtc:
+            fp.write('\n'.join(missing_rtc))
+        if missing_rtc:
             with open(output_file_missing_cmr_granules, mode='a') as fp:
                 fp.write('\n')
     elif args.format == "json":
@@ -298,7 +298,7 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
-            json_str = formatter.serialize(list(unused_rtc))
+            json_str = formatter.serialize(list(missing_rtc))
             fp.write(json_str)
     else:
         raise Exception()
