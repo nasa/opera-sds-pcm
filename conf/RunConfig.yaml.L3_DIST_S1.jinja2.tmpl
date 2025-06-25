@@ -84,9 +84,10 @@ RunConfig:
         n_workers_for_despeckling: {{ runconfig.processing.n_workers_for_despeckling }}
         n_workers_for_norm_param_estimation: {{ runconfig.processing.n_workers_for_norm_param_estimation }}
         optimize: {{ runconfig.processing.optimize }}
-        n_lookbacks: {{ runconfig.n_lookbacks }}
+        n_lookbacks: {{ runconfig.lookbacks.n_lookbacks }}
         moderate_confidence_threshold: 3.5
         high_confidence_threshold: 5.5
         product_dst_dir: {{ runconfig.product_path_group.product_path }}
         bucket: ~
-        confirmation_strategy: use_prev_product
+        confirmation_strategy: {{ runconfig.lookbacks.confirmation_strategy }}
+        lookback_strategy: {{ runconfig.lookbacks.lookback_strategy }}

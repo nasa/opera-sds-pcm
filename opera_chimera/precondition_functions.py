@@ -866,7 +866,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dist_s1_lookbacks(self):
+    def get_dist_s1_lookback_config(self):
         """
         Get number of lookbacks for DIST-S1 job
         """
@@ -897,6 +897,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             'n_lookbacks': min(n_desired_lookbacks, len(baseline_sensing_dates)),
+        }
+
+        # TODO: Need to rework all these, but hardcode for now
+
+        rc_params = {
+            'n_lookbacks': 1,
+            'confirmation_strategy': 'use_prev_product',
+            'lookback_strategy': 'multi_window'
         }
 
         return rc_params

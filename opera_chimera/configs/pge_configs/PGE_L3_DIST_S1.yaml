@@ -24,7 +24,10 @@ runconfig:
   mgrs_tile_id: __CHIMERA_VAL__
   water_mask_path: __CHIMERA_VAL__
   apply_water_mask: __CHIMERA_VAL__
-  n_lookbacks: __CHIMERA_VAL__
+  lookbacks:
+    n_lookbacks: __CHIMERA_VAL__
+    confirmation_strategy: __CHIMERA_VAL__
+    lookback_strategy: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/ops/output_dir
@@ -47,7 +50,7 @@ preconditions:
   - get_dist_s1_prev_product
   - get_dist_s1_mgrs_tile
   - get_dist_s1_mask_file
-  - get_dist_s1_lookbacks
+  - get_dist_s1_lookback_config
   - get_dist_s1_processing_params
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
