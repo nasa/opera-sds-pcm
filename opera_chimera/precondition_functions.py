@@ -872,34 +872,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # This is currently hardcoded, should we move it to settings?
-
-        n_desired_lookbacks = int(self._settings.get("DIST_S1", {}).get("DESIRED_LOOKBACKS", 3))
-        # Q: Is there any validation here? (ie must be >= 3) ^^
-
-        # TODO: To support testing for smaller (thus quicker) k, contract this value if few sensing dates are
-        #  available
-
-        metadata = self._context["product_metadata"]["metadata"]
-
-        dataset_type = self._context["dataset_type"]
-
-        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
-
-        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_\w{4}-\w{6}-\w{3}_(?P<acquisition_date>\d{8})T\d{6}Z_\d{8}T\d{6}Z_'
-                                 r'S1[AB]_30_v\d+[.]\d+_(VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
-
-        baseline_sensing_dates = set()
-
-        for path in product_paths["baseline_burst_set"]:
-            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
-            baseline_sensing_dates.add(rtc_match['acquisition_date'])
-
-        rc_params = {
-            'n_lookbacks': min(n_desired_lookbacks, len(baseline_sensing_dates)),
-        }
-
-        # TODO: Need to rework all these, but hardcode for now
+        # Hardcoded for the foreseeable future - should move to template eventually if this stays the same
 
         rc_params = {
             'n_lookbacks': 1,
