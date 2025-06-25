@@ -18,7 +18,7 @@ RunConfig:
           {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
-          {%  if runconfig.input_file_group.prev_product %}
+          {%- if runconfig.input_file_group.prev_product %}
           {%- for input in runconfig.input_file_group.prev_product %}
           - {{ input }}
           {%- endfor %}
@@ -65,7 +65,7 @@ RunConfig:
           {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
-        {%  if runconfig.input_file_group.prev_product %}
+        {%- if runconfig.input_file_group.prev_product %}
         pre_dist_s1_product:
           {%- for input in runconfig.input_file_group.prev_product %}
           - {{ input }}
