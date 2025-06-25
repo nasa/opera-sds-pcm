@@ -239,7 +239,7 @@ def create_parser():
 
     survey_parser = subparsers.add_parser("survey",
                                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    survey_parser_arg_list = [verbose, quiet, endpoint, provider, collection,
+    survey_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product,
                               start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, frame_id, use_temporal,
                               temporal_start_date, step_hours, out_csv]

@@ -94,7 +94,7 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
     elif product_type == ProductType.CSLC_STATIC:
         cmr_query = CslcStaticCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.RTC: #RTC input can have multiple product types
-        if args.product and args.product == PGEProduct.DIST_1:
+        if hasattr(args, "product") and args.product == PGEProduct.DIST_1:
             cmr_query = RtcForDistCmrQuery(args, token, es_conn, cmr, job_id, settings)
         else:
             cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
@@ -114,7 +114,7 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     elif provider in (Provider.ASF, Provider.ASF_SLC):
         downloader = AsfDaacSlcDownload(provider)
     elif provider == Provider.ASF_RTC:
-        if args.product and  args.product == PGEProduct.DIST_1:
+        if hasattr(args, "product") and  args.product == PGEProduct.DIST_1:
             downloader = AsfDaacRtcForDistDownload(provider)
         else:
             downloader = AsfDaacRtcDownload(provider)
@@ -139,7 +139,7 @@ def supply_es_conn(args):
     elif provider in (Provider.ASF, Provider.ASF_SLC):
         es_conn = SLCProductCatalog(logger)
     elif provider == Provider.ASF_RTC: # RTC input can have multiple product types
-        if args.product and args.product == PGEProduct.DIST_1:
+        if hasattr(args, "product") and args.product == PGEProduct.DIST_1:
             es_conn = RTCForDistProductCatalog(logger)
         else:
             es_conn = RTCProductCatalog(logger)
