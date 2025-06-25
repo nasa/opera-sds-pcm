@@ -902,11 +902,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # TODO: Need to rework all these, but hardcode for now
 
         rc_params = {
-            # 'n_lookbacks': 1,
-            'n_lookbacks': 3,
-            # 'confirmation_strategy': 'use_prev_product',
-            'confirmation_strategy': 'compute_baseline',
-            'lookback_strategy': 'multi_window',
+            'n_lookbacks': 1,
+            'confirmation_strategy': 'use_prev_product',
+            'lookback_strategy': 'multi_window'
         }
 
         return rc_params
