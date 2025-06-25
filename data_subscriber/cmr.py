@@ -184,7 +184,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
 
     # TODO: Move this RTC-specific logic out of this module and into the RTC query code
     if args.native_id:
-        if args.product and args.product == PGEProduct.DIST_1:
+        if hasattr(args, "product") and args.product == PGEProduct.DIST_1:
             params["native-id[]"] = [args.native_id]
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
@@ -211,7 +211,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
 
     # TODO: Move this RTC-specific logic out of this module and into the RTC query code
     force_temporal = False
-    if args.product and args.product == PGEProduct.DIST_1:
+    if hasattr(args, "product") and args.product == PGEProduct.DIST_1:
         pass
     elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
         if args.native_id:
