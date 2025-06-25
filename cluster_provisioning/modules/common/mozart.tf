@@ -839,6 +839,7 @@ resource "null_resource" "setup_cron_mozart" {
         crontab ~/mozart/ops/opera-pcm/conf/sds/files/mozart/cron/hysdsops
       else 
         chmod +x ~/run_ecmwf_merger_daily.sh
+        mkdir -p .local/bin/cron
         mv ~/run_ecmwf_merger_daily.sh ~/.local/bin/cron/
 
         crontab ~/mozart/ops/opera-pcm/conf/sds/files/mozart/cron/ecmwf_merger
