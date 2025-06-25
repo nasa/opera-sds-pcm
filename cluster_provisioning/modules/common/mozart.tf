@@ -825,13 +825,24 @@ resource "null_resource" "setup_cron_mozart" {
     private_key = file(var.private_key_file)
   }
 
+  provisioner "file" {
+    source      = "${path.module}/../../../ecmwf-api-client/run_ecmwf_merger_daily.sh"
+    destination = "run_ecmwf_merger_daily.sh"
+  }
+
   # Set up crontab for updating DISP-S1 historical processing status
   provisioner "remote-exec" {
     inline = [<<-EOT
+      source ~/.bash_profile
+      set -ex
       if [ "${var.disp_s1_hist_status}" = true ]; then
-        source ~/.bash_profile
-        set -ex
         crontab ~/mozart/ops/opera-pcm/conf/sds/files/mozart/cron/hysdsops
+      else 
+        chmod +x ~/run_ecmwf_merger_daily.sh
+        mkdir -p .local/bin/cron
+        mv ~/run_ecmwf_merger_daily.sh ~/.local/bin/cron/
+
+        crontab ~/mozart/ops/opera-pcm/conf/sds/files/mozart/cron/ecmwf_merger
       fi
     EOT
     ]
