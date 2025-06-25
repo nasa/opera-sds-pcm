@@ -15,6 +15,7 @@ from data_subscriber.url import determine_acquisition_cycle
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
 K_OFFSETS_AND_COUNTS = "[(365, 3), (730, 3), (1095, 3)]"
+PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 
 logger = get_logger()
 

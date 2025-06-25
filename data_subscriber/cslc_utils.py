@@ -17,7 +17,7 @@ from util.conf_util import SettingsConf
 
 DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
-PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
+PENDING_JOBS_ES_INDEX_NAME = "grq_pending_jobs"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 
@@ -271,7 +271,7 @@ def save_blocked_download_job(eu, release_version, product_type, params, job_que
     """Save the blocked download job in the ES index"""
 
     eu.index_document(
-        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        index=PENDING_JOBS_ES_INDEX_NAME,
         id = job_name,
         body = {
                 "job_type": PENDING_TYPE_CSLC_DOWNLOAD,
@@ -296,12 +296,11 @@ def get_pending_download_jobs(es):
 
     try:
         result =  es.query(
-            index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+            index=PENDING_JOBS_ES_INDEX_NAME,
             body={"query": {
                     "bool": {
                         "must": [
-                            {"term": {"submitted": False}},
-                            {"match": {"job_type": PENDING_TYPE_CSLC_DOWNLOAD}}
+                            {"term": {"submitted": False}}
                         ]
                     }
                 }
@@ -320,7 +319,7 @@ def mark_pending_download_job_submitted(es, doc_id, download_job_id):
     }
 
     return es.update_document(
-        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        index=PENDING_JOBS_ES_INDEX_NAME,
         id = doc_id,
         body=body
     )

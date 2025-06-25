@@ -18,7 +18,6 @@ variable "profile" {
 }
 
 variable "verdi_release" {
-  default = "v5.2.1.2"
   type    = string 
 }
 
@@ -75,7 +74,7 @@ variable "private_verdi_security_group_id" {
 
 variable "pcm_verdi_role" {
   default = {
-    name = "am-pcm-dev-verdi-role"
+    name = "am-pcm-dev-verdi-role" # For all venues other than dev, use "am-pcm-verdi-role" instead
     path = "/"
   }
 }

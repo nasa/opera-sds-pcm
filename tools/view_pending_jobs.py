@@ -8,6 +8,7 @@ import sys
 from data_subscriber import es_conn_util
 from data_subscriber.cslc_utils import get_pending_download_jobs
 from util.exec_util import exec_wrapper
+from data_subscriber.cslc_utils import PENDING_TYPE_CSLC_DOWNLOAD
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -21,13 +22,16 @@ def run(argv: list[str]):
 
     # Get unsubmitted jobs from Elasticsearch GRQ
     unsubmitted = get_pending_download_jobs(es)
-    print(f"Found {len(unsubmitted)=} Pending CSLC Download Jobs")
+    print(f"Found {len(unsubmitted)=} Pending Jobs")
 
-    # For each of the unsubmitted jobs, check if their compressed cslcs have been generated
+    # For each of the unsubmitted jobs, check if their conditions have been met
     count = 1
     for job in unsubmitted:
         s = job['_source']
-        print("%05d" % count, "Type:", s['job_type'], ", Queue:", s['job_queue'], "k=%d" % s["k"] if "k" in s else "", "m=%d" % s["m"] if "m" in s else "",  ", Job Params:", [f"{f['value']}" for f in s['job_params']])
-        count += 1
+        if s['job_type'] == PENDING_TYPE_CSLC_DOWNLOAD:
+            print("%05d" % count, "Type:", s['job_type'], ", Queue:", s['job_queue'], "k=%d" % s["k"] if "k" in s else "", "m=%d" % s["m"] if "m" in s else "",  ", Job Params:", [f"{f['value']}" for f in s['job_params']])
+            count += 1
+
+    print(f"Total Pending Jobs: {count - 1}")
 if __name__ == "__main__":
     main()
