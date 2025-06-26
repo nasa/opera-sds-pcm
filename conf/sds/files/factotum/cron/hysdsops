@@ -1,6 +1,4 @@
 SHELL=/bin/bash
-
-
 #######################################################################
 # hysdsops user crontab
 #
@@ -8,7 +6,15 @@ SHELL=/bin/bash
 #  written to /var/log/messages (on other systems: /var/log/syslog).
 #  System logging configuration at /etc/rsyslog.conf.
 #
-#
 #######################################################################
+0  * * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_job.py 2>&1 | logger -i -p user.notice -t submit_pending_jobs-task
+0  0 * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_tropo_jobs.py --bucket opera-ecmwf --forward-mode-age 4 2>&1 | logger -i -p user.notice -t submit_tropo_jobs-task
 
-0 * * * * source verdi/bin/activate && $HOME/.local/bin/cron/submit_job.py 2>&1 | logger -i -p user.notice -t submit_pending_jobs-task
+# * * * * *   command to be executed
+# - - - - -
+# | | | | |
+# | | | | +----- day of week (0 - 6) (Sunday=0)
+# | | | +------- month (1 - 12)
+# | | +--------- day of month (1 - 31)
+# | +----------- hour (0 - 23)
+# +------------- min (0 - 59)

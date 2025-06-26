@@ -637,7 +637,7 @@ variable "queues" {
       "data_dev_size"     = 600
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
@@ -703,7 +703,7 @@ variable "pge_releases" {
     "disp_s1"  = "3.0.6"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.1.0"
-    "tropo"    = "3.0.0-er.1.0-tropo"
+    "tropo"    = "3.0.0-er.3.1-tropo"
   }
 }
 

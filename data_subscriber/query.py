@@ -219,7 +219,7 @@ class CmrQuery:
         # DIST-S1 products are generated from RTC input files. RTC input files are also used by DSWx-S1 products.
         # COLLECTION_TO_PRODUCT_TYPE_MAP does not allow for one collection to be used by multiple products so we'll deal piece-wise for now.
         # TODO: Refactor in the future.
-        if self.args.product and self.args.product == PGEProduct.DIST_1:
+        if hasattr(self.args, "product") and self.args.product == PGEProduct.DIST_1:
             product_type = PGEProduct.DIST_1
         else:
             product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]

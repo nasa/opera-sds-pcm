@@ -18,7 +18,6 @@ variable "profile" {
 }
 
 variable "verdi_release" {
-  default = "v5.2.1.2"
   type    = string 
 }
 
@@ -44,7 +43,7 @@ variable "pge_releases" {
     "disp_s1"  = "3.0.6"
     "dswx_ni"  = "4.0.0-er.3.0"
     "dist_s1"  = "6.0.0-rc.1.0"
-    "tropo"    = "3.0.0-er.3.0-tropo"
+    "tropo"    = "3.0.0-er.3.1-tropo"
   }
 }
 
@@ -75,7 +74,7 @@ variable "private_verdi_security_group_id" {
 
 variable "pcm_verdi_role" {
   default = {
-    name = "am-pcm-dev-verdi-role"
+    name = "am-pcm-dev-verdi-role" # For all venues other than dev, use "am-pcm-verdi-role" instead
     path = "/"
   }
 }

@@ -9,19 +9,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
-
-from util.conf_util import SettingsConf
+from commons.es_connection import get_grq_es
 
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
-
-SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
-GRQ_IP = SETTINGS["GRQ_PVT_IP"]
-
-ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
 
 FORMAT = '%(asctime)s %(message)s'
@@ -29,7 +21,7 @@ logging.basicConfig(format=FORMAT)
 LOGGER = logging.getLogger('disp_s1_hist_status')
 LOGGER.setLevel(logging.INFO)
 
-eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, LOGGER)
+eu = get_grq_es(LOGGER)
 LOGGER.debug("Connected to %s" % str(eu.es_url))
 
 # Process the default disp s1 burst hist file

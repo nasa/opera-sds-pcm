@@ -8,7 +8,8 @@ import sys
 
 from cslc_utils import (get_pending_download_jobs,
                         localize_disp_frame_burst_hist,
-                        mark_pending_download_job_submitted)
+                        mark_pending_download_job_submitted, PENDING_TYPE_CSLC_DOWNLOAD)
+from dist_s1_utils import PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD
 from commons.logger import configure_library_loggers
 from data_subscriber import es_conn_util
 from data_subscriber.cmr import get_cmr_token
@@ -47,42 +48,47 @@ def run(argv: list[str]):
 
     # Get unsubmitted jobs from Elasticsearch GRQ
     unsubmitted = get_pending_download_jobs(es)
-    logger.info(f"Found {len(unsubmitted)=} Pending CSLC Download Jobs")
+    logger.info(f"Found {len(unsubmitted)=} Pending Jobs")
 
     # For each of the unsubmitted jobs, check if their compressed cslcs have been generated
     for job in unsubmitted:
-        k = job['_source']['k']
-        m = job['_source']['m']
-        frame_id = job['_source']['frame_id']
-        acq_index = job['_source']['acq_index']
+        if job['_source']['job_type'] == PENDING_TYPE_CSLC_DOWNLOAD:
+            logger.info(f"Found pending CSLC download job. batch ids: {job['_source']['batch_ids']}, ")
+            k = job['_source']['k']
+            m = job['_source']['m']
+            frame_id = job['_source']['frame_id']
+            acq_index = job['_source']['acq_index']
 
-        cslc_dependency = CSLCDependency(k, m, disp_burst_map, query_args, token, cmr, settings, blackout_dates_obj)
+            cslc_dependency = CSLCDependency(k, m, disp_burst_map, query_args, token, cmr, settings, blackout_dates_obj)
 
-        # Check if the compressed cslc has been generated
-        logger.info("Evaluating for frame_id: %s, acq_index: %s, k: %s, m: %s", frame_id, acq_index, k, m)
-        if cslc_dependency.compressed_cslc_satisfied(frame_id, acq_index, es):
-            logger.info("Compressed CSLC satisfied for frame_id: %s, acq_index: %s. Submitting CSLC download job",
-                        frame_id, acq_index)
+            # Check if the compressed cslc has been generated
+            logger.info("Evaluating for frame_id: %s, acq_index: %s, k: %s, m: %s", frame_id, acq_index, k, m)
+            if cslc_dependency.compressed_cslc_satisfied(frame_id, acq_index, es):
+                logger.info("Compressed CSLC satisfied for frame_id: %s, acq_index: %s. Submitting CSLC download job",
+                            frame_id, acq_index)
 
-            download_job_id = submit_download_job(release_version=job['_source']['release_version'],
-                    product_type=job['_source']['product_type'],
-                    params=job['_source']['job_params'],
-                    job_queue=job['_source']['job_queue'],
-                    job_name = job['_source']['job_name'])
+                download_job_id = submit_download_job(release_version=job['_source']['release_version'],
+                        product_type=job['_source']['product_type'],
+                        params=job['_source']['job_params'],
+                        job_queue=job['_source']['job_queue'],
+                        job_name = job['_source']['job_name'])
 
-            # Record download job id in ES cslc_catalog
-            for batch_id in job['_source']['batch_ids']:
-                es_conn.mark_download_job_id(batch_id, download_job_id)
+                # Record download job id in ES cslc_catalog
+                for batch_id in job['_source']['batch_ids']:
+                    es_conn.mark_download_job_id(batch_id, download_job_id)
 
-            # Also mark as submitted in ES pending downloads
-            logger.info(mark_pending_download_job_submitted(es, job['_id'], download_job_id))
+                # Also mark as submitted in ES pending downloads
+                logger.info(mark_pending_download_job_submitted(es, job['_id'], download_job_id))
 
-            job_submission_tasks.append(download_job_id)
+                job_submission_tasks.append(download_job_id)
 
-        else:
-            logger.info("Compressed CSLC NOT satisfied for frame_id: %s, acq_index: %s", frame_id, acq_index)
+            else:
+                logger.info("Compressed CSLC NOT satisfied for frame_id: %s, acq_index: %s", frame_id, acq_index)
+        elif job['_source']['job_type'] == PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD:
+            logger.info(f"Found pending rtc for dist download job. batch ids: {job['_source']['batch_ids']}, ")
+            #TODO: Implement RTC for Dist download job submission logic
 
-    logger.info(f"Submitted {len(job_submission_tasks)} CSLC Download Jobs {job_submission_tasks}")
+    logger.info(f"Submitted {len(job_submission_tasks)} Pending Jobs {job_submission_tasks}")
 
 if __name__ == "__main__":
     main()

@@ -12,6 +12,7 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
                                            dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
                                            parse_k_parameter)
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -28,6 +29,8 @@ class RtcForDistCmrQuery(CmrQuery):
 
         self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
+
+        self.dist_dependency = DistDependency()
 
         '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
@@ -308,6 +311,7 @@ there must be a default value. Cannot retrieve baseline granules.")
         job_submission_tasks = []
 
         for batch_id, urls in batch_id_to_urls_map.items():
+
             chunk_batch_ids = [batch_id]
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
@@ -324,6 +328,16 @@ there must be a default value. Cannot retrieve baseline granules.")
             product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
 
             product_type = "rtc_for_dist"
+
+            # If the previous run for this tile has not been processed, submit as a pending job
+            if self.dist_dependency.should_wait_previous_run(batch_id):
+                self.logger.info(
+                    f"Previous run for {batch_id} has not been processed yet. Skipping download job submission.")
+                # save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
+                #                                           product_type, params, self.args.job_queue, job_name,
+                #                                            frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
+                continue
+
             download_job_id = try_submit_mozart_job(product = {},
                                                     params=self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata),
                                                     job_queue=self.args.job_queue,
