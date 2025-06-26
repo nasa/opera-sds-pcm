@@ -791,10 +791,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         metadata = self._context["product_metadata"]["metadata"]
 
-        # TODO: Fill this out when sample prev product meta dict is available
-        if 'dummy_key_for_prev_product' in metadata and metadata['dummy_key_for_prev_product']:
-            prev_product = []
-        else:
+        prev_product = metadata['product_paths'].get('L3_DIST_S1', [])
+
+        if prev_product is None:
             prev_product = []
 
         rc_params = {
