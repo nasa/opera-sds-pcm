@@ -12,7 +12,7 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
                                            dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
                                            parse_k_parameter)
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
+#from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -30,7 +30,7 @@ class RtcForDistCmrQuery(CmrQuery):
         self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
 
-        self.dist_dependency = DistDependency()
+        #self.dist_dependency = DistDependency()
 
         '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
@@ -42,6 +42,19 @@ class RtcForDistCmrQuery(CmrQuery):
         if self.args.proc_mode == "reprocessing":
             if not self.args.product_id_time:
                 raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
+
+    def unique_latest_granules(self, granules):
+        ''' Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one'''
+        granules_dict = {}
+        for granule in granules:
+            key = (granule["burst_id"], granule["acquisition_ts"])
+            if key not in granules_dict:
+                granules_dict[key] = granule
+            else:
+                self.logger.info(f"Found duplicate granules {granule['granule_id']}, {granules_dict[key]['granule_id']} with the same burst_id and acquisition_ts. Keeping only the latest production one.")
+                if granule["acquisition_ts"] > granules_dict[key]["acquisition_ts"]:
+                    granules_dict[key] = granule
+        return list(granules_dict.values())
 
     def query_cmr(self, timerange, now: datetime):
         if self.args.proc_mode == "forward":
@@ -93,15 +106,7 @@ class RtcForDistCmrQuery(CmrQuery):
                 filtered_granules.append(granule)
 
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        granules_dict = {}
-        for granule in filtered_granules:
-            key = (granule["burst_id"], granule["acquisition_ts"])
-            if key not in granules_dict:
-                granules_dict[key] = granule
-            else:
-                if granule["acquisition_ts"] > granules_dict[key]["acquisition_ts"]:
-                    granules_dict[key] = granule
-        filtered_granules = list(granules_dict.values())
+        filtered_granules = self.unique_latest_granules(filtered_granules)
 
         return filtered_granules
 
@@ -266,6 +271,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                     basic_decorate_granule(granule)
                     granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
                 self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
+                granules = self.unique_latest_granules(granules)
                 granules_map = rtc_granules_by_acq_index(granules)
 
                 # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
@@ -329,14 +335,14 @@ there must be a default value. Cannot retrieve baseline granules.")
 
             product_type = "rtc_for_dist"
 
-            # If the previous run for this tile has not been processed, submit as a pending job
+            '''# If the previous run for this tile has not been processed, submit as a pending job
             if self.dist_dependency.should_wait_previous_run(batch_id):
                 self.logger.info(
                     f"Previous run for {batch_id} has not been processed yet. Skipping download job submission.")
                 # save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
                 #                                           product_type, params, self.args.job_queue, job_name,
                 #                                            frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
-                continue
+                continue'''
 
             download_job_id = try_submit_mozart_job(product = {},
                                                     params=self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata),
