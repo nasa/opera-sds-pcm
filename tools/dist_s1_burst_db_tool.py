@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information.", required=False, default=False)
-parser.add_argument("--db-file", dest="db_file", help="Specify the DIST-S1 database json file \
+parser.add_argument("--db-file", dest="db_file", help="Specify the DIST-S1 burst database parquet file \
 on the local file system instead of using the standard one in S3 ancillary", required=False)
 parser.add_argument("--no-geometry", dest="no_geometry", action="store_true",
                     help="If set, do not print burst geometry information.", required=False, default=False)
