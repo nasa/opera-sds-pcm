@@ -178,3 +178,41 @@ Copying one ~300MB .nc DISP-S1 file takes about 3 seconds. This tool currently c
     8882, 33039, 33040
     33041, 33042
     33043
+
+## dist_s1_burst_db_tool.py
+OPERA PCM must be installed for this tool to work.
+
+Tool to query and analyze the DIST-S1 burst database parquet file. The parquet file must be specified or can be automatically retrieved from the OPERA S3 bucket if running from a deployed cluster.
+
+The database file can be found here: s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet
+
+    python tools/dist_s1_burst_db_tool.py --help
+    usage: dist_s1_burst_db_tool.py [-h] [--verbose VERBOSE] [--db-file DB_FILE] [--no-geometry] {list,summary,native_id,tile_id,burst_id} ...
+    
+    positional arguments:
+      {list,summary,native_id,tile_id,burst_id}
+        list                List all tile numbers
+        summary             List all tile numbers, number of products and their bursts
+        native_id           Print information based on native_id
+        tile_id             Print information based on tile
+        burst_id            Print information based on burst id.
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose VERBOSE     If true, print out verbose information.
+      --db-file DB_FILE     Specify the DIST-S1 burst database parquet file on the local file system instead of using the standard one in S3 ancillary
+      --no-geometry         Do not print burst geometry information. This speeds up this tool significantly.
+
+#### Examples:
+
+    python tools/dist_s1_burst_db_tool.py --db-file=mgrs_burst_lookup_table-2025-02-19.parquet native_id OPERA_L2_RTC-S1_T064-135520-IW1_20250614T015042Z_20250622T152306Z_S1A_30_v1.0
+    
+    Burst id:  T064-135520-IW1
+    Acquisition datetime:  20250614T015042Z
+    Acquisition index:  348
+    Product IDs:  {'11SMU_0', '11SLU_0', '11SLT_0', '11SMT_0'}
+    --product-id-time:  11SMU_0,20250614T015042Z
+    --product-id-time:  11SLU_0,20250614T015042Z
+    --product-id-time:  11SLT_0,20250614T015042Z
+    --product-id-time:  11SMT_0,20250614T015042Z
+    Burst geometry minx, miny, maxx, maxy:  (-118.896936, 34.007766, -117.929224, 34.350227
