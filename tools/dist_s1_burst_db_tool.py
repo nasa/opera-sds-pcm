@@ -25,6 +25,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", dest="verbose", help="If true, print out verbose information.", required=False, default=False)
 parser.add_argument("--db-file", dest="db_file", help="Specify the DIST-S1 database json file \
 on the local file system instead of using the standard one in S3 ancillary", required=False)
+parser.add_argument("--no-geometry", dest="no_geometry", action="store_true",
+                    help="If set, do not print burst geometry information.", required=False, default=False)
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
 server_parser = subparsers.add_parser("list", help="List all tile numbers")
@@ -63,17 +65,18 @@ else:
     dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
     disp_burst_map_file = None
 
-#Check to see if burst_geometry_file exists on the local filesystem
-if not os.path.exists(burst_geometry_file):
-    print(f"Downloading burst geometry file from {burst_geometry_file_url}")
-    response = requests.get(burst_geometry_file_url)
-    response.raise_for_status()
-    with open(burst_geometry_file, 'wb') as f:
-        f.write(response.content)
-else:
-    print(f"Using existing burst geometry file: {burst_geometry_file}")
-print(f"Reading burst geometry file: {burst_geometry_file}")
-burst_grid = gpd.read_file(burst_geometry_file)
+if args.no_geometry is False:
+    #Check to see if burst_geometry_file exists on the local filesystem
+    if not os.path.exists(burst_geometry_file):
+        print(f"Downloading burst geometry file from {burst_geometry_file_url}")
+        response = requests.get(burst_geometry_file_url)
+        response.raise_for_status()
+        with open(burst_geometry_file, 'wb') as f:
+            f.write(response.content)
+    else:
+        print(f"Using existing burst geometry file: {burst_geometry_file}")
+    print(f"Reading burst geometry file: {burst_geometry_file}")
+    burst_grid = gpd.read_file(burst_geometry_file)
 
 def get_burst_geometry(burst_id):
     """Get the geometry of a burst given its ID."""
@@ -117,7 +120,10 @@ elif args.subparser_name == "native_id":
     print("Acquisition datetime: ", acquisition_dts)
     print("Acquisition index: ", acquisition_index)
     print("Product IDs: ", products)
-    print("Burst geometry minx, miny, maxx, maxy: ", get_burst_geometry(burst_id))
+    for product in products:
+        print("--product-id-time: ", f"{product},{acquisition_dts}")
+    if args.no_geometry is False:
+        print("Burst geometry minx, miny, maxx, maxy: ", get_burst_geometry(burst_id))
 
 elif args.subparser_name == "tile_id":
     tile_id = args.tile_id
@@ -140,4 +146,5 @@ elif args.subparser_name == "burst_id":
     print("Burst id: ", burst_id)
     product_ids = bursts_to_products[burst_id]
     print("Product IDs: ({len(product_ids))", product_ids)
-    print("Burst geometry minx, miny, maxx, maxy: ", get_burst_geometry(burst_id))
+    if args.no_geometry is False:
+        print("Burst geometry minx, miny, maxx, maxy: ", get_burst_geometry(burst_id))
