@@ -223,7 +223,7 @@ DIST_S1:
     MODEL_OPTIMIZATION: false  # Currently locked to false for now
     BATCH_DESPECKLING: 8
     BATCH_NORM_PARAMS: 32
-    STRIDE_NORM_PARAMS: 16
+    STRIDE_NORM_PARAMS: 4  # int between 1 & 16 - 16 is fastest but has bad artifacting in output products. 1 is slowest but cleanest
     WORKERS:
       N_DESPECKLE: 16
       N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
