@@ -263,11 +263,20 @@ def create_job_submission_product(job_data, frame):
         product_paths[f"L2_{type_}_S1_STATIC"] = s3_urls
     product_type = "DISP-S1-JOB-SUBMISSION"
     product_id = f"{frame}"
+    MISSING_FRAMES_LOG = "missing_geo_frames_for_disp_s1_static.txt"
     if is_dev_mode:
         logger.info(f"{ is_dev_mode=}. Using global bounding box.")
         bounding_box = [-180., -90., 180., 90.]
     else:
-        bounding_box = get_bounding_box_for_frame(int(frame), localize_frame_geo_json())
+        try: 
+            bounding_box = get_bounding_box_for_frame(int(frame), localize_frame_geo_json())
+        except KeyError as e:
+            frame_id = int(frame)
+            logger.warning(f"Frame ID {frame_id} not found in geo JSON. Logging to file and set to global bounding box.")
+            with open(MISSING_FRAMES_LOG, "a") as f:
+                f.write(f"{datetime.utcnow().isoformat()} - Frame {frame_id} missing\n")
+            bounding_box = [-180., -90., 180., 90.] # set to default value
+
     disp_s1_job_product = {
         "_id": f"{product_id}",
         "_source": {
