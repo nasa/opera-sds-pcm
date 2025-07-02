@@ -783,6 +783,27 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dist_s1_prev_product(self):
+        """
+        Gets the paths of OPERA DIST-S1 products from previous run on this tile
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        prev_product = metadata['product_paths'].get('L3_DIST_S1', [])
+
+        if prev_product is None:
+            prev_product = []
+
+        rc_params = {
+            'prev_product': prev_product
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dist_s1_mask_file(self):
         """
         This function downloads a sub-region of the water mask used with DIST-S1
@@ -844,37 +865,18 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dist_s1_lookbacks(self):
+    def get_dist_s1_lookback_config(self):
         """
         Get number of lookbacks for DIST-S1 job
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # This is currently hardcoded, should we move it to settings?
-
-        n_desired_lookbacks = int(self._settings.get("DIST_S1", {}).get("DESIRED_LOOKBACKS", 3))
-        # Q: Is there any validation here? (ie must be >= 3) ^^
-
-        # TODO: To support testing for smaller (thus quicker) k, contract this value if few sensing dates are
-        #  available
-
-        metadata = self._context["product_metadata"]["metadata"]
-
-        dataset_type = self._context["dataset_type"]
-
-        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
-
-        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_\w{4}-\w{6}-\w{3}_(?P<acquisition_date>\d{8})T\d{6}Z_\d{8}T\d{6}Z_'
-                                 r'S1[AB]_30_v\d+[.]\d+_(VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
-
-        baseline_sensing_dates = set()
-
-        for path in product_paths["baseline_burst_set"]:
-            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
-            baseline_sensing_dates.add(rtc_match['acquisition_date'])
+        # Hardcoded for the foreseeable future - should move to template eventually if this stays the same
 
         rc_params = {
-            'n_lookbacks': min(n_desired_lookbacks, len(baseline_sensing_dates)),
+            'n_lookbacks': 1,
+            'confirmation_strategy': 'use_prev_product',
+            'lookback_strategy': 'multi_window'
         }
 
         return rc_params
@@ -884,17 +886,32 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        despeckle_batch_size = int(self._settings.get("DIST_S1", {}).get("DESPECKLE_BATCH_SIZE", 25))
+        dist_settings = self._settings.get("DIST_S1", {})
+        processing_settings = dist_settings.get("PROCESSING", {})
+        worker_settings = processing_settings.get("WORKERS", {})
 
-        worker_settings = self._settings.get("DIST_S1", {}).get("WORKERS", {})
+        despeckle_batch_size = int(processing_settings.get("BATCH_DESPECKLING", 25))
+        norm_params_batch_size = int(processing_settings.get("BATCH_NORM_PARAMS", 32))
+
+        stride_norm_params = int(processing_settings.get('STRIDE_NORM_PARAMS', 2))
 
         n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
         n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
 
+        model_optimize = processing_settings.get("MODEL_OPTIMIZATION", False)
+
+        # TODO: Model optimization is disabled in current delivery, but the settings logic is implemented now
+        if model_optimize:
+            logger.warning('MODEL_OPTIMIZATION enabled in settings, but is not yet supported. Disabling.')
+            model_optimize = False
+
         rc_params = {
             'batch_size_for_despeckling': despeckle_batch_size,
+            'batch_size_for_norm_param_estimation': norm_params_batch_size,
             'n_workers_for_despeckling': n_despeckle,
-            'n_workers_for_norm_param_estimation': n_norm_param_est
+            'n_workers_for_norm_param_estimation': n_norm_param_est,
+            'stride_for_norm_param_estimation': stride_norm_params,
+            'optimize': model_optimize,
         }
 
         logger.info(f"rc_params : {rc_params}")
