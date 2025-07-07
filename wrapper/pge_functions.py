@@ -135,7 +135,10 @@ def disp_s1_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     input_file_group = run_config["input_file_group"]
+    dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
+
     s3_input_filepaths = input_file_group["input_file_paths"] + input_file_group["compressed_cslc_paths"]
+    s3_input_filepaths.append(dynamic_ancillary_file_group["algorithm_parameters_file"])
 
     # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
     for s3_input_filepath in s3_input_filepaths:
@@ -164,7 +167,7 @@ def disp_s1_lineage_metadata(context, work_dir):
     lineage_metadata.extend(local_mask_filepaths)
 
     # Algorithm parameters overrides has already been downloaded to local disk
-    local_algorithm_parameters_overrides_filepath = run_config["processing"]["algorithm_parameters_overrides_json"]
+    local_algorithm_parameters_overrides_filepath = run_config["static_ancillary_file_group"]["algorithm_parameters_overrides_json"]
     lineage_metadata.append(local_algorithm_parameters_overrides_filepath)
 
     local_frame_database_filepath = os.path.join(
@@ -408,9 +411,14 @@ def update_disp_s1_runconfig(context, work_dir):
                 for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
             ]
 
+    dynamic_ancillary_file_group["algorithm_parameters_file"] = os.path.join(
+        container_home_prefix, basename(dynamic_ancillary_file_group["algorithm_parameters_file"])
+    )
+
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
-    for static_ancillary_key in ("frame_to_burst_json", "reference_date_database_json"):
+    for static_ancillary_key in ("algorithm_parameters_overrides_json", "frame_to_burst_json",
+                                 "reference_date_database_json"):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
         )
@@ -426,10 +434,6 @@ def update_disp_s1_runconfig(context, work_dir):
             os.path.join(container_home_prefix,
                          os.path.basename(run_config["dynamic_ancillary_file_group"]["mask_file"]))
         )
-
-    run_config["processing"]["algorithm_parameters_overrides_json"] = (
-        os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters_overrides_json"]))
-    )
 
     return run_config
 
@@ -546,5 +550,5 @@ def update_tropo_runconfig(context, work_dir):
         updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
-    
+
     return run_config
