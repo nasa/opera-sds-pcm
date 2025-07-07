@@ -429,6 +429,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_last_processed(self):
+        """
+        Determines the last processed date for a DISP-S1 for use with
+        "catch-up" forward processing.
+
+        TODO: currently a stub until we need to support this feature
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            "last_processed": ""
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+
     def get_disp_s1_polarization(self):
         """
         Determines the polarization value of the CSLC-S1 products used with a

@@ -49,6 +49,7 @@ preconditions:
   - get_disp_s1_frame_id
   - get_disp_s1_product_type
   - get_disp_s1_num_workers
+  - get_disp_s1_last_processed
   - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_disp_s1_compressed_cslc_files

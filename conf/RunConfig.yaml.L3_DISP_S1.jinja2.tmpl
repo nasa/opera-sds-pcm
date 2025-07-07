@@ -51,6 +51,8 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
         frame_id: {{ runconfig.processing.frame_id }}
+        # TODO: uncomment once we want to support forward "catch-up" processing mode
+        #last_processed: {{ runconfig.input_file_group.last_processed }}
       dynamic_ancillary_file_group:
         algorithm_parameters_file: {{ runconfig.product_path_group.input_path }}/AlgoParams.yaml
         {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
