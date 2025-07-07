@@ -16,7 +16,9 @@ runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
     compressed_cslc_paths: __CHIMERA_VAL__
+    last_processed: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
+    algorithm_parameters_file: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
@@ -24,6 +26,7 @@ runconfig:
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
     reference_date_database_json: __CHIMERA_VAL__
+    algorithm_parameters_overrides_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     input_path: /home/mamba/input_dir
@@ -33,7 +36,6 @@ runconfig:
   processing:
     polarization: __CHIMERA_VAL__
     frame_id: __CHIMERA_VAL__
-    algorithm_parameters_overrides_json: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
@@ -71,6 +73,9 @@ set_daac_product_type:
 
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
+  algorithm_parameters_file:
+    # TODO: we'll need to support supplying a forward config as well at some point
+    settings_key: "DISP_S1.ALGORITHM_PARAMETERS_HISTORICAL_YAML"
   frame_to_burst_json:
     settings_key: "DISP_S1.FRAME_TO_BURST_JSON"
   reference_date_database_json:
@@ -106,9 +111,9 @@ pge_name: "L3_DISP_S1"
 primary_input: "L2_CSLC_S1"
 primary_output: "L3_DISP_S1"
 
-# Must be set to true to ensure algorithm parameter template is instantiated
-# for every DISP-S1 job
-use_algorithm_parameters: true
+# We currently pull algorithm parameters from S3, so we do not need to enable
+# generation from the template.
+use_algorithm_parameters: false
 
 # List the groups that Chimera will need to localize
 # The entries MUST reference a property of `$.runconfig` of this YAML.
