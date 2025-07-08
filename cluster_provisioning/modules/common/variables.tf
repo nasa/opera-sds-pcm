@@ -405,7 +405,7 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
-    "opera-job_worker-send_cnm_notify" = {
+    "opera-job_worker-send_cnm_notify_l4_tropo" = {
       "name"              = "opera-job_worker-send_cnm_notify_l4_tropo"
       "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
