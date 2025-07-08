@@ -91,6 +91,23 @@ def test_get_frames_from_granules(mock_granules, query_params):
     assert all(frames)
     assert frames == [11, 67, 67, 67, 68, 68, 69, 70, 70, 71]
 
+def test_get_frames_from_granules_single(mock_granules, query_params):
+    """Test the get_frames_from_granules method of NisarGcovCmrQuery class."""
+    query = NisarGcovCmrQuery(**query_params)
+    frames = query._get_frames_from_granules([mock_granules[0]])
+    
+    assert len(frames) == 1
+    assert all(frames)
+    assert frames == [11]
+
+def test_get_mgrs_sets_from_granules_single(mock_granules, query_params):
+    """Test the get_mgrs_sets_from_granules method of NisarGcovCmrQuery class."""
+    query = NisarGcovCmrQuery(**query_params)
+    mgrs_sets = query._get_mgrs_sets_from_granules([mock_granules[0]])
+    breakpoint() 
+    assert len(mgrs_sets) == 1
+    assert all(mgrs_sets.values())
+
 def test_get_mgrs_sets_from_granules(mock_granules, query_params):
     """Test the get_mgrs_sets_from_granules method of NisarGcovCmrQuery class."""
     query = NisarGcovCmrQuery(**query_params)
