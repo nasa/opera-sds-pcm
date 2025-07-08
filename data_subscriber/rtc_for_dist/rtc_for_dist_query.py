@@ -9,7 +9,7 @@ from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
-                                           dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
+                                           extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
                                            parse_k_parameter)
 #from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
@@ -111,35 +111,7 @@ class RtcForDistCmrQuery(CmrQuery):
         return filtered_granules
 
     def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
-
-        extended_granules = []
-
-        def decorate_granule(granule):
-            granule["tile_id"] = granule["product_id"].split("_")[0]
-            granule["acquisition_group"] = granule["product_id"].split("_")[1]
-            granule["batch_id"] = granule["product_id"] + "_" + str(granule["acquisition_cycle"])
-            granule["download_batch_id"] = dist_s1_download_batch_id(granule)
-            granule["unique_id"] = rtc_for_dist_unique_id(granule["download_batch_id"], granule["burst_id"])
-
-        for granule in granules:
-            rtc_granule_id = granule["granule_id"]
-            product_ids = list(self.bursts_to_products[granule["burst_id"]])
-
-            if len(product_ids) == 0:
-                self.logger.error(f"This shouldn't happen. Skipping {rtc_granule_id} as it does not belong to any DIST-S1 product.")
-                continue
-
-            granule["product_id"] = force_product_id if force_product_id else product_ids[0]
-            decorate_granule(granule)
-
-            if len(product_ids) > 1 and no_duplicate == False:
-                for product_id in product_ids[1:]:
-                    new_granule = deepcopy(granule)
-                    new_granule["product_id"] = force_product_id if force_product_id else product_id
-                    decorate_granule(new_granule)
-                    extended_granules.append(new_granule)
-
-        granules.extend(extended_granules)
+        extend_rtc_for_dist_records(self.bursts_to_products, granules, no_duplicate, force_product_id)
 
     def prepare_additional_fields(self, granule, args, granule_id):
         """This is used to determine download_batch_id and attaching it the granule.

@@ -10,7 +10,7 @@ import geopandas as gpd
 import requests
 from data_subscriber.url import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name
-from data_subscriber.dist_s1_utils import process_dist_burst_db, localize_dist_burst_db
+from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db
 
 burst_geometry_file_url = "https://github.com/opera-adt/burst_db/releases/download/v0.9.0/burst-id-geometries-simple-0.9.0.geojson.zip"
 burst_geometry_file = "burst-id-geometries-simple-0.9.0.geojson.zip"
@@ -47,23 +47,9 @@ args = parser.parse_args()
 if args.db_file:
     # First see if a pickle file exists
     pickle_file_name = args.db_file + ".pickle"
-    try:
-        with open(pickle_file_name, "rb") as f:
-            dist_products, bursts_to_products, product_to_bursts, all_tile_ids = pickle.load(f)
-            logger.info("Loaded DIST-S1 burst database from pickle file.")
-    except FileNotFoundError:
-        logger.info(f"Could not find {pickle_file_name}. Processing DIST-S1 burst database file.")
-        logger.info(f"Using local DIST-S1 database parquet file: {args.db_file}")
-        dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(args.db_file)
-        # Check to see if the DIST_BURST_DB_PICKLE_NAME file exists and create it if it doesn't
-        if not os.path.isfile(pickle_file_name):
-            with open(pickle_file_name, "wb") as f:
-                pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
-                logger.info(f"Saved DIST-S1 burst database to {pickle_file_name}.")
-    disp_burst_map_file = args.db_file
+    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = parse_local_burst_db_pickle(args.db_file, pickle_file_name)
 else:
     dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
-    disp_burst_map_file = None
 
 if args.no_geometry is False:
     #Check to see if burst_geometry_file exists on the local filesystem
