@@ -84,7 +84,7 @@ DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_
 DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/sample_disp_s1_blackout.json"
 
 # This file contains geo boundaries of all DISP-S1 frames
-DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple.geojson"
+DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
 
 # Force DIST-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
 # This can be over-ridden by argument into daac_data_subsriber.py
