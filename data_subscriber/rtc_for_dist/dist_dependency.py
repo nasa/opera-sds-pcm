@@ -13,6 +13,7 @@ from commons.es_connection import get_grq_es, get_mozart_es
 # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
 
 GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
+CMR_RTC_CACHE_INDEX = "cmr_rtc_cache*"
 
 class DistDependency:
     def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts):
@@ -58,6 +59,7 @@ class DistDependency:
         """ Get the previous tile product record from GRQ ES."""
 
         tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
+        tile_id = tile_id[1:] # Remove the "p" from the tile_id
         prev_product_download_batch_id = determine_previous_product_download_batch_id(self.dist_products, download_batch_id)
 
         self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id}")
@@ -91,8 +93,31 @@ class DistDependency:
         for product_id in product_ids:
             burst_ids = self.product_to_bursts[product_id]
             all_burst_ids.update(burst_ids)
-
+        all_burst_ids = list(all_burst_ids)
         print(f"All burst ids: {all_burst_ids}")
+
+        should_query = []
+        for burst_id in all_burst_ids:
+            should_query.append({"match": {"burst_id.keyword": burst_id}})
+
+        # Query the cmr_rtc_cache index for the previous product
+        result = self.grq_es.search(
+            index=CMR_RTC_CACHE_INDEX,
+            body={
+                "query": {
+                    "bool": {
+                        "should": should_query
+                    }
+                }
+            }
+        )
+
+        hits = result["hits"]["hits"]
+        hit_count = 1
+        for hit in hits:
+            print(f"Hit: {hit_count}: {hit['_id']}")
+            hit_count += 1
+        print(f"Hit count: {hit_count}")
 
         return None, prev_product_download_batch_id
 
