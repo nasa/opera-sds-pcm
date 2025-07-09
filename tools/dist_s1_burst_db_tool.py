@@ -8,6 +8,7 @@ import csv
 from tqdm import tqdm
 import geopandas as gpd
 import requests
+from datetime import datetime, timedelta
 from data_subscriber.url import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db
@@ -38,6 +39,7 @@ server_parser.add_argument("native_id", help="The RTC native id from CMR")
 
 server_parser = subparsers.add_parser("tile_id", help="Print information based on tile")
 server_parser.add_argument("tile_id", help="The tile ID")
+server_parser.add_argument("--first-product-datetime", help="Use the first product datetime to generate datetime for rest of the products in this tile", required=False, default=None)
 
 server_parser = subparsers.add_parser("burst_id", help="Print information based on burst id.")
 server_parser.add_argument("burst_id", help="Burst id looks like T175-374393-IW1.")
@@ -117,11 +119,27 @@ elif args.subparser_name == "tile_id":
         print("Tile ID: ", tile_id, "does not exist")
         exit(-1)
 
+    # datetime looks like this: 20250614T015042Z
+    if args.first_product_datetime:
+        first_product_datetime = datetime.strptime(args.first_product_datetime, "%Y%m%dT%H%M%SZ")
+    else:
+        first_product_datetime = None
+
     print("Tile ID: ", tile_id)
     print("Product IDs and burst ids: ")
-    for product_id in sorted(list(dist_products[tile_id])):
+    product_ids = sorted(list(dist_products[tile_id]))
+    first_product_first_burst_id = sorted(list(product_to_bursts[product_ids[0]]))[0]
+    first_burst_identification_number = int(first_product_first_burst_id.split("-")[1])
+    for product_id in product_ids:
         burst_ids = sorted(list(product_to_bursts[product_id]))
-        print(f"{product_id} ({len(burst_ids)} bursts): {burst_ids}")
+        if first_product_datetime:
+            current_burst_identification_number = int(burst_ids[0].split("-")[1])
+            delta_seconds = 12 * 24 * 60 * 60 * (current_burst_identification_number - first_burst_identification_number) / 375887
+            product_datetime = first_product_datetime + timedelta(seconds=delta_seconds)
+            product_datetime_str = product_datetime.strftime("%Y%m%dT%H%M%SZ")
+            print(f"{product_id} ({product_datetime_str}) ({len(burst_ids)} bursts): {burst_ids}")
+        else:
+            print(f"{product_id} ({len(burst_ids)} bursts): {burst_ids}")
 
 elif args.subparser_name == "burst_id":
     burst_id = args.burst_id
