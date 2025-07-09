@@ -12,6 +12,7 @@ from datetime import date, datetime
 from commons.logger import get_logger
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
+from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
@@ -290,6 +291,51 @@ def parse_k_parameter(k_offsets_and_counts):
     k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
     return k_offsets_and_counts
 
+def determine_previous_product_download_batch_id(dist_products, download_batch_id):
+    """Determine the previous product download batch id for a given batch id.
+    """
+    tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
+    tile_id = tile_id[1:] # Remove the "p" from the tile_id
+    acquisition_group = int(acquisition_group)
+    acquisition_cycle = int(acquisition_cycle[1:]) # Remove the "a" from the acquisition cycle
+
+    # First, see if we can find a previous tile product record in GRQ ES
+    while True:
+        if acquisition_group > 0:
+            acquisition_group -= 1
+            prev_product = tile_id + "_" + str(acquisition_group)
+            if prev_product in dist_products[tile_id]:
+                break
+        else: # If the acquisition group is 0, we need to decrement the acquisition cycle and set the acquisition group to max for that tile
+            acquisition_cycle -= 1
+            prev_product = max(dist_products[tile_id])
+            break
+    prev_product_download_batch_id = "p" + tile_id + "_" + str(acquisition_group) + "_a" + str(acquisition_cycle)
+
+    return prev_product_download_batch_id
+
+def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
+                              frame_id, acq_index, batch_id):
+    """Save the blocked download job in the ES index"""
+
+    eu.index_document(
+        index=PENDING_JOBS_ES_INDEX_NAME,
+        id = job_name,
+        body = {
+                "job_type": PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD,
+                "release_version": release_version,
+                "job_name": job_name,
+                "job_queue": job_queue,
+                "job_params": params,
+                "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
+                "product_type": product_type,
+                "frame_id": frame_id,
+                "acq_index": acq_index,
+                "batch_id": batch_id,
+                "submitted": False,
+                "submitted_job_id": None
+        }
+    )
 
 if __name__ == "__main__":
 
