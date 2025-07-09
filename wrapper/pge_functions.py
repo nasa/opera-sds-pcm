@@ -103,6 +103,11 @@ def dswx_s1_lineage_metadata(context, work_dir):
     local_db_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
     lineage_metadata.extend(local_db_filepaths)
 
+    local_algorithm_parameters_filepath = os.path.join(
+        work_dir, basename(run_config["processing"]["algorithm_parameters"])
+    )
+    lineage_metadata.append(local_algorithm_parameters_filepath)
+
     return lineage_metadata
 
 
@@ -343,6 +348,9 @@ def update_dswx_s1_runconfig(context, work_dir):
         for ancillary_file_type, ancillary_file_path in static_ancillary_file_paths.items()
     }
     run_config["static_ancillary_file_group"] = updated_static_ancillary_file_paths
+
+    algorithm_parameters_filename = basename(run_config["processing"]["algorithm_parameters"])
+    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/{algorithm_parameters_filename}'
 
     return run_config
 
