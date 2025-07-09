@@ -727,10 +727,10 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.3.0"
-    "tropo"    = "3.0.0-er.1.0-tropo"
+    "disp_s1"  = "3.0.7"
+    "dswx_ni"  = "4.0.0-er.4.0"
+    "dist_s1"  = "6.0.0-rc.1.0"
+    "tropo"    = "3.0.0-er.3.1-tropo"
   }
 }
 
@@ -739,7 +739,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20231023-2.1.0"
+  default = "20250709-3.1.7"
 }
 
 variable "crid" {

@@ -429,6 +429,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_s1_last_processed(self):
+        """
+        Determines the last processed date for a DISP-S1 for use with
+        "catch-up" forward processing.
+
+        TODO: currently a stub until we need to support this feature
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            "last_processed": ""
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+
     def get_disp_s1_polarization(self):
         """
         Determines the polarization value of the CSLC-S1 products used with a
@@ -668,7 +686,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         working_dir = get_working_dir()
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "dswx_ni/dswx_ni_beta_0.2_expected_input.zip"
+        s3_key = "dswx_ni/dswx_ni_beta_0.2.1_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -683,101 +701,83 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        rtc_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'ancillary_data')
+        gcov_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
+        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'ancillary_data')
 
-        rtc_files = os.listdir(rtc_data_dir)
+        gcov_files = os.listdir(gcov_data_dir)
 
-        rtc_file_list = [os.path.join(rtc_data_dir, rtc_file) for rtc_file in rtc_files]
+        gcov_file_list = [os.path.join(gcov_data_dir, gcov_file) for gcov_file in gcov_files]
 
         rc_params = {
-            'input_file_paths': rtc_file_list,
-            'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
-            'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
-            'worldcover_file': os.path.join(ancillary_data_dir, 'worldcover.tif'),
-            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
-            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad_classification.tif'),
+            'input_file_paths': gcov_file_list,
+            'dem_file': os.path.join(ancillary_data_dir, 'dem.vrt'),
+            'hand_file': os.path.join(ancillary_data_dir, 'hand.vrt'),
+            'worldcover_file': os.path.join(ancillary_data_dir, 'worldcover.vrt'),
+            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.vrt'),
+            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad.vrt'),
             'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_ni.yaml'),
             'mgrs_database_file': os.path.join(ancillary_data_dir, 'MGRS_tile.sqlite'),
             'mgrs_collection_database_file': os.path.join(ancillary_data_dir, 'MGRS_collection_db_DSWx-NI_v0.1.sqlite'),
-            'input_mgrs_collection_id': "MS_131_19"
+            'input_mgrs_collection_id': "MS_30_26"
         }
 
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
-    def get_dist_s1_sample_inputs(self):
+    def get_dist_s1_mgrs_tile(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DSWx-NI
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Assigns the MGRS tile ID for DIST-S1 jobs
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # get the working directory
-        working_dir = get_working_dir()
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
 
-        rtc_pattern = re.compile(r'(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_'
-                                 r'(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>'
-                                 r'\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>'
-                                 r'\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T'
-                                 r'(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_'
-                                 r'(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)'
-                                 r'|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$')
+        rc_params = {
+            'mgrs_tile_id': metadata['mgrs_tile_id'],
+        }
 
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "dist_s1/dist_s1_beta_0.0.6_expected_input.zip"
+        logger.info(f"rc_params : {rc_params}")
 
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+        return rc_params
 
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DIST-S1 Inputs"
-        )
+    def get_dist_s1_rtc_s3_paths(self):
+        """
+        Gets the list of input RTCs to be processed by the DIST-S1 job and organizes them into
+        the pre-/post-copol/-crosspol lists
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
+        metadata = self._context["product_metadata"]["metadata"]
 
-        rtc_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
-        ancillary_data_dir = os.path.join(working_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir',
-                                          'ancillary_data')
+        dataset_type = self._context["dataset_type"]
 
-        rtc_dates = sorted(os.listdir(rtc_data_dir))
+        product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
+
+        rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[AB]_30_v\d+[.]\d+_'
+                                 r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
         pre_crosspol = []
         post_copol = []
         post_crosspol = []
 
-        for date in rtc_dates:
-            date_dir = os.path.join(rtc_data_dir, date)
+        for path in product_paths["baseline_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
 
-            for rtc_file in os.listdir(date_dir):
-                rtc_file_path = os.path.join(date_dir, rtc_file)
-                match = rtc_pattern.match(rtc_file)
+            if rtc_match['pol'] in ['VV', 'HH']:
+                pre_copol.append(path)
+            else:
+                pre_crosspol.append(path)
 
-                if match is None:
-                    # TODO: Ignoring for now, should this be an error?
-                    continue
-                else:
-                    pol = match.groupdict()['pol']
+        for path in product_paths["current_burst_set"]:
+            rtc_match = rtc_pattern.match(os.path.basename(path)).groupdict()
 
-                    if date != rtc_dates[-1]:
-                        if pol in ['VV', 'HH']:
-                            pre_copol.append(rtc_file_path)
-                        else:
-                            pre_crosspol.append(rtc_file_path)
-                    else:
-                        if pol in ['VV', 'HH']:
-                            post_copol.append(rtc_file_path)
-                        else:
-                            post_crosspol.append(rtc_file_path)
+            if rtc_match['pol'] in ['VV', 'HH']:
+                post_copol.append(path)
+            else:
+                post_crosspol.append(path)
 
         def sort_fn(path):
             match = rtc_pattern.match(os.path.basename(path))
@@ -795,11 +795,274 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'pre_rtc_crosspol': pre_crosspol,
             'post_rtc_copol': post_copol,
             'post_rtc_crosspol': post_crosspol,
-            'mgrs_tile_id': '10SGD',
-            'water_mask_path': '',
-            'apply_water_mask': False,
-            'n_lookbacks': 3
         }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dist_s1_prev_product(self):
+        """
+        Gets the paths of OPERA DIST-S1 products from previous run on this tile
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+
+        prev_product = metadata['product_paths'].get('L3_DIST_S1', [])
+
+        if prev_product is None:
+            prev_product = []
+
+        rc_params = {
+            'prev_product': prev_product
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dist_s1_mask_file(self):
+        """
+        This function downloads a sub-region of the water mask used with DIST-S1
+        processing over the bounding box provided in the input product metadata.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        if bbox is None:
+            rc_params = {
+                'water_mask_path': '',
+                'apply_water_mask': False,
+            }
+
+            return rc_params
+
+        s3_bucket = self._pge_config.get(oc_const.GET_DIST_S1_MASK_FILE, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DIST_S1_MASK_FILE, {}).get(oc_const.S3_KEY)
+
+        ancillary_type = "Water mask"
+        output_filepath = os.path.join(working_dir, 'water_mask.vrt')
+
+        # Set up arguments to stage_ancillary_map.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.outfile = output_filepath
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.bbox = bbox
+        args.margin = int(self._settings.get("DIST_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
+
+        pge_metrics = self.get_opera_ancillary(
+            ancillary_type=ancillary_type,
+            output_filepath=output_filepath,
+            staging_func=stage_ancillary_map,
+            staging_func_args=args
+        )
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            'water_mask_path': output_filepath,
+            'apply_water_mask': True,
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dist_s1_lookback_config(self):
+        """
+        Get number of lookbacks for DIST-S1 job
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # Hardcoded for the foreseeable future - should move to template eventually if this stays the same
+
+        rc_params = {
+            'n_lookbacks': 1,
+            'confirmation_strategy': 'use_prev_product',
+            'lookback_strategy': 'multi_window'
+        }
+
+        return rc_params
+
+    def get_dist_s1_processing_params(self):
+        """Get processing parameters for DIST-S1 execution"""
+
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        dist_settings = self._settings.get("DIST_S1", {})
+        processing_settings = dist_settings.get("PROCESSING", {})
+        worker_settings = processing_settings.get("WORKERS", {})
+
+        despeckle_batch_size = int(processing_settings.get("BATCH_DESPECKLING", 25))
+        norm_params_batch_size = int(processing_settings.get("BATCH_NORM_PARAMS", 32))
+
+        stride_norm_params = int(processing_settings.get('STRIDE_NORM_PARAMS', 2))
+
+        n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
+        n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
+
+        model_optimize = processing_settings.get("MODEL_OPTIMIZATION", False)
+
+        # TODO: Model optimization is disabled in current delivery, but the settings logic is implemented now
+        if model_optimize:
+            logger.warning('MODEL_OPTIMIZATION enabled in settings, but is not yet supported. Disabling.')
+            model_optimize = False
+
+        rc_params = {
+            'batch_size_for_despeckling': despeckle_batch_size,
+            'batch_size_for_norm_param_estimation': norm_params_batch_size,
+            'n_workers_for_despeckling': n_despeckle,
+            'n_workers_for_norm_param_estimation': n_norm_param_est,
+            'stride_for_norm_param_estimation': stride_norm_params,
+            'optimize': model_optimize,
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_inputs(self):
+        """
+        Gets the lists of input static layers S3 URLs to be processed
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata["product_paths"]
+
+        cslc_static_files = product_paths['L2_CSLC_S1_STATIC']
+        rtc_static_files = product_paths['L2_RTC_S1_STATIC']
+
+        rc_params = {
+            'input_file_paths': cslc_static_files,
+            'rtc_static_layers_files': rtc_static_files,
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_frame_id(self):
+        """
+        Assigns the Frame ID for DISP-S1-STATIC jobs
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        rc_params = {
+            'frame_id': metadata['frame_id'],
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DISP-S1 job as a
+        fraction of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        try:
+            threads_per_worker = self._settings["DISP_S1_STATIC"]["NUM_THREADS"]
+        except KeyError:
+            threads_per_worker = available_cores
+            logger.warning(f"DISP_S1_STATIC.NUM_THREADS not found in settings.yaml. Using default {threads_per_worker=}")
+
+        logger.info(f"Allocating {threads_per_worker=} out of {available_cores} available")
+
+        try:
+            parallel_factor = self._settings["DISP_S1_STATIC"]["NUM_WORKERS"]["FACTOR"]
+            parallel_constant = self._settings["DISP_S1_STATIC"]["NUM_WORKERS"]["CONSTANT"]
+        except KeyError:
+            parallel_factor = 0.25
+            parallel_constant = 1
+            logger.warning(f"DISP_S1_STATIC.NUM_WORKERS not found in settings.yaml. Using defaults {parallel_factor=}, {parallel_constant=}")
+
+        # This number is the number of python proceses to run when processing in the wrapped stage. We want 1 minimum.
+        # These processes are both memory and CPU intensive so we definite want less than the number of cores we have on the system by some factor
+        n_parallel_bursts = max(int(round(available_cores * parallel_factor)) + parallel_constant, 1)
+        logger.info(f"Allocating {n_parallel_bursts=} out of {available_cores} available")
+
+        rc_params = {
+            "threads_per_worker": str(threads_per_worker),
+            "n_parallel_bursts": str(n_parallel_bursts)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_s1_static_dem(self):
+        """
+        This function downloads a DEM sub-region over the bounding box provided
+        in the input product metadata for a DISP-S1 processing job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        logger.info("working_dir : {}".format(working_dir))
+
+        # Get the bounding box for the sub-region to select
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        bbox = metadata.get('bounding_box')
+
+        # Get the s3 location parameters
+        s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_STATIC_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DISP_S1_STATIC_DEM, {}).get(oc_const.S3_KEY)
+
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
+
+        # Set up arguments to stage_dem.py
+        # Note that since we provide an argparse.Namespace directly,
+        # all arguments must be specified, even if it's only with a null value
+        args = argparse.Namespace()
+        args.s3_bucket = s3_bucket
+        args.s3_key = s3_key
+        args.outfile = output_filepath
+        args.filepath = None
+        args.bbox = bbox
+        args.tile_code = None
+        args.margin = int(self._settings.get("DISP_S1_STATIC", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        logger.info(f'Using margin value of {args.margin} with staged DEM')
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DISP-S1-STATIC DEM',
+                                               output_filepath=output_filepath,
+                                               staging_func=stage_dem,
+                                               staging_func_args=args)
+
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {
+            oc_const.DEM_FILE: output_filepath
+        }
+
+        logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
@@ -1019,6 +1282,34 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             "num_workers": str(num_workers)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_tropo_input_filepaths(self):
+        """
+        Derives the list of S3 paths to the input files to be used with a
+        L4_TROPO job and sets other required runconfig values.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        tropo_settings = self._settings["TROPO"]
+
+        input_file_paths = []
+        for file_metadata in metadata.get("Files", []):
+            input_file_paths.append(file_metadata["FileLocation"])
+
+        if not input_file_paths:
+            raise RuntimeError("No input file paths found in product metadata for L4_TROPO job")
+
+        rc_params = {
+            "input_file_paths": input_file_paths,
+            "n_workers": tropo_settings["NUM_WORKERS"],
+            "threads_per_worker": tropo_settings["NUM_THREADS"],
+            "max_memory": tropo_settings["MAX_MEMORY"]
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1350,7 +1641,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         slc_filename = metadata['FileName']
 
-        slc_regex = "(S1A|S1B)_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
+        slc_regex = "(S1[A-C])_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
 
         result = re.search(slc_regex, slc_filename)
 

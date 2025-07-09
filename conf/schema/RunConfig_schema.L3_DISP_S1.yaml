@@ -41,14 +41,18 @@ RunConfig:
     SAS:
       input_file_group:
         # List of paths to CSLC files.
-        cslc_file_list: list(str(), required=True, min=1)
+        cslc_file_list: list(str(), required=False, min=1)
 
         # Frame ID of the bursts contained in `cslc_file_list`.
         frame_id: int(required=True)
 
+        # (For FORWARD/'Catch up' HISTORICAL processing mode) last processed date for the frame. If
+        #  provided, the SAS will only output products whose secondary datetime is *after*
+        #  `last_processed`. Otherwise, the SAS will output all products.
+        last_processed: any(str(), null(), required=False)
       dynamic_ancillary_file_group:
         # Path to file containing SAS algorithm parameters.
-        algorithm_parameters_file: str(required=True)
+        algorithm_parameters_file: str(required=False)
 
         # Paths to the CSLC static_layer files (1 per burst) with line-of-sight
         # unit vectors. If none provided, corrections using CSLC static_layer are skipped.
@@ -70,6 +74,9 @@ RunConfig:
         # troposphere corrections are skipped.
         troposphere_files: list(str(), required=False, min=0)
 
+        # For STATIC workflow ONLY
+        rtc_static_layers_files: list(str(), min=1, required=False)
+
       static_ancillary_file_group:
         # JSON file containing the mapping from frame_id to frame/burst information
         frame_to_burst_json: str(required=False)
@@ -77,9 +84,13 @@ RunConfig:
         # JSON file containing list of reference date changes for each frame
         reference_date_database_json: str(required=False)
 
+        # JSON file containing frame-specific algorithm parameters to override the
+        # defaults passed in the `algorithm_parameters.yaml`.
+        algorithm_parameters_overrides_json: any(str(), null(), required=False)
+
       primary_executable:
         # Product type of the PGE.
-        product_type: enum('DISP_S1_FORWARD', 'DISP_S1_HISTORICAL')
+        product_type: enum('DISP_S1_FORWARD', 'DISP_S1_HISTORICAL', 'DISP_S1_STATIC')
 
       product_path_group:
         # Directory where PGE will place results.
@@ -96,11 +107,11 @@ RunConfig:
 
         # Whether the SAS should output and save the Compressed SLCs in addition to
         # the standard product output.
-        save_compressed_slc: bool(required=True)
+        save_compressed_slc: bool(required=False)
 
       worker_settings:
         # Whether to use GPU for processing (if available).
-        gpu_enabled: bool(required=True)
+        gpu_enabled: bool(required=False)
 
         # Number of threads to use per worker. This sets the OMP_NUM_THREADS
         # environment variable in each python process.

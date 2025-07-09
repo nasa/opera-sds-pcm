@@ -51,8 +51,9 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
         frame_id: {{ data.processing.frame_id }}
+        # TODO: uncomment once we want to support forward "catch-up" processing mode
+        #last_processed: {{ data.input_file_group.last_processed }}
       dynamic_ancillary_file_group:
-        algorithm_parameters_file: {{ data.processing.algorithm_parameters }}
         {%- for type in data.dynamic_ancillary_file_group.keys() %}
         {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
         {%- if data.dynamic_ancillary_file_group[ type ] is iterable and data.dynamic_ancillary_file_group[ type ] is not string %}

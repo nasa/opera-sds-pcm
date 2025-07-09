@@ -126,7 +126,7 @@ variable "po_daac_endpoint_url" {
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20250514-3.1.6"
+  default = "20250709-3.1.7"
 }
 
 variable "pge_releases" {
@@ -136,8 +136,8 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
+    "disp_s1"  = "3.0.7"
+    "dswx_ni"  = "4.0.0-er.4.0"
   }
 }
 
@@ -146,27 +146,27 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "3.1.6"
+  default = "3.1.7"
 }
 
 variable "pcm_commons_branch" {
-  default = "3.1.6"
+  default = "3.1.7"
 }
 
 variable "pcm_branch" {
-  default = "3.1.6"
+  default = "3.1.7"
 }
 
 variable "product_delivery_branch" {
-  default = "3.1.6"
+  default = "3.1.7"
 }
 
 variable "bach_api_branch" {
-  default = "3.1.6"
+  default = "3.1.7"
 }
 
 variable "bach_ui_branch" {
-  default = "3.1.6"
+  default = "3.1.7"
 }
 
 ###### Roles ########

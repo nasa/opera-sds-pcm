@@ -33,7 +33,7 @@ variable "pcm_commons_repo" {
 }
 
 variable "pcm_commons_branch" {
-  default = "3.0.0-rc.5.0"
+  default = "3.1.6"
 }
 
 variable "product_delivery_repo" {
@@ -368,8 +368,8 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.1"
     "rtc_s1"   = "2.1.1"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.6"
-    "dswx_ni"  = "4.0.0-er.3.0"
+    "disp_s1"  = "3.0.7"
+    "dswx_ni"  = "4.0.0-er.4.0"
   }
 }
 

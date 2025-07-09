@@ -16,7 +16,9 @@ runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
     compressed_cslc_paths: __CHIMERA_VAL__
+    last_processed: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
+    algorithm_parameters_file: __CHIMERA_VAL__
     static_layers_files: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
@@ -24,15 +26,16 @@ runconfig:
   static_ancillary_file_group:
     frame_to_burst_json: __CHIMERA_VAL__
     reference_date_database_json: __CHIMERA_VAL__
+    algorithm_parameters_overrides_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
+    input_path: /home/mamba/input_dir
     product_path: /home/mamba/output_dir
     scratch_path: /home/mamba/scratch_dir
     save_compressed_slc: __CHIMERA_VAL__
   processing:
+    polarization: __CHIMERA_VAL__
     frame_id: __CHIMERA_VAL__
-    algorithm_parameters: __CHIMERA_VAL__
-    algorithm_parameters_overrides_json: __CHIMERA_VAL__
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
@@ -48,6 +51,7 @@ preconditions:
   - get_disp_s1_frame_id
   - get_disp_s1_product_type
   - get_disp_s1_num_workers
+  - get_disp_s1_last_processed
   - get_s3_input_filepaths
   - get_static_ancillary_files
   - get_disp_s1_compressed_cslc_files
@@ -56,8 +60,6 @@ preconditions:
   - get_disp_s1_mask_file
   - get_disp_s1_dem
   - get_disp_s1_save_compressed_slc
-  - get_disp_s1_algorithm_parameters
-  - instantiate_algorithm_parameters_template
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -71,6 +73,9 @@ set_daac_product_type:
 
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
+  algorithm_parameters_file:
+    # TODO: we'll need to support supplying a forward config as well at some point
+    settings_key: "DISP_S1.ALGORITHM_PARAMETERS_HISTORICAL_YAML"
   frame_to_burst_json:
     settings_key: "DISP_S1.FRAME_TO_BURST_JSON"
   reference_date_database_json:
@@ -82,15 +87,6 @@ get_static_ancillary_files:
 get_disp_s1_mask_file:
   s3_bucket: "opera-water-mask"
   s3_key: "v0.3/EPSG4326.vrt"
-
-get_disp_s1_algorithm_parameters:
-  # This S3 path only defines a location pattern of an algorithm parameters template file,
-  # the processing mode (forward vs. historical) will be filled in by the function itself
-  settings_key: "DISP_S1.ALGORITHM_PARAMETERS_YAML"
-
-instantiate_algorithm_parameters_template:
-  template_mapping:
-    polarization: __POLARIZATION__
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
@@ -114,6 +110,10 @@ pge_name: "L3_DISP_S1"
 # Set the primary input/output types here
 primary_input: "L2_CSLC_S1"
 primary_output: "L3_DISP_S1"
+
+# We currently pull algorithm parameters from S3, so we do not need to enable
+# generation from the template.
+use_algorithm_parameters: false
 
 # List the groups that Chimera will need to localize
 # The entries MUST reference a property of `$.runconfig` of this YAML.
