@@ -7,7 +7,7 @@ from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
-from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
+from data_subscriber.query import BaseQuery, get_query_timerange, DateTimeRange
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
@@ -17,7 +17,7 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
 
-class RtcForDistCmrQuery(CmrQuery):
+class RtcForDistCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings, dist_s1_burst_db_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

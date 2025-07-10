@@ -24,7 +24,7 @@ from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 
 
-class CmrQuery:
+class BaseQuery:
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         self.logger = get_logger()
         self.args = args
@@ -45,11 +45,8 @@ class CmrQuery:
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info("CMR Query STARTED")
-
-        granules = self.query_cmr(query_timerange, now)
-
-        self.logger.info("CMR Query FINISHED")
+        query_func = self._get_query_func()
+        granules = query_func(query_timerange, now)
 
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
         granules = self.eliminate_duplicate_granules(granules)
@@ -125,9 +122,27 @@ class CmrQuery:
             "download_granules": download_granules
         }
 
-    def query_cmr(self, timerange, now: datetime):
+    def query_cmr(self, timerange: DateTimeRange, now: datetime) -> list:
+        self.logger.info("CMR Query STARTED")
         granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
+        self.logger.info("CMR Query FINISHED")
         return granules
+
+    def query_esa(self, timerange: DateTimeRange, now: datetime) -> list:
+        self.logger.info("ESA Query STARTED")
+        granules = []  # TODO: Switch to func call
+        self.logger.info("ESA Query FINISHED")
+        return granules
+
+    def _get_query_func(self):
+        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+
+        if product_type == ProductType.SLC and self.settings.get('SLC_ALT_SRC', False):
+            self.logger.info('Selected data source: ESA')
+            return self.query_esa
+
+        self.logger.info('Selected data source: CMR')
+        return self.query_cmr
 
     def eliminate_duplicate_granules(self, granules):
         """

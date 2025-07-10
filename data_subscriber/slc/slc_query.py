@@ -1,11 +1,11 @@
 
 from data_subscriber.geojson_utils import localize_geojsons
-from data_subscriber.query import CmrQuery
+from data_subscriber.query import BaseQuery
 from data_subscriber.slc.slc_catalog import SLCSpatialProductCatalog
 from geo.geo_util import _NORTH_AMERICA, does_bbox_intersect_north_america
 
 
-class SlcCmrQuery(CmrQuery):
+class SlcCmrQuery(BaseQuery):
 
     def __init__(self,  args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

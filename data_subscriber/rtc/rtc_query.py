@@ -13,7 +13,7 @@ from more_itertools import first, last
 
 from data_subscriber.cmr import async_query_cmr, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
-from data_subscriber.query import CmrQuery, get_query_timerange
+from data_subscriber.query import BaseQuery, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import determine_acquisition_cycle
@@ -30,7 +30,7 @@ MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection d
 ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
 
-class RtcCmrQuery(CmrQuery):
+class RtcCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

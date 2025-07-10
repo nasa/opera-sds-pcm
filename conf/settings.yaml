@@ -4,6 +4,8 @@ PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
 RELEASE_VERSION: '{{ RELEASE_VERSION }}'
 
+SLC_ALT_SRC: !!bool false
+
 GRQ_ES_ENGINE: opensearch
 
 # for PST (CalVal products)
