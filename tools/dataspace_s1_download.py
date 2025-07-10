@@ -126,7 +126,7 @@ def get_parser():
     return parser
 
 
-def build_query_filter(*args, platforms=('A',)):
+def build_query_filter(*args, platforms=('A',), sort_by='ContentDate/Start', sort_reverse=False, page_size=QUERY_PAGE_SIZE):
     if len(platforms) == 1:
         platforms_string = f"startswith(Name,'S1{platforms[0]}_IW_SLC__')"
     else:
@@ -134,9 +134,13 @@ def build_query_filter(*args, platforms=('A',)):
         platforms_string = f'({platforms_string})'
 
     filter_string = f"Collection/Name eq 'SENTINEL-1' and {platforms_string} and endswith(Name,'SAFE')"
-
     filter_string = ' and '.join([filter_string] + list(args))
-    return {'$filter': filter_string, '$orderby': 'ContentDate/Start asc', '$top': str(QUERY_PAGE_SIZE)}
+
+    sort_order = 'asc' if not sort_reverse else 'desc'
+
+    page_size = min(page_size, QUERY_PAGE_SIZE)
+
+    return {'$filter': filter_string, '$orderby': f'{sort_by} {sort_order}', '$top': str(page_size)}
 
 
 @backoff.on_exception(backoff.constant,
@@ -217,8 +221,9 @@ def main():
                                   interval=15)
             def do_download(gid, filename):
                 start_t = datetime.now()
+                filename = f"{os.path.splitext(filename)[0]}.zip"
 
-                url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$value'
+                url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$zip'
                 headers = {"Authorization": f"Bearer {dss.token}"}
                 logger.debug(headers)
                 session = requests.Session()
@@ -228,6 +233,10 @@ def main():
 
                 if response.status_code >= 400:
                     logger.debug(response.text)
+                    url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$value'
+                    response = session.get(url, headers=headers, stream=True)
+                    if response.status_code >= 400:
+                        logger.debug(response.text)
 
                 response.raise_for_status()
 
