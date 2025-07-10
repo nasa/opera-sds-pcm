@@ -2,6 +2,7 @@
 import re
 from collections import namedtuple
 from datetime import datetime, timedelta
+from os.path import splitext
 from typing import Iterable
 
 import dateutil.parser
@@ -9,7 +10,7 @@ from commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP
 from more_itertools import first_true
-# from util.dataspace_util import
+from util.dataspace_util import DEFAULT_DOWNLOAD_ENDPOINT
 from shapely.geometry import box
 from tools.dataspace_s1_download import query, build_query_filter
 
@@ -70,7 +71,42 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
     logger.info('Querying Copernicus OData')
 
     # TODO: There seems to be a limit of 11k results per query. If we hit that, we'll need to split our temporal ranges
-    granules = query(query_params)
+    granules = response_to_cmr_granules(query(query_params))
     search_results_count = len(granules)
 
     logger.info(f'Query complete. Found {search_results_count:,} granule(s)')
+
+    # TODO: Filtering
+
+    return granules
+
+
+def response_to_cmr_granules(esa_granules):
+    granules = []
+
+    for item in esa_granules:
+        granule_name = splitext(item['Name'])[0]
+
+        granules.append({
+            "granule_id": f'{granule_name}-SLC',
+            "revision_id": 0,
+            "provider": 'ESA',
+            "production_datetime": item['ModificationDate'],  # TODO: CHECK
+            "provider_date": item['PublicationDate'],  # TODO: CHECK
+            "temporal_extent_beginning_datetime": item['ContentDate']['Start'],
+            "revision_date": item['ModificationDate'],
+            "short_name": f'SENTINEL-1{granule_name[2]}',
+            "bounding_box": [
+                {"lat": point[1], "lon": point[0]}
+                for point
+                in item["GeoFootprint"]
+                .get("coordinates")[0]
+            ],
+            "related_urls": [
+                f'{DEFAULT_DOWNLOAD_ENDPOINT}(${item["Id"]})/$zip',
+                f'{DEFAULT_DOWNLOAD_ENDPOINT}(${item["Id"]})/$value',
+            ],
+            "identifier": None
+        })
+
+    return granules
