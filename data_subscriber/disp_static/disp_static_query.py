@@ -135,7 +135,7 @@ def main(
                 "&sort_key[]=start_date"
                 "&options[native-id][pattern]=true"
                 f"{native_id_patterns_query_params}"
-                "&page_size=27"  # assumes no duplicate records
+                "&page_size=100"  # assumes no duplicate records
             )
             job_data[frame][f"L2_{type_}-S1-STATIC"]["request_url"] = request_url
 
