@@ -17,6 +17,7 @@ from data_subscriber.cmr import (async_query_cmr,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job
+from data_subscriber.esa_dataspace import async_query_dataspace
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions)
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
@@ -130,7 +131,7 @@ class BaseQuery:
 
     def query_esa(self, timerange: DateTimeRange, now: datetime) -> list:
         self.logger.info("ESA Query STARTED")
-        granules = []  # TODO: Switch to func call
+        granules = asyncio.run(async_query_dataspace(self.args, self.settings, timerange, now))
         self.logger.info("ESA Query FINISHED")
         return granules
 
