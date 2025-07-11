@@ -148,6 +148,17 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
+              cd ~/.sds/files
+              ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
+              echo Your cluster has been provisioned!
+    EOF
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
               echo "use_daac_cnm is ${var.use_daac_cnm_r}"
               if [ "${var.run_smoke_test}" = true ]; then
                 ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \
