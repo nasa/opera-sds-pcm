@@ -166,8 +166,6 @@ timeseries_options:
     # Number of parallel blocks to process at once.
     num_parallel_blocks: int()
 output_options:
-    # Output (x, y) resolution (in units of input data).
-    output_resolution: any(include('x_y_object'), null())
     # Alternative to specifying output resolution: Specify the (x, y) strides (decimation
     # factor) to perform while processing input. For example, strides of [4, 2] would turn an
     # input resolution of [5, 10] into an output resolution of [20, 20].
@@ -193,7 +191,7 @@ output_options:
     # with web mapping tools. See https://gdal.org/programs/gdaladdo.html for more.
     add_overviews: bool()
     # List of overview levels to create (if add_overviews=True).
-    overview_levels: list(int())
+    overview_levels: list(int(), required=False)
     # Specify an extra reference datetime in UTC. Adding this lets you
     # to create and unwrap two single reference networks; the later resets at
     # the given date (e.g. for a large earthquake event). If passing strings,
@@ -201,11 +199,6 @@ output_options:
     # or YYYY-MM-DD
     extra_reference_date: any(str(), null())
 
-# JSON file containing frame-specific algorithm parameters to override the
-# defaults passed in the `algorithm_parameters.yaml`.
-algorithm_parameters_overrides_json: any(str(), null())
-# Name of the subdataset to use in the input NetCDF files.
-subdataset: str()
 # Spatial wavelength cutoff (in meters) for the spatial filter. Used to
 # create the short wavelength displacement layer
 spatial_wavelength_cutoff: num()

@@ -112,7 +112,7 @@ class DataspaceSession:
 
     @backoff.on_exception(backoff.constant,
                           requests.exceptions.RequestException,
-                          max_time=600,
+                          max_tries=2,
                           giveup=fatal_code,
                           on_backoff=backoff_logger,
                           interval=15)

@@ -18,7 +18,7 @@ variable "profile" {
 }
 
 variable "verdi_release" {
-  type    = string 
+  type    = string
 }
 
 variable "registry_release" {
@@ -40,9 +40,9 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.2"
-    "disp_s1"  = "3.0.6"
+    "disp_s1"  = "3.0.7"
     "dswx_ni"  = "4.0.0-er.3.0"
-    "dist_s1"  = "6.0.0-er.3.0"
+    "dist_s1"  = "6.0.0-rc.1.0"
     "tropo"    = "3.0.0-er.3.1-tropo"
   }
 }

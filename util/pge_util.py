@@ -36,8 +36,8 @@ List of band identifiers for the multiple tif outputs produced by the DSWx-S1
 PGE.
 """
 
-DIST_S1_BAND_NAMES = ['DIST-GEN-STATUS', 'DIST-GEN-STATUS-ACQ', 'GEN-METRIC',
-                      'DATE-FIRST', 'DATE-LATEST', 'N-DIST', 'N-OBS']
+DIST_S1_BAND_NAMES = ['GEN-DIST-STATUS-ACQ', 'GEN-DIST-STATUS', 'GEN-METRIC', 'GEN-DIST-CONF', 'GEN-DIST-COUNT',
+                      'GEN-DIST-DATE', 'GEN-DIST-DUR', 'GEN-DIST-LAST-DATE', 'GEN-DIST-PERC', 'GEN-METRIC-MAX']
 """
 List of band identifiers for the multiple tif outputs produced by the DIST-S1
 PGE.

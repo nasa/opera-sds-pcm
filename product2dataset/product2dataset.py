@@ -324,7 +324,7 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "dswx-ni" in dataset_id.lower():
         collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
         product_version = settings.get("DSWX_NI_PRODUCT_VERSION")
-    elif "dist-s1" in dataset_id.lower():
+    elif "dist-s1" in dataset_id.lower() or "dist-alert-s1" in dataset_id.lower():
         collection_name = settings.get("DIST_S1_COLLECTION_NAME")
         product_version = settings.get("DIST_S1_PRODUCT_VERSION")
     elif "tropo" in dataset_id.lower():

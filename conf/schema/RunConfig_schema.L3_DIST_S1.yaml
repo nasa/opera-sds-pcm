@@ -25,7 +25,7 @@ RunConfig:
         ErrorCodeBase: int(required=True)
         SchemaPath: str(required=True)
         AlgorithmParametersSchemaPath: str(required=False)
-        IsoTemplatePath: str(required=False)  # TODO: Why is this not required if all the PGEs fail if it doesn't exist/is undefined?
+        IsoTemplatePath: str(required=False)
         IsoMeasuredParameterDescriptions: str(required=False)
         DataValidityStartDate: int(min=20000101, max=21991231, required=False)
 
@@ -40,29 +40,31 @@ RunConfig:
 
     SAS:
       run_config:
-
-        # PLACEHOLDER FOR pre_rtc_copol PARAMETER DESCRIPTION
+        # A list of file paths or strings for pre-acquisition radar data in co-polarization.
         pre_rtc_copol: list(str(), required=True)
 
-        # PLACEHOLDER FOR pre_rtc_crosspol PARAMETER DESCRIPTION
+        # A list of file paths or strings for pre-acquisition radar data in cross-polarization.
         pre_rtc_crosspol: list(str(), required=True)
 
-        # PLACEHOLDER FOR post_rtc_copol PARAMETER DESCRIPTION
+        # A list of file paths or strings for acquisition-time radar data in co-polarization.
         post_rtc_copol: list(str(), required=True)
 
-        # PLACEHOLDER FOR post_rtc_crosspol PARAMETER DESCRIPTION
+        # A list of file paths or strings for acquisition-time data in cross-polarization.
         post_rtc_crosspol: list(str(), required=True)
 
-        # MGRS tile ID for output product
+        # PLACEHOLDER FOR pre_dist_s1_product PARAMETER DESCRIPTION
+        pre_dist_s1_product: list(str(), required=False)
+
+        # A string representing the MGRS (Military Grid Reference System) tile identifier for output product.
         mgrs_tile_id: str(required=True)
 
         # Path for scratch directory
         dst_dir: str(required=False)
 
-        # PLACEHOLDER FOR water_mask_path PARAMETER DESCRIPTION
+        # Path for water mask ancillary input
         water_mask_path: any(str(), null(), required=False)
 
-        # PLACEHOLDER FOR apply_water_mask PARAMETER DESCRIPTION
+        # Toggle to utilize optional water mask ancillary input
         apply_water_mask: bool(required=False)
 
         # PLACEHOLDER FOR check_input_paths PARAMETER DESCRIPTION
@@ -80,6 +82,12 @@ RunConfig:
         # PLACEHOLDER FOR batch_size_for_despeckling PARAMETER DESCRIPTION
         batch_size_for_despeckling: int(min=1, required=False)
 
+        # PLACEHOLDER FOR batch_size_for_norm_param_estimation PARAMETER DESCRIPTION
+        batch_size_for_norm_param_estimation: int(min=1, required=False)
+
+        # PLACEHOLDER FOR stride_for_norm_param_estimation PARAMETER DESCRIPTION
+        stride_for_norm_param_estimation: int(min=1, max=16, required=False)
+
         # PLACEHOLDER FOR n_workers_for_despeckling PARAMETER DESCRIPTION
         n_workers_for_despeckling: int(min=1, required=False)
 
@@ -89,11 +97,44 @@ RunConfig:
         # PLACEHOLDER FOR n_lookbacks PARAMETER DESCRIPTION
         n_lookbacks: int(min=1, max=3, required=False)
 
+        # PLACEHOLDER FOR lookback_strategy PARAMETER DESCRIPTION
+        lookback_strategy: enum('multi_window', 'immediate_lookback', required=False)
+
+        # PLACEHOLDER FOR confirmation_strategy PARAMETER DESCRIPTION
+        confirmation_strategy: enum('compute_baseline', 'use_prev_product', required=False)
+
+        # PLACEHOLDER FOR optimize PARAMETER DESCRIPTION
+        optimize: bool(required=False)
+
+        # PLACEHOLDER FOR max_pre_imgs_per_burst_mw PARAMETER DESCRIPTION
+        max_pre_imgs_per_burst_mw: list(int(), required=False)
+
+        # PLACEHOLDER FOR delta_lookback_days_mw PARAMETER DESCRIPTION
+        delta_lookback_days_mw: list(int(), required=False)
+
         # PLACEHOLDER FOR moderate_confidence_threshold PARAMETER DESCRIPTION
         moderate_confidence_threshold: num(min=0.0, max=15.0, required=False)
 
         # PLACEHOLDER FOR high_confidence_threshold PARAMETER DESCRIPTION
         high_confidence_threshold: num(min=0.0, max=15.0, required=False)
+
+        # PLACEHOLDER FOR nodaylimit PARAMETER DESCRIPTION
+        nodaylimit: int(required=False)
+
+        # PLACEHOLDER FOR max_obs_num_year PARAMETER DESCRIPTION
+        max_obs_num_year: int(required=False)
+
+        # PLACEHOLDER FOR conf_upper_lim PARAMETER DESCRIPTION
+        conf_upper_lim: int(required=False)
+
+        # PLACEHOLDER FOR conf_thresh PARAMETER DESCRIPTION
+        conf_thresh: num(required=False)
+
+        # PLACEHOLDER FOR metric_value_upper_lim PARAMETER DESCRIPTION
+        metric_value_upper_lim: num(required=False)
+
+        # PLACEHOLDER FOR base_date PARAMETER DESCRIPTION
+        base_date: regex('[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}', required=False)
 
         # Path for directory where output product will be written
         product_dst_dir: str(required=False)
@@ -103,3 +144,12 @@ RunConfig:
 
         # PLACEHOLDER FOR bucket_prefix PARAMETER DESCRIPTION
         bucket_prefix: str(required=False)
+
+        # PLACEHOLDER FOR model_source PARAMETER DESCRIPTION
+        model_source: any(enum('external', 'internal'), null(), required=False)
+
+        # PLACEHOLDER FOR model_cfg_path PARAMETER DESCRIPTION
+        model_cfg_path: str(required=False)
+
+        # PLACEHOLDER FOR model_wts_path PARAMETER DESCRIPTION
+        model_wts_path: str(required=False)
