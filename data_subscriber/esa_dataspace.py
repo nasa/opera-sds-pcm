@@ -42,7 +42,7 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
 
     filters = []
 
-    if args.use_temportal:
+    if args.use_temporal:
         filters.extend([f'ContentDate/Start gt {timerange.start_date}',
                         f'ContentDate/Start lt {timerange.end_date}'])
     else:
@@ -56,7 +56,7 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
     bound_list = [float(b) for b in bounding_box.split(',')]
 
     if bound_list[1] < -60:
-        bound_list[1] = 60.0
+        bound_list[1] = -60.0
 
     bbox_wkt = box(*bound_list).wkt
 
@@ -77,6 +77,11 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
     logger.info(f'Query complete. Found {search_results_count:,} granule(s)')
 
     # TODO: Filtering
+
+    # TODO: Not sure if this is needed. The query doesn't give us file extensions & we already narrow down to IW
+    #  but this field is used. Maybe I should just hardcode it below?
+    for granule in granules:
+        granule["filtered_urls"] = granule['related_urls']
 
     return granules
 
@@ -100,7 +105,7 @@ def response_to_cmr_granules(esa_granules):
                 {"lat": point[1], "lon": point[0]}
                 for point
                 in item["GeoFootprint"]
-                .get("coordinates")[0]
+                .get("coordinates")[0][0]
             ],
             "related_urls": [
                 f'{DEFAULT_DOWNLOAD_ENDPOINT}(${item["Id"]})/$zip',
