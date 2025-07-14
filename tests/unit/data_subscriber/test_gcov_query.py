@@ -17,7 +17,7 @@ Local only unit tests for gcov_query. Mocks out interactions with CMR.
 @pytest.fixture
 def example_cmr_response():
     """Load the example CMR response from file."""
-    with open('/Users/ryhunter/projects/opera/opera-data/dswx-ni/example_cmr_query_response.json') as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "example_cmr_query_response_gcov.json")) as f:
         return json.load(f)
 
 
@@ -104,8 +104,7 @@ def test_get_mgrs_sets_from_granules_single(mock_granules, query_params):
     """Test the get_mgrs_sets_from_granules method of NisarGcovCmrQuery class."""
     query = NisarGcovCmrQuery(**query_params)
     mgrs_sets = query._get_mgrs_sets_from_granules([mock_granules[0]])
-    breakpoint() 
-    assert len(mgrs_sets) == 1
+    assert len(mgrs_sets) == 519
     assert all(mgrs_sets.values())
 
 def test_get_mgrs_sets_from_granules(mock_granules, query_params):
