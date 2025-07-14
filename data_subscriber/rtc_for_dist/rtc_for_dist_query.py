@@ -317,8 +317,6 @@ there must be a default value. Cannot retrieve baseline granules.")
                 #                                           product_type, params, self.args.job_queue, job_name,
                 #                                            frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
                 continue
-            
-            exit(0)
 
             product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
             download_job_id = try_submit_mozart_job(product = {},

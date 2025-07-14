@@ -77,7 +77,7 @@ class DistDependency:
         )
         hits = result["hits"]["hits"]
         if len(hits) == 1:
-            return hits[0]
+            return hits[0], None
         elif len(hits) > 1:
             # Choose the one with the latest creation_timestamp
             self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
