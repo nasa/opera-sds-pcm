@@ -45,7 +45,7 @@ class SlcCmrQuery(BaseQuery):
             # TODO: May need to tweak filename. For ESA, each granule == 1 file. We have 2 URLs for each, one for the
             #  preferred compressed endpoint, the other for the raw endpoint. In the original version of this function
             #  that endpoint type was being parsed as the filename, leading to lots of collisions
-            filename_to_urls_map[f"{granule['granule_id']}.zip"] = urls
+            filename_to_urls_map[f"{granule['granule_id'][:-4]}.zip"] = urls
 
             for filename, filename_urls in filename_to_urls_map.items():
                 es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
