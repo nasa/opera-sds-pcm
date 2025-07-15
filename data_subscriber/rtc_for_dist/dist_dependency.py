@@ -43,17 +43,25 @@ class DistDependency:
         previous_tile_product, prev_product_download_batch_id = self.get_previous_tile_product(download_batch_id)
         if previous_tile_product is not None:
             # extract the file paths from the previous tile product
-            #TODO: FileLocation is probably incorrect. When the PGE team defines this field, fix this.
-            file_paths = [file["FileLocation"] for file in previous_tile_product["_source"]["metadata"]["Files"]]
-            self.logger.info(f"Previous tile product found: {file_paths=}")
+            # The FileLocation field is from the local EC2 which has a lot of non-sense. We return just the immedimate folder and file name.
+            file_paths = []
+            for file in previous_tile_product["_source"]["metadata"]["Files"]:
+                if file["FileName"].endswith(".tif"): # Get rid of the xml and png files
+                    file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
+            self.logger.debug(f"Previous tile product found: {file_paths=}")
             return False, file_paths, None # Previous tile product exists so run with it.
+        
+        # No previous product was found and cannot determine what the previous product should be. Run without previous tile product.
+        if prev_product_download_batch_id is None:
+            return False, None, None
         
         prev_tile_job = self.find_job_download_batch_id(prev_product_download_batch_id)
         if prev_tile_job is not None:
             self.logger.info(f"Previous tile job found in state {prev_tile_job['_source']['status']}")
             return True, None, prev_tile_job["_source"]["job_id"] # Wait for the job to complete.
 
-        return False, None, None # Give up. Go ahead and run without previous tile product.
+        # No previous tile product and cannot find the previous tile job.  Run without previous tile product.
+        return False, None, None
 
     def get_previous_tile_product(self, download_batch_id):
         """ Get the previous tile product record from GRQ ES."""
@@ -61,7 +69,7 @@ class DistDependency:
         tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
         tile_id = tile_id[1:] # Remove the "p" from the tile_id
         prev_product_download_batch_id = determine_previous_product_download_batch_id(self.dist_products, download_batch_id)
-
+ 
         self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id}")
         result = self.grq_es.search(
             index=GRQ_ES_DIST_S1_INDEX,
@@ -119,6 +127,11 @@ class DistDependency:
             hit_count += 1
         print(f"Hit count: {hit_count}")
 
+        # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
+        if len(hits) == 0:
+            return None, None
+
+        # TODO: Need to alter prev_product_download_batch_id based on the cmr_rtc_cache result
         return None, prev_product_download_batch_id
 
     def find_job_download_batch_id(self, download_batch_id):

@@ -36,6 +36,8 @@ class RtcForDistCmrQuery(CmrQuery):
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
         self.batch_id_to_k_granules = {}
 
+        self.settings = settings
+
         self.force_product_id = None
 
     def validate_args(self):
@@ -310,6 +312,17 @@ there must be a default value. Cannot retrieve baseline granules.")
             # If the previous run for this tile has not been processed, submit as a pending job
             # previous_tile_product_file_paths can be None or a list of file paths
             should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id)
+
+            # Append the S3 prefix to the previous_tile_product_file_paths
+            # from:
+            # "OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif"
+            # to:
+            # "s3://self.settings["DATASET_BUCKET"]/products/DIST_S1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif
+            s3_rs_bucket = self.settings["DATASET_BUCKET"]
+            s3_rs_prefix = "s3://" + s3_rs_bucket + "/products/DIST_S1/"
+            if previous_tile_product_file_paths:
+                previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
+                self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
             if should_wait:
                 self.logger.info(
                     f"We will wait for the previous run for the job {previous_tile_job_id} to complete before submitting the download job.")
