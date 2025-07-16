@@ -285,8 +285,11 @@ resource "aws_lambda_event_source_mapping" "harikiri_queue_event_source_mapping"
   function_name    = aws_lambda_function.harikiri_lambda.arn
 }
 
-data "aws_subnet_ids" "lambda_vpc" {
-  vpc_id = var.lambda_vpc
+data "aws_subnets" "lambda_vpc" {
+  filter {
+    name   = "vpc-id"
+    values = [var.lambda_vpc]
+  }
 }
 
 #####################################
@@ -396,7 +399,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   environment {
     variables = {
@@ -421,7 +424,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   environment {
     variables = {

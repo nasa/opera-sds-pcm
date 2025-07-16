@@ -2,11 +2,18 @@
 # Autoscaling Group related
 ############################
 
-data "aws_subnet_ids" "private_asg_vpc" {
-  vpc_id = var.private_asg_vpc
+data "aws_subnets" "private_asg_vpc" {
+  filter {
+    name   = "vpc-id"
+    values = [var.private_asg_vpc]
+  }
 }
-data "aws_subnet_ids" "public_asg_vpc" {
-  vpc_id = var.public_asg_vpc
+
+data "aws_subnets" "public_asg_vpc" {
+  filter {
+    name   = "vpc-id"
+    values = [var.public_asg_vpc]
+  }
 }
 
 resource "aws_launch_template" "launch_template" {
@@ -72,7 +79,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   health_check_type         = "EC2"
   protect_from_scale_in     = false
   suspended_processes       = ["AZRebalance"]
-  vpc_zone_identifier       = lookup(each.value, "use_private_vpc", true) ? data.aws_subnet_ids.private_asg_vpc.ids : data.aws_subnet_ids.public_asg_vpc.ids
+  vpc_zone_identifier       = lookup(each.value, "use_private_vpc", true) ? data.aws_subnets.private_asg_vpc.ids : data.aws_subnets.public_asg_vpc.ids
   metrics_granularity       = "1Minute"
   enabled_metrics = [
     "GroupMinSize",
@@ -84,33 +91,33 @@ resource "aws_autoscaling_group" "autoscaling_group" {
     "GroupTerminatingInstances",
     "GroupTotalInstances"
   ]
-  tags = [
-    {
-      key                 = "Name"
-      value               = "${var.project}-${var.venue}-${local.counter}-${each.key}"
-      propagate_at_launch = true
-    },
-#    {
-#      key                 = "Venue"
-#      value               = "${var.project}-${var.venue}-${local.counter}"
-#      propagate_at_launch = true
-#    },
-    {
-      key                 = "Queue"
-      value               = each.key
-      propagate_at_launch = true
-    },
-    {
-      key                 = "Bravo"
-      value               = "pcm"
-      propagate_at_launch = true
-    },
-    {
-      key                 = "Alfa"
-      value               = "worker"
-      propagate_at_launch = true
-    },
-  ]
+  
+  tag {
+    key                 = "Name"
+    value               = "${var.project}-${var.venue}-${local.counter}-${each.key}"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Venue"
+    value               = "${var.project}-${var.venue}-${local.counter}"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Queue"
+    value               = each.key
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Bravo"
+    value               = "pcm"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Alfa"
+    value               = "worker"
+    propagate_at_launch = true
+  }
+  
   mixed_instances_policy {
     instances_distribution {
       spot_allocation_strategy                 = "price-capacity-optimized"
@@ -135,7 +142,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
-    ignore_changes = [tags]
+    ignore_changes = [tag]
   }
 }
 
