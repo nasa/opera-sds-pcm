@@ -91,27 +91,32 @@ resource "aws_autoscaling_group" "autoscaling_group" {
     "GroupTerminatingInstances",
     "GroupTotalInstances"
   ]
-  
+
+  # Auto Scaling Group EC2 Tags  
   tag {
     key                 = "Name"
     value               = "${var.project}-${var.venue}-${local.counter}-${each.key}"
     propagate_at_launch = true
   }
+
   tag {
     key                 = "Venue"
     value               = "${var.project}-${var.venue}-${local.counter}"
     propagate_at_launch = true
   }
+
   tag {
     key                 = "Queue"
     value               = each.key
     propagate_at_launch = true
   }
+
   tag {
     key                 = "Bravo"
     value               = "pcm"
     propagate_at_launch = true
   }
+
   tag {
     key                 = "Alfa"
     value               = "worker"
@@ -139,6 +144,9 @@ resource "aws_autoscaling_group" "autoscaling_group" {
         }
       }
     }
+  }
+  timeouts {
+    delete = "15m"
   }
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
@@ -170,7 +178,7 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
       statistic   = "Maximum"
     }
    # target_value     = 1.0
-	target_value     = lookup(each.value, "total_jobs_metric_target_value", 1.0)
+    target_value     = lookup(each.value, "total_jobs_metric_target_value", 1.0)
     disable_scale_in = true
   }
 
