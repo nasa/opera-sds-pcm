@@ -10,7 +10,7 @@ from os.path import abspath, getsize, join
 import requests
 
 from data_subscriber import ionosphere_download
-from data_subscriber.download import DaacDownload
+from data_subscriber.download import BaseDownload
 from data_subscriber.url import (
     _has_url, _to_urls, _to_https_urls, _slc_url_to_chunk_id, form_batch_id
 )
@@ -24,7 +24,7 @@ from util.dataspace_util import (NoQueryResultsException,
                                  DEFAULT_DATASPACE_ENDPOINT)
 
 
-class AsfDaacSlcDownload(DaacDownload):
+class AsfDaacSlcDownload(BaseDownload):
 
     def __init__(self, provider):
         super().__init__(provider)

@@ -25,7 +25,7 @@ from util.edl_util import SessionWithHeaderRedirection
 AWS_REGION = "us-west-2"
 
 
-class DaacDownload:
+class BaseDownload:
 
     def __init__(self, provider):
         self.logger = get_logger()
