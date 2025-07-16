@@ -108,8 +108,8 @@ def response_to_cmr_granules(esa_granules):
                 .get("coordinates")[0][0]
             ],
             "related_urls": [
-                f'{DEFAULT_DOWNLOAD_ENDPOINT}(${item["Id"]})/$zip',
-                f'{DEFAULT_DOWNLOAD_ENDPOINT}(${item["Id"]})/$value',
+                f'{DEFAULT_DOWNLOAD_ENDPOINT}({item["Id"]})/$zip',
+                f'{DEFAULT_DOWNLOAD_ENDPOINT}({item["Id"]})/$value',
             ],
             "identifier": None
         })
