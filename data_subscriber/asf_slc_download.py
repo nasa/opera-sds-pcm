@@ -149,7 +149,7 @@ class AsfDaacSlcDownload(BaseDownload):
         self.logger.info("Downloading associated orbit file")
 
         # Get the PCM username/password for authentication to Copernicus Dataspace
-        username, _, password = netrc.netrc().authenticators(DEFAULT_DATASPACE_ENDPOINT)
+        username, password = self.get_dataspace_login()
 
         (_, safe_start_time, safe_stop_time) = parse_orbit_time_range_from_safe(product_filepath)
         safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
@@ -274,3 +274,7 @@ class AsfDaacSlcDownload(BaseDownload):
 
         with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("w") as fp:
             json.dump(met_json, fp)
+
+    def get_dataspace_login(self):
+        username, _, password = netrc.netrc().authenticators(DEFAULT_DATASPACE_ENDPOINT)
+        return username, password
