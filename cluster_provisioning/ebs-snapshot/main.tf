@@ -1,7 +1,12 @@
+provider "aws" {
+  shared_credentials_file = var.shared_credentials_file
+  region                  = var.region
+  profile                 = var.profile
+}
+
 locals {
   key_name = var.keypair_name != "" ? var.keypair_name : split(".", basename(var.private_key_file))[0]
 }
-
 
 resource "aws_launch_template" "verdi" {
   name_prefix   = "${var.project}-${var.venue}-pcm-verdi-"
