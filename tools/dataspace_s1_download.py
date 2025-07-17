@@ -152,7 +152,7 @@ def build_query_filter(*args, platforms=('A',), sort_by='ContentDate/Start', sor
 def _do_query(url, **kwargs):
     response = requests.get(url, **kwargs)
 
-    logger.debug(f'GET {response.url}: {response.status_code}')
+    logger.info(f'GET {response.url}: {response.status_code}')
     response.raise_for_status()
     return response.json()
 

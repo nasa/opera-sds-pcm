@@ -39,7 +39,7 @@ class DataspaceDownload(AsfDaacSlcDownload):
 
                 base_url, packed_url = self._get_download_endpoint_urls(download['https_url'])
 
-                product = product_filepath = os.path.join(product_download_dir, product_id + '.zip')
+                product = product_filepath = Path(os.path.join(product_download_dir, product_id + '.zip')).resolve()
 
                 success, err = self.try_download_https(packed_url, product_filepath, session)
 
