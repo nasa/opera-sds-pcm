@@ -120,7 +120,7 @@ class ProductCatalog(ABC):
                 "query": {
                     "bool": {
                         "must": [
-                            {"match": {"granule_id.keyword": granule}},
+                            {"match": {"granule_id": granule}},
                             {"term": {"revision_id": revision}}
                         ]
                     }
