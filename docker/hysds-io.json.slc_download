@@ -59,7 +59,7 @@
       "from": "submitter",
       "placeholder": "e.g. --provider=ASF",
       "type": "enum",
-      "enumerables": ["--provider=ASF", "--provider=DATASPACE"]
+      "enumerables": ["--provider=ASF", "--provider=DATASPACE"],
       "default": "--provider=ASF",
       "optional": true
     }
