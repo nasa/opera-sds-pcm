@@ -27,6 +27,15 @@ PLATFORM_MAP = {
 }
 
 
+ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)'
+                                 r'_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})'
+                                 r'(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>'
+                                 r'\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})'
+                                 r'(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})'
+                                 r'(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_'
+                                 r'(?P<product_id>[0-9A-F]{4})[.](?P<format>SAFE)$')
+
+
 async def async_query_dataspace(args, settings, timerange, now: datetime, verbose=True) -> list:
     logger = get_logger()
     bounding_box = args.bbox
@@ -61,6 +70,18 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
     bbox_wkt = box(*bound_list).wkt
 
     filters.append(f"OData.CSC.Intersects(area=geography'SRID=4326;{bbox_wkt}')")
+
+    if args.native_id:
+        native_id_arg = str(args.native_id).removesuffix('-SLC')
+
+        if not native_id_arg.endswith('.SAFE'):
+            native_id_arg += '.SAFE'
+
+        if not ESA_SAFE_NAME_REGEX.fullmatch(native_id_arg):
+            raise ValueError('Native ID has incorrect format. Must be the full S1-SLC SAFE file id, with or without'
+                             'the .SAFE extension. No wildcards are supported.')
+
+        filters.append(f"Name eq '{native_id_arg}'")
 
     query_params = build_query_filter(
         *filters,
