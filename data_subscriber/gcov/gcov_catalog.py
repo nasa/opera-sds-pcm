@@ -11,3 +11,6 @@ class NisarGcovProductCatalog(ProductCatalog):
 
     def granule_and_revision(self, es_id):
         return es_id.split('-r')[0], es_id.split('-r')[1]
+    
+    def mark_download_job_id(self, granule_id, job_id):
+        raise NotImplementedError("Please implement me. See the HLSProductCatalog for an example.")

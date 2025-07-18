@@ -134,8 +134,11 @@ class ProductCatalog(ABC):
     def granule_and_revision(self, es_id: str):
         pass
 
+    def mark_download_job_id(self, granule_id, job_id):
+        raise NotImplementedError("This method should be implemented by the child class")
+    
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=10, jitter=None)
-    def mark_download_job_id(self, batch_id, job_id):
+    def _mark_download_job_id(self, batch_or_granule_id, job_id, query_key):
         """Stores the download_job_id in the catalog for all granules in this batch"""
 
         result = self.es_util.es.update_by_query(
@@ -148,7 +151,7 @@ class ProductCatalog(ABC):
                 "query": {
                     "bool": {
                         "must": [
-                            {"match": {"download_batch_id.keyword": batch_id}}
+                            {"match": {query_key: batch_or_granule_id}}
                         ]
                     }
                 }
@@ -157,9 +160,9 @@ class ProductCatalog(ABC):
         )
 
         if result["updated"] == 0:
-            self.logger.error(f"No documents updated for {batch_id=} {job_id=}")
+            self.logger.error(f"No documents updated for {batch_or_granule_id=} {job_id=}")
         else:
-            self.logger.info(f"Document updated: {batch_id=} {job_id=} {result}")
+            self.logger.info(f"Document updated: {batch_or_granule_id=} {job_id=}")
 
     def mark_product_as_downloaded(self, url, job_id, filesize=None, doc=None):
         filename = url.split("/")[-1]

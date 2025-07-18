@@ -13,6 +13,9 @@ class KCSLCProductCatalog(ProductCatalog):
 
     def granule_and_revision(self, es_id: str):
         raise NotImplementedError()
+    
+    def mark_download_job_id(self, batch_id, job_id):
+        self._mark_download_job_id(batch_id, job_id, query_key = "download_batch_id")
 
     def form_document(self, filename: str, granule: dict, job_id: str, query_dt: datetime,
                       temporal_extent_beginning_dt: datetime, revision_date_dt: datetime, revision_id):

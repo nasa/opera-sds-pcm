@@ -25,6 +25,16 @@ class HLSProductCatalog(ProductCatalog):
             HLS.S30.T56MPU.2022152T000741.v2.0 and 1
         """
         return es_id.split('-')[0], es_id.split('-r')[1]
+    
+    def mark_download_job_id(self, granule_id, job_id):
+
+        # This is bit of a hack. The granule_id coming in has revision information. But we don't store such value in the ES.
+        # So this will update all revisions with the job_id. But it is ok because:
+        # 1. Chances of having multiple revisions of the same granule on a running system is very low
+        # 2. The download job id is funtionally moot. We don't use it for anything. It's for occassional debugging.
+        # 3. The download job id is correctly updated by the download job upon execution.
+        granule_id, _ = self.granule_and_revision(granule_id)
+        self._mark_download_job_id(granule_id, job_id, query_key = "granule_id")
 
 
 class HLSSpatialProductCatalog(HLSProductCatalog):

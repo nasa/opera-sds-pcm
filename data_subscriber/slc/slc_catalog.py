@@ -16,6 +16,9 @@ class SLCProductCatalog(ProductCatalog):
             S1A_IW_SLC__1SDV_20220601T000522_20220601T000549_043462_05308F_86F3-SLC and 5
         """
         return es_id.split('.zip')[0]+'-SLC', es_id.split('-r')[1]
+    
+    def mark_download_job_id(self, granule_id, job_id):
+        self._mark_download_job_id(granule_id, job_id, query_key = "id.keyword")
 
 
 class SLCSpatialProductCatalog(SLCProductCatalog):
