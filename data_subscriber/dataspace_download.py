@@ -115,16 +115,7 @@ class DataspaceDownload(AsfDaacSlcDownload):
     def try_download_https(self, product_url, dst, session: DataspaceSession):
         start_t = datetime.now()
         try:
-            headers = {"Authorization": f"Bearer {session.token}"}
-
-            response = requests.get(product_url, headers=headers, stream=True)
-            self.logger.info(f'Download request {response.url}: {response.status_code}')
-
-            if response.status_code >= 400:
-                self.logger.error(f'Failed to download {product_url}: {response.status_code}')
-                print(response.text, file=stderr)
-                return False, None
-
+            response = self._do_request(product_url, session.token)
             size = 0
 
             with open(dst, 'wb') as fp:
@@ -138,6 +129,26 @@ class DataspaceDownload(AsfDaacSlcDownload):
         except Exception as e:
             self.logger.warning(f'Failed to download {product_url}: {e}')
             return False, e
+
+    # TODO: I'd like this backoff to eventually do a long backoff for 429 and a short backoff for any
+    #  other non-fatal code
+    @backoff.on_exception(backoff.constant,
+                          requests.exceptions.RequestException,
+                          max_tries=5,
+                          giveup=fatal_code,
+                          on_backoff=backoff_logger,
+                          interval=300)
+    def _do_request(self, url, token):
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = requests.get(url, headers=headers, stream=True)
+        self.logger.info(f'Download request {response.url}: {response.status_code}')
+
+        if response.status_code >= 400:
+            self.logger.error(f'Download request failed: {response.status_code}: {response.text}')
+
+        response.raise_for_status()
+        return response
 
     def _get_download_endpoint_urls(self, doc_url: str):
         if doc_url.endswith('$value'):
