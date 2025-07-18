@@ -55,12 +55,12 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
         filters.extend([f'ContentDate/Start gt {timerange.start_date}',
                         f'ContentDate/Start lt {timerange.end_date}'])
     else:
-        filters.extend([f'ModificationDate/Start gt {timerange.start_date}',
-                        f'ModificationDate/Start lt {timerange.end_date}'])
+        filters.extend([f'ModificationDate gt {timerange.start_date}',
+                        f'ModificationDate lt {timerange.end_date}'])
 
         if args.temporal_start_date:
             assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", args.temporal_start_date)
-            filters.append(f'ModificationDate/Start gt {args.temporal_start_date}')
+            filters.append(f'ContentDate/Start gt {args.temporal_start_date}')
 
     bound_list = [float(b) for b in bounding_box.split(',')]
 
