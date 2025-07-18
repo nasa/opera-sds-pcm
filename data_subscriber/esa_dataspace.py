@@ -113,6 +113,21 @@ def response_to_cmr_granules(esa_granules):
     for item in esa_granules:
         granule_name = splitext(item['Name'])[0]
 
+        footprint_type = item["GeoFootprint"].get('type')
+
+        if footprint_type == 'Polygon':
+            bbox = [
+                {"lat": point[1], "lon": point[0]}
+                for point
+                in item["GeoFootprint"]['coordinates'][0]
+            ]
+        elif footprint_type == 'MultiPolygon':
+            bbox = [
+                {"lat": point[1], "lon": point[0]}
+                for point
+                in item["GeoFootprint"]['coordinates'][0][0]
+            ]
+
         granules.append({
             "granule_id": f'{granule_name}-SLC',
             "revision_id": 0,
@@ -122,12 +137,7 @@ def response_to_cmr_granules(esa_granules):
             "temporal_extent_beginning_datetime": item['ContentDate']['Start'],
             "revision_date": item['ModificationDate'],
             "short_name": f'SENTINEL-1{granule_name[2]}',
-            "bounding_box": [
-                {"lat": point[1], "lon": point[0]}
-                for point
-                in item["GeoFootprint"]
-                .get("coordinates")[0][0]
-            ],
+            "bounding_box": bbox,
             "related_urls": [
                 f'{DEFAULT_DOWNLOAD_ENDPOINT}({item["Id"]})/$zip',
                 f'{DEFAULT_DOWNLOAD_ENDPOINT}({item["Id"]})/$value',
