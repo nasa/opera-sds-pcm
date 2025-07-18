@@ -6,7 +6,8 @@ import dateutil
 
 from commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
-from data_subscriber.dist_s1_utils import determine_previous_product_download_batch_id
+from data_subscriber.dist_s1_utils import determine_previous_product_download_batch_id, 
+from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
 
 from commons.es_connection import get_grq_es, get_mozart_es
 
@@ -16,12 +17,18 @@ GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache*"
 
 class DistDependency:
-    def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts):
+    def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts, settings):
         self.logger = logger
         self.mozart_es = get_mozart_es(logger)
         self.grq_es = get_grq_es(logger)
         self.dist_products, self.bursts_to_products, self.product_to_bursts = (
             dist_products, bursts_to_products, product_to_bursts)
+        self.settings = settings
+
+        self.min_cmr_rtc_cache_document_count = settings["DIST_S1_TRIGGERING"]["MIN_CMR_RTC_CACHE_DOCUMENT_COUNT"]
+        self.warn_cmr_rtc_cache_document_count = settings["DIST_S1_TRIGGERING"]["WARN_CMR_RTC_CACHE_DOCUMENT_COUNT"]
+        self.min_cmr_rtc_cache_document_date_range_days = settings["DIST_S1_TRIGGERING"]["MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS"]
+        self.warn_cmr_rtc_cache_document_date_range_days = settings["DIST_S1_TRIGGERING"]["WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS"]
 
     def should_wait_previous_run(self, download_batch_id):
         """
@@ -109,6 +116,8 @@ class DistDependency:
         for burst_id in all_burst_ids:
             should_query.append({"match": {"burst_id.keyword": burst_id}})
 
+        self.sanity_check_cmr_rtc_cache()
+
         # Query the cmr_rtc_cache index for the previous product
         result = self.grq_es.search(
             index=CMR_RTC_CACHE_INDEX,
@@ -133,8 +142,31 @@ class DistDependency:
             return None, None
 
         # TODO: Need to alter prev_product_download_batch_id based on the cmr_rtc_cache result
+
+        #asdf
+
         return None, prev_product_download_batch_id
 
+    def sanity_check_cmr_rtc_cache(self):
+        """
+        Perform sanity check on the cmr_rtc_cache index.
+        """
+        # Perform sanity check on the cache to make sure that there are reasonable number of records
+        document_count = get_document_count(self.grq_es, CMR_RTC_CACHE_INDEX)
+        assert document_count > self.min_cmr_rtc_cache_document_count, f"Expected at least {self.min_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}"
+        if document_count < self.warn_cmr_rtc_cache_document_count:
+            self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}")
+
+        # Get the earliest and latest timestamp for the cmr_rtc_cache index.
+        earliest_timestamp, latest_timestamp = get_document_timestamp_min_max(self.grq_es, CMR_RTC_CACHE_INDEX, "acquisition_timestamp")
+        earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z") #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
+        latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z")
+        date_range_days = (latest_timestamp - earliest_timestamp).days
+        assert date_range_days > self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}"
+        if date_range_days < self.warn_cmr_rtc_cache_document_date_range_days:
+            self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}")
+
+    
     def find_job_download_batch_id(self, download_batch_id):
         """
         Get the previous tile run Mozart job.

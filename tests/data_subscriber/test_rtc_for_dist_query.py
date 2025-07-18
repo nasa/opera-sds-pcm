@@ -165,7 +165,7 @@ def test_determine_download_granules(monkeypatch):
 def test_determine_download_granules_grace_period(monkeypatch):
     args = create_parser().parse_args(forward_arguments)
     cmr_query = RtcForDistCmrQuery(args, None, None, None, None,
-                                   {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210})
+                                   {"DIST_S1_TRIGGERING": {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210}})
 
     mock_retrieve_baseline_granules = MagicMock(return_value=[])
     monkeypatch.setattr(
