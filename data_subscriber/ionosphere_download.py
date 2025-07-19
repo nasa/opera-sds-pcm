@@ -15,7 +15,7 @@ import dateutil.parser
 from more_itertools import chunked, partition
 from mypy_boto3_s3 import S3Client
 
-from commons.logger import configure_library_loggers
+from opera_commons.logger import configure_library_loggers
 from hysds_commons.job_utils import submit_mozart_job
 from tools import stage_ionosphere_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException

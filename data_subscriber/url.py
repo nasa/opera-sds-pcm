@@ -4,7 +4,7 @@ from typing import Any
 from deprecated import deprecated
 
 import rtc_utils
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 
 _EPOCH_S1A = rtc_utils._EPOCH_S1A
 

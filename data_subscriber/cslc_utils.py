@@ -11,7 +11,7 @@ import dateutil
 import elasticsearch
 import opensearchpy
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 

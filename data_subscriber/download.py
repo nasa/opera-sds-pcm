@@ -14,7 +14,7 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number

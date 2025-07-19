@@ -8,8 +8,8 @@ from typing import Dict
 from chimera.commons.constants import ChimeraConstants as chimera_consts
 from chimera.postprocess_functions import PostProcessFunctions
 
-from commons.es_connection import get_grq_es, get_mozart_es
-from commons.logger import logger
+from opera_commons.es_connection import get_grq_es, get_mozart_es
+from opera_commons.logger import logger
 from opera_chimera.accountability import OperaAccountability
 
 grq_es = get_grq_es(logger)

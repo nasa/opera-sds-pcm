@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import dateutil
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
 from data_subscriber.cslc.cslc_blackout import query_cmr_cslc_blackout_polarization
 from data_subscriber.cslc_utils import parse_cslc_file_name, determine_acquisition_cycle_cslc, build_cslc_native_ids, \

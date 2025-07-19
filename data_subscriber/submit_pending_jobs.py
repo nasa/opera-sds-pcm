@@ -10,7 +10,7 @@ from cslc_utils import (get_pending_download_jobs,
                         localize_disp_frame_burst_hist,
                         mark_pending_download_job_submitted, PENDING_TYPE_CSLC_DOWNLOAD)
 from dist_s1_utils import PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD
-from commons.logger import configure_library_loggers
+from opera_commons.logger import configure_library_loggers
 from data_subscriber import es_conn_util
 from data_subscriber.cmr import get_cmr_token
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates

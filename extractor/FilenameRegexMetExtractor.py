@@ -14,7 +14,7 @@ import re
 from datetime import datetime
 from extractor.CoreMetExtractor import CoreMetExtractor
 
-from commons.constants import product_metadata as pm
+from opera_commons.constants import product_metadata as pm
 
 
 class FilenameRegexMetExtractor(CoreMetExtractor):

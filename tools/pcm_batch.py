@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from tabulate import tabulate
 import opensearchpy
 from util.conf_util import SettingsConf
-from commons.es_connection import get_grq_es, get_mozart_es
+from opera_commons.es_connection import get_grq_es, get_mozart_es
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"

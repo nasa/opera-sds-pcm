@@ -9,8 +9,8 @@ from typing import List, Dict, Any
 import pandas as pd
 import dateutil.parser
 
-from commons.es_connection import get_grq_es
-from commons.logger import get_logger
+from opera_commons.es_connection import get_grq_es
+from opera_commons.logger import get_logger
 import sys
 import os
 from rtc_utils import rtc_granule_regex, determine_acquisition_cycle

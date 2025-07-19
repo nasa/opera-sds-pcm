@@ -10,7 +10,7 @@ from pathlib import Path
 import dateutil.parser
 from more_itertools import chunked
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,

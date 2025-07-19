@@ -1,8 +1,8 @@
 from hysds.celery import app
 from pcm_commons.query.ancillary_utility import AncillaryUtility
 
-from commons.constants import product_metadata
-from commons.logger import logger as default_logger
+from opera_commons.constants import product_metadata
+from opera_commons.logger import logger as default_logger
 
 CONN = None
 
