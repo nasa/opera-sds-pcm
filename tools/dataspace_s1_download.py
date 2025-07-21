@@ -14,11 +14,12 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from getpass import getuser
+from getpass import getuser, getpass
 from pathlib import Path
 
 import backoff
 import requests
+from shapely import from_wkt
 
 from commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
@@ -37,6 +38,12 @@ QUERY_PAGE_SIZE = 1000
 def to_datetime(value) -> datetime:
     """Helper function to covert command-line arg to datetime object"""
     return datetime.strptime(value, ISO_TIME)
+
+
+def validate_wkt(wkt):
+    """Helper function to validate WKT string"""
+    _ = from_wkt(wkt)
+    return wkt
 
 
 def get_parser():
@@ -75,13 +82,20 @@ def get_parser():
         help='Password of Dataspace account. Required unless --url-only is set.'
     )
 
+    auth.add_argument(
+        '--password-stdin',
+        action='store_true',
+        help='If set, prompt for a password (if not provided by --password) from stdin'
+    )
+
     filtering = parser.add_argument_group('Filtering Options')
 
     filtering.add_argument(
-        '-p', '--platform',
-        required=True,
-        choices=['S1A', 'S1B', 'S1C', 'S1D'],
-        help='Sentinel-1 platform to query'
+        '-p', '--platforms',
+        choices=['A', 'B', 'C', 'D'],
+        nargs='+',
+        default=['A', 'C'],
+        help='Sentinel-1 platforms to query'
     )
 
     filtering.add_argument(
@@ -103,14 +117,30 @@ def get_parser():
         help='End date for temporal search in YYYY-MM-DDTHH:MM:SSZ format'
     )
 
+    filtering.add_argument(
+        '-g', '--geo',
+        type=validate_wkt,
+        help='Geographic query filter. Must be in WKT format.'
+    )
+
     return parser
 
 
-def build_query_filter(platform, *args):
-    filter_string = f"Collection/Name eq 'SENTINEL-1' and startswith(Name,'{platform}') and endswith(Name,'SAFE')"
+def build_query_filter(*args, platforms=('A',), sort_by='ContentDate/Start', sort_reverse=False, page_size=QUERY_PAGE_SIZE):
+    if len(platforms) == 1:
+        platforms_string = f"startswith(Name,'S1{platforms[0]}_IW_SLC__')"
+    else:
+        platforms_string = ' or '.join([f"startswith(Name,'S1{p}_IW_SLC__')" for p in platforms]).strip()
+        platforms_string = f'({platforms_string})'
 
+    filter_string = f"Collection/Name eq 'SENTINEL-1' and {platforms_string} and endswith(Name,'SAFE')"
     filter_string = ' and '.join([filter_string] + list(args))
-    return {'$filter': filter_string, '$orderby': 'ContentDate/Start asc', '$top': str(QUERY_PAGE_SIZE)}
+
+    sort_order = 'asc' if not sort_reverse else 'desc'
+
+    page_size = min(page_size, QUERY_PAGE_SIZE)
+
+    return {'$filter': filter_string, '$orderby': f'{sort_by} {sort_order}', '$top': str(page_size)}
 
 
 @backoff.on_exception(backoff.constant,
@@ -147,6 +177,15 @@ def main():
     args = parser.parse_args()
     validate_args(parser, args)
 
+    if not args.url_only:
+        logger.info(f'Verifying login for {args.username}')
+        try:
+            with DataspaceSession(args.username, args.password) as dss:
+                logger.info(f'Login successful for {args.username}')
+        except Exception as e:
+            logger.error(f'Login failed for {args.username}: {str(e)}')
+            exit(1)
+
     # Create the output directory if it does not exist
     Path(args.output_directory).mkdir(exist_ok=True, parents=True)
 
@@ -161,7 +200,10 @@ def main():
     if args.end_date is not None:
         query_filters.append(f'ContentDate/Start lt {datetime.strftime(args.end_date, ISO_TIME)}')
 
-    query_results = query(build_query_filter(args.platform, *query_filters))
+    if args.geo is not None:
+        query_filters.append(f"OData.CSC.Intersects(area=geography'SRID=4326;{args.geo}')")
+
+    query_results = query(build_query_filter(*query_filters, platforms=args.platforms))
 
     if len(query_results) == 0:
         raise NoQueryResultsException('No results returned from parsed query results')
@@ -179,8 +221,9 @@ def main():
                                   interval=15)
             def do_download(gid, filename):
                 start_t = datetime.now()
+                filename = f"{os.path.splitext(filename)[0]}.zip"
 
-                url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$value'
+                url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$zip'
                 headers = {"Authorization": f"Bearer {dss.token}"}
                 logger.debug(headers)
                 session = requests.Session()
@@ -190,6 +233,10 @@ def main():
 
                 if response.status_code >= 400:
                     logger.debug(response.text)
+                    url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$value'
+                    response = session.get(url, headers=headers, stream=True)
+                    if response.status_code >= 400:
+                        logger.debug(response.text)
 
                 response.raise_for_status()
 
@@ -216,9 +263,12 @@ def main():
 
 def validate_args(parser, args):
     if args.password is None and not args.url_only:
-        print('Either password must be provided or --url-only flag must be set')
-        parser.print_help()
-        exit(1)
+        if args.password_stdin:
+            args.password = getpass(f'Password for Dataspace ({args.username}): ')
+        else:
+            print('Either password must be provided or --url-only flag must be set')
+            parser.print_help()
+            exit(1)
 
     if args.start_date is not None and args.end_date is not None:
         if args.start_date > args.end_date:

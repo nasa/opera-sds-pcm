@@ -1,9 +1,3 @@
-provider "aws" {
-  shared_credentials_file = var.shared_credentials_file
-  region                  = var.region
-  profile                 = var.profile
-}
-
 module "common" {
   source                                  = "../modules/common"
   hysds_release                           = var.hysds_release
@@ -142,6 +136,17 @@ resource "null_resource" "mozart" {
     host        = self.triggers.private_ip
     user        = "hysdsops"
     private_key = file(self.triggers.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
+              cd ~/.sds/files
+              ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
+              echo Your cluster has been provisioned!
+    EOF
+    ]
   }
 
   provisioner "remote-exec" {

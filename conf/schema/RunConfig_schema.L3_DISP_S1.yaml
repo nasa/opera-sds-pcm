@@ -46,6 +46,10 @@ RunConfig:
         # Frame ID of the bursts contained in `cslc_file_list`.
         frame_id: int(required=True)
 
+        # (For FORWARD/'Catch up' HISTORICAL processing mode) last processed date for the frame. If
+        #  provided, the SAS will only output products whose secondary datetime is *after*
+        #  `last_processed`. Otherwise, the SAS will output all products.
+        last_processed: any(str(), null(), required=False)
       dynamic_ancillary_file_group:
         # Path to file containing SAS algorithm parameters.
         algorithm_parameters_file: str(required=False)
@@ -79,6 +83,10 @@ RunConfig:
 
         # JSON file containing list of reference date changes for each frame
         reference_date_database_json: str(required=False)
+
+        # JSON file containing frame-specific algorithm parameters to override the
+        # defaults passed in the `algorithm_parameters.yaml`.
+        algorithm_parameters_overrides_json: any(str(), null(), required=False)
 
       primary_executable:
         # Product type of the PGE.
