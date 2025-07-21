@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-import datetime
 import functools
 import logging
 import logging.handlers
@@ -9,13 +8,14 @@ import re
 import sys
 import urllib.parse
 from collections import defaultdict
-from typing import Union, Iterable
+from datetime import datetime, timezone
+from typing import Union, Iterable, Literal
 
 import aiohttp
 import more_itertools
+from dateutil.parser import isoparse
 from dotenv import dotenv_values
 from more_itertools import always_iterable
-
 
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
 
@@ -33,17 +33,36 @@ config = {
 }
 
 
+def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
+    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
+    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
+    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
+    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_hls.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1.setLevel(logging.INFO)
+    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh1)
+
+    rfh2 = logging.handlers.RotatingFileHandler("cmr_audit_hls-error.log", mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2.setLevel(logging.ERROR)
+    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh2)
+
+
 def create_parser():
     argparser = argparse.ArgumentParser(add_help=True)
     argparser.add_argument(
         "--start-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+        type = argparse_dt,
+        help=f"ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00Z"
     )
     argparser.add_argument(
         "--end-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+        type = argparse_dt,
+        help=f"ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00Z",
+        default=datetime.now(timezone.utc)
     )
     argparser.add_argument(
         "--output", "-o",
@@ -59,21 +78,11 @@ def create_parser():
 
     return argparser
 
-
-def init_logging(log_name = 'cmr_audit_hls.log', log_error_name = "cmr_audit_hls-error.log", log_level=logging.INFO):
-    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
-    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
-    logging.basicConfig(level=log_level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
-
-    rfh1 = logging.handlers.RotatingFileHandler(log_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh1.setLevel(logging.INFO)
-    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh1)
-
-    rfh2 = logging.handlers.RotatingFileHandler(log_error_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh2.setLevel(logging.ERROR)
-    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh2)
+def argparse_dt(dt_str):
+    dt = isoparse(dt_str)
+    if not dt.tzinfo:
+        raise ValueError()
+    return dt
 
 
 #######################################################################
@@ -215,13 +224,11 @@ def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls
 # CMR AUDIT
 #######################################################################
 
-async def run(argv: list[str]):
-    logger.info(f'{argv=}')
-    args = create_parser().parse_args(argv[1:])
+async def run(start_datetime: datetime = None, end_datetime: datetime = None, format=None, output=None, **kwargs):
 
     logger.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
-    cmr_start_dt_str = args.start_datetime
-    cmr_end_dt_str = args.end_datetime
+    cmr_start_dt_str = start_datetime.isoformat().replace("+00:00", "Z")
+    cmr_end_dt_str = end_datetime.isoformat().replace("+00:00", "Z")
 
     cmr_granules_l30, cmr_granules_l30_details = await async_get_cmr_granules_hls_l30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
     cmr_granules_s30, cmr_granules_s30_details = await async_get_cmr_granules_hls_s30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
@@ -267,16 +274,16 @@ async def run(argv: list[str]):
     end_dt_str = end_dt_str.replace(":", "")
     outfilename = f"missing_granules_HLS-DSWx_{start_dt_str}Z_{end_dt_str}Z_{current_dt_str}Z"
 
-    if args.format == "txt":
-        output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.txt"
+    if format == "txt":
+        output_file_missing_cmr_granules = output if output else f"{outfilename}.txt"
         logger.info(f"Writing granule list to file {output_file_missing_cmr_granules!r}")
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             fp.write('\n'.join(missing_cmr_granules_hls))
         if missing_cmr_granules_hls:
             with open(output_file_missing_cmr_granules, mode='a') as fp:
                 fp.write('\n')
-    elif args.format == "json":
-        output_file_missing_cmr_granules = args.output if args.output else f"{outfilename}.json"
+    elif format == "json":
+        output_file_missing_cmr_granules = output if output else f"{outfilename}.json"
         with open(output_file_missing_cmr_granules, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
@@ -298,7 +305,9 @@ async def run(argv: list[str]):
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
-    log_level = args.log_level
-    init_logging()
+    init_logging(level=args.log_level)
+    logger = logging.getLogger(__name__)
 
-    asyncio.run(run(sys.argv))
+    logger.debug(f"{__file__} invoked with {sys.argv=}")
+
+    asyncio.run(run(**args.__dict__))
