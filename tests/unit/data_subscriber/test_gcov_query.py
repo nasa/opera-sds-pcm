@@ -82,29 +82,29 @@ def test_query_cmr_mocked(example_cmr_response, query_params):
     assert async_mock.called 
     assert len(granules) == 10
 
-def test_get_frames_from_granules(mock_granules, query_params):
-    """Test the get_frames_from_granules method of NisarGcovCmrQuery class."""
+def test_get_frames_track_ids_from_granules(mock_granules, query_params):
+    """Test the get_frames_track_ids_from_granules method of NisarGcovCmrQuery class."""
     query = NisarGcovCmrQuery(**query_params)
-    frames = query._get_frames_from_granules(mock_granules)
+    frames_and_track_ids = query._get_frames_and_track_ids_from_granules(mock_granules)
     
-    assert len(frames) == 10
-    assert all(frames)
-    assert frames == [11, 67, 67, 67, 68, 68, 69, 70, 70, 71]
+    assert len(frames_and_track_ids) == 6
+    assert all(frames_and_track_ids)
+    assert frames_and_track_ids == set([(11, 156), (68, 155), (69, 155), (67, 155), (70, 155), (71, 155)])
 
 def test_get_frames_from_granules_single(mock_granules, query_params):
     """Test the get_frames_from_granules method of NisarGcovCmrQuery class."""
     query = NisarGcovCmrQuery(**query_params)
-    frames = query._get_frames_from_granules([mock_granules[0]])
+    frames_and_track_ids = query._get_frames_and_track_ids_from_granules([mock_granules[0]])
     
-    assert len(frames) == 1
-    assert all(frames)
-    assert frames == [11]
+    assert len(frames_and_track_ids) == 1
+    assert all(frames_and_track_ids)
+    assert frames_and_track_ids == set([(11, 156)])
 
 def test_get_mgrs_sets_from_granules_single(mock_granules, query_params):
     """Test the get_mgrs_sets_from_granules method of NisarGcovCmrQuery class."""
     query = NisarGcovCmrQuery(**query_params)
     mgrs_sets = query._get_mgrs_sets_from_granules([mock_granules[0]])
-    assert len(mgrs_sets) == 519
+    assert len(mgrs_sets) == 3
     assert all(mgrs_sets.values())
 
 def test_get_mgrs_sets_from_granules(mock_granules, query_params):
@@ -112,5 +112,5 @@ def test_get_mgrs_sets_from_granules(mock_granules, query_params):
     query = NisarGcovCmrQuery(**query_params)
     mgrs_sets = query._get_mgrs_sets_from_granules(mock_granules)
     
-    assert len(mgrs_sets) == 1730
+    assert len(mgrs_sets) == 10
     assert all(mgrs_sets.values())

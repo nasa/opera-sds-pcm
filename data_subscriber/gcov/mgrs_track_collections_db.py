@@ -149,3 +149,43 @@ class MGRSTrackFrameDB:
             result[mgrs_set_id] = frames
         
         return result
+
+    def frame_and_track_to_mgrs_sets(self, frame_track_tuples: set[tuple[int, int]]) -> list[dict]:
+        """
+        Returns a list of dicts with mgrs_set_id, track_number, and frames for each (frame, track) tuple found in the DB.
+
+        Args:
+            frame_track_tuples: Set of (frame, track_id) tuples to query
+
+        Returns:
+            Dict of form {mgrs_set_id: {'track_number': ..., 'frames': set(...)}}
+        """
+        if not frame_track_tuples:
+            return []
+
+        # Build WHERE clause for (frame, track) pairs
+        conditions = []
+        params = []
+        for frame, track in frame_track_tuples:
+            conditions.append("(track_number = ? AND EXISTS (SELECT 1 FROM json_each(frames) WHERE value = ?))")
+            params.extend([track, frame])
+        where_clause = " OR ".join(conditions)
+
+        query = f"""
+            SELECT mgrs_set_id, track_number, frames
+            FROM {self.table_name}
+            WHERE {where_clause}
+        """
+
+        cursor = self.conn.cursor()
+        cursor.execute(query, params)
+        results = {}
+        for row in cursor.fetchall():
+            mgrs_set_id = row[0]
+            track_number = row[1]
+            frames = set(int(f) for f in json.loads(row[2]))
+            results[mgrs_set_id] = {
+                'track_number': track_number,
+                'frames': frames
+            }
+        return results
