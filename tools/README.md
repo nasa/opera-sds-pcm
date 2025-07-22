@@ -216,3 +216,33 @@ The database file can be found here: s3://opera-ancillaries/dist_s1/mgrs_burst_l
     --product-id-time:  11SLT_0,20250614T015042Z
     --product-id-time:  11SMT_0,20250614T015042Z
     Burst geometry minx, miny, maxx, maxy:  (-118.896936, 34.007766, -117.929224, 34.350227
+
+## populate_cmr_rtc_cache.py
+
+OPERA PCM must be installed for this tool to work.
+
+Tool to populate the GRQ ElasticSearch `cmr_rtc_cache` index with RTC granules from a CMR survey CSV file. This cache is used by the DIST-S1 triggering system to quickly query for available RTC granules without having to make real-time CMR queries.
+
+The script parses RTC granule IDs from the CSV file, breaks down the granule IDs into metadata (burst_id, acquisition timestamp, acquisition cycle, etc), and stores them into `cmr_rtc_cache` If that store doesn't exist, it will be automatically created. DIST-S1 burst database pickle file is not required but will speed up the process if provided.
+
+    python tools/populate_cmr_rtc_cache.py --help
+    usage: populate_cmr_rtc_cache.py [-h] [--verbose] [--db-file DB_FILE] csv_file
+    
+    positional arguments:
+      csv_file              Path to the CMR survey CSV file (e.g., cmr_survey.csv.raw.csv)
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose, -v         Enable verbose logging
+      --db-file DB_FILE     Path to the DIST-S1 burst database pickle file
+
+#### Examples:
+
+    # Populate cache using default DIST-S1 database location
+    python tools/populate_cmr_rtc_cache.py cmr_survey.csv.raw.2024-01-01_to_2024-2-28.csv
+
+    # Populate cache with verbose logging
+    python tools/populate_cmr_rtc_cache.py --verbose cmr_survey.csv.raw.2024-01-01_to_2024-2-28.csv
+
+    # Populate cache using a specific DIST-S1 database file
+    python tools/populate_cmr_rtc_cache.py --db-file mgrs_burst_lookup_table-2025-02-19.parquet cmr_survey.csv.raw.2024-01-01_to_2024-2-28.csv
