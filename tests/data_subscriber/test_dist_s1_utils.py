@@ -81,6 +81,7 @@ def test_parse_k_parameter():
 def test_previous_product_download_batch_id():
     assert "p11SLT_2_a348" == previous_product_download_batch_id(dist_products, "p11SLT_3_a348")
     assert "p11SLT_3_a347" == previous_product_download_batch_id(dist_products, "p11SLT_0_a348")
+    assert "p35XMK_22_a347" == previous_product_download_batch_id(dist_products, "p35XMK_0_a348")
 
 def test_previous_product_download_batch_id_from_rtc():
     '''Test that we can determine the previous product download batch id from a list of RTC granules'''

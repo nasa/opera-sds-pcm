@@ -307,7 +307,7 @@ def previous_product_download_batch_id(dist_products, download_batch_id):
                 break
         else: # If the acquisition group is 0, we need to decrement the acquisition cycle and set the acquisition group to max for that tile
             acquisition_cycle -= 1
-            prev_product = max(dist_products[tile_id])
+            prev_product = max(dist_products[tile_id], key=lambda x: int(x.split("_")[-1]))
             acquisition_group = int(prev_product.split("_")[-1])
             break
     prev_product_download_batch_id = "p" + tile_id + "_" + str(acquisition_group) + "_a" + str(acquisition_cycle)
