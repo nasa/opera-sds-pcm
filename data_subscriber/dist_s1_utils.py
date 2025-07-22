@@ -360,6 +360,42 @@ def granule_list_to_trigger_data_structure(granule_ids, bursts_to_products):
 
     return granules_dict, granules
 
+def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins, now, product_to_bursts, bursts_to_products):
+
+    min_acq_datetime = None
+    max_acq_datetime = None
+
+    # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
+    rtc_survey = pd.read_csv(cmr_survey_csv)
+    granule_ids = []
+    for index, row in rtc_survey.iterrows():
+        rtc_granule_id = row['# Granule ID']
+        granule_ids.append(rtc_granule_id)
+        burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
+        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
+        #acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
+        # print(burst_id, acq_datetime, acquisition_index)
+        if min_acq_datetime is None or acq_datetime < min_acq_datetime:
+            min_acq_datetime = acq_datetime
+        if max_acq_datetime is None or acq_datetime > max_acq_datetime:
+            max_acq_datetime = acq_datetime
+    rtc_granule_count = len(granule_ids)
+
+    granules_dict, granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
+
+    logger.info("\nComputing for triggered DIST-S1 products...")
+    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
+        compute_dist_s1_triggering(product_to_bursts, granules_dict, complete_bursts_only, grace_mins, now)
+    
+    logger.info(f"RTC granule count: {rtc_granule_count}")
+    logger.info(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
+    time_delta = max_acq_datetime - min_acq_datetime
+    total_days = time_delta.total_seconds() / 86400
+    logger.info(f"Total of {total_days} days between the earliest and latest acquisition time.")
+    logger.info(f"Which yields an average of {len(products_triggered) / total_days} products per day.")
+
+    return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
+
 def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
                               frame_id, acq_index, batch_id):
     """Save the blocked download job in the ES index"""
@@ -418,31 +454,9 @@ if __name__ == "__main__":
     print(dist_products['01FBE'])
     #print(f"Total rows is {row_count} and there are {len(unique_bursts)} unique bursts. Therefore each burst is used on average {row_count/len(unique_bursts)} times.")
 
-    min_acq_datetime = None
-    max_acq_datetime = None
-
     logger.info("\nReading RTC CMR survey CSV file...")
-
-    # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
-    rtc_survey = pd.read_csv(cmr_survey_file)
-    granule_ids = []
-    for index, row in rtc_survey.iterrows():
-        rtc_granule_id = row['# Granule ID']
-        granule_ids.append(rtc_granule_id)
-        burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
-        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
-        acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
-        # print(burst_id, acq_datetime, acquisition_index)
-        if min_acq_datetime is None or acq_datetime < min_acq_datetime:
-            min_acq_datetime = acq_datetime
-        if max_acq_datetime is None or acq_datetime > max_acq_datetime:
-            max_acq_datetime = acq_datetime
-    rtc_granule_count = len(granule_ids)
-
-    granules_dict, granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
-
-    logger.info("\nComputing for triggered DIST-S1 products...")
-    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(product_to_bursts, granules_dict, True, 200, datetime.now())
+    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
+        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(), product_to_bursts, bursts_to_products)
 
     # Compute average burst usage percentage
     total_bursts = 0
@@ -454,12 +468,6 @@ if __name__ == "__main__":
     #print(f"Total of {len(tiles_untriggered)} tiles were not triggered by RTC data. This is {len(tiles_untriggered) / all_tile_ids.size * 100}% of all tiles.")
     print(f"Total of {unused_rtc_granule_count} RTC granules were not used in any product generation.")
 
-    print("RTC granule count:", rtc_granule_count)
-    print(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
-    time_delta = max_acq_datetime - min_acq_datetime
-    total_days = time_delta.total_seconds() / 86400
-    print(f"Total of {total_days} days between the earliest and latest acquisition time.")
-    print(f"Which yields an average of {len(products_triggered) / total_days} products per day.")
     print("Example product and RTC granule IDs:")
 
     # Write out all products triggered into a json file
