@@ -172,5 +172,5 @@ elif args.subparser_name == "trigger_granules":
     for product_id, product in products_triggered_sorted:
         print(f"{product_id=} {product.latest_acquisition.strftime('%Y-%m-%d %H:%M:%S')} {product.used_bursts=} {product.possible_bursts=}")
         if args.tile_to_trigger:
-            print(f"RTC granules: {product.rtc_granules}")
+            print(f"RTC granules: {product.rtc_granules}\n")
     
