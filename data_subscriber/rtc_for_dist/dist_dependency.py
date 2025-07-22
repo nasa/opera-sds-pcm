@@ -2,14 +2,12 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
 
-import dateutil
-
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
-from data_subscriber.dist_s1_utils import determine_previous_product_download_batch_id, 
+from data_subscriber.dist_s1_utils import (previous_product_download_batch_id, previous_product_download_batch_id_from_rtc)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
 
-from commons.es_connection import get_grq_es, get_mozart_es
+from opera_commons.es_connection import get_grq_es, get_mozart_es
 
 # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
 
@@ -76,7 +74,7 @@ class DistDependency:
 
         tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
         tile_id = tile_id[1:] # Remove the "p" from the tile_id
-        prev_product_download_batch_id = determine_previous_product_download_batch_id(self.dist_products, download_batch_id)
+        prev_product_download_batch_id = previous_product_download_batch_id(self.dist_products, download_batch_id)
  
         self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id}")
         result = self.grq_es.search(
@@ -110,12 +108,13 @@ class DistDependency:
             burst_ids = self.product_to_bursts[product_id]
             all_burst_ids.update(burst_ids)
         all_burst_ids = list(all_burst_ids)
-        print(f"All burst ids: {all_burst_ids}")
+        print(f"All burst ids: {all_burst_ids}") #TOD: remove this later
 
         should_query = []
         for burst_id in all_burst_ids:
             should_query.append({"match": {"burst_id.keyword": burst_id}})
 
+        # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
         self.sanity_check_cmr_rtc_cache()
 
         # Query the cmr_rtc_cache index for the previous product
@@ -131,19 +130,19 @@ class DistDependency:
         )
 
         hits = result["hits"]["hits"]
-        hit_count = 1
-        for hit in hits:
-            print(f"Hit: {hit_count}: {hit['_id']}")
-            hit_count += 1
-        print(f"Hit count: {hit_count}")
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
         if len(hits) == 0:
             return None, None
 
-        # TODO: Need to alter prev_product_download_batch_id based on the cmr_rtc_cache result
-
-        #asdf
+        # From the cmr_rtc_cache, we need to find the previous product download batch id
+        granule_ids = []
+        for hit in hits:
+            rtc_granule = hit['_id']
+            granule_ids.append(rtc_granule)
+        
+        prev_product_download_batch_id = \
+            previous_product_download_batch_id_from_rtc(self.dist_products, self.bursts_to_products, download_batch_id, granule_ids)
 
         return None, prev_product_download_batch_id
 
@@ -162,7 +161,7 @@ class DistDependency:
         earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z") #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
         latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z")
         date_range_days = (latest_timestamp - earliest_timestamp).days
-        assert date_range_days > self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}"
+        assert date_range_days >= self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}"
         if date_range_days < self.warn_cmr_rtc_cache_document_date_range_days:
             self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}")
 

@@ -9,7 +9,7 @@ from collections import defaultdict
 import dateutil.parser
 from datetime import date, datetime
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
@@ -291,7 +291,7 @@ def parse_k_parameter(k_offsets_and_counts):
     k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
     return k_offsets_and_counts
 
-def determine_previous_product_download_batch_id(dist_products, download_batch_id):
+def previous_product_download_batch_id(dist_products, download_batch_id):
     """Determine the previous product download batch id for a given batch id.
     """
     tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
@@ -299,7 +299,6 @@ def determine_previous_product_download_batch_id(dist_products, download_batch_i
     acquisition_group = int(acquisition_group)
     acquisition_cycle = int(acquisition_cycle[1:]) # Remove the "a" from the acquisition cycle
 
-    # First, see if we can find a previous tile product record in GRQ ES
     while True:
         if acquisition_group > 0:
             acquisition_group -= 1
@@ -309,10 +308,57 @@ def determine_previous_product_download_batch_id(dist_products, download_batch_i
         else: # If the acquisition group is 0, we need to decrement the acquisition cycle and set the acquisition group to max for that tile
             acquisition_cycle -= 1
             prev_product = max(dist_products[tile_id])
+            acquisition_group = int(prev_product.split("_")[-1])
             break
     prev_product_download_batch_id = "p" + tile_id + "_" + str(acquisition_group) + "_a" + str(acquisition_cycle)
 
     return prev_product_download_batch_id
+
+def previous_product_download_batch_id_from_rtc(dist_products, bursts_to_products, download_batch_id, granule_ids):
+    '''Determine the previous product download batch id for a given batch id among list of RTC granules.'''
+
+    # TODO: As the first pass we're going to inefficient brute force search. But it may actually being practical ...
+    # because we'll do like 100 dict look ups at most and so that's less than 10 milliseconds. We should still optimize this.
+
+    for g in granule_ids:
+        print(f"RTC granule: {g}") #TODO: remove this later
+
+    granules_dict, rtc_granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
+    min_acquisition_cycle = min(g["acquisition_cycle"] for g in rtc_granules)
+    download_batch_id_dict = {}
+    for g in rtc_granules:
+        download_batch_id_dict[g["download_batch_id"]] = g
+
+    while True:
+        try_previous_id = previous_product_download_batch_id(dist_products, download_batch_id)
+        if try_previous_id in download_batch_id_dict:
+            return try_previous_id
+        else:
+            try_acquisition_cycle = int(try_previous_id.split("_")[-1][1:])
+            if try_acquisition_cycle < min_acquisition_cycle:
+                return None
+            else:
+                download_batch_id = try_previous_id
+
+    return None # Should never get here
+
+def granule_list_to_trigger_data_structure(granule_ids, bursts_to_products):
+    '''Convert a list of rtc granule ids to a trigger data structure.'''
+    granules_dict = {}
+    granules = []
+    for g in granule_ids:
+        burst_id, acquisition_dts = parse_r2_product_file_name(g, "L2_RTC_S1")
+        acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, g)
+        # Only add the granule if it belongs to a DIST-S1 product
+        if burst_id in bursts_to_products:
+            granules.append({"granule_id": g, "burst_id": burst_id, "acquisition_cycle": acquisition_cycle})
+    for g in granules:
+        basic_decorate_granule(g)
+        #granules_dict[g["granule_id"]] = g
+    extend_rtc_for_dist_records(bursts_to_products, granules)
+    add_unique_rtc_granules(granules_dict, granules)
+
+    return granules_dict, granules
 
 def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
                               frame_id, acq_index, batch_id):
@@ -393,19 +439,7 @@ if __name__ == "__main__":
             max_acq_datetime = acq_datetime
     rtc_granule_count = len(granule_ids)
 
-    granules_dict = {}
-    granules = []
-    for g in granule_ids:
-        burst_id, acquisition_dts = parse_r2_product_file_name(g, "L2_RTC_S1")
-        acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, g)
-        # Only add the granule if it belongs to a DIST-S1 product
-        if burst_id in bursts_to_products:
-            granules.append({"granule_id": g, "burst_id": burst_id, "acquisition_cycle": acquisition_cycle})
-    for g in granules:
-        basic_decorate_granule(g)
-        #granules_dict[g["granule_id"]] = g
-    extend_rtc_for_dist_records(bursts_to_products, granules)
-    add_unique_rtc_granules(granules_dict, granules)
+    granules_dict, granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
 
     logger.info("\nComputing for triggered DIST-S1 products...")
     products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(product_to_bursts, granules_dict, True, 200, datetime.now())
