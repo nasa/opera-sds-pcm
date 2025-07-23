@@ -108,7 +108,7 @@ class DistDependency:
             burst_ids = self.product_to_bursts[product_id]
             all_burst_ids.update(burst_ids)
         all_burst_ids = list(all_burst_ids)
-        print(f"All burst ids: {all_burst_ids}") #TOD: remove this later
+        #print(f"All burst ids: {all_burst_ids}")
 
         should_query = []
         for burst_id in all_burst_ids:
@@ -168,19 +168,24 @@ class DistDependency:
     
     def find_job_download_batch_id(self, download_batch_id):
         """
-        Get the previous tile run Mozart job.
+        Get the previous tile run SCIFLO or download job.
         """
-        job_id_prefix = "job-WF-SCIFLO_L3_DIST_S1-batch-" + download_batch_id
-        self.logger.info(f"Searching for previous tile job with job_id_prefix: {job_id_prefix}")
-        query = {"query": {"bool": {"must": [{"prefix": {"job_id": job_id_prefix}}]}}}
-        result = self.mozart_es.search(
-            index="job_status*",
-            body=query
-        )
+        sciflo_job_id_prefix = "job-WF-SCIFLO_L3_DIST_S1-batch-" + download_batch_id
+        download_job_id_prefix = "job-WF-rtc_for_dist_download-" + download_batch_id #job-WF-rtc_for_dist_download-p11SLT_1_a348
+
+        hits = []
+        for job_id_prefix in [sciflo_job_id_prefix, download_job_id_prefix]:
+            self.logger.info(f"Searching for previous tile job with job_id_prefix: {job_id_prefix}")
+            query = {"query": {"bool": {"must": [{"prefix": {"job_id": job_id_prefix}}]}}}
+            result = self.mozart_es.search(
+                index="job_status*",
+                body=query
+            )
+            hits.extend(result["hits"]["hits"])
 
         # The may seem overly verbose and redundant but we want the jobs in this order if there are multiple jobs with the same job_id_prefix
         # It's possible that one job had failed and so another was created, etc.
-        hits = result["hits"]["hits"]
+        
         for hit in hits:
             if hit["_source"]["status"] == "job-started":
                 return hit

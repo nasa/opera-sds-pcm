@@ -2,16 +2,18 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from copy import deepcopy
 import asyncio
+import json
 
 from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
+from data_subscriber.cslc_utils import save_blocked_download_job
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
-                                           parse_k_parameter)
+                                           parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
@@ -308,6 +310,7 @@ there must be a default value. Cannot retrieve baseline granules.")
             product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
 
             product_type = "rtc_for_dist"
+            job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             # If the previous run for this tile has not been processed, submit as a pending job
             # previous_tile_product_file_paths can be None or a list of file paths
@@ -323,17 +326,20 @@ there must be a default value. Cannot retrieve baseline granules.")
             if previous_tile_product_file_paths:
                 previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
                 self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
+            product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
+            add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id}
+
             if should_wait:
                 self.logger.info(
                     f"We will wait for the previous run for the job {previous_tile_job_id} to complete before submitting the download job.")
-                # save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
-                #                                           product_type, params, self.args.job_queue, job_name,
-                #                                            frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
+                params = self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata, for_pending_job=True)
+                save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD, self.settings["RELEASE_VERSION"],
+                                                           product_type, params, self.args.job_queue, job_name, add_attributes)
                 continue
 
-            product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
+            params = self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata)
             download_job_id = try_submit_mozart_job(product = {},
-                                                    params=self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata),
+                                                    params=params,
                                                     job_queue=self.args.job_queue,
                                                     rule_name=f"trigger-{product_type}_download",
                                                     job_spec=f"job-{product_type}_download:{self.settings['RELEASE_VERSION']}",
@@ -347,13 +353,13 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         return job_submission_tasks
 
-    def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata):
+    def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata, for_pending_job=False):
         params = super().create_download_job_params(query_timerange, chunk_batch_ids)
         params.append({
             "name": "product_metadata",
             "from": "value",
             "type": "object",
-            "value": product_metadata
+            "value": json.dumps(product_metadata) if for_pending_job else product_metadata # Pending jobs goes into ES as a string
         })
         return params
 

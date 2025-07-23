@@ -396,29 +396,6 @@ def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins
 
     return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
-def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
-                              frame_id, acq_index, batch_id):
-    """Save the blocked download job in the ES index"""
-
-    eu.index_document(
-        index=PENDING_JOBS_ES_INDEX_NAME,
-        id = job_name,
-        body = {
-                "job_type": PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD,
-                "release_version": release_version,
-                "job_name": job_name,
-                "job_queue": job_queue,
-                "job_params": params,
-                "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
-                "product_type": product_type,
-                "frame_id": frame_id,
-                "acq_index": acq_index,
-                "batch_id": batch_id,
-                "submitted": False,
-                "submitted_job_id": None
-        }
-    )
-
 if __name__ == "__main__":
 
     db_file = sys.argv[1]
