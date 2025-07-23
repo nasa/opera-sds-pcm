@@ -73,19 +73,23 @@ def main(
     )
 
     # e.g. native-id: 'OPERA_L3_DISP-S1-STATIC_F16938_20140403_S1A_v1.0'
-    cmr_frames = {p["meta"]["native-id"].split("_")[3][1:] for p in cmr_products}  # skip "F" prefix before frame number
+    # skip "F" prefix and leading '0' for the frame number
+    cmr_frames = {str(int(p["meta"]["native-id"].split("_")[3][1:])) for p in cmr_products}
     coverage = source_frames - cmr_frames
 
     logging.info(f"Number of frames in frames-to-burst DB JSON: {len(source_frames)}")
     logging.info(f"Number of unique frames referenced in OPERA_L3_DISP-S1-STATIC in CMR: {len(cmr_frames)}")
     logging.info(f"Number of missing frames: {len(coverage)}")
-    logging.info(f"OPERA_L3_DISP-S1-STATIC Coverage:")
-    logging.info(f"{len(coverage)/len(source_frames):.2f}%")
+    logging.info(f"OPERA_L3_DISP-S1-STATIC Coverage: {len(coverage)/len(source_frames):.2f}%")
 
     if args.format == "txt":
         logger.info(f"Writing granule list to file {output!r}")
         with open(output, mode='w') as fp:
             fp.write('\n'.join(sorted(coverage)))
+
+#        with open("found_frames_in_cmr.txt", mode='w') as fp:
+#            fp.write('\n'.join(sorted(cmr_frames)))
+
     elif args.format == "json":
         with open(output, mode='w') as fp:
             from compact_json import Formatter
