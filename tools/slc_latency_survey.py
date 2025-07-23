@@ -217,11 +217,16 @@ def main(args):
 
     logger.info(f'Found {len(dataspace_granules):,} granules in ESA Dataspace')
 
+    missing_from_cmr = {}
+    missing_from_dataspace = {}
+
     for result in dataspace_granules:
         granule_id = result['Name'].removesuffix('.SAFE')
 
         if granule_id in survey:
             survey[granule_id]['dataspace'] = result
+        else:
+            missing_from_cmr[granule_id] = dataspace_to_dates(result, args)
 
     missing_gids = [gid for gid, entry in survey.items() if entry['dataspace'] is None]
 
@@ -243,7 +248,8 @@ def main(args):
         if len(to_drop) > 0:
             logger.error(f'Need to drop {len(to_drop):,} granules from survey since they were unable to be found in '
                          f'both systems')
-            _ = [survey.pop(gid) for gid in to_drop]
+            for gid in to_drop:
+                missing_from_dataspace[gid] = cmr_to_dates(survey.pop(gid)['cmr'], args)
 
     logger.info(f'Final survey size: {len(survey):,}')
 
@@ -291,6 +297,30 @@ def main(args):
     logger.info(f'Surveyed {len(survey):,} SLCs')
     logger.info(f'Average CMR latency: {sum([v["cmr_publish_latency"] for v in survey.values()], start=timedelta(seconds=0)) / len(survey)}')
     logger.info(f'Average Dataspace latency: {sum([v["dataspace_publish_latency"] for v in survey.values()], start=timedelta(seconds=0)) / len(survey)}')
+
+    if len(missing_from_cmr) > 0:
+        filename = f'{args.output}.missing_cmr.json'
+        with open(filename, 'w') as f:
+            json.dump(
+                missing_from_cmr,
+                f,
+                indent=2,
+                default=lambda x: x.strftime("%Y-%m-%d %H:%M:%S.%fZ") if isinstance(x, datetime) else str(x)
+            )
+        logger.warning(f'{len(missing_from_cmr):,} granules found in dataspace query that were not in CMR. '
+                       f'Dumped to {filename}. Note some of these may be due to CMR\'s ingestion latency.')
+
+    if len(missing_from_dataspace) > 0:
+        filename = f'{args.output}.missing_dataspace.json'
+        with open(filename, 'w') as f:
+            json.dump(
+                missing_from_dataspace,
+                f,
+                indent=2,
+                default=lambda x: x.strftime("%Y-%m-%d %H:%M:%S.%fZ") if isinstance(x, datetime) else str(x)
+            )
+        logger.warning(f'{len(missing_from_dataspace):,} granules found in CMR query that were not in Dataspace. '
+                       f'Dumped to {filename}.')
 
 
 if __name__ == '__main__':
