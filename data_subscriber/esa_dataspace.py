@@ -12,7 +12,7 @@ from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_T
 from more_itertools import first_true
 from util.dataspace_util import DEFAULT_DOWNLOAD_ENDPOINT
 from shapely.geometry import box
-from tools.dataspace_s1_download import query, build_query_filter
+from tools.dataspace_s1_download import query, build_query_filter, ISO_TIME
 
 MAX_CHARS_PER_LINE = 250000
 """The maximum number of characters per line you can display in cloudwatch logs"""
@@ -26,6 +26,8 @@ PLATFORM_MAP = {
     # Collection.S1D_SLC: 'D',
 }
 
+MAX_DATASPACE_QUERY_RESPONSE_SIZE = 11000
+
 
 ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)'
                                  r'_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})'
@@ -38,6 +40,56 @@ ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)
 
 async def async_query_dataspace(args, settings, timerange, now: datetime, verbose=True) -> list:
     logger = get_logger()
+
+    query_params = _get_query_params(args, timerange)
+
+    logger.info('Querying Copernicus OData')
+
+    query_granules = query(query_params)
+    granules = query_granules
+
+    while len(query_granules) == MAX_DATASPACE_QUERY_RESPONSE_SIZE:
+        logger.warning('Potentially exceeded maximum result size of dataspace query. Splitting')
+
+        if args.use_temporal:
+            new_end_time = min([
+                datetime.strptime(
+                    g['ContentDate']['Start'],
+                    '%Y-%m-%dT%H:%M:%S.%fZ'
+                ) for g in granules
+            ]).strftime(ISO_TIME)
+        else:
+            new_end_time = min([
+                datetime.strptime(
+                    g['ModificationDate'],
+                    '%Y-%m-%dT%H:%M:%S.%fZ'
+                ) for g in granules
+            ]).strftime(ISO_TIME)
+
+        logger.info(f'New end time: {new_end_time}')
+
+        new_timerange = DateTimeRange(timerange.start_date, new_end_time)
+        new_query_params = _get_query_params(args, new_timerange)
+
+        query_granules = query(new_query_params)
+        granules.extend(query_granules)
+
+    granules = response_to_cmr_granules(granules)
+    search_results_count = len(granules)
+
+    logger.info(f'Query complete. Found {search_results_count:,} granule(s)')
+
+    # TODO: Filtering
+
+    # TODO: Not sure if this is needed. The query doesn't give us file extensions & we already narrow down to IW
+    #  but this field is used. Maybe I should just hardcode it below?
+    for granule in granules:
+        granule["filtered_urls"] = granule['related_urls']
+
+    return granules
+
+
+def _get_query_params(args, timerange):
     bounding_box = args.bbox
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
@@ -52,15 +104,15 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
     filters = []
 
     if args.use_temporal:
-        filters.extend([f'ContentDate/Start gt {timerange.start_date}',
-                        f'ContentDate/Start lt {timerange.end_date}'])
+        filters.extend([f'ContentDate/End ge {timerange.start_date}',
+                        f'ContentDate/Start le {timerange.end_date}'])
     else:
-        filters.extend([f'ModificationDate gt {timerange.start_date}',
-                        f'ModificationDate lt {timerange.end_date}'])
+        filters.extend([f'ModificationDate ge {timerange.start_date}',
+                        f'ModificationDate le {timerange.end_date}'])
 
         if args.temporal_start_date:
             assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", args.temporal_start_date)
-            filters.append(f'ContentDate/Start gt {args.temporal_start_date}')
+            filters.append(f'ContentDate/End ge {args.temporal_start_date}')
 
     bound_list = [float(b) for b in bounding_box.split(',')]
 
@@ -89,22 +141,8 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
         sort_reverse=True
     )
 
-    logger.info('Querying Copernicus OData')
+    return query_params
 
-    # TODO: There seems to be a limit of 11k results per query. If we hit that, we'll need to split our temporal ranges
-    granules = response_to_cmr_granules(query(query_params))
-    search_results_count = len(granules)
-
-    logger.info(f'Query complete. Found {search_results_count:,} granule(s)')
-
-    # TODO: Filtering
-
-    # TODO: Not sure if this is needed. The query doesn't give us file extensions & we already narrow down to IW
-    #  but this field is used. Maybe I should just hardcode it below?
-    for granule in granules:
-        granule["filtered_urls"] = granule['related_urls']
-
-    return granules
 
 
 def response_to_cmr_granules(esa_granules):
