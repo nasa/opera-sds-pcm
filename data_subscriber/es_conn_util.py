@@ -12,7 +12,7 @@ def get_es_connection(logger):
     if CONN is None:
         aws_es = app.conf.get('GRQ_AWS_ES', False)
         logger.info(f"{aws_es=}") if logger else print(f"{aws_es=}")
-        es_url = app.conf.get('AGRQ_ES_URL', "http://localhost:9200")
+        es_url = app.conf.get('GRQ_ES_URL', "http://localhost:9200")
         logger.info(f"{es_url=}") if logger else print(f"{es_url=}")
 
         es_engine = app.conf.get('GRQ_ES_ENGINE', "elasticsearch")
