@@ -2,10 +2,12 @@ import logging
 import logging.handlers
 import os
 import sys
+import argparse
 from collections import defaultdict
 
 from dotenv import dotenv_values
 from tabulate import tabulate
+from typing import Literal
 import pandas as pd
 
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -13,11 +15,53 @@ from data_subscriber.cmr import CMR_TIME_FORMAT
 #import tests.data_subscriber.conftest
 
 from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame_burst_hist
-from cmr_audit_hls import create_parser, init_logging
 from cmr_audit_slc import get_out_filename
 from report.opera_validator.opv_disp_s1 import validate_disp_s1
 
 OPERA_VALIDATOR_TIME_FORMAT = "%Y%m%dT%H%M%SZ"
+
+def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
+    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
+    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
+    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
+    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_disp_s1.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1.setLevel(logging.INFO)
+    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh1)
+
+    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit_disp_s1-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2.setLevel(logging.ERROR)
+    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh2)
+
+
+def create_parser():
+    argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument(
+        "--start-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+    )
+    argparser.add_argument(
+        "--end-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+    )
+    argparser.add_argument(
+        "--output", "-o",
+        help=f'Output filepath.'
+    )
+    argparser.add_argument(
+        "--format",
+        default="txt",
+        choices=["txt", "json"],
+        help=f'Output file format. Defaults to "%(default)s".'
+    )
+    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+
+    return argparser
+
 
 class CMRAudit:
     def __init__(self):
@@ -65,7 +109,7 @@ class CMRAudit:
     def run(self):
         args = self.argparser.parse_args(sys.argv[1:])
         self.logger.info(f'{args=}')
-        init_logging("cmr_audit_disp_s1.log", "cmr_audit_disp_s1-error.log", args.log_level)
+        init_logging(args.log_level)
 
         cmr_start_dt_str = args.start_datetime
         cmr_end_dt_str = args.end_datetime
@@ -98,6 +142,7 @@ class CMRAudit:
 
         # Generate the output filename
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "DISP-S1", "CSLC")
+        output_file_missing_cmr_frames = args.output if args.output else f"{out_filename}.txt"
 
         # If processing mode is historical, group by frame_id and k_cycle
         if args.processing_mode == "historical":
@@ -110,7 +155,7 @@ class CMRAudit:
             start_end_date_map = defaultdict(TwoDates)
 
             for d in disp_s1_products_miss:
-                _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
+                _, acq_date = parse_cslc_file_name(list(d["All Bursts"])[0])
                 day_index = d["Last Acq Day Index"]
                 frame_id = d["Frame ID"]
                 frame = self.disp_burst_map[frame_id]
@@ -130,7 +175,7 @@ class CMRAudit:
                     start_end_date_map[(frame_id, k_cycle)].last_date = end_date
 
         # Write out all bursts from the missing products
-        with open(out_filename, "w") as out_file:
+        with open(output_file_missing_cmr_frames, "w") as out_file:
 
             out_file.write("Frame ID, Start Date, End Date, K-Cycle\n")
 
@@ -139,7 +184,7 @@ class CMRAudit:
                     out_file.write(f"{frame_id}, {dates.first_date}, {dates.last_date}, {k_cycle}\n")
             else:
                 for d in disp_s1_products_miss:
-                    _, acq_date = parse_cslc_file_name(d["All Bursts"][0])
+                    _, acq_date = parse_cslc_file_name(list(d["All Bursts"])[0])
                     start_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
                     end_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
                     out_file.write(f"{d['Frame ID']}, {start_date}, {end_date}\n")

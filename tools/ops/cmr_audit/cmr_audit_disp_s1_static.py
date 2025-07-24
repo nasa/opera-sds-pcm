@@ -5,6 +5,7 @@ import logging.handlers
 import sys
 from pathlib import Path, PurePath
 from typing import Literal
+from datetime import datetime
 
 import boto3
 import pandas as pd
@@ -32,12 +33,13 @@ def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 def create_parser():
     argparser = argparse.ArgumentParser(add_help=True)
-    argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True, required=False, help="Toggle for filtering frames in North America as defined in the frame-to-burst JSON.")
+    argparser.add_argument("--filter-is-north-america", action=argparse.BooleanOptionalAction, default=True, required=False, \
+        help="Toggle for filtering frames in North America as defined in the frame-to-burst JSON.")
     argparser.add_argument("--frame-to-burst-db", type=argparse_path, required=True, help="Custom opera-s1-disp-frame-to-burst.json filepath.")
     argparser.add_argument("--log-level", default="INFO", choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"), help="(default: %(default)s)")
     argparser.add_argument(
         "--output", "-o",
-        required=True,
+        required=False,
         help=f"Output filepath."
     )
     argparser.add_argument(
@@ -48,6 +50,14 @@ def create_parser():
     )
 
     return argparser
+
+def get_out_filename():
+    now = datetime.now()
+    current_dt_str = now.strftime("%Y%m%d-%H%M%S")
+    out_filename = f"{current_dt_str}Z"
+
+    return f"missing_frames_DISP-S1-STATIC_{out_filename}"
+
 
 def argparse_path(path_str):
     path = Path(path_str).resolve()
@@ -78,20 +88,25 @@ def main(
     coverage = source_frames - cmr_frames
 
     logging.info(f"Number of frames in frames-to-burst DB JSON: {len(source_frames)}")
-    logging.info(f"Number of unique frames referenced in OPERA_L3_DISP-S1-STATIC in CMR: {len(cmr_frames)}")
+    logging.info(f"Number of unique frames referenced in OPERA_L3_DISP-S1-STATIC in CMR(DAAC): {len(cmr_frames)}")
     logging.info(f"Number of missing frames: {len(coverage)}")
     logging.info(f"OPERA_L3_DISP-S1-STATIC Coverage: {len(coverage)/len(source_frames):.2f}%")
 
+    outfilename = get_out_filename()
+
     if args.format == "txt":
-        logger.info(f"Writing granule list to file {output!r}")
-        with open(output, mode='w') as fp:
+        output_file_missing_frames = output if output else f"{outfilename}.txt"
+        logger.info(f"Writing frame list to file {output_file_missing_frames}")
+        with open(output_file_missing_frames, mode='w') as fp:
             fp.write('\n'.join(sorted(coverage)))
 
 #        with open("found_frames_in_cmr.txt", mode='w') as fp:
 #            fp.write('\n'.join(sorted(cmr_frames)))
 
     elif args.format == "json":
-        with open(output, mode='w') as fp:
+        output_file_missing_frames = output if output else f"{outfilename}.json"
+        logger.info(f"Writing frame list to file {output_file_missing_frames}")
+        with open(output_file_missing_frames, mode='w') as fp:
             from compact_json import Formatter
             formatter = Formatter(indent_spaces=2, max_inline_length=300, max_compact_list_complexity=0)
             json_str = formatter.serialize(sorted(coverage))

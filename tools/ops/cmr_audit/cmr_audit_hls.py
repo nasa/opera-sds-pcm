@@ -8,7 +8,7 @@ import re
 import sys
 import urllib.parse
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Union, Iterable, Literal
 
 import aiohttp
@@ -167,7 +167,7 @@ def hls_granule_ids_to_dswx_native_id_patterns(cmr_granules: set[str], input_to_
         year = m.group("year")
         doy = m.group("day_of_year")
         time_of_day = m.group("acquisition_ts").split("T")[1]
-        date = datetime.datetime(int(year), 1, 1) + datetime.timedelta(int(doy) - 1)
+        date = datetime(int(year), 1, 1) + timedelta(int(doy) - 1)
         dswx_acquisition_dt_str = f"{date.strftime('%Y%m%d')}T{time_of_day}"
 
         dswx_native_id_pattern = f'OPERA_L3_DSWx-HLS_{tile}_{dswx_acquisition_dt_str}Z_*'
@@ -263,7 +263,7 @@ async def run(start_datetime: datetime = None, end_datetime: datetime = None, fo
     logger.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
     logger.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
 
-    now = datetime.datetime.now()
+    now = datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     start_dt_str = cmr_start_dt_str.replace("-","")
     start_dt_str = start_dt_str.replace("T", "-")
