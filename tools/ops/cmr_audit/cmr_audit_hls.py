@@ -17,7 +17,7 @@ from dateutil.parser import isoparse
 from dotenv import dotenv_values
 from more_itertools import always_iterable
 
-from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules, init_logging
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.basicConfig(
@@ -31,22 +31,6 @@ config = {
     **dotenv_values("../../.env"),
     **os.environ
 }
-
-
-def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
-    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
-    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
-    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
-
-    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_hls.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh1.setLevel(logging.INFO)
-    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh1)
-
-    rfh2 = logging.handlers.RotatingFileHandler("cmr_audit_hls-error.log", mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh2.setLevel(logging.ERROR)
-    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh2)
 
 
 def create_parser():
@@ -305,7 +289,7 @@ async def run(start_datetime: datetime = None, end_datetime: datetime = None, fo
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
-    init_logging(level=args.log_level)
+    init_logging('cmr_audit_hls.log', 'cmr_audit_hls-error.log', level=args.log_level)
     logger = logging.getLogger(__name__)
 
     logger.debug(f"{__file__} invoked with {sys.argv=}")

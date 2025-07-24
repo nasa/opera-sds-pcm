@@ -16,52 +16,10 @@ from data_subscriber.cmr import CMR_TIME_FORMAT
 
 from data_subscriber.cslc_utils import parse_cslc_file_name, localize_disp_frame_burst_hist
 from cmr_audit_slc import get_out_filename
+from tools.ops.cmr_audit.cmr_audit_utils import init_logging, create_parser
 from report.opera_validator.opv_disp_s1 import validate_disp_s1
 
 OPERA_VALIDATOR_TIME_FORMAT = "%Y%m%dT%H%M%SZ"
-
-def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
-    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
-    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
-    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
-
-    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_disp_s1.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh1.setLevel(logging.INFO)
-    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh1)
-
-    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit_disp_s1-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh2.setLevel(logging.ERROR)
-    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh2)
-
-
-def create_parser():
-    argparser = argparse.ArgumentParser(add_help=True)
-    argparser.add_argument(
-        "--start-datetime",
-        required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
-    )
-    argparser.add_argument(
-        "--end-datetime",
-        required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
-    )
-    argparser.add_argument(
-        "--output", "-o",
-        help=f'Output filepath.'
-    )
-    argparser.add_argument(
-        "--format",
-        default="txt",
-        choices=["txt", "json"],
-        help=f'Output file format. Defaults to "%(default)s".'
-    )
-    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
-
-    return argparser
-
 
 class CMRAudit:
     def __init__(self):
@@ -109,7 +67,7 @@ class CMRAudit:
     def run(self):
         args = self.argparser.parse_args(sys.argv[1:])
         self.logger.info(f'{args=}')
-        init_logging(args.log_level)
+        init_logging('cmr_audit_disp_s1.log', 'cmr_audit_disp_s1-error.log', args.log_level)
 
         cmr_start_dt_str = args.start_datetime
         cmr_end_dt_str = args.end_datetime

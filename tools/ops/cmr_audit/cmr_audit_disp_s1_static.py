@@ -12,24 +12,10 @@ import pandas as pd
 from dateutil.parser import isoparse
 
 from data_subscriber.cmr import async_query_cmr_v2
+from tools.ops.cmr_audit.cmr_audit_utils import init_logging
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 
-
-def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]):
-    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
-    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
-    logging.basicConfig(level=level, format=log_format, force=True)
-
-    rfh1 = logging.handlers.RotatingFileHandler("cmr_audit_disp_s1_static.log", mode="a", maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh1.setLevel(logging.INFO)
-    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh1)
-
-    rfh2 = logging.handlers.RotatingFileHandler("cmr_audit_disp_s1_static-error.log", mode="a", maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh2.setLevel(logging.ERROR)
-    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh2)
 
 def create_parser():
     argparser = argparse.ArgumentParser(add_help=True)
@@ -130,7 +116,7 @@ def download_burst_db(s3_url, downloads_dir: Path):
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
-    init_logging(level=args.log_level)
+    init_logging('cmr_audit_disp_s1_static.log', 'cmr_audit_disp_s1_static-error.log', level=args.log_level)
     logger = logging.getLogger(__name__)
 
     logger.debug(f"{__file__} invoked with {sys.argv=}")
