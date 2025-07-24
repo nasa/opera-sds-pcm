@@ -58,7 +58,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
             if current_page == 1:
                 logger.debug(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
-                max_pages = math.ceil(response_json["hits"]/page_size)
+                # max_pages = math.ceil(response_json["hits"]/page_size)
                 logger.debug("Updating max pages to %d", max_pages)
 
             logger.debug(f'CMR query (cmr-query-page {current_page} of {ceil(response_json["hits"]/page_size)}): '
