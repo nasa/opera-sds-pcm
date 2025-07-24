@@ -6,7 +6,6 @@ import sys
 from collections import defaultdict, namedtuple
 from datetime import datetime, timezone
 from functools import reduce
-from typing import Literal
 
 import pandas as pd
 from dateutil.parser import isoparse

@@ -4,7 +4,6 @@ import json
 import logging.handlers
 import sys
 from pathlib import Path, PurePath
-from typing import Literal
 from datetime import datetime
 
 import boto3

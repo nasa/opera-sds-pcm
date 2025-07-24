@@ -7,7 +7,6 @@ from collections import defaultdict
 
 from dotenv import dotenv_values
 from tabulate import tabulate
-from typing import Literal
 import pandas as pd
 
 from data_subscriber.cmr import CMR_TIME_FORMAT

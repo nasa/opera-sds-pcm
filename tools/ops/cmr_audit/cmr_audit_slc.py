@@ -10,7 +10,7 @@ import sys
 import urllib.parse
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Union, Iterable, Literal
+from typing import Union, Iterable
 
 import aiohttp
 import more_itertools
