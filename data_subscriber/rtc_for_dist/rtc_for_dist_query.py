@@ -316,17 +316,8 @@ there must be a default value. Cannot retrieve baseline granules.")
             # previous_tile_product_file_paths can be None or a list of file paths
             should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id)
 
-            # Append the S3 prefix to the previous_tile_product_file_paths
-            # from:
-            # "OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif"
-            # to:
-            # "s3://self.settings["DATASET_BUCKET"]/products/DIST_S1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif
-            s3_rs_bucket = self.settings["DATASET_BUCKET"]
-            s3_rs_prefix = "s3://" + s3_rs_bucket + "/products/DIST_S1/"
-            if previous_tile_product_file_paths:
-                previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
-                self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
-            product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
+            self.populate_product_metadata(product_metadata, previous_tile_product_file_paths)
+
             add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id}
 
             if should_wait:
@@ -352,6 +343,19 @@ there must be a default value. Cannot retrieve baseline granules.")
             job_submission_tasks.append(download_job_id)
 
         return job_submission_tasks
+
+    def populate_product_metadata(self, product_metadata, previous_tile_product_file_paths):
+        # Append the S3 prefix to the previous_tile_product_file_paths
+        # from:
+        # "OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif"
+        # to:
+        # "s3://self.settings["DATASET_BUCKET"]/products/DIST_S1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif
+        s3_rs_bucket = self.settings["DATASET_BUCKET"]
+        s3_rs_prefix = "s3://" + s3_rs_bucket + "/products/DIST_S1/"
+        if previous_tile_product_file_paths:
+            previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
+            self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
+        product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
 
     def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata, for_pending_job=False):
         params = super().create_download_job_params(query_timerange, chunk_batch_ids)

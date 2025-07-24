@@ -14,6 +14,18 @@ from opera_commons.es_connection import get_grq_es, get_mozart_es
 GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache*"
 
+def file_paths_from_prev_product(previous_tile_product):
+    """
+    Extract the file paths from the previous tile product.
+    The FileLocation field is from the local EC2 which has a lot of non-sense. We return just the immedimate folder and file name.
+    """
+    file_paths = []
+    for file in previous_tile_product["_source"]["metadata"]["Files"]:
+        #TODO: This will go away with gamma delivery of the SAS. SAS will filter the files itself.
+        if file["FileName"].endswith(".tif") and not file["FileName"].endswith("ACQ.tif") and not file["FileName"].endswith("METRIC.tif"): # Get rid of the xml and png files and two other files
+            file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
+    return file_paths
+
 class DistDependency:
     def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts, settings):
         self.logger = logger
@@ -27,7 +39,7 @@ class DistDependency:
         self.warn_cmr_rtc_cache_document_count = settings["DIST_S1_TRIGGERING"]["WARN_CMR_RTC_CACHE_DOCUMENT_COUNT"]
         self.min_cmr_rtc_cache_document_date_range_days = settings["DIST_S1_TRIGGERING"]["MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS"]
         self.warn_cmr_rtc_cache_document_date_range_days = settings["DIST_S1_TRIGGERING"]["WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS"]
-
+    
     def should_wait_previous_run(self, download_batch_id):
         """
         Check if the current run should wait for the previous run of this tile to complete. Here are the conditions:
@@ -47,13 +59,7 @@ class DistDependency:
         self.logger.info(f"Checking if we should wait for the previous run of {download_batch_id}")
         previous_tile_product, prev_product_download_batch_id = self.get_previous_tile_product(download_batch_id)
         if previous_tile_product is not None:
-            # extract the file paths from the previous tile product
-            # The FileLocation field is from the local EC2 which has a lot of non-sense. We return just the immedimate folder and file name.
-            file_paths = []
-            for file in previous_tile_product["_source"]["metadata"]["Files"]:
-                #TODO: This will go away with gamma delivery of the SAS. SAS will filter the files itself.
-                if file["FileName"].endswith(".tif") and not file["FileName"].endswith("ACQ.tif") and not file["FileName"].endswith("METRIC.tif"): # Get rid of the xml and png files and two other files
-                    file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
+            file_paths = file_paths_from_prev_product(previous_tile_product)
             self.logger.debug(f"Previous tile product found: {file_paths=}")
             return False, file_paths, None # Previous tile product exists so run with it.
         
@@ -170,8 +176,8 @@ class DistDependency:
         """
         Get the previous tile run SCIFLO or download job.
         """
-        sciflo_job_id_prefix = "job-WF-SCIFLO_L3_DIST_S1-batch-" + download_batch_id
-        download_job_id_prefix = "job-WF-rtc_for_dist_download-" + download_batch_id #job-WF-rtc_for_dist_download-p11SLT_1_a348
+        sciflo_job_id_prefix = "job-WF-SCIFLO_L3_DIST_S1-batch-" + download_batch_id # e.g. job-WF-SCIFLO_L3_DIST_S1-batch-p11SLT_1_a348
+        download_job_id_prefix = "job-WF-rtc_for_dist_download-" + download_batch_id # e.g. job-WF-rtc_for_dist_download-p11SLT_1_a348
 
         hits = []
         for job_id_prefix in [sciflo_job_id_prefix, download_job_id_prefix]:
