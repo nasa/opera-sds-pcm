@@ -198,7 +198,9 @@ def disp_s1_static_lineage_metadata(context, work_dir):
             lineage_metadata.extend(run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key])
 
     # Copy the pre-downloaded ancillaries for this job to the pge input directory
-    lineage_metadata.append(run_config["dynamic_ancillary_file_group"]["dem_file"])
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
     lineage_metadata.append(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
 
     # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker

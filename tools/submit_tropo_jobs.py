@@ -32,6 +32,7 @@ The script will exit with an error if no filtering option is specified.
 import argparse
 import logging
 import sys
+import re
 from typing import List, Optional, Set
 from datetime import datetime, timezone, timedelta
 from pathlib import PurePath, Path
@@ -85,6 +86,7 @@ def submit_mozart_job_wrapper(
     """ 
     # Create the full S3 path
     s3_path = f"s3://{bucket_name}/{s3_key}"
+    prod_timestamp = re.search(r'\d{12}', PurePath(s3_key).name).group()
     
     # Create the product structure with metadata
     product = {
@@ -140,7 +142,7 @@ def submit_mozart_job_wrapper(
             rule_name=f"trigger-{job_type}",
             params=params,
             job_spec=f"{job_type}:{release}",
-            job_name=f"job-WF-SCIFLO_L4_TROPO",
+            job_name=f"job-WF-SCIFLO_L4_TROPO-for-{prod_timestamp}",
         )
         logger.info(f"Successfully submitted job for {s3_key}")
         return job_id
