@@ -67,13 +67,13 @@ class NisarGcovCmrQuery(CmrQuery):
         # Execute the CMR query
         query_dt = datetime.now()
         cmr_granules = super().query_cmr(timerange, now)
+    
+    def determine_download_granules(self, cmr_granules):
         gcov_granules, mgrs_sets_and_cycle_numbers = self._convert_query_result_to_gcov_granules(cmr_granules)
         self.logger.info(f"Found {len(gcov_granules)} GCOV granules")
         self.logger.info(f"Found {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers")
         
-        for granule in gcov_granules:
-            self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
-            self.catalog.update_granule_index(granule, self.job_id, query_dt)
+        self._catalog_granules(gcov_granules, query_dt)
 
         sets_to_process = []
         for mgrs_set_id, cycle_number in mgrs_sets_and_cycle_numbers:
@@ -86,9 +86,21 @@ class NisarGcovCmrQuery(CmrQuery):
 
         self.logger.info(f"Found {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
 
-        jobs = self.trigger_dswx_ni_jobs(sets_to_process)
         return sets_to_process
-    
+
+    def submit_dswx_ni_job_submission_handler(self, granules, query_timerange):
+        self.logger.info(f"Triggering DSWx-NI jobs for {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
+        jobs = self.trigger_dswx_ni_jobs(sets_to_process)
+        return jobs
+
+    def _catalog_granules(self, granules, query_dt):
+        for granule in granules:
+            self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
+            self.catalog.update_granule_index(granule, self.job_id, query_dt)
+        
+    def catalog_granules(self, granules, query_dt):
+        return
+
     def meets_criteria_for_processing(self, mgrs_set_id, cycle_number, related_gcov_products):
         return True
     
