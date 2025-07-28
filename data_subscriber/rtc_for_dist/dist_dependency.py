@@ -158,7 +158,7 @@ class DistDependency:
         """
         # Perform sanity check on the cache to make sure that there are reasonable number of records
         document_count = get_document_count(self.grq_es, CMR_RTC_CACHE_INDEX)
-        assert document_count > self.min_cmr_rtc_cache_document_count, f"Expected at least {self.min_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}"
+        assert document_count > self.min_cmr_rtc_cache_document_count, f"Expected at least {self.min_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES."
         if document_count < self.warn_cmr_rtc_cache_document_count:
             self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}")
 
@@ -167,7 +167,7 @@ class DistDependency:
         earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z") #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
         latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z")
         date_range_days = (latest_timestamp - earliest_timestamp).days
-        assert date_range_days >= self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}"
+        assert date_range_days >= self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES."
         if date_range_days < self.warn_cmr_rtc_cache_document_date_range_days:
             self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}")
 
