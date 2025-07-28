@@ -64,9 +64,8 @@ class NisarGcovCmrQuery(CmrQuery):
         """
         self.logger.info(f"Query CMR for NISAR L2 GCOV products with timerange: {timerange}")
         
-        # Execute the CMR query
-        query_dt = datetime.now()
         cmr_granules = super().query_cmr(timerange, now)
+        return cmr_granules
     
     def determine_download_granules(self, cmr_granules):
         gcov_granules, mgrs_sets_and_cycle_numbers = self._convert_query_result_to_gcov_granules(cmr_granules)

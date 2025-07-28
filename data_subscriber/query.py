@@ -34,6 +34,7 @@ class CmrQuery:
         self.job_id = job_id
         self.settings = settings
         self.proc_mode = args.proc_mode
+        self.query_replacement_file = args.query_replacement_file
 
         self.validate_args()
 
@@ -128,7 +129,11 @@ class CmrQuery:
         }
 
     def query_cmr(self, timerange, now: datetime):
-        granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
+        if self.query_replacement_file:
+            with open(self.query_replacement_file, "r") as f:
+                granules = json.load(f)
+        else:
+            granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
         return granules
 
     def eliminate_duplicate_granules(self, granules):
