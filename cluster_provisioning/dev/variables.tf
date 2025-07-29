@@ -361,7 +361,7 @@ variable "lambda_log_retention_in_days" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20250514-3.1.6"
+  default = "20250729-6.0.0-er.1.0"
 }
 
 variable "pge_releases" {
