@@ -6,6 +6,8 @@ import json
 
 from util.job_submitter import try_submit_mozart_job
 
+from data_subscriber.es_conn_util import get_document_timestamp_min_max
+
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
@@ -14,7 +16,9 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
                                            parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
+
+from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -62,7 +66,47 @@ class RtcForDistCmrQuery(CmrQuery):
 
     def query_cmr(self, timerange, now: datetime):
         if self.args.proc_mode == "forward":
+
+            # "Normal" query for granules
             granules = super().query_cmr(timerange, now)
+
+            ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
+            1. Get the last revision time found in the cache
+            2. Query CMR for all granules between the start time of this query and the last revision time found in the cache
+            3. Insert them into cmr_rtc_cache
+            '''
+
+            # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
+            last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
+            last_revision_time = last_revision_time[:-6] + "Z"
+            
+            # The time cutoff of CMR is a bit fuzzy. We'll err on the side of including more granules.
+            # String comparison is fine because the times are formatted as 2025-07-01T01:00:00Z
+            if timerange.start_date >= last_revision_time: 
+                # Query CMR for all granules between the start time of this query and the last revision time found in the cache
+                delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
+                self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
+
+                delta_granules = super().query_cmr(delta_timerange, now)
+                self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
+                granules_for_cache = granules + delta_granules
+                
+            else:
+                self.logger.warning(f"{last_revision_time=} is greater than the start time of this query {timerange.start_date}. \
+This is unusual. Still inserting the granules into the cmr_rtc_cache.")
+                granules_for_cache = granules
+
+            if self.args.use_temporal is False:
+                decorated_granules = []
+                for granule in granules_for_cache:
+                    decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
+                    decorated_granules.append(decorated_granule)
+                
+                # Insert them into cmr_rtc_cache
+                populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+            else:
+                self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
+
         elif self.args.proc_mode == "reprocessing":
             granules = []
 
