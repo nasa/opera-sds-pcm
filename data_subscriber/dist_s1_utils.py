@@ -2,15 +2,17 @@ import sys
 import os
 from functools import cache
 import pickle
+from copy import deepcopy
 
 import pandas as pd
 from collections import defaultdict
 import dateutil.parser
-from datetime import date
+from datetime import date, datetime
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
-from data_subscriber.url import determine_acquisition_cycle
+from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
+from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
@@ -19,6 +21,23 @@ PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 
 logger = get_logger()
 
+def parse_local_burst_db_pickle(db_file_name, pickle_file_name):
+    """Parse the local DIST-S1 burst database pickle file or process the parquet file if the pickle file does not exist."""
+    try:
+        with open(pickle_file_name, "rb") as f:
+            dist_products, bursts_to_products, product_to_bursts, all_tile_ids = pickle.load(f)
+            logger.info("Loaded DIST-S1 burst database from pickle file.")
+    except FileNotFoundError:
+        logger.info(f"Could not find {pickle_file_name}. Processing DIST-S1 burst database file.")
+        logger.info(f"Using local DIST-S1 database parquet file: {db_file_name}")
+        dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(db_file_name)
+        # Check to see if the DIST_BURST_DB_PICKLE_NAME file exists and create it if it doesn't
+        if not os.path.isfile(pickle_file_name):
+            with open(pickle_file_name, "wb") as f:
+                pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
+                logger.info(f"Saved DIST-S1 burst database to {pickle_file_name}.")
+
+    return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 @cache
 def localize_dist_burst_db():
 
@@ -135,6 +154,38 @@ def basic_decorate_granule(granule):
     granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
 
+
+def decorate_granule(granule):
+    granule["tile_id"], granule["acquisition_group"] = granule["product_id"].split("_")
+    granule["batch_id"] = granule["product_id"] + "_" + str(granule["acquisition_cycle"])
+    granule["download_batch_id"] = dist_s1_download_batch_id(granule)
+    granule["unique_id"] = rtc_for_dist_unique_id(granule["download_batch_id"], granule["burst_id"])
+
+def extend_rtc_for_dist_records(bursts_to_products, granules, no_duplicate=False, force_product_id=None):
+    '''Extend the granules list with duplicated granules with different product_ids.'''
+
+    extended_granules = []
+
+    for granule in granules:
+        rtc_granule_id = granule["granule_id"]
+        product_ids = list(bursts_to_products[granule["burst_id"]])
+
+        if len(product_ids) == 0:
+            logger.warning(f"Skipping {rtc_granule_id} as it does not belong to any DIST-S1 product.")
+            continue
+
+        granule["product_id"] = force_product_id if force_product_id else product_ids[0]
+        decorate_granule(granule)
+
+        if len(product_ids) > 1 and no_duplicate == False:
+            for product_id in product_ids[1:]:
+                new_granule = deepcopy(granule)
+                new_granule["product_id"] = force_product_id if force_product_id else product_id
+                decorate_granule(new_granule)
+                extended_granules.append(new_granule)
+
+    granules.extend(extended_granules)
+
 def get_unique_rtc_id_for_dist(granule_id):
     '''Get the unique id for a DIST-S1 triggering. The unique id is the granule_id up to the acquisition time.
     example: "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0" -> "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z"
@@ -240,6 +291,110 @@ def parse_k_parameter(k_offsets_and_counts):
     k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
     return k_offsets_and_counts
 
+def previous_product_download_batch_id(dist_products, download_batch_id):
+    """Determine the previous product download batch id for a given batch id.
+    """
+    tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
+    tile_id = tile_id[1:] # Remove the "p" from the tile_id
+    acquisition_group = int(acquisition_group)
+    acquisition_cycle = int(acquisition_cycle[1:]) # Remove the "a" from the acquisition cycle
+
+    while True:
+        if acquisition_group > 0:
+            acquisition_group -= 1
+            prev_product = tile_id + "_" + str(acquisition_group)
+            if prev_product in dist_products[tile_id]:
+                break
+        else: # If the acquisition group is 0, we need to decrement the acquisition cycle and set the acquisition group to max for that tile
+            acquisition_cycle -= 1
+            prev_product = max(dist_products[tile_id], key=lambda x: int(x.split("_")[-1]))
+            acquisition_group = int(prev_product.split("_")[-1])
+            break
+    prev_product_download_batch_id = "p" + tile_id + "_" + str(acquisition_group) + "_a" + str(acquisition_cycle)
+
+    return prev_product_download_batch_id
+
+def previous_product_download_batch_id_from_rtc(dist_products, bursts_to_products, download_batch_id, granule_ids):
+    '''Determine the previous product download batch id for a given batch id among list of RTC granules.'''
+
+    # TODO: As the first pass we're going to inefficient brute force search. But it may actually being practical ...
+    # because we'll do like 100 dict look ups at most and so that's less than 10 milliseconds. We should still optimize this.
+
+    for g in granule_ids:
+        print(f"RTC granule: {g}") #TODO: remove this later
+
+    granules_dict, rtc_granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
+    min_acquisition_cycle = min(g["acquisition_cycle"] for g in rtc_granules)
+    download_batch_id_dict = {}
+    for g in rtc_granules:
+        download_batch_id_dict[g["download_batch_id"]] = g
+
+    while True:
+        try_previous_id = previous_product_download_batch_id(dist_products, download_batch_id)
+        if try_previous_id in download_batch_id_dict:
+            return try_previous_id
+        else:
+            try_acquisition_cycle = int(try_previous_id.split("_")[-1][1:])
+            if try_acquisition_cycle < min_acquisition_cycle:
+                return None
+            else:
+                download_batch_id = try_previous_id
+
+    return None # Should never get here
+
+def granule_list_to_trigger_data_structure(granule_ids, bursts_to_products):
+    '''Convert a list of rtc granule ids to a trigger data structure.'''
+    granules_dict = {}
+    granules = []
+    for g in granule_ids:
+        burst_id, acquisition_dts = parse_r2_product_file_name(g, "L2_RTC_S1")
+        acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_dts, g)
+        # Only add the granule if it belongs to a DIST-S1 product
+        if burst_id in bursts_to_products:
+            granules.append({"granule_id": g, "burst_id": burst_id, "acquisition_cycle": acquisition_cycle})
+    for g in granules:
+        basic_decorate_granule(g)
+        #granules_dict[g["granule_id"]] = g
+    extend_rtc_for_dist_records(bursts_to_products, granules)
+    add_unique_rtc_granules(granules_dict, granules)
+
+    return granules_dict, granules
+
+def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins, now, product_to_bursts, bursts_to_products):
+
+    min_acq_datetime = None
+    max_acq_datetime = None
+
+    # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
+    rtc_survey = pd.read_csv(cmr_survey_csv)
+    granule_ids = []
+    for index, row in rtc_survey.iterrows():
+        rtc_granule_id = row['# Granule ID']
+        granule_ids.append(rtc_granule_id)
+        burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
+        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
+        #acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
+        # print(burst_id, acq_datetime, acquisition_index)
+        if min_acq_datetime is None or acq_datetime < min_acq_datetime:
+            min_acq_datetime = acq_datetime
+        if max_acq_datetime is None or acq_datetime > max_acq_datetime:
+            max_acq_datetime = acq_datetime
+    rtc_granule_count = len(granule_ids)
+
+    granules_dict, granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
+
+    logger.info("\nComputing for triggered DIST-S1 products...")
+    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
+        compute_dist_s1_triggering(product_to_bursts, granules_dict, complete_bursts_only, grace_mins, now)
+    
+    logger.info(f"RTC granule count: {rtc_granule_count}")
+    logger.info(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
+    time_delta = max_acq_datetime - min_acq_datetime
+    total_days = time_delta.total_seconds() / 86400
+    logger.info(f"Total of {total_days} days between the earliest and latest acquisition time.")
+    logger.info(f"Which yields an average of {len(products_triggered) / total_days} products per day.")
+
+    return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
 if __name__ == "__main__":
 
@@ -254,10 +409,17 @@ if __name__ == "__main__":
 
     #print(dist_products)
 
-    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(db_file)
+    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = parse_local_burst_db_pickle(db_file, db_file+".pickle")
     print(f"There are {all_tile_ids.size} unique tiles.")
 
     row_count = df.shape[0]
+
+    '''print(f"{row_count=}")
+    another_row_count = 0
+    for product, bursts in product_to_bursts.items():
+        another_row_count += len(bursts)
+    print(f"{another_row_count=}")'''
+
     all_product_count = 0
     for tile_id, products in dist_products.items():
         all_product_count += len(products)
@@ -269,29 +431,9 @@ if __name__ == "__main__":
     print(dist_products['01FBE'])
     #print(f"Total rows is {row_count} and there are {len(unique_bursts)} unique bursts. Therefore each burst is used on average {row_count/len(unique_bursts)} times.")
 
-    min_acq_datetime = None
-    max_acq_datetime = None
-
     logger.info("\nReading RTC CMR survey CSV file...")
-
-    # Open up RTC CMR survey CSV file and parse the native IDs and then start computing triggering logic
-    rtc_survey = pd.read_csv(cmr_survey_file)
-    granule_ids = []
-    for index, row in rtc_survey.iterrows():
-        rtc_granule_id = row['# Granule ID']
-        granule_ids.append(rtc_granule_id)
-        burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
-        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
-        acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
-        # print(burst_id, acq_datetime, acquisition_index)
-        if min_acq_datetime is None or acq_datetime < min_acq_datetime:
-            min_acq_datetime = acq_datetime
-        if max_acq_datetime is None or acq_datetime > max_acq_datetime:
-            max_acq_datetime = acq_datetime
-    rtc_granule_count = len(granule_ids)
-
-    logger.info("\nComputing for triggered DIST-S1 products...")
-    products_triggered, tiles_untriggered, unused_rtc_granule_count = compute_dist_s1_triggering(granule_ids, all_tile_ids)
+    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
+        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(), product_to_bursts, bursts_to_products)
 
     # Compute average burst usage percentage
     total_bursts = 0
@@ -300,15 +442,9 @@ if __name__ == "__main__":
         total_bursts += product.possible_bursts
         total_used_bursts += product.used_bursts
     print(f"Average burst usage is {total_used_bursts / total_bursts * 100}%")
-    print(f"Total of {len(tiles_untriggered)} tiles were not triggered by RTC data. This is {len(tiles_untriggered) / all_tile_ids.size * 100}% of all tiles.")
+    #print(f"Total of {len(tiles_untriggered)} tiles were not triggered by RTC data. This is {len(tiles_untriggered) / all_tile_ids.size * 100}% of all tiles.")
     print(f"Total of {unused_rtc_granule_count} RTC granules were not used in any product generation.")
 
-    print("RTC granule count:", rtc_granule_count)
-    print(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
-    time_delta = max_acq_datetime - min_acq_datetime
-    total_days = time_delta.total_seconds() / 86400
-    print(f"Total of {total_days} days between the earliest and latest acquisition time.")
-    print(f"Which yields an average of {len(products_triggered) / total_days} products per day.")
     print("Example product and RTC granule IDs:")
 
     # Write out all products triggered into a json file

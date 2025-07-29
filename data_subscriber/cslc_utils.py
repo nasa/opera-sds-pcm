@@ -11,7 +11,7 @@ import dateutil
 import elasticsearch
 import opensearchpy
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -266,26 +266,22 @@ def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 
     return burst_id, acquisition_dts, acquisition_cycles, frame_ids
 
-def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
-                              frame_id, acq_index, k, m, batch_ids):
+def save_blocked_download_job(eu, job_type, release_version, product_type, params, job_queue, job_name, add_attributes):
     """Save the blocked download job in the ES index"""
 
+    # It looks like we could use params to get similar information as from add_attributes but it's not easy to query ES for that.
     eu.index_document(
         index=PENDING_JOBS_ES_INDEX_NAME,
         id = job_name,
         body = {
-                "job_type": PENDING_TYPE_CSLC_DOWNLOAD,
+                "job_type": job_type,
                 "release_version": release_version,
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
                 "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "product_type": product_type,
-                "frame_id": frame_id,
-                "acq_index": acq_index,
-                "k": k,
-                "m": m,
-                "batch_ids": batch_ids,
+                **add_attributes,
                 "submitted": False,
                 "submitted_job_id": None
         }

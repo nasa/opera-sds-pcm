@@ -20,7 +20,7 @@ import boto3
 from boto3.s3.transfer import TransferConfig, MB
 
 import hysds.utils
-from commons.logger import logger
+from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
 DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',

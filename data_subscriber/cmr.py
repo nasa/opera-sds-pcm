@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Iterable
 
 import dateutil.parser
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from more_itertools import first_true

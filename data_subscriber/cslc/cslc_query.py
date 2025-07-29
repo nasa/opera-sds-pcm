@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc.cslc_blackout import (DispS1BlackoutDates,
                                                 process_disp_blackout_dates,

@@ -7,7 +7,7 @@ import requests
 from types import SimpleNamespace
 import time
 from datetime import datetime, timedelta
-from commons.es_connection import get_grq_es
+from opera_commons.es_connection import get_grq_es
 from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates

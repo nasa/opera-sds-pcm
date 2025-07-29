@@ -3,7 +3,7 @@ from datetime import datetime
 import requests
 from requests.auth import HTTPBasicAuth
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 
 
 def supply_token(edl: str, username: str, password: str) -> str:

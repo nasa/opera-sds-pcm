@@ -12,7 +12,7 @@ import backoff
 import requests
 from requests.exceptions import HTTPError
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 
 
 async def async_cmr_posts(url, request_bodies: list):
