@@ -320,9 +320,6 @@ def previous_product_download_batch_id_from_rtc(dist_products, bursts_to_product
     # TODO: As the first pass we're going to inefficient brute force search. But it may actually being practical ...
     # because we'll do like 100 dict look ups at most and so that's less than 10 milliseconds. We should still optimize this.
 
-    for g in granule_ids:
-        print(f"RTC granule: {g}") #TODO: remove this later
-
     granules_dict, rtc_granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
     min_acquisition_cycle = min(g["acquisition_cycle"] for g in rtc_granules)
     download_batch_id_dict = {}
