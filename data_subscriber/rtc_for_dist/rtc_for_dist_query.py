@@ -22,6 +22,7 @@ from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granu
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
+MAX_CMR_RTC_CACHE_GAP_DAYS = 3
 
 class RtcForDistCmrQuery(CmrQuery):
 
@@ -77,12 +78,28 @@ class RtcForDistCmrQuery(CmrQuery):
             '''
 
             # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
-            last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
-            last_revision_time = last_revision_time[:-6] + "Z"
+            try:
+                last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
+                last_revision_time = last_revision_time[:-6] + "Z"
+            except Exception as e:
+                self.logger.error(f"Error getting the last revision time found in cmr_rtc_cache: {e}")
+                raise AssertionError(f"Error getting the last revision time found in cmr_rtc_cache: {e}. \
+You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
             
             # The time cutoff of CMR is a bit fuzzy. We'll err on the side of including more granules.
             # String comparison is fine because the times are formatted as 2025-07-01T01:00:00Z
-            if timerange.start_date >= last_revision_time: 
+            if timerange.start_date < last_revision_time: 
+                self.logger.warning(f"{last_revision_time=} is greater than the start time of this query {timerange.start_date}. \
+This is unusual. Still inserting the granules into the cmr_rtc_cache.")
+                granules_for_cache = granules
+
+            # The date difference is too large, greater than 3 days. In this case we'll throw an error
+            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ") - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ") > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
+                raise AssertionError(f"The date difference between the start time of this query {timerange.start_date} \
+and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
+You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
+                
+            else:
                 # Query CMR for all granules between the start time of this query and the last revision time found in the cache
                 delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
                 self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
@@ -91,11 +108,6 @@ class RtcForDistCmrQuery(CmrQuery):
                 self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
                 granules_for_cache = granules + delta_granules
                 
-            else:
-                self.logger.warning(f"{last_revision_time=} is greater than the start time of this query {timerange.start_date}. \
-This is unusual. Still inserting the granules into the cmr_rtc_cache.")
-                granules_for_cache = granules
-
             if self.args.use_temporal is False:
                 decorated_granules = []
                 for granule in granules_for_cache:
