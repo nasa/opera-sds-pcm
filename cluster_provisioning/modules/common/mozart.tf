@@ -14,6 +14,8 @@ QUEUES:
     %{~endfor~}
   EOT
   es_cluster_mode = var.grq_aws_es == false ? var.es_cluster_mode : false
+  es_identifier   = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
+  use_mozart_es = false
 }
 
 resource "aws_instance" "mozart" {
@@ -61,6 +63,7 @@ resource "aws_instance" "mozart" {
               EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
+    ESIdentifier = local.es_identifier,
     Bravo = "pcm"
   }
   volume_tags = {
@@ -531,7 +534,7 @@ resource "aws_instance" "mozart" {
     inline = [<<-EOT
       while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -x
-      if [ "${local.es_cluster_mode}" = true ]; then
+      if [ "${local.use_mozart_es}" = true ]; then
         sudo systemctl stop ${tonumber(substr(local.ami_versions["mozart"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"}
         sudo systemctl disable ${tonumber(substr(local.ami_versions["mozart"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"}
       fi

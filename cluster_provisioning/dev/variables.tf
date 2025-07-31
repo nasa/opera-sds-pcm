@@ -497,3 +497,7 @@ variable "asf_cnm_s_id_test" {
 variable "asf_cnm_s_id_prod" {
 }
 
+variable "es_cluster_mode" {
+  type    = bool
+  default = false
+}
