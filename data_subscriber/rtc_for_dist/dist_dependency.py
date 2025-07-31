@@ -12,7 +12,7 @@ from opera_commons.es_connection import get_grq_es, get_mozart_es
 # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
 
 GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
-CMR_RTC_CACHE_INDEX = "cmr_rtc_cache*"
+CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
 
 def file_paths_from_prev_product(previous_tile_product):
     """
