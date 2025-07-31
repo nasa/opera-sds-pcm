@@ -16,6 +16,7 @@ import os
 from rtc_utils import rtc_granule_regex, determine_acquisition_cycle
 from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db
 import re
+from data_subscriber.rtc_for_dist.dist_dependency import CMR_RTC_CACHE_INDEX
 
 '''Given a cmr survey csv file, populate the cmr_rtc_cache index with RTC granules from it'''
 
@@ -125,37 +126,30 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
         granules: List of granule metadata dictionaries
         es_conn: ElasticSearch connection
     """
-    index_name = "cmr_rtc_cache"
+    index_name = CMR_RTC_CACHE_INDEX
     
     # Index granules
     logger.info(f"Indexing {len(granules)} granules to {index_name}")
     
     for i, granule in enumerate(granules):
-        try:
-            # Use granule_id as document ID
-            doc_id = granule["granule_id"]
-            
-            # Prepare document for indexing
-            doc = {
-                "granule_id": granule["granule_id"],
-                "burst_id": granule["burst_id"],
-                "acquisition_timestamp": granule["acquisition_timestamp"],
-                "revision_timestamp": granule["revision_timestamp"],
-                "sensor": granule["sensor"],
-                "product_version": granule["product_version"],
-                "acquisition_cycle": granule["acquisition_cycle"],
-                "creation_timestamp": datetime.now()
-            }
-            
-            # Index document
-            es_conn.es.index(index=index_name, id=doc_id, body=doc)
-            
-            if (i + 1) % 100 == 0:
-                logger.info(f"Indexed {i + 1} granules...")
-                
-        except Exception as e:
-            logger.error(f"Error indexing granule {granule['granule_id']}: {e}")
-            continue
+
+        # Use granule_id as document ID
+        doc_id = granule["granule_id"]
+        
+        # Prepare document for indexing
+        doc = {
+            "granule_id": granule["granule_id"],
+            "burst_id": granule["burst_id"],
+            "acquisition_timestamp": granule["acquisition_timestamp"],
+            "revision_timestamp": granule["revision_timestamp"],
+            "sensor": granule["sensor"],
+            "product_version": granule["product_version"],
+            "acquisition_cycle": granule["acquisition_cycle"],
+            "creation_timestamp": datetime.now()
+        }
+        
+        # Index document
+        es_conn.es.index(index=index_name, id=doc_id, body=doc)
     
     # Refresh index
     es_conn.es.indices.refresh(index=index_name)

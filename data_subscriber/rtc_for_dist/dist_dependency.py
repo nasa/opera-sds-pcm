@@ -12,7 +12,7 @@ from opera_commons.es_connection import get_grq_es, get_mozart_es
 # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
 
 GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
-CMR_RTC_CACHE_INDEX = "cmr_rtc_cache*"
+CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
 
 def file_paths_from_prev_product(previous_tile_product):
     """
@@ -63,7 +63,8 @@ class DistDependency:
             self.logger.debug(f"Previous tile product found: {file_paths=}")
             return False, file_paths, None # Previous tile product exists so run with it.
         
-        # No previous product was found and cannot determine what the previous product should be. Run without previous tile product.
+        self.logger.info(f"No previous tile product was found and cannot determine what the previous product should be. \
+Run without previous tile product.")
         if prev_product_download_batch_id is None:
             return False, None, None
         
@@ -72,7 +73,7 @@ class DistDependency:
             self.logger.info(f"Previous tile job found in state {prev_tile_job['_source']['status']}")
             return True, None, prev_tile_job["_source"]["job_id"] # Wait for the job to complete.
 
-        # No previous tile product and cannot find the previous tile job.  Run without previous tile product.
+        self.logger.info(f"No previous tile product and cannot find the previous tile job.  Run without previous tile product.")
         return False, None, None
 
     def get_previous_tile_product(self, download_batch_id):
