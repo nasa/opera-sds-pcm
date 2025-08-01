@@ -1,0 +1,214 @@
+airflow:
+  extraPipPackages:
+    - "boto3"
+    - "pyYAML"
+
+createUserJob:
+  useHelmHooks: false
+
+migrateDatabaseJob:
+  useHelmHooks: false
+
+config:
+  core:
+    dags_folder: "/opt/airflow/dags"
+    load_examples: "${load_examples}"
+  webserver:
+    expose_config: "True"
+
+apiServer:
+  replicas: 1
+  extraVolumes:
+    - name: "local-dags"
+      hostPath:
+        path: "${dags_path}"
+        type: "DirectoryOrCreate"
+    - name: "aws-credentials"
+      hostPath:
+        path: "${aws_path}"
+        type: "DirectoryOrCreate"
+  extraVolumeMounts:
+    - name: "local-dags"
+      mountPath: "/opt/airflow/dags"
+      readOnly: false
+    - name: "aws-credentials"
+      mountPath: "/home/airflow/.aws"
+      readOnly: true
+  env:
+    - name: "AWS_PROFILE"
+      value: "saml-pub"
+    - name: "AWS_SHARED_CREDENTIALS_FILE"
+      value: "/home/airflow/.aws/credentials"
+    - name: "AWS_CONFIG_FILE"
+      value: "/home/airflow/.aws/config"
+  resources:
+    limits:
+      cpu: "${webserver_cpu}"
+      memory: "${webserver_memory}"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+  service:
+    type: "NodePort"
+    ports:
+      - name: "api-server"
+        port: ${webserver_port}
+        targetPort: ${webserver_port}
+        nodePort: 30080
+
+workers:
+  replicas: ${worker_replicas}
+  extraVolumes:
+    - name: "local-dags"
+      hostPath:
+        path: "${dags_path}"
+        type: "DirectoryOrCreate"
+    - name: "aws-credentials"
+      hostPath:
+        path: "${aws_path}"
+        type: "DirectoryOrCreate"
+  extraVolumeMounts:
+    - name: "local-dags"
+      mountPath: "/opt/airflow/dags"
+      readOnly: false
+    - name: "aws-credentials"
+      mountPath: "/home/airflow/.aws"
+      readOnly: true
+  env:
+    - name: "AWS_PROFILE"
+      value: "saml-pub"
+    - name: "AWS_SHARED_CREDENTIALS_FILE"
+      value: "/home/airflow/.aws/credentials"
+    - name: "AWS_CONFIG_FILE"
+      value: "/home/airflow/.aws/config"
+  resources:
+    limits:
+      cpu: "${worker_cpu}"
+      memory: "${worker_memory}"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+
+scheduler:
+  extraVolumes:
+    - name: "local-dags"
+      hostPath:
+        path: "${dags_path}"
+        type: "DirectoryOrCreate"
+    - name: "aws-credentials"
+      hostPath:
+        path: "${aws_path}"
+        type: "DirectoryOrCreate"
+  extraVolumeMounts:
+    - name: "local-dags"
+      mountPath: "/opt/airflow/dags"
+      readOnly: false
+    - name: "aws-credentials"
+      mountPath: "/home/airflow/.aws"
+      readOnly: true
+  env:
+    - name: "AWS_PROFILE"
+      value: "saml-pub"
+    - name: "AWS_SHARED_CREDENTIALS_FILE"
+      value: "/home/airflow/.aws/credentials"
+    - name: "AWS_CONFIG_FILE"
+      value: "/home/airflow/.aws/config"
+  resources:
+    limits:
+      cpu: "${scheduler_cpu}"
+      memory: "${scheduler_memory}"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+
+dagProcessor:
+  extraVolumes:
+    - name: "local-dags"
+      hostPath:
+        path: "${dags_path}"
+        type: "DirectoryOrCreate"
+    - name: "aws-credentials"
+      hostPath:
+        path: "${aws_path}"
+        type: "DirectoryOrCreate"
+  extraVolumeMounts:
+    - name: "local-dags"
+      mountPath: "/opt/airflow/dags"
+      readOnly: false
+    - name: "aws-credentials"
+      mountPath: "/home/airflow/.aws"
+      readOnly: true
+  env:
+    - name: "AWS_PROFILE"
+      value: "saml-pub"
+    - name: "AWS_SHARED_CREDENTIALS_FILE"
+      value: "/home/airflow/.aws/credentials"
+    - name: "AWS_CONFIG_FILE"
+      value: "/home/airflow/.aws/config"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+
+triggerer:
+  extraVolumes:
+    - name: "local-dags"
+      hostPath:
+        path: "${dags_path}"
+        type: "DirectoryOrCreate"
+    - name: "aws-credentials"
+      hostPath:
+        path: "${aws_path}"
+        type: "DirectoryOrCreate"
+  extraVolumeMounts:
+    - name: "local-dags"
+      mountPath: "/opt/airflow/dags"
+      readOnly: false
+    - name: "aws-credentials"
+      mountPath: "/home/airflow/.aws"
+      readOnly: true
+  env:
+    - name: "AWS_PROFILE"
+      value: "saml-pub"
+    - name: "AWS_SHARED_CREDENTIALS_FILE"
+      value: "/home/airflow/.aws/credentials"
+    - name: "AWS_CONFIG_FILE"
+      value: "/home/airflow/.aws/config"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+executor: "KubernetesExecutor"
+# Redis configuration for Celery
+# redis:
+#   enabled: true
+#   resources:
+#     limits:
+#       cpu: "500m"
+#       memory: "512Mi"
+#     requests:
+#       cpu: "50m"
+#       memory: "256Mi"
+
+postgresql:
+  enabled: true
+
+pgbouncer:
+  enabled: false
+
+dags:
+  persistence:
+    enabled: false
+  gitSync:
+    enabled: false
+
+logs:
+  persistence:
+    enabled: false
+  
