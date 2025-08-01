@@ -4,7 +4,7 @@ import json
 from functools import partial
 from typing import Optional
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from util.job_submitter import try_submit_mozart_job
 
 flatten = itertools.chain.from_iterable

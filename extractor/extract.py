@@ -22,8 +22,8 @@ from typing import Dict, Optional
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
-from commons.constants import product_metadata as pm
-from commons.logger import logger
+from opera_commons.constants import product_metadata as pm
+from opera_commons.logger import logger
 from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 

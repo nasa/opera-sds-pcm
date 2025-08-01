@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Iterable
 
 import dateutil.parser
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from more_itertools import first_true
@@ -121,15 +121,16 @@ def get_cmr_token(endpoint, settings):
 
     return cmr, token, username, password, edl
 
-async def async_query_cmr_v2(timerange, provider=None, collection=None, bbox=None, token=None,
+async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbox=None, token=None,
                              cmr_hostname="cmr.earthdata.nasa.gov") -> list[dict]:
     logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = bbox
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+    if timerange is not None:
+        assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+        assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     params = {
         "sort_key": "-start_date",
@@ -141,11 +142,10 @@ async def async_query_cmr_v2(timerange, provider=None, collection=None, bbox=Non
 
     # derive and apply param "temporal"
     now_date = datetime.now().strftime(CMR_TIME_FORMAT)
-    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
-
-    logger.debug("Time Range: %s", temporal_range)
-
-    params["temporal"] = temporal_range
+    if timerange is not None:
+        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+        logger.debug("Time Range: %s", temporal_range)
+        params["temporal"] = temporal_range
 
     logger.info(f"Querying CMR. endpoint: %s  provider: %s", cmr_hostname, provider)
     logger.debug("request_url=%s", request_url)

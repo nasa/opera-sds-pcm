@@ -6,7 +6,7 @@ import traceback
 from datetime import datetime
 
 from chimera.pge_job_submitter import PgeJobSubmitter
-from commons.logger import logger
+from opera_commons.logger import logger
 from hysds.utils import get_disk_usage, makedirs
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,

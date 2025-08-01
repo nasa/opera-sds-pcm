@@ -1,0 +1,25 @@
+{
+  "index_patterns": ["rtc_for_dist_catalog", "rtc_for_dist_catalog-*"],
+  "template": {
+    "settings": {
+      "index": {
+        "sort.field": "creation_timestamp",
+        "sort.order": "asc"
+      },
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "granule_id"        : {"type": "keyword"},
+        "acquisition_cycle" : {"type": "integer"},
+        "creation_timestamp": {"type": "date"   },
+        "sensor"            : {"type": "keyword"}
+      }
+    },
+    "aliases": {
+      "catalog_alias": {},
+      "rtc_for_dist_catalog_alias": {}
+    }
+  }
+}

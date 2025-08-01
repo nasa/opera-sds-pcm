@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import concurrent.futures
-import datetime
 import functools
 import logging
 import logging.handlers
@@ -10,43 +9,41 @@ import re
 import sys
 import urllib.parse
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Union, Iterable
 
 import aiohttp
 import more_itertools
+from dateutil.parser import isoparse
 from dotenv import dotenv_values
 from more_itertools import always_iterable
 
-from geo.geo_util import does_bbox_intersect_north_america
-from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules
 from cmr_audit_utils import str2bool
+from geo.geo_util import does_bbox_intersect_north_america
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules, init_logging
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("geo.geo_util").setLevel(level=logging.WARNING)
-logging.basicConfig(
-    format="%(levelname)7s: %(relativeCreated)7d %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s",  # alternative format which displays time elapsed.
-    # format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 config = {
     **dotenv_values("../../.env"),
     **os.environ
 }
 
-
 def create_parser():
     argparser = argparse.ArgumentParser(add_help=True)
     argparser.add_argument(
         "--start-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+        type = argparse_dt,
+        help=f"ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00Z"
     )
     argparser.add_argument(
         "--end-datetime",
         required=True,
-        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+        type = argparse_dt,
+        help=f"ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00Z",
+        default=datetime.now(timezone.utc)
     )
     argparser.add_argument(
         "--output", "-o",
@@ -74,21 +71,11 @@ def create_parser():
 
     return argparser
 
-
-def init_logging(log_level=logging.INFO):
-    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
-    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
-    logging.basicConfig(level=log_level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
-
-    rfh1 = logging.handlers.RotatingFileHandler('cmr_audit_slc.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh1.setLevel(logging.INFO)
-    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh1)
-
-    rfh2 = logging.handlers.RotatingFileHandler('cmr_audit_slc-error.log', mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
-    rfh2.setLevel(logging.ERROR)
-    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
-    logging.getLogger().addHandler(rfh2)
+def argparse_dt(dt_str):
+    dt = isoparse(dt_str)
+    if not dt.tzinfo:
+        raise ValueError()
+    return dt
 
 
 #######################################################################
@@ -268,7 +255,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
 
 def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product, input="SLC"):
 
-    now = datetime.datetime.now()
+    now = datetime.now()
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     start_dt_str = cmr_start_dt_str.replace("-", "")
     start_dt_str = start_dt_str.replace("T", "-")
@@ -314,13 +301,11 @@ def write_missing_products_to_file(out_filename, missing_cmr_granules):
 # CMR AUDIT
 #######################################################################
 
-async def run(argv: list[str]):
-    logger.info(f'{argv=}')
-    args = create_parser().parse_args(argv[1:])
+async def run(start_datetime: datetime = None, end_datetime: datetime = None, do_cslc=False, do_rtc=False, **kwargs):
 
     logger.info("Querying CMR for list of expected SLC granules")
-    cmr_start_dt_str = args.start_datetime
-    cmr_end_dt_str = args.end_datetime
+    cmr_start_dt_str = start_datetime.isoformat().replace("+00:00", "Z")
+    cmr_end_dt_str = end_datetime.isoformat().replace("+00:00", "Z")
 
     cmr_granules_slc_s1a, cmr_granules_slc_s1a_details = await async_get_cmr_granules_slc_s1a(
         temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
@@ -334,8 +319,7 @@ async def run(argv: list[str]):
 
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
 
-    if args.do_cslc:
-
+    if do_cslc:
         logger.info("Filtering North America granules")
         cmr_granules_slc_na = set()
         cmr_granules_slc_details_na = {}
@@ -389,7 +373,7 @@ async def run(argv: list[str]):
         out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "CSLC")
         write_missing_products_to_file(out_filename, missing_cmr_granules_slc_cslc)
 
-    if args.do_rtc:
+    if do_rtc:
 
         logger.info(f"Expected RTC input (granules): {len(cmr_granules_slc)=:,}")
 
@@ -422,7 +406,7 @@ async def run(argv: list[str]):
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
-    log_level = args.log_level
-    init_logging()
+    init_logging('cmr_audit_slc.log', 'cmr_audit_slc-error.log', level=args.log_level)
+    logger = logging.getLogger(__name__)
 
-    asyncio.run(run(sys.argv))
+    asyncio.run(run(**args.__dict__))

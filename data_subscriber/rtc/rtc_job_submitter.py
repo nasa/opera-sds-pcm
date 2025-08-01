@@ -6,7 +6,7 @@ from functools import partial
 from pathlib import PurePath
 from typing import Optional
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from util.job_submitter import try_submit_mozart_job
 

@@ -33,6 +33,14 @@ _granules_1 =  ['OPERA_L2_RTC-S1_T168-359433-IW1_20231217T052425Z_20231220T05580
 
 _granules_2 = ['OPERA_L2_RTC-S1_T168-359430-IW3_20231217T052419Z_20231220T055805Z_S1A_30_v1.0']
 
+_settings_yaml_values = {"DIST_S1_TRIGGERING": 
+                         {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210, 
+                          "MIN_CMR_RTC_CACHE_DOCUMENT_COUNT": 30000, 
+                          "WARN_CMR_RTC_CACHE_DOCUMENT_COUNT": 150000,
+                          "MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS": 20,
+                          "WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS": 28}
+                        }
+
 class MockESConnNoUnsubmittedGranules:
     def get_unsubmitted_granules(self):
         return []
@@ -90,7 +98,7 @@ def test_extend_additional_records():
         basic_decorate_granule(granule)
 
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, MockESConnNoUnsubmittedGranules(), None, None, {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210})
+    cmr_query = RtcForDistCmrQuery(args, None, MockESConnNoUnsubmittedGranules(), None, None, _settings_yaml_values)
     cmr_query.extend_additional_records(granules)
 
     assert len(granules) == 8
@@ -141,7 +149,7 @@ def test_determine_download_granules(monkeypatch):
         basic_decorate_granule(granule)
 
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, MockESConnNoUnsubmittedGranules(), None, None, {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210})
+    cmr_query = RtcForDistCmrQuery(args, None, MockESConnNoUnsubmittedGranules(), None, None, _settings_yaml_values)
 
     mock_retrieve_baseline_granules = MagicMock(return_value=[])
     monkeypatch.setattr(
@@ -164,8 +172,7 @@ def test_determine_download_granules(monkeypatch):
 
 def test_determine_download_granules_grace_period(monkeypatch):
     args = create_parser().parse_args(forward_arguments)
-    cmr_query = RtcForDistCmrQuery(args, None, None, None, None,
-                                   {"DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES": 210})
+    cmr_query = RtcForDistCmrQuery(args, None, None, None, None, _settings_yaml_values)
 
     mock_retrieve_baseline_granules = MagicMock(return_value=[])
     monkeypatch.setattr(

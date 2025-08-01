@@ -7,7 +7,7 @@ from functools import cache
 
 import dateutil
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_anc_json,
                                         sensing_time_day_index,

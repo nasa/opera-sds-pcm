@@ -2,7 +2,7 @@ import os
 
 import boto3
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from geo.geo_util import does_bbox_intersect_region
 from util.conf_util import SettingsConf
 

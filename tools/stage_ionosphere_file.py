@@ -20,8 +20,8 @@ import sys
 from os.path import abspath, join
 
 import requests
-from commons.logger import LogLevels
-from commons.logger import logger
+from opera_commons.logger import LogLevels
+from opera_commons.logger import logger
 from util.edl_util import DEFAULT_EDL_ENDPOINT, SessionWithHeaderRedirection
 
 DEFAULT_DOWNLOAD_ENDPOINT = "https://cddis.nasa.gov/archive/gnss/products/ionex"

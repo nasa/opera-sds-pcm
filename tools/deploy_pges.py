@@ -14,8 +14,8 @@ import argparse
 import sys
 import boto3
 
-from commons.logger import logger
-from commons.logger import LogLevels
+from opera_commons.logger import logger
+from opera_commons.logger import LogLevels
 from util.conf_util import YamlConf
 
 from pcm_commons.deploy.transfer_pge_utils import download_images

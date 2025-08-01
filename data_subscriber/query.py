@@ -10,13 +10,13 @@ from pathlib import Path
 import dateutil.parser
 from more_itertools import chunked
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
-from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job
+from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, PENDING_TYPE_CSLC_DOWNLOAD
 from data_subscriber.esa_dataspace import async_query_dataspace
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions)
@@ -323,9 +323,15 @@ class BaseQuery:
                 # require the same compressed cslcs
                 if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
                     self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
-                    save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
-                                              product_type, params, self.args.job_queue, job_name,
-                                              frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
+                    add_attributes = {
+                        "frame_id": frame_id,
+                        "acq_index": acq_indices[0],
+                        "k": self.args.k,
+                        "m": self.args.m,
+                        "batch_ids": chunk_batch_ids
+                    }
+                    save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_CSLC_DOWNLOAD, self.settings["RELEASE_VERSION"],
+                                              product_type, params, self.args.job_queue, job_name, add_attributes)
 
                     # While we technically do not have a download job here, we mark it as so in ES.
                     # That's because this flag is used to determine if the granule has been triggered or not

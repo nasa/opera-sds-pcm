@@ -12,7 +12,7 @@ import boto3
 from boto3.exceptions import Boto3Error
 from mypy_boto3_s3 import S3Client
 
-from commons.logger import logger
+from opera_commons.logger import logger
 from util.backoff_util import giveup_s3_client_upload_file
 
 

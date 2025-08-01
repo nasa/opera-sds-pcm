@@ -19,9 +19,9 @@ from urllib.parse import urlparse
 import boto3
 
 from chimera.precondition_functions import PreConditionFunctions
-from commons.constants import product_metadata
-from commons.logger import LogLevels
-from commons.logger import logger
+from opera_commons.constants import product_metadata
+from opera_commons.logger import LogLevels
+from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )

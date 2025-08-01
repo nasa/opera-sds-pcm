@@ -20,7 +20,7 @@ from typing import Union, Tuple
 from more_itertools import one
 
 import product2dataset.iso_xml_reader as iso_xml_reader
-from commons.logger import logger
+from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from extractor import extract
 from util import datasets_json_util, job_json_util
