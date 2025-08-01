@@ -1,0 +1,13 @@
+# Ignore Kubernetes and Airflow local config files
+terraform/local/airflow-local-config
+# Optionally ignore other local or sensitive files
+*.pem
+*.crt
+*.key
+*.env
+*.secret
+# Ignore logs and state
+logs/
+terraform/local/terraform_state/
+*.tfstate
+*.tfstate.* 
