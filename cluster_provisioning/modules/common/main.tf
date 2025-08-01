@@ -171,7 +171,6 @@ resource "aws_sqs_queue" "harikiri_queue" {
   max_message_size          = 2048
   message_retention_seconds = 86400
   receive_wait_time_seconds = 0
-  #sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 600
 }
 
@@ -202,17 +201,22 @@ POLICY
 
 resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
   name = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
-  #  name                      = "${var.project}-dev-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
-  #sqs_managed_sse_enabled   = true
 }
 
 resource "aws_sqs_queue" "cnm_response" {
   name                       = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-  redrive_policy             = "{\"deadLetterTargetArn\":\"${aws_sqs_queue.cnm_response_dead_letter_queue.arn}\", \"maxReceiveCount\": 2}"
+  redrive_policy             = jsonencode({
+     deadLetterTargetArn = aws_sqs_queue.cnm_response_dead_letter_queue.arn
+     maxReceiveCount = 2
+  })
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
   #sqs_managed_sse_enabled    = true
+
+  depends_on = [
+    aws_sqs_queue.cnm_response_dead_letter_queue
+  ]
 }
 
 data "aws_sqs_queue" "cnm_response" {
@@ -281,8 +285,11 @@ resource "aws_lambda_event_source_mapping" "harikiri_queue_event_source_mapping"
   function_name    = aws_lambda_function.harikiri_lambda.arn
 }
 
-data "aws_subnet_ids" "lambda_vpc" {
-  vpc_id = var.lambda_vpc
+data "aws_subnets" "lambda_vpc" {
+  filter {
+    name   = "vpc-id"
+    values = [var.lambda_vpc]
+  }
 }
 
 #####################################
@@ -392,7 +399,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   environment {
     variables = {
@@ -417,7 +424,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   environment {
     variables = {

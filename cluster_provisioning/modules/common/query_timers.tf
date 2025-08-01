@@ -9,7 +9,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -72,7 +72,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -134,7 +134,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -196,7 +196,7 @@ resource "aws_lambda_function" "slcs1c_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -258,7 +258,7 @@ resource "aws_lambda_function" "slc_ionosphere_download_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -308,7 +308,7 @@ resource "aws_lambda_function" "rtc_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -374,7 +374,7 @@ resource "aws_lambda_function" "cslc_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -439,7 +439,7 @@ resource "aws_lambda_function" "rtc_for_dist_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout = 30
   environment {
@@ -506,7 +506,7 @@ resource "aws_lambda_function" "batch_query_timer" {
   runtime       = "python3.9"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnet_ids.lambda_vpc.ids
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
   timeout     = 60  #Batch needs to load a large json file sometimes so needs more time
   memory_size = 512 #Batch uses 290mb total when parsing the disp frame json file

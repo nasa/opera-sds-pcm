@@ -89,4 +89,3 @@ output "factotum_pvt_ip" {
 output "factotum_pub_ip" {
   value = module.common.factotum.private_ip
 }
-
