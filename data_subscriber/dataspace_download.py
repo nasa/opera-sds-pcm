@@ -1,18 +1,15 @@
 import os
-
-import requests
-import backoff
-from util.backoff_util import fatal_code, backoff_logger
-from util.dataspace_util import DEFAULT_DOWNLOAD_ENDPOINT, DataspaceSession
-
-from data_subscriber.download import BaseDownload
-from data_subscriber.asf_slc_download import AsfDaacSlcDownload
-
-from data_subscriber.url import _has_https_url
-from sys import stderr
 from datetime import datetime
 from pathlib import Path
+
+import backoff
+import requests
+
+from data_subscriber.asf_slc_download import AsfDaacSlcDownload
+from data_subscriber.url import _has_https_url
 from data_subscriber.url import form_batch_id
+from util.backoff_util import fatal_code, backoff_logger
+from util.dataspace_util import DataspaceSession
 
 
 class DataspaceDownload(AsfDaacSlcDownload):

@@ -6,7 +6,7 @@ from os.path import splitext
 from typing import Iterable
 
 import dateutil.parser
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP
 from more_itertools import first_true
