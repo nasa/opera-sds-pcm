@@ -4,6 +4,7 @@ import pytest
 import conftest
 from pathlib import Path
 from data_subscriber import cslc_utils
+from rtc_utils import determine_acquisition_cycle
 from data_subscriber.cslc.cslc_dependency import CSLCDependency, get_dependent_ccslc_index
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, _filter_cslc_blackout_polarization
 from data_subscriber.parser import create_parser
@@ -108,6 +109,15 @@ def test_generate_arbitrary_cslc_native_id():
     production_datetime = dateutil.parser.isoparse("20240403T130213")
     native_id = cslc_utils.generate_arbitrary_cslc_native_id(disp_burst_map_hist, 42261, 0, acquisition_datetime, production_datetime, "VV")
     assert native_id == "OPERA_L2_CSLC-S1_T158-338081-IW1_20170403T130213Z_20240403T130213Z_S1A_VV_v1.1"
+
+def test_determine_acquisition_cycle_for_cslc_granule():
+    granule_id = "OPERA_L2_CSLC-S1_T137-292376-IW3_20250725T020133Z_20250726T072803Z_S1A_VV_v1.1"
+    burst_id, acquisition_dts = cslc_utils.parse_cslc_file_name(granule_id)
+    assert 351 == determine_acquisition_cycle(burst_id, acquisition_dts, granule_id=granule_id)
+
+    granule_id = "OPERA_L2_CSLC-S1_T137-292376-IW3_20250719T020133Z_20250726T072803Z_S1C_VV_v1.1"
+    burst_id, acquisition_dts = cslc_utils.parse_cslc_file_name(granule_id)
+    assert 350 == determine_acquisition_cycle(burst_id, acquisition_dts, granule_id=granule_id)
 
 def test_build_ccslc_m_index():
     """Test that the ccslc_m index is correctly constructed"""

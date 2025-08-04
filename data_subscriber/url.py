@@ -6,8 +6,6 @@ from deprecated import deprecated
 import rtc_utils
 from opera_commons.logger import get_logger
 
-_EPOCH_S1A = rtc_utils._EPOCH_S1A
-
 def form_batch_id(granule_id, revision_id):
     return granule_id+'-r'+str(revision_id)
 
