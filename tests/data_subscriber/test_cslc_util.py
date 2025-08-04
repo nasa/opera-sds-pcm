@@ -11,6 +11,8 @@ import dateutil
 from datetime import datetime, timedelta
 from util.conf_util import SettingsConf
 
+# Uses opera-disp-s1-consistent-burst-ids-2025-02-13-2016-07-01_to_2024-12-31.json
+
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
@@ -35,7 +37,7 @@ def test_burst_map():
     assert len(disp_burst_map_hist[46799].burst_ids) == 16
     assert len(disp_burst_map_hist[46799].sensing_datetimes) == 0
 
-    assert len(disp_burst_map_hist[8885].sensing_datetimes) == 240
+    assert len(disp_burst_map_hist[8885].sensing_datetimes) == 242
 
     assert len(disp_burst_map_hist[28498].burst_ids) == 18
 
@@ -283,13 +285,14 @@ def test_calculate_historical_progress():
 
     progress, frame_completion, last_processed_datetimes \
         = cslc_utils.calculate_historical_progress(frame_states, end_date, disp_burst_map_hist, k)
-    assert progress == 83
-    assert frame_completion == {'46288': 100, '46289': 100, '26690': 100, '26691': 100, '38500': 0, '18899': 15}
+    assert progress == 69
+    assert frame_completion == {'46288': 100, '46289': 100, '26690': 100, '26691': 100, '38500': 0, '18899': 33}
     assert last_processed_datetimes == {'46288': datetime(2018, 1, 29, 13, 43, 14),
                                         '46289': datetime(2018, 1, 29, 13, 43, 36),
                                         '26690': datetime(2018, 6, 17, 13, 35, 45),
                                         '26691': datetime(2018, 6, 17, 13, 36, 7),
-                                        '38500': None}
+                                        '38500': None,
+                                        '18899': datetime(2017, 6, 8, 13, 50, 20)}
 
 def test_frame_bounds():
     """Test that the frame bounds is correctly computed and formatted"""
