@@ -10,8 +10,9 @@ import dateutil.parser
 from datetime import date, datetime
 
 from opera_commons.logger import get_logger
+from rtc_utils import determine_acquisition_cycle, _EPOCH_S1A, _EPOCH_S1C, _EPOCH_S1D
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
-from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
+from data_subscriber.url import rtc_for_dist_unique_id
 from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
@@ -153,7 +154,7 @@ def basic_decorate_granule(granule):
     granule["burst_id"] = burst_id
     granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
-
+    granule["mission"] = granule["granule_id"].split("_")[6] # S1A, S1B, S1C, S1D
 
 def decorate_granule(granule):
     granule["tile_id"], granule["acquisition_group"] = granule["product_id"].split("_")

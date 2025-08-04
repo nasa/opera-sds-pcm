@@ -3,7 +3,10 @@ from datetime import timedelta
 
 from dateutil.parser import isoparse
 
+# EPOCH dates for the Sentinel-1 missions. The exact date doesn't matter - they just need to be right in the 12-day cycle.
 _EPOCH_S1A = "20140101T000000Z"
+_EPOCH_S1C = "20140107T000000Z" # Sentinel-1C is offset by 6 days from Sentinel-1A
+_EPOCH_S1D = "" # TODO: Sentinel-1D is offset by ??? days from Sentinel-1A
 
 rtc_granule_regex = (
     r'(?P<id>'
