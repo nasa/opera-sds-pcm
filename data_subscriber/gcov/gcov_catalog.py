@@ -14,7 +14,6 @@ class GcovGranule:
     mgrs_set_id: str
     revision_dt: datetime
     acquisition_start_time: datetime
-    acquisition_end_time: datetime
 
 class NisarGcovProductCatalog(ProductCatalog):
     """Cataloging class for NISAR GCOV Products to support DSWx-NI triggering."""
@@ -51,21 +50,26 @@ class NisarGcovProductCatalog(ProductCatalog):
         """
         Query for GCOV products using mgrs_set_id and cycle_number.
         """
-        index = self._get_index_name_for(_id=granule.native_id, default=self.generate_es_index_name())
-
-        return self.es_util.query(index=index, body={
+        query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body={
             "query": {
                 "bool": {
                     "must": [
-                        {"term": {"mgrs_set_id": mgrs_set_id}},
-                        {"term": {"cycle_number": cycle_number}}
+                        {"match": {"mgrs_set_id": mgrs_set_id}},
+                        {"match": {"cycle_number": cycle_number}}
                     ]
                 }
             }
         })
+        return query
     
     def get_related_gcov_products_from_catalog(self, granule: 'GcovGranule'):
         """
         Query for related GCOV products using mgrs_set_id and cycle_number.
         """
         return self.get_gcov_products_from_catalog(granule.mgrs_set_id, granule.cycle_number)
+
+    def granule_and_revision(self, es_id: str):
+        return self.es_util.get_document(index=self.ES_INDEX_PATTERNS, id=es_id)
+
+    def process_query_result(self, query_result: list[dict]):
+        return [result['_source'] for result in (query_result or [])]

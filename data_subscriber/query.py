@@ -6,12 +6,13 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
 
 import dateutil.parser
 from more_itertools import chunked
 
 from commons.logger import get_logger
-from data_subscriber.cmr import (async_query_cmr,
+from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP)
@@ -110,6 +111,7 @@ class CmrQuery:
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
             job_submision_tasks = self.submit_dswx_ni_job_submission_handler(download_granules, query_timerange)
+            results = job_submision_tasks
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
@@ -131,7 +133,7 @@ class CmrQuery:
     def query_cmr(self, timerange, now: datetime):
         if self.query_replacement_file:
             with open(self.query_replacement_file, "r") as f:
-                granules = json.load(f)
+                granules = response_jsons_to_cmr_granules(self.args.collection, [json.load(f)], convert_results=True)
         else:
             granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
         return granules
