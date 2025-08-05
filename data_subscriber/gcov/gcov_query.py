@@ -108,7 +108,7 @@ class NisarGcovCmrQuery(CmrQuery):
             "dataset": f"L3_DSWx_NI-{set_to_process.mgrs_set_id}-{set_to_process.cycle_number}",
             "metadata": {
                 "batch_id": set_to_process.mgrs_set_id,
-                "product_paths": {"L3_DSWx_NI": set_to_process.gcov_input_product_urls},  # The S3 paths to localize
+                "product_paths": {"L2_NISAR_GCOV": set_to_process.gcov_input_product_urls},  # The S3 paths to localize
                 "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "FileName": set_to_process.mgrs_set_id,
                 "FileLocation": set_to_process.gcov_input_product_urls, 
