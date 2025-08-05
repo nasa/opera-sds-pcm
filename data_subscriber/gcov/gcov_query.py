@@ -150,7 +150,7 @@ class NisarGcovCmrQuery(CmrQuery):
     def trigger_dswx_ni_jobs(self, sets_to_process):
         return [submit_dswx_ni_job(
             params=self.create_dswx_ni_job_params(set_to_process),
-            job_queue="opera-job_worker-sciflo-l3_dswx-ni",
+            job_queue="opera-job_worker-sciflo-l3_dswx_ni",
             job_name=f"job-WF-SCIFLO_L3_DSWx_NI-{set_to_process.mgrs_set_id}-{set_to_process.cycle_number}",
             release_version=self.settings["RELEASE_VERSION"]
         ) for set_to_process in sets_to_process]
