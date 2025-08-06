@@ -1,4 +1,5 @@
 
+from data_subscriber.cmr import Provider
 from data_subscriber.geojson_utils import localize_geojsons
 from data_subscriber.query import BaseQuery
 from data_subscriber.slc.slc_catalog import SLCSpatialProductCatalog
