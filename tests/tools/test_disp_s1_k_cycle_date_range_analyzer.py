@@ -192,10 +192,10 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
         actual_frame_ids = set(results.keys())
         self.assertEqual(actual_frame_ids, expected_frame_ids)
         
-        # Verify all results are positive
+        # Verify all results are the same as the frame_states in batch_proc.json
         for frame_id, count in results.items():
             with self.subTest(frame_id=frame_id):
-                self.assertGreater(count, 0, f"Frame {frame_id} should have sensing dates")
+                self.assertEqual(count, self.batch_params["frame_states"][frame_id])
                 
         # Log the results for reference
         print(f"\nTest results using batch_proc.json parameters:")
