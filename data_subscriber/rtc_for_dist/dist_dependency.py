@@ -80,7 +80,7 @@ Run without previous tile product.")
     def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
 
-        tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
+        tile_id, acquisition_group, satellite, acquisition_cycle = download_batch_id.split("_")
         tile_id = tile_id[1:] # Remove the "p" from the tile_id
  
         # Consult GRQ cmr_rtc_cache for what the previous product should be
@@ -127,9 +127,9 @@ Run without previous tile product.")
             granule_ids.append(rtc_granule)
         
         prev_product_download_batch_id = \
-            previous_product_download_batch_id_from_rtc(self.dist_products, self.bursts_to_products, download_batch_id, granule_ids)
+            previous_product_download_batch_id_from_rtc(self.bursts_to_products, download_batch_id, acquisition_ts, granule_ids)
         
-        self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id}")
+        self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
         result = self.grq_es.search(
             index=GRQ_ES_DIST_S1_INDEX,
             body={
