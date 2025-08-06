@@ -41,7 +41,7 @@ class SlcCmrQuery(BaseQuery):
         # group pairs of URLs (http and s3) by filename
         filename_to_urls_map = defaultdict(list)
 
-        if self.settings.get('SLC_ALT_SRC', False):
+        if self.args.provider == Provider.DATASPACE:
             # TODO: May need to tweak filename. For ESA, each granule == 1 file. We have 2 URLs for each, one for the
             #  preferred compressed endpoint, the other for the raw endpoint. In the original version of this function
             #  that endpoint type was being parsed as the filename, leading to lots of collisions
@@ -66,7 +66,7 @@ class SlcCmrQuery(BaseQuery):
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         download_job_params = super().create_download_job_params(query_timerange, chunk_batch_ids)
 
-        if self.settings.get('SLC_ALT_SRC', False):
+        if self.args.provider == Provider.DATASPACE:
             download_job_params.append({
                 "name": "provider",
                 "value": "--provider=DATASPACE",

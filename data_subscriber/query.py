@@ -14,7 +14,8 @@ from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
-                                 COLLECTION_TO_PROVIDER_TYPE_MAP)
+                                 COLLECTION_TO_PROVIDER_TYPE_MAP,
+                                 Provider)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, PENDING_TYPE_CSLC_DOWNLOAD
 from data_subscriber.esa_dataspace import async_query_dataspace
@@ -138,7 +139,7 @@ class BaseQuery:
     def _get_query_func(self):
         product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
 
-        if product_type == ProductType.SLC and self.settings.get('SLC_ALT_SRC', False):
+        if product_type == ProductType.SLC and self.args.provider == Provider.DATASPACE:
             self.logger.info('Selected data source: ESA')
             return self.query_esa
 
