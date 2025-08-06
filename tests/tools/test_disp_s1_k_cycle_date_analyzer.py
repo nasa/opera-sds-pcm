@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Unit tests for disp_s1_k_cycle_date_range_analyzer.py
+Unit tests for disp_s1_k_cycle_date_analyzer.py
 
-This test suite validates the K-cycle date range analysis functionality
+This test suite validates the K-cycle date analysis functionality
 using a smaller test database and parameters from batch_proc.json.
 
 Test Files:
@@ -22,7 +22,7 @@ import sys
 tools_dir = Path(__file__).parent.parent.parent / "tools"
 sys.path.insert(0, str(tools_dir))
 
-from disp_s1_k_cycle_date_range_analyzer import (
+from disp_s1_k_cycle_date_analyzer import (
     analyze_frame_k_cycles,
     find_k_cycles,
     load_burst_database,
@@ -32,8 +32,8 @@ from data_subscriber import cslc_utils
 from datetime import datetime
 
 
-class TestKCycleDateRangeAnalyzer(unittest.TestCase):
-    """Test cases for K-cycle date range analyzer."""
+class TestKCycleDateAnalyzer(unittest.TestCase):
+    """Test cases for K-cycle date analyzer."""
     
     @classmethod
     def setUpClass(cls):
@@ -76,17 +76,16 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
             self.assertGreater(len(frame_data.sensing_datetimes), 0)
     
     def test_find_k_cycles_basic(self):
-        """Test basic K-cycle date range detection."""
+        """Test basic K-cycle date detection."""
         frame_data = self.disp_burst_map[18904]
         sensing_times = frame_data.sensing_datetimes
         
-        # Test with a date range that should have multiple cycles
-        start_date = datetime(2017, 1, 1)
+        # Test that the frame should have multiple cycles
         end_date = datetime(2017, 12, 31)
         k = 15
         
         cycles = find_k_cycles(
-            sensing_times, start_date, end_date, k
+            sensing_times, end_date, k
         )
         
         self.assertGreater(len(cycles), 0)
@@ -98,46 +97,28 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
             self.assertGreater(len(cycle_dates), 0)
             self.assertLessEqual(len(cycle_dates), k)
     
-    def test_find_k_cycles_no_overlap(self):
-        """Test K-cycle detection with no sensing dates within the date range."""
-        frame_data = self.disp_burst_map[18904]
-        sensing_times = frame_data.sensing_datetimes
-        
-        # Use a date range that shouldn't have any sensing dates
-        start_date = datetime(2050, 1, 1)
-        end_date = datetime(2050, 12, 31)
-        k = 15
-        
-        cycles = find_k_cycles(
-            sensing_times, start_date, end_date, k
-        )
-        
-        self.assertEqual(len(cycles), 0)
-    
     def test_analyze_frame_k_cycles_with_batch_params(self):
         """Test frame analysis using parameters from batch_proc.json."""
         k = self.batch_params["k"]  # Should be 15
         
-        # Use a date range from the batch parameters
-        start_date = datetime.fromisoformat(self.batch_params["data_start_date"])
+        # Use a end date from the batch parameters
         end_date = datetime.fromisoformat(self.batch_params["data_end_date"])
         
         for frame_id in self.batch_params["frames"]:
             with self.subTest(frame_id=frame_id):
                 total_sensing_dates = analyze_frame_k_cycles(
-                    frame_id, self.disp_burst_map, start_date, end_date, k, verbose=False
+                    frame_id, self.disp_burst_map, end_date, k, verbose=False
                 )
                 
                 # Verify we get a positive result
                 self.assertGreaterEqual(total_sensing_dates, 0)
                 
-                # The result should be reasonable (not zero for these frames in this date range)
+                # The result should be reasonable (not zero for these frames prior to the end date)
                 self.assertGreater(total_sensing_dates, 0)
     
     def test_analyze_frame_k_cycles_different_k_values(self):
         """Test frame analysis with different K values."""
         frame_id = 18904
-        start_date = datetime(2017, 1, 1)
         end_date = datetime(2017, 12, 31)
         
         k_values = [5, 10, 15, 20]
@@ -145,7 +126,7 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
         
         for k in k_values:
             total_sensing_dates = analyze_frame_k_cycles(
-                frame_id, self.disp_burst_map, start_date, end_date, k, verbose=False
+                frame_id, self.disp_burst_map, end_date, k, verbose=False
             )
             results[k] = total_sensing_dates
             
@@ -158,12 +139,11 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
     def test_analyze_nonexistent_frame(self):
         """Test analysis of a frame that doesn't exist."""
         nonexistent_frame = 99999
-        start_date = datetime(2017, 1, 1)
         end_date = datetime(2017, 12, 31)
         k = 15
         
         result = analyze_frame_k_cycles(
-            nonexistent_frame, self.disp_burst_map, start_date, end_date, k, verbose=False
+            nonexistent_frame, self.disp_burst_map, end_date, k, verbose=False
         )
         
         # Should return 0 for nonexistent frame
@@ -173,9 +153,6 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
         """Test that results match expected values from batch_proc.json context."""
         k = self.batch_params["k"]
         
-        # Use data_start_date from batch_proc.json
-        start_date = datetime.fromisoformat(self.batch_params["data_start_date"])
-        
         results = {}
         for frame_id in self.batch_params["frames"]:
             # Use individual last_processed_datetimes for each frame as end_date
@@ -183,7 +160,7 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
             end_date = datetime.fromisoformat(end_date_str)
             
             total_sensing_dates = analyze_frame_k_cycles(
-                frame_id, self.disp_burst_map, start_date, end_date, k, verbose=False
+                frame_id, self.disp_burst_map, end_date, k, verbose=False
             )
             results[str(frame_id)] = total_sensing_dates
         
@@ -199,7 +176,6 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
                 
         # Log the results for reference
         print(f"\nTest results using batch_proc.json parameters:")
-        print(f"Start date: {start_date}")
         print(f"K value: {k}")
         for frame_id, count in results.items():
             end_date_str = self.batch_params["last_processed_datetimes"][frame_id]
@@ -216,9 +192,8 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
         try:
             # Mock command line arguments
             test_args = [
-                'disp_s1_k_cycle_date_range_analyzer.py',
+                'disp_s1_k_cycle_date_analyzer.py',
                 '--k', '15',
-                '--start-date', '2017-01-01T00:00:00',
                 '--end-date', '2017-06-01T00:00:00',
                 '--frames', '18904,18905',
                 '--output', output_path,
@@ -227,8 +202,8 @@ class TestKCycleDateRangeAnalyzer(unittest.TestCase):
             
             with patch.object(sys, 'argv', test_args):
                 # Import and run main (need to import here to avoid issues with sys.argv)
-                import disp_s1_k_cycle_date_range_analyzer
-                result = disp_s1_k_cycle_date_range_analyzer.main()
+                import disp_s1_k_cycle_date_analyzer
+                result = disp_s1_k_cycle_date_analyzer.main()
             
             # Check that main returned success
             self.assertEqual(result, 0)
