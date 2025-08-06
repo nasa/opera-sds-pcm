@@ -109,6 +109,11 @@ def find_k_cycles(sensing_datetimes: List[datetime],
         end_idx = min(i + k, len(sensing_datetimes))
         k_cycle_dates = sensing_datetimes[i:end_idx]
         k_cycle_number = math.ceil((i + 1) / k)
+
+        # ensure the cycle has k sensing dates
+        if len(k_cycle_dates) != k:
+            logger.warning(f"K-cycle {k_cycle_number} has {len(k_cycle_dates)} sensing dates, expected {k}")
+            continue
         
         # Check if this K-cycle has sensing dates before the specified end date
         cycle_start = k_cycle_dates[0]
@@ -135,7 +140,7 @@ def analyze_frame_k_cycles(frame_number: int,
         verbose: Enable verbose logging
         
     Returns:
-        Sum of the length of each K-cycle group's sensing dates that are prior to the specified end date
+        The frame_state, which is the sum of the length of each K-cycle group's sensing dates that are prior to the specified end date
     """
     if frame_number not in disp_burst_map:
         logger.warning(f"Frame {frame_number} not found in database")

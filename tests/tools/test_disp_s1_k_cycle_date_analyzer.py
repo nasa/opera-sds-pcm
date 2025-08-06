@@ -46,6 +46,30 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
         with open(batch_proc_path, 'r') as f:
             cls.batch_params = json.load(f)
         
+        # Expected values for the test database
+        cls.expected_values = {
+            "16669": {
+                "burst_ids": 27,
+                "sensing_datetimes": 239
+            },
+            "18904": {
+                "burst_ids": 26,
+                "sensing_datetimes": 315
+            },
+            "18905": {
+                "burst_ids": 14,
+                "sensing_datetimes": 324
+            },
+            "44328": {
+                "burst_ids": 27,
+                "sensing_datetimes": 152
+            },
+            "46294": {
+                "burst_ids": 1,
+                "sensing_datetimes": 300
+            }
+        }
+
         # Use pre-created test database file
         cls.test_db_path = cls.test_dir / "test_consistent_db.json"
         
@@ -65,15 +89,15 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             load_burst_database(str(self.test_db_path))
         
         # Verify we have the expected frames
-        expected_frames = {18904, 18905, 44328}
+        expected_frames = {16669, 18904, 18905, 44328, 46294}
         actual_frames = set(disp_burst_map.keys())
         self.assertEqual(actual_frames, expected_frames)
         
-        # Verify each frame has data
+        # Verify each frame has the expected number of burst_ids and sensing_datetimes
         for frame_id in expected_frames:
             frame_data = disp_burst_map[frame_id]
-            self.assertGreater(len(frame_data.burst_ids), 0)
-            self.assertGreater(len(frame_data.sensing_datetimes), 0)
+            self.assertEqual(len(frame_data.burst_ids), self.expected_values[str(frame_id)]["burst_ids"])
+            self.assertEqual(len(frame_data.sensing_datetimes), self.expected_values[str(frame_id)]["sensing_datetimes"])
     
     def test_find_k_cycles_basic(self):
         """Test basic K-cycle date detection."""
@@ -97,44 +121,23 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             self.assertGreater(len(cycle_dates), 0)
             self.assertLessEqual(len(cycle_dates), k)
     
-    def test_analyze_frame_k_cycles_with_batch_params(self):
-        """Test frame analysis using parameters from batch_proc.json."""
-        k = self.batch_params["k"]  # Should be 15
-        
-        # Use a end date from the batch parameters
-        end_date = datetime.fromisoformat(self.batch_params["data_end_date"])
-        
-        for frame_id in self.batch_params["frames"]:
-            with self.subTest(frame_id=frame_id):
-                total_sensing_dates = analyze_frame_k_cycles(
-                    frame_id, self.disp_burst_map, end_date, k, verbose=False
-                )
-                
-                # Verify we get a positive result
-                self.assertGreaterEqual(total_sensing_dates, 0)
-                
-                # The result should be reasonable (not zero for these frames prior to the end date)
-                self.assertGreater(total_sensing_dates, 0)
-    
     def test_analyze_frame_k_cycles_different_k_values(self):
         """Test frame analysis with different K values."""
         frame_id = 18904
         end_date = datetime(2017, 12, 31)
         
         k_values = [5, 10, 15, 20]
+        expected_frame_states = [30, 30, 30, 20]
         results = {}
         
         for k in k_values:
-            total_sensing_dates = analyze_frame_k_cycles(
+            frame_state = analyze_frame_k_cycles(
                 frame_id, self.disp_burst_map, end_date, k, verbose=False
             )
-            results[k] = total_sensing_dates
+            results[k] = frame_state
             
-            # Each K value should give a positive result
-            self.assertGreater(total_sensing_dates, 0)
-        
-        # Results might vary with different K values, but should all be positive
-        self.assertTrue(all(count > 0 for count in results.values()))
+            # Each K value should give the expected frame state
+            self.assertEqual(frame_state, expected_frame_states[k_values.index(k)])
     
     def test_analyze_nonexistent_frame(self):
         """Test analysis of a frame that doesn't exist."""
@@ -142,12 +145,12 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
         end_date = datetime(2017, 12, 31)
         k = 15
         
-        result = analyze_frame_k_cycles(
+        frame_state = analyze_frame_k_cycles(
             nonexistent_frame, self.disp_burst_map, end_date, k, verbose=False
         )
         
         # Should return 0 for nonexistent frame
-        self.assertEqual(result, 0)
+        self.assertEqual(frame_state, 0)
     
     def test_batch_proc_expected_values(self):
         """Test that results match expected values from batch_proc.json context."""
@@ -159,10 +162,10 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             end_date_str = self.batch_params["last_processed_datetimes"][str(frame_id)]
             end_date = datetime.fromisoformat(end_date_str)
             
-            total_sensing_dates = analyze_frame_k_cycles(
+            frame_state = analyze_frame_k_cycles(
                 frame_id, self.disp_burst_map, end_date, k, verbose=False
             )
-            results[str(frame_id)] = total_sensing_dates
+            results[str(frame_id)] = frame_state
         
         # Verify we have results for all frames
         expected_frame_ids = {str(f) for f in self.batch_params["frames"]}
@@ -170,16 +173,16 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
         self.assertEqual(actual_frame_ids, expected_frame_ids)
         
         # Verify all results are the same as the frame_states in batch_proc.json
-        for frame_id, count in results.items():
+        for frame_id, frame_state in results.items():
             with self.subTest(frame_id=frame_id):
-                self.assertEqual(count, self.batch_params["frame_states"][frame_id])
+                self.assertEqual(frame_state, self.batch_params["frame_states"][frame_id])
                 
         # Log the results for reference
         print(f"\nTest results using batch_proc.json parameters:")
         print(f"K value: {k}")
-        for frame_id, count in results.items():
+        for frame_id, frame_state in results.items():
             end_date_str = self.batch_params["last_processed_datetimes"][frame_id]
-            print(f"Frame {frame_id} (end: {end_date_str}): {count} sensing dates")
+            print(f"Frame {frame_id} (end: {end_date_str}): {frame_state} frame state")
     
     def test_main_function_integration(self):
         """Test the main function with command line arguments."""
@@ -194,8 +197,8 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             test_args = [
                 'disp_s1_k_cycle_date_analyzer.py',
                 '--k', '15',
-                '--end-date', '2017-06-01T00:00:00',
-                '--frames', '18904,18905',
+                '--end-date', '2025-12-31T23:59:59',
+                '--frames', '16669,18904,18905,44328,46294',
                 '--output', output_path,
                 '--db-file', str(self.test_db_path)
             ]
@@ -216,13 +219,16 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             
             # Should be a simple dict with frame IDs as keys
             self.assertIsInstance(output_data, dict)
+            self.assertIn('16669', output_data)
             self.assertIn('18904', output_data)
             self.assertIn('18905', output_data)
+            self.assertIn('44328', output_data)
+            self.assertIn('46294', output_data)
             
-            # Values should be positive integers
-            for frame_id, count in output_data.items():
-                self.assertIsInstance(count, int)
-                self.assertGreater(count, 0)
+            # Values should be the expected frame states for end date 2025-12-31T23:59:59
+            expected_frame_states = {'16669': 225, '18904': 315, '18905': 315, '44328': 150, '46294': 300}
+            for frame_id, frame_state in output_data.items():
+                self.assertEqual(frame_state, expected_frame_states[frame_id])
                 
         finally:
             # Clean up
