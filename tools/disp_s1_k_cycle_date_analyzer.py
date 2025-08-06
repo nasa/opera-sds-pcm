@@ -205,16 +205,16 @@ def main():
         logger.error(f"Failed to load burst database: {e}")
         return 1
 
-    # Analyze each frame
+    # Analyze each frame and store the frame_state in the results dictionary
     results = {}
     for frame_number in frame_numbers:
         logger.info(f"Processing frame {frame_number}...")
 
-        total_sensing_dates = analyze_frame_k_cycles(
+        frame_state = analyze_frame_k_cycles(
             frame_number, disp_burst_map, end_date, args.k, args.verbose
         )
 
-        results[str(frame_number)] = total_sensing_dates
+        results[str(frame_number)] = frame_state
 
     # Write output JSON (simplified format: frame_id -> value)
     try:
@@ -227,8 +227,8 @@ def main():
 
     # Print summary
     logger.info("Analysis Summary:")
-    for frame, count in results.items():
-        logger.info(f"  Frame {frame}: {count} sensing dates in K-cycles")
+    for frame, frame_state in results.items():
+        logger.info(f"  Frame {frame}: frame_state {frame_state}")
 
     return 0
 
