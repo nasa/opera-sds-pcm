@@ -5,12 +5,12 @@ import pickle
 from copy import deepcopy
 
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import dateutil.parser
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from opera_commons.logger import get_logger
-from rtc_utils import determine_acquisition_cycle, _EPOCH_S1A, _EPOCH_S1C, _EPOCH_S1D
+from rtc_utils import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
 from data_subscriber.url import rtc_for_dist_unique_id
 from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
@@ -19,6 +19,11 @@ DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
 K_OFFSETS_AND_COUNTS = "[(365, 3), (730, 3), (1095, 3)]"
 PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
+
+# This fudge factor represents the maximum time span, max - min, in the rtc granule acquisition time space for all RTC granules that make up any product.
+# In reality it's more like 20 seconds but we are giving it a bit of fudge. The minimum inter-product time should be something like 30 mins so this should be tight.
+# If this scheme is wrong when we start mixing up all S1A/C/D satellite products the risk is that we may incorrectly determine the previous tile product with respect to acquisition time. 
+MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS = 120 
 
 logger = get_logger()
 
@@ -117,7 +122,7 @@ class DIST_S1_Product(object):
 def dist_s1_download_batch_id(granule):
     """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
-    download_batch_id = "p"+str(granule["product_id"]) + "_a" + str(granule["acquisition_cycle"])
+    download_batch_id = "p"+str(granule["product_id"]) + "_" + str(granule["satellite"]) + "_a" + str(granule["acquisition_cycle"]) 
 
     return download_batch_id
 
@@ -130,12 +135,13 @@ def build_rtc_native_ids(product_id: int, product_to_bursts):
 
 def dist_s1_split_download_batch_id(download_batch_id):
     """Split the download_batch_id into product_id and acquisition_cycle by utilizing split by _
-    example: p33UVB_4_a302 -> 33UVB_4, 302"""
+    example: p33UVB_4_S1A_a302 -> 33UVB_4, S1A, 302"""
 
     product_id = download_batch_id.split("_")[0][1:]
-    acquisition_cycle = download_batch_id.split("_")[2][1:]
+    satellite = download_batch_id.split("_")[2]
+    acquisition_cycle = download_batch_id.split("_")[3][1:]
 
-    return product_id, acquisition_cycle
+    return product_id, satellite, acquisition_cycle
 
 def rtc_granules_by_acq_index(granules):
     '''Returns a dict where the key is the acq index and the value is a list of granules'''
@@ -154,11 +160,11 @@ def basic_decorate_granule(granule):
     granule["burst_id"] = burst_id
     granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
-    granule["mission"] = granule["granule_id"].split("_")[6] # S1A, S1B, S1C, S1D
+    granule["satellite"] = granule["granule_id"].split("_")[6] # S1A, S1B, S1C, S1D
 
 def decorate_granule(granule):
     granule["tile_id"], granule["acquisition_group"] = granule["product_id"].split("_")
-    granule["batch_id"] = granule["product_id"] + "_" + str(granule["acquisition_cycle"])
+    granule["batch_id"] = granule["product_id"] + "_" + granule["satellite"] + "_" + str(granule["acquisition_cycle"])
     granule["download_batch_id"] = dist_s1_download_batch_id(granule)
     granule["unique_id"] = rtc_for_dist_unique_id(granule["download_batch_id"], granule["burst_id"])
 
@@ -195,7 +201,7 @@ def get_unique_rtc_id_for_dist(granule_id):
 
 def add_unique_rtc_granules(granules_dict: dict, granules: list) -> None:
     '''Add unique granules to the granules_dict. The key is a tuple of granule_id up to the acquisition time and the batch_id.
-    example: ("OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z", "p31RGQ_3_a302") and the value is the granule itself.
+    example: ("OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z", "31RGQ_3_S1A_302") and the value is the granule itself.
     If there's more than one granule for the same key, use the one with the latest production date.
     The dictionary is updated in place.
     '''
@@ -207,6 +213,7 @@ def add_unique_rtc_granules(granules_dict: dict, granules: list) -> None:
             granules_dict[key] = granule if granule["granule_id"] > granules_dict[key]["granule_id"] else granules_dict[key]
         else:
             granules_dict[key] = granule
+
 def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete_bursts_only, grace_mins, now, all_tile_ids = None):
     '''Given a list of tuples that represent denormalized granules, compute the triggering of DIST-S1 products
     Denormalized means is that the RTC granules already went through extension and therefore potential duplication based on producd_id
@@ -292,51 +299,28 @@ def parse_k_parameter(k_offsets_and_counts):
     k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
     return k_offsets_and_counts
 
-def previous_product_download_batch_id(dist_products, download_batch_id):
-    """Determine the previous product download batch id for a given batch id.
-    """
-    tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
-    tile_id = tile_id[1:] # Remove the "p" from the tile_id
-    acquisition_group = int(acquisition_group)
-    acquisition_cycle = int(acquisition_cycle[1:]) # Remove the "a" from the acquisition cycle
-
-    while True:
-        if acquisition_group > 0:
-            acquisition_group -= 1
-            prev_product = tile_id + "_" + str(acquisition_group)
-            if prev_product in dist_products[tile_id]:
-                break
-        else: # If the acquisition group is 0, we need to decrement the acquisition cycle and set the acquisition group to max for that tile
-            acquisition_cycle -= 1
-            prev_product = max(dist_products[tile_id], key=lambda x: int(x.split("_")[-1]))
-            acquisition_group = int(prev_product.split("_")[-1])
-            break
-    prev_product_download_batch_id = "p" + tile_id + "_" + str(acquisition_group) + "_a" + str(acquisition_cycle)
-
-    return prev_product_download_batch_id
-
-def previous_product_download_batch_id_from_rtc(dist_products, bursts_to_products, download_batch_id, granule_ids):
+def previous_product_download_batch_id_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
     '''Determine the previous product download batch id for a given batch id among list of RTC granules.'''
 
-    # TODO: As the first pass we're going to inefficient brute force search. But it may actually being practical ...
-    # because we'll do like 100 dict look ups at most and so that's less than 10 milliseconds. We should still optimize this.
-
+    product_id, satellite, acquisition_cycle_index = dist_s1_split_download_batch_id(download_batch_id)
+    granule_tile_id = product_id.split("_")[0]
     granules_dict, rtc_granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
-    min_acquisition_cycle = min(g["acquisition_cycle"] for g in rtc_granules)
-    download_batch_id_dict = {}
-    for g in rtc_granules:
-        download_batch_id_dict[g["download_batch_id"]] = g
 
-    while True:
-        try_previous_id = previous_product_download_batch_id(dist_products, download_batch_id)
-        if try_previous_id in download_batch_id_dict:
-            return try_previous_id
-        else:
-            try_acquisition_cycle = int(try_previous_id.split("_")[-1][1:])
-            if try_acquisition_cycle < min_acquisition_cycle:
-                return None
-            else:
-                download_batch_id = try_previous_id
+    # Order the rtc_granules by acquisition_ts in reverse
+    rtc_granules = sorted(rtc_granules, key=lambda x: x["acquisition_ts"], reverse=True)
+
+    # Build up this dict in decreasing acquisition_ts order for this tile only.
+    download_batch_id_dict = OrderedDict()
+    for g in rtc_granules:
+        if g["tile_id"] == granule_tile_id:
+            download_batch_id_dict[g["download_batch_id"]] = g["granule_id"]
+
+    # The previous product is the one with the greatest acquisition time that's less than the current one
+    for map_id, granule in download_batch_id_dict.items():
+        burst_id, acquisition_dts = parse_r2_product_file_name(granule, "L2_RTC_S1")
+        acquisition_dts = dateutil.parser.isoparse(acquisition_dts[:-1])
+        if acquisition_dts + timedelta(seconds=MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS) < current_acquisition_ts:
+            return map_id
 
     return None # Should never get here
 

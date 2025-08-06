@@ -103,7 +103,7 @@ def run(argv: list[str]):
                 3. Delete the job if the previous tile product is not found and the previous tile job is different or None'''
             
             logger.info(f"Found pending rtc for dist download job. Download batch id: {job_source['download_batch_id']}")
-            should_wait, file_paths, previous_tile_job_id = dist_dependency.should_wait_previous_run(job_source['download_batch_id'])
+            should_wait, file_paths, previous_tile_job_id = dist_dependency.should_wait_previous_run(job_source['download_batch_id'], job_source['acquisition_ts'])
             if should_wait:
                 if previous_tile_job_id == job_source['previous_tile_job_id']:
                     logger.info(f"Previous tile product not found. Waiting for previous tile job to complete: {previous_tile_job_id}")
