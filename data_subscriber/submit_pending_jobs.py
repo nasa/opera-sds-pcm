@@ -111,12 +111,14 @@ def run(argv: list[str]):
                     logger.info(f"Previous tile product not found. Waiting for previous tile job to complete: {previous_tile_job_id}")
                     continue
 
-            #If we shouldn't wait or we should wait but the previous tile job is different, submit the job with the information we have.
-
-            if previous_tile_job_id != job_source['previous_tile_job_id']:
-                logger.warning(f"Previous tile job is different from what we've been waiting for. We are in a bad state. Submitting download job: {file_paths}")
-            else:
-                logger.info(f"Previous tile product found. Submitting download job: {file_paths}")
+            '''FUTURE: Not sure if we want to get this detailed but if we want to detect if the the previous tile job is different, here is start of that code
+            As this is written, it's not correct because we could have had been waiting for a download job and then SCIFLO job. So we'd need to make this more sophisticated'''
+            #if previous_tile_job_id != job_source['previous_tile_job_id']:
+            #    logger.warning(f"Previous tile job is different from what we've been waiting for. We are in a bad state. Submitting download job: {file_paths}")
+            #else:
+            
+            #If we shouldn't wait submit the job 
+            logger.info(f"Previous tile product found. Submitting download job: {file_paths}")
 
             # Replace the previous_tile_product_file_paths with the file paths from the previous tile product
             product_metadata = None

@@ -129,6 +129,10 @@ Run without previous tile product.")
         prev_product_download_batch_id = \
             previous_product_download_batch_id_from_rtc(self.bursts_to_products, download_batch_id, acquisition_ts, granule_ids)
         
+        # No previous product was determined from the cmr cache.
+        if prev_product_download_batch_id is None:
+            return None, None
+        
         self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
         result = self.grq_es.search(
             index=GRQ_ES_DIST_S1_INDEX,
