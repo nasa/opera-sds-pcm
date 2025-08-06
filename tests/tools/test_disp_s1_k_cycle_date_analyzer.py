@@ -235,6 +235,52 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             if os.path.exists(output_path):
                 os.unlink(output_path)
 
+    def test_main_function_integration_with_end_date_2017_04_01(self):
+        """Test the main function with command line arguments and end date 2017-04-01."""
+        import sys
+        from unittest.mock import patch
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_output:
+            output_path = tmp_output.name
+        
+        try:
+            # Mock command line arguments
+            test_args = [
+                'disp_s1_k_cycle_date_analyzer.py',
+                '--k', '15',
+                '--end-date', '2017-04-01T00:00:00',
+                '--frames', '16669',
+                '--output', output_path,
+                '--db-file', str(self.test_db_path)
+            ]
+            
+            with patch.object(sys, 'argv', test_args):
+                # Import and run main (need to import here to avoid issues with sys.argv)
+                import disp_s1_k_cycle_date_analyzer
+                result = disp_s1_k_cycle_date_analyzer.main()
+            
+            # Check that main returned success
+            self.assertEqual(result, 0)
+            
+            # Verify output file was created and has expected structure
+            self.assertTrue(os.path.exists(output_path))
+            
+            with open(output_path, 'r') as f:
+                output_data = json.load(f)
+            
+            # Should be a simple dict with frame IDs as keys
+            self.assertIsInstance(output_data, dict)
+            self.assertIn('16669', output_data)
+            
+            # Values should be the expected frame states for end date 2017-04-01T00:00:00
+            expected_frame_states = {'16669': 15}
+            for frame_id, frame_state in output_data.items():
+                self.assertEqual(frame_state, expected_frame_states[frame_id])
+                
+        finally:
+            # Clean up
+            if os.path.exists(output_path):
+                os.unlink(output_path)
 
 if __name__ == '__main__':
     unittest.main()
