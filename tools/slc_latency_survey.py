@@ -85,6 +85,13 @@ def get_parser():
         help='Filename (without extension) of output file for json/csv formats'
     )
 
+    parser.add_argument(
+        '--query-by-revision-date',
+        action='store_false',
+        dest='temporal_query',
+        help='Query SLCs by time of last revision rather than by sensing time'
+    )
+
     return parser
 
 
@@ -130,9 +137,13 @@ def query_cmr(args):
         params = {
             'collection_concept_id': PLATFORM_CCID_MAP[platform],
             'page_size': 2000,
-            'temporal[]': f'{start_q_str},{end_q_str}',
             'attribute[]': 'string,BEAM_MODE,IW'
         }
+
+        if args.temporal_query:
+            params['temporal[]'] = f'{start_q_str},{end_q_str}'
+        else:
+            params['revision_date[]'] = f'{start_q_str},{end_q_str}'
 
         query_result, search_after = _do_cmr_query(CMR_SEARCH_URL, params)
         granules.extend(query_result)
@@ -182,10 +193,16 @@ def main(args):
 
     survey: dict = {g['umm']['GranuleUR'].removesuffix('-SLC'): dict(cmr=g, dataspace=None) for g in cmr_granules}
 
-    dataspace_query_filters = [
-        f'ContentDate/End ge {datetime.strftime(args.start_time, ISO_TIME)}',
-        f'ContentDate/Start le {datetime.strftime(args.end_time, ISO_TIME)}'
-    ]
+    if args.temporal_query:
+        dataspace_query_filters = [
+            f'ContentDate/End ge {datetime.strftime(args.start_time, ISO_TIME)}',
+            f'ContentDate/Start le {datetime.strftime(args.end_time, ISO_TIME)}'
+        ]
+    else:
+        dataspace_query_filters = [
+            f'ModificationDate ge {datetime.strftime(args.start_time, ISO_TIME)}',
+            f'ModificationDate le {datetime.strftime(args.end_time, ISO_TIME)}'
+        ]
 
     query_results = query(build_query_filter(*dataspace_query_filters, platforms=tuple(args.platforms)))
 
@@ -242,6 +259,7 @@ def main(args):
                 result, gid = f.result()
                 if result is not None:
                     dataspace_granules.append(result)
+                    survey[gid]['dataspace'] = result
                 else:
                     to_drop.append(gid)
 
