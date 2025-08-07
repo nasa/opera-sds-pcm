@@ -40,12 +40,12 @@ class Provider(str, Enum):
     LPCLOUD = "LPCLOUD"
     LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
+    DATASPACE = "DATASPACE"
     ASF_SLC = "ASF-SLC"
     ASF_RTC = "ASF-RTC"
     ASF_CSLC = "ASF-CSLC"
     ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
     ASF_NISAR_GCOV = "ASF-NISAR-GCOV"
-    DATASPACE = "DATASPACE"
 
 class ProductType(str, Enum):
     HLS = "HLS"
