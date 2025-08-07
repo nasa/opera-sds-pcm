@@ -18,14 +18,14 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,
                                         process_disp_frame_burst_hist,
                                         download_batch_id_forward_reproc,
                                         split_download_batch_id, get_nearest_sensing_datetime)
-from data_subscriber.query import CmrQuery, DateTimeRange
+from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.url import cslc_unique_id
 
 K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
 EARLIEST_POSSIBLE_CSLC_DATE = "2016-01-01T00:00:00Z"
 
 
-class CslcCmrQuery(CmrQuery):
+class CslcCmrQuery(BaseQuery):
 
     def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_hist_file = None, blackout_dates_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

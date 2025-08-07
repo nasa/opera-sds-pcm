@@ -246,6 +246,7 @@ def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_numbe
     return f"OPERA_L2_CSLC-S1_{burst_id}_{acquisition_datetime}_{production_datetime}_S1A_{polarization}_v1.1"
 
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
+    # TODO: We need to handle the case where the consistent burst db does not have any sensing datetimes for the frame
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index

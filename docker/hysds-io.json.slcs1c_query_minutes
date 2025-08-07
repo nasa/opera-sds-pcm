@@ -83,6 +83,14 @@
       "type": "text",
       "default": "--transfer-protocol=auto",
       "optional": true
+    },
+    {
+      "name": "provider",
+      "from": "submitter",
+      "placeholder": "e.g. --provider=ASF",
+      "type": "text",
+      "default": "--provider=ASF",
+      "optional": true
     }
   ]
 }

@@ -10,7 +10,7 @@ import requests.utils
 from more_itertools import first
 
 from data_subscriber.catalog import ProductCatalog
-from data_subscriber.download import DaacDownload
+from data_subscriber.download import BaseDownload
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 from rtc_utils import rtc_product_file_revision_regex
@@ -20,7 +20,7 @@ from util.ctx_util import JobContext
 from util.job_util import is_running_outside_verdi_worker_context
 
 
-class AsfDaacRtcDownload(DaacDownload):
+class AsfDaacRtcDownload(BaseDownload):
 
     def __init__(self, provider):
         super().__init__(provider)

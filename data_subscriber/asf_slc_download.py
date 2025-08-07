@@ -10,7 +10,7 @@ from os.path import abspath, getsize, join
 import requests
 
 from data_subscriber import ionosphere_download
-from data_subscriber.download import DaacDownload
+from data_subscriber.download import BaseDownload
 from data_subscriber.url import (
     _has_url, _to_urls, _to_https_urls, _slc_url_to_chunk_id, form_batch_id
 )
@@ -24,7 +24,7 @@ from util.dataspace_util import (NoQueryResultsException,
                                  DEFAULT_DATASPACE_ENDPOINT)
 
 
-class AsfDaacSlcDownload(DaacDownload):
+class AsfDaacSlcDownload(BaseDownload):
 
     def __init__(self, provider):
         super().__init__(provider)
@@ -149,7 +149,7 @@ class AsfDaacSlcDownload(DaacDownload):
         self.logger.info("Downloading associated orbit file")
 
         # Get the PCM username/password for authentication to Copernicus Dataspace
-        username, _, password = netrc.netrc().authenticators(DEFAULT_DATASPACE_ENDPOINT)
+        username, password = self.get_dataspace_login()
 
         (_, safe_start_time, safe_stop_time) = parse_orbit_time_range_from_safe(product_filepath)
         safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
@@ -274,3 +274,7 @@ class AsfDaacSlcDownload(DaacDownload):
 
         with Path(dataset_dir / f"{dataset_dir.name}.met.json").open("w") as fp:
             json.dump(met_json, fp)
+
+    def get_dataspace_login(self):
+        username, _, password = netrc.netrc().authenticators(DEFAULT_DATASPACE_ENDPOINT)
+        return username, password
