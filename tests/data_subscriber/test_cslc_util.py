@@ -115,6 +115,14 @@ def test_build_ccslc_m_index():
     """Test that the ccslc_m index is correctly constructed"""
     assert cslc_utils.build_ccslc_m_index("T027-056778-IW1", 445) == "t027_056778_iw1_445"
 
+# We should probably add several more cases including edge cases
+def test_generate_ccslc_metadata():
+    ccslc_file_name = "OPERA_L2_COMPRESSED-CSLC-S1_F20687_T078-165493-IW1_20230415T000000Z_20221029T000000Z_20230415T000000Z_20250731T181210Z_VV_v1.0"
+    assert (20687, "T078-165493-IW1", 2460, "t078_165493_iw1_2460") == cslc_utils.generate_ccslc_metadata(ccslc_file_name, disp_burst_map_hist)
+
+    ccslc_file_name = "OPERA_L2_COMPRESSED-CSLC-S1_F01087_T005-008689-IW2_20230703T000000Z_20230104T000000Z_20230703T000000Z_20250731T192004Z_VV_v1.0"
+    assert (1087, "T005-008689-IW2", 2544, "t005_008689_iw2_2544") == cslc_utils.generate_ccslc_metadata(ccslc_file_name, disp_burst_map_hist)
+
 def test_determine_acquisition_cycle_cslc():
     """Test that the acquisition cycle is correctly determined"""
     acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170227T230524"), 831, disp_burst_map_hist)

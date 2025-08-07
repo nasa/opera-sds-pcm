@@ -4,6 +4,8 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cache
 from urllib.parse import urlparse
+
+import dateutil.parser
 import backoff
 
 import boto3
@@ -359,4 +361,35 @@ def get_bounding_box_for_frame(frame_id: int, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
     return frame_geo_map[frame_id]
+
+def generate_ccslc_metadata(ccslc_file_name, frame_to_bursts):
+    ''' From filename that looks like this OPERA_L2_COMPRESSED-CSLC-S1_F28218_T106-225740-IW1_20170914T000000Z_20170222T000000Z_20170914T000000Z_20250724T210442Z_VV_v1.0
+    return the frame_id, burst_id, acquisition day index, and ccslc_m_index
+    '''
+
+    dataset_json = datasets_json_util.DatasetsJson()
+    c_cslc_granule_regex = dataset_json.get("L2_CSLC_S1_COMPRESSED")["match_pattern"]
+    match_product_id = re.match(c_cslc_granule_regex, ccslc_file_name)
+
+    frame_id = int(match_product_id.group('disp_frame_id')[1:])
+    burst_id = match_product_id.group('burst_id')
+    #last_acq_date = match_product_id.group('last_date_time')[:-1] Not sure why but this returns non-sensical date
+    last_acq_date = ccslc_file_name.split("_")[7][:-1]
+    last_acq_date = dateutil.parser.isoparse(last_acq_date)
+
+    # Because the acq date in the compressed cslc file name truncates the time - always sets them to zero,
+    # we need to round to the nearest acq day index that exists in the consistent database file
+    acq_day_index = None
+    un_rounded_acq_day_index = determine_acquisition_cycle_cslc(last_acq_date, frame_id, frame_to_bursts)
+    for day_index in frame_to_bursts[frame_id].sensing_datetime_days_index:
+        if day_index - 1 <= un_rounded_acq_day_index and day_index + 1 >= un_rounded_acq_day_index:
+            acq_day_index = day_index
+
+    if acq_day_index is None:
+        raise Exception(f"Acquisition day index cannot be determined from the last_date_time {last_acq_date} of frame {frame_id}. This should not happen.")
+
+    ccslc_m_index = build_ccslc_m_index(burst_id, acq_day_index)
+
+    return frame_id, burst_id, acq_day_index, ccslc_m_index
+
 
