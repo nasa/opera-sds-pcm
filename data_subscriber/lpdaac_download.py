@@ -9,7 +9,7 @@ from pathlib import PurePath, Path
 import requests.utils
 
 import extractor.extract
-from data_subscriber.download import DaacDownload
+from data_subscriber.download import BaseDownload
 from data_subscriber.url import _to_urls, _to_https_urls, form_batch_id
 from product2dataset import product2dataset
 
@@ -20,7 +20,7 @@ class HLSDownload:
         self.revision_id = None
         self.es_ids_urls = []
 
-class DaacDownloadLpdaac(DaacDownload):
+class DaacDownloadLpdaac(BaseDownload):
 
     def __init__(self, provider):
         super().__init__(provider)
