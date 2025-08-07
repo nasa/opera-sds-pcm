@@ -1,0 +1,92 @@
+RunConfig:
+  Name: OPERA-DISP-NI-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DISP_NI_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in runconfig.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
+          {{ type }}:
+          {%- for value in runconfig.dynamic_ancillary_file_group[ type ] %}
+            - {{ value }}
+          {%- endfor %}{# for value in runconfig.dynamic_ancillary_file_group[ type ] #}
+          {%- else %}
+          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+          {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
+      ProductPathGroup:
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: DISP_NI
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
+        ProgramPath: disp-nisar
+        ProgramOptions:
+          - run
+        ErrorCodeBase: 900000
+        SchemaPath: /home/mamba/opera/pge/disp_ni/schema/disp_ni_sas_schema.yaml
+        AlgorithmParametersSchemaPath: /home/mamba/opera/pge/disp_ni/schema/algorithm_parameters_disp_ni_schema.yaml
+        IsoTemplatePath: /home/mamba/opera/pge/disp_ni/templates/OPERA_ISO_metadata_L3_DISP_NI_template.xml.jinja2
+        IsoMeasuredParameterDescriptions: /home/mamba/opera/pge/disp_ni/templates/disp_ni_measured_parameters.yaml
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+
+    SAS:
+      input_file_group:
+        gslc_file_list:
+          {%- for input in runconfig.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+        frame_id: 150
+        frequency: frequencyA
+        polarization: HH
+      dynamic_ancillary_file_group:
+        {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+        {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+        {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
+        {{ type }}:
+        {%- for value in runconfig.dynamic_ancillary_file_group[ type ] %}
+          - {{ value }}
+        {%- endfor %}{# for value in runconfig.dynamic_ancillary_file_group[ type ] #}
+        {%- else %}
+        {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+        {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
+        {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+        {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
+      static_ancillary_file_group:
+        {%- for type in runconfig.static_ancillary_file_group.keys() %}
+        {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
+        {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
+        {%- else %}
+        {{ type }}:
+        {%- endif %}
+        {%- endfor %}
+      primary_executable:
+        product_type: {{ runconfig.processing.product_type }}
+      product_path_group:
+        product_path: {{ runconfig.product_path_group.product_path }}
+        scratch_path: {{ runconfig.product_path_group.scratch_path }}
+        sas_output_path: {{ runconfig.product_path_group.product_path }}
+        product_version: "{{ runconfig.product_path_group.product_version }}"
+        save_compressed_slc: {{ runconfig.product_path_group.save_compressed_slc }}
+      worker_settings:
+        gpu_enabled: false
+        threads_per_worker: {{ runconfig.processing.threads_per_worker }}
+        n_parallel_bursts: {{ runconfig.processing.n_parallel_bursts }}
+        block_shape:
+          - 512
+          - 512
+      log_file: {{ runconfig.product_path_group.scratch_path }}/disp-ni-sas.log
