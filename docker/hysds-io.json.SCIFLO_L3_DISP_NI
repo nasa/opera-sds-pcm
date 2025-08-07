@@ -1,0 +1,110 @@
+{
+  "label": "SCIFLO_L3_DISP_NI",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    {
+      "name": "module_path",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm",
+      "default": "/home/ops/verdi/ops/opera-pcm"
+    },
+    {
+      "name": "wf_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml",
+      "default": "/home/ops/verdi/ops/opera-pcm/opera_chimera/wf_xml"
+    },
+    {
+      "name": "wf_name",
+      "from": "value",
+      "type": "text",
+      "value": "L3_DISP_NI",
+      "default": "L3_DISP_NI"
+    },
+    {
+      "name":"dataset_type",
+      "from": "value",
+      "type": "text",
+      "value":"L2_GSLC_NI",
+      "default": "L2_GSLC_NI"
+    },
+    {
+      "name": "processing_mode",
+      "from": "value",
+      "type": "text",
+      "value": "historical",
+      "default": "historical"
+    },
+    {
+      "name":"input_dataset_id",
+      "type":"text",
+      "from":"value",
+      "value": "placeholder_id"
+    },
+    {
+     "name": "product_metadata",
+     "from": "value",
+     "type": "object",
+     "value" : "s3://opera-dev-lts-fwd-collinss/sample_disp_ni_product_metadata.json"
+    },
+    {
+      "name": "accountability_module_path",
+      "from": "value",
+      "type": "text",
+      "value": "opera_chimera.accountability",
+      "default": "opera_chimera.accountability"
+    },
+    {
+      "name": "accountability_class",
+      "from": "value",
+      "type": "text",
+      "value": "OperaAccountability",
+      "default": "OperaAccountability"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_runconfig_dir",
+      "default": "pge_runconfig_dir"
+    },
+    {
+      "name": "pge_input_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_input_dir",
+      "default": "pge_input_dir"
+    },
+    {
+      "name": "pge_output_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_output_dir",
+      "default": "pge_output_dir"
+    },
+    {
+      "name": "pge_scratch_dir",
+      "from": "value",
+      "type": "text",
+      "value": "pge_scratch_dir",
+      "default": "pge_scratch_dir"
+    },
+    {
+      "name": "container_home",
+      "from": "value",
+      "type": "text",
+      "value": "/home/mamba",
+      "default": "/home/mamba"
+    },
+    {
+      "name": "container_working_dir",
+      "from": "value",
+      "type": "text",
+      "value": "/home/mamba",
+      "default": "/home/mamba"
+    }
+  ]
+}
