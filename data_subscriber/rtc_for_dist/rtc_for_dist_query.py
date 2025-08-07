@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+import dateutil
 from copy import deepcopy
 import asyncio
 import json
@@ -10,12 +11,12 @@ from data_subscriber.es_conn_util import get_document_timestamp_min_max
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
+from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
 from data_subscriber.query import BaseQuery, get_query_timerange, DateTimeRange
-from data_subscriber.cslc_utils import save_blocked_download_job
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
-                                           parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
+                                           parse_k_parameter, decorate_granule, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
 
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
@@ -370,11 +371,18 @@ there must be a default value. Cannot retrieve baseline granules.")
 
             # If the previous run for this tile has not been processed, submit as a pending job
             # previous_tile_product_file_paths can be None or a list of file paths
-            should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id)
+
+            # From  "https://datapool.asf.alaska.edu/RTC/OPERA-S1/OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0_VH.tif" ...
+            # To: OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0
+            one_rtc_granule = urls[0].split("/")[-1][:-7]
+            burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
+            acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
+
+            should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id, acquisition_ts)
 
             self.populate_product_metadata(product_metadata, previous_tile_product_file_paths)
 
-            add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id}
+            add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id, "acquisition_ts": acquisition_ts}
 
             if should_wait:
                 self.logger.info(

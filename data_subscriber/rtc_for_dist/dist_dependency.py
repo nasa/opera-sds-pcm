@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
-from data_subscriber.dist_s1_utils import (previous_product_download_batch_id, previous_product_download_batch_id_from_rtc)
+from data_subscriber.dist_s1_utils import (previous_product_download_batch_id_from_rtc, basic_decorate_granule, decorate_granule)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
 
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 
-# batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
+# batch_id looks like this: 32UPD_4_S1A_302; download_batch_id looks like this: p32UPD_4_S1A_a302
 
 GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
@@ -40,7 +40,7 @@ class DistDependency:
         self.min_cmr_rtc_cache_document_date_range_days = settings["DIST_S1_TRIGGERING"]["MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS"]
         self.warn_cmr_rtc_cache_document_date_range_days = settings["DIST_S1_TRIGGERING"]["WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS"]
     
-    def should_wait_previous_run(self, download_batch_id):
+    def should_wait_previous_run(self, download_batch_id, acquisition_ts):
         """
         Check if the current run should wait for the previous run of this tile to complete. Here are the conditions:
 
@@ -56,8 +56,9 @@ class DistDependency:
             - previous_tile_job_id: job id for the previous tile job, None if no previous tile job was found
         """
 
-        self.logger.info(f"Checking if we should wait for the previous run of {download_batch_id}")
-        previous_tile_product, prev_product_download_batch_id = self.get_previous_tile_product(download_batch_id)
+        
+        self.logger.info(f"Checking if we should wait for the previous run for {download_batch_id=} with {acquisition_ts=}")
+        previous_tile_product, prev_product_download_batch_id = self.get_previous_tile_product(download_batch_id, acquisition_ts)
         if previous_tile_product is not None:
             file_paths = file_paths_from_prev_product(previous_tile_product)
             self.logger.debug(f"Previous tile product found: {file_paths=}")
@@ -76,37 +77,14 @@ Run without previous tile product.")
         self.logger.info(f"No previous tile product and cannot find the previous tile job.  Run without previous tile product.")
         return False, None, None
 
-    def get_previous_tile_product(self, download_batch_id):
+    def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
 
-        tile_id, acquisition_group, acquisition_cycle = download_batch_id.split("_")
+        tile_id, acquisition_group, satellite, acquisition_cycle = download_batch_id.split("_")
         tile_id = tile_id[1:] # Remove the "p" from the tile_id
-        prev_product_download_batch_id = previous_product_download_batch_id(self.dist_products, download_batch_id)
  
-        self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id}")
-        result = self.grq_es.search(
-            index=GRQ_ES_DIST_S1_INDEX,
-            body={
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"match": {"metadata.accountability.L3_DIST_S1.trigger_dataset_id.keyword": prev_product_download_batch_id}}
-                        ]
-                    }
-                }
-            }
-        )
-        hits = result["hits"]["hits"]
-        if len(hits) == 1:
-            return hits[0], None
-        elif len(hits) > 1:
-            # Choose the one with the latest creation_timestamp
-            self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
-            latest_hit = max(hits, key=lambda x: x["_source"]["creation_timestamp"])
-            return latest_hit, None
-
-        # If we didn't find the previous product from GRQ, we need to check GRQ cmr_rtc_cache for what the previous product should be
-        self.logger.info(f"Previous tile product not found in GRQ ES. Searching GRQ cmr_rtc_cache for what it should be.")
+        # Consult GRQ cmr_rtc_cache for what the previous product should be
+        self.logger.info(f"Searching GRQ cmr_rtc_cache for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
 
         # Get all burst ids for this batch_id
         all_burst_ids = set()
@@ -149,7 +127,33 @@ Run without previous tile product.")
             granule_ids.append(rtc_granule)
         
         prev_product_download_batch_id = \
-            previous_product_download_batch_id_from_rtc(self.dist_products, self.bursts_to_products, download_batch_id, granule_ids)
+            previous_product_download_batch_id_from_rtc(self.bursts_to_products, download_batch_id, acquisition_ts, granule_ids)
+        
+        # No previous product was determined from the cmr cache.
+        if prev_product_download_batch_id is None:
+            return None, None
+        
+        self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
+        result = self.grq_es.search(
+            index=GRQ_ES_DIST_S1_INDEX,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"metadata.accountability.L3_DIST_S1.trigger_dataset_id.keyword": prev_product_download_batch_id}}
+                        ]
+                    }
+                }
+            }
+        )
+        hits = result["hits"]["hits"]
+        if len(hits) == 1:
+            return hits[0], None
+        elif len(hits) > 1:
+            # Choose the one with the latest creation_timestamp
+            self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
+            latest_hit = max(hits, key=lambda x: x["_source"]["creation_timestamp"])
+            return latest_hit, None
 
         return None, prev_product_download_batch_id
 

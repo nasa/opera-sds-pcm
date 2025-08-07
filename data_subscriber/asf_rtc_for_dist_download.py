@@ -112,7 +112,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         # Now submit DISP-S1 SCIFLO job
         self.logger.info(f"Submitting DIST-S1 SCIFLO job")
 
-        product_id, acquisition_cycle_index = dist_s1_split_download_batch_id(batch_id)
+        product_id, satellite, acquisition_cycle_index = dist_s1_split_download_batch_id(batch_id)
 
         product = {
             "_id": batch_id,
@@ -133,6 +133,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                     "id": batch_id,
                     "bounding_box": None, #TODO: Fill this in?
                     "acquisition_cycle": acquisition_cycle_index,
+                    "satellite": satellite,
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,
