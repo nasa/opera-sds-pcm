@@ -54,14 +54,13 @@
       "default": "--transfer-protocol=auto",
       "optional": true
     },
-    {
+    { 
       "name": "provider",
       "from": "submitter",
       "placeholder": "e.g. --provider=ASF",
-      "type": "enum",
-      "enumerables": ["--provider=ASF", "--provider=DATASPACE"],
+      "type": "text",
       "default": "--provider=ASF",
       "optional": true
-    }
+    } 
   ]
 }
