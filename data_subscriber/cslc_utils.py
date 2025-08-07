@@ -378,11 +378,12 @@ def generate_ccslc_metadata(ccslc_file_name, frame_to_bursts):
     last_acq_date = dateutil.parser.isoparse(last_acq_date)
 
     # Because the acq date in the compressed cslc file name truncates the time - always sets them to zero,
-    # we need to round to the nearest acq day index that exists in the consistent database file
+    # It can be up to one value less than the true value - we get that from the consistent database file
+    # In forward mode we will have to query CMR to get CSLC files beyond the consistent database file
     acq_day_index = None
     un_rounded_acq_day_index = determine_acquisition_cycle_cslc(last_acq_date, frame_id, frame_to_bursts)
     for day_index in frame_to_bursts[frame_id].sensing_datetime_days_index:
-        if day_index - 1 <= un_rounded_acq_day_index and day_index + 1 >= un_rounded_acq_day_index:
+        if un_rounded_acq_day_index == day_index or un_rounded_acq_day_index + 1 == day_index:
             acq_day_index = day_index
 
     if acq_day_index is None:
