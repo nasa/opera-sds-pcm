@@ -48,7 +48,7 @@
      "name": "product_metadata",
      "from": "value",
      "type": "object",
-     "value" : "s3://opera-dev-lts-fwd-collinss/sample_disp_ni_product_metadata.json"
+     "value" : "s3://opera-dev-lts-fwd-collinss/sample_disp_ni_product_metadata_dummy.json "
     },
     {
       "name": "accountability_module_path",
