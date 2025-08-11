@@ -415,6 +415,11 @@ class BaseQuery:
                 "name": "proc_mode",
                 "value": f"--processing-mode={args.proc_mode}",
                 "from": "value"
+            },
+            {
+                "name": "provider",
+                "value": f"--provider={args.provider}",
+                "from": "value"
             }
         ]
         self.logger.debug(f"{download_job_params=}")

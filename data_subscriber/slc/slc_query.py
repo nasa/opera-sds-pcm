@@ -64,17 +64,3 @@ class SlcCmrQuery(BaseQuery):
                 **kwargs
             )
 
-    def create_download_job_params(self, query_timerange, chunk_batch_ids):
-        download_job_params = super().create_download_job_params(query_timerange, chunk_batch_ids)
-
-        #if self.args.provider == Provider.DATASPACE:
-        #    download_job_params.append({
-        #        "name": "provider",
-        #        "value": "--provider=DATASPACE",
-        #        "from": "value"
-        #    })
-
-        #    self.logger.debug(f"new {download_job_params=}")
-
-        return download_job_params
-
