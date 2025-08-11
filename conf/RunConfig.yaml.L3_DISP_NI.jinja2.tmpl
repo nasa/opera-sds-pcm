@@ -50,9 +50,9 @@ RunConfig:
           {%- for input in runconfig.input_file_group.input_file_paths %}
           - {{ input }}
           {%- endfor %}
-        frame_id: 150
-        frequency: frequencyA
-        polarization: HH
+        frame_id: {{ runconfig.processing.frame_id }}
+        frequency: {{ runconfig.processing.frequency }}
+        polarization: {{ runconfig.processing.polarization }}
       dynamic_ancillary_file_group:
         {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
         {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
