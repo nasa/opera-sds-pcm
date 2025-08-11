@@ -69,12 +69,12 @@ def view_proc(id):
                 except:
                     pp = "UNKNOWN"
                 try:
-                    fcp = [f"{frame}: {p}%" for frame, p in proc["frame_completion_percentages"].items()]
+                    fcp = [f"{frame}: {p}%" for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0]))]
 
                     # Every frame that has 100% frame_completion_percentage, check in Mozart ES to see if the last SCIFLO has been completed
                     cf = []
                     job_id_prefixes = {}
-                    for frame, p in proc["frame_completion_percentages"].items():
+                    for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0])):
                         frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
                         # fix for IndexError: list index out of range
                         sddi = frames_to_bursts[int(frame)].sensing_datetime_days_index
