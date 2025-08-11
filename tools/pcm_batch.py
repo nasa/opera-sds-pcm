@@ -76,7 +76,14 @@ def view_proc(id):
                     job_id_prefixes = {}
                     for frame, p in proc["frame_completion_percentages"].items():
                         frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
-                        acq_index = frames_to_bursts[int(frame)].sensing_datetime_days_index[frame_state]
+                        # fix for IndexError: list index out of range
+                        sddi = frames_to_bursts[int(frame)].sensing_datetime_days_index
+                        if 0 <= frame_state < len(sddi):
+                            acq_index = sddi[frame_state]
+                        else:
+                            print(f"Frame state {frame_state} out of range for frame {frame} (len={len(sddi)})")
+                            continue  # or handle differently
+
                         job_id_prefix = f"job-WF-SCIFLO_L3_DISP_S1-frame-{frame}-latest_acq_index-{acq_index}_hist"
                         if p == 100:
                             job_id_prefixes[frame] = job_id_prefix
