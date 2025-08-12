@@ -491,13 +491,15 @@ def update_disp_ni_runconfig(context, work_dir):
     run_config["input_file_group"]["input_file_paths"] = input_file_paths
 
     for anc in ('algorithm_parameters_file', 'mask_file', 'dem_file'):
-        run_config['dynamic_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc]))
+        if run_config['dynamic_ancillary_file_group'][anc]:
+            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc]))
 
     gunw_files = run_config["dynamic_ancillary_file_group"]["gunw_files"]
     run_config["dynamic_ancillary_file_group"]["gunw_files"] = [os.path.join(container_home_prefix, basename(gunw_file)) for gunw_file in gunw_files]
 
     for anc in ('frame_to_bounds_json', 'reference_date_database_json'):
-        run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
+        if run_config['static_ancillary_file_group'][anc]:
+            run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
 
     return run_config
 
