@@ -10,6 +10,7 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
           {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
           {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
           {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
