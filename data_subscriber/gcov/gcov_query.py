@@ -1,10 +1,12 @@
 import asyncio
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import cache
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import PurePath
 from typing import Optional
+import os
 import re
 import uuid
 
@@ -34,16 +36,17 @@ class NisarGcovCmrQuery(CmrQuery):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
         self.logger = get_logger()
 
-        self.settings = settings
-        # If an MGRS track frame database is provided, use it; otherwise we'll need to implement
-        # logic to load it from a default location
-        self.mgrs_track_frame_db = self._load_mgrs_track_frame_db(mgrs_track_frame_db_file)
+        # source track frame db from ancillary bucket or loads local copy
+        self.mgrs_track_frame_db = self._load_mgrs_track_frame_db()
         
         self.mgrs_sets_to_process = {}
 
+    @cache
     def _load_mgrs_track_frame_db(self):
         """
         Load the MGRS track frame database that maps frame numbers to MGRS set IDs.
+
+        Cached function to avoid re-downloading the database file on every query.
         
         Args:
             db_file_path: Path to the database file
@@ -56,8 +59,10 @@ class NisarGcovCmrQuery(CmrQuery):
             self.logger.info(f"Loading MGRS track frame database from {db_file_url}")
             s3.Object(db_file_url.netloc, path).download_file(file)
         except Exception:
-            self.logger.warning(f"Could not download DSWx-NI mgrs tile collection database from {db_file_url}. "
+            self.logger.warning(f"Could not download DSWx-NI mgrs tile collection database."
                                 f"Attempting to use local copy at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}.")
+            if not os.path.exists(DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH):
+                raise FileNotFoundError(f"Local copy of DSWx-NI mgrs tile collection database not found at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}")
             file = DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH
  
         return MGRSTrackFrameDB(file)
@@ -157,7 +162,7 @@ class NisarGcovCmrQuery(CmrQuery):
     def trigger_dswx_ni_jobs(self, sets_to_process):
         return [submit_dswx_ni_job(
             params=self.create_dswx_ni_job_params(set_to_process),
-            job_queue="opera-job_worker-sciflo-l3_dswx_ni",
+            job_queue=self.args.job_queue,
             job_name=f"job-WF-SCIFLO_L3_DSWx_NI-{set_to_process.mgrs_set_id}-{set_to_process.cycle_number}",
             release_version=self.settings["RELEASE_VERSION"]
         ) for set_to_process in sets_to_process]
