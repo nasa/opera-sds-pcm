@@ -224,7 +224,7 @@ resource "aws_instance" "mozart" {
       fi
 
       echo ES_CLUSTER_MODE: ${local.es_cluster_mode} >> ~/.sds/config
-      echo >> ~/.sds/config"
+      echo >> ~/.sds/config
       echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config
