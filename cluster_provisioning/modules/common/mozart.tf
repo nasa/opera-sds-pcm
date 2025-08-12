@@ -13,9 +13,6 @@ QUEUES:
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
     %{~endfor~}
   EOT
-  es_cluster_mode = var.grq_aws_es == false ? var.es_cluster_mode : false
-  es_identifier   = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
-  use_mozart_es = false
 }
 
 resource "aws_instance" "mozart" {
@@ -226,6 +223,8 @@ resource "aws_instance" "mozart" {
         echo >> ~/.sds/config
       fi
 
+      echo ES_CLUSTER_MODE: ${local.es_cluster_mode} >> ~/.sds/config"
+      echo >> ~/.sds/config"
       echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config
@@ -321,9 +320,8 @@ resource "aws_instance" "mozart" {
 
       echo SYSTEM_JOBS_QUEUE: system-jobs-queue >> ~/.sds/config
       echo >> ~/.sds/config
-
-      echo MOZART_ES_CLUSTER: resource_cluster >> ~/.sds/config
-      echo METRICS_ES_CLUSTER: metrics_cluster >> ~/.sds/config
+      echo MOZART_ES_CLUSTER: ${local.es_cluster_mode == true ? common_cluster : resource_cluster} >> ~/.sds/config"
+      echo METRICS_ES_CLUSTER: ${local.es_cluster_mode == true ? common_cluster : metrics_cluster} >> ~/.sds/config"
       echo DATASET_QUERY_INDEX: grq >> ~/.sds/config
       echo USER_RULES_DATASET_INDEX: user_rules >> ~/.sds/config
       echo EXTRACTOR_HOME: /home/ops/verdi/ops/${var.project}-pcm/extractor >> ~/.sds/config
