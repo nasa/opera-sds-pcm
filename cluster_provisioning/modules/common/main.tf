@@ -71,6 +71,9 @@ locals {
   ami_versions = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
   # resolve:ssm:arn:aws:ssm:us-west-2:${var.ssm_account_id}:parameter/iems/pcm/verdi/v5.3
   verdi_ssm_arn               = "resolve:ssm:arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
+  es_cluster_mode             = var.grq_aws_es == false ? var.es_cluster_mode : false
+  es_identifier               = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
+  use_mozart_es               = false
 }
 
 resource "null_resource" "download_lambdas" {

@@ -107,6 +107,7 @@ module "common" {
   asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
   cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
   es_bucket_role_arn                      = var.es_bucket_role_arn
+  es_cluster_mode                         = var.cluster_mode
 }
 
 locals {
