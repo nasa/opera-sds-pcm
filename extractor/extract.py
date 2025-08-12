@@ -221,7 +221,13 @@ def create_dataset_id(product, product_types):
     logger.info(f"Product is {product}")
 
     for product_type in list(product_types.keys()):
+        # TODO: Remove debug line
+
+        logger.info(f'Comparing {product_types[product_type]["Pattern"]} to {os.path.basename(product)}')
+
         match = product_types[product_type]["Pattern"].search(os.path.basename(product))
+
+        logger.info(f'{match=}')
 
         if match:
             # Check if the regex matched one of multiple output products which
