@@ -93,6 +93,9 @@ DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES: 210
 # Location of the burst lookup table for DIST-S1 processing
 DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
 
+# Location of the DSWx-NI mgrs tile collection database
+DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/dswx_ni/MGRS_collection_db_DSWx-NI_v0.1.sqlite"
+
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:
