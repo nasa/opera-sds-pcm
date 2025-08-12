@@ -223,7 +223,7 @@ resource "aws_instance" "mozart" {
         echo >> ~/.sds/config
       fi
 
-      echo ES_CLUSTER_MODE: ${local.es_cluster_mode} >> ~/.sds/config"
+      echo ES_CLUSTER_MODE: ${local.es_cluster_mode} >> ~/.sds/config
       echo >> ~/.sds/config"
       echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
@@ -283,11 +283,11 @@ resource "aws_instance" "mozart" {
 
       echo ASG: >> ~/.sds/config
       echo '  SSM_ARN: ${local.verdi_ssm_arn}' >> ~/.sds/config
-#      echo '  AMI: ${data.aws_ami.autoscale_ami.id}' >> ~/.sds/config
+      echo '  AMI: ${data.aws_ami.autoscale_ami.id}' >> ~/.sds/config
       echo '  KEYPAIR: ${local.key_name}' >> ~/.sds/config
       echo '  USE_ROLE: ${var.asg_use_role}' >> ~/.sds/config
       echo '  ROLE: ${var.asg_role}' >> ~/.sds/config
-
+      echo >> ~/.sds/config
       echo STAGING_AREA: >> ~/.sds/config
       echo '  LAMBDA_SECURITY_GROUPS:' >> ~/.sds/config
       echo '    - ${var.cluster_security_group_id}' >> ~/.sds/config
@@ -320,8 +320,10 @@ resource "aws_instance" "mozart" {
 
       echo SYSTEM_JOBS_QUEUE: system-jobs-queue >> ~/.sds/config
       echo >> ~/.sds/config
-      echo MOZART_ES_CLUSTER: ${local.es_cluster_mode == true ? common_cluster : resource_cluster} >> ~/.sds/config"
-      echo METRICS_ES_CLUSTER: ${local.es_cluster_mode == true ? common_cluster : metrics_cluster} >> ~/.sds/config"
+
+      #echo GRQ_ES_PUB_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
+      echo MOZART_ES_CLUSTER: ${local.es_cluster_mode ? "common_cluster" : "resource_cluster"} >> ~/.sds/config
+      echo METRICS_ES_CLUSTER: ${local.es_cluster_mode ? "common_cluster" : "metrics_cluster"} >> ~/.sds/config
       echo DATASET_QUERY_INDEX: grq >> ~/.sds/config
       echo USER_RULES_DATASET_INDEX: user_rules >> ~/.sds/config
       echo EXTRACTOR_HOME: /home/ops/verdi/ops/${var.project}-pcm/extractor >> ~/.sds/config

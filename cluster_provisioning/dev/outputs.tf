@@ -90,6 +90,3 @@ output "factotum_pub_ip" {
   value = module.common.factotum.private_ip
 }
 
-output "es_cluster_mode" {
-  value = var.es_cluster_mode
-}

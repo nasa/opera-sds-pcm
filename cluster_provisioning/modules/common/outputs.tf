@@ -138,3 +138,7 @@ output "metrics_instance_id" {
   value = aws_instance.metrics.id
 } 
 
+output "es_cluster_mode" {
+  value = local.es_cluster_mode
+}
+
