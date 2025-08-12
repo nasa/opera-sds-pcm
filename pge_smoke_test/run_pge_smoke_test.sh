@@ -25,6 +25,9 @@ date 2>&1
 echo "User is $(id -u):$(id -g)"
 echo "Working dir is ${WORKING_DIR}" 2>&1
 
+# TODO deleteme debug
+docker images
+
 VERSION_TAG=$(docker images | grep opera_pge/${PGE_NAME} -m 1 | xargs sh -c 'echo $1') 2>&1
 STATUS=$?
 
