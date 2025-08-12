@@ -96,7 +96,7 @@ set_extra_pge_output_metadata:
 
 # List the extensions that the PGE generates
 output_types:
-  L3_DISP_S1:
+  L3_DISP_NI:
     - nc
     - h5
     - png
