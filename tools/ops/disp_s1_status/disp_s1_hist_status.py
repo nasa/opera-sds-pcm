@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from commons.es_connection import get_grq_es
+from opera_commons.es_connection import get_grq_es
 
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 

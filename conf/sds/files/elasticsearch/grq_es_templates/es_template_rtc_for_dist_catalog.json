@@ -1,0 +1,34 @@
+{
+  "index_patterns": ["rtc_for_dist_catalog", "rtc_for_dist_catalog-*"],
+  "template": {
+    "settings": {
+      "index": {
+        "sort.field": "creation_timestamp",
+        "sort.order": "asc"
+      },
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "granule_id"        : {"type": "keyword"},
+        "revision_id"       : {"type": "integer"},
+        "tile_id"           : {"type": "keyword"},
+        "acquisition_cycle" : {"type": "integer"},
+        "acquisition_group" : {"type": "keyword"},
+        "product_id"        : {"type": "keyword"},
+        "batch_id"          : {"type": "keyword"},
+        "download_batch_id" : {"type": "keyword"},
+        "s3_url"            : {"type": "keyword"},
+        "https_url"         : {"type": "keyword"},
+        "creation_timestamp": {"type": "date"   },
+        "download_datetime" : {"type": "date"   },
+        "downloaded"        : {"type": "boolean"}
+      }
+    },
+    "aliases": {
+      "catalog_alias": {},
+      "rtc_for_dist_catalog_alias": {}
+    }
+  }
+}

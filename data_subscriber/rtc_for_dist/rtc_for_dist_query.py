@@ -1,23 +1,31 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+import dateutil
 from copy import deepcopy
 import asyncio
+import json
 
 from util.job_submitter import try_submit_mozart_job
 
+from data_subscriber.es_conn_util import get_document_timestamp_min_max
+
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
-from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
+from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
+from data_subscriber.query import BaseQuery, get_query_timerange, DateTimeRange
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
-                                           dist_s1_download_batch_id, build_rtc_native_ids, rtc_granules_by_acq_index,
+                                           extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
-                                           parse_k_parameter)
-#from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
+                                           parse_k_parameter, decorate_granule, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
+
+from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
+MAX_CMR_RTC_CACHE_GAP_DAYS = 3
 
-class RtcForDistCmrQuery(CmrQuery):
+class RtcForDistCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings, dist_s1_burst_db_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
@@ -27,14 +35,16 @@ class RtcForDistCmrQuery(CmrQuery):
         else:
             self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
 
-        self.grace_mins = args.grace_mins if args.grace_mins else settings["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
+        self.grace_mins = args.grace_mins if args.grace_mins else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
 
-        #self.dist_dependency = DistDependency()
+        self.dist_dependency = DistDependency(self.logger, self.dist_products, self.bursts_to_products, self.product_to_bursts, settings)
 
         '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
         self.batch_id_to_k_granules = {}
+
+        self.settings = settings
 
         self.force_product_id = None
 
@@ -58,7 +68,58 @@ class RtcForDistCmrQuery(CmrQuery):
 
     def query_cmr(self, timerange, now: datetime):
         if self.args.proc_mode == "forward":
+
+            # "Normal" query for granules
             granules = super().query_cmr(timerange, now)
+
+            ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
+            1. Get the last revision time found in the cache
+            2. Query CMR for all granules between the start time of this query and the last revision time found in the cache
+            3. Insert them into cmr_rtc_cache
+            '''
+
+            # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
+            try:
+                last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
+                last_revision_time = last_revision_time[:-6] + "Z"
+            except Exception as e:
+                self.logger.error(f"Error getting the last revision time found in cmr_rtc_cache: {e}")
+                raise AssertionError(f"Error getting the last revision time found in cmr_rtc_cache: {e}. \
+You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
+
+            # The time cutoff of CMR is a bit fuzzy. We'll err on the side of including more granules.
+            # String comparison is fine because the times are formatted as 2025-07-01T01:00:00Z
+            if timerange.start_date < last_revision_time:
+                self.logger.warning(f"{last_revision_time=} is greater than the start time of this query {timerange.start_date}. \
+This is unusual. Still inserting the granules into the cmr_rtc_cache.")
+                granules_for_cache = granules
+
+            # The date difference is too large, greater than 3 days. In this case we'll throw an error
+            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ") - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ") > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
+                raise AssertionError(f"The date difference between the start time of this query {timerange.start_date} \
+and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
+You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
+
+            else:
+                # Query CMR for all granules between the start time of this query and the last revision time found in the cache
+                delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
+                self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
+
+                delta_granules = super().query_cmr(delta_timerange, now)
+                self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
+                granules_for_cache = granules + delta_granules
+
+            if self.args.use_temporal is False:
+                decorated_granules = []
+                for granule in granules_for_cache:
+                    decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
+                    decorated_granules.append(decorated_granule)
+
+                # Insert them into cmr_rtc_cache
+                populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+            else:
+                self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
+
         elif self.args.proc_mode == "reprocessing":
             granules = []
 
@@ -111,35 +172,7 @@ class RtcForDistCmrQuery(CmrQuery):
         return filtered_granules
 
     def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
-
-        extended_granules = []
-
-        def decorate_granule(granule):
-            granule["tile_id"] = granule["product_id"].split("_")[0]
-            granule["acquisition_group"] = granule["product_id"].split("_")[1]
-            granule["batch_id"] = granule["product_id"] + "_" + str(granule["acquisition_cycle"])
-            granule["download_batch_id"] = dist_s1_download_batch_id(granule)
-            granule["unique_id"] = rtc_for_dist_unique_id(granule["download_batch_id"], granule["burst_id"])
-
-        for granule in granules:
-            rtc_granule_id = granule["granule_id"]
-            product_ids = list(self.bursts_to_products[granule["burst_id"]])
-
-            if len(product_ids) == 0:
-                self.logger.error(f"This shouldn't happen. Skipping {rtc_granule_id} as it does not belong to any DIST-S1 product.")
-                continue
-
-            granule["product_id"] = force_product_id if force_product_id else product_ids[0]
-            decorate_granule(granule)
-
-            if len(product_ids) > 1 and no_duplicate == False:
-                for product_id in product_ids[1:]:
-                    new_granule = deepcopy(granule)
-                    new_granule["product_id"] = force_product_id if force_product_id else product_id
-                    decorate_granule(new_granule)
-                    extended_granules.append(new_granule)
-
-        granules.extend(extended_granules)
+        extend_rtc_for_dist_records(self.bursts_to_products, granules, no_duplicate, force_product_id)
 
     def prepare_additional_fields(self, granule, args, granule_id):
         """This is used to determine download_batch_id and attaching it the granule.
@@ -334,18 +367,34 @@ there must be a default value. Cannot retrieve baseline granules.")
             product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
 
             product_type = "rtc_for_dist"
+            job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
-            '''# If the previous run for this tile has not been processed, submit as a pending job
-            if self.dist_dependency.should_wait_previous_run(batch_id):
+            # If the previous run for this tile has not been processed, submit as a pending job
+            # previous_tile_product_file_paths can be None or a list of file paths
+
+            # From  "https://datapool.asf.alaska.edu/RTC/OPERA-S1/OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0_VH.tif" ...
+            # To: OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0
+            one_rtc_granule = urls[0].split("/")[-1][:-7]
+            burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
+            acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
+
+            should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id, acquisition_ts)
+
+            self.populate_product_metadata(product_metadata, previous_tile_product_file_paths)
+
+            add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id, "acquisition_ts": acquisition_ts}
+
+            if should_wait:
                 self.logger.info(
-                    f"Previous run for {batch_id} has not been processed yet. Skipping download job submission.")
-                # save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
-                #                                           product_type, params, self.args.job_queue, job_name,
-                #                                            frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
-                continue'''
+                    f"We will wait for the previous run for the job {previous_tile_job_id} to complete before submitting the download job.")
+                params = self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata, for_pending_job=True)
+                save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD, self.settings["RELEASE_VERSION"],
+                                                           product_type, params, self.args.job_queue, job_name, add_attributes)
+                continue
 
+            params = self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata)
             download_job_id = try_submit_mozart_job(product = {},
-                                                    params=self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata),
+                                                    params=params,
                                                     job_queue=self.args.job_queue,
                                                     rule_name=f"trigger-{product_type}_download",
                                                     job_spec=f"job-{product_type}_download:{self.settings['RELEASE_VERSION']}",
@@ -359,13 +408,26 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         return job_submission_tasks
 
-    def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata):
+    def populate_product_metadata(self, product_metadata, previous_tile_product_file_paths):
+        # Append the S3 prefix to the previous_tile_product_file_paths
+        # from:
+        # "OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif"
+        # to:
+        # "s3://self.settings["DATASET_BUCKET"]/products/DIST_S1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif
+        s3_rs_bucket = self.settings["DATASET_BUCKET"]
+        s3_rs_prefix = "s3://" + s3_rs_bucket + "/products/DIST_S1/"
+        if previous_tile_product_file_paths:
+            previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
+            self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
+        product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
+
+    def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata, for_pending_job=False):
         params = super().create_download_job_params(query_timerange, chunk_batch_ids)
         params.append({
             "name": "product_metadata",
             "from": "value",
             "type": "object",
-            "value": product_metadata
+            "value": json.dumps(product_metadata) if for_pending_job else product_metadata # Pending jobs goes into ES as a string
         })
         return params
 

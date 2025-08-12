@@ -7,7 +7,7 @@ import argparse
 import sys
 from urllib.parse import urlparse
 
-from commons.logger import configure_library_loggers, get_logger
+from opera_commons.logger import configure_library_loggers, get_logger
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
@@ -20,6 +20,7 @@ from data_subscriber.cmr import (ProductType, PGEProduct,
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
 from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
+from data_subscriber.dataspace_download import DataspaceDownload
 from data_subscriber.gcov.gcov_catalog import NisarGcovProductCatalog
 from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
@@ -122,6 +123,8 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
         downloader = AsfDaacCslcDownload(provider)
     elif provider == Provider.ASF_CSLC_STATIC:
         raise NotImplementedError("Direct download of CSLC-STATIC products is not supported")
+    elif provider == Provider.DATASPACE:
+        downloader = DataspaceDownload(provider)
     else:
         raise ValueError(f'Unknown product provider "{provider}"')
 
@@ -136,7 +139,7 @@ def supply_es_conn(args):
 
     if provider == Provider.LPCLOUD:
         es_conn = HLSProductCatalog(logger)
-    elif provider in (Provider.ASF, Provider.ASF_SLC):
+    elif provider in (Provider.ASF, Provider.ASF_SLC, Provider.DATASPACE):
         es_conn = SLCProductCatalog(logger)
     elif provider == Provider.ASF_RTC: # RTC input can have multiple product types
         if hasattr(args, "product") and args.product == PGEProduct.DIST_1:

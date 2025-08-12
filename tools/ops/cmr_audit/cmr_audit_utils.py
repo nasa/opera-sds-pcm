@@ -1,10 +1,11 @@
+import argparse
 import asyncio
 import datetime
 import logging
 import urllib
 from io import StringIO
 from pprint import pprint
-from typing import Union, Iterable, Optional
+from typing import Union, Iterable, Optional, Literal
 
 import aiohttp
 import dateutil.parser
@@ -161,3 +162,46 @@ def str2bool(v):
         return False
     else:
         raise Exception('Boolean value expected.')
+
+
+def init_logging(log_name = 'cmr_audit.log', log_error_name = "cmr_audit-error.log", level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
+    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
+    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
+    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
+    rfh1 = logging.handlers.RotatingFileHandler(log_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1.setLevel(logging.INFO)
+    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh1)
+
+    rfh2 = logging.handlers.RotatingFileHandler(log_error_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2.setLevel(logging.ERROR)
+    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh2)
+
+
+def create_parser():
+    argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument(
+        "--start-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+    )
+    argparser.add_argument(
+        "--end-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+    )
+    argparser.add_argument(
+        "--output", "-o",
+        help=f'Output filepath.'
+    )
+    argparser.add_argument(
+        "--format",
+        default="txt",
+        choices=["txt", "json"],
+        help=f'Output file format. Defaults to "%(default)s".'
+    )
+    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+
+    return argparser

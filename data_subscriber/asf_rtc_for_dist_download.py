@@ -40,6 +40,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         product_metadata = job_context["product_metadata"]
         current_s3_paths = product_metadata["current_s3_paths"]
         baseline_s3paths = product_metadata["baseline_s3_paths"]
+        previous_tile_product_file_paths = product_metadata["previous_tile_product_file_paths"]
         self.logger.info(f"{product_metadata=}")
 
         to_mark_downloaded = []
@@ -111,7 +112,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         # Now submit DISP-S1 SCIFLO job
         self.logger.info(f"Submitting DIST-S1 SCIFLO job")
 
-        product_id, acquisition_cycle_index = dist_s1_split_download_batch_id(batch_id)
+        product_id, satellite, acquisition_cycle_index = dist_s1_split_download_batch_id(batch_id)
 
         product = {
             "_id": batch_id,
@@ -125,12 +126,14 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                         "L2_RTC_S1": {
                             "baseline_burst_set": baseline_s3paths,
                             "current_burst_set": current_s3_paths,
-                        }
+                        },
+                        "L3_DIST_S1": previous_tile_product_file_paths,
                     },
                     "FileName": batch_id,
                     "id": batch_id,
                     "bounding_box": None, #TODO: Fill this in?
                     "acquisition_cycle": acquisition_cycle_index,
+                    "satellite": satellite,
                     "Files": [
                         {
                             "FileName": PurePath(s3path).name,

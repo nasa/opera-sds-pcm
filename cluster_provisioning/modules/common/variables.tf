@@ -824,7 +824,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20231023-2.1.0"
+  default = "20250729-6.0.0-er.1.0"
 }
 
 variable "crid" {

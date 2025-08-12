@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from tabulate import tabulate
 import opensearchpy
 from util.conf_util import SettingsConf
-from commons.es_connection import get_grq_es, get_mozart_es
+from opera_commons.es_connection import get_grq_es, get_mozart_es
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -69,14 +69,21 @@ def view_proc(id):
                 except:
                     pp = "UNKNOWN"
                 try:
-                    fcp = [f"{frame}: {p}%" for frame, p in proc["frame_completion_percentages"].items()]
+                    fcp = [f"{frame}: {p}%" for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0]))]
 
                     # Every frame that has 100% frame_completion_percentage, check in Mozart ES to see if the last SCIFLO has been completed
                     cf = []
                     job_id_prefixes = {}
-                    for frame, p in proc["frame_completion_percentages"].items():
+                    for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0])):
                         frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
-                        acq_index = frames_to_bursts[int(frame)].sensing_datetime_days_index[frame_state]
+                        # fix for IndexError: list index out of range
+                        sddi = frames_to_bursts[int(frame)].sensing_datetime_days_index
+                        if 0 <= frame_state < len(sddi):
+                            acq_index = sddi[frame_state]
+                        else:
+                            print(f"Frame state {frame_state} out of range for frame {frame} (len={len(sddi)})")
+                            continue  # or handle differently
+
                         job_id_prefix = f"job-WF-SCIFLO_L3_DISP_S1-frame-{frame}-latest_acq_index-{acq_index}_hist"
                         if p == 100:
                             job_id_prefixes[frame] = job_id_prefix

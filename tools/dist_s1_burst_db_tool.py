@@ -8,9 +8,10 @@ import csv
 from tqdm import tqdm
 import geopandas as gpd
 import requests
+from datetime import datetime, timedelta
 from data_subscriber.url import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name
-from data_subscriber.dist_s1_utils import process_dist_burst_db, localize_dist_burst_db
+from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db, trigger_from_cmr_survey_csv
 
 burst_geometry_file_url = "https://github.com/opera-adt/burst_db/releases/download/v0.9.0/burst-id-geometries-simple-0.9.0.geojson.zip"
 burst_geometry_file = "burst-id-geometries-simple-0.9.0.geojson.zip"
@@ -38,32 +39,24 @@ server_parser.add_argument("native_id", help="The RTC native id from CMR")
 
 server_parser = subparsers.add_parser("tile_id", help="Print information based on tile")
 server_parser.add_argument("tile_id", help="The tile ID")
+server_parser.add_argument("--first-product-datetime", help="Use the first product datetime to generate datetime for rest of the products in this tile", required=False, default=None)
 
 server_parser = subparsers.add_parser("burst_id", help="Print information based on burst id.")
 server_parser.add_argument("burst_id", help="Burst id looks like T175-374393-IW1.")
+
+server_parser = subparsers.add_parser("trigger_granules", help="Run the list of granules through the triggering logic. Listed by increasing latest acquisition time.")
+server_parser.add_argument("cmr_survey_csv", help="The cmr survey csv file")
+server_parser.add_argument("--complete-tiles-only", help="Only trigger complete tiles", required=False, default=False)
+server_parser.add_argument("--tile-to-trigger", help="Only trigger a specific tile. This will print out all the RTC granules used in triggering.", required=False, default=None)
 
 args = parser.parse_args()
 
 if args.db_file:
     # First see if a pickle file exists
     pickle_file_name = args.db_file + ".pickle"
-    try:
-        with open(pickle_file_name, "rb") as f:
-            dist_products, bursts_to_products, product_to_bursts, all_tile_ids = pickle.load(f)
-            logger.info("Loaded DIST-S1 burst database from pickle file.")
-    except FileNotFoundError:
-        logger.info(f"Could not find {pickle_file_name}. Processing DIST-S1 burst database file.")
-        logger.info(f"Using local DIST-S1 database parquet file: {args.db_file}")
-        dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(args.db_file)
-        # Check to see if the DIST_BURST_DB_PICKLE_NAME file exists and create it if it doesn't
-        if not os.path.isfile(pickle_file_name):
-            with open(pickle_file_name, "wb") as f:
-                pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
-                logger.info(f"Saved DIST-S1 burst database to {pickle_file_name}.")
-    disp_burst_map_file = args.db_file
+    dist_products, bursts_to_products, product_to_bursts, all_tile_ids = parse_local_burst_db_pickle(args.db_file, pickle_file_name)
 else:
     dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
-    disp_burst_map_file = None
 
 if args.no_geometry is False:
     #Check to see if burst_geometry_file exists on the local filesystem
@@ -131,11 +124,27 @@ elif args.subparser_name == "tile_id":
         print("Tile ID: ", tile_id, "does not exist")
         exit(-1)
 
+    # datetime looks like this: 20250614T015042Z
+    if args.first_product_datetime:
+        first_product_datetime = datetime.strptime(args.first_product_datetime, "%Y%m%dT%H%M%SZ")
+    else:
+        first_product_datetime = None
+
     print("Tile ID: ", tile_id)
     print("Product IDs and burst ids: ")
-    for product_id in sorted(list(dist_products[tile_id])):
+    product_ids = sorted(list(dist_products[tile_id]))
+    first_product_first_burst_id = sorted(list(product_to_bursts[product_ids[0]]))[0]
+    first_burst_identification_number = int(first_product_first_burst_id.split("-")[1])
+    for product_id in product_ids:
         burst_ids = sorted(list(product_to_bursts[product_id]))
-        print(f"{product_id} ({len(burst_ids)} bursts): {burst_ids}")
+        if first_product_datetime:
+            current_burst_identification_number = int(burst_ids[0].split("-")[1])
+            delta_seconds = 12 * 24 * 60 * 60 * (current_burst_identification_number - first_burst_identification_number) / 375887
+            product_datetime = first_product_datetime + timedelta(seconds=delta_seconds)
+            product_datetime_str = product_datetime.strftime("%Y%m%dT%H%M%SZ")
+            print(f"{product_id} ({product_datetime_str}) ({len(burst_ids)} bursts): {burst_ids}")
+        else:
+            print(f"{product_id} ({len(burst_ids)} bursts): {burst_ids}")
 
 elif args.subparser_name == "burst_id":
     burst_id = args.burst_id
@@ -148,3 +157,20 @@ elif args.subparser_name == "burst_id":
     print("Product IDs: ({len(product_ids))", product_ids)
     if args.no_geometry is False:
         print("Burst geometry minx, miny, maxx, maxy: ", get_burst_geometry(burst_id))
+
+elif args.subparser_name == "trigger_granules":
+    print("Triggering granules")
+
+    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
+        trigger_from_cmr_survey_csv(args.cmr_survey_csv, args.complete_tiles_only, 0, datetime.now(), product_to_bursts, bursts_to_products)
+    
+    if args.tile_to_trigger:
+        products_triggered = {k: v for k, v in products_triggered.items() if k.startswith(args.tile_to_trigger)}
+
+    # Sort products_triggered by their latest acquisition time
+    products_triggered_sorted = sorted(products_triggered.items(), key=lambda x: x[1].latest_acquisition)
+    for product_id, product in products_triggered_sorted:
+        print(f"{product_id=} {product.latest_acquisition.strftime('%Y-%m-%d %H:%M:%S')} {product.used_bursts=} {product.possible_bursts=}")
+        if args.tile_to_trigger:
+            print(f"RTC granules: {product.rtc_granules}\n")
+    

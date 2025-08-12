@@ -2,4 +2,4 @@
 0 * * * * source mozart/bin/activate && aws s3 cp s3://opera-pst-rs-pop1/processing_status/DISP_S1/NApriorityrollout_framebased_v7_03Feb2025_aggresive_wSigEvents.json /tmp && python $HOME/mozart/ops/opera-pcm/tools/ops/disp_s1_status/disp_s1_hist_status.py --output-filename=opera_disp_s1_hist_status-ops.geojson /tmp/NApriorityrollout_framebased_v7_03Feb2025_aggresive_wSigEvents.json --verbose 2>&1 | logger -i -p user.notice -t disp_s1_status && python $HOME/mozart/ops/opera-pcm/tools/ops/disp_s1_status/disp_s1_hist_status_render.py opera_disp_s1_hist_status-ops.geojson opera_disp_s1_hist_status-ops.html 2>&1 | logger -i -p user.notice -t disp_s1_status && aws s3 cp opera_disp_s1_hist_status-ops.geojson  s3://opera-pst-rs-pop1/processing_status/DISP_S1/ && aws s3 cp opera_disp_s1_hist_status-ops.html  s3://opera-pst-rs-pop1/processing_status/DISP_S1/
 
 # Run run_ecmwf_merger_daily.sh to submit ECMWF merger jobs
-0 21 * * * source mozart/bin/activate && $HOME/.local/bin/cron/run_ecmwf_merger_daily.sh >> ~/merger_cron.log 2>&1
+#0 21 * * * source mozart/bin/activate && $HOME/.local/bin/cron/run_ecmwf_merger_daily.sh >> ~/merger_cron.log 2>&1

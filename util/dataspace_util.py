@@ -7,7 +7,7 @@ from typing import Tuple
 import backoff
 import requests
 
-from commons.logger import logger
+from opera_commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
 
 DEFAULT_DATASPACE_ENDPOINT = 'dataspace.copernicus.eu'

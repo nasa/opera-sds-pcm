@@ -11,7 +11,7 @@ import re
 import uuid
 
 from commons.logger import get_logger
-from data_subscriber.query import CmrQuery, DateTimeRange
+from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
 from data_subscriber.gcov.gcov_catalog import GcovGranule
@@ -26,11 +26,7 @@ class DswxNiProductsToProcess:
     cycle_number: int
     gcov_input_product_urls: list[str]
 
-class NisarGcovCmrQuery(CmrQuery):
-    """
-    CMR Query class for NISAR GCOV products to support DSWx-NI triggering.
-    This class queries CMR for L2 GCOV products and prepares them for cataloging.
-    """
+class NisarGcovCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

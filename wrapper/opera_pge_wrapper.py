@@ -25,7 +25,7 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             update_disp_s1_static_runconfig,
                             update_dist_s1_runconfig,
                             update_tropo_runconfig)
-from commons.logger import logger
+from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
 from util import pge_util
