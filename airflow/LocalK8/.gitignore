@@ -1,0 +1,11 @@
+
+terraform/local/airflow-local-config
+*.pem
+*.crt
+*.key
+*.env
+*.secret
+logs/
+terraform/local/terraform_state/
+*.tfstate
+*.tfstate.* 
