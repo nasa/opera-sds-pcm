@@ -447,6 +447,70 @@
           "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/TROPO/{id}"
         ]
       }
+    },
+    {
+      "ipath": "hysds::data/L3_DISP_NI",
+      "level": "L3",
+      "type": "L3_DISP_NI",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>NI)_(?P<track>\\d{3})_(?P<orbit_direction>[AB])_(?P<frame_id>\\d{3})_(?P<bandwidth_mode>\\d{2})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\\d{8}T\\d{6}Z)_(?P<sec_datetime>\\d{8}T\\d{6}Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/DISP_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/DISP_NI/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/DISP_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/DISP_NI/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_GSLC_COMPRESSED",
+      "level": "L2",
+      "type": "L2_GSLC_COMPRESSED",
+      "match_pattern": "(?P<id>(?P<prefix>compressed)_(?P<ref_date_time>\\d{8})_(?P<first_date_time>\\d{8})_(?P<last_date_time>\\d{8}))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/GSLC_COMPRESSED/{id}",
+        "urls": [
+          "http://{{ LTS_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/products/GSLC_COMPRESSED/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ LTS_BUCKET }}/products/GSLC_COMPRESSED/{id}"
+        ]
+      }
+    },
+    {
+      "ipath": "hysds::data/L2_GSLC_NI",
+      "level": "L2",
+      "type": "L2_GSLC_NI",
+      "match_pattern": "(?P<id>(?P<project>NISAR)_(?P<level>L2)_(?P<product_type>GSLC)_(?P<source>NI)_(?P<frame_id>F\\d{3})_(?P<sensing_date_time>\\d{8})T\\d{6}Z_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>NI)_(?P<pol>VV|VH|HH|HV)_(?P<product_version>v\\d+[.]\\d+))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/GSLC_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/GSLC_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/GSLC_NI/{id}"
+        ]
+      },
+      "browse": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/GSLC_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/browse/inputs/GSLC_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/GSLC_NI/{id}"
+        ]
+      }
     }
   ]
 }

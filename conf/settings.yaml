@@ -44,6 +44,10 @@ DIST_S1_PRODUCT_VERSION: "0.1"
 TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENITH_PROVISIONAL_V0"
 TROPO_PRODUCT_VERSION: "0.2"
 
+# DISP-NI in R6
+DISP_NI_COLLECTION_NAME: "OPERA_L3_DISP_NI_PROVISIONAL_V0"
+DISP_NI_PRODUCT_VERSION: "0.1"
+
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
 DAAC_S3_CRED_URLS:
@@ -242,6 +246,10 @@ TROPO:
   NUM_THREADS: 2
   # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
   MAX_MEMORY: 8GB
+
+DISP_NI:
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
+  ANCILLARY_MARGIN: 50
 
 
 # End PGE Configuration section
@@ -567,7 +575,7 @@ PRODUCT_TYPES:
 
     L4_TROPO:
         # Pattern for parsing filenames
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)-ZENITH_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<product_version>v\d+[.]\d+))?[.](?P<ext>nc|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)-ZENITH_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>nc|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -584,6 +592,61 @@ PRODUCT_TYPES:
           Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
           Dataset_Version_Key: 'product_version'
         Dataset_Keys: { }
+
+    L3_DISP_NI:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_20250804T212845Z.nc"
+      # * "OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_20250804T212845Z.iso.xml"
+      # * "OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_20250804T212845Z_BROWSE.png"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>NI)_(?P<track>\d{3})_(?P<orbit_direction>[AB])_(?P<frame_id>\d{3})_(?P<bandwidth_mode>\d{2})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))(_BROWSE)?[.](?P<ext>nc|png|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'ref_datetime', 'sec_datetime' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
+    L2_GSLC_COMPRESSED:
+      # TODO: CGSLC filename convention still TBD, using the SAS default output
+      # Pattern for parsing Compressed SLC output filenames, such as:
+      # * <Placeholder for proper filename> "OPERA_L2_COMPRESSED-CSLC-S1_F11114_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
+      # * "compressed_20060630_20060630_20071118.h5"
+#      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<disp_frame_id>F\d{5})_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<prefix>compressed)_(?P<ref_date_time>\d{8})_(?P<first_date_time>\d{8})_(?P<last_date_time>\d{8}))[.](?P<ext>h5)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%d' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'first_date_time', 'last_date_time' ]
+      Dataset_Keys: { }
+
+    L2_GSLC_NI:
+      # TODO: This is a GUESS, check with Scott S about sourcing proper conventions
+      # Pattern for parsing filenames such as:
+      # * "NISAR_L2_GSLC_NI_F150_20070703T062138Z_20240528T200959Z_NI_HH_v0.1.h5"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>NISAR)_(?P<level>L2)_(?P<product_type>GSLC)_(?P<source>NI)_(?P<frame_id>F\d{3})_(?P<sensing_date_time>\d{8})T\d{6}Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>NI)_(?P<pol>VV|VH|HH|HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'sensing_date_time', 'creation_ts' ]
+      Dataset_Keys: { }
+
+
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # WARNING: ONLY MODIFY THE SETTINGS BELOW IF YOU KNOW WHAT YOU'RE DOING !!!!!!!!!!!!!!
