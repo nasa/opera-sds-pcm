@@ -59,7 +59,7 @@ def get_es_connection(logger):
                 CONN.es.ping()  # TODO chrisjrd: remove before final
             elif es_engine == "opensearch":
                 CONN = AncillaryUtility(
-                    es_url,
+                    es_url=es_url,
                     engine=es_engine,
                     logger=logger or default_logger,
                     product_metadata=product_metadata,
