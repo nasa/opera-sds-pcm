@@ -56,6 +56,10 @@ DAAC_S3_CRED_URLS:
   RTC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
   CSLC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
 
+# Shortname for the provider type of IONEX file to download.
+# Valid choices are JPL, COD, or ESA (case-insensitive).
+IONEX_PROVIDER: "JPL"
+
 # The minimum coverage, defined as the percent of bursts in a bursts set, required to run DSWx_S1
 #  Must be an integer in the closed interval [0, 100] or null (~).
 #  Cannot be set together with DSWX_S1_MINIMUM_NUMBER_OF_BURSTS_REQUIRED.
