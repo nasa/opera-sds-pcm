@@ -124,7 +124,7 @@ def view_proc(id):
         if len(rows) == 0:
             print("No enabled batch procs found")
             return
-        print(tabulate(rows, headers=["ID (enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames", "Uncomplted frames"], tablefmt="grid", maxcolwidths=[None, None, 5, 30, 55, 30, 25]))
+        print(tabulate(rows, headers=["ID (enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames", "Uncompleted frames"], tablefmt="grid", maxcolwidths=[None, None, 5, 30, 55, 30, 25]))
 
         return
 
