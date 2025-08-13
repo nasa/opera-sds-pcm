@@ -1,11 +1,12 @@
 from airflow.decorators import dag, task, task_group
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import time
 import logging
 import yaml
 import os
 import docker
 from util import get_tropo_objects
+import boto3
 
 
 bucket_name = ''
@@ -55,7 +56,7 @@ default_args = {
 
 
 @dag(
-    dag_id='tropo_dag',
+    dag_id='tropo_PGE',
     default_args=default_args,
     schedule=None,
     start_date=datetime(2025, 1, 1),
@@ -66,37 +67,28 @@ def tropo_job_dag():
     
     @task
     def data_search():
-        
         #temporarily hardcoded data search 
-
+        s3 = boto3.client("s3")
         bucket_name = "opera-ecmwf"
-        urls = get_tropo_objects(bucket_name, date="2024-12-31")
+        response = get_tropo_objects(bucket_name, date="2024-12-31")
+        tropo_directory = "/opt/airflow/config/tropo-objects"
+        file_paths = []
 
-        return urls
+        for obj in response:
+            object_key = obj['Key']
+
+            local_file_path = f"{tropo_directory}/{object_key.split('/')[-1]}"
+          
+            s3.download_file(bucket_name, object_key, local_file_path)
+
+            logging.info(f"Downloaded {object_key} to {local_file_path}")
+
+            file_paths.append(local_file_path)
+
+        return file_paths
 
     @task_group(group_id="tropo_job_group")
-    def process_tropo_object(url):
-
-        @task
-        def job_preprocessing(filepath):
-            logging.info(f"Preprocessing job {filepath}")
-            
-            DAG_DIR = os.path.dirname(__file__)
-            template_file = os.path.join(DAG_DIR, "tropo_sample_runconfig-v3.0.0-er.3.1.yaml")
-            config_path = create_modified_runconfig(
-                template_path=template_file,
-                output_path= f"/opt/airflow/config/{filepath.split('/')[-1].split('.')[0]}/",
-                input_file=  filepath,
-                output_dir="/opt/airflow/output",
-                scratch_dir="/opt/airflow/config/scratch",
-                n_workers=4,
-                product_version="0.3"
-            )
-            return
-        
-
-        @task_group(group_id="tropo_job_group")
-    def process_tropo_object(data_filepath):
+    def process_tropo_object(filepath):
 
         @task
         def job_preprocessing(filepath):
@@ -116,7 +108,7 @@ def tropo_job_dag():
             )
             return config_path
 
-        preprocessing_result = job_preprocessing(filepath=data_filepath)
+        preprocessing_result = job_preprocessing(filepath=filepath)
         
 
         @task
@@ -168,7 +160,7 @@ def tropo_job_dag():
 
             return f"Container {container_name_local} completed"
 
-        spinup_workers_result = spinup_workers(config_path=preprocessing_result, input_path=data_filepath)
+        spinup_workers_result = spinup_workers(config_path=preprocessing_result, input_path=filepath)
 
         @task 
         def post_processing():
@@ -181,7 +173,7 @@ def tropo_job_dag():
         preprocessing_result >> spinup_workers_result >> post_processing_result
     
     data_filepaths = data_search()
-    process_tropo_object.expand(url=data_filepaths)
+    process_tropo_object.expand(filepath=data_filepaths)
 
 # Instantiate the DAG
 job = tropo_job_dag()

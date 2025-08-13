@@ -21,7 +21,7 @@ default_args = {
 
 
 @dag(
-    dag_id='tropo_dag',
+    dag_id='tropo_mozart',
     default_args=default_args,
     schedule=None,
     start_date=datetime(2025, 1, 1),
