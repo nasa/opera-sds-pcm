@@ -11,15 +11,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from tabulate import tabulate
-import opensearchpy
+
+from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+
 from util.conf_util import SettingsConf
-from opera_commons.es_connection import get_grq_es, get_mozart_es
+
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
 SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
+GRQ_IP = SETTINGS["GRQ_PVT_IP"]
+MOZART_IP = SETTINGS["MOZART_PVT_IP"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
@@ -29,8 +33,11 @@ logging.basicConfig(format=FORMAT)
 LOGGER = logging.getLogger('pcm_batch')
 LOGGER.setLevel(logging.INFO)
 
-eu = get_grq_es(LOGGER)
-eu_mzt = get_mozart_es(LOGGER)
+eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, LOGGER)
+LOGGER.debug("Connected to %s" % str(eu.es_url))
+
+eu_mzt = ElasticsearchUtility('http://%s:9200' % MOZART_IP, LOGGER)
+LOGGER.debug("Connected to %s" % str(eu_mzt.es_url))
 
 FILE_OPTION = '--file'
 
@@ -51,12 +58,7 @@ def view_proc(id):
     # If id is all or ALL then get all batch procs that are currently enabled
     if id.lower() == "all":
         query = {"query": {"term": {"enabled": True}}}
-
-        try:
-            procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
-        except opensearchpy.exceptions.NotFoundError as e:
-            print("No batch procs found. Please create one first.")
-            return
+        procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
         rows = []
         for hit in procs['hits']['hits']:
             proc = hit['_source']
@@ -70,13 +72,14 @@ def view_proc(id):
                     pp = "UNKNOWN"
                 try:
                     fcp = [f"{frame}: {p}%" for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0]))]
+                    #fcp = [f"{frame}: {p}%" for frame, p in proc["frame_completion_percentages"].items()]
 
                     # Every frame that has 100% frame_completion_percentage, check in Mozart ES to see if the last SCIFLO has been completed
                     cf = []
+                    ucf = [] # for the uncomplted frame
                     job_id_prefixes = {}
                     for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0])):
                         frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
-                        # fix for IndexError: list index out of range
                         sddi = frames_to_bursts[int(frame)].sensing_datetime_days_index
                         if 0 <= frame_state < len(sddi):
                             acq_index = sddi[frame_state]
@@ -102,24 +105,26 @@ def view_proc(id):
                         for j in sciflo_jobs:
                             if j['_source']['status'] == "job-completed":
                                 cf.append(int(frame))
-
+                    ucf = list(set(proc["frames"]) - set(cf))
                 except:
+                    #print(f"Error in frame processing: {e}", exc_info=True)
                     fcp = "UNKNOWN"
                     cf = "UNKNOWN"
+                    ucf = "UNKNOWN"
 
-                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf])
+                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf, ucf])
             else:
                 # progress percentage is the ratio of last_successful_proc_data_date in the range between data_start_date and data_end_date
                 total_time = convert_datetime(proc["data_end_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 processed_time = convert_datetime(proc["last_successful_proc_data_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 progress_percentage = (processed_time / total_time) * 100
-                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A"])
+                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A", "N/A"])
 
         print(" --- Showing Summary of Enabled Batch Procs --- ")
         if len(rows) == 0:
             print("No enabled batch procs found")
             return
-        print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60, 30]))
+        print(tabulate(rows, headers=["ID (enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames", "Uncomplted frames"], tablefmt="grid", maxcolwidths=[None, None, 5, 30, 55, 30, 25]))
 
         return
 
@@ -174,12 +179,7 @@ def batch_proc_once():
     args = parser.parse_args(sys.argv[1:])
 
     if args.subparser_name == "list":
-
-        try:
-            procs = eu.query(index=ES_INDEX)
-        except opensearchpy.exceptions.NotFoundError as e:
-            print("No batch procs found. Please create one first.")
-            return
+        procs = eu.query(index=ES_INDEX)
 
         print("%d Batch Procs Found" % len(procs))
 
