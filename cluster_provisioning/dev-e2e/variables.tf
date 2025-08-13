@@ -374,7 +374,7 @@ variable "pge_releases" {
     "disp_s1"  = "3.0.7"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.1.0"
-    "tropo"    = "3.0.0-er.3.1-tropo"
+    "tropo"    = "3.0.0-rc.1.0-tropo"
   }
 }
 
