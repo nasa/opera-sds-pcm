@@ -36,7 +36,7 @@ def slc_s1_lineage_metadata(context, work_dir):
     lineage_metadata.extend(local_tec_filepaths)
 
     # New Ionosphere files
-    local_tec_filepaths = glob.glob(os.path.join(work_dir, "JPL*.INX"))
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "*.INX"))
     lineage_metadata.extend(local_tec_filepaths)
 
     local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
