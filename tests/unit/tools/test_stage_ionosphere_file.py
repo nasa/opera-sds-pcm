@@ -84,9 +84,10 @@ class TestStageIonosphereFile(unittest.TestCase):
         test_date = "20250804"
         year, julian_day = tools.stage_ionosphere_file.start_date_to_julian_day(test_date)
         ionosphere_type = IONOSPHERE_TYPE_FIN
+        provider = PROVIDER_JPL
 
         legacy_archive_name = tools.stage_ionosphere_file.get_legacy_archive_name(
-            ionosphere_type, julian_day, year
+            ionosphere_type, provider, julian_day, year
         )
 
         self.assertEqual(legacy_archive_name, "jplg2160.25i.Z")
@@ -94,10 +95,44 @@ class TestStageIonosphereFile(unittest.TestCase):
         ionosphere_type = IONOSPHERE_TYPE_RAP
 
         legacy_archive_name = tools.stage_ionosphere_file.get_legacy_archive_name(
-            ionosphere_type, julian_day, year
+            ionosphere_type, provider, julian_day, year
         )
 
         self.assertEqual(legacy_archive_name, "jprg2160.25i.Z")
+
+        ionosphere_type = IONOSPHERE_TYPE_FIN
+        provider = PROVIDER_ESA
+
+        legacy_archive_name = tools.stage_ionosphere_file.get_legacy_archive_name(
+            ionosphere_type, provider, julian_day, year
+        )
+
+        self.assertEqual(legacy_archive_name, "esag2160.25i.Z")
+
+        ionosphere_type = IONOSPHERE_TYPE_RAP
+
+        legacy_archive_name = tools.stage_ionosphere_file.get_legacy_archive_name(
+            ionosphere_type, provider, julian_day, year
+        )
+
+        self.assertEqual(legacy_archive_name, "esrg2160.25i.Z")
+
+        ionosphere_type = IONOSPHERE_TYPE_FIN
+        provider = PROVIDER_COD
+
+        legacy_archive_name = tools.stage_ionosphere_file.get_legacy_archive_name(
+            ionosphere_type, provider, julian_day, year
+        )
+
+        self.assertEqual(legacy_archive_name, "codg2160.25i.Z")
+
+        ionosphere_type = IONOSPHERE_TYPE_RAP
+
+        legacy_archive_name = tools.stage_ionosphere_file.get_legacy_archive_name(
+            ionosphere_type, provider, julian_day, year
+        )
+
+        self.assertEqual(legacy_archive_name, "corg2160.25i.Z")
 
     def test_get_new_archive_name(self):
         """Tests for the get_new_archive_name() function"""

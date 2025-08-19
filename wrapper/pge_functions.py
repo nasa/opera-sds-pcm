@@ -32,7 +32,7 @@ def slc_s1_lineage_metadata(context, work_dir):
     lineage_metadata.extend(local_dem_filepaths)
 
     # Legacy Ionosphere files
-    local_tec_filepaths = glob.glob(os.path.join(work_dir, "jp*.*i"))
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "*0.*i"))
     lineage_metadata.extend(local_tec_filepaths)
 
     # New Ionosphere files

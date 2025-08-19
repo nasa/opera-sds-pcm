@@ -32,6 +32,9 @@ IONOSPHERE_TYPE_FIN = "FIN"
 VALID_IONOSPHERE_TYPES = [IONOSPHERE_TYPE_RAP, IONOSPHERE_TYPE_FIN]
 """The valid Ionosphere file types that this script can download"""
 
+LEGACY_IONOSPHERE_TYPES = ['jplg', 'jprg', 'esrg', 'esag', 'corg', 'codg']
+"""The legacy Ionosphere file types that this script can download"""
+
 PROVIDER_JPL = "JPL"
 PROVIDER_ESA = "ESA"
 PROVIDER_COD = "COD"
@@ -266,9 +269,16 @@ def start_date_to_julian_day(start_date):
 
     return str(year), str(doy)
 
-def get_legacy_archive_name(ionosphere_file_type, doy, year):
-    """Returns the Ionosphere archive name using the legacy JPL naming conventions"""
-    legacy_ionosphere_type = "jprg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "jplg"
+def get_legacy_archive_name(ionosphere_file_type, provider, doy, year):
+    """Returns the Ionosphere archive name using the legacy CDDIS naming conventions"""
+    if provider == PROVIDER_JPL:
+        legacy_ionosphere_type = "jprg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "jplg"
+    elif provider == PROVIDER_ESA:
+        legacy_ionosphere_type = "esrg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "esag"
+    elif provider == PROVIDER_COD:
+        legacy_ionosphere_type = "corg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "codg"
+    else:
+        raise ValueError(f"Invalid provider type specified. Must be one of {VALID_PROVIDER_TYPES}")
 
     archive_name = f"{legacy_ionosphere_type}{doy}0.{year[2:]}i.Z"
 
@@ -421,14 +431,11 @@ def main(args):
 
     # Formulate the archive name and URL location based on the file type, provider
     # and the Julian date of the SLC archive.
-    legacy_archive_name = get_legacy_archive_name(args.type, doy, year)
+    legacy_archive_name = get_legacy_archive_name(args.type, args.provider, doy, year)
     new_archive_name = get_new_archive_name(args.type, args.provider, doy, year)
 
-    # For JPL provided files there are two file-naming conventions we need to account for.
-    if args.provider == PROVIDER_JPL:
-        names_to_check = (legacy_archive_name, new_archive_name)
-    else:
-        names_to_check = new_archive_name,
+    # There are two file-naming conventions we need to account for.
+    names_to_check = (legacy_archive_name, new_archive_name)
 
     # Check for the first available of the available naming conventions
     for archive_name in names_to_check:
