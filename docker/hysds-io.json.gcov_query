@@ -47,8 +47,8 @@
     {
       "name": "chunk_size",
       "from": "submitter",
-      "placeholder": "e.g. --chunk_size=<chunk_size>"
-      "type": "text"
+      "placeholder": "e.g. --chunk_size=<chunk_size>",
+      "type": "text",
       "default": "--chunk_size=100"
     },
     {
