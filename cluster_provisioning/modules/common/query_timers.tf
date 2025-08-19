@@ -491,7 +491,7 @@ resource "aws_lambda_permission" "rtc_for_dist_query_timer" {
   function_name = aws_lambda_function.rtc_for_dist_query_timer.function_name
 }
 
-resource "aws_lambda_function" "dswx_ni_query_timer" {
+resource "aws_lambda_function" "gcov_query_timer" {
   depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda function to submit a job that will query DSWx-NI data."
@@ -508,9 +508,9 @@ resource "aws_lambda_function" "dswx_ni_query_timer" {
     variables = {
       "MOZART_URL" : "https://${aws_instance.mozart.private_ip}/mozart",
       "JOB_QUEUE" : "opera-job_worker-sciflo-l3_dswx_ni",
-      "JOB_TYPE" : local.dswx_ni_query_job_type,
+      "JOB_TYPE" : local.gcov_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.dswx_ni_query_timer_trigger_frequency,
+      "MINUTES" : var.gcov_query_timer_trigger_frequency,
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-sciflo-l3_dswx_ni.name,
@@ -528,29 +528,29 @@ resource "aws_lambda_function" "dswx_ni_query_timer" {
     }
   }
 }
-resource "aws_cloudwatch_log_group" "dswx_ni_query_timer" {
-  name              = "/aws/lambda/${aws_lambda_function.dswx_ni_query_timer.function_name}"
+resource "aws_cloudwatch_log_group" "gcov_query_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.gcov_query_timer.function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
-resource "aws_cloudwatch_event_rule" "dswx_ni_query_timer" {
-  name                = "${aws_lambda_function.dswx_ni_query_timer.function_name}-Trigger"
+resource "aws_cloudwatch_event_rule" "gcov_query_timer" {
+  name                = "${aws_lambda_function.gcov_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.dswx_ni_query_timer_trigger_frequency
+  schedule_expression = var.gcov_query_timer_trigger_frequency
   is_enabled          = local.enable_download_timer
   depends_on          = [null_resource.setup_trigger_rules]
 }
-resource "aws_cloudwatch_event_target" "dswx_ni_query_timer" {
-  rule       = aws_cloudwatch_event_rule.dswx_ni_query_timer.name
+resource "aws_cloudwatch_event_target" "gcov_query_timer" {
+  rule       = aws_cloudwatch_event_rule.gcov_query_timer.name
   target_id  = "Lambda"
-  arn        = aws_lambda_function.dswx_ni_query_timer.arn
+  arn        = aws_lambda_function.gcov_query_timer.arn
   depends_on = [null_resource.setup_trigger_rules]
 }
-resource "aws_lambda_permission" "dswx_ni_query_timer" {
-  statement_id  = aws_cloudwatch_event_rule.dswx_ni_query_timer.name
+resource "aws_lambda_permission" "gcov_query_timer" {
+  statement_id  = aws_cloudwatch_event_rule.gcov_query_timer.name
   action        = "lambda:InvokeFunction"
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.dswx_ni_query_timer.arn
-  function_name = aws_lambda_function.dswx_ni_query_timer.function_name
+  source_arn    = aws_cloudwatch_event_rule.gcov_query_timer.arn
+  function_name = aws_lambda_function.gcov_query_timer.function_name
 }
 
 #######################################################################

@@ -11,7 +11,7 @@ import json
 import dateutil.parser
 from more_itertools import chunked
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
@@ -129,19 +129,12 @@ class BaseQuery:
             "download_granules": download_granules
         }
 
-<<<<<<< HEAD
     def query_cmr(self, timerange, now: datetime):
         if self.query_replacement_file:
             with open(self.query_replacement_file, "r") as f:
                 granules = response_jsons_to_cmr_granules(self.args.collection, [json.load(f)], convert_results=True)
         else:
             granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
-=======
-    def query_cmr(self, timerange: DateTimeRange, now: datetime) -> list:
-        self.logger.info("CMR Query STARTED")
-        granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
-        self.logger.info("CMR Query FINISHED")
->>>>>>> develop
         return granules
 
     def query_esa(self, timerange: DateTimeRange, now: datetime) -> list:

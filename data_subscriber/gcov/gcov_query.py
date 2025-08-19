@@ -10,7 +10,7 @@ import os
 import re
 import uuid
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB

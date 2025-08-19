@@ -883,7 +883,7 @@ variable "cslc_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "dswx_ni_query_timer_trigger_frequency" {
+variable "gcov_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
