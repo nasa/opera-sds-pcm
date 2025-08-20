@@ -507,7 +507,7 @@ resource "aws_lambda_function" "gcov_query_timer" {
   environment {
     variables = {
       "MOZART_URL" : "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE" : "opera-job_worker-sciflo-l3_dswx_ni",
+      "JOB_QUEUE" : var.queues.opera-job_worker-gcov_query.name,
       "JOB_TYPE" : local.gcov_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
       "MINUTES" : var.gcov_query_timer_trigger_frequency,
