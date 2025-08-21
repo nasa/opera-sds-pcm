@@ -81,13 +81,13 @@ def test_extend_additional_records():
     GRANULE_ID3 = "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"
 
     m = {}
-    m["p31RGQ_3_a302"] = [GRANULE_ID1]
-    m["p32RKV_3_a302"] = [GRANULE_ID1, GRANULE_ID2]
-    m["p32RLV_3_a302"] = [GRANULE_ID2]
-    m["p33VUF_5_a302"] = [GRANULE_ID3]
-    m["p33VVF_4_a302"] = [GRANULE_ID3]
-    m["p33VVE_4_a302"] = [GRANULE_ID3]
-    m["p33VUE_5_a302"] = [GRANULE_ID3]
+    m["p31RGQ_3_S1A_a302"] = [GRANULE_ID1]
+    m["p32RKV_3_S1A_a302"] = [GRANULE_ID1, GRANULE_ID2]
+    m["p32RLV_3_S1A_a302"] = [GRANULE_ID2]
+    m["p33VUF_5_S1A_a302"] = [GRANULE_ID3]
+    m["p33VVF_4_S1A_a302"] = [GRANULE_ID3]
+    m["p33VVE_4_S1A_a302"] = [GRANULE_ID3]
+    m["p33VUE_5_S1A_a302"] = [GRANULE_ID3]
 
     granules = []
     granules.append({"granule_id": GRANULE_ID1})
@@ -163,10 +163,10 @@ def test_determine_download_granules(monkeypatch):
     for granule in download_granules:
         download_batch_id_to_granules[granule["download_batch_id"]].append(granule)
 
-    assert 'p33VUF_5_a302' in download_batch_id_to_granules
-    assert 'p32VPL_5_a302' in download_batch_id_to_granules
-    assert len(download_batch_id_to_granules["p33VUF_5_a302"]) == 11
-    assert len(download_batch_id_to_granules["p32VPL_5_a302"]) == 7
+    assert 'p33VUF_5_S1A_a302' in download_batch_id_to_granules
+    assert 'p32VPL_5_S1A_a302' in download_batch_id_to_granules
+    assert len(download_batch_id_to_granules["p33VUF_5_S1A_a302"]) == 11
+    assert len(download_batch_id_to_granules["p32VPL_5_S1A_a302"]) == 7
 
     assert len(download_granules) == 18
 
@@ -191,10 +191,10 @@ def test_determine_download_granules_grace_period(monkeypatch):
     for granule in download_granules:
         download_batch_id_to_granules[granule["download_batch_id"]].append(granule)
 
-    assert 'p33VVE_4_a302' in download_batch_id_to_granules
-    assert len(download_batch_id_to_granules["p33VVE_4_a302"]) == 4
+    assert 'p33VVE_4_S1A_a302' in download_batch_id_to_granules
+    assert len(download_batch_id_to_granules["p33VVE_4_S1A_a302"]) == 4
 
-    assert 'p33VUF_5_a302' not in download_batch_id_to_granules
+    assert 'p33VUF_5_S1A_a302' not in download_batch_id_to_granules
 
     # Test 2: Both sets were created outside of the grace period: 240 mins so they should all trigger
     mock_es = MockESConnUnsubmittedGranules(cmr_query, _granules_1, _granules_2, 240, 240)
@@ -205,11 +205,11 @@ def test_determine_download_granules_grace_period(monkeypatch):
     for granule in download_granules:
         download_batch_id_to_granules[granule["download_batch_id"]].append(granule)
 
-    assert 'p33VVE_4_a302' in download_batch_id_to_granules
-    assert len(download_batch_id_to_granules["p33VVE_4_a302"]) == 4
+    assert 'p33VVE_4_S1A_a302' in download_batch_id_to_granules
+    assert len(download_batch_id_to_granules["p33VVE_4_S1A_a302"]) == 4
 
-    assert 'p33VUF_5_a302' in download_batch_id_to_granules
-    assert len(download_batch_id_to_granules["p33VUF_5_a302"]) == 1
+    assert 'p33VUF_5_S1A_a302' in download_batch_id_to_granules
+    assert len(download_batch_id_to_granules["p33VUF_5_S1A_a302"]) == 1
 
 
 """def test_reprocessing_by_native_id(caplog):

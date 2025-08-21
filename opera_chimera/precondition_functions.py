@@ -725,6 +725,66 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_disp_ni_sample_inputs(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the DISP-NI
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        s3_bucket = "operasds-dev-pge"
+        s3_key = "disp_ni/disp_ni_interface_0.1.1_expected_input.zip"
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="DISP-NI Inputs"
+        )
+
+        import zipfile
+        with zipfile.ZipFile(output_filepath) as myzip:
+            zip_contents = myzip.namelist()
+            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
+            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
+            myzip.extractall(path=working_dir, members=zip_contents)
+
+        gslc_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+        dynamic_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'dynamic_ancillary_files')
+        static_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'static_ancillary_files')
+
+        gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
+        gunw_file_list = [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file) for gunw_file in
+                          os.listdir(os.path.join(dynamic_ancillary_data_dir, 'gunw_files'))]
+
+        rc_params = {
+            'input_file_paths': gslc_file_list,
+            'algorithm_parameters_file': os.path.join(dynamic_ancillary_data_dir, 'opera_pge_disp_ni_r1.0_interface_algorithm_parameters_historical.yaml'),
+            'dem_file': None,
+            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.tif'),
+            'gunw_files': gunw_file_list,
+            'troposphere_files': [],
+            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir, 'Frame_to_bounds_DISP-NI_v0.1.json'),
+            'reference_date_database_json': os.path.join(static_ancillary_data_dir, 'opera-disp-nisar-reference-dates-dummy.json'),
+            'product_version': "0.1",
+            'save_compressed_slc': True,
+            'polarization': "HH",
+            'frequency': "frequencyA",
+            'frame_id': "150",
+            'product_type': "DISP_NISAR_HISTORICAL",
+            'threads_per_worker': "16",
+            'n_parallel_bursts': "4",
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dist_s1_mgrs_tile(self):
         """
         Assigns the MGRS tile ID for DIST-S1 jobs

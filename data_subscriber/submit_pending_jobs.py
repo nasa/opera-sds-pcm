@@ -6,6 +6,7 @@ after checking if they are ready to be submitted'''
 import logging
 import sys
 import json
+from dateutil.parser import isoparse
 from opera_commons.logger import configure_library_loggers
 from data_subscriber import es_conn_util
 from data_subscriber.cmr import get_cmr_token
@@ -103,18 +104,21 @@ def run(argv: list[str]):
                 3. Delete the job if the previous tile product is not found and the previous tile job is different or None'''
             
             logger.info(f"Found pending rtc for dist download job. Download batch id: {job_source['download_batch_id']}")
-            should_wait, file_paths, previous_tile_job_id = dist_dependency.should_wait_previous_run(job_source['download_batch_id'])
+            current_acquisition_ts = isoparse(job_source['acquisition_ts'])
+            should_wait, file_paths, previous_tile_job_id = dist_dependency.should_wait_previous_run(job_source['download_batch_id'], current_acquisition_ts)
             if should_wait:
                 if previous_tile_job_id == job_source['previous_tile_job_id']:
                     logger.info(f"Previous tile product not found. Waiting for previous tile job to complete: {previous_tile_job_id}")
                     continue
 
-            #If we shouldn't wait or we should wait but the previous tile job is different, submit the job with the information we have.
-
-            if previous_tile_job_id != job_source['previous_tile_job_id']:
-                logger.warning(f"Previous tile job is different from what we've been waiting for. We are in a bad state. Submitting download job: {file_paths}")
-            else:
-                logger.info(f"Previous tile product found. Submitting download job: {file_paths}")
+            '''FUTURE: Not sure if we want to get this detailed but if we want to detect if the the previous tile job is different, here is start of that code
+            As this is written, it's not correct because we could have had been waiting for a download job and then SCIFLO job. So we'd need to make this more sophisticated'''
+            #if previous_tile_job_id != job_source['previous_tile_job_id']:
+            #    logger.warning(f"Previous tile job is different from what we've been waiting for. We are in a bad state. Submitting download job: {file_paths}")
+            #else:
+            
+            #If we shouldn't wait submit the job 
+            logger.info(f"Previous tile product found. Submitting download job: {file_paths}")
 
             # Replace the previous_tile_product_file_paths with the file paths from the previous tile product
             product_metadata = None

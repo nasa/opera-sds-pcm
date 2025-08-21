@@ -145,7 +145,7 @@ def tropo_job_dag():
 
             try:
                 output = client.containers.run(
-                    image="opera_pge/tropo:3.0.0-er.3.1-tropo",
+                    image="opera_pge/tropo:3.0.0-rc.1.0-tropo",
                     command=cmd,
                     name=container_name_local,
                     environment=env_vars,

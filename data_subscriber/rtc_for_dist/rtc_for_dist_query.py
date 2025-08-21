@@ -1,25 +1,31 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+import dateutil
 from copy import deepcopy
 import asyncio
 import json
 
 from util.job_submitter import try_submit_mozart_job
 
+from data_subscriber.es_conn_util import get_document_timestamp_min_max
+
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
-from data_subscriber.query import CmrQuery, get_query_timerange, DateTimeRange
-from data_subscriber.cslc_utils import save_blocked_download_job
+from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
+from data_subscriber.query import BaseQuery, get_query_timerange, DateTimeRange
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
-                                           parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
+                                           parse_k_parameter, decorate_granule, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
+
+from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
+MAX_CMR_RTC_CACHE_GAP_DAYS = 3
 
-class RtcForDistCmrQuery(CmrQuery):
+class RtcForDistCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings, dist_s1_burst_db_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
@@ -62,7 +68,58 @@ class RtcForDistCmrQuery(CmrQuery):
 
     def query_cmr(self, timerange, now: datetime):
         if self.args.proc_mode == "forward":
+
+            # "Normal" query for granules
             granules = super().query_cmr(timerange, now)
+
+            ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
+            1. Get the last revision time found in the cache
+            2. Query CMR for all granules between the start time of this query and the last revision time found in the cache
+            3. Insert them into cmr_rtc_cache
+            '''
+
+            # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
+            try:
+                last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
+                last_revision_time = last_revision_time[:-6] + "Z"
+            except Exception as e:
+                self.logger.error(f"Error getting the last revision time found in cmr_rtc_cache: {e}")
+                raise AssertionError(f"Error getting the last revision time found in cmr_rtc_cache: {e}. \
+You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
+
+            # The time cutoff of CMR is a bit fuzzy. We'll err on the side of including more granules.
+            # String comparison is fine because the times are formatted as 2025-07-01T01:00:00Z
+            if timerange.start_date < last_revision_time:
+                self.logger.warning(f"{last_revision_time=} is greater than the start time of this query {timerange.start_date}. \
+This is unusual. Still inserting the granules into the cmr_rtc_cache.")
+                granules_for_cache = granules
+
+            # The date difference is too large, greater than 3 days. In this case we'll throw an error
+            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ") - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ") > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
+                raise AssertionError(f"The date difference between the start time of this query {timerange.start_date} \
+and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
+You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
+
+            else:
+                # Query CMR for all granules between the start time of this query and the last revision time found in the cache
+                delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
+                self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
+
+                delta_granules = super().query_cmr(delta_timerange, now)
+                self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
+                granules_for_cache = granules + delta_granules
+
+            if self.args.use_temporal is False:
+                decorated_granules = []
+                for granule in granules_for_cache:
+                    decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
+                    decorated_granules.append(decorated_granule)
+
+                # Insert them into cmr_rtc_cache
+                populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+            else:
+                self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
+
         elif self.args.proc_mode == "reprocessing":
             granules = []
 
@@ -314,11 +371,18 @@ there must be a default value. Cannot retrieve baseline granules.")
 
             # If the previous run for this tile has not been processed, submit as a pending job
             # previous_tile_product_file_paths can be None or a list of file paths
-            should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id)
+
+            # From  "https://datapool.asf.alaska.edu/RTC/OPERA-S1/OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0_VH.tif" ...
+            # To: OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0
+            one_rtc_granule = urls[0].split("/")[-1][:-7]
+            burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
+            acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
+
+            should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id, acquisition_ts)
 
             self.populate_product_metadata(product_metadata, previous_tile_product_file_paths)
 
-            add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id}
+            add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id, "acquisition_ts": acquisition_ts}
 
             if should_wait:
                 self.logger.info(

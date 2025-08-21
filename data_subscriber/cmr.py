@@ -40,6 +40,7 @@ class Provider(str, Enum):
     LPCLOUD = "LPCLOUD"
     LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
+    DATASPACE = "DATASPACE"
     ASF_SLC = "ASF-SLC"
     ASF_RTC = "ASF-RTC"
     ASF_CSLC = "ASF-CSLC"
