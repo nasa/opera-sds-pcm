@@ -2,6 +2,7 @@ airflow:
   extraPipPackages:
     - "boto3"
     - "pyYAML"
+    - "docker"
 
 createUserJob:
   useHelmHooks: false
@@ -13,10 +14,18 @@ config:
   core:
     dags_folder: "/opt/airflow/dags"
     load_examples: "${load_examples}"
+  logging:
+    # Enable logging to database to persist logs after pod deletion
+    log_to_database: "True"
+    # Also configure file-based logging with persistence
+    base_log_folder: "/opt/airflow/logs"
+    remote_logging: "False"
   webserver:
     expose_config: "True"
 
+# Enable webserver alongside api-server for proper log serving
 webserver:
+  enabled: true
   replicas: 1
   extraVolumes:
     - name: "local-dags"
@@ -27,6 +36,10 @@ webserver:
       hostPath:
         path: "${aws_path}"
         type: "DirectoryOrCreate"
+    - name: "airflow-logs"
+      hostPath:
+        path: "${dags_path}/../logs"
+        type: "DirectoryOrCreate"
   extraVolumeMounts:
     - name: "local-dags"
       mountPath: "/opt/airflow/dags"
@@ -34,6 +47,9 @@ webserver:
     - name: "aws-credentials"
       mountPath: "/home/airflow/.aws"
       readOnly: true
+    - name: "airflow-logs"
+      mountPath: "/opt/airflow/logs"
+      readOnly: false
   env:
     - name: "AWS_PROFILE"
       value: "saml-pub"
@@ -56,6 +72,7 @@ webserver:
         targetPort: ${webserver_port}
         nodePort: 30080
 
+
 workers:
   replicas: 2
   extraVolumes:
@@ -67,6 +84,22 @@ workers:
       hostPath:
         path: "${aws_path}"
         type: "DirectoryOrCreate"
+    - name: "docker-sock"
+      hostPath:
+        path: "/var/run/docker.sock"
+        type: "Socket"
+    - name: "airflow-output"
+      hostPath:
+        path: "${dags_path}/../output"
+        type: "DirectoryOrCreate"
+    - name: "airflow-config"
+      hostPath:
+        path: "${dags_path}/../config"
+        type: "DirectoryOrCreate"
+    - name: "airflow-logs"
+      hostPath:
+        path: "${dags_path}/../logs"
+        type: "DirectoryOrCreate"
   extraVolumeMounts:
     - name: "local-dags"
       mountPath: "/opt/airflow/dags"
@@ -74,6 +107,18 @@ workers:
     - name: "aws-credentials"
       mountPath: "/home/airflow/.aws"
       readOnly: true
+    - name: "docker-sock"
+      mountPath: "/var/run/docker.sock"
+      readOnly: false
+    - name: "airflow-output"
+      mountPath: "/opt/airflow/output"
+      readOnly: false
+    - name: "airflow-config"
+      mountPath: "/opt/airflow/config"
+      readOnly: false
+    - name: "airflow-logs"
+      mountPath: "/opt/airflow/logs"
+      readOnly: false
   env:
     - name: "AWS_PROFILE"
       value: "saml-pub"
@@ -81,6 +126,8 @@ workers:
       value: "/home/airflow/.aws/credentials"
     - name: "AWS_CONFIG_FILE"
       value: "/home/airflow/.aws/config"
+    - name: "DOCKER_HOST"
+      value: "unix:///var/run/docker.sock"
   resources:
     limits:
       cpu: "${worker_cpu}"
@@ -99,6 +146,10 @@ scheduler:
       hostPath:
         path: "${aws_path}"
         type: "DirectoryOrCreate"
+    - name: "airflow-logs"
+      hostPath:
+        path: "${dags_path}/../logs"
+        type: "DirectoryOrCreate"
   extraVolumeMounts:
     - name: "local-dags"
       mountPath: "/opt/airflow/dags"
@@ -106,6 +157,9 @@ scheduler:
     - name: "aws-credentials"
       mountPath: "/home/airflow/.aws"
       readOnly: true
+    - name: "airflow-logs"
+      mountPath: "/opt/airflow/logs"
+      readOnly: false
   env:
     - name: "AWS_PROFILE"
       value: "saml-pub"
@@ -131,6 +185,10 @@ dagProcessor:
       hostPath:
         path: "${aws_path}"
         type: "DirectoryOrCreate"
+    - name: "airflow-logs"
+      hostPath:
+        path: "${dags_path}/../logs"
+        type: "DirectoryOrCreate"
   extraVolumeMounts:
     - name: "local-dags"
       mountPath: "/opt/airflow/dags"
@@ -138,6 +196,9 @@ dagProcessor:
     - name: "aws-credentials"
       mountPath: "/home/airflow/.aws"
       readOnly: true
+    - name: "airflow-logs"
+      mountPath: "/opt/airflow/logs"
+      readOnly: false
   env:
     - name: "AWS_PROFILE"
       value: "saml-pub"
@@ -163,6 +224,10 @@ triggerer:
       hostPath:
         path: "${aws_path}"
         type: "DirectoryOrCreate"
+    - name: "airflow-logs"
+      hostPath:
+        path: "${dags_path}/../logs"
+        type: "DirectoryOrCreate"
   extraVolumeMounts:
     - name: "local-dags"
       mountPath: "/opt/airflow/dags"
@@ -170,6 +235,9 @@ triggerer:
     - name: "aws-credentials"
       mountPath: "/home/airflow/.aws"
       readOnly: true
+    - name: "airflow-logs"
+      mountPath: "/opt/airflow/logs"
+      readOnly: false
   env:
     - name: "AWS_PROFILE"
       value: "saml-pub"
@@ -184,17 +252,8 @@ triggerer:
     requests:
       cpu: "100m"
       memory: "512Mi"
+
 executor: "KubernetesExecutor"
-# Redis configuration for Celery
-# redis:
-#   enabled: true
-#   resources:
-#     limits:
-#       cpu: "500m"
-#       memory: "512Mi"
-#     requests:
-#       cpu: "50m"
-#       memory: "256Mi"
 
 postgresql:
   enabled: true
