@@ -53,8 +53,13 @@ USE_DAAC_S3_CREDENTIALS: !!bool true
 DAAC_S3_CRED_URLS:
   HLS_DOWNLOAD: https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials
   SLC_DOWNLOAD: https://sentinel1.asf.alaska.edu/s3credentials
-  RTC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
+  RTC_DOWNLOAD: http://cumulus.asf.alaska.edu/s3credentials
   CSLC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
+UAT_DAAC_S3_CRED_URLS:
+  HLS_DOWNLOAD: https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials
+  SLC_DOWNLOAD: https://sentinel1.asf.alaska.edu/s3credentials
+  RTC_DOWNLOAD: http://cumulus-test.asf.alaska.edu/s3credentials
+  CSLC_DOWNLOAD: http://cumulus-test.asf.alaska.edu/s3credentials
 
 # The minimum coverage, defined as the percent of bursts in a bursts set, required to run DSWx_S1
 #  Must be an integer in the closed interval [0, 100] or null (~).
