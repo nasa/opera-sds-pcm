@@ -34,6 +34,8 @@ airflow:
     - "boto3"
     - "pyYAML"
     - "docker"
+    - "awscli"
+    - "apache-airflow-providers-cncf-kubernetes" 
 
 createUserJob:
   useHelmHooks: false
@@ -43,22 +45,24 @@ migrateDatabaseJob:
 
 config:
   core:
-    dags_folder: "/opt/airflow/git-dags/repo/dags"
+    dags_folder: "/opt/airflow/git-dags/repo"
     load_examples: "${load_examples}"
     log_to_database: "True"    
     base_log_folder: "/opt/airflow/logs"
     remote_logging: "False"
+  # kubernetes_executor:
+  #   worker_container_repository: "apache/airflow"
+  #   worker_container_tag: "2.8.0"
+  #   namespace: "airflow"
+  #   delete_worker_pods: "True"
   
 executor: "KubernetesExecutor"
 
 ingress:
   enabled: true
-  
-  apiVersion: networking.k8s.io/v1
-
+  ingressClassName: nginx
   web:
     enabled: true
-    ingressClassName: k8s.io/ingress-nginx
     annotations:
       nginx.ingress.kubernetes.io/rewrite-target: /$2
       nginx.ingress.kubernetes.io/configuration-snippet: |
@@ -81,6 +85,12 @@ webserver:
 
 workers:
   replicas: 2
+  serviceAccount:
+    create: true
+    name: airflow-worker
+    annotations:
+      # IRSA annotation for worker pods (if they need AWS access)
+      # eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT_ID:role/AirflowWorkerRole
   resources:
     limits:
       cpu: "${worker_cpu}"
@@ -136,6 +146,10 @@ triggerer:
 
 postgresql:
   enabled: true
+  image:
+    registry: public.ecr.aws
+    repository: bitnami/postgresql
+    tag: "16.1.0"
   primary:
     persistence:
       enabled: false
@@ -152,3 +166,29 @@ dags:
 logs:
   persistence:
     enabled: false
+
+# Pod template for KubernetesExecutor task pods
+# kubernetesPodTemplate:
+#   apiVersion: v1
+#   kind: Pod
+#   metadata:
+#     name: placeholder-name
+#   spec:
+#     containers:
+#     - name: base
+#       image: apache/airflow:2.8.0
+#       volumeMounts:
+#       - name: airflow-storage
+#         mountPath: /opt/airflow/storage
+#       resources:
+#         requests:
+#           memory: "512Mi"
+#           cpu: "100m"
+#         limits:
+#           memory: "2Gi"
+#           cpu: "1000m"
+#     volumes:
+#     - name: airflow-storage
+#       persistentVolumeClaim:
+#         claimName: airflow-ebs-pvc
+#     restartPolicy: Never
