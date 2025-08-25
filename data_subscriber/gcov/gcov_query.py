@@ -15,6 +15,7 @@ from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
 from data_subscriber.gcov.gcov_catalog import GcovGranule
+from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
 from hysds_commons.job_utils import submit_mozart_job
 from data_subscriber.cslc_utils import get_s3_resource_from_settings
 
@@ -28,17 +29,17 @@ class DswxNiProductsToProcess:
 
 class NisarGcovCmrQuery(BaseQuery):
 
-    def __init__(self, args, token, es_conn, cmr, job_id, settings):
+    def __init__(self, args, token, es_conn, cmr, job_id, settings, mgrs_track_frame_db_file=None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
         self.logger = get_logger()
 
         # source track frame db from ancillary bucket or loads local copy
-        self.mgrs_track_frame_db = self._load_mgrs_track_frame_db()
+        self.mgrs_track_frame_db = self._load_mgrs_track_frame_db(mgrs_track_frame_db_file=mgrs_track_frame_db_file)
         
         self.mgrs_sets_to_process = {}
 
     @cache
-    def _load_mgrs_track_frame_db(self):
+    def _load_mgrs_track_frame_db(self, mgrs_track_frame_db_file=None):
         """
         Load the MGRS track frame database that maps frame numbers to MGRS set IDs.
 
@@ -51,9 +52,12 @@ class NisarGcovCmrQuery(BaseQuery):
             Dictionary mapping frame numbers to MGRS set IDs
         """
         try: 
-            s3, path, file, db_file_url = get_s3_resource_from_settings("DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH")
-            self.logger.info(f"Loading MGRS track frame database from {db_file_url}")
-            s3.Object(db_file_url.netloc, path).download_file(file)
+            if mgrs_track_frame_db_file:
+                file = mgrs_track_frame_db_file
+            else:
+                s3, path, file, db_file_url = get_s3_resource_from_settings("DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH")
+                self.logger.info(f"Loading MGRS track frame database from {db_file_url}")
+                s3.Object(db_file_url.netloc, path).download_file(file)
         except Exception:
             self.logger.warning(f"Could not download DSWx-NI mgrs tile collection database."
                                 f"Attempting to use local copy at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}.")
@@ -163,9 +167,6 @@ class NisarGcovCmrQuery(BaseQuery):
             release_version=self.settings["RELEASE_VERSION"]
         ) for set_to_process in sets_to_process]
 
-    def catalog_granules(self, granules, query_dt):
-        return
-
     def meets_criteria_for_processing(self, mgrs_set_id, cycle_number, related_gcov_products):
         return True
     
@@ -190,9 +191,9 @@ class NisarGcovCmrQuery(BaseQuery):
                     break
 
             # Track, frame and cycle number
-            track_number = self._extract_track_id(granule)
-            frame_number = self._extract_frame_id(granule)
-            cycle_number = self._extract_cycle_number(granule)
+            track_number = extract_track_id(granule)
+            frame_number = extract_frame_id(granule)
+            cycle_number = extract_cycle_number(granule)
 
 
             # MGRS set id: use DB lookup
@@ -223,60 +224,6 @@ class NisarGcovCmrQuery(BaseQuery):
             ))
         return gcov_granules, mgrs_sets_and_cycle_numbers
     
-    def _get_frames_and_track_ids_from_granules(self, granules):
-        """
-        Extract frame numbers and track IDs from a list of granules.
-        
-        Args:
-            granules: List of granules from CMR
-            
-        Returns:
-            Set of tuples (frame number, track ID)
-        """
-        return set((self._extract_frame_id(granule), self._extract_track_id(granule)) for granule in granules)     
- 
-    def _extract_frame_id(self, granule):
-        """
-        Extract the frame ID from a granule.
-        
-        Args:
-            granule: Granule dictionary from data_subscriber.cmr.response_jsons_to_cmr_granules
-            
-        Returns:
-            int: Frame ID
-        """
-        # This might be in the granule_id or in some metadata field
-        granule_id = granule["granule_id"]
-        return int(granule_id.split("_")[7])
-
-    def _extract_track_id(self, granule):
-        """
-        Extract the track ID from a granule.
-        
-        Args:
-            granule: Granule dictionary from data_subscriber.cmr.response_jsons_to_cmr_granules
-            
-        Returns:
-            int: Track ID
-        """
-        # This might be in the granule_id or in some metadata field
-        granule_id = granule["granule_id"]
-        return int(granule_id.split("_")[5])
-    
-    def _extract_cycle_number(self, granule):
-        """
-        Extract the cycle number from a granule.
-        
-        Args:
-            granule: Granule dictionary from data_subscriber.cmr.response_jsons_to_cmr_granules
-            
-        Returns:
-            int: Cycle number
-        """
-        # This might be in the granule_id or in some metadata field
-        granule_id = granule["granule_id"]
-        return int(granule_id.split("_")[4])
-
 
 def submit_dswx_ni_job(params: list[dict[str, str]],
                        job_queue: str,
