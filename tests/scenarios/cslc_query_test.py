@@ -5,7 +5,7 @@ import logging
 import netrc
 import requests
 from time import sleep
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import argparse
 from pathlib import Path
 from data_subscriber import cslc_utils
@@ -242,7 +242,7 @@ if args.clear:
             logging.info("Deleting index: " + index)
             es_conn.es_util.es.indices.delete(index=index, ignore=[400, 404])
 
-test_start_time = datetime.now()
+test_start_time = datetime.now(timezone.utc)
 
 ''' Get password for the hysdsops user from the file ~/.creds and set up rabbit_mq channel
 Looks like this:
@@ -260,7 +260,7 @@ localize_disp_frame_burst_hist()
 
 success = run_query(args, ('hysdsops', password))
 
-logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
+logging.info(f"Test took {datetime.now(timezone.utc) - test_start_time} seconds to run")
 if success:
     logging.info("TEST SUCCESS")
 else:

@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import dateutil
 
@@ -62,7 +62,7 @@ class CSLCDependency:
         args.use_temporal = True
 
         granules = query_cmr_cslc_blackout_polarization(
-            args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), verbose, self.blackout_dates_obj, True, frame_number, self.VV_only)
+            args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc), verbose, self.blackout_dates_obj, True, frame_number, self.VV_only)
 
         return self.k_granules_grouping(frame_number, granules)
 

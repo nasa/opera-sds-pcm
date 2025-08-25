@@ -1,7 +1,7 @@
 import contextlib
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Union
 
@@ -142,7 +142,7 @@ def mock_cnm_r_success_sns(id):
             "version": "1.0",
             "provider": "JPL-OPERA",
             "collection": "SWOT_Prod_l2:1",
-            "processCompleteTime": "{datetime.now().isoformat()}Z",
+            "processCompleteTime": "{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}Z",
             "submissionTime": "2017-09-30T03:42:29.791198Z",
             "receivedTime": "2017-09-30T03:42:31.634552Z",
             "identifier": "{id}",
@@ -167,7 +167,7 @@ def mock_cnm_r_success_sqs(id):
             "version": "1.0",
             "provider": "JPL-OPERA",
             "collection": "SWOT_Prod_l2:1",
-            "processCompleteTime": "{datetime.now().isoformat()}Z",
+            "processCompleteTime": "{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}Z",
             "submissionTime": "2017-09-30T03:42:29.791198Z",
             "receivedTime": "2017-09-30T03:42:31.634552Z",
             "identifier": "{id}",

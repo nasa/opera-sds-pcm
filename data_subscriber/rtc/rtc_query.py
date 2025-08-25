@@ -3,7 +3,7 @@ import asyncio
 import itertools
 import re
 from collections import namedtuple, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from functools import partial
 from itertools import chain
 from pathlib import Path
@@ -41,8 +41,8 @@ class RtcCmrQuery(BaseQuery):
         return result
 
     async def run_query_async(self):
-        query_dt = datetime.now()
-        now = datetime.utcnow()
+        query_dt = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
         self.logger.info("CMR Query STARTED")

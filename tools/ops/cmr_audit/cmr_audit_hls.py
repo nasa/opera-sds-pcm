@@ -8,7 +8,7 @@ import re
 import sys
 import urllib.parse
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta, timezone
 from typing import Union, Iterable
 
 import aiohttp
@@ -211,8 +211,8 @@ def to_dsxw_metadata_small(missing_cmr_granules, cmr_granules_details, input_hls
 async def run(start_datetime: datetime = None, end_datetime: datetime = None, format=None, output=None, **kwargs):
 
     logger.info("Querying CMR for list of expected L30 and S30 granules (HLS)")
-    cmr_start_dt_str = start_datetime.isoformat().replace("+00:00", "Z")
-    cmr_end_dt_str = end_datetime.isoformat().replace("+00:00", "Z")
+    cmr_start_dt_str = start_datetime.replace(tzinfo=None).isoformat()
+    cmr_end_dt_str = end_datetime.replace(tzinfo=None).isoformat()
 
     cmr_granules_l30, cmr_granules_l30_details = await async_get_cmr_granules_hls_l30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
     cmr_granules_s30, cmr_granules_s30_details = await async_get_cmr_granules_hls_s30(temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
@@ -247,7 +247,7 @@ async def run(start_datetime: datetime = None, end_datetime: datetime = None, fo
     logger.info(f"Fully published (granules): {len(cmr_dswx_products)=:,}")
     logger.info(f"Missing processed (granules): {len(missing_cmr_granules_hls)=:,}")
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     start_dt_str = cmr_start_dt_str.replace("-","")
     start_dt_str = start_dt_str.replace("T", "-")

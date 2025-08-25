@@ -2,7 +2,7 @@
 
 import copy
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -128,7 +128,7 @@ class CslcCmrQuery(BaseQuery):
 
                     if self.args.k > 1:
                         k_granules = self.retrieve_k_granules(ready_granules, self.args, self.args.k - 1, True, verbose = False)
-                        self.catalog_granules(k_granules, datetime.now(), self.k_es_conn)
+                        self.catalog_granules(k_granules, datetime.now(timezone.utc), self.k_es_conn)
                         self.logger.info("Length of K-granules: %d", len(k_granules))
                         for k_g in k_granules:
                             self.download_batch_ids[k_g["download_batch_id"]].add(batch_id)
@@ -141,7 +141,7 @@ class CslcCmrQuery(BaseQuery):
             return reproc_granules
 
         # From this point on is forward processing which is the most complex
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         # This list is what is ultimately returned by this function
         download_granules = []

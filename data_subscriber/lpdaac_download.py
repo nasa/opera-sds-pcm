@@ -3,7 +3,7 @@ import json
 import logging
 import shutil
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePath, Path
 
 import requests.utils
@@ -185,7 +185,7 @@ class DaacDownloadLpdaac(BaseDownload):
                 "suffix": ("{version}_{dataset}-{date}".format(
                     version=dataset_json_dict["version"],
                     dataset=merged_met_dict["ProductType"],
-                    date=datetime.utcnow().strftime("%Y.%m")
+                    date=datetime.now(timezone.utc).strftime("%Y.%m")
                 )).lower()  # suffix index name with `-YYYY.MM
             }
         })

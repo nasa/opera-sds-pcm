@@ -6,7 +6,7 @@ from pathlib import Path
 import requests
 from types import SimpleNamespace
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from opera_commons.es_connection import get_grq_es
 from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
@@ -51,7 +51,7 @@ def proc_once(eu, procs, args):
         if "frame_states" not in vars(p):
             p.frame_states = generate_initial_frame_states(p.frames)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if "last_run_date" not in vars(p):
             p.last_run_date = "2000-01-01T00:00:00"
         new_last_run_date = (datetime.strptime(p.last_run_date, ES_DATETIME_FORMAT) +

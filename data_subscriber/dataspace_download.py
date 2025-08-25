@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import backoff
@@ -110,7 +110,7 @@ class DataspaceDownload(AsfDaacSlcDownload):
                 product_filepath.unlink(missing_ok=True)
 
     def try_download_https(self, product_url, dst, session: DataspaceSession):
-        start_t = datetime.now()
+        start_t = datetime.now(timezone.utc)
         try:
             response = self._do_request(product_url, session.token)
             size = 0
@@ -121,7 +121,7 @@ class DataspaceDownload(AsfDaacSlcDownload):
                         size += len(chunk)
                         fp.write(chunk)
 
-            self.logger.info(f'Completed download to {dst} ({size:,} bytes in {datetime.now() - start_t})')
+            self.logger.info(f'Completed download to {dst} ({size:,} bytes in {datetime.now(timezone.utc) - start_t})')
             return True, None
         except Exception as e:
             self.logger.warning(f'Failed to download {product_url}: {e}')

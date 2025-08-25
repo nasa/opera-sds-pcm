@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import backoff
 
@@ -50,7 +50,7 @@ def run_survey(args, token, cmr, settings):
 
     while start_dt < end_dt:
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         step_time = timedelta(hours=float(args.step_hours))
         incre_time = step_time - timedelta(seconds=1)
 

@@ -3,7 +3,7 @@
 import argparse
 import csv
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import pandas as pd
@@ -145,7 +145,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
             "sensor": granule["sensor"],
             "product_version": granule["product_version"],
             "acquisition_cycle": granule["acquisition_cycle"],
-            "creation_timestamp": datetime.now()
+            "creation_timestamp": datetime.now(timezone.utc)
         }
         
         # Index document

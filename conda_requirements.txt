@@ -1,0 +1,5 @@
+conda
+poppler
+gdal
+eccodes==2.31.0
+pandas

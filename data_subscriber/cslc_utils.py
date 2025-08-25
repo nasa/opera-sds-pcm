@@ -1,7 +1,7 @@
 import json
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import cache
 from urllib.parse import urlparse
 import backoff
@@ -280,7 +280,7 @@ def save_blocked_download_job(eu, job_type, release_version, product_type, param
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
-                "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
+                "job_ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
                 "product_type": product_type,
                 **add_attributes,
                 "submitted": False,

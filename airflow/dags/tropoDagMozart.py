@@ -62,7 +62,7 @@ def tropo_job_dag():
                     "metadata": {
                         "batch_id": s3_key,
                         "product_paths": {"L4_TROPO": [object_url]},  
-                        "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                        "ProductReceivedTime": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                         "FileName": PurePath(s3_key).name,
                         "FileLocation": s3_key,
                         "id": s3_key,

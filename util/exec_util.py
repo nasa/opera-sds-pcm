@@ -5,7 +5,7 @@ import sys
 import os
 import traceback
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from subprocess import check_output, STDOUT, CalledProcessError
 
@@ -47,7 +47,7 @@ def exec_wrapper(func):
 def call_noerr(cmd, work_dir, logr=logger):
     """Run command and warn if exit status is not 0."""
     info_dict = {}
-    info_dict["time_start"] = datetime.utcnow().strftime(ISO_DATETIME_PATTERN) + "Z"
+    info_dict["time_start"] = datetime.now(timezone.utc).strftime(ISO_DATETIME_PATTERN) + "Z"
     logr.info("dir: {}".format(os.getcwd()))
     pge_info_path = work_dir + "/_pge_info.json"
     try:

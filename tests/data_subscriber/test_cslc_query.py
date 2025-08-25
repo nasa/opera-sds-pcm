@@ -7,7 +7,7 @@ from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_blackout import process_disp_blackout_dates, DispS1BlackoutDates
 from data_subscriber.parser import create_parser
 from data_subscriber.cslc import cslc_query
-from datetime import datetime
+from datetime import datetime, timezone
 from data_subscriber.cmr import DateTimeRange
 
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",
@@ -40,7 +40,7 @@ def test_reprocessing_by_native_id(caplog):
     reproc_args = create_parser().parse_args(reprocessing_arguments)
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
-    c_query.query_cmr(None, datetime.utcnow())
+    c_query.query_cmr(None, datetime.now(timezone.utc))
     assert ("native_id=OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0 is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
             in caplog.text)
 
@@ -55,7 +55,7 @@ def test_historical_query(caplog):
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60}, BURST_MAP)
 
     # TODO: figure out how to test the query_cmr method
-    #await c_query.query_cmr(query_timerange, datetime.utcnow())
+    #await c_query.query_cmr(query_timerange, datetime.now(timezone.utc))
     #assert ("native_id='OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0' is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
     #        in caplog.text)
 
@@ -69,7 +69,7 @@ def test_reprocessing_by_dates():
     query_timerange = DateTimeRange(reproc_args.start_date, reproc_args.end_date)
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
-    cr = c_query.query_cmr(query_timerange, datetime.utcnow())
+    cr = c_query.query_cmr(query_timerange, datetime.now(timezone.utc))
     args = cr.cr_frame.f_locals["args"]
     assert args.collection == 'OPERA_L2_CSLC-S1_V1'
     assert args.start_date == '2021-01-24T23:00:00Z'

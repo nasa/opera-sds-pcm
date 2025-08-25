@@ -1,5 +1,5 @@
 
-from datetime import date, datetime, timedelta
+from datetime import date, timezone, datetime, timedelta
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -96,7 +96,7 @@ def test_hls_product_catalog():
     test_granule = {
         "granule_id": "HLS.S30.T56MPU.2022152T000741.v2.0-r1",
         "provider": "PO.DAAC",
-        "production_datetime": str(datetime.now()),
+        "production_datetime": str(datetime.now(timezone.utc)),
         "provider_date": str(date.today()),
         "short_name": "HLS.S30.T56MPU",
         "identifier": "HLS.S30.T56MPU.2022152T000741.v2.0",
@@ -118,9 +118,9 @@ def test_hls_product_catalog():
             urls=["s3://path/to/HLS.S30.T56MPU.2022152T000741.v2.0"],
             granule=test_granule,
             job_id="test_hls_job_id",
-            query_dt=datetime.now(),
-            temporal_extent_beginning_dt=datetime.now(),
-            revision_date_dt=datetime.now(),
+            query_dt=datetime.now(timezone.utc),
+            temporal_extent_beginning_dt=datetime.now(timezone.utc),
+            revision_date_dt=datetime.now(timezone.utc),
             revision_id="99",
             additional_kwarg="additional_value"
         )
@@ -137,9 +137,9 @@ def test_hls_product_catalog():
             urls=["https://path/to/HLS.S30.T56MPU.2022152T000741.v2.0"],
             granule=test_granule,
             job_id="test_hls_job_id",
-            query_dt=datetime.now(),
-            temporal_extent_beginning_dt=datetime.now(),
-            revision_date_dt=datetime.now()
+            query_dt=datetime.now(timezone.utc),
+            temporal_extent_beginning_dt=datetime.now(timezone.utc),
+            revision_date_dt=datetime.now(timezone.utc)
         )
         mock_update_document.assert_called()
         assert mock_update_document.call_args.kwargs["id"] == "HLS.S30.T56MPU.2022152T000741.v2.0-r1"
@@ -153,7 +153,7 @@ def test_hls_product_catalog():
             url="s3://path/to/HLS.S30.T56MPU.2022152T000741.v2.0",
             job_id="test_hls_job_id",
             filesize=123,
-            doc={"additional_job_ts": str(datetime.now())}
+            doc={"additional_job_ts": str(datetime.now(timezone.utc))}
         )
         mock_update_document.assert_called()
         assert mock_update_document.call_args.kwargs["id"] == "HLS.S30.T56MPU.2022152T000741.v2.0"
@@ -172,7 +172,7 @@ def test_hls_product_catalog():
 
     with patch("tests.unit.conftest.MockElasticsearchUtility.query") as mock_query:
         # Tests for ProductCatalog.get_all_between()
-        start_dt = datetime.now()
+        start_dt = datetime.now(timezone.utc)
         end_dt = start_dt + timedelta(seconds=30)
 
         hls_product_catalog.get_all_between(start_dt, end_dt, use_temporal=False)
@@ -305,9 +305,9 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
 
     batch_id_to_products_map = {
         "MS_12_16$145": [
-            {"id": "product1", "dswx_s1_jobs_ids": ["id1"], "production_datetime": datetime.now(), "creation_timestamp": datetime.now()},
-            {"id": "product2", "dswx_s1_jobs_ids": ["id2"], "production_datetime": datetime.now(), "creation_timestamp": datetime.now()},
-            {"id": "product3", "dswx_s1_jobs_ids": ["id3"], "production_datetime": datetime.now(), "creation_timestamp": datetime.now()}
+            {"id": "product1", "dswx_s1_jobs_ids": ["id1"], "production_datetime": datetime.now(timezone.utc), "creation_timestamp": datetime.now(timezone.utc)},
+            {"id": "product2", "dswx_s1_jobs_ids": ["id2"], "production_datetime": datetime.now(timezone.utc), "creation_timestamp": datetime.now(timezone.utc)},
+            {"id": "product3", "dswx_s1_jobs_ids": ["id3"], "production_datetime": datetime.now(timezone.utc), "creation_timestamp": datetime.now(timezone.utc)}
         ]
     }
 
@@ -341,12 +341,12 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
             "granule_id": "OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             "filtered_urls": ["s3://path/to/OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                               "https://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0"],
-            "temporal_extent_beginning_datetime": datetime.now().isoformat(),
+            "temporal_extent_beginning_datetime": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "revision_date": date.today().isoformat(),
-            "production_datetime": datetime.now()
+            "production_datetime": datetime.now(timezone.utc)
         }
         rtc_product_catalog.update_granule_index(
-            granule=test_granule, job_id="job_id", query_dt=datetime.now(),
+            granule=test_granule, job_id="job_id", query_dt=datetime.now(timezone.utc),
             mgrs_set_id_acquisition_ts_cycle_indexes=["MS_12_16$146"], additional_kwarg="additional_value"
         )
         mock_update_document.assert_called()

@@ -1,6 +1,6 @@
 
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePath, Path
 from typing import Iterable
 
@@ -99,7 +99,7 @@ class BaseDownload:
 
     def get_download_timerange(self, args):
         start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
-        end_date = args.end_date if args.end_date else datetime.utcnow().strftime(CMR_TIME_FORMAT)
+        end_date = args.end_date if args.end_date else datetime.now(timezone.utc).strftime(CMR_TIME_FORMAT)
         download_timerange = DateTimeRange(start_date, end_date)
         self.logger.info(f"{download_timerange=}")
         return download_timerange

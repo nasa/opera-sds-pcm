@@ -1,6 +1,6 @@
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 import dateutil
 import elasticsearch.helpers
@@ -66,7 +66,7 @@ class RTCProductCatalog(ProductCatalog):
         operations = []
         mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
         for batch_id, product_id_to_products_map in batch_id_to_products_map.items():
-            download_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+            download_job_dts = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
 
             mgrs_set_id = batch_id.split("$")[0]
             number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
@@ -142,7 +142,7 @@ class RTCProductCatalog(ProductCatalog):
 
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
-        dswx_s1_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+        dswx_s1_job_dts = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
 
         for batch_id, products in batch_id_to_products_map.items():
             docs = products
@@ -224,7 +224,7 @@ class RTCProductCatalog(ProductCatalog):
             doc = {
                 "id": f"{granule_id}${mgrs_set_id_acquisition_ts_cycle_index}",
                 "granule_id": granule_id,
-                "creation_timestamp": datetime.now(),
+                "creation_timestamp": datetime.now(timezone.utc),
                 "query_job_id": job_id,
                 "query_datetime": query_dt,
                 "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,

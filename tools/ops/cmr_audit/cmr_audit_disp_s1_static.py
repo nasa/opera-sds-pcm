@@ -4,7 +4,7 @@ import json
 import logging.handlers
 import sys
 from pathlib import Path, PurePath
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
 import pandas as pd
@@ -37,7 +37,7 @@ def create_parser():
     return argparser
 
 def get_out_filename():
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     out_filename = f"{current_dt_str}Z"
 

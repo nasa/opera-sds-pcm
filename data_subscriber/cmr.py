@@ -3,7 +3,7 @@
 import netrc
 import re
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Iterable
 
@@ -141,7 +141,7 @@ async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbo
     }
 
     # derive and apply param "temporal"
-    now_date = datetime.now().strftime(CMR_TIME_FORMAT)
+    now_date = datetime.now(timezone.utc).strftime(CMR_TIME_FORMAT)
     if timerange is not None:
         temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
         logger.debug("Time Range: %s", temporal_range)

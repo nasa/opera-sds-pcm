@@ -13,7 +13,7 @@ import argparse
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from getpass import getuser, getpass
 from pathlib import Path
 
@@ -220,7 +220,7 @@ def main():
                                   on_backoff=backoff_logger,
                                   interval=15)
             def do_download(gid, filename):
-                start_t = datetime.now()
+                start_t = datetime.now(timezone.utc)
                 filename = f"{os.path.splitext(filename)[0]}.zip"
 
                 url = f'{DEFAULT_DOWNLOAD_ENDPOINT}({gid})/$zip'
@@ -249,7 +249,7 @@ def main():
                             size += len(chunk)
                             fp.write(chunk)
 
-                logger.info(f'Completed download for {gid} to {out_path} ({size:,} bytes in {datetime.now() - start_t})')
+                logger.info(f'Completed download for {gid} to {out_path} ({size:,} bytes in {datetime.now(timezone.utc) - start_t})')
 
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = []

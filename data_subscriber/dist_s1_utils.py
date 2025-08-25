@@ -7,7 +7,7 @@ from copy import deepcopy
 import pandas as pd
 from collections import defaultdict, OrderedDict
 import dateutil.parser
-from datetime import date, datetime, timedelta
+from datetime import date, timezone, datetime, timedelta
 
 from opera_commons.logger import get_logger
 from rtc_utils import determine_acquisition_cycle
@@ -415,7 +415,7 @@ if __name__ == "__main__":
 
     logger.info("\nReading RTC CMR survey CSV file...")
     products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
-        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(), product_to_bursts, bursts_to_products)
+        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(timezone.utc), product_to_bursts, bursts_to_products)
 
     # Compute average burst usage percentage
     total_bursts = 0

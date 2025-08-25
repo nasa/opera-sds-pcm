@@ -255,7 +255,7 @@ def cmr_products_native_id_pattern_diff(cmr_products, cmr_native_id_patterns):
 
 def get_out_filename(cmr_start_dt_str, cmr_end_dt_str, product, input="SLC"):
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     start_dt_str = cmr_start_dt_str.replace("-", "")
     start_dt_str = start_dt_str.replace("T", "-")
@@ -304,8 +304,8 @@ def write_missing_products_to_file(out_filename, missing_cmr_granules):
 async def run(start_datetime: datetime = None, end_datetime: datetime = None, do_cslc=False, do_rtc=False, **kwargs):
 
     logger.info("Querying CMR for list of expected SLC granules")
-    cmr_start_dt_str = start_datetime.isoformat().replace("+00:00", "Z")
-    cmr_end_dt_str = end_datetime.isoformat().replace("+00:00", "Z")
+    cmr_start_dt_str = start_datetime.replace(tzinfo=None).isoformat()
+    cmr_end_dt_str = end_datetime.replace(tzinfo=None).isoformat()
 
     cmr_granules_slc_s1a, cmr_granules_slc_s1a_details = await async_get_cmr_granules_slc_s1a(
         temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)

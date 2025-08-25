@@ -128,7 +128,7 @@ def generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_
             "job_id": job_util.supply_job_id(),
             "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
             "source_url": ionosphere_url,
-            "download_datetime":  datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            "download_datetime":  datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
     }
     # DEV: compare to CoreMetExtractor.py

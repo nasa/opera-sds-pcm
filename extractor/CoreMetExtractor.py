@@ -10,7 +10,7 @@ from builtins import object
 import sys
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 
@@ -18,7 +18,7 @@ ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 class CoreMetExtractor(object):
     def get_core_metadata(self, product):
         metadata = {}
-        time_now = datetime.utcnow()
+        time_now = datetime.now(timezone.utc)
         metadata["ProductReceivedTime"] = time_now.strftime(ISO_DATETIME_PATTERN) + "Z"
         metadata["ProductReceivedYear"] = time_now.year
         metadata["ProductReceivedMonth"] = "%02d" % time_now.month

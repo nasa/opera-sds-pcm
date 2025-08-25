@@ -54,8 +54,8 @@ def argparse_dt(dt_str):
     return dt
 
 def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
-    start_date = start_datetime.isoformat().replace("+00:00", "Z")
-    end_date = end_datetime.isoformat().replace("+00:00", "Z")
+    start_date = start_datetime.replace(tzinfo=None).isoformat()
+    end_date = end_datetime.replace(tzinfo=None).isoformat()
     # TODO chrisjrd: filter_land=True
     print("loading mgrs bursts collection database")
     mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=False)
@@ -259,7 +259,7 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
     else:
         logger.info(f"Missing processed RTC (granules): {len(missing_rtc)=:,}")
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     start_dt_str = start_date.replace("-","")
     start_dt_str = start_dt_str.replace("T", "-")

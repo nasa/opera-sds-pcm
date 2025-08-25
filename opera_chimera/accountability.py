@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 
 import backoff
@@ -122,7 +122,7 @@ class OperaAccountability(Accountability):
                 "input_data_type": self.input_files_type,
                 "trigger_dataset_type": self.trigger_dataset_type,
                 "trigger_dataset_id": self.trigger_dataset_id,
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             }
             if self.input_metadata:
                 payload["metadata"] = self.input_metadata

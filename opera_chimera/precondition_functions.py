@@ -11,7 +11,7 @@ import json
 import os
 import re
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePath
 from typing import Dict, List
 from urllib.parse import urlparse
@@ -1461,7 +1461,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         pge_metrics = {"download": [], "upload": []}
 
-        loc_t1 = datetime.utcnow()
+        loc_t1 = datetime.now(timezone.utc)
 
         try:
             staging_func(staging_func_args)
@@ -1473,7 +1473,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 f"Failed to download {ancillary_type} file, reason: {error}\n{trace}"
             )
 
-        loc_t2 = datetime.utcnow()
+        loc_t2 = datetime.now(timezone.utc)
         loc_dur = (loc_t2 - loc_t1).total_seconds()
         path_disk_usage = 0
 

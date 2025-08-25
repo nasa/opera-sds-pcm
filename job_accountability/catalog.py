@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 
@@ -9,7 +9,7 @@ HEADER = "header"
 
 
 def generate_es_index_name():
-    return "jobs_accountability_catalog-{date}".format(date=datetime.utcnow().strftime("%Y.%m"))
+    return "jobs_accountability_catalog-{date}".format(date=datetime.now(timezone.utc).strftime("%Y.%m"))
 
 
 class JobAccountabilityCatalog(ElasticsearchUtility):

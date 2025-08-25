@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 from chimera.pge_job_submitter import PgeJobSubmitter
 from opera_commons.logger import logger
@@ -149,7 +149,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
 
             if self._settings.get(oc_const.PGE_SIM_MODE, True):
                 pge_info = {
-                    "time_start": datetime.utcnow().strftime(ISO_DATETIME_PATTERN)
+                    "time_start": datetime.now(timezone.utc).strftime(ISO_DATETIME_PATTERN)
                     + "Z",
                     "status": 0,
                     "stdout": "",

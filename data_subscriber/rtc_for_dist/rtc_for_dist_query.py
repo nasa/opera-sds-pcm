@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import dateutil
 from copy import deepcopy
 import asyncio
@@ -149,7 +149,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     raise AssertionError(f"No burst_ids found for {product_id=}. Cannot process this product.")
                 self.logger.info(new_args)
                 gs = asyncio.run(
-                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now()))
+                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc)))
                 for g in gs:
                     g["product_id"] = product_id # force product_id because one granule can belong to multiple products
                 granules.extend(gs)
@@ -213,7 +213,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         #print("granules_dict keys: ", granules_dict.keys())
         granule_ids = list(set([g["granule_id"] for g in granules_dict.values()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
-        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
+        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now(timezone.utc))
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
         by_download_batch_id = defaultdict(list)
@@ -299,7 +299,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                 self.logger.debug(new_args)
 
                 # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
+                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc), verbose=verbose))
                 for granule in granules:
                     basic_decorate_granule(granule)
                     granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules

@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import elasticsearch
@@ -68,7 +68,7 @@ class ProductCatalog(ABC):
         return {
             "id": form_batch_id(filename, revision_id),
             "granule_id": granule["granule_id"],
-            "creation_timestamp": datetime.now(),
+            "creation_timestamp": datetime.now(timezone.utc),
             "query_job_id": job_id,
             "query_datetime": query_dt,
             "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
@@ -77,7 +77,7 @@ class ProductCatalog(ABC):
 
     def generate_es_index_name(self):
         """Generates the elasticsearch index name for the current product catalog"""
-        return "{name}-{date}".format(name=self.NAME, date=datetime.utcnow().strftime("%Y.%m"))
+        return "{name}-{date}".format(name=self.NAME, date=datetime.now(timezone.utc).strftime("%Y.%m"))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         results = []
@@ -168,7 +168,7 @@ class ProductCatalog(ABC):
             doc = {}
 
         doc["downloaded"] = True
-        doc["download_datetime"]= datetime.now()
+        doc["download_datetime"]= datetime.now(timezone.utc)
         doc["download_job_id"] = job_id
 
         if filesize:
@@ -200,7 +200,7 @@ class ProductCatalog(ABC):
             "short_name": granule["short_name"],
             "product_id": granule["identifier"],
             "bounding_box": granule["bounding_box"],
-            "creation_timestamp": datetime.now()
+            "creation_timestamp": datetime.now(timezone.utc)
         }
 
         result = self.es_util.index_document(index=self.generate_es_index_name(), body=doc, id=granule["granule_id"])

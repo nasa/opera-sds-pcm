@@ -1,5 +1,5 @@
 from airflow.decorators import dag, task, task_group
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import time
 import logging
 import yaml
@@ -111,7 +111,7 @@ def tropo_job_dag():
             return s3_uri
 
         job_id = str(uuid.uuid4()).replace('-', '')[:8].lower()  # Remove hyphens and ensure lowercase
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         preprocessing_result = job_preprocessing(s3_uri=s3_uri)
         
         # Environment variables for the main container and init containers

@@ -8,7 +8,7 @@ from data_subscriber import cslc_utils
 from data_subscriber.cslc_utils import parse_cslc_native_id
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, localize_disp_blackout_dates
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import argparse
 import csv
 from tqdm import tqdm
@@ -109,7 +109,7 @@ def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = Fal
         cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
         cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings, disp_burst_map_file, blackout_dates_file)
-        all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(), query_timerange)
+        all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(timezone.utc), query_timerange)
         all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]] # We only want to process VV polarization data
         print(len(all_granules), " granules found in the CMR without HH polarization")
 
