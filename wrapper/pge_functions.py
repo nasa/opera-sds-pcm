@@ -32,11 +32,11 @@ def slc_s1_lineage_metadata(context, work_dir):
     lineage_metadata.extend(local_dem_filepaths)
 
     # Legacy Ionosphere files
-    local_tec_filepaths = glob.glob(os.path.join(work_dir, "jp*.*i"))
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "*0.*i"))
     lineage_metadata.extend(local_tec_filepaths)
 
     # New Ionosphere files
-    local_tec_filepaths = glob.glob(os.path.join(work_dir, "JPL*.INX"))
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "*.INX"))
     lineage_metadata.extend(local_tec_filepaths)
 
     local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
@@ -123,6 +123,37 @@ def dswx_ni_lineage_metadata(context, work_dir):
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
+    )
+
+    return lineage_metadata
+
+
+def disp_ni_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DSWx-NI PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    gslc_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+                                              'dynamic_ancillary_files')
+    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+                                             'static_ancillary_files')
+
+    lineage_metadata.extend(
+        [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
+    )
+    lineage_metadata.extend(
+        [os.path.join(dynamic_ancillary_data_dir, dyn_anc_file)
+         for dyn_anc_file in os.listdir(dynamic_ancillary_data_dir) if dyn_anc_file != 'gunw_files']
+    )
+    lineage_metadata.extend(
+        [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file)
+         for gunw_file in os.listdir(os.path.join(dynamic_ancillary_data_dir, 'gunw_files'))]
+    )
+    lineage_metadata.extend(
+        [os.path.join(static_ancillary_data_dir, static_anc_file)
+         for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
 
     return lineage_metadata
@@ -223,7 +254,7 @@ def dist_s1_lineage_metadata(context, work_dir):
         lineage_metadata.append(local_input_filepath)
 
     if 'prev_product' in input_file_group and input_file_group['prev_product']:
-        lineage_metadata.extend(input_file_group['prev_product'])
+        lineage_metadata.extend([os.path.join(work_dir, basename(f)) for f in input_file_group['prev_product']])
 
     if 'water_mask_path' in run_config and run_config["water_mask_path"]:
         local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
@@ -436,6 +467,39 @@ def update_disp_s1_runconfig(context, work_dir):
             os.path.join(container_home_prefix,
                          os.path.basename(run_config["dynamic_ancillary_file_group"]["mask_file"]))
         )
+
+    return run_config
+
+
+def update_disp_ni_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DSWx-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+
+    input_file_paths = run_config["input_file_group"]["input_file_paths"]
+    input_file_paths = list(map(lambda x: x.replace(gslc_data_prefix, container_home_prefix), input_file_paths))
+
+    run_config["input_file_group"]["input_file_paths"] = input_file_paths
+
+    for anc in ('algorithm_parameters_file', 'mask_file', 'dem_file'):
+        if run_config['dynamic_ancillary_file_group'][anc]:
+            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc]))
+
+    gunw_files = run_config["dynamic_ancillary_file_group"]["gunw_files"]
+    run_config["dynamic_ancillary_file_group"]["gunw_files"] = [os.path.join(container_home_prefix, basename(gunw_file)) for gunw_file in gunw_files]
+
+    for anc in ('frame_to_bounds_json', 'reference_date_database_json'):
+        if run_config['static_ancillary_file_group'][anc]:
+            run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
 
     return run_config
 

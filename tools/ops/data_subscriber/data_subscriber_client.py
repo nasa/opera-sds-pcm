@@ -37,7 +37,7 @@ def main():
     else:
         raise AssertionError()
 
-    rtc_pattern = "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))(_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)|_BROWSE|_mask)?$"
+    rtc_pattern = "(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\\w{4}-\\w{6}-\\w{3})_(?P<acquisition_ts>(?P<acq_year>\\d{4})(?P<acq_month>\\d{2})(?P<acq_day>\\d{2})T(?P<acq_hour>\\d{2})(?P<acq_minute>\\d{2})(?P<acq_second>\\d{2})Z)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\\d+[.]\\d+))(_(?P<pol>VV|VH|HH|HV|VV\\+VH|HH\\+HV)|_BROWSE|_mask)?$"
     mgrs_burst_collections_gdf = cached_load_mgrs_burst_db(filter_land=False)
 
     set_to_rtcs = defaultdict(list)

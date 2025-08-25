@@ -20,7 +20,7 @@ from typing import Union, Tuple
 from more_itertools import one
 
 import product2dataset.iso_xml_reader as iso_xml_reader
-from commons.logger import logger
+from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from extractor import extract
 from util import datasets_json_util, job_json_util
@@ -321,6 +321,9 @@ def get_collection_info(dataset_id: str, settings: dict):
         else:
             collection_name = settings.get("DISP_S1_COLLECTION_NAME")
             product_version = settings.get("DISP_S1_PRODUCT_VERSION")
+    elif "disp-ni" in dataset_id.lower():
+        collection_name = settings.get("DISP_NI_COLLECTION_NAME")
+        product_version = settings.get("DISP_NI_PRODUCT_VERSION")
     elif "dswx-ni" in dataset_id.lower():
         collection_name = settings.get("DSWX_NI_COLLECTION_NAME")
         product_version = settings.get("DSWX_NI_PRODUCT_VERSION")

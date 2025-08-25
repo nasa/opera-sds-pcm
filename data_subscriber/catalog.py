@@ -209,12 +209,13 @@ class ProductCatalog(ABC):
 
     def process_url(self, urls: list[str], granule: dict, job_id: str, query_dt: datetime,
                     temporal_extent_beginning_dt: datetime, revision_date_dt: datetime,
-                    *args, **kwargs):
+                    filename=None, *args, **kwargs):
 
-        if len(urls) == 0: # This is the case for CSLCProductCatalog and its children
-            filename = granule["unique_id"]
-        else:
-            filename = Path(urls[0]).name
+        if filename is None:
+            if len(urls) == 0: # This is the case for CSLCProductCatalog and its children
+                filename = granule["unique_id"]
+            else:
+                filename = Path(urls[0]).name
 
         doc = self.form_document(
             filename=filename,

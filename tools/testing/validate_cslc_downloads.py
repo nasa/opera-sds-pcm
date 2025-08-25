@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from tabulate import tabulate
 
 from build.lib.hysds.es_util import get_mozart_es
-from commons.es_connection import get_mozart_es
+from opera_commons.es_connection import get_mozart_es
 
 from util.conf_util import SettingsConf
 

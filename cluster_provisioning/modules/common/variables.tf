@@ -405,6 +405,18 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
+    "opera-job_worker-sciflo-l3_disp_ni" = {
+      "name"              = "opera-job_worker-sciflo-l3_disp_ni"
+      "log_file_name"     = "run_sciflo_L3_DISP_NI"
+      "instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 100
+      "data_dev_size"     = 250
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
     "opera-job_worker-send_cnm_notify_l4_tropo" = {
       "name"              = "opera-job_worker-send_cnm_notify_l4_tropo"
       "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
@@ -507,6 +519,16 @@ variable "queues" {
     }
     "opera-job_worker-send_cnm_notify_l2_rtc_s1_static" = {
       "name"              = "opera-job_worker-send_cnm_notify_l2_rtc_s1_static"
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 40
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-send_cnm_notify_l3_disp_ni" = {
+      "name"              = "opera-job_worker-send_cnm_notify_l3_disp_ni"
       "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
@@ -803,7 +825,8 @@ variable "pge_releases" {
     "disp_s1"  = "3.0.7"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.1.0"
-    "tropo"    = "3.0.0-er.3.1-tropo"
+    "tropo"    = "3.0.0-rc.1.0-tropo"
+    "disp_ni"  = "6.0.0-er.1.0"
   }
 }
 
@@ -812,7 +835,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "pge_snapshots_date" {
-  default = "20231023-2.1.0"
+  default = "20250729-6.0.0-er.1.0"
 }
 
 variable "crid" {

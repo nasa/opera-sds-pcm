@@ -12,7 +12,7 @@ from geopandas import GeoDataFrame
 from mypy_boto3_s3 import S3Client
 from pyproj import Transformer
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
 
 

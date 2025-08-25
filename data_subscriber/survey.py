@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import backoff
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber import cslc_utils
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.query import get_query_timerange, DateTimeRange

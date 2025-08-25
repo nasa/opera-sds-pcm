@@ -9,7 +9,7 @@ from datetime import datetime
 
 from subprocess import check_output, STDOUT, CalledProcessError
 
-from commons.logger import logger
+from opera_commons.logger import logger
 
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 

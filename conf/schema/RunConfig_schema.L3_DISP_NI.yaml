@@ -1,0 +1,119 @@
+RunConfig:
+  Name: str()
+
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: str(required=True)
+
+      InputFilesGroup:
+        InputFilePaths: list(str(), min=1, required=True)
+
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: map(key=str(), min=0)
+
+      ProductPathGroup:
+        OutputProductPath: str(required=True)
+        ScratchPath: str(required=True)
+
+      PrimaryExecutable:
+        ProductIdentifier: str(required=False)
+        ProductVersion: any(str(), num(), required=False)
+        CompositeReleaseID: str(required=False)
+        ProgramPath: str(required=True)
+        ProgramOptions: list(str(), min=0, required=False)
+        ErrorCodeBase: int(required=True)
+        SchemaPath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
+        IsoTemplatePath: str(required=False)  # TODO: Why is this not required if all the PGEs fail if it doesn't exist/is undefined?
+        IsoMeasuredParameterDescriptions: str(required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
+
+      QAExecutable:
+        Enabled: bool(required=True)
+        ProgramPath: str(required=False)
+        ProgramOptions: list(str(), min=0, required=False)
+
+      DebugLevelGroup:
+        DebugSwitch: bool(required=False)
+        ExecuteViaShell: bool(required=False)
+
+    SAS:
+      input_file_group:
+
+        # list of paths to GSLC files.
+        gslc_file_list: list(str(), min=1)
+
+        # Frame ID of the bursts contained in `gslc_file_list`.
+        frame_id: int()
+
+        # Frequency in which gslcs are acquired.
+        frequency: str()
+
+        # Polarization of the gslcs contained in `gslc_file_list`.
+        polarization: enum('HH', 'VV', 'HV', 'VH')
+
+      dynamic_ancillary_file_group:
+
+        # Path to file containing SAS algorithm parameters.
+        algorithm_parameters_file: str()
+
+        # Optional Byte mask file used to ignore low correlation/bad data (e.g water mask). Convention is
+        #  0 for no data/invalid, and 1 for good data. Dtype must be uint8.
+        mask_file: str(required=False)
+
+        # Path to the DEM file covering full frame. If none provided, corrections using DEM are skipped.
+        dem_file: str(required=False)
+
+        # List of paths to GUNW files for ionosphere, SET and static geometry layers
+        gunw_files: list(str(), required=False, min=0)
+
+        # List of paths to troposphere weather model files (1 per date). If none provided, troposphere
+        #  corrections are skipped.
+        troposphere_files: list(str(), required=False, min=0)
+
+      static_ancillary_file_group:
+        # JSON file containing list of reference date changes for each frame.
+        reference_date_database_json: any(str(), null())
+
+        # JSON file containing the mapping from frame_id to bounds information
+        frame_to_bounds_json: any(str(), null())
+
+      primary_executable:
+        # Product type of the PGE.
+        product_type: enum('DISP_NISAR_FORWARD', 'DISP_NISAR_HISTORICAL')
+
+      product_path_group:
+        # Directory where PGE will place results.
+        product_path: str(required=True)
+
+        # Path to the scratch directory.
+        scratch_path: str(required=True)
+
+        # Path to the SAS output directory.
+        sas_output_path: str(required=True)
+
+        # Version of the product, in ‘<major>.<minor>’ format.
+        product_version: str(required=True)
+
+        # Whether the SAS should output and save the Compressed SLCs in addition to
+        # the standard product output.
+        save_compressed_slc: bool(required=True)
+
+      worker_settings:
+        # Whether to use GPU for processing (if available).
+        gpu_enabled: bool(required=False)
+
+        # Number of threads to use per worker. This sets the OMP_NUM_THREADS
+        # environment variable in each python process.
+        threads_per_worker: int(required=True)
+
+        # If processing separate spatial bursts, number of bursts to run in
+        # parallel for wrapped-phase-estimation.
+        n_parallel_bursts: int(required=True)
+
+        # Size (rows, columns) of blocks of data to load at a time.
+        block_shape: list(num(), required=True)
+
+      # Path to the output log file in addition to logging to stderr.
+      log_file: str(required=False)

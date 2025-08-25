@@ -19,8 +19,8 @@ from os.path import abspath
 import backoff
 import requests
 
-from commons.logger import LogLevels
-from commons.logger import logger
+from opera_commons.logger import LogLevels
+from opera_commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
 from util.dataspace_util import (DEFAULT_QUERY_ENDPOINT,
                                  DEFAULT_AUTH_ENDPOINT,

@@ -11,7 +11,7 @@ import dateutil
 import elasticsearch
 import opensearchpy
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -246,6 +246,7 @@ def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_numbe
     return f"OPERA_L2_CSLC-S1_{burst_id}_{acquisition_datetime}_{production_datetime}_S1A_{polarization}_v1.1"
 
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
+    # TODO: We need to handle the case where the consistent burst db does not have any sensing datetimes for the frame
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
@@ -266,26 +267,22 @@ def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 
     return burst_id, acquisition_dts, acquisition_cycles, frame_ids
 
-def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
-                              frame_id, acq_index, k, m, batch_ids):
+def save_blocked_download_job(eu, job_type, release_version, product_type, params, job_queue, job_name, add_attributes):
     """Save the blocked download job in the ES index"""
 
+    # It looks like we could use params to get similar information as from add_attributes but it's not easy to query ES for that.
     eu.index_document(
         index=PENDING_JOBS_ES_INDEX_NAME,
         id = job_name,
         body = {
-                "job_type": PENDING_TYPE_CSLC_DOWNLOAD,
+                "job_type": job_type,
                 "release_version": release_version,
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
                 "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "product_type": product_type,
-                "frame_id": frame_id,
-                "acq_index": acq_index,
-                "k": k,
-                "m": m,
-                "batch_ids": batch_ids,
+                **add_attributes,
                 "submitted": False,
                 "submitted_job_id": None
         }

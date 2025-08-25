@@ -9,8 +9,8 @@ import backoff
 import numpy as np
 from osgeo import gdal, osr
 
-from commons.logger import LogLevels
-from commons.logger import logger
+from opera_commons.logger import LogLevels
+from opera_commons.logger import logger
 from util.geo_util import (check_dateline,
                            epsg_from_polygon,
                            polygon_from_bounding_box,

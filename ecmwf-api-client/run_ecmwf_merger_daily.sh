@@ -3,7 +3,7 @@
 # === Config ===
 EMAIL="Hyun.Lee@jpl.nasa.gov"
 SETTINGS_FILE="$HOME/verdi/etc/settings.yaml"
-TARGET_DATE=$(date -d "3 days ago" +%F)
+TARGET_DATE=$(date -d "2 days ago" +%F)
 END_DATE=$(date -d "$TARGET_DATE +1 day" +%F)
 
 # === Extract RELEASE_VERSION from YAML ===

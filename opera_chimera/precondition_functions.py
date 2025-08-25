@@ -19,15 +19,15 @@ from urllib.parse import urlparse
 import boto3
 
 from chimera.precondition_functions import PreConditionFunctions
-from commons.constants import product_metadata
-from commons.logger import LogLevels
-from commons.logger import logger
+from opera_commons.constants import product_metadata
+from opera_commons.logger import LogLevels
+from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from tools.stage_ancillary_map import main as stage_ancillary_map
 from tools.stage_dem import main as stage_dem
-from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
+from tools.stage_ionosphere_file import LEGACY_IONOSPHERE_TYPES, VALID_IONOSPHERE_TYPES
 from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
@@ -719,6 +719,66 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'mgrs_database_file': os.path.join(ancillary_data_dir, 'MGRS_tile.sqlite'),
             'mgrs_collection_database_file': os.path.join(ancillary_data_dir, 'MGRS_collection_db_DSWx-NI_v0.1.sqlite'),
             'input_mgrs_collection_id': "MS_30_26"
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_ni_sample_inputs(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the DISP-NI
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        s3_bucket = "operasds-dev-pge"
+        s3_key = "disp_ni/disp_ni_interface_0.1.1_expected_input.zip"
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="DISP-NI Inputs"
+        )
+
+        import zipfile
+        with zipfile.ZipFile(output_filepath) as myzip:
+            zip_contents = myzip.namelist()
+            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
+            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
+            myzip.extractall(path=working_dir, members=zip_contents)
+
+        gslc_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+        dynamic_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'dynamic_ancillary_files')
+        static_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'static_ancillary_files')
+
+        gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
+        gunw_file_list = [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file) for gunw_file in
+                          os.listdir(os.path.join(dynamic_ancillary_data_dir, 'gunw_files'))]
+
+        rc_params = {
+            'input_file_paths': gslc_file_list,
+            'algorithm_parameters_file': os.path.join(dynamic_ancillary_data_dir, 'opera_pge_disp_ni_r1.0_interface_algorithm_parameters_historical.yaml'),
+            'dem_file': None,
+            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.tif'),
+            'gunw_files': gunw_file_list,
+            'troposphere_files': [],
+            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir, 'Frame_to_bounds_DISP-NI_v0.1.json'),
+            'reference_date_database_json': os.path.join(static_ancillary_data_dir, 'opera-disp-nisar-reference-dates-dummy.json'),
+            'product_version': "0.1",
+            'save_compressed_slc': True,
+            'polarization': "HH",
+            'frequency': "frequencyA",
+            'frame_id': "150",
+            'product_type': "DISP_NISAR_HISTORICAL",
+            'threads_per_worker': "16",
+            'n_parallel_bursts': "4",
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1905,7 +1965,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # Find the available Ionosphere files staged by the download job
         ionosphere_file_objects = []
-        for ionosphere_file_type in VALID_IONOSPHERE_TYPES + ['RAP', 'FIN']:
+        for ionosphere_file_type in VALID_IONOSPHERE_TYPES + LEGACY_IONOSPHERE_TYPES:
             ionosphere_file_objects.extend(
                 list(filter(lambda s3_object: ionosphere_file_type in s3_object.key, s3_objects))
             )

@@ -6,7 +6,7 @@ import backoff
 import argparse
 
 from hysds.es_util import get_mozart_es
-from commons.logger import logger
+from opera_commons.logger import logger
 
 
 BACKOFF_CONF = {}  # back-off configuration
