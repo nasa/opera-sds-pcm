@@ -27,10 +27,19 @@ from util.edl_util import DEFAULT_EDL_ENDPOINT, SessionWithHeaderRedirection
 DEFAULT_DOWNLOAD_ENDPOINT = "https://cddis.nasa.gov/archive/gnss/products/ionex"
 """Default URL endpoint for Ionosphere download requests"""
 
-IONOSPHERE_TYPE_JPLG = "jplg"
-IONOSPHERE_TYPE_JPRG = "jprg"
-VALID_IONOSPHERE_TYPES = [IONOSPHERE_TYPE_JPLG, IONOSPHERE_TYPE_JPRG]
+IONOSPHERE_TYPE_RAP = "RAP"
+IONOSPHERE_TYPE_FIN = "FIN"
+VALID_IONOSPHERE_TYPES = [IONOSPHERE_TYPE_RAP, IONOSPHERE_TYPE_FIN]
 """The valid Ionosphere file types that this script can download"""
+
+LEGACY_IONOSPHERE_TYPES = ['jplg', 'jprg', 'esrg', 'esag', 'corg', 'codg']
+"""The legacy Ionosphere file types that this script can download"""
+
+PROVIDER_JPL = "JPL"
+PROVIDER_ESA = "ESA"
+PROVIDER_COD = "COD"
+VALID_PROVIDER_TYPES = [PROVIDER_JPL, PROVIDER_ESA, PROVIDER_COD]
+"""The valid Ionosphere file providers types this script supports"""
 
 class IonosphereFileNotFoundException(Exception):
     """Exception to identify no result found (404) for a requested Ionosphere archive"""
@@ -60,10 +69,14 @@ def get_parser():
                         help="Specify the EarthData Login password to use with "
                              "the download request. If a password is not provided, "
                              "it is obtained from the local .netrc file.")
-    parser.add_argument("-t", "--type", type=str.lower, choices=VALID_IONOSPHERE_TYPES,
-                        default=IONOSPHERE_TYPE_JPLG,
+    parser.add_argument("-t", "--type", type=str.upper, choices=VALID_IONOSPHERE_TYPES,
+                        default=IONOSPHERE_TYPE_RAP,
                         help=f"Specify the type of Ionosphere file to download. "
                              f"Must be one of {VALID_IONOSPHERE_TYPES}")
+    parser.add_argument("--provider", type=str.upper, choices=VALID_PROVIDER_TYPES,
+                        default=PROVIDER_JPL,
+                        help=f"Specify the provider of the Ionosphere file to download. "
+                             f"Must be one of {VALID_PROVIDER_TYPES}.")
     parser.add_argument("--url-only", action="store_true",
                         help="Only output the URL from where the resulting Ionosphere "
                              "file may be downloaded from.")
@@ -225,15 +238,15 @@ def parse_start_date_from_archive(input_archive_file):
 
     return start_date
 
-def safe_start_date_to_julian_day(safe_start_date):
+def start_date_to_julian_day(start_date):
     """
-    Converts a start date parsed from an SLC file name to the corresponding
+    Converts a start date parsed from a file name to the corresponding
     year and day of year (aka Julian day).
 
     Parameters
     ----------
-    safe_start_date : str
-        Start date parsed from an SLC filename in YYYYMMDD format.
+    start_date : str
+        Start date parsed from a filename in YYYYMMDD format.
 
     Returns
     -------
@@ -244,7 +257,7 @@ def safe_start_date_to_julian_day(safe_start_date):
 
     """
     date_format = "%Y%m%d"
-    dt = datetime.datetime.strptime(safe_start_date, date_format)
+    dt = datetime.datetime.strptime(start_date, date_format)
     time_tuple = dt.timetuple()
     year = time_tuple.tm_year
     doy = time_tuple.tm_yday
@@ -256,17 +269,34 @@ def safe_start_date_to_julian_day(safe_start_date):
 
     return str(year), str(doy)
 
-def get_legacy_archive_name(ionosphere_file_type, doy, year):
-    """Returns the ionosphere archive name using the legacy naming conventions"""
-    archive_name = f"{ionosphere_file_type}{doy}0.{year[2:]}i.Z"
+def get_legacy_archive_name(ionosphere_file_type, provider, doy, year):
+    """Returns the Ionosphere archive name using the legacy CDDIS naming conventions"""
+    if provider == PROVIDER_JPL:
+        legacy_ionosphere_type = "jprg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "jplg"
+    elif provider == PROVIDER_ESA:
+        legacy_ionosphere_type = "esrg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "esag"
+    elif provider == PROVIDER_COD:
+        legacy_ionosphere_type = "corg" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "codg"
+    else:
+        raise ValueError(f"Invalid provider type specified. Must be one of {VALID_PROVIDER_TYPES}")
+
+    archive_name = f"{legacy_ionosphere_type}{doy}0.{year[2:]}i.Z"
 
     return archive_name
 
-def get_new_archive_name(ionosphere_file_type, doy, year):
-    """Returns the ionosphere archive name using the new naming conventions"""
-    product_type = "RAP" if ionosphere_file_type == IONOSPHERE_TYPE_JPRG else "FIN"
+def get_new_archive_name(ionosphere_file_type, provider, doy, year):
+    """Returns the Ionosphere archive name using the new naming conventions"""
+    # JPL provided files always use a 2-hour interval
+    if provider == PROVIDER_JPL:
+        hour_interval = "02"
+    # For ESA provided files we prefer a 1-hour interval for type RAP, for type FIN only 2-hour is available
+    elif provider == PROVIDER_ESA:
+        hour_interval = "01" if ionosphere_file_type == IONOSPHERE_TYPE_RAP else "02"
+    # COD provided files use a 1-hour interval for both types
+    else:
+        hour_interval = "01"
 
-    archive_name = f"JPL0OPS{product_type}_{year}{doy}0000_01D_02H_GIM.INX.gz"
+    archive_name = f"{provider}0OPS{ionosphere_file_type}_{year}{doy}0000_01D_{hour_interval}H_GIM.INX.gz"
 
     return archive_name
 
@@ -391,22 +421,24 @@ def main(args):
 
     logger.info(f"Determining Ionosphere file for input file {args.input_filename}")
 
-    # Parse the relevant info from the input SAFE filename
+    # Parse the relevant info from the input SAFE/CSLC filename
     start_date = parse_start_date_from_archive(args.input_filename)
 
     logger.info(f"Parsed start date {start_date} from filename")
 
     # Convert start date to Year and Day of Year (Julian date)
-    year, doy = safe_start_date_to_julian_day(start_date)
+    year, doy = start_date_to_julian_day(start_date)
 
-    # Formulate the archive name and URL location based on the file type and
-    # the Julian date of the SLC archive. There are two file-naming conventions
-    # we need to account for.
-    legacy_archive_name = get_legacy_archive_name(args.type, doy, year)
-    new_archive_name = get_new_archive_name(args.type, doy, year)
+    # Formulate the archive name and URL location based on the file type, provider
+    # and the Julian date of the SLC archive.
+    legacy_archive_name = get_legacy_archive_name(args.type, args.provider, doy, year)
+    new_archive_name = get_new_archive_name(args.type, args.provider, doy, year)
 
-    # Check for the first available of the two naming conventions
-    for archive_name in (legacy_archive_name, new_archive_name):
+    # There are two file-naming conventions we need to account for.
+    names_to_check = (legacy_archive_name, new_archive_name)
+
+    # Check for the first available of the available naming conventions
+    for archive_name in names_to_check:
         request_url = join(args.download_endpoint, year, doy, archive_name)
 
         session = SessionWithHeaderRedirection(args.username, args.password)
@@ -422,8 +454,8 @@ def main(args):
     else:
         raise IonosphereFileNotFoundException(
             f'Could not find an Ionosphere file under '
-            f'{join(args.download_endpoint, year, doy)} matching either '
-            f'{legacy_archive_name} or {new_archive_name}'
+            f'{join(args.download_endpoint, year, doy)} matching {names_to_check} '
+            f'for provider {args.provider} and type {args.type}'
         )
 
     # If user request the URL only, print it to standard out and the log

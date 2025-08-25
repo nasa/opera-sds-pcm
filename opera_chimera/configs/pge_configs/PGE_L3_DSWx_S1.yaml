@@ -134,7 +134,7 @@ localize_groups:
 # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
 #######################################################################
 input_file_base_name_regexes:
-    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))$'
+    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))$'
 sample_input_dataset_id: "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1"
 output_base_name: OPERA_L3_DSWx-S1_{tile_id}_{acquisition_ts}_{creation_ts}Z_{sensor}_{spacing}_{product_version}
 ancillary_base_name: OPERA_L3_DSWx-S1_{creation_ts}Z_{sensor}_{spacing}_{product_version}

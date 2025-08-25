@@ -523,3 +523,8 @@ variable "disp_s1_hist_status" {
   type    = bool
   default = false
 }
+
+variable "es_cluster_mode" {
+  type    = bool
+  default = false
+}

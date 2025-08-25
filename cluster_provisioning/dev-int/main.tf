@@ -1,3 +1,9 @@
+provider "aws" {
+  shared_credentials_file = var.shared_credentials_file
+  region                  = var.region
+  profile                 = var.profile
+}
+
 module "common" {
   source                                  = "../modules/common"
   hysds_release                           = var.hysds_release
@@ -103,6 +109,7 @@ module "common" {
   asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  es_cluster_mode                         = var.es_cluster_mode
 }
 
 locals {

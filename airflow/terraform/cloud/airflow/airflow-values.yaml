@@ -37,6 +37,7 @@ airflow:
     - "awscli"
     - "apache-airflow-providers-cncf-kubernetes" 
 
+
 createUserJob:
   useHelmHooks: false
 
@@ -55,6 +56,7 @@ config:
   #   worker_container_tag: "2.8.0"
   #   namespace: "airflow"
   #   delete_worker_pods: "True"
+
   
 executor: "KubernetesExecutor"
 
@@ -63,6 +65,7 @@ ingress:
   ingressClassName: nginx
   web:
     enabled: true
+
     annotations:
       nginx.ingress.kubernetes.io/rewrite-target: /$2
       nginx.ingress.kubernetes.io/configuration-snippet: |
@@ -91,6 +94,7 @@ workers:
     annotations:
       # IRSA annotation for worker pods (if they need AWS access)
       # eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT_ID:role/AirflowWorkerRole
+
   resources:
     limits:
       cpu: "${worker_cpu}"
@@ -150,6 +154,7 @@ postgresql:
     registry: public.ecr.aws
     repository: bitnami/postgresql
     tag: "16.1.0"
+
   primary:
     persistence:
       enabled: false
@@ -192,3 +197,4 @@ logs:
 #       persistentVolumeClaim:
 #         claimName: airflow-ebs-pvc
 #     restartPolicy: Never
+

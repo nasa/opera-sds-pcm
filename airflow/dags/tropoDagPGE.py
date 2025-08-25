@@ -15,8 +15,6 @@ import boto3
 from kubernetes.client import models as k8s
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 
-
-
 bucket_name = ''
 container_name = "Temp"
 
@@ -55,6 +53,7 @@ def create_modified_runconfig(template_path, output_path, **kwargs):
         yaml.dump(config, file, default_flow_style=False, sort_keys=False, indent=2)
     runconfig_output = f"{output_path}runconfig.yaml"
     return runconfig_output
+
 
 default_args = {
     'owner': 'airflow',
@@ -215,7 +214,7 @@ def tropo_job_dag():
             logging.info("PostProcessing job")
             time.sleep(10)
             return "Postprocessed job"
-            
+          
         
         post_processing_result = post_processing()
 
@@ -229,4 +228,3 @@ def tropo_job_dag():
 
 # Instantiate the DAG
 job = tropo_job_dag()
-

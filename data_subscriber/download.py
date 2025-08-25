@@ -127,7 +127,7 @@ class BaseDownload:
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
 
         if self.cfg["USE_DAAC_S3_CREDENTIALS"] is True:
-            aws_creds = self.get_aws_creds(token)
+            aws_creds = self.get_aws_creds(token, endpoint=args.endpoint)
             self.logger.debug(f"{self.get_aws_creds.cache_info()=}")
             s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
                                aws_secret_access_key=aws_creds['secretAccessKey'],
@@ -150,19 +150,19 @@ class BaseDownload:
         return requests.get(r.headers["Location"], headers=headers, allow_redirects=True)
 
     @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
-    def get_aws_creds(self, token):
-        return self._get_aws_creds(token)
+    def get_aws_creds(self, token, endpoint=None):
+        return self._get_aws_creds(token, endpoint=endpoint)
 
     @backoff.on_exception(backoff.expo,
                           requests.exceptions.RequestException,
                           max_tries=3,
                           jitter=None,
                           giveup=fatal_code)
-    def _get_aws_creds(self, token):
-        with requests.get(self.cfg["DAAC_S3_CRED_URLS"][self.daac_s3_cred_settings_key],
+    def _get_aws_creds(self, token, endpoint=None):
+        settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else  "DAAC_S3_CRED_URLS"
+        with requests.get(self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key],
                           headers={'Authorization': f'Bearer {token}'}) as r:
             r.raise_for_status()
-
             return r.json()
 
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
