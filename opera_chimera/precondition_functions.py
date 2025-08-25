@@ -27,7 +27,7 @@ from opera_chimera.constants.opera_chimera_const import (
 )
 from tools.stage_ancillary_map import main as stage_ancillary_map
 from tools.stage_dem import main as stage_dem
-from tools.stage_ionosphere_file import VALID_IONOSPHERE_TYPES
+from tools.stage_ionosphere_file import LEGACY_IONOSPHERE_TYPES, VALID_IONOSPHERE_TYPES
 from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
@@ -1965,7 +1965,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # Find the available Ionosphere files staged by the download job
         ionosphere_file_objects = []
-        for ionosphere_file_type in VALID_IONOSPHERE_TYPES + ['RAP', 'FIN']:
+        for ionosphere_file_type in VALID_IONOSPHERE_TYPES + LEGACY_IONOSPHERE_TYPES:
             ionosphere_file_objects.extend(
                 list(filter(lambda s3_object: ionosphere_file_type in s3_object.key, s3_objects))
             )
