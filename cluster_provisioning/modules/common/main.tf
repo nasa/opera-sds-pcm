@@ -271,7 +271,7 @@ resource "aws_lambda_function" "harikiri_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-harikiri-autoscaling"
   role          = var.lambda_role_arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   timeout       = 600
 }
 
@@ -399,7 +399,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnets.lambda_vpc.ids
@@ -424,7 +424,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnets.lambda_vpc.ids
